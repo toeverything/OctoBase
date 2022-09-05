@@ -18,7 +18,7 @@ use yrs::{
         decoder::{Decode, Decoder, DecoderV1},
         encoder::{Encode, Encoder, EncoderV1},
     },
-    Doc, StateVector, Update,
+    Doc, Options, StateVector, Update,
 };
 
 #[derive(Serialize)]
@@ -43,7 +43,7 @@ const MSG_SYNC_STEP_1: usize = 0;
 const MSG_SYNC_STEP_2: usize = 1;
 const MSG_SYNC_UPDATE: usize = 2;
 
-fn write_sync<E: Encoder>(doc: &Doc, encoder: &mut E) {
+fn write_sync<E: Encoder>(encoder: &mut E) {
     encoder.write_var(MSG_SYNC);
 }
 
@@ -96,35 +96,38 @@ async fn handle_socket(mut socket: WebSocket, workspace: String) {
     info!("collaboration: {}", workspace);
 
     let init_data = {
-        println!("{}: step0.1", workspace);
         let mut map = DOC_MAP.lock().unwrap();
-        println!("{}: step0.2", workspace);
         let doc = if let Some(doc) = map.get(&workspace) {
             doc
         } else {
-            let mut doc = Doc::default();
+            let mut doc = Doc::with_options(Options {
+                skip_gc: true,
+                ..Default::default()
+            });
+            doc.observe_transaction_cleanup(|_, e| {
+                println!("on observe_transaction_cleanup: {:?}", e.delete_set);
+            });
             doc.observe_update_v1(|_, e| {
-                println!("on update: {:?}", e.update);
+                println!("on observe_update_v1: {:?}", e.update);
+            });
+            doc.observe_update_v2(|_, e| {
+                println!("on observe_update_v2: {:?}", e.update);
             });
             map.insert(workspace.clone(), doc);
             map.get(&workspace).unwrap()
         };
-        println!("{}: step0.3", workspace);
 
         let mut encoder = EncoderV1::new();
-        write_sync(doc, &mut encoder);
+        write_sync(&mut encoder);
         write_step1(&doc, &mut encoder);
         encoder.to_vec()
     };
-    println!("{}: step1.1", workspace);
     if socket.send(Message::Binary(init_data)).await.is_err() {
         // client disconnected
         return;
     }
 
-    println!("{}: step1.2", workspace);
     while let Some(msg) = socket.recv().await {
-        println!("{}: step2.1", workspace);
         if let Message::Binary(binary) = if let Ok(msg) = msg {
             msg
         } else {
@@ -138,20 +141,27 @@ async fn handle_socket(mut socket: WebSocket, workspace: String) {
                 let mut decoder = DecoderV1::from(binary.as_slice());
 
                 if decoder.read_info().unwrap() == MSG_SYNC as u8 {
-                    write_sync(doc, &mut encoder);
-                    read_sync_message(doc, &mut decoder, &mut encoder);
-                    let payload = encoder.to_vec();
-                    if payload.len() > 1 {
-                        Some(payload)
-                    } else {
+                    use std::panic::{catch_unwind, AssertUnwindSafe};
+                    let result = catch_unwind(AssertUnwindSafe(|| {
+                        write_sync(&mut encoder);
+                        read_sync_message(doc, &mut decoder, &mut encoder);
+                    }));
+                    if result.is_err() {
                         None
+                    } else {
+                        let payload = encoder.to_vec();
+                        if payload.len() > 1 {
+                            Some(payload)
+                        } else {
+                            None
+                        }
                     }
                 } else {
                     None
                 }
             };
             if let Some(binary) = payload {
-                println!("{} send {:?}", workspace, binary);
+                // println!("{} send {:?}", workspace, binary);
                 if socket.send(Message::Binary(binary)).await.is_err() {
                     // client disconnected
                     return;
