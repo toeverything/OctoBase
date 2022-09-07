@@ -20,7 +20,7 @@ pub async fn handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)
 const DIST_PATH: &'static str = if cfg!(debug_assertions) {
     "./dist/apps/playground"
 } else {
-    "/apps/dist"
+    "/app/dist"
 };
 
 async fn get_static_file(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
