@@ -31,7 +31,7 @@ pub struct Logger;
 
 impl log::Log for Logger {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= Level::Info
+        metadata.level() <= Level::Info && metadata.target() != "sqlx::query"
     }
 
     fn log(&self, record: &Record) {

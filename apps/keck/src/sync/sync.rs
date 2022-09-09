@@ -1,9 +1,11 @@
+pub use yrs::{updates::decoder::Decode, Update};
+
 use yrs::{
     updates::{
-        decoder::{Decode, Decoder},
+        decoder::Decoder,
         encoder::{Encode, Encoder},
     },
-    Doc, StateVector, Update,
+    Doc, StateVector,
 };
 
 pub const MSG_SYNC: usize = 0;

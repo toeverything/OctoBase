@@ -11,7 +11,7 @@ use axum::{
 };
 use futures::{sink::SinkExt, stream::StreamExt};
 use serde::Serialize;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc::{channel, Sender};
 use yrs::{
     updates::{
@@ -75,7 +75,20 @@ async fn handle_socket(socket: WebSocket, workspace: String) {
                 ..Default::default()
             });
 
+            let mut db = init("updates").await.unwrap();
+
+            let updates = db.all(0).await;
+
+            let mut txn = doc.transact();
+            for update in updates.unwrap() {
+                if let Ok(update) = Update::decode_v1(&update.blob) {
+                    txn.apply_update(update);
+                }
+            }
+            txn.commit();
+
             let ws = workspace.clone();
+            let db = Arc::new(Mutex::new(db));
             let sub = doc.observe_update_v1(move |_, e| {
                 let mut encoder = EncoderV1::new();
                 write_sync(&mut encoder);
@@ -85,14 +98,15 @@ async fn handle_socket(socket: WebSocket, workspace: String) {
                 let uuid = uuid.clone();
                 let workspace = ws.clone();
 
+                let db = db.clone();
                 tokio::spawn(async move {
-                    let mut conn = init().await.unwrap();
                     let mut closed = vec![];
                     for ((ws, id), tx) in CHANNEL_MAP.lock().await.iter() {
                         if workspace.as_str() == ws.as_str() && id.as_str() != uuid.as_str() {
                             if tx.is_closed() {
                                 closed.push(id.clone());
                             } else {
+                                db.lock().await.insert(&update).await.unwrap();
                                 if let Err(e) = tx.send(Message::Binary(update.clone())).await {
                                     println!("on observe_update_v1 error: {}", e);
                                 }
