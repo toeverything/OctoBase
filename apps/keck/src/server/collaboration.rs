@@ -51,7 +51,10 @@ async fn handle_socket(socket: WebSocket, workspace: String) {
 
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
-            socket_tx.send(msg).await.unwrap();
+            if let Err(e) = socket_tx.send(msg).await {
+                error!("send error: {}", e);
+                break;
+            }
         }
     });
 
@@ -83,6 +86,7 @@ async fn handle_socket(socket: WebSocket, workspace: String) {
                 let workspace = ws.clone();
 
                 tokio::spawn(async move {
+                    let mut conn = init().await.unwrap();
                     let mut closed = vec![];
                     for ((ws, id), tx) in CHANNEL_MAP.lock().await.iter() {
                         if workspace.as_str() == ws.as_str() && id.as_str() != uuid.as_str() {

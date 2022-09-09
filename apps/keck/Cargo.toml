@@ -32,6 +32,10 @@ features = ["max_level_trace", "release_max_level_info"]
 version = "^1.0.144"
 features = ["derive"]
 
+[dependencies.sqlx]
+version = "^0.6.1"
+features = ["chrono", "macros", "migrate", "runtime-tokio-rustls", "sqlite"]
+
 [dependencies.tower-http]
 version = "^0.3.4"
 features = ["cors", "fs"]
@@ -44,3 +48,6 @@ features = ["macros", "rt-multi-thread"]
 version = "1.1.2"
 default-features = false
 features = ["v4"]
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3
