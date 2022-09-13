@@ -14,12 +14,12 @@ repository = "https://github.com/y-crdt/y-crdt/"
 readme = "./README.md"
 
 [dependencies]
-rand = { version = "0.7.0", features = ["wasm-bindgen"] }
+rand = { version = "^0.7.3", features = ["wasm-bindgen"] }
 lib0 = { path = "../lib0", version = "0.11.2" }
-smallstr = { version = "0.2", features = ["union"] }
+smallstr = { version = "^0.3.0", features = ["union"] }
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = "0.4.0"
 
 [features]
 serde = ["lib0/lib0-serde"]

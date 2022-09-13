@@ -6,7 +6,7 @@ edition = "2021"
 license = "AGPL-3.0-only"
 
 [dependencies]
-anyhow = "^1.0.63"
+anyhow = "^1.0.64"
 async-lock = "^2.5.0"
 chrono = "^0.4.22"
 futures = "^0.3.24"
@@ -14,10 +14,10 @@ http = "^0.2.8"
 lazy_static = "^1.4.0"
 serde_json = "^1.0.85"
 tower = "^0.4.13"
-thiserror = "^1.0.33"
+thiserror = "^1.0.34"
 
 [dependencies.axum]
-version = "^0.5.15"
+version = "^0.5.16"
 features = ["ws"]
 
 [dependencies.fern]
@@ -25,7 +25,7 @@ version = "0.6.1"
 features = ["colored"]
 
 [dependencies.log]
-version = "0.4.14"
+version = "^0.4.17"
 features = ["max_level_trace", "release_max_level_info"]
 
 [dependencies.serde]
@@ -41,7 +41,7 @@ version = "^0.3.4"
 features = ["cors", "fs"]
 
 [dependencies.tokio]
-version = "^1.21.0"
+version = "^1.21.1"
 features = ["macros", "rt-multi-thread"]
 
 
