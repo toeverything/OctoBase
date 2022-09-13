@@ -1,0 +1,16 @@
+FROM ekidd/rust-musl-builder:nightly-2021-12-23 AS builder
+ENV CARGO_TERM_COLOR="always"
+RUN sudo chown -R rust:rust /home/rust
+RUN rustup target add x86_64-unknown-linux-musl
+COPY . .
+RUN cargo build --release
+
+FROM ghcr.io/toeverything/affine:nightly-latest as static
+
+FROM alpine:latest as keck
+WORKDIR /app
+COPY --from=builder \
+    /home/rust/src/target/x86_64-unknown-linux-musl/release/keck \
+    /usr/local/bin/
+COPY --from=static /app .
+ENTRYPOINT /usr/local/bin/keck
