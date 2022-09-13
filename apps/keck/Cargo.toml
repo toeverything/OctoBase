@@ -12,7 +12,7 @@ chrono = "^0.4.22"
 futures = "^0.3.24"
 http = "^0.2.8"
 lazy_static = "^1.4.0"
-yrs = "0.11.2"
+serde_json = "^1.0.85"
 tower = "^0.4.13"
 thiserror = "^1.0.33"
 
@@ -51,12 +51,16 @@ features = ["axum_extras"]
 
 [dependencies.utoipa-swagger-ui]
 version = "^2.0.1"
-features = ["axum"] 
+features = ["axum"]
 
 [dependencies.uuid]
 version = "1.1.2"
 default-features = false
 features = ["v4"]
+
+[dependencies.yrs]
+path = "../../libs/datasource/yrs"
+features = ["serde"]
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3

@@ -2,4 +2,5 @@
 
 members = [
     "apps/keck",
+    "libs/datasource/yrs"
 ]
