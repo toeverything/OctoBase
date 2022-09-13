@@ -1,0 +1,38 @@
+[package]
+name = "keck"
+version = "0.1.0"
+authors = ["DarkSky <darksky2048@gmail.com>"]
+edition = "2021"
+license = "AGPL-3.0-only"
+
+[dependencies]
+anyhow = "^1.0.63"
+chrono = "^0.4.22"
+lazy_static = "^1.4.0"
+yrs = "0.11.2"
+tower = "^0.4.13"
+thiserror = "^1.0.33"
+
+[dependencies.axum]
+version = "^0.5.15"
+features = ["ws"]
+
+[dependencies.fern]
+version = "0.6.1"
+features = ["colored"]
+
+[dependencies.log]
+version = "0.4.14"
+features = ["max_level_trace", "release_max_level_info"]
+
+[dependencies.serde]
+version = "^1.0.144"
+features = ["derive"]
+
+[dependencies.tower-http]
+version = "^0.3.4"
+features = ["fs"]
+
+[dependencies.tokio]
+version = "^1.21.0"
+features = ["macros", "rt-multi-thread"]
