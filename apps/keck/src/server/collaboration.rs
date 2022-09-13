@@ -21,6 +21,10 @@ use yrs::{
     Doc, Options,
 };
 
+lazy_static! {
+    pub static ref DOC_MAP: Mutex<HashMap<String, Doc>> = Mutex::new(HashMap::new());
+}
+
 #[derive(Serialize)]
 pub struct WebSocketAuthentication {
     protocol: String,
@@ -40,7 +44,6 @@ pub async fn upgrade_handler(Path(workspace): Path<String>, ws: WebSocketUpgrade
 
 async fn handle_socket(socket: WebSocket, workspace: String) {
     lazy_static! {
-        static ref DOC_MAP: Mutex<HashMap<String, Doc>> = Mutex::new(HashMap::new());
         static ref CHANNEL_MAP: Mutex<HashMap<(String, String), Sender<Message>>> =
             Mutex::new(HashMap::new());
     }

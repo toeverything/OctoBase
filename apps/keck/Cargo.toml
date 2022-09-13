@@ -44,6 +44,15 @@ features = ["cors", "fs"]
 version = "^1.21.0"
 features = ["macros", "rt-multi-thread"]
 
+
+[dependencies.utoipa]
+version = "^2.1.0"
+features = ["axum_extras"]
+
+[dependencies.utoipa-swagger-ui]
+version = "^2.0.1"
+features = ["axum"] 
+
 [dependencies.uuid]
 version = "1.1.2"
 default-features = false

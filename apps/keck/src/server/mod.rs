@@ -1,3 +1,4 @@
+mod api;
 mod collaboration;
 mod files;
 
@@ -19,6 +20,9 @@ pub async fn start_server() {
         .allow_headers(any());
 
     let app = Router::new()
+        .merge(api::api_docs())
+        // .nest("/api", api::api_handler())
+        .nest("/api", api::api_handler())
         .nest(
             "/collaboration/:workspace",
             post(collaboration::auth_handler).get(collaboration::upgrade_handler),
