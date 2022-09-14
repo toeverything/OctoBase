@@ -2,13 +2,13 @@ mod api;
 mod collaboration;
 mod files;
 
-use crate::utils::*;
+use crate::{server::api::Context, utils::*};
 use axum::{
     routing::{get, post},
-    Router,
+    Extension, Router,
 };
 use http::{HeaderValue, Method};
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc};
 use tower_http::cors::{Any, CorsLayer};
 
 pub async fn start_server() {
@@ -19,6 +19,8 @@ pub async fn start_server() {
         .allow_origin("http://localhost:4200".parse::<HeaderValue>().unwrap())
         .allow_headers(Any);
 
+    let context = Arc::new(Context::new());
+
     let app = Router::new()
         .merge(api::api_docs())
         // .nest("/api", api::api_handler())
@@ -28,6 +30,7 @@ pub async fn start_server() {
             post(collaboration::auth_handler).get(collaboration::upgrade_handler),
         )
         .layer(cors)
+        .layer(Extension(context))
         .fallback(get(files::handler));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));

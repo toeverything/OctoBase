@@ -1,13 +1,29 @@
-use super::collaboration::DOC_MAP;
 use super::*;
 use axum::{
-    extract::Path,
+    extract::{ws::Message, Path},
     http::{header, StatusCode},
     response::IntoResponse,
     Router,
 };
+use dashmap::DashMap;
+use tokio::sync::{mpsc::Sender, Mutex};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
+use yrs::Doc;
+
+pub struct Context {
+    pub doc: DashMap<String, Mutex<Doc>>,
+    pub channel: DashMap<(String, String), Sender<Message>>,
+}
+
+impl Context {
+    pub fn new() -> Self {
+        Context {
+            doc: DashMap::new(),
+            channel: DashMap::new(),
+        }
+    }
+}
 
 #[derive(OpenApi)]
 #[openapi(
@@ -37,9 +53,12 @@ pub fn api_handler() -> Router {
         ("workspace", description = "workspace id"),
     )
 )]
-pub async fn get_workspace(Path(workspace): Path<String>) -> String {
+pub async fn get_workspace(
+    Extension(context): Extension<Arc<Context>>,
+    Path(workspace): Path<String>,
+) -> String {
     info!("structured_data: {}", workspace);
-    if let Some(doc) = DOC_MAP.get(&workspace) {
+    if let Some(doc) = context.doc.get(&workspace) {
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
         trx.get_map("blocks").to_json().to_string()
@@ -56,10 +75,13 @@ pub async fn get_workspace(Path(workspace): Path<String>) -> String {
         ("block", description = "block id"),
     )
 )]
-pub async fn get_block(Path(params): Path<(String, String)>) -> impl IntoResponse {
+pub async fn get_block(
+    Extension(context): Extension<Arc<Context>>,
+    Path(params): Path<(String, String)>,
+) -> impl IntoResponse {
     let (workspace, block) = params;
     info!("structured_block: {}, {}", workspace, block);
-    if let Some(doc) = DOC_MAP.get(&workspace) {
+    if let Some(doc) = context.doc.get(&workspace) {
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
         if let Some(block) = trx
@@ -89,10 +111,13 @@ pub async fn get_block(Path(params): Path<(String, String)>) -> impl IntoRespons
         ("block", description = "block id"),
     )
 )]
-pub async fn set_block(Path(params): Path<(String, String)>) -> impl IntoResponse {
+pub async fn set_block(
+    Extension(context): Extension<Arc<Context>>,
+    Path(params): Path<(String, String)>,
+) -> impl IntoResponse {
     let (workspace, block) = params;
     info!("structured_block: {}, {}", workspace, block);
-    if let Some(doc) = DOC_MAP.get(&workspace) {
+    if let Some(doc) = context.doc.get(&workspace) {
         let mut trx = doc.value().lock().await.transact();
         if let Some(block) = trx
             .get_map("blocks")
