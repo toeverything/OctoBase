@@ -12,8 +12,9 @@ use utoipa_swagger_ui::SwaggerUi;
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        structured_data_handler,
-        structured_block_handler,
+        get_workspace,
+        get_block,
+        set_block,
     ),
     tags((name = "Keck", description = "Keck API"))
 )]
@@ -25,12 +26,18 @@ pub fn api_docs() -> SwaggerUi {
 
 pub fn api_handler() -> Router {
     Router::new()
-        .route("/data/:workspace/:block", get(structured_block_handler))
-        .route("/data/:workspace", get(structured_data_handler))
+        .route("/data/:workspace/:block", get(get_block).post(set_block))
+        .route("/data/:workspace", get(get_workspace))
 }
 
-#[utoipa::path(get, path = "/api/data/:workspace")]
-pub async fn structured_data_handler(Path(workspace): Path<String>) -> String {
+#[utoipa::path(
+    get,
+    path = "/api/data/{workspace}",
+    params(
+        ("workspace", description = "workspace id"),
+    )
+)]
+pub async fn get_workspace(Path(workspace): Path<String>) -> String {
     info!("structured_data: {}", workspace);
     if let Some(doc) = DOC_MAP.get(&workspace) {
         let doc = doc.value().lock().await;
@@ -41,8 +48,15 @@ pub async fn structured_data_handler(Path(workspace): Path<String>) -> String {
     }
 }
 
-#[utoipa::path(get, path = "/api/data/:workspace/:block")]
-pub async fn structured_block_handler(Path(params): Path<(String, String)>) -> impl IntoResponse {
+#[utoipa::path(
+    get,
+    path = "/api/data/{workspace}/{block}",
+    params(
+        ("workspace", description = "workspace id"),
+        ("block", description = "block id"),
+    )
+)]
+pub async fn get_block(Path(params): Path<(String, String)>) -> impl IntoResponse {
     let (workspace, block) = params;
     info!("structured_block: {}, {}", workspace, block);
     if let Some(doc) = DOC_MAP.get(&workspace) {
@@ -54,6 +68,42 @@ pub async fn structured_block_handler(Path(params): Path<(String, String)>) -> i
             .and_then(|b| b.to_ymap())
             .and_then(|b| b.get(&block))
         {
+            if let Ok(data) = serde_json::to_string(&block.to_json()) {
+                ([(header::CONTENT_TYPE, "application/json")], data).into_response()
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            }
+        } else {
+            StatusCode::NOT_FOUND.into_response()
+        }
+    } else {
+        StatusCode::NOT_FOUND.into_response()
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/data/{workspace}/{block}",
+    params(
+        ("workspace", description = "workspace id"),
+        ("block", description = "block id"),
+    )
+)]
+pub async fn set_block(Path(params): Path<(String, String)>) -> impl IntoResponse {
+    let (workspace, block) = params;
+    info!("structured_block: {}, {}", workspace, block);
+    let docs = DOC_MAP.lock().await;
+    if let Some(doc) = docs.get(&workspace) {
+        let mut trx = doc.transact();
+        if let Some(block) = trx
+            .get_map("blocks")
+            .get("content")
+            .and_then(|b| b.to_ymap())
+            .and_then(|b| b.get(&block))
+            .and_then(|b| b.to_ymap())
+        {
+            // block.get_map("content").
+
             if let Ok(data) = serde_json::to_string(&block.to_json()) {
                 ([(header::CONTENT_TYPE, "application/json")], data).into_response()
             } else {
