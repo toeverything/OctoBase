@@ -9,7 +9,7 @@ use axum::{
 };
 use http::{HeaderValue, Method};
 use std::net::SocketAddr;
-use tower_http::cors::{any, CorsLayer};
+use tower_http::cors::{Any, CorsLayer};
 
 pub async fn start_server() {
     let cors = CorsLayer::new()
@@ -17,7 +17,7 @@ pub async fn start_server() {
         .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS])
         // allow requests from any origin
         .allow_origin("http://localhost:4200".parse::<HeaderValue>().unwrap())
-        .allow_headers(any());
+        .allow_headers(Any);
 
     let app = Router::new()
         .merge(api::api_docs())

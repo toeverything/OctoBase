@@ -32,8 +32,8 @@ pub fn api_handler() -> Router {
 #[utoipa::path(get, path = "/api/data/:workspace")]
 pub async fn structured_data_handler(Path(workspace): Path<String>) -> String {
     info!("structured_data: {}", workspace);
-    let docs = DOC_MAP.lock().await;
-    if let Some(doc) = docs.get(&workspace) {
+    if let Some(doc) = DOC_MAP.get(&workspace) {
+        let doc = doc.value().lock().await;
         let mut trx = doc.transact();
         trx.get_map("blocks").to_json().to_string()
     } else {
@@ -45,8 +45,8 @@ pub async fn structured_data_handler(Path(workspace): Path<String>) -> String {
 pub async fn structured_block_handler(Path(params): Path<(String, String)>) -> impl IntoResponse {
     let (workspace, block) = params;
     info!("structured_block: {}, {}", workspace, block);
-    let docs = DOC_MAP.lock().await;
-    if let Some(doc) = docs.get(&workspace) {
+    if let Some(doc) = DOC_MAP.get(&workspace) {
+        let doc = doc.value().lock().await;
         let mut trx = doc.transact();
         if let Some(block) = trx
             .get_map("blocks")
