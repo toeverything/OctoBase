@@ -12,10 +12,7 @@ use dashmap::DashMap;
 use futures::{sink::SinkExt, stream::StreamExt};
 use serde::Serialize;
 use std::sync::Arc;
-use tokio::sync::{
-    mpsc::{channel, Sender},
-    Mutex,
-};
+use tokio::sync::{mpsc::channel, Mutex};
 use yrs::{
     updates::{
         decoder::{Decoder, DecoderV1},
@@ -23,10 +20,6 @@ use yrs::{
     },
     Doc, Options,
 };
-
-lazy_static! {
-    pub static ref DOC_MAP: DashMap<String, Mutex<Doc>> = DashMap::new();
-}
 
 #[derive(Serialize)]
 pub struct WebSocketAuthentication {
@@ -40,15 +33,16 @@ pub async fn auth_handler(Path(workspace): Path<String>) -> Json<WebSocketAuthen
     })
 }
 
-pub async fn upgrade_handler(Path(workspace): Path<String>, ws: WebSocketUpgrade) -> Response {
+pub async fn upgrade_handler(
+    Extension(context): Extension<Arc<Context>>,
+    Path(workspace): Path<String>,
+    ws: WebSocketUpgrade,
+) -> Response {
     ws.protocols(["AFFiNE"])
-        .on_upgrade(async move |socket| handle_socket(socket, workspace).await)
+        .on_upgrade(async move |socket| handle_socket(socket, workspace, context.clone()).await)
 }
 
-async fn handle_socket(socket: WebSocket, workspace: String) {
-    lazy_static! {
-        static ref CHANNEL_MAP: DashMap<(String, String), Sender<Message>> = DashMap::new();
-    }
+async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Context>) {
     info!("collaboration: {}", workspace);
 
     let (mut socket_tx, mut socket_rx) = socket.split();
@@ -64,10 +58,12 @@ async fn handle_socket(socket: WebSocket, workspace: String) {
     });
 
     let uuid = Uuid::new_v4().to_string();
-    CHANNEL_MAP.insert((workspace.clone(), uuid.clone()), tx.clone());
+    context
+        .channel
+        .insert((workspace.clone(), uuid.clone()), tx.clone());
 
     let init_data = {
-        let doc = if let Some(doc) = DOC_MAP.get_mut(&workspace) {
+        let doc = if let Some(doc) = context.doc.get_mut(&workspace) {
             doc
         } else {
             let mut doc = Doc::with_options(Options {
@@ -89,40 +85,45 @@ async fn handle_socket(socket: WebSocket, workspace: String) {
 
             let ws = workspace.clone();
             let db = Arc::new(Mutex::new(db));
-            let sub = doc.observe_update_v1(move |_, e| {
-                let mut encoder = EncoderV1::new();
-                write_sync(&mut encoder);
-                write_update(&e.update, &mut encoder);
-                let update = encoder.to_vec();
 
-                let uuid = uuid.clone();
-                let workspace = ws.clone();
+            {
+                let context = context.clone();
+                let sub = doc.observe_update_v1(move |_, e| {
+                    let mut encoder = EncoderV1::new();
+                    write_sync(&mut encoder);
+                    write_update(&e.update, &mut encoder);
+                    let update = encoder.to_vec();
 
-                let db = db.clone();
-                tokio::spawn(async move {
-                    let mut closed = vec![];
-                    for item in CHANNEL_MAP.iter() {
-                        let ((ws, id), tx) = item.pair();
-                        if workspace.as_str() == ws.as_str() && id.as_str() != uuid.as_str() {
-                            if tx.is_closed() {
-                                closed.push(id.clone());
-                            } else {
-                                db.lock().await.insert(&update).await.unwrap();
-                                if let Err(e) = tx.send(Message::Binary(update.clone())).await {
-                                    println!("on observe_update_v1 error: {}", e);
+                    let uuid = uuid.clone();
+                    let workspace = ws.clone();
+
+                    let db = db.clone();
+                    let context = context.clone();
+                    tokio::spawn(async move {
+                        let mut closed = vec![];
+                        for item in context.channel.iter() {
+                            let ((ws, id), tx) = item.pair();
+                            if workspace.as_str() == ws.as_str() && id.as_str() != uuid.as_str() {
+                                if tx.is_closed() {
+                                    closed.push(id.clone());
+                                } else {
+                                    db.lock().await.insert(&update).await.unwrap();
+                                    if let Err(e) = tx.send(Message::Binary(update.clone())).await {
+                                        println!("on observe_update_v1 error: {}", e);
+                                    }
                                 }
                             }
                         }
-                    }
-                    for id in closed {
-                        CHANNEL_MAP.remove(&(workspace.clone(), id));
-                    }
+                        for id in closed {
+                            context.channel.remove(&(workspace.clone(), id));
+                        }
+                    });
                 });
-            });
-            std::mem::forget(sub);
+                std::mem::forget(sub);
+            }
 
-            DOC_MAP.insert(workspace.clone(), Mutex::new(doc));
-            DOC_MAP.get_mut(&workspace).unwrap()
+            context.doc.insert(workspace.clone(), Mutex::new(doc));
+            context.doc.get_mut(&workspace).unwrap()
         };
 
         let mut encoder = EncoderV1::new();
@@ -146,7 +147,7 @@ async fn handle_socket(socket: WebSocket, workspace: String) {
             return;
         } {
             let payload = {
-                let doc = DOC_MAP.get(&workspace).unwrap();
+                let doc = context.doc.get(&workspace).unwrap();
                 let doc = doc.value().lock().await;
                 let mut encoder = EncoderV1::new();
                 let mut decoder = DecoderV1::from(binary.as_slice());

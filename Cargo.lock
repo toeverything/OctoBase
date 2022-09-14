@@ -866,7 +866,6 @@ dependencies = [
  "fern",
  "futures",
  "http",
- "lazy_static",
  "log",
  "serde",
  "serde_json",
