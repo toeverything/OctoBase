@@ -1,6 +1,5 @@
 use super::*;
 use crate::sync::*;
-use async_lock::Mutex;
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
@@ -9,10 +8,14 @@ use axum::{
     response::Response,
     Json,
 };
+use dashmap::DashMap;
 use futures::{sink::SinkExt, stream::StreamExt};
 use serde::Serialize;
-use std::{collections::HashMap, sync::Arc};
-use tokio::sync::mpsc::{channel, Sender};
+use std::sync::Arc;
+use tokio::sync::{
+    mpsc::{channel, Sender},
+    Mutex,
+};
 use yrs::{
     updates::{
         decoder::{Decoder, DecoderV1},
@@ -22,7 +25,7 @@ use yrs::{
 };
 
 lazy_static! {
-    pub static ref DOC_MAP: Mutex<HashMap<String, Doc>> = Mutex::new(HashMap::new());
+    pub static ref DOC_MAP: DashMap<String, Mutex<Doc>> = DashMap::new();
 }
 
 #[derive(Serialize)]
@@ -44,8 +47,7 @@ pub async fn upgrade_handler(Path(workspace): Path<String>, ws: WebSocketUpgrade
 
 async fn handle_socket(socket: WebSocket, workspace: String) {
     lazy_static! {
-        static ref CHANNEL_MAP: Mutex<HashMap<(String, String), Sender<Message>>> =
-            Mutex::new(HashMap::new());
+        static ref CHANNEL_MAP: DashMap<(String, String), Sender<Message>> = DashMap::new();
     }
     info!("collaboration: {}", workspace);
 
@@ -62,15 +64,10 @@ async fn handle_socket(socket: WebSocket, workspace: String) {
     });
 
     let uuid = Uuid::new_v4().to_string();
-    CHANNEL_MAP
-        .lock()
-        .await
-        .insert((workspace.clone(), uuid.clone()), tx.clone());
+    CHANNEL_MAP.insert((workspace.clone(), uuid.clone()), tx.clone());
 
     let init_data = {
-        let mut map = DOC_MAP.lock().await;
-
-        let doc = if let Some(doc) = map.get_mut(&workspace) {
+        let doc = if let Some(doc) = DOC_MAP.get_mut(&workspace) {
             doc
         } else {
             let mut doc = Doc::with_options(Options {
@@ -104,7 +101,8 @@ async fn handle_socket(socket: WebSocket, workspace: String) {
                 let db = db.clone();
                 tokio::spawn(async move {
                     let mut closed = vec![];
-                    for ((ws, id), tx) in CHANNEL_MAP.lock().await.iter() {
+                    for item in CHANNEL_MAP.iter() {
+                        let ((ws, id), tx) = item.pair();
                         if workspace.as_str() == ws.as_str() && id.as_str() != uuid.as_str() {
                             if tx.is_closed() {
                                 closed.push(id.clone());
@@ -116,20 +114,20 @@ async fn handle_socket(socket: WebSocket, workspace: String) {
                             }
                         }
                     }
-                    let mut map = CHANNEL_MAP.lock().await;
                     for id in closed {
-                        map.remove(&(workspace.clone(), id));
+                        CHANNEL_MAP.remove(&(workspace.clone(), id));
                     }
                 });
             });
             std::mem::forget(sub);
 
-            map.insert(workspace.clone(), doc);
-            map.get_mut(&workspace).unwrap()
+            DOC_MAP.insert(workspace.clone(), Mutex::new(doc));
+            DOC_MAP.get_mut(&workspace).unwrap()
         };
 
         let mut encoder = EncoderV1::new();
         write_sync(&mut encoder);
+        let doc = doc.value().lock().await;
         write_step1(&doc, &mut encoder);
 
         encoder.to_vec()
@@ -148,8 +146,8 @@ async fn handle_socket(socket: WebSocket, workspace: String) {
             return;
         } {
             let payload = {
-                let map = DOC_MAP.lock().await;
-                let doc = map.get(&workspace).unwrap();
+                let doc = DOC_MAP.get(&workspace).unwrap();
+                let doc = doc.value().lock().await;
                 let mut encoder = EncoderV1::new();
                 let mut decoder = DecoderV1::from(binary.as_slice());
 
@@ -157,7 +155,7 @@ async fn handle_socket(socket: WebSocket, workspace: String) {
                     use std::panic::{catch_unwind, AssertUnwindSafe};
                     let result = catch_unwind(AssertUnwindSafe(|| {
                         write_sync(&mut encoder);
-                        read_sync_message(doc, &mut decoder, &mut encoder);
+                        read_sync_message(&doc, &mut decoder, &mut encoder);
                     }));
                     if result.is_err() {
                         None
