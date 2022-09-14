@@ -6,7 +6,7 @@ RUN rustup update nightly && \
 COPY . .
 RUN cargo build --release
 
-FROM ghcr.io/toeverything/affine:nightly-latest as static
+FROM ghcr.io/toeverything/affine:nightly-keck as static
 
 FROM alpine:latest as keck
 WORKDIR /app
