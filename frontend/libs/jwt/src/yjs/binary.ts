@@ -1,6 +1,6 @@
 import type { Array as YArray, Map as YMap } from 'yjs';
 
-// import type { RemoteKvService } from '@toeverything/datasource/remote-kv';
+// import type { RemoteKvService } from '@toeverything/remote-kv';
 
 export class RemoteBinaries {
     private readonly _binaries: YMap<YArray<ArrayBuffer>>; // binary instance

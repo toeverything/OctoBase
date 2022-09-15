@@ -1,6 +1,6 @@
 {
     "$schema": "../../../node_modules/nx/schemas/project-schema.json",
-    "sourceRoot": "libs/datasource/jwt/src",
+    "sourceRoot": "libs/jwt/src",
     "projectType": "library",
     "tags": ["datasource:jwt"],
     "targets": {
@@ -8,16 +8,16 @@
             "executor": "@nrwl/web:rollup",
             "outputs": ["{options.outputPath}"],
             "options": {
-                "outputPath": "dist/libs/datasource/jwt",
-                "tsConfig": "libs/datasource/jwt/tsconfig.lib.json",
-                "project": "libs/datasource/jwt/package.json",
-                "entryFile": "libs/datasource/jwt/src/index.ts",
+                "outputPath": "dist/libs/jwt",
+                "tsConfig": "libs/jwt/tsconfig.lib.json",
+                "project": "libs/jwt/package.json",
+                "entryFile": "libs/jwt/src/index.ts",
                 "external": ["react/jsx-runtime"],
                 "rollupConfig": "@nrwl/react/plugins/bundle-rollup",
                 "compiler": "swc",
                 "assets": [
                     {
-                        "glob": "libs/datasource/jwt/README.md",
+                        "glob": "libs/jwt/README.md",
                         "input": ".",
                         "output": "."
                     }
@@ -29,7 +29,7 @@
             "outputs": ["{options.outputFile}"],
             "options": {
                 "maxWarnings": 0,
-                "lintFilePatterns": ["libs/datasource/jwt/**/*.{ts,tsx,js,jsx}"]
+                "lintFilePatterns": ["libs/jwt/**/*.{ts,tsx,js,jsx}"]
             }
         }
     }
