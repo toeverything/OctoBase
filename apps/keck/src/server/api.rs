@@ -2,16 +2,19 @@ use crate::sync::{init, SQLite};
 
 use super::*;
 use axum::{
-    extract::{ws::Message, Path},
+    extract::{ws::Message, Json, Path},
     http::{header, StatusCode},
     response::IntoResponse,
     Router,
 };
 use dashmap::DashMap;
+use lib0::any::Any;
+use serde_json::{to_string as json_to_string, Value as JsonValue};
+use std::convert::TryFrom;
 use tokio::sync::{mpsc::Sender, Mutex};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use yrs::Doc;
+use yrs::{Doc, Map, Transaction};
 
 pub struct Context {
     pub doc: DashMap<String, Mutex<Doc>>,
@@ -24,7 +27,7 @@ impl Context {
         Context {
             doc: DashMap::new(),
             channel: DashMap::new(),
-            db: init("updates").await.unwrap()
+            db: init("updates").await.unwrap(),
         }
     }
 }
@@ -36,7 +39,7 @@ impl Context {
         get_block,
         set_block,
     ),
-    tags((name = "Keck", description = "Keck API"))
+    tags((name = "Blocks", description = "Read and write remote blocks"))
 )]
 struct ApiDoc;
 
@@ -46,13 +49,15 @@ pub fn api_docs() -> SwaggerUi {
 
 pub fn api_handler() -> Router {
     Router::new()
-        .route("/data/:workspace/:block", get(get_block).post(set_block))
-        .route("/data/:workspace", get(get_workspace))
+        .route("/block/:workspace/:block", get(get_block).post(set_block))
+        .route("/block/:workspace", get(get_workspace))
 }
 
 #[utoipa::path(
     get,
-    path = "/api/data/{workspace}",
+    tag = "Blocks",
+    context_path = "/api/block",
+    path = "/{workspace}",
     params(
         ("workspace", description = "workspace id"),
     )
@@ -61,7 +66,7 @@ pub async fn get_workspace(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
 ) -> String {
-    info!("structured_data: {}", workspace);
+    info!("get_workspace: {}", workspace);
     if let Some(doc) = context.doc.get(&workspace) {
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
@@ -73,7 +78,9 @@ pub async fn get_workspace(
 
 #[utoipa::path(
     get,
-    path = "/api/data/{workspace}/{block}",
+    tag = "Blocks",
+    context_path = "/api/block",
+    path = "/{workspace}/{block}",
     params(
         ("workspace", description = "workspace id"),
         ("block", description = "block id"),
@@ -84,7 +91,7 @@ pub async fn get_block(
     Path(params): Path<(String, String)>,
 ) -> impl IntoResponse {
     let (workspace, block) = params;
-    info!("structured_block: {}, {}", workspace, block);
+    info!("get_block: {}, {}", workspace, block);
     if let Some(doc) = context.doc.get(&workspace) {
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
@@ -107,20 +114,52 @@ pub async fn get_block(
     }
 }
 
+fn set_value(block: &mut Map, trx: &mut Transaction, key: &str, value: &JsonValue) {
+    match value {
+        JsonValue::Bool(v) => {
+            block.insert(trx, key.clone(), *v);
+        }
+        JsonValue::Null => {
+            block.remove(trx, key);
+        }
+        JsonValue::Number(v) => {
+            if let Some(v) = v.as_f64() {
+                block.insert(trx, key.clone(), v);
+            } else if let Some(v) = v.as_i64() {
+                block.insert(trx, key.clone(), v);
+            } else if let Some(v) = v.as_u64() {
+                block.insert(trx, key.clone(), i64::try_from(v).unwrap_or(0));
+            }
+        }
+        JsonValue::String(v) => {
+            block.insert(trx, key.clone(), v.clone());
+        }
+        _ => {}
+    }
+}
+
 #[utoipa::path(
     post,
-    path = "/api/data/{workspace}/{block}",
+    tag = "Blocks",
+    context_path = "/api/block",
+    path = "/{workspace}/{block}",
     params(
         ("workspace", description = "workspace id"),
         ("block", description = "block id"),
+    ),
+    request_body(
+        content = String,
+        description = "json",
+        content_type = "application/json"
     )
 )]
 pub async fn set_block(
     Extension(context): Extension<Arc<Context>>,
+    Json(payload): Json<JsonValue>,
     Path(params): Path<(String, String)>,
 ) -> impl IntoResponse {
     let (workspace, block) = params;
-    info!("structured_block: {}, {}", workspace, block);
+    info!("set_block: {}, {}", workspace, block);
     if let Some(doc) = context.doc.get(&workspace) {
         let mut trx = doc.value().lock().await.transact();
         if let Some(block) = trx
@@ -130,9 +169,49 @@ pub async fn set_block(
             .and_then(|b| b.get(&block))
             .and_then(|b| b.to_ymap())
         {
-            // block.get_map("content").
-
-            if let Ok(data) = serde_json::to_string(&block.to_json()) {
+            if let (Some(block_content), Some(mut content)) = (
+                payload.as_object(),
+                block.get("content").and_then(|b| b.to_ymap()),
+            ) {
+                for (key, value) in block_content.iter() {
+                    if let Some(origin) = content.get(key) {
+                        match (origin.to_json(), value) {
+                            (
+                                Any::Null | Any::Undefined,
+                                JsonValue::Bool(_) | JsonValue::Number(_) | JsonValue::String(_),
+                            ) => {
+                                set_value(&mut content, &mut trx, key, value);
+                            }
+                            (Any::Bool(origin), JsonValue::Bool(new)) => {
+                                if &origin != new {
+                                    set_value(&mut content, &mut trx, key, value);
+                                }
+                            }
+                            (Any::Number(origin), JsonValue::Number(new)) if new.is_f64() => {
+                                if origin != new.as_f64().unwrap() {
+                                    set_value(&mut content, &mut trx, key, value);
+                                }
+                            }
+                            (Any::BigInt(origin), JsonValue::Number(new)) if new.is_i64() => {
+                                if origin != new.as_i64().unwrap() {
+                                    set_value(&mut content, &mut trx, key, value);
+                                }
+                            }
+                            (Any::String(origin), JsonValue::String(new)) => {
+                                if &origin.to_string() != new {
+                                    set_value(&mut content, &mut trx, key, value);
+                                }
+                            }
+                            _ => {
+                                set_value(&mut content, &mut trx, key, value);
+                            }
+                        }
+                    } else {
+                        set_value(&mut content, &mut trx, key, value);
+                    }
+                }
+            }
+            if let Ok(data) = json_to_string(&block.to_json()) {
                 ([(header::CONTENT_TYPE, "application/json")], data).into_response()
             } else {
                 StatusCode::INTERNAL_SERVER_ERROR.into_response()
