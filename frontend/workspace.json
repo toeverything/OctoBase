@@ -1,0 +1,9 @@
+{
+    "$schema": "./node_modules/nx/schemas/workspace-schema.json",
+    "version": 2,
+    "projects": {
+        "jwst": "apps/jwst",
+        "libs-jwt": "libs/jwt",
+        "libs-jwt-rpc": "libs/jwt-rpc"
+    }
+}

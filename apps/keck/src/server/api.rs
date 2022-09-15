@@ -108,7 +108,7 @@ pub async fn get_block(
 }
 
 #[utoipa::path(
-    get,
+    post,
     path = "/api/data/{workspace}/{block}",
     params(
         ("workspace", description = "workspace id"),
