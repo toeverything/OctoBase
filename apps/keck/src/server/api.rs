@@ -1,3 +1,5 @@
+use crate::sync::{init, SQLite};
+
 use super::*;
 use axum::{
     extract::{ws::Message, Path},
@@ -14,13 +16,15 @@ use yrs::Doc;
 pub struct Context {
     pub doc: DashMap<String, Mutex<Doc>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
+    pub db: SQLite,
 }
 
 impl Context {
-    pub fn new() -> Self {
+    pub async fn new() -> Self {
         Context {
             doc: DashMap::new(),
             channel: DashMap::new(),
+            db: init("updates").await.unwrap()
         }
     }
 }
