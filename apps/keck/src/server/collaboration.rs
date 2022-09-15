@@ -72,9 +72,7 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
                     ..Default::default()
                 });
 
-                let mut db = init("updates").await.unwrap();
-
-                let updates = db.all(0).await;
+                let updates = context.db.all(0).await;
 
                 let mut txn = doc.transact();
                 for update in updates.unwrap() {
@@ -85,7 +83,6 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
                 txn.commit();
 
                 let ws = workspace.clone();
-                let db = Arc::new(Mutex::new(db));
 
                 {
                     let context = context.clone();
@@ -98,7 +95,6 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
                         let uuid = uuid.clone();
                         let workspace = ws.clone();
 
-                        let db = db.clone();
                         let context = context.clone();
                         tokio::spawn(async move {
                             let mut closed = vec![];
@@ -109,7 +105,7 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
                                     if tx.is_closed() {
                                         closed.push(id.clone());
                                     } else {
-                                        db.lock().await.insert(&update).await.unwrap();
+                                        context.db.insert(&update).await.unwrap();
                                         if let Err(e) =
                                             tx.send(Message::Binary(update.clone())).await
                                         {
@@ -158,7 +154,7 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
                         read_sync_message(&doc, &mut decoder, &mut encoder);
                     }))
                     .ok()
-                    .and_then(|_| {
+                    .and_then(|()| {
                         let payload = encoder.to_vec();
                         if payload.len() > 1 {
                             Some(payload)

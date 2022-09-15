@@ -19,7 +19,7 @@ pub async fn start_server() {
         .allow_origin("http://localhost:4200".parse::<HeaderValue>().unwrap())
         .allow_headers(Any);
 
-    let context = Arc::new(Context::new());
+    let context = Arc::new(Context::new().await);
 
     let app = Router::new()
         .merge(api::api_docs())
