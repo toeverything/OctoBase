@@ -1,6 +1,6 @@
 # Tour of the API
 
-See how Jwst API fit together and learn best practices for combining them.
+See how JWST API fit together and learn best practices for combining them.
 
 ## Get Workspace
 
