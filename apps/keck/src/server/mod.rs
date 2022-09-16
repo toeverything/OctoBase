@@ -31,7 +31,8 @@ pub async fn start_server() {
         )
         .layer(cors)
         .layer(Extension(context))
-        .fallback(get(files::handler));
+        .nest("/docs", get(files::docs_handler))
+        .fallback(get(files::index_handler));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("listening on {}", addr);

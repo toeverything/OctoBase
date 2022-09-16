@@ -1,0 +1,15 @@
+FROM messense/rust-musl-cross:x86_64-musl AS builder
+ENV CARGO_TERM_COLOR="always"
+RUN rustup update nightly && \
+    rustup target add --toolchain nightly x86_64-unknown-linux-musl && \
+    rustup default nightly
+COPY . .
+RUN cargo build --release
+
+FROM alpine:latest as mysc
+WORKDIR /app
+COPY --from=builder \
+    /home/rust/src/target/x86_64-unknown-linux-musl/release/keck \
+    /usr/local/bin/mysc
+COPY --from=builder /home/rust/src/apps/handbook/book ./book
+ENTRYPOINT /usr/local/bin/mysc

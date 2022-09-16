@@ -6,26 +6,46 @@ use axum::{
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
 
-pub async fn handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
+const INDEX_DIST_PATH: &'static str = if cfg!(debug_assertions) {
+    "./frontend/dist/apps/jwst"
+} else {
+    "/app/dist"
+};
+
+const DOCS_DIST_PATH: &'static str = if cfg!(debug_assertions) {
+    "./apps/handbook/book"
+} else {
+    "/app/book"
+};
+
+pub async fn index_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
     info!("get {:?}", uri);
-    let res = get_static_file(uri.clone()).await?;
+    let res = get_static_file(uri.clone(), INDEX_DIST_PATH.to_owned()).await?;
 
     if res.status() == StatusCode::NOT_FOUND {
-        get_static_file(Uri::from_static("/index.html")).await
+        get_static_file(Uri::from_static("/index.html"), INDEX_DIST_PATH.to_owned()).await
     } else {
         Ok(res)
     }
 }
 
-const DIST_PATH: &'static str = if cfg!(debug_assertions) {
-    "./dist/apps/playground"
-} else {
-    "/app/dist"
-};
+pub async fn docs_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
+    info!("get {:?}", uri);
+    let res = get_static_file(uri.clone(), DOCS_DIST_PATH.to_owned()).await?;
 
-async fn get_static_file(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
+    if res.status() == StatusCode::NOT_FOUND {
+        get_static_file(Uri::from_static("/index.html"), DOCS_DIST_PATH.to_owned()).await
+    } else {
+        Ok(res)
+    }
+}
+
+async fn get_static_file(
+    uri: Uri,
+    dist: String,
+) -> Result<Response<BoxBody>, (StatusCode, String)> {
     let req = Request::builder().uri(uri).body(Body::empty()).unwrap();
-    let res = ServeDir::new(DIST_PATH).oneshot(req);
+    let res = ServeDir::new(dist).oneshot(req);
 
     match res.await {
         Ok(res) => Ok(res.map(boxed)),

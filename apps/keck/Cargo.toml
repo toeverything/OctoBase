@@ -63,5 +63,9 @@ features = ["lib0-serde"]
 [dependencies.yrs]
 version = "0.11.2"
 
+[build-dependencies.mdbook]
+version = "^0.4.21"
+default-features = false
+
 [profile.dev.package.sqlx-macros]
 opt-level = 3
