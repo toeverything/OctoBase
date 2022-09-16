@@ -13,9 +13,9 @@ In this quick start, you install the Jwst docker and jwst container that gets yo
 
 Go to [Docker Official Docs](https://docs.docker.com/engine/install/) and choose your system, then installl Docker.
 
-### Setup the Jwst server
+### Setup the JWST server
 
-1. To install the Jwst server, run:
+1. To install the JWST server, run:
 
 ```sh
 docker pull ghcr.io/toeverything/jwst:nightly-latest
