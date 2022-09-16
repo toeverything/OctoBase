@@ -63,5 +63,9 @@ path = "../../libs/datasource/lib0"
 path = "../../libs/datasource/yrs"
 features = ["serde"]
 
+[build-dependencies.mdbook]
+version = "^0.4.21"
+default-features = false
+
 [profile.dev.package.sqlx-macros]
 opt-level = 3

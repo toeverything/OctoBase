@@ -4,3 +4,9 @@ authors = ["DarkSky"]
 language = "en"
 multilingual = false
 src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/toeverything/jwst"
+git-repository-icon = "fa-github"
+edit-url-template = "https://github.com/toeverything/jwst/edit/master/apps/handbook/{path}"
+site-url = "/docs/"
