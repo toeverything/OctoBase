@@ -1,5 +1,3 @@
-#![feature(async_closure)]
-
 mod server;
 mod sync;
 mod utils;

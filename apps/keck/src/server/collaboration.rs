@@ -39,7 +39,7 @@ pub async fn upgrade_handler(
     ws: WebSocketUpgrade,
 ) -> Response {
     ws.protocols(["AFFiNE"])
-        .on_upgrade(async move |socket| handle_socket(socket, workspace, context.clone()).await)
+        .on_upgrade(|socket| async move { handle_socket(socket, workspace, context.clone()).await })
 }
 
 async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Context>) {
