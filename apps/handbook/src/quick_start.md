@@ -1,6 +1,6 @@
 # Quick Start
 
-In this quick start, you install the Jwst docker and jwst container that gets you jwst server access to your jwst integration.
+In this quick start, you install the JWST docker and JWST container that gets you jwst server access to your jwst integration.
 
 ## What you learn
 
@@ -21,7 +21,7 @@ Go to [Docker Official Docs](https://docs.docker.com/engine/install/) and choose
 docker pull ghcr.io/toeverything/jwst:nightly-latest
 ```
 
-2. Now that you’ve installed the Jwst, you can start server:
+2. Now that you’ve installed the JWST, you can start server:
 
 ```sh
 docker run -it --rm -p 3000:3000 ghcr.io/toeverything/jwst:nightly-latest
