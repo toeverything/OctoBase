@@ -4,9 +4,7 @@ In this quick start, you install the Jwst docker and jwst container that gets yo
 
 ## What you learn
 
--   How to call Stripe APIs without writing a line of code
--   How to manage third-party dependencies using the npm or yarn package manager
--   How to install the latest Stripe Node SDK v10.0.0
+-   How to call JWST APIs without writing a line of code
 -   How to send your first SDK request
 
 ## Initial setup
