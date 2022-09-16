@@ -6,10 +6,18 @@ RUN rustup update nightly && \
 COPY . .
 RUN cargo build --release
 
+FROM node:16-alpine as frontend
+WORKDIR /app
+RUN apk add git && npm i -g pnpm@7
+COPY ./frontend .
+RUN --mount=type=cache,target=/app/node_modules,rw,sharing=private pnpm i --frozen-lockfile --store=node_modules/.pnpm-store && pnpm build --skip-nx-cache
+RUN rm -rf /home/rust/src/frontend/dist/apps/jwst/*.txt
+
 FROM alpine:latest as mysc
 WORKDIR /app
 COPY --from=builder \
     /home/rust/src/target/x86_64-unknown-linux-musl/release/keck \
     /usr/local/bin/mysc
 COPY --from=builder /home/rust/src/apps/handbook/book ./book
+COPY --from=frontend /home/rust/src/frontend/dist/apps/jwst ./dist
 ENTRYPOINT /usr/local/bin/mysc
