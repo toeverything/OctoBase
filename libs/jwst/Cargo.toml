@@ -1,0 +1,18 @@
+[package]
+name = "jwst"
+version = "0.1.0"
+authors = ["DarkSky <darksky2048@gmail.com>"]
+edition = "2021"
+license = "AGPL-3.0-only"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "^0.4.17"
+
+[dependencies.lib0]
+version = "^0.11.2"
+features = ["lib0-serde"]
+
+[dependencies.yrs]
+version = "^0.11.2"

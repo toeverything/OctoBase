@@ -202,7 +202,7 @@ dependencies = [
  "js-sys",
  "num-integer",
  "num-traits",
- "time",
+ "time 0.1.44",
  "wasm-bindgen",
  "winapi",
 ]
@@ -782,6 +782,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "jwst"
+version = "0.1.0"
+dependencies = [
+ "lib0",
+ "log",
+ "yrs",
+]
+
+[[package]]
+name = "jwst_logger"
+version = "0.1.0"
+dependencies = [
+ "fern",
+ "log",
+ "time 0.3.14",
+]
+
+[[package]]
 name = "keck"
 version = "0.1.0"
 dependencies = [
@@ -792,6 +810,7 @@ dependencies = [
  "fern",
  "futures",
  "http",
+ "jwst_logger",
  "lib0",
  "log",
  "mdbook",
@@ -978,6 +997,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19e64526ebdee182341572e50e9ad03965aa510cd94427a4549448f285e957a1"
 dependencies = [
  "hermit-abi",
+ "libc",
+]
+
+[[package]]
+name = "num_threads"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2819ce041d2ee131036f4fc9d6ae7ae125a3a40e97ba64d04fe799ad9dabbb44"
+dependencies = [
  "libc",
 ]
 
@@ -1748,6 +1776,17 @@ dependencies = [
  "libc",
  "wasi 0.10.0+wasi-snapshot-preview1",
  "winapi",
+]
+
+[[package]]
+name = "time"
+version = "0.3.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c3f9a28b618c3a6b9251b6908e9c99e04b9e5c02e6581ccbb67d59c34ef7f9b"
+dependencies = [
+ "itoa",
+ "libc",
+ "num_threads",
 ]
 
 [[package]]
