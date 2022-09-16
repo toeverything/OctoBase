@@ -6,3 +6,4 @@ It supports local storage and serve-side storage.
 
 ### Handbook
 
+open [handbook](./apps/handbook/src/SUMMARY.md)
