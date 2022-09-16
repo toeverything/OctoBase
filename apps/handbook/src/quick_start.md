@@ -1,6 +1,6 @@
 # Quick Start
 
-In this quick start, you install the JWST docker and JWST container that gets you jwst server access to your jwst integration.
+In this quick start, you install the JWST docker and JWST container that gets you JWST server access to your JWST integration.
 
 ## What you learn
 
