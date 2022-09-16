@@ -1,12 +1,10 @@
 # Quick Start
 
-In this quick start, you install the Jwst docker and jwst container that gets you jwst server access to your jwst integration.
+In this quick start, you install the JWST docker and JWST container that gets you JWST server access to your JWST integration.
 
 ## What you learn
 
--   How to call Stripe APIs without writing a line of code
--   How to manage third-party dependencies using the npm or yarn package manager
--   How to install the latest Stripe Node SDK v10.0.0
+-   How to call JWST APIs without writing a line of code
 -   How to send your first SDK request
 
 ## Initial setup
@@ -15,15 +13,15 @@ In this quick start, you install the Jwst docker and jwst container that gets yo
 
 Go to [Docker Official Docs](https://docs.docker.com/engine/install/) and choose your system, then installl Docker.
 
-### Setup the Jwst server
+### Setup the JWST server
 
-1. To install the Jwst server, run:
+1. To install the JWST server, run:
 
 ```sh
 docker pull ghcr.io/toeverything/jwst:nightly-latest
 ```
 
-2. Now that you’ve installed the Jwst, you can start server:
+2. Now that you’ve installed the JWST, you can start server:
 
 ```sh
 docker run -it --rm -p 3000:3000 ghcr.io/toeverything/jwst:nightly-latest

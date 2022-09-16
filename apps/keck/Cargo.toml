@@ -57,11 +57,11 @@ default-features = false
 features = ["v4"]
 
 [dependencies.lib0]
-path = "../../libs/datasource/lib0"
+version = "0.11.2"
+features = ["lib0-serde"]
 
 [dependencies.yrs]
-path = "../../libs/datasource/yrs"
-features = ["serde"]
+version = "0.11.2"
 
 [build-dependencies.mdbook]
 version = "^0.4.21"
