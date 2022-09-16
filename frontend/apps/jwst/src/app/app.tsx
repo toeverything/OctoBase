@@ -1,4 +1,3 @@
-import type { JwtStore } from '@toeverything/jwt';
 import { useEffect, useState } from 'react';
 
 import { useBlock, useHistory, useSyncedState } from './utils';
@@ -8,7 +7,6 @@ const blockOptions = {
     key: 'data',
     defaultValue: 'default',
 };
-type Block = Awaited<ReturnType<JwtStore['get']>>;
 
 const SyncedTextBlock = (props: { name: string; id: string }) => {
     const text = useSyncedState<string>(props.name, {
@@ -16,7 +14,7 @@ const SyncedTextBlock = (props: { name: string; id: string }) => {
         blockId: props.id,
     });
 
-    return <input value={text} />;
+    return <span>{text}</span>;
 };
 
 export function App() {

@@ -16,6 +16,9 @@ export const useClient = (workspace?: string | undefined) => {
                 enabled: ['keck'],
                 token: 'AFFiNE',
             }).then(client => {
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // @ts-ignore
+                window['client'] = client;
                 setClient(client);
             });
         }
