@@ -63,6 +63,9 @@ features = ["lib0-serde"]
 [dependencies.yrs]
 version = "0.11.2"
 
+[dependencies.jwst]
+path = "../../libs/jwst"
+
 [dependencies.jwst_logger]
 path = "../../libs/logger"
 

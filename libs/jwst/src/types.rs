@@ -6,6 +6,7 @@ pub struct BlockField {
     default: String,
 }
 
+#[derive(Debug)]
 pub struct Block {
     // block schema
     // for example: {
@@ -18,26 +19,52 @@ pub struct Block {
 }
 
 impl Block {
-    fn new<S>(trx: &mut Transaction, block_id: S, flavor: S) -> Block
+    // Create a new block, skip create if block is already created.
+    pub fn new<B, F>(trx: &mut Transaction, block_id: B, flavor: F) -> Block
     where
-        S: ToString,
+        B: ToString,
+        F: ToString,
     {
         let blocks = trx.get_map("blocks");
+        let blocks = blocks
+            .get("content")
+            .or_else(|| blocks.insert(trx, "content", PrelimMap::<Any>::new()))
+            .and_then(|b| b.to_ymap())
+            .unwrap();
 
         // init base struct
         let block_id = block_id.to_string();
-        blocks.insert(trx, block_id.clone(), PrelimMap::<Any>::new());
-        let block = blocks.get(&block_id).and_then(|b| b.to_ymap()).unwrap();
-        blocks.insert(trx, "content", PrelimMap::<Any>::new());
-        let content = blocks.get(&block_id).and_then(|b| b.to_ymap()).unwrap();
 
-        // init default schema
-        content.insert(trx, "sys:flavor", flavor.to_string());
-        content.insert(trx, "sys:version", PrelimArray::from([1, 0]));
-        Self { block, content }
+        if let Some((block, content)) =
+            blocks
+                .get(&block_id)
+                .and_then(|b| b.to_ymap())
+                .and_then(|block| {
+                    block
+                        .get("content")
+                        .and_then(|c| c.to_ymap())
+                        .map(|content| (block, content))
+                })
+        {
+            Self { block, content }
+        } else {
+            blocks.insert(trx, block_id.clone(), PrelimMap::<Any>::new());
+            let block = blocks.get(&block_id).and_then(|b| b.to_ymap()).unwrap();
+
+            // init default schema
+            block.insert(trx, "sys:flavor", flavor.to_string());
+            block.insert(trx, "sys:version", PrelimArray::from([1, 0]));
+            block.insert(trx, "content", PrelimMap::<Any>::new());
+
+            trx.commit();
+
+            let content = block.get("content").and_then(|c| c.to_ymap()).unwrap();
+
+            Self { block, content }
+        }
     }
 
-    fn from(block: Map) -> Option<Block> {
+    pub fn from(block: Map) -> Option<Block> {
         if let Some(content) = block.get("content").and_then(|b| b.to_ymap()) {
             Some(Self { block, content })
         } else {
@@ -45,9 +72,17 @@ impl Block {
         }
     }
 
+    pub fn block(&self) -> &Map {
+        &self.block
+    }
+
+    pub fn content(&mut self) -> &mut Map {
+        &mut self.content
+    }
+
     // start with a namespace
     // for example: affine:text
-    fn flavor(&self) -> String {
+    pub fn flavor(&self) -> String {
         self.content
             .get("sys:flavor")
             .unwrap_or_default()
@@ -56,13 +91,10 @@ impl Block {
 
     // block schema version
     // for example: [1, 0]
-    fn version(&self) -> [usize; 2] {
+    pub fn version(&self) -> [usize; 2] {
         self.content
             .get("sys:version")
-            .and_then(|v| {
-                println!("{:?}", v);
-                v.to_yarray()
-            })
+            .and_then(|v| v.to_yarray())
             .map(|v| {
                 v.iter()
                     .take(2)

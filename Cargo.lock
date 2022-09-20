@@ -810,6 +810,7 @@ dependencies = [
  "fern",
  "futures",
  "http",
+ "jwst",
  "jwst_logger",
  "lib0",
  "log",

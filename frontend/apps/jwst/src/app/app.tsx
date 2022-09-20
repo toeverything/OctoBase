@@ -14,7 +14,7 @@ const SyncedTextBlock = (props: { name: string; id: string }) => {
         blockId: props.id,
     });
 
-    return <span>{text}</span>;
+    return <input value={text} />;
 };
 
 export function App() {
@@ -30,12 +30,13 @@ export function App() {
 
     if (id) {
         return (
-            <>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span>{id}</span>
                 <SyncedTextBlock key={1} name="1" id={id} />
                 <SyncedTextBlock key={2} name="2" id={id} />
                 <button onClick={undo}>undo</button>
                 <button onClick={redo}>redo</button>
-            </>
+            </div>
         );
     }
     return null;

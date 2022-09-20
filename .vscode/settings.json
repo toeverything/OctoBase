@@ -50,7 +50,8 @@
 		"utoipa",
 		"uuidv",
 		"webm",
-		"yarray"
+		"yarray",
+		"ymap"
 	],
 	"[toml]": {
 		"editor.defaultFormatter": "tamasfe.even-better-toml"
