@@ -1,7 +1,4 @@
-
 use super::*;
-
-
 
 #[utoipa::path(
     get,

@@ -18,7 +18,7 @@ use yrs::{
         decoder::{Decoder, DecoderV1},
         encoder::{Encoder, EncoderV1},
     },
-    Doc, Options,
+    Doc,
 };
 
 #[derive(Serialize)]
@@ -40,6 +40,45 @@ pub async fn upgrade_handler(
 ) -> Response {
     ws.protocols(["AFFiNE"])
         .on_upgrade(|socket| async move { handle_socket(socket, workspace, context.clone()).await })
+}
+
+pub fn subscribe_handler(context: Arc<Context>, doc: &mut Doc, uuid: String, workspace: String) {
+    let sub = doc.observe_update_v1(move |_, e| {
+        let mut encoder = EncoderV1::new();
+        write_sync(&mut encoder);
+        write_update(&e.update, &mut encoder);
+        let update = encoder.to_vec();
+
+        let context = context.clone();
+        let uuid = uuid.clone();
+        let workspace = workspace.clone();
+        tokio::spawn(async move {
+            let mut closed = vec![];
+
+            let db = match context.db.entry(workspace.clone()) {
+                Entry::Occupied(value) => value.into_ref(),
+                Entry::Vacant(entry) => entry.insert(init("jwst", &workspace).await.unwrap()),
+            };
+
+            for item in context.channel.iter() {
+                let ((ws, id), tx) = item.pair();
+                if workspace.as_str() == ws.as_str() && id.as_str() != uuid.as_str() {
+                    if tx.is_closed() {
+                        closed.push(id.clone());
+                    } else {
+                        db.insert(&update).await.unwrap();
+                        if let Err(e) = tx.send(Message::Binary(update.clone())).await {
+                            println!("on observe_update_v1 error: {}", e);
+                        }
+                    }
+                }
+            }
+            for id in closed {
+                context.channel.remove(&(workspace.clone(), id));
+            }
+        });
+    });
+    std::mem::forget(sub);
 }
 
 async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Context>) {
@@ -66,69 +105,17 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
         let entry = context.doc.entry(workspace.clone());
         let doc = match entry {
             Entry::Occupied(value) => value.into_ref(),
-            Entry::Vacant(entry) => {
-                let mut doc = Doc::with_options(Options {
-                    skip_gc: true,
-                    ..Default::default()
-                });
-
-                let updates = context.db.all(0).await;
-
-                let mut txn = doc.transact();
-                for update in updates.unwrap() {
-                    if let Ok(update) = Update::decode_v1(&update.blob) {
-                        txn.apply_update(update);
-                    }
-                }
-                txn.commit();
-
-                let ws = workspace.clone();
-
-                {
-                    let context = context.clone();
-                    let sub = doc.observe_update_v1(move |_, e| {
-                        let mut encoder = EncoderV1::new();
-                        write_sync(&mut encoder);
-                        write_update(&e.update, &mut encoder);
-                        let update = encoder.to_vec();
-
-                        let uuid = uuid.clone();
-                        let workspace = ws.clone();
-
-                        let context = context.clone();
-                        tokio::spawn(async move {
-                            let mut closed = vec![];
-                            for item in context.channel.iter() {
-                                let ((ws, id), tx) = item.pair();
-                                if workspace.as_str() == ws.as_str() && id.as_str() != uuid.as_str()
-                                {
-                                    if tx.is_closed() {
-                                        closed.push(id.clone());
-                                    } else {
-                                        context.db.insert(&update).await.unwrap();
-                                        if let Err(e) =
-                                            tx.send(Message::Binary(update.clone())).await
-                                        {
-                                            println!("on observe_update_v1 error: {}", e);
-                                        }
-                                    }
-                                }
-                            }
-                            for id in closed {
-                                context.channel.remove(&(workspace.clone(), id));
-                            }
-                        });
-                    });
-                    std::mem::forget(sub);
-                }
-
-                entry.insert(Mutex::new(doc))
-            }
+            Entry::Vacant(entry) => entry.insert(Mutex::new(
+                utils::create_doc(context.clone(), workspace.clone()).await,
+            )),
         };
+
+        let mut doc = doc.value().lock().await;
+
+        subscribe_handler(context.clone(), &mut doc, uuid, workspace.clone());
 
         let mut encoder = EncoderV1::new();
         write_sync(&mut encoder);
-        let doc = doc.value().lock().await;
         write_step1(&doc, &mut encoder);
 
         encoder.to_vec()

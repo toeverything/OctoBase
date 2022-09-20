@@ -3,4 +3,4 @@ mod workspace;
 
 pub use super::*;
 pub use block::{__path_get_block, __path_set_block, get_block, set_block};
-pub use workspace::{__path_get_workspace, get_workspace};
+pub use workspace::{__path_get_workspace, __path_set_workspace, get_workspace, set_workspace};

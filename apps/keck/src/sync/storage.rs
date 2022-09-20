@@ -76,13 +76,13 @@ impl SQLite {
     }
 }
 
-pub async fn init<S: ToString>(table: S) -> Result<SQLite, Error> {
+pub async fn init<F: ToString, T: ToString>(file: F, table: T) -> Result<SQLite, Error> {
     let table = table.to_string();
     let path = format!(
         "sqlite:{}",
         std::env::current_dir()
             .unwrap()
-            .join(format!("{}.db", table))
+            .join(format!("{}.db", file.to_string()))
             .display()
     );
     let options = SqliteConnectOptions::from_str(&path)?
@@ -98,7 +98,7 @@ pub async fn init<S: ToString>(table: S) -> Result<SQLite, Error> {
 
 #[tokio::test]
 async fn sync_storage_test() -> anyhow::Result<()> {
-    let sqlite = init("updates").await?;
+    let sqlite = init("jwst", "updates").await?;
 
     sqlite.insert(&[1, 2, 3, 4]).await?;
     println!("count: {}", sqlite.count().await?);

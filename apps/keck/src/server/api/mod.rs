@@ -22,7 +22,7 @@ use yrs::{Doc, Map, Transaction};
 pub struct Context {
     pub doc: DashMap<String, Mutex<Doc>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
-    pub db: SQLite,
+    pub db: DashMap<String, SQLite>,
 }
 
 impl Context {
@@ -30,7 +30,7 @@ impl Context {
         Context {
             doc: DashMap::new(),
             channel: DashMap::new(),
-            db: init("updates").await.unwrap(),
+            db: DashMap::new(),
         }
     }
 }
@@ -39,6 +39,7 @@ impl Context {
 #[openapi(
     paths(
         blocks::get_workspace,
+        blocks::set_workspace,
         blocks::get_block,
         blocks::set_block,
     ),
@@ -56,5 +57,8 @@ pub fn api_handler() -> Router {
             "/block/:workspace/:block",
             get(blocks::get_block).post(blocks::set_block),
         )
-        .route("/block/:workspace", get(blocks::get_workspace))
+        .route(
+            "/block/:workspace",
+            get(blocks::get_workspace).post(blocks::set_workspace),
+        )
 }

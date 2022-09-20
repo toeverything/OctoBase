@@ -1,6 +1,7 @@
 mod api;
 mod collaboration;
 mod files;
+mod utils;
 
 use crate::{server::api::Context, utils::*};
 use axum::{
