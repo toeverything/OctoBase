@@ -1,6 +1,6 @@
 mod types;
 
-pub use types::{Block, BlockField};
+pub use types::{Block, BlockField, InsertBlock};
 
 #[cfg(test)]
 mod tests {

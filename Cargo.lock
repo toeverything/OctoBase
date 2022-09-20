@@ -787,6 +787,9 @@ version = "0.1.0"
 dependencies = [
  "lib0",
  "log",
+ "serde",
+ "serde_json",
+ "utoipa",
  "yrs",
 ]
 

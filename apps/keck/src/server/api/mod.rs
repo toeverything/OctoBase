@@ -11,7 +11,6 @@ use axum::{
 };
 use dashmap::DashMap;
 use jwst::Block;
-use lib0::any::Any;
 use serde_json::{to_string as json_to_string, Value as JsonValue};
 use std::convert::TryFrom;
 use tokio::sync::{mpsc::Sender, Mutex};
@@ -42,6 +41,7 @@ impl Context {
         blocks::set_workspace,
         blocks::get_block,
         blocks::set_block,
+        blocks::insert_block,
     ),
     tags((name = "Blocks", description = "Read and write remote blocks"))
 )]
@@ -53,6 +53,10 @@ pub fn api_docs() -> SwaggerUi {
 
 pub fn api_handler() -> Router {
     Router::new()
+        .route(
+            "/block/:workspace/:block/insert",
+            post(blocks::insert_block),
+        )
         .route(
             "/block/:workspace/:block",
             get(blocks::get_block).post(blocks::set_block),

@@ -1,4 +1,5 @@
 use super::*;
+use jwst::InsertBlock;
 
 #[utoipa::path(
     get,
@@ -94,7 +95,7 @@ pub async fn set_block(
     Path(params): Path<(String, String)>,
 ) -> impl IntoResponse {
     let (workspace, block) = params;
-    info!("create_block: {}, {}", workspace, block);
+    info!("set_block: {}, {}", workspace, block);
     if let Some(doc) = context.doc.get(&workspace) {
         // init block instance
         let mut trx = doc.value().lock().await.transact();
@@ -111,6 +112,52 @@ pub async fn set_block(
         match json_to_string(&block.block().to_json()) {
             Ok(json) => ([(header::CONTENT_TYPE, "application/json")], json).into_response(),
             Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        }
+    } else {
+        StatusCode::NOT_FOUND.into_response()
+    }
+}
+
+// move block
+#[utoipa::path(
+    post,
+    tag = "Blocks",
+    context_path = "/api/block",
+    path = "/{workspace}/{block}/insert",
+    params(
+        ("workspace", description = "workspace id"),
+        ("block", description = "block id"),
+    ),
+    request_body(
+        content = inline(InsertBlock),
+        description = "json",
+        content_type = "application/json"
+    ),
+    responses(
+        (status = 200, description = "Block moved"),
+        (status = 404, description = "Workspace not found"),
+        (status = 500, description = "Failed to move block")
+    )
+)]
+pub async fn insert_block(
+    Extension(context): Extension<Arc<Context>>,
+    Json(payload): Json<InsertBlock>,
+    Path(params): Path<(String, String)>,
+) -> impl IntoResponse {
+    let (workspace, block) = params;
+    info!("insert_block: {}, {}", workspace, block);
+    if let Some(doc) = context.doc.get(&workspace) {
+        // init block instance
+        let mut trx = doc.value().lock().await.transact();
+        if let Some(mut block) = Block::from(&mut trx, &block) {
+            block.insert_children(&mut trx, payload);
+            // response block content
+            match json_to_string(&block.block().to_json()) {
+                Ok(json) => ([(header::CONTENT_TYPE, "application/json")], json).into_response(),
+                Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            }
+        } else {
+            StatusCode::NOT_FOUND.into_response()
         }
     } else {
         StatusCode::NOT_FOUND.into_response()
