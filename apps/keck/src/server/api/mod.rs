@@ -52,11 +52,12 @@ pub fn api_docs() -> SwaggerUi {
 }
 
 pub fn api_handler() -> Router {
+    let block_operation = Router::new()
+        .route("/insert", post(blocks::insert_block))
+        .route("/remove", post(blocks::remove_block));
+
     Router::new()
-        .route(
-            "/block/:workspace/:block/insert",
-            post(blocks::insert_block),
-        )
+        .nest("/block/:workspace/:block/", block_operation)
         .route(
             "/block/:workspace/:block",
             get(blocks::get_block).post(blocks::set_block),
