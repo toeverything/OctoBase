@@ -1,6 +1,11 @@
 use super::*;
 use crate::sync::*;
+use axum::{
+    http::{header, StatusCode},
+    response::IntoResponse,
+};
 use dashmap::mapref::entry::Entry;
+use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use yrs::{Doc, Options};
@@ -76,4 +81,16 @@ pub async fn init_doc(context: Arc<Context>, workspace: String) {
 
         entry.insert(Mutex::new(doc));
     };
+}
+
+pub fn parse_doc<T>(any: T) -> impl IntoResponse
+where
+    T: Serialize,
+{
+    use serde_json::to_string;
+    if let Ok(data) = to_string(&any) {
+        ([(header::CONTENT_TYPE, "application/json")], data).into_response()
+    } else {
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
 }

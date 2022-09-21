@@ -23,8 +23,7 @@ pub async fn get_workspace(
     if let Some(doc) = context.doc.get(&workspace) {
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
-        let json = trx.get_map("blocks").to_json().to_string();
-        ([(header::CONTENT_TYPE, "application/json")], json).into_response()
+        utils::parse_doc(trx.get_map("blocks").to_json()).into_response()
     } else {
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
@@ -45,7 +44,7 @@ pub async fn get_workspace(
 pub async fn set_workspace(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
-) -> String {
+) -> impl IntoResponse {
     info!("set_workspace: {}", workspace);
 
     utils::init_doc(context.clone(), workspace.clone()).await;
@@ -53,5 +52,5 @@ pub async fn set_workspace(
     let doc = context.doc.get(&workspace).unwrap();
     let doc = doc.lock().await;
 
-    doc.transact().get_map("blocks").to_json().to_string()
+    utils::parse_doc(doc.transact().get_map("blocks").to_json()).into_response()
 }

@@ -31,11 +31,7 @@ pub async fn get_block(
             .and_then(|b| b.to_ymap())
             .and_then(|b| b.get(&block))
         {
-            if let Ok(data) = serde_json::to_string(&block.to_json()) {
-                ([(header::CONTENT_TYPE, "application/json")], data).into_response()
-            } else {
-                StatusCode::INTERNAL_SERVER_ERROR.into_response()
-            }
+            utils::parse_doc(block.to_json()).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
         }
@@ -109,10 +105,7 @@ pub async fn set_block(
         }
 
         // response block content
-        match json_to_string(&block.block().to_json()) {
-            Ok(json) => ([(header::CONTENT_TYPE, "application/json")], json).into_response(),
-            Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        }
+        utils::parse_doc(block.block().to_json()).into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
@@ -152,10 +145,7 @@ pub async fn insert_block(
         if let Some(mut block) = Block::from(&mut trx, &block) {
             block.insert_children(&mut trx, payload);
             // response block content
-            match json_to_string(&block.block().to_json()) {
-                Ok(json) => ([(header::CONTENT_TYPE, "application/json")], json).into_response(),
-                Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-            }
+            utils::parse_doc(block.block().to_json()).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
         }
@@ -198,10 +188,7 @@ pub async fn remove_block(
         if let Some(mut block) = Block::from(&mut trx, &block) {
             block.remove_children(&mut trx, payload);
             // response block content
-            match json_to_string(&block.block().to_json()) {
-                Ok(json) => ([(header::CONTENT_TYPE, "application/json")], json).into_response(),
-                Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-            }
+            utils::parse_doc(block.block().to_json()).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
         }

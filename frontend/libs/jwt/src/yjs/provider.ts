@@ -83,7 +83,7 @@ export const getYProviders = (
                         // TODO: synced will also be triggered on reconnection after losing sync
                         // There needs to be an event mechanism to emit the synchronization state to the upper layer
                         ws.once('synced', () => resolve());
-                        ws.once('lost-connection', () => resolve());
+                        ws.once('lost-connection', () => reject());
                         ws.once('connection-error', () => reject());
                         ws.on('synced', () => context.emitState('connected'));
                         ws.on('lost-connection', () =>
