@@ -3,7 +3,7 @@ use sqlx::{
     pool::PoolConnection,
     query, query_as,
     sqlite::{Sqlite, SqliteConnectOptions, SqliteJournalMode},
-    ConnectOptions, Connection, Error, SqliteConnection, SqlitePool,
+    Error, SqlitePool,
 };
 use std::str::FromStr;
 
@@ -29,37 +29,32 @@ impl SQLite {
 
     pub async fn all(&self, idx: i64) -> Result<Vec<UpdateBinary>, Error> {
         let stmt = format!("SELECT * FROM {} where id >= ?", self.table);
+        let mut conn = self.get_conn().await?;
         let ret = query_as::<_, UpdateBinary>(&stmt)
             .bind(idx)
-            .fetch_all(&mut self.get_conn().await?)
+            .fetch_all(&mut conn)
             .await?;
         Ok(ret)
     }
 
     pub async fn count(&self) -> Result<i64, Error> {
         let stmt = format!("SELECT count(*) FROM {}", self.table);
-        let ret = query_as::<_, Count>(&stmt)
-            .fetch_one(&mut self.get_conn().await?)
-            .await?;
+        let mut conn = self.get_conn().await?;
+        let ret = query_as::<_, Count>(&stmt).fetch_one(&mut conn).await?;
         Ok(ret.0)
     }
 
     pub async fn insert(&self, blob: &[u8]) -> Result<(), Error> {
         let stmt = format!("INSERT INTO {} VALUES (null, ?);", self.table);
-        log::info!("insert updates...1");
         let mut conn = self.get_conn().await?;
-        log::info!("insert updates...2");
         query(&stmt).bind(blob).execute(&mut conn).await?;
-        log::info!("insert updates...3");
         Ok(())
     }
 
     pub async fn delete(&self, idx: i64) -> Result<(), Error> {
         let stmt = format!("DELETE FROM {} WHERE id < ?", self.table);
-        query(&stmt)
-            .bind(idx)
-            .execute(&mut self.get_conn().await?)
-            .await?;
+        let mut conn = self.get_conn().await?;
+        query(&stmt).bind(idx).execute(&mut conn).await?;
         Ok(())
     }
 
@@ -68,12 +63,14 @@ impl SQLite {
             "CREATE TABLE IF NOT EXISTS {} (id INTEGER PRIMARY KEY AUTOINCREMENT, blob BLOB);",
             self.table
         );
-        query(&stmt).execute(&mut self.get_conn().await?).await?;
+        let mut conn = self.get_conn().await?;
+        query(&stmt).execute(&mut conn).await?;
         Ok(())
     }
     pub async fn drop(&self) -> Result<(), Error> {
         let stmt = format!("DROP TABLE {};", self.table);
-        query(&stmt).execute(&mut self.get_conn().await?).await?;
+        let mut conn = self.get_conn().await?;
+        query(&stmt).execute(&mut conn).await?;
         Ok(())
     }
 }

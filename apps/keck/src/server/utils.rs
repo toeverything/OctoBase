@@ -16,13 +16,9 @@ async fn create_doc(context: Arc<Context>, workspace: String) -> (Doc, SQLite) {
         ..Default::default()
     });
 
-    info!("loading updates...");
     let db = init(context.db_conn.clone(), &workspace).await.unwrap();
 
-    info!("loading updates... 2");
     let updates = db.all(0).await;
-
-    info!("loading updates...3");
 
     let mut txn = doc.transact();
     for update in updates.unwrap() {
@@ -32,8 +28,6 @@ async fn create_doc(context: Arc<Context>, workspace: String) -> (Doc, SQLite) {
         }
     }
     txn.commit();
-
-    info!("loading updates...4");
 
     (doc, db)
 }
@@ -47,10 +41,7 @@ pub async fn init_doc(context: Arc<Context>, workspace: String) {
                 let db = db.clone();
                 let update = e.update.clone();
                 tokio::spawn(async move {
-                    info!("writing updates...");
-
                     db.insert(&update).await.unwrap();
-                    info!("writing updates...2");
                 });
             });
             entry.insert(sub.into());

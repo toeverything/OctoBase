@@ -57,13 +57,9 @@ impl Block {
     pub fn new<B: ToString, F: ToString>(trx: &mut Transaction, block_id: B, flavor: F) -> Block {
         let block_id = block_id.to_string();
         if let Some(block) = Self::from(trx, &block_id) {
-            log::info!("get block: {}", block_id);
             block
         } else {
-            log::info!("create block: {}", block_id);
             let blocks = Self::get_root(trx);
-
-            println!("{:?}", blocks);
 
             // init base struct
             blocks.insert(trx, block_id.clone(), PrelimMap::<Any>::new());

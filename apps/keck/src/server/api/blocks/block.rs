@@ -96,7 +96,6 @@ pub async fn set_block(
         // init block instance
         let mut trx = doc.value().lock().await.transact();
         let mut block = Block::new(&mut trx, &block, "text");
-        info!("{:?}", block);
 
         // set block content
         if let Some(block_content) = payload.as_object() {
