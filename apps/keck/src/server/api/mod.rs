@@ -1,6 +1,6 @@
 mod blocks;
 
-use crate::sync::{init, SQLite};
+use crate::sync::{init_pool, SQLite};
 
 use super::*;
 use axum::{
@@ -12,16 +12,30 @@ use axum::{
 use dashmap::DashMap;
 use jwst::Block;
 use serde_json::{to_string as json_to_string, Value as JsonValue};
+use sqlx::SqlitePool;
 use std::convert::TryFrom;
 use tokio::sync::{mpsc::Sender, Mutex};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use yrs::{Doc, Map, Transaction};
+use yrs::{Doc, Map, Subscription, Transaction, UpdateEvent};
+
+pub struct BlockSubscription(Mutex<Subscription<UpdateEvent>>);
+
+unsafe impl Send for BlockSubscription {}
+unsafe impl Sync for BlockSubscription {}
+
+impl From<Subscription<UpdateEvent>> for BlockSubscription {
+    fn from(s: Subscription<UpdateEvent>) -> Self {
+        Self(Mutex::new(s))
+    }
+}
 
 pub struct Context {
     pub doc: DashMap<String, Mutex<Doc>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub db: DashMap<String, SQLite>,
+    pub db_conn: SqlitePool,
+    pub subscribes: DashMap<String, BlockSubscription>,
 }
 
 impl Context {
@@ -30,6 +44,8 @@ impl Context {
             doc: DashMap::new(),
             channel: DashMap::new(),
             db: DashMap::new(),
+            db_conn: init_pool("jwst").await.unwrap(),
+            subscribes: DashMap::new(),
         }
     }
 }

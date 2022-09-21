@@ -55,18 +55,12 @@ pub fn subscribe_handler(context: Arc<Context>, doc: &mut Doc, uuid: String, wor
         tokio::spawn(async move {
             let mut closed = vec![];
 
-            let db = match context.db.entry(workspace.clone()) {
-                Entry::Occupied(value) => value.into_ref(),
-                Entry::Vacant(entry) => entry.insert(init("jwst", &workspace).await.unwrap()),
-            };
-
             for item in context.channel.iter() {
                 let ((ws, id), tx) = item.pair();
                 if workspace.as_str() == ws.as_str() && id.as_str() != uuid.as_str() {
                     if tx.is_closed() {
                         closed.push(id.clone());
                     } else {
-                        db.insert(&update).await.unwrap();
                         if let Err(e) = tx.send(Message::Binary(update.clone())).await {
                             println!("on observe_update_v1 error: {}", e);
                         }
@@ -102,17 +96,12 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
         .insert((workspace.clone(), uuid.clone()), tx.clone());
 
     let init_data = {
-        let entry = context.doc.entry(workspace.clone());
-        let doc = match entry {
-            Entry::Occupied(value) => value.into_ref(),
-            Entry::Vacant(entry) => entry.insert(Mutex::new(
-                utils::create_doc(context.clone(), workspace.clone()).await,
-            )),
-        };
+        utils::init_doc(context.clone(), workspace.clone()).await;
 
-        let mut doc = doc.value().lock().await;
+        let doc = context.doc.get(&workspace).unwrap();
+        let mut doc = doc.lock().await;
 
-        subscribe_handler(context.clone(), &mut doc, uuid, workspace.clone());
+        subscribe_handler(context.clone(), &mut doc, uuid.clone(), workspace.clone());
 
         let mut encoder = EncoderV1::new();
         write_sync(&mut encoder);
@@ -122,6 +111,7 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
     };
 
     if tx.send(Message::Binary(init_data)).await.is_err() {
+        context.channel.remove(&(workspace, uuid));
         // client disconnected
         return;
     }
@@ -162,4 +152,6 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
             }
         }
     }
+
+    context.channel.remove(&(workspace, uuid));
 }

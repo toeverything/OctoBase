@@ -45,10 +45,11 @@ impl SQLite {
 
     pub async fn insert(&self, blob: &[u8]) -> Result<(), Error> {
         let stmt = format!("INSERT INTO {} VALUES (null, ?);", self.table);
-        query(&stmt)
-            .bind(blob)
-            .execute(&mut self.get_conn().await?)
-            .await?;
+        log::info!("insert updates...1");
+        let mut conn = self.get_conn().await?;
+        log::info!("insert updates...2");
+        query(&stmt).bind(blob).execute(&mut conn).await?;
+        log::info!("insert updates...3");
         Ok(())
     }
 
@@ -76,8 +77,7 @@ impl SQLite {
     }
 }
 
-pub async fn init<F: ToString, T: ToString>(file: F, table: T) -> Result<SQLite, Error> {
-    let table = table.to_string();
+pub async fn init_pool<F: ToString>(file: F) -> Result<SqlitePool, Error> {
     let path = format!(
         "sqlite:{}",
         std::env::current_dir()
@@ -88,8 +88,14 @@ pub async fn init<F: ToString, T: ToString>(file: F, table: T) -> Result<SQLite,
     let options = SqliteConnectOptions::from_str(&path)?
         .journal_mode(SqliteJournalMode::Wal)
         .create_if_missing(true);
+    SqlitePool::connect_with(options).await
+}
+
+pub async fn init<T: ToString>(conn: SqlitePool, table: T) -> Result<SQLite, Error> {
+    let table = table.to_string();
+
     let db = SQLite {
-        conn: SqlitePool::connect_with(options).await?,
+        conn,
         table: table.to_string(),
     };
     db.create().await?;
@@ -98,7 +104,8 @@ pub async fn init<F: ToString, T: ToString>(file: F, table: T) -> Result<SQLite,
 
 #[tokio::test]
 async fn sync_storage_test() -> anyhow::Result<()> {
-    let sqlite = init("jwst", "updates").await?;
+    let pool = init_pool("jwst").await?;
+    let sqlite = init(pool, "updates").await?;
 
     sqlite.insert(&[1, 2, 3, 4]).await?;
     println!("count: {}", sqlite.count().await?);
