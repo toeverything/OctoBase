@@ -7,7 +7,6 @@ import * as syncProtocol from 'y-protocols/sync';
 import { Message } from './handler';
 import { KeckProvider } from './keckprovider';
 import { readMessage } from './processor';
-import { WebsocketProvider } from './wsprovider';
 
 enum WebSocketState {
     disconnected = 0,
@@ -47,14 +46,14 @@ const _getToken = async (
     return resp.json();
 };
 
-const _getTimeout = (provider: WebsocketProvider | KeckProvider) =>
+const _getTimeout = (provider: KeckProvider) =>
     math.min(
         math.pow(2, provider.wsUnsuccessfulReconnects) * 100,
         provider.maxBackOffTime
     );
 
 export const registerWebsocket = (
-    provider: WebsocketProvider | KeckProvider,
+    provider: KeckProvider,
     token: string,
     resync = -1,
     reconnect = 3,
@@ -146,25 +145,6 @@ export const registerWebsocket = (
                 encoding.writeVarUint(encoder, Message.sync);
                 syncProtocol.writeSyncStep1(encoder, provider.doc);
                 websocket?.send(encoding.toUint8Array(encoder));
-
-                const awareness = (provider as any)['awareness'];
-                // broadcast local awareness state
-                if (awareness && awareness.getLocalState() !== null) {
-                    const encoderAwarenessState = encoding.createEncoder();
-                    encoding.writeVarUint(
-                        encoderAwarenessState,
-                        Message.awareness
-                    );
-                    encoding.writeVarUint8Array(
-                        encoderAwarenessState,
-                        awarenessProtocol.encodeAwarenessUpdate(awareness, [
-                            provider.doc.clientID,
-                        ])
-                    );
-                    websocket?.send(
-                        encoding.toUint8Array(encoderAwarenessState)
-                    );
-                }
             };
 
             provider.emit('status', [{ status: 'connecting' }]);

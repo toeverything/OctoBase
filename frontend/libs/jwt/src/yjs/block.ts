@@ -2,7 +2,6 @@ import type { Array as YArray, Map as YMap } from 'yjs';
 import { transact } from 'yjs';
 
 import type { BlockItem } from '../types';
-import { BlockTypes } from '../types';
 import type { BlockListener, ChangedStates } from './types';
 
 import type { TopicEventBus } from '../utils';
@@ -47,7 +46,7 @@ export class YBlock {
         this._binary = props.binary;
         this._eventBus = props.eventBus;
 
-        this._children = props.block.get('children') as YArray<string>;
+        this._children = props.block.get('sys:children') as YArray<string>;
         this._childrenMap = getMapFromYArray(this._children);
         this._setBlock = props.setBlock;
         this._getUpdated = props.getUpdated;
@@ -81,32 +80,19 @@ export class YBlock {
     }
 
     get content(): YContentOperation {
-        if (this.type === BlockTypes.block) {
-            const content = this._block.get('content');
-            if (isYObject(content)) {
-                return new YContentOperation(this._eventBus, content);
-            }
-            throw new Error(`Invalid content type: ${typeof content}`);
-        } else if (this.type === BlockTypes.binary && this._binary) {
-            return new YContentOperation(this._eventBus, this._binary);
+        const content = this._block.get('content');
+        if (isYObject(content)) {
+            return new YContentOperation(this._eventBus, content);
         }
-        throw new Error(
-            `Invalid content type: ${this.type}, ${this._block.get(
-                'content'
-            )}, ${this._binary}`
-        );
-    }
-
-    get type(): BlockItem['type'] {
-        return this._block.get('type') as BlockItem['type'];
+        throw new Error(`Invalid content type: ${typeof content}`);
     }
 
     get flavor(): BlockItem['flavor'] {
-        return this._block.get('flavor') as BlockItem['flavor'];
+        return this._block.get('sys:flavor') as BlockItem['flavor'];
     }
 
     get created(): BlockItem['created'] {
-        return this._block.get('created') as BlockItem['created'];
+        return this._block.get('sys:created') as BlockItem['created'];
     }
 
     get updated(): number {
@@ -237,7 +223,6 @@ export class YBlock {
         // check null & undefined
         if (this.content != null) {
             return {
-                type: this.type,
                 flavor: this.flavor,
                 children: this._children.slice(),
                 created: this.created,

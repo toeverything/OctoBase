@@ -1,5 +1,5 @@
-export { BlockFlavors, BlockTypes } from './block';
-export type { BlockItem, BlockTypeKeys } from './block';
+export { BlockFlavors } from './block';
+export type { BlockItem } from './block';
 export type { ExcludeFunction } from './utils';
 
 function getLocation() {

@@ -6,8 +6,8 @@ import type { QueryIndexMetadata } from './block/indexer';
 import type { AbstractCommand, IStoreClient } from './command';
 import { StoreClient } from './command';
 import type { BlockContent, Operation } from './command/operation';
-import type { BlockItem, BlockTypeKeys, ExcludeFunction } from './types';
-import { BlockFlavors, BlockTypes, BucketBackend } from './types';
+import type { BlockItem, ExcludeFunction } from './types';
+import { BlockFlavors, BucketBackend } from './types';
 import type { BlockEventBus } from './utils';
 import { genUuid, getLogger, JwtEventBus } from './utils';
 import type { HistoryManager, YBlock, YProviderType } from './yjs';
@@ -191,7 +191,7 @@ export class JwtStore implements IJwtStore {
 
     private _rebuildIndex(existsIds?: string[]) {
         JWT_DEV && logger('rebuild index');
-        const blocks = this._manager.getBlockByType(BlockTypes.block);
+        const blocks = this._manager.getAllBlock();
         const excluded = existsIds || [];
 
         blocks
@@ -220,18 +220,12 @@ export class JwtStore implements IJwtStore {
      * @param blockType block type
      * @returns
      */
-    public getByType(
-        blockType: BlockTypeKeys | string
-    ): Map<string, AbstractBlock> {
-        JWT_DEV && logger(`getByType: ${blockType}`);
-        const ids = [
-            ...this._blockIndexer.query({
-                type: BlockTypes[blockType as BlockTypeKeys],
-            }),
-            ...this._blockIndexer.query({
-                flavor: blockType,
-            }),
-        ];
+    public getByFlavor(flavor: string): Map<string, AbstractBlock> {
+        JWT_DEV && logger(`getByType: ${flavor}`);
+        const ids = this._blockIndexer.query({
+            flavor,
+        });
+
         const docs = ids.map(id => [id, this.get(id)] as const);
 
         return new Map(
@@ -526,43 +520,20 @@ export class JwtStore implements IJwtStore {
      * @returns block instance
      */
     private _create(
-        blockTypeOrFlavor?: BlockTypeKeys | string,
+        blockFlavor?: string,
         options?: {
-            type?: BlockTypeKeys;
             flavor: BlockItem['flavor'];
-            binary?: ArrayBuffer | undefined;
             [namedUUID]?: boolean;
         }
     ) {
-        JWT_DEV && logger(`create: ${blockTypeOrFlavor}`);
-        const {
-            binary,
-            [namedUUID]: isNamedUuid,
-            type,
-            flavor,
-        } = options || {};
+        JWT_DEV && logger(`create: ${blockFlavor}`);
+        const { [namedUUID]: isNamedUuid, flavor } = options || {};
 
-        const blockType = type || (blockTypeOrFlavor as BlockTypeKeys);
-        const finalBlockType =
-            (blockType && BlockTypes[blockType]) || BlockTypes.block;
-        const blockFlavor =
-            finalBlockType === BlockTypes.binary
-                ? BlockTypes.binary
-                : flavor || blockTypeOrFlavor || 'text';
         const block = this._manager.createBlock({
-            uuid: isNamedUuid ? blockTypeOrFlavor : undefined,
-            binary,
-            type: finalBlockType,
-            flavor: blockFlavor,
+            uuid: isNamedUuid ? blockFlavor : undefined,
+            flavor: flavor || blockFlavor || 'text',
         });
         return this._initialBlock(block, isNamedUuid);
-    }
-
-    private _createBinary(binary?: ArrayBuffer) {
-        return this._create(BlockTypes.binary, {
-            binary,
-            flavor: BlockTypes.binary,
-        });
     }
 
     /**
@@ -601,14 +572,6 @@ export class JwtStore implements IJwtStore {
         return this._manager.count();
     }
 
-    /**
-     * Suspend instant update event dispatch, extend to a maximum of 500ms once, and a maximum of 2000ms when triggered continuously
-     * @param suspend true: suspend monitoring, false: resume monitoring
-     */
-    suspend(suspend: boolean) {
-        this._manager.suspend(suspend);
-    }
-
     public get history(): HistoryManager {
         return this._manager.history();
     }
@@ -628,9 +591,6 @@ export class JwtStore implements IJwtStore {
                 const block = this._create(op.content.flavor);
                 this._updateBlock(block.id, op.content);
                 return block;
-            }
-            case 'InsertBinaryOperation': {
-                return this._createBinary(op.content.binary);
             }
             case 'UpdateBlockOperation': {
                 return this._updateBlock(op.id, op.content);

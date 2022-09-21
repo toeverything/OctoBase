@@ -3,7 +3,6 @@
 /* eslint-disable max-lines */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /// <reference types="wicg-file-system-access" />
-import { Buffer } from 'buffer';
 import { saveAs } from 'file-saver';
 import { fromEvent } from 'file-selector';
 import { nanoid } from 'nanoid';
@@ -18,9 +17,8 @@ import {
     transact,
 } from 'yjs';
 import type { BlockItem } from '../types';
-import { BlockTypes } from '../types';
 import type { BlockEventBus } from '../utils';
-import { getLogger, sha3, sleep } from '../utils';
+import { getLogger, sleep } from '../utils';
 import { RemoteBinaries } from './binary';
 import { YBlock } from './block';
 import { GateKeeper } from './gatekeeper';
@@ -95,13 +93,13 @@ function initYProvider(
         synced = Promise.all(
             Object.entries(options.providers).flatMap(([, p]) => [
                 p({ awareness, doc, token, workspace, emitState }),
-                p({
-                    awareness,
-                    doc: binaries,
-                    token,
-                    workspace: `${workspace}_binaries`,
-                    emitState,
-                }),
+                // p({
+                //     awareness,
+                //     doc: binaries,
+                //     token,
+                //     workspace: `${workspace}_binaries`,
+                //     emitState,
+                // }),
             ])
         );
     }
@@ -383,49 +381,27 @@ export class YBlockManager {
     }
 
     createBlock(
-        options: Pick<BlockItem, 'type' | 'flavor'> & {
+        options: Pick<BlockItem, 'flavor'> & {
             uuid: string | undefined;
-            binary: ArrayBufferLike | undefined;
+            // TODO: how save binary?
+            // binary: ArrayBufferLike | undefined;
         }
     ): YBlock {
         const uuid = options.uuid || `affine${nanoid(16)}`;
-        if (options.type === BlockTypes.binary) {
-            if (options.binary && options.binary instanceof ArrayBuffer) {
-                const array = new YArray();
-                array.insert(0, [options.binary]);
-                const block = {
-                    type: options.type,
-                    flavor: options.flavor,
-                    children: [] as string[],
-                    created: Date.now(),
-                    content: new YContentOperation(
-                        this._eventBus.type('operation'),
-                        array
-                    ),
-                    hash: sha3(Buffer.from(options.binary)),
-                };
-                this._setBlock(uuid, block);
-                const result = this.getBlock(uuid);
-                assertExists(result);
-                return result;
-            }
-            throw new Error(`Invalid binary type: ${options.binary}`);
-        } else {
-            const block = {
-                type: options.type,
-                flavor: options.flavor,
-                children: [] as string[],
-                created: Date.now(),
-                content: new YContentOperation(
-                    this._eventBus.type('operation'),
-                    new YMap()
-                ),
-            };
-            this._setBlock(uuid, block);
-            const result = this.getBlock(uuid);
-            assertExists(result);
-            return result;
-        }
+
+        const block = {
+            flavor: options.flavor,
+            children: [] as string[],
+            created: Date.now(),
+            content: new YContentOperation(
+                this._eventBus.type('operation'),
+                new YMap()
+            ),
+        };
+        this._setBlock(uuid, block);
+        const result = this.getBlock(uuid);
+        assertExists(result);
+        return result;
     }
 
     private _getUpdated(id: string) {
@@ -439,17 +415,13 @@ export class YBlockManager {
     private _getBlockSync(id: string): YBlock | undefined {
         const cached = this._blockMap.get(id);
         if (cached) {
-            // Synchronous read cannot read binary
-            if (cached.type === BlockTypes.block) {
-                return cached;
-            }
-            return undefined;
+            return cached;
         }
 
         const block = this._blocks.get(id);
 
         // Synchronous read cannot read binary
-        if (block && block.get('type') === BlockTypes.block) {
+        if (block) {
             const instance = new YBlock({
                 id,
                 block,
@@ -471,22 +443,7 @@ export class YBlockManager {
         if (blockInstance) {
             return blockInstance;
         }
-        const block = this._blocks.get(id);
-        if (block && block.get('type') === BlockTypes.binary) {
-            // TODO: get remote binary is async
-            // const binary = this._binaries.get(block.get('hash') as string);
-            // if (binary) {
-            //     return new YBlock({
-            //         id,
-            //         block,
-            //         binary,
-            //         setBlock: this.set_block.bind(this),
-            //         getUpdated: this.get_updated.bind(this),
-            //         getCreator: this.get_creator.bind(this),
-            //         getYBlock: this.get_block_sync.bind(this),
-            //     });
-            // }
-        }
+
         return undefined;
     }
 
@@ -505,15 +462,8 @@ export class YBlockManager {
         return keys;
     }
 
-    getBlockByType(type: BlockItem['type']): string[] {
-        const keys: string[] = [];
-        this._blocks.forEach((doc, key) => {
-            if (doc.get('type') === type) {
-                keys.push(key);
-            }
-        });
-
-        return keys;
+    getAllBlock(): string[] {
+        return Array.from(this._blocks.keys());
     }
 
     private _setBlock(key: string, item: BlockItem & { hash?: string }): void {
@@ -521,7 +471,7 @@ export class YBlockManager {
         transact(this._doc, () => {
             // Insert only if the block doesn't exist yet
             // Other modification operations are done in the block instance
-            let uploaded: Promise<void> | undefined;
+
             if (!block.size) {
                 const content = item.content[INTO_INNER]();
                 if (!content) {
@@ -531,26 +481,10 @@ export class YBlockManager {
                 const children = new YArray();
                 children.push(item.children);
 
-                block.set('type', item.type);
-                block.set('flavor', item.flavor);
-                block.set('children', children);
-                block.set('created', item.created);
-                if (item.type === BlockTypes.block) {
-                    block.set('content', content);
-                } else if (item.type === BlockTypes.binary && item.hash) {
-                    if (content instanceof YArray) {
-                        block.set('hash', item.hash);
-                        if (!this._binaries.has(item.hash)) {
-                            uploaded = this._binaries.set(item.hash, content);
-                        }
-                    } else {
-                        throw new Error(
-                            'binary content must be an buffer yarray'
-                        );
-                    }
-                } else {
-                    throw new Error(`invalid block type: ${item.type}`);
-                }
+                block.set('sys:flavor', item.flavor);
+                block.set('sys:children', children);
+                block.set('sys:created', item.created);
+                block.set('content', content);
 
                 this._blocks.set(key, block);
             }
@@ -564,15 +498,6 @@ export class YBlockManager {
                 this._gatekeeper.setCommon(key);
             } else {
                 this._gatekeeper.setCreator(key);
-            }
-
-            if (uploaded) {
-                // TODO: there should be a mechanism to retry the upload
-                uploaded.catch(err => {
-                    // undo set on failure
-                    console.error('Failed to upload object: ', err);
-                    this.deleteBlocks([key]);
-                });
             }
         });
     }
@@ -597,11 +522,6 @@ export class YBlockManager {
         transact(this._doc, () => {
             cb();
         });
-    }
-
-    suspend(suspend: boolean) {
-        // need implementation
-        // Suspend(suspend);
     }
 
     public history(): HistoryManager {

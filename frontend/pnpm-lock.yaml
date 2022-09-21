@@ -148,18 +148,13 @@ importers:
 
   libs/jwt-rpc:
     specifiers:
-      '@types/sql.js': ^1.4.3
       lib0: ^0.2.52
-      sql.js: ^1.7.0
       y-protocols: ^1.0.5
       yjs: ^13.5.41
     dependencies:
       lib0: 0.2.52
-      sql.js: 1.8.0
       y-protocols: 1.0.5
       yjs: 13.5.41
-    devDependencies:
-      '@types/sql.js': 1.4.3
 
 packages:
 
@@ -3053,10 +3048,6 @@ packages:
       '@types/ms': 0.7.31
     dev: true
 
-  /@types/emscripten/1.39.6:
-    resolution: {integrity: sha512-H90aoynNhhkQP6DRweEjJp5vfUVdIj7tdPLsu7pq89vODD/lcugKfZOsfgwpvM6XUewEp2N5dCg1Uf3Qe55Dcg==}
-    dev: true
-
   /@types/eslint-scope/3.7.4:
     resolution: {integrity: sha512-9K4zoImiZc3HlIp6AVUDE4CWYx22a+lhSZMYNpbjW04+YF0KWj4pJXnEMjdnFTiQibFFmElcsasJXDbdI/EPhA==}
     dependencies:
@@ -3241,13 +3232,6 @@ packages:
   /@types/sockjs/0.3.33:
     resolution: {integrity: sha512-f0KEEe05NvUnat+boPTZ0dgaLZ4SfSouXUgv5noUiefG2ajgKjmETo9ZJyuqsl7dfl2aHlLJUiki6B4ZYldiiw==}
     dependencies:
-      '@types/node': 18.7.18
-    dev: true
-
-  /@types/sql.js/1.4.3:
-    resolution: {integrity: sha512-3bz1LJIiJtKMEL8tYf7c9Nrb1lYcFeWQkE8vhWvobE29ZzizW79DtoTjqx1bR82DS2Ch2K30nOwNhuLclZ1vYg==}
-    dependencies:
-      '@types/emscripten': 1.39.6
       '@types/node': 18.7.18
     dev: true
 
@@ -8975,10 +8959,6 @@ packages:
   /sprintf-js/1.0.3:
     resolution: {integrity: sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g==}
     dev: true
-
-  /sql.js/1.8.0:
-    resolution: {integrity: sha512-3HD8pSkZL+5YvYUI8nlvNILs61ALqq34xgmF+BHpqxe68yZIJ1H+sIVIODvni25+CcxHUxDyrTJUL0lE/m7afw==}
-    dev: false
 
   /stable/0.1.8:
     resolution: {integrity: sha512-ji9qxRnOVfcuLDySj9qzhGSEFVobyt1kIOSkj1qZzYLzq7Tos/oUUWvotUPQLlrsidqsK6tBH89Bc9kL5zHA6w==}

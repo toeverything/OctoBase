@@ -51,8 +51,7 @@ export type {
 } from './block';
 export * from './command';
 export { JwtStore } from './instance';
-export { BlockTypes, BucketBackend as BlockBackend } from './types';
-export type { BlockTypeKeys } from './types';
+export { BucketBackend as BlockBackend } from './types';
 export { isBlock } from './utils';
 export type { ChangedStates, Connectivity } from './yjs/types';
 export type { QueryIndexMetadata, AbstractBlock };

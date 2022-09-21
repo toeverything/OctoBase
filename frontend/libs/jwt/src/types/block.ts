@@ -1,14 +1,6 @@
 import type { YContentOperation } from '../yjs';
 import type { RefMetadata } from './metadata';
 
-// base type of block
-// y_block: tree structure expression with YAbstractType as root
-// y_binary: arbitrary binary data
-export const BlockTypes = {
-    block: 'y_block' as const, // data block
-    binary: 'y_binary' as const, // binary data
-};
-
 // block flavor
 // block has the same basic structure
 // but different flavors provide different parsing of their content
@@ -27,10 +19,7 @@ export enum BlockFlavors {
     todo = 'todo',
 }
 
-export type BlockTypeKeys = keyof typeof BlockTypes;
-
 export type BlockItem = {
-    readonly type: typeof BlockTypes[BlockTypeKeys];
     // block flavor
     // block has the same basic structure
     // But different flavors provide different parsing of their content

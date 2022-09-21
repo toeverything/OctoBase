@@ -5,13 +5,13 @@ use crate::sync::{init_pool, SQLite};
 use super::*;
 use axum::{
     extract::{ws::Message, Json, Path},
-    http::{header, StatusCode},
+    http::StatusCode,
     response::IntoResponse,
     Router,
 };
 use dashmap::DashMap;
 use jwst::Block;
-use serde_json::{to_string as json_to_string, Value as JsonValue};
+use serde_json::Value as JsonValue;
 use sqlx::SqlitePool;
 use std::convert::TryFrom;
 use tokio::sync::{mpsc::Sender, Mutex};

@@ -1,6 +1,6 @@
 /* eslint-disable max-lines */
-import type { BlockItem, BlockTypeKeys } from '../types';
-import { BlockFlavors, BlockTypes } from '../types';
+import type { BlockItem } from '../types';
+import { BlockFlavors } from '../types';
 import type { TopicEventBus } from '../utils';
 import { getLogger } from '../utils';
 import type {
@@ -178,39 +178,16 @@ export class AbstractBlock<T extends object = object> {
     }
 
     public getContent(): T {
-        if (this._block.type === BlockTypes.block) {
-            if (!this._cachedContent) {
-                this._cachedContent =
-                    this._block.content.getStructuredContent();
-            }
-            return this._cachedContent as T;
+        if (!this._cachedContent) {
+            this._cachedContent = this._block.content.getStructuredContent();
         }
-        throw new Error(
-            `this block not a structured block: ${this._id}, ${this._block.type}`
-        );
+        return this._cachedContent as T;
     }
 
     private _getEditableContent<
         T extends ContentTypes = YContentOperation
     >(): YMapOperation<T> {
-        if (this._block.type === BlockTypes.block) {
-            return this._block.content.asMap() as YMapOperation<T>;
-        }
-        throw new Error(
-            `this block not a structured block: ${this._id}, ${this._block.type}`
-        );
-    }
-
-    public getBinary(): ArrayBuffer | undefined {
-        if (this._block.type === BlockTypes.binary) {
-            if (!this._cachedContent) {
-                this._cachedContent = this._block.content
-                    .asArray<ArrayBuffer>()
-                    ?.get(0);
-            }
-            return this._cachedContent as ArrayBuffer;
-        }
-        throw new Error('this block not a binary block');
+        return this._block.content.asMap() as YMapOperation<T>;
     }
 
     public setContent(value: Partial<T>) {
@@ -297,7 +274,6 @@ export class AbstractBlock<T extends object = object> {
 
         return [
             `id:${this._id}`,
-            `type:${this.type}`,
             `type:${this.flavor}`,
             this.flavor === BlockFlavors.page && 'type:doc', // normal documentation
             this.flavor === BlockFlavors.tag && 'type:card', // tag document
@@ -312,13 +288,6 @@ export class AbstractBlock<T extends object = object> {
      */
     public get id(): string {
         return this._id;
-    }
-
-    /**
-     * current block type
-     */
-    public get type(): typeof BlockTypes[BlockTypeKeys] {
-        return this._block.type;
     }
 
     /**
@@ -351,13 +320,6 @@ export class AbstractBlock<T extends object = object> {
         if (block.id === this._id) {
             // avoid self-reference
             return;
-        }
-        if (
-            this.type !== BlockTypes.block || // binary cannot insert children blocks
-            (block.type !== BlockTypes.block &&
-                this.flavor !== BlockFlavors.workspace) // binary can only be inserted into workspace
-        ) {
-            throw new Error('insertChildren: binary not allow insert children');
         }
 
         this._block.insertChildren(block[GET_BLOCK](), position);
@@ -512,7 +474,6 @@ export class AbstractBlock<T extends object = object> {
 
     public getQueryMetadata(): QueryMetadata {
         return {
-            type: this.type,
             flavor: this.flavor,
             creator: this.creator,
             children: this.children,
