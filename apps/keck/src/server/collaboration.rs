@@ -8,11 +8,10 @@ use axum::{
     response::Response,
     Json,
 };
-use dashmap::mapref::entry::Entry;
 use futures::{sink::SinkExt, stream::StreamExt};
 use serde::Serialize;
 use std::sync::Arc;
-use tokio::sync::{mpsc::channel, Mutex};
+use tokio::sync::mpsc::channel;
 use yrs::{
     updates::{
         decoder::{Decoder, DecoderV1},

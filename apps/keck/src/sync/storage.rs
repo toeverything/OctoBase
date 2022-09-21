@@ -16,6 +16,7 @@ pub struct UpdateBinary {
 #[derive(sqlx::FromRow)]
 pub struct Count(i64);
 
+#[derive(Clone)]
 pub struct SQLite {
     conn: SqlitePool,
     table: String,
