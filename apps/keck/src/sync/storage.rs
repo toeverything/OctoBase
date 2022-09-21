@@ -100,21 +100,23 @@ pub async fn init<T: ToString>(conn: SqlitePool, table: T) -> Result<SQLite, Err
     Ok(db)
 }
 
-#[tokio::test]
-async fn sync_storage_test() -> anyhow::Result<()> {
-    let pool = init_pool("jwst").await?;
-    let sqlite = init(pool, "updates").await?;
+mod tests {
+    #[tokio::test]
+    async fn sync_storage_test() -> anyhow::Result<()> {
+        let pool = super::init_pool("jwst").await?;
+        let sqlite = super::init(pool, "updates").await?;
 
-    sqlite.insert(&[1, 2, 3, 4]).await?;
-    println!("count: {}", sqlite.count().await?);
-    sqlite.insert(&[2, 2, 3, 4]).await?;
-    sqlite.delete(2).await?;
-    println!("data: {:?}", sqlite.all(0).await?);
+        sqlite.insert(&[1, 2, 3, 4]).await?;
+        println!("count: {}", sqlite.count().await?);
+        sqlite.insert(&[2, 2, 3, 4]).await?;
+        sqlite.delete(2).await?;
+        println!("data: {:?}", sqlite.all(0).await?);
 
-    sqlite.drop().await?;
-    sqlite.create().await?;
-    sqlite.insert(&[1, 2, 3, 4]).await?;
-    println!("data: {:?}", sqlite.all(0).await?);
+        sqlite.drop().await?;
+        sqlite.create().await?;
+        sqlite.insert(&[1, 2, 3, 4]).await?;
+        println!("data: {:?}", sqlite.all(0).await?);
 
-    Ok(())
+        Ok(())
+    }
 }
