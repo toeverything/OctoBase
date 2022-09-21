@@ -33,7 +33,6 @@ impl From<Subscription<UpdateEvent>> for BlockSubscription {
 pub struct Context {
     pub doc: DashMap<String, Mutex<Doc>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
-    pub db: DashMap<String, SQLite>,
     pub db_conn: SqlitePool,
     pub subscribes: DashMap<String, BlockSubscription>,
 }
@@ -43,7 +42,6 @@ impl Context {
         Context {
             doc: DashMap::new(),
             channel: DashMap::new(),
-            db: DashMap::new(),
             db_conn: init_pool("jwst").await.unwrap(),
             subscribes: DashMap::new(),
         }
