@@ -66,7 +66,7 @@ pub async fn set_workspace(
         ("workspace", description = "workspace id"),
     ),
     responses(
-        (status = 204, description = "Delete workspace data")
+        (status = 204, description = "Workspace data deleted")
     )
 )]
 pub async fn delete_workspace(

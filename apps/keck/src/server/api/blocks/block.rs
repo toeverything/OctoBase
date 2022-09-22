@@ -111,20 +111,15 @@ pub async fn set_block(
     }
 }
 
-// create or set block with content
+// delete block
 #[utoipa::path(
-    post,
+    delete,
     tag = "Blocks",
     context_path = "/api/block",
     path = "/{workspace}/{block}",
     params(
         ("workspace", description = "workspace id"),
         ("block", description = "block id"),
-    ),
-    request_body(
-        content = String,
-        description = "json",
-        content_type = "application/json"
     ),
     responses(
         (status = 204, description = "Block successfully deleted"),
