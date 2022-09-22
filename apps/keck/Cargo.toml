@@ -57,11 +57,11 @@ default-features = false
 features = ["v4"]
 
 [dependencies.lib0]
-version = "0.11.2"
+version = "^0.12.0"
 features = ["lib0-serde"]
 
 [dependencies.yrs]
-version = "0.11.2"
+version = "^0.12.0"
 
 [dependencies.jwst]
 path = "../../libs/jwst"
