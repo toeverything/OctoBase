@@ -16,6 +16,11 @@ pub struct UpdateBinary {
 #[derive(sqlx::FromRow)]
 pub struct Count(i64);
 
+#[derive(sqlx::FromRow)]
+pub struct MaxId {
+    seq: i64,
+}
+
 #[derive(Clone)]
 pub struct SQLite {
     pub conn: SqlitePool,
@@ -45,10 +50,15 @@ impl SQLite {
     }
 
     pub async fn max_id(&self) -> Result<i64, Error> {
-        let stmt = format!("SELECT max(id) FROM {}", self.table);
+        let stmt = format!(
+            "SELECT SEQ from sqlite_sequence WHERE name='{}'",
+            self.table
+        );
         let mut conn = self.get_conn().await?;
-        let ret = query_as::<_, Count>(&stmt).fetch_one(&mut conn).await?;
-        Ok(ret.0)
+        let ret = query_as::<_, MaxId>(&stmt)
+            .fetch_optional(&mut conn)
+            .await?;
+        Ok(ret.map(|ret| ret.seq).unwrap_or(0))
     }
 
     pub async fn insert(&self, blob: &[u8]) -> Result<(), Error> {
@@ -123,8 +133,16 @@ mod tests {
         let pool = init_memory_pool().await?;
         let sqlite = init(pool, "basic").await?;
 
+        // empty table
+        assert_eq!(sqlite.count().await?, 0);
+        assert_eq!(sqlite.max_id().await?, 0);
+
+        // first insert
         sqlite.insert(&[1, 2, 3, 4]).await?;
         assert_eq!(sqlite.count().await?, 1);
+        assert_eq!(sqlite.max_id().await?, 1);
+
+        // second insert
         sqlite.insert(&[2, 2, 3, 4]).await?;
         sqlite.delete_before(2).await?;
         assert_eq!(
@@ -135,6 +153,11 @@ mod tests {
             }]
         );
         assert_eq!(sqlite.count().await?, 1);
+        assert_eq!(sqlite.max_id().await?, 2);
+
+        // clear table
+        sqlite.delete_before(3).await?;
+        assert_eq!(sqlite.count().await?, 0);
         assert_eq!(sqlite.max_id().await?, 2);
 
         sqlite.drop().await?;
@@ -148,6 +171,7 @@ mod tests {
             }]
         );
         assert_eq!(sqlite.count().await?, 1);
+        assert_eq!(sqlite.max_id().await?, 1);
 
         Ok(())
     }
