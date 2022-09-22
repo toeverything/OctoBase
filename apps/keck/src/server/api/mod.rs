@@ -1,6 +1,6 @@
 mod blocks;
 
-use crate::sync::{init_pool, SQLite};
+use crate::sync::init_pool;
 
 use super::*;
 use axum::{
@@ -74,10 +74,14 @@ pub fn api_handler() -> Router {
         .nest("/block/:workspace/:block/", block_operation)
         .route(
             "/block/:workspace/:block",
-            get(blocks::get_block).post(blocks::set_block),
+            get(blocks::get_block)
+                .post(blocks::set_block)
+                .delete(blocks::delete_block),
         )
         .route(
             "/block/:workspace",
-            get(blocks::get_workspace).post(blocks::set_workspace),
+            get(blocks::get_workspace)
+                .post(blocks::set_workspace)
+                .delete(blocks::delete_workspace),
         )
 }
