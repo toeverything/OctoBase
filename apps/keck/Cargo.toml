@@ -69,6 +69,9 @@ path = "../../libs/jwst"
 [dependencies.jwst_logger]
 path = "../../libs/logger"
 
+[dev-dependencies]
+assert-json-diff = "2.0.2"
+
 [build-dependencies.mdbook]
 version = "^0.4.21"
 default-features = false
