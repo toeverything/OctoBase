@@ -167,9 +167,9 @@ pub async fn delete_block(
         content_type = "application/json"
     ),
     responses(
-        (status = 200, description = "Block moved"),
-        (status = 404, description = "Workspace not found"),
-        (status = 500, description = "Failed to move block")
+        (status = 200, description = "Block inserted"),
+        (status = 404, description = "Workspace or block not found"),
+        (status = 500, description = "Failed to insert block")
     )
 )]
 pub async fn insert_block(
@@ -196,7 +196,7 @@ pub async fn insert_block(
 
 // remove block
 #[utoipa::path(
-    post,
+    delete,
     tag = "Blocks",
     context_path = "/api/block",
     path = "/{workspace}/{block}/insert",
@@ -210,9 +210,9 @@ pub async fn insert_block(
         content_type = "application/json"
     ),
     responses(
-        (status = 200, description = "Block moved"),
-        (status = 404, description = "Workspace not found"),
-        (status = 500, description = "Failed to move block")
+        (status = 200, description = "Block children removed"),
+        (status = 404, description = "Workspace or block not found"),
+        (status = 500, description = "Failed to remove block children")
     )
 )]
 pub async fn remove_block(

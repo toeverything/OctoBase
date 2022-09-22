@@ -53,9 +53,12 @@ impl Context {
     paths(
         blocks::get_workspace,
         blocks::set_workspace,
+        blocks::delete_workspace,
         blocks::get_block,
         blocks::set_block,
+        blocks::delete_block,
         blocks::insert_block,
+        blocks::remove_block,
     ),
     tags((name = "Blocks", description = "Read and write remote blocks"))
 )]

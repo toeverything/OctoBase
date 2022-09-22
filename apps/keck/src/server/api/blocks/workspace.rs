@@ -1,4 +1,4 @@
-use crate::sync::SQLite;
+use crate::sync::init;
 
 use super::*;
 use axum::extract::Path;
@@ -12,7 +12,8 @@ use axum::extract::Path;
         ("workspace", description = "workspace id"),
     ),
     responses(
-        (status = 200, description = "Get workspace data")
+        (status = 200, description = "Get workspace data"),
+        (status = 404, description = "Workspace not found")
     )
 )]
 pub async fn get_workspace(
@@ -27,7 +28,7 @@ pub async fn get_workspace(
         let mut trx = doc.transact();
         utils::parse_doc(trx.get_map("blocks").to_json()).into_response()
     } else {
-        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        StatusCode::NOT_FOUND.into_response()
     }
 }
 
@@ -66,7 +67,8 @@ pub async fn set_workspace(
         ("workspace", description = "workspace id"),
     ),
     responses(
-        (status = 204, description = "Workspace data deleted")
+        (status = 204, description = "Workspace data deleted"),
+        (status = 500, description = "Failed to delete workspace")
     )
 )]
 pub async fn delete_workspace(
@@ -78,13 +80,14 @@ pub async fn delete_workspace(
         return StatusCode::NOT_FOUND;
     }
     context.subscribes.remove(&workspace);
-    let db = SQLite {
-        conn: context.db_conn.clone(),
-        table: workspace.clone(),
-    };
-    if let Err(_) = db.drop().await {
-        return StatusCode::INTERNAL_SERVER_ERROR;
-    };
+    match init(context.db_conn.clone(), workspace.clone()).await {
+        Ok(db) => {
+            if let Err(_) = db.drop().await {
+                return StatusCode::INTERNAL_SERVER_ERROR;
+            };
 
-    StatusCode::NO_CONTENT
+            StatusCode::NO_CONTENT
+        }
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    }
 }
