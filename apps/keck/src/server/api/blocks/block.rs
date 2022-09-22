@@ -196,10 +196,10 @@ pub async fn insert_block(
 
 // remove block
 #[utoipa::path(
-    delete,
+    post,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}/insert",
+    path = "/{workspace}/{block}/remove",
     params(
         ("workspace", description = "workspace id"),
         ("block", description = "block id"),
