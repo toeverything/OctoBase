@@ -8,11 +8,18 @@ use axum::{
     routing::{get, post},
     Extension, Router,
 };
-use http::{HeaderValue, Method};
+use http::Method;
 use std::{net::SocketAddr, sync::Arc};
 use tower_http::cors::{Any, CorsLayer};
 
 pub async fn start_server() {
+    let origins = [
+        "http://localhost:4200".parse().unwrap(),
+        "http://127.0.0.1:4200".parse().unwrap(),
+        "http://localhost:3000".parse().unwrap(),
+        "http://127.0.0.1:3000".parse().unwrap(),
+    ];
+
     let cors = CorsLayer::new()
         // allow `GET` and `POST` when accessing the resource
         .allow_methods(vec![
@@ -22,7 +29,7 @@ pub async fn start_server() {
             Method::OPTIONS,
         ])
         // allow requests from any origin
-        .allow_origin("http://localhost:4200".parse::<HeaderValue>().unwrap())
+        .allow_origin(origins)
         .allow_headers(Any);
 
     let context = Arc::new(Context::new().await);
