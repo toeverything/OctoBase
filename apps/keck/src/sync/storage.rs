@@ -18,8 +18,8 @@ pub struct Count(i64);
 
 #[derive(Clone)]
 pub struct SQLite {
-    conn: SqlitePool,
-    table: String,
+    pub conn: SqlitePool,
+    pub table: String,
 }
 
 impl SQLite {
@@ -75,7 +75,7 @@ impl SQLite {
         Ok(())
     }
     pub async fn drop(&self) -> Result<(), Error> {
-        let stmt = format!("DROP TABLE {};", self.table);
+        let stmt = format!("DROP TABLE IF EXISTS {};", self.table);
         let mut conn = self.get_conn().await?;
         query(&stmt).execute(&mut conn).await?;
         Ok(())

@@ -111,6 +111,51 @@ pub async fn set_block(
     }
 }
 
+// create or set block with content
+#[utoipa::path(
+    post,
+    tag = "Blocks",
+    context_path = "/api/block",
+    path = "/{workspace}/{block}",
+    params(
+        ("workspace", description = "workspace id"),
+        ("block", description = "block id"),
+    ),
+    request_body(
+        content = String,
+        description = "json",
+        content_type = "application/json"
+    ),
+    responses(
+        (status = 204, description = "Block successfully deleted"),
+        (status = 404, description = "Workspace or block not found"),
+    )
+)]
+pub async fn delete_block(
+    Extension(context): Extension<Arc<Context>>,
+    Path(params): Path<(String, String)>,
+) -> impl IntoResponse {
+    let (workspace, block) = params;
+    info!("delete_block: {}, {}", workspace, block);
+    if let Some(doc) = context.doc.get(&workspace) {
+        let doc = doc.value().lock().await;
+        let mut trx = doc.transact();
+        if let Some(_) = trx
+            .get_map("blocks")
+            .get("content")
+            .and_then(|b| b.to_ymap())
+            .and_then(|b| b.remove(&mut trx, &block))
+        {
+            trx.commit();
+            StatusCode::NO_CONTENT
+        } else {
+            StatusCode::NOT_FOUND
+        }
+    } else {
+        StatusCode::NOT_FOUND
+    }
+}
+
 // insert block
 #[utoipa::path(
     post,
