@@ -93,11 +93,13 @@ impl SQLite {
 }
 
 pub async fn init_pool<F: ToString>(file: F) -> Result<SqlitePool, Error> {
+    use std::fs::create_dir;
+    create_dir("data")?;
     let path = format!(
         "sqlite:{}",
         std::env::current_dir()
             .unwrap()
-            .join(format!("{}.db", file.to_string()))
+            .join(format!("./data/{}.db", file.to_string()))
             .display()
     );
     let options = SqliteConnectOptions::from_str(&path)?
