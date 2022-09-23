@@ -14,13 +14,10 @@ use jwst::Block;
 use serde_json::Value as JsonValue;
 use sqlx::SqlitePool;
 use std::convert::TryFrom;
-use tokio::sync::{
-    mpsc::{Receiver, Sender},
-    Mutex,
-};
+use tokio::sync::{mpsc::Sender, Mutex};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use yrs::{types::Events, Doc, Map, Subscription, Transaction};
+use yrs::{Doc, Map, Transaction};
 
 pub struct Context {
     pub doc: DashMap<String, Mutex<Doc>>,
