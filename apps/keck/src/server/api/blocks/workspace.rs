@@ -1,7 +1,7 @@
 use crate::sync::init;
 
 use super::*;
-use axum::extract::Path;
+use axum::{extract::Path, http::header};
 
 #[utoipa::path(
     get,
@@ -79,6 +79,7 @@ pub async fn delete_workspace(
     if context.doc.remove(&workspace).is_none() {
         return StatusCode::NOT_FOUND;
     }
+    context.subscribes.remove(&workspace);
     match init(context.db_conn.clone(), workspace.clone()).await {
         Ok(db) => {
             if let Err(_) = db.drop().await {
@@ -88,5 +89,33 @@ pub async fn delete_workspace(
             StatusCode::NO_CONTENT
         }
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+}
+
+#[utoipa::path(
+    get,
+    tag = "Blocks",
+    context_path = "/api/block",
+    path = "/{workspace}/history",
+    params(
+        ("workspace", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Get workspace history"),
+        (status = 500, description = "Failed to get workspace history")
+    )
+)]
+pub async fn history_workspace(
+    Extension(context): Extension<Arc<Context>>,
+    Path(workspace): Path<String>,
+) -> impl IntoResponse {
+    if let Some(history) = context.history.get(&workspace) {
+        if let Ok(json) = serde_json::to_string(&history.lock().await.iter().collect::<Vec<_>>()) {
+            ([(header::CONTENT_TYPE, "application/json")], json).into_response()
+        } else {
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    } else {
+        StatusCode::NOT_FOUND.into_response()
     }
 }

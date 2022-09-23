@@ -14,25 +14,32 @@ use jwst::Block;
 use serde_json::Value as JsonValue;
 use sqlx::SqlitePool;
 use std::convert::TryFrom;
-use tokio::sync::{mpsc::Sender, Mutex};
+use tokio::sync::{
+    mpsc::{Receiver, Sender},
+    Mutex,
+};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use yrs::{Doc, Map, Subscription, Transaction, UpdateEvent};
+use yrs::{types::Events, Doc, Map, Subscription, Transaction};
 
 pub struct Context {
     pub doc: DashMap<String, Mutex<Doc>>,
+    pub history: DashMap<String, Arc<Mutex<Vec<BlockHistory>>>>,
     pub storage: DashMap<String, Sender<Vec<u8>>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub db_conn: SqlitePool,
+    pub subscribes: DashMap<String, BlockSubscription>,
 }
 
 impl Context {
     pub async fn new() -> Self {
         Context {
             doc: DashMap::new(),
+            history: DashMap::new(),
             storage: DashMap::new(),
             channel: DashMap::new(),
             db_conn: init_pool("jwst").await.unwrap(),
+            subscribes: DashMap::new(),
         }
     }
 }
@@ -43,6 +50,7 @@ impl Context {
         blocks::get_workspace,
         blocks::set_workspace,
         blocks::delete_workspace,
+        blocks::history_workspace,
         blocks::get_block,
         blocks::set_block,
         blocks::delete_block,
@@ -70,6 +78,7 @@ pub fn api_handler() -> Router {
                 .post(blocks::set_block)
                 .delete(blocks::delete_block),
         )
+        .route("/block/:workspace/history", get(blocks::history_workspace))
         .route(
             "/block/:workspace",
             get(blocks::get_workspace)

@@ -7,8 +7,12 @@ use axum::{
 use dashmap::mapref::entry::Entry;
 use serde::Serialize;
 use std::sync::Arc;
+use time::OffsetDateTime;
 use tokio::sync::{mpsc::channel, Mutex};
-use yrs::{Doc, Options, StateVector};
+use yrs::{
+    types::{DeepObservable, PathSegment},
+    Doc, Options, StateVector,
+};
 
 const MAX_TRIM_UPDATE_LIMIT: i64 = 500;
 
@@ -73,6 +77,7 @@ pub async fn init_doc(context: Arc<Context>, workspace: String) {
     if let Entry::Vacant(entry) = context.doc.entry(workspace.clone()) {
         let (doc, db) = create_doc(context.clone(), workspace.clone()).await;
         let (tx, mut rx) = channel::<Vec<u8>>(100);
+        let (history_tx, mut history_rx) = channel::<BlockHistory>(100);
 
         tokio::spawn(async move {
             while let Some(update) = rx.recv().await {
@@ -83,7 +88,56 @@ pub async fn init_doc(context: Arc<Context>, workspace: String) {
             }
         });
 
+        let history = Arc::new(Mutex::new(vec![]));
+        let history_clone = history.clone();
+        tokio::spawn(async move {
+            while let Some(h) = history_rx.recv().await {
+                println!("{:?}", h);
+                history_clone.lock().await.push(h);
+            }
+        });
+
+        context.history.insert(workspace.clone(), history.clone());
         context.storage.insert(workspace.clone(), tx);
+
+        let history = Arc::new(Mutex::new(history_tx));
+        if let Entry::Vacant(entry) = context.subscribes.entry(workspace.clone()) {
+            let blocks = doc.transact().get_map("blocks");
+
+            if let Some(mut blocks) = blocks.get("content").and_then(|c| c.to_ymap()) {
+                let sub = blocks.observe_deep(move |_, e| {
+                    let paths = e
+                        .iter()
+                        .map(|e| {
+                            e.path()
+                                .into_iter()
+                                .map(|p| match p {
+                                    PathSegment::Key(k) => k.as_ref().to_string(),
+                                    PathSegment::Index(i) => i.to_string(),
+                                })
+                                .collect::<Vec<String>>()
+                                .join("/")
+                        })
+                        .collect::<Vec<_>>();
+                    let history = history.clone();
+                    tokio::spawn(async move {
+                        for path in paths {
+                            if !path.is_empty() {
+                                if let Err(e) = history
+                                    .lock()
+                                    .await
+                                    .send(BlockHistory::new(path.clone()))
+                                    .await
+                                {
+                                    println!("Failed to log history: {}, {:?}", path, e);
+                                }
+                            }
+                        }
+                    });
+                });
+                entry.insert(sub.into());
+            }
+        }
 
         entry.insert(Mutex::new(doc));
     };
