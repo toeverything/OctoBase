@@ -100,6 +100,11 @@ pub async fn delete_workspace(
     params(
         ("workspace", description = "workspace id"),
     ),
+    request_body(
+        content = inline(BlockHistory),
+        description = "json",
+        content_type = "application/json"
+    ),
     responses(
         (status = 200, description = "Get workspace history"),
         (status = 500, description = "Failed to get workspace history")

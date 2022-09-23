@@ -2,6 +2,7 @@ use super::*;
 
 use time::OffsetDateTime;
 use tokio::sync::Mutex;
+use utoipa::ToSchema;
 use yrs::{types::Events, Subscription};
 
 pub struct BlockSubscription(Mutex<Subscription<Events>>);
@@ -15,7 +16,7 @@ impl From<Subscription<Events>> for BlockSubscription {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct BlockHistory {
     pub timestamp: i64,
     path: String,
