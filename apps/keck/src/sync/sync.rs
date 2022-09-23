@@ -42,28 +42,32 @@ pub fn read_sync_message<D: Decoder, E: Encoder>(
     doc: &Doc,
     decoder: &mut D,
     encoder: &mut E,
-) -> usize {
+) -> Option<Vec<u8>> {
     let msg_type = decoder.read_var().unwrap();
     match msg_type {
-        MSG_SYNC_STEP_1 => read_sync_step1(doc, decoder, encoder),
-        MSG_SYNC_STEP_2 => read_sync_step2(doc, decoder),
-        MSG_SYNC_UPDATE => read_update(doc, decoder),
+        MSG_SYNC_STEP_1 => {
+            read_sync_step1(doc, decoder, encoder);
+            None
+        }
+        MSG_SYNC_STEP_2 => Some(read_sync_step2(doc, decoder)),
+        MSG_SYNC_UPDATE => Some(read_update(doc, decoder)),
         other => panic!("Unknown message type: {} to {}", other, doc.client_id),
     }
-    msg_type
 }
 
 pub fn read_sync_step1<D: Decoder, E: Encoder>(doc: &Doc, decoder: &mut D, encoder: &mut E) {
     write_step2(doc, decoder.read_buf().unwrap(), encoder)
 }
 
-pub fn read_sync_step2<D: Decoder>(doc: &Doc, decoder: &mut D) {
+pub fn read_sync_step2<D: Decoder>(doc: &Doc, decoder: &mut D) -> Vec<u8> {
     let mut txn = doc.transact();
 
-    let update = Update::decode_v1(decoder.read_buf().unwrap()).unwrap();
+    let buf = decoder.read_buf().unwrap();
+    let update = Update::decode_v1(buf).unwrap();
     txn.apply_update(update);
+    buf.to_vec()
 }
 
-pub fn read_update<D: Decoder>(doc: &Doc, decoder: &mut D) {
+pub fn read_update<D: Decoder>(doc: &Doc, decoder: &mut D) -> Vec<u8> {
     read_sync_step2(doc, decoder)
 }

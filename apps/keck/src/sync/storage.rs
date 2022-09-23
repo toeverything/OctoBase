@@ -94,7 +94,11 @@ impl SQLite {
 
 pub async fn init_pool<F: ToString>(file: F) -> Result<SqlitePool, Error> {
     use std::fs::create_dir;
-    create_dir("data")?;
+    use std::path::PathBuf;
+    let data = PathBuf::from("data");
+    if !data.exists() {
+        create_dir(data)?;
+    }
     let path = format!(
         "sqlite:{}",
         std::env::current_dir()

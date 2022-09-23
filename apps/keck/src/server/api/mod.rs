@@ -19,31 +19,20 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 use yrs::{Doc, Map, Subscription, Transaction, UpdateEvent};
 
-pub struct BlockSubscription(Mutex<Subscription<UpdateEvent>>);
-
-unsafe impl Send for BlockSubscription {}
-unsafe impl Sync for BlockSubscription {}
-
-impl From<Subscription<UpdateEvent>> for BlockSubscription {
-    fn from(s: Subscription<UpdateEvent>) -> Self {
-        Self(Mutex::new(s))
-    }
-}
-
 pub struct Context {
     pub doc: DashMap<String, Mutex<Doc>>,
+    pub storage: DashMap<String, Sender<Vec<u8>>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub db_conn: SqlitePool,
-    pub subscribes: DashMap<String, BlockSubscription>,
 }
 
 impl Context {
     pub async fn new() -> Self {
         Context {
             doc: DashMap::new(),
+            storage: DashMap::new(),
             channel: DashMap::new(),
             db_conn: init_pool("jwst").await.unwrap(),
-            subscribes: DashMap::new(),
         }
     }
 }

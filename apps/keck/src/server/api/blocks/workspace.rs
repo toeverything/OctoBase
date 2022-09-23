@@ -79,7 +79,6 @@ pub async fn delete_workspace(
     if context.doc.remove(&workspace).is_none() {
         return StatusCode::NOT_FOUND;
     }
-    context.subscribes.remove(&workspace);
     match init(context.db_conn.clone(), workspace.clone()).await {
         Ok(db) => {
             if let Err(_) = db.drop().await {

@@ -127,26 +127,37 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
                     use std::panic::{catch_unwind, AssertUnwindSafe};
                     catch_unwind(AssertUnwindSafe(|| {
                         write_sync(&mut encoder);
-                        read_sync_message(&doc, &mut decoder, &mut encoder);
+                        read_sync_message(&doc, &mut decoder, &mut encoder)
                     }))
                     .ok()
-                    .and_then(|()| {
+                    .and_then(|update| {
                         let payload = encoder.to_vec();
                         if payload.len() > 1 {
-                            Some(payload)
+                            Some((Some(payload), update))
                         } else {
-                            None
+                            Some((None, update))
                         }
                     })
                 } else {
                     None
                 }
             };
-            if let Some(binary) = payload {
-                if let Err(e) = tx.send(Message::Binary(binary)).await {
-                    println!("on send error: {:?}", e);
-                    // client disconnected
-                    return;
+            if let Some((binary, update)) = payload {
+                if let Some(update) = update {
+                    if let Some(tx) = context.storage.get(&workspace) {
+                        if let Err(e) = tx.send(update).await {
+                            println!("on storage error: {:?}, {}", e, tx.is_closed());
+                            // client disconnected
+                            return;
+                        }
+                    }
+                }
+                if let Some(binary) = binary {
+                    if let Err(e) = tx.send(Message::Binary(binary)).await {
+                        println!("on send error: {:?}", e);
+                        // client disconnected
+                        return;
+                    }
                 }
             }
         }
