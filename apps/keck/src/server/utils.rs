@@ -6,18 +6,43 @@ use axum::{
 };
 use dashmap::mapref::entry::Entry;
 use serde::Serialize;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::Arc;
-use time::OffsetDateTime;
 use tokio::sync::{mpsc::channel, Mutex};
 use yrs::{
     types::{DeepObservable, PathSegment},
     Doc, Options, StateVector,
 };
 
+pub enum Migrate {
+    Update(Vec<u8>),
+    Full(Vec<u8>),
+}
+
 const MAX_TRIM_UPDATE_LIMIT: i64 = 500;
 
+async fn migrate_update(db: &SQLite, doc: Doc) -> Result<Doc, sqlx::Error> {
+    let updates = db.all(0).await?;
+
+    let mut trx = doc.transact();
+    for update in updates {
+        let id = update.id;
+        match Update::decode_v1(&update.blob) {
+            Ok(update) => {
+                if let Err(e) = catch_unwind(AssertUnwindSafe(|| trx.apply_update(update))) {
+                    warn!("update {} merge failed, skip it: {:?}", id, e);
+                }
+            }
+            Err(err) => info!("failed to decode update: {:?}", err),
+        }
+    }
+    trx.commit();
+
+    Ok(doc)
+}
+
 async fn load_doc(db: &SQLite) -> Result<Doc, sqlx::Error> {
-    let doc = Doc::with_options(Options {
+    let mut doc = Doc::with_options(Options {
         skip_gc: true,
         ..Default::default()
     });
@@ -26,43 +51,37 @@ async fn load_doc(db: &SQLite) -> Result<Doc, sqlx::Error> {
         let update = doc.encode_state_as_update_v1(&StateVector::default());
         db.insert(&update).await?;
     } else {
-        let updates = db.all(0).await?;
-
-        let mut trx = doc.transact();
-        for update in updates {
-            match Update::decode_v1(&update.blob) {
-                Ok(update) => trx.apply_update(update),
-                Err(err) => info!("failed to decode update: {:?}", err),
-            }
-        }
-        trx.commit();
+        doc = migrate_update(db, doc).await?;
     }
 
     Ok(doc)
 }
 
-async fn flush_document(db: &SQLite) -> Result<(), sqlx::Error> {
-    let doc = Doc::default();
+async fn update_document(db: &SQLite, update: Migrate) -> Result<(), sqlx::Error> {
+    match update {
+        Migrate::Update(update) => {
+            db.insert(&update).await.unwrap();
+            if db.count().await.unwrap() > MAX_TRIM_UPDATE_LIMIT {
+                let doc = migrate_update(&db, Doc::default()).await?;
 
-    {
-        let updates = db.all(0).await?;
+                let update = doc.encode_state_as_update_v1(&StateVector::default());
+                db.insert(&update).await?;
 
-        let mut trx = doc.transact();
-        for update in updates {
-            match Update::decode_v1(&update.blob) {
-                Ok(update) => trx.apply_update(update),
-                Err(err) => info!("failed to decode update: {:?}", err),
+                let clock = db.max_id().await?;
+                db.delete_before(clock).await?;
             }
         }
-        trx.commit();
+        Migrate::Full(full) => {
+            if db.count().await? > 1 {
+                db.insert(&full).await?;
+
+                let clock = db.max_id().await?;
+                db.delete_before(clock).await?;
+
+                info!("full refresh: {}", db.table);
+            }
+        }
     }
-
-    let update = doc.encode_state_as_update_v1(&StateVector::default());
-    db.insert(&update).await?;
-
-    let clock = db.max_id().await?;
-    db.delete_before(clock).await?;
-
     Ok(())
 }
 
@@ -76,23 +95,27 @@ async fn create_doc(context: Arc<Context>, workspace: String) -> (Doc, SQLite) {
 pub async fn init_doc(context: Arc<Context>, workspace: String) {
     if let Entry::Vacant(entry) = context.doc.entry(workspace.clone()) {
         let (doc, db) = create_doc(context.clone(), workspace.clone()).await;
-        let (tx, mut rx) = channel::<Vec<u8>>(100);
+        let (tx, mut rx) = channel::<Migrate>(100);
         let (history_tx, mut history_rx) = channel::<BlockHistory>(100);
 
-        tokio::spawn(async move {
-            while let Some(update) = rx.recv().await {
-                db.insert(&update).await.unwrap();
-                if db.count().await.unwrap() > MAX_TRIM_UPDATE_LIMIT {
-                    flush_document(&db).await.unwrap();
+        {
+            // storage thread
+            let workspace = workspace.clone();
+            tokio::spawn(async move {
+                while let Some(update) = rx.recv().await {
+                    if let Err(e) = update_document(&db, update).await {
+                        error!("failed to update document: {:?}", e);
+                    }
                 }
-            }
-        });
+                info!("storage final: {}", workspace);
+            });
+        }
 
         let history = Arc::new(Mutex::new(vec![]));
         let history_clone = history.clone();
         tokio::spawn(async move {
             while let Some(h) = history_rx.recv().await {
-                println!("{:?}", h);
+                debug!("change: {:?}", h.path);
                 history_clone.lock().await.push(h);
             }
         });
@@ -121,7 +144,7 @@ pub async fn init_doc(context: Arc<Context>, workspace: String) {
                         .collect::<Vec<_>>();
                     let history = history.clone();
                     tokio::spawn(async move {
-                        for path in paths {
+                        for path in &paths {
                             if !path.is_empty() {
                                 if let Err(e) = history
                                     .lock()
@@ -129,10 +152,11 @@ pub async fn init_doc(context: Arc<Context>, workspace: String) {
                                     .send(BlockHistory::new(path.clone()))
                                     .await
                                 {
-                                    println!("Failed to log history: {}, {:?}", path, e);
+                                    warn!("Failed to log history: {}, {:?}", path, e);
                                 }
                             }
                         }
+                        debug!("record {} history", paths.len());
                     });
                 });
                 entry.insert(sub.into());

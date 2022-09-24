@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 #[derive(sqlx::FromRow, Debug, PartialEq)]
 pub struct UpdateBinary {
-    id: i64,
+    pub id: i64,
     pub blob: Vec<u8>,
 }
 

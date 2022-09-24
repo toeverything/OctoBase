@@ -2,7 +2,7 @@ mod blocks;
 
 use crate::sync::init_pool;
 
-use super::*;
+use super::{utils::Migrate, *};
 use axum::{
     extract::{ws::Message, Json, Path},
     http::StatusCode,
@@ -22,7 +22,7 @@ use yrs::{Doc, Map, Transaction};
 pub struct Context {
     pub doc: DashMap<String, Mutex<Doc>>,
     pub history: DashMap<String, Arc<Mutex<Vec<BlockHistory>>>>,
-    pub storage: DashMap<String, Sender<Vec<u8>>>,
+    pub storage: DashMap<String, Sender<Migrate>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub db_conn: SqlitePool,
     pub subscribes: DashMap<String, BlockSubscription>,

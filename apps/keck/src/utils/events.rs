@@ -19,7 +19,7 @@ impl From<Subscription<Events>> for BlockSubscription {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct BlockHistory {
     pub timestamp: i64,
-    path: String,
+    pub path: String,
 }
 
 impl BlockHistory {

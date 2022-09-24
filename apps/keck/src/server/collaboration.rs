@@ -12,12 +12,13 @@ use futures::{sink::SinkExt, stream::StreamExt};
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::mpsc::channel;
+use utils::Migrate;
 use yrs::{
     updates::{
         decoder::{Decoder, DecoderV1},
         encoder::{Encoder, EncoderV1},
     },
-    Doc,
+    Doc, StateVector,
 };
 
 #[derive(Serialize)]
@@ -61,7 +62,9 @@ pub fn subscribe_handler(context: Arc<Context>, doc: &mut Doc, uuid: String, wor
                         closed.push(id.clone());
                     } else {
                         if let Err(e) = tx.send(Message::Binary(update.clone())).await {
-                            println!("on observe_update_v1 error: {}", e);
+                            if !tx.is_closed() {
+                                error!("on observe_update error: {}", e);
+                            }
                         }
                     }
                 }
@@ -80,14 +83,54 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
     let (mut socket_tx, mut socket_rx) = socket.split();
     let (tx, mut rx) = channel(100);
 
-    tokio::spawn(async move {
-        while let Some(msg) = rx.recv().await {
-            if let Err(e) = socket_tx.send(msg).await {
-                error!("send error: {}", e);
-                break;
+    {
+        // socket thread
+        let workspace = workspace.clone();
+        tokio::spawn(async move {
+            while let Some(msg) = rx.recv().await {
+                if let Err(e) = socket_tx.send(msg).await {
+                    error!("send error: {}", e);
+                    break;
+                }
             }
-        }
-    });
+            info!("socket final: {}", workspace);
+        });
+    }
+
+    {
+        let workspace = workspace.clone();
+        let context = context.clone();
+        tokio::spawn(async move {
+            use tokio::time::{sleep, Duration};
+            loop {
+                sleep(Duration::from_secs(10)).await;
+
+                let update = {
+                    if let Some(doc) = context.doc.get(&workspace) {
+                        Some(
+                            doc.lock()
+                                .await
+                                .encode_state_as_update_v1(&StateVector::default()),
+                        )
+                    } else {
+                        None
+                    }
+                };
+
+                if let Some((tx, update)) = context
+                    .storage
+                    .get(&workspace)
+                    .and_then(|tx| update.map(|update| (tx, update)))
+                {
+                    if let Err(e) = tx.send(Migrate::Full(update)).await {
+                        if !tx.is_closed() {
+                            error!("migrate full send error: {}", e);
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     let uuid = Uuid::new_v4().to_string();
     context
@@ -145,8 +188,10 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
             if let Some((binary, update)) = payload {
                 if let Some(update) = update {
                     if let Some(tx) = context.storage.get(&workspace) {
-                        if let Err(e) = tx.send(update).await {
-                            println!("on storage error: {:?}, {}", e, tx.is_closed());
+                        if let Err(e) = tx.send(Migrate::Update(update)).await {
+                            if !tx.is_closed() {
+                                error!("storage send error: {}", e.to_string());
+                            }
                             // client disconnected
                             return;
                         }
@@ -154,7 +199,9 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
                 }
                 if let Some(binary) = binary {
                     if let Err(e) = tx.send(Message::Binary(binary)).await {
-                        println!("on send error: {:?}", e);
+                        if !tx.is_closed() {
+                            error!("socket send error: {}", e.to_string());
+                        }
                         // client disconnected
                         return;
                     }
