@@ -1,4 +1,3 @@
-use futures::Future;
 use sqlx::{
     pool::PoolConnection,
     query, query_as,
@@ -21,73 +20,63 @@ pub struct MaxId {
     seq: i64,
 }
 
-#[derive(Clone)]
 pub struct SQLite {
-    pub conn: SqlitePool,
+    pub conn: PoolConnection<Sqlite>,
     pub table: String,
 }
 
 impl SQLite {
-    fn get_conn(&self) -> impl Future<Output = Result<PoolConnection<Sqlite>, Error>> {
-        self.conn.acquire()
-    }
-
-    pub async fn all(&self, idx: i64) -> Result<Vec<UpdateBinary>, Error> {
+    pub async fn all(&mut self, idx: i64) -> Result<Vec<UpdateBinary>, Error> {
         let stmt = format!("SELECT * FROM {} where id >= ?", self.table);
-        let mut conn = self.get_conn().await?;
         let ret = query_as::<_, UpdateBinary>(&stmt)
             .bind(idx)
-            .fetch_all(&mut conn)
+            .fetch_all(&mut self.conn)
             .await?;
         Ok(ret)
     }
 
-    pub async fn count(&self) -> Result<i64, Error> {
+    pub async fn count(&mut self) -> Result<i64, Error> {
         let stmt = format!("SELECT count(*) FROM {}", self.table);
-        let mut conn = self.get_conn().await?;
-        let ret = query_as::<_, Count>(&stmt).fetch_one(&mut conn).await?;
+        let ret = query_as::<_, Count>(&stmt)
+            .fetch_one(&mut self.conn)
+            .await?;
         Ok(ret.0)
     }
 
-    pub async fn max_id(&self) -> Result<i64, Error> {
+    pub async fn max_id(&mut self) -> Result<i64, Error> {
         let stmt = format!(
             "SELECT SEQ from sqlite_sequence WHERE name='{}'",
             self.table
         );
-        let mut conn = self.get_conn().await?;
         let ret = query_as::<_, MaxId>(&stmt)
-            .fetch_optional(&mut conn)
+            .fetch_optional(&mut self.conn)
             .await?;
         Ok(ret.map(|ret| ret.seq).unwrap_or(0))
     }
 
-    pub async fn insert(&self, blob: &[u8]) -> Result<(), Error> {
+    pub async fn insert(&mut self, blob: &[u8]) -> Result<(), Error> {
         let stmt = format!("INSERT INTO {} VALUES (null, ?);", self.table);
-        let mut conn = self.get_conn().await?;
-        query(&stmt).bind(blob).execute(&mut conn).await?;
+        query(&stmt).bind(blob).execute(&mut self.conn).await?;
         Ok(())
     }
 
-    pub async fn delete_before(&self, idx: i64) -> Result<(), Error> {
+    pub async fn delete_before(&mut self, idx: i64) -> Result<(), Error> {
         let stmt = format!("DELETE FROM {} WHERE id < ?", self.table);
-        let mut conn = self.get_conn().await?;
-        query(&stmt).bind(idx).execute(&mut conn).await?;
+        query(&stmt).bind(idx).execute(&mut self.conn).await?;
         Ok(())
     }
 
-    pub async fn create(&self) -> Result<(), Error> {
+    pub async fn create(&mut self) -> Result<(), Error> {
         let stmt = format!(
             "CREATE TABLE IF NOT EXISTS {} (id INTEGER PRIMARY KEY AUTOINCREMENT, blob BLOB);",
             self.table
         );
-        let mut conn = self.get_conn().await?;
-        query(&stmt).execute(&mut conn).await?;
+        query(&stmt).execute(&mut self.conn).await?;
         Ok(())
     }
-    pub async fn drop(&self) -> Result<(), Error> {
+    pub async fn drop(&mut self) -> Result<(), Error> {
         let stmt = format!("DROP TABLE IF EXISTS {};", self.table);
-        let mut conn = self.get_conn().await?;
-        query(&stmt).execute(&mut conn).await?;
+        query(&stmt).execute(&mut self.conn).await?;
         Ok(())
     }
 }
@@ -112,11 +101,9 @@ pub async fn init_pool<F: ToString>(file: F) -> Result<SqlitePool, Error> {
     SqlitePool::connect_with(options).await
 }
 
-pub async fn init<T: ToString>(conn: SqlitePool, table: T) -> Result<SQLite, Error> {
-    let table = table.to_string();
-
-    let db = SQLite {
-        conn,
+pub async fn init<T: ToString>(pool: SqlitePool, table: T) -> Result<SQLite, Error> {
+    let mut db = SQLite {
+        conn: pool.acquire().await?,
         table: table.to_string(),
     };
     db.create().await?;
@@ -137,7 +124,7 @@ mod tests {
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
         let pool = init_memory_pool().await?;
-        let sqlite = init(pool, "basic").await?;
+        let mut sqlite = init(pool, "basic").await?;
 
         // empty table
         assert_eq!(sqlite.count().await?, 0);

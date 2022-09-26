@@ -21,7 +21,7 @@ pub enum Migrate {
 
 const MAX_TRIM_UPDATE_LIMIT: i64 = 500;
 
-async fn migrate_update(db: &SQLite, doc: Doc) -> Result<Doc, sqlx::Error> {
+async fn migrate_update(db: &mut SQLite, doc: Doc) -> Result<Doc, sqlx::Error> {
     let updates = db.all(0).await?;
 
     let mut trx = doc.transact();
@@ -41,7 +41,7 @@ async fn migrate_update(db: &SQLite, doc: Doc) -> Result<Doc, sqlx::Error> {
     Ok(doc)
 }
 
-async fn load_doc(db: &SQLite) -> Result<Doc, sqlx::Error> {
+async fn load_doc(db: &mut SQLite) -> Result<Doc, sqlx::Error> {
     let mut doc = Doc::with_options(Options {
         skip_gc: true,
         ..Default::default()
@@ -57,12 +57,12 @@ async fn load_doc(db: &SQLite) -> Result<Doc, sqlx::Error> {
     Ok(doc)
 }
 
-async fn update_document(db: &SQLite, update: Migrate) -> Result<(), sqlx::Error> {
+async fn update_document(db: &mut SQLite, update: Migrate) -> Result<(), sqlx::Error> {
     match update {
         Migrate::Update(update) => {
             db.insert(&update).await.unwrap();
             if db.count().await.unwrap() > MAX_TRIM_UPDATE_LIMIT {
-                let doc = migrate_update(&db, Doc::default()).await?;
+                let doc = migrate_update(db, Doc::default()).await?;
 
                 let update = doc.encode_state_as_update_v1(&StateVector::default());
                 db.insert(&update).await?;
@@ -85,26 +85,36 @@ async fn update_document(db: &SQLite, update: Migrate) -> Result<(), sqlx::Error
     Ok(())
 }
 
-async fn create_doc(context: Arc<Context>, workspace: String) -> (Doc, SQLite) {
-    let db = init(context.db_conn.clone(), &workspace).await.unwrap();
-    let doc = load_doc(&db).await.unwrap();
+async fn create_doc(context: Arc<Context>, workspace: String) -> Doc {
+    let mut db = init(context.db_conn.clone(), &workspace).await.unwrap();
+    let doc = load_doc(&mut db).await.unwrap();
 
-    (doc, db)
+    doc
 }
 
 pub async fn init_doc(context: Arc<Context>, workspace: String) {
     if let Entry::Vacant(entry) = context.doc.entry(workspace.clone()) {
-        let (doc, db) = create_doc(context.clone(), workspace.clone()).await;
+        let doc = create_doc(context.clone(), workspace.clone()).await;
         let (tx, mut rx) = channel::<Migrate>(100);
         let (history_tx, mut history_rx) = channel::<BlockHistory>(100);
 
         {
             // storage thread
+            let context = context.clone();
             let workspace = workspace.clone();
             tokio::spawn(async move {
                 while let Some(update) = rx.recv().await {
-                    if let Err(e) = update_document(&db, update).await {
-                        error!("failed to update document: {:?}", e);
+                    let conn = context.db_conn.acquire().await;
+                    if let Ok(conn) = conn {
+                        let mut db = SQLite {
+                            conn,
+                            table: workspace.clone(),
+                        };
+                        if let Err(e) = update_document(&mut db, update).await {
+                            error!("failed to update document: {:?}", e);
+                        }
+                    } else {
+                        error!("get DB connection failed")
                     }
                 }
                 info!("storage final: {}", workspace);

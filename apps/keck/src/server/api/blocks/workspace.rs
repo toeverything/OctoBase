@@ -1,4 +1,4 @@
-use crate::sync::init;
+use crate::sync::SQLite;
 
 use super::*;
 use axum::{extract::Path, http::header};
@@ -80,16 +80,20 @@ pub async fn delete_workspace(
         return StatusCode::NOT_FOUND;
     }
     context.subscribes.remove(&workspace);
-    match init(context.db_conn.clone(), workspace.clone()).await {
-        Ok(db) => {
-            if let Err(_) = db.drop().await {
-                return StatusCode::INTERNAL_SERVER_ERROR;
-            };
+    let conn = if let Ok(conn) = context.db_conn.acquire().await {
+        conn
+    } else {
+        return StatusCode::INTERNAL_SERVER_ERROR;
+    };
+    let mut db = SQLite {
+        conn,
+        table: workspace.clone(),
+    };
+    if let Err(_) = db.drop().await {
+        return StatusCode::INTERNAL_SERVER_ERROR;
+    };
 
-            StatusCode::NO_CONTENT
-        }
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
-    }
+    StatusCode::NO_CONTENT
 }
 
 #[utoipa::path(
