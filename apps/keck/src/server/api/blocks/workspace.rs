@@ -105,7 +105,7 @@ pub async fn delete_workspace(
         ("workspace", description = "workspace id"),
     ),
     responses(
-        (status = 200, description = "Get workspace history", body = inline([BlockHistory])),
+        (status = 200, description = "Get workspace history", body = inline([utils::History])),
         (status = 500, description = "Failed to get workspace history")
     )
 )]
@@ -113,8 +113,9 @@ pub async fn history_workspace(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
 ) -> impl IntoResponse {
-    if let Some(history) = context.history.get(&workspace) {
-        if let Ok(json) = serde_json::to_string(&history.lock().await.iter().collect::<Vec<_>>()) {
+    if let Some(doc) = context.doc.get(&workspace) {
+        let doc = doc.lock().await;
+        if let Some(json) = utils::parse_history(&doc) {
             ([(header::CONTENT_TYPE, "application/json")], json).into_response()
         } else {
             StatusCode::INTERNAL_SERVER_ERROR.into_response()

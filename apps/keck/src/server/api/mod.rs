@@ -21,7 +21,6 @@ use yrs::{Doc, Map, Transaction};
 
 pub struct Context {
     pub doc: DashMap<String, Mutex<Doc>>,
-    pub history: DashMap<String, Arc<Mutex<Vec<BlockHistory>>>>,
     pub storage: DashMap<String, Sender<Migrate>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub db_conn: SqlitePool,
@@ -32,7 +31,6 @@ impl Context {
     pub async fn new() -> Self {
         Context {
             doc: DashMap::new(),
-            history: DashMap::new(),
             storage: DashMap::new(),
             channel: DashMap::new(),
             db_conn: init_pool("jwst").await.unwrap(),

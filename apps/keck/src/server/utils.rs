@@ -6,17 +6,92 @@ use axum::{
 };
 use dashmap::mapref::entry::Entry;
 use serde::Serialize;
-use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    panic::{catch_unwind, AssertUnwindSafe},
+    sync::Arc,
+};
 use tokio::sync::{mpsc::channel, Mutex};
+use utoipa::ToSchema;
 use yrs::{
-    types::{DeepObservable, PathSegment},
+    block::{Item, ItemContent, ID},
+    types::TypePtr,
     Doc, Options, StateVector,
 };
 
 pub enum Migrate {
     Update(Vec<u8>),
     Full(Vec<u8>),
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct History {
+    id: String,
+    parent: String,
+    content: String,
+}
+
+pub fn parse_history(doc: &Doc) -> Option<String> {
+    let update = doc.encode_state_as_update_v1(&StateVector::default());
+    if let Ok(update) = Update::decode_v1(&update) {
+        let items = update.as_items();
+
+        let mut histories = vec![];
+        let mut map: HashMap<ID, String> = HashMap::new();
+
+        let mut parse_parent = |item: &Item| {
+            let parent = match &item.parent {
+                TypePtr::Unknown => "unknown".to_owned(),
+                TypePtr::Branch(ptr) => {
+                    if let Some(name) = ptr.item_id().and_then(|id| map.get(&id)) {
+                        name.clone()
+                    } else {
+                        "null".to_owned()
+                    }
+                }
+                TypePtr::Named(name) => name.to_string(),
+                TypePtr::ID(id) => {
+                    if let Some(name) = map.get(id) {
+                        name.clone()
+                    } else {
+                        "null".to_owned()
+                    }
+                }
+            };
+
+            if ["unknown", "null"].contains(&parent.as_str()) {
+                None
+            } else {
+                let parent = if let Some(parent_sub) = &item.parent_sub {
+                    format!("{}.{}", parent, parent_sub)
+                } else {
+                    parent
+                };
+
+                map.insert(item.id, parent.clone());
+
+                Some(parent)
+            }
+        };
+
+        for item in items {
+            if let ItemContent::Deleted(_) = item.content {
+                continue;
+            }
+            if let Some(parent) = parse_parent(item) {
+                let id = format!("{}:{}", item.id.clock, item.id.client);
+                histories.push(History {
+                    id,
+                    parent,
+                    content: item.content.to_string(),
+                })
+            }
+        }
+
+        serde_json::to_string(&histories).ok()
+    } else {
+        None
+    }
 }
 
 fn migrate_update(updates: Vec<UpdateBinary>, doc: Doc) -> Doc {
@@ -66,7 +141,6 @@ pub async fn init_doc(context: Arc<Context>, workspace: String) {
     if let Entry::Vacant(entry) = context.doc.entry(workspace.clone()) {
         let doc = create_doc(context.clone(), workspace.clone()).await;
         let (tx, mut rx) = channel::<Migrate>(100);
-        let (history_tx, mut history_rx) = channel::<BlockHistory>(100);
 
         {
             // storage thread
@@ -102,57 +176,7 @@ pub async fn init_doc(context: Arc<Context>, workspace: String) {
             });
         }
 
-        let history = Arc::new(Mutex::new(vec![]));
-        let history_clone = history.clone();
-        tokio::spawn(async move {
-            while let Some(h) = history_rx.recv().await {
-                debug!("change: {:?}", h.path);
-                history_clone.lock().await.push(h);
-            }
-        });
-
-        context.history.insert(workspace.clone(), history.clone());
         context.storage.insert(workspace.clone(), tx);
-
-        let history = Arc::new(Mutex::new(history_tx));
-        if let Entry::Vacant(entry) = context.subscribes.entry(workspace.clone()) {
-            let blocks = doc.transact().get_map("blocks");
-
-            if let Some(mut blocks) = blocks.get("content").and_then(|c| c.to_ymap()) {
-                let sub = blocks.observe_deep(move |_, e| {
-                    let paths = e
-                        .iter()
-                        .map(|e| {
-                            e.path()
-                                .into_iter()
-                                .map(|p| match p {
-                                    PathSegment::Key(k) => k.as_ref().to_string(),
-                                    PathSegment::Index(i) => i.to_string(),
-                                })
-                                .collect::<Vec<String>>()
-                                .join("/")
-                        })
-                        .collect::<Vec<_>>();
-                    let history = history.clone();
-                    tokio::spawn(async move {
-                        for path in &paths {
-                            if !path.is_empty() {
-                                if let Err(e) = history
-                                    .lock()
-                                    .await
-                                    .send(BlockHistory::new(path.clone()))
-                                    .await
-                                {
-                                    warn!("Failed to log history: {}, {:?}", path, e);
-                                }
-                            }
-                        }
-                        debug!("record {} history", paths.len());
-                    });
-                });
-                entry.insert(sub.into());
-            }
-        }
 
         entry.insert(Mutex::new(doc));
     };
