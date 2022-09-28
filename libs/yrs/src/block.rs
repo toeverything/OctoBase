@@ -944,7 +944,7 @@ pub struct Item {
     pub content: ItemContent,
 
     /// Pointer to a parent collection containing current item.
-    pub(crate) parent: types::TypePtr,
+    pub parent: types::TypePtr,
 
     /// Used only when current item is used by map-like types. In such case this item works as a
     /// key-value entry of a map, and this field contains a key used by map.

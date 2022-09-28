@@ -253,6 +253,10 @@ impl Branch {
         })
     }
 
+    pub fn item_id(&self) -> Option<ID> {
+        self.item.map(|i| i.id().clone())
+    }
+
     pub(crate) fn try_transact(&self) -> Option<Transaction> {
         let store = self.store.clone()?;
         Some(Transaction::new(store))
@@ -817,7 +821,7 @@ impl<'a> Iterator for Iter<'a> {
 
 /// Type pointer - used to localize a complex [Branch] node within a scope of a document store.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum TypePtr {
+pub enum TypePtr {
     /// Temporary value - used only when block is deserialized right away, but had not been
     /// integrated into block store yet. As part of block integration process, items are
     /// repaired and their fields (including parent) are being rewired.
