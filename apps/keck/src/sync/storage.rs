@@ -20,16 +20,17 @@ pub struct MaxId {
     seq: i64,
 }
 
+const MAX_TRIM_UPDATE_LIMIT: i64 = 500;
+
 pub struct SQLite {
     pub conn: PoolConnection<Sqlite>,
     pub table: String,
 }
 
 impl SQLite {
-    pub async fn all(&mut self, idx: i64) -> Result<Vec<UpdateBinary>, Error> {
-        let stmt = format!("SELECT * FROM {} where id >= ?", self.table);
+    pub async fn all(&mut self) -> Result<Vec<UpdateBinary>, Error> {
+        let stmt = format!("SELECT * FROM {}", self.table);
         let ret = query_as::<_, UpdateBinary>(&stmt)
-            .bind(idx)
             .fetch_all(&mut self.conn)
             .await?;
         Ok(ret)
@@ -78,6 +79,48 @@ impl SQLite {
         let stmt = format!("DROP TABLE IF EXISTS {};", self.table);
         query(&stmt).execute(&mut self.conn).await?;
         Ok(())
+    }
+
+    async fn replace_with(&mut self, blob: Vec<u8>) -> Result<(), Error> {
+        let stmt = format!(
+            r#"
+        BEGIN TRANSACTION;
+        DELETE FROM {};
+        INSERT INTO {} VALUES (null, ?);
+        COMMIT;
+        ;"#,
+            self.table, self.table
+        );
+
+        query(&stmt)
+            .bind(blob)
+            .execute(&mut self.conn)
+            .await
+            .map(|_| ())
+    }
+
+    pub async fn update(
+        &mut self,
+        blob: Vec<u8>,
+        get_update: impl Fn(Vec<UpdateBinary>) -> Vec<u8>,
+    ) -> Result<(), Error> {
+        if self.count().await? > MAX_TRIM_UPDATE_LIMIT - 1 {
+            let all_data = self.all().await?;
+
+            self.replace_with(get_update(all_data)).await?;
+        } else {
+            self.insert(&blob).await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn full_migrate(&mut self, blob: Vec<u8>) -> Result<(), Error> {
+        if self.count().await? > 1 {
+            self.replace_with(blob).await
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -139,7 +182,7 @@ mod tests {
         sqlite.insert(&[2, 2, 3, 4]).await?;
         sqlite.delete_before(2).await?;
         assert_eq!(
-            sqlite.all(0).await?,
+            sqlite.all().await?,
             vec![UpdateBinary {
                 id: 2,
                 blob: vec![2, 2, 3, 4]
@@ -157,7 +200,7 @@ mod tests {
         sqlite.create().await?;
         sqlite.insert(&[1, 2, 3, 4]).await?;
         assert_eq!(
-            sqlite.all(0).await?,
+            sqlite.all().await?,
             vec![UpdateBinary {
                 id: 1,
                 blob: vec![1, 2, 3, 4]
