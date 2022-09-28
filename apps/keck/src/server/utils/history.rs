@@ -95,30 +95,27 @@ pub struct History {
 
 pub fn parse_history(doc: &Doc) -> Option<String> {
     let update = doc.encode_state_as_update_v1(&StateVector::default());
-    if let Ok(update) = Update::decode_v1(&update) {
-        let items = update.as_items();
+    let update = Update::decode_v1(&update).ok()?;
+    let items = update.as_items();
 
-        let mut histories = vec![];
-        let parent_map = ParentMap::from(&items);
+    let mut histories = vec![];
+    let parent_map = ParentMap::from(&items);
 
-        for item in items {
-            if let ItemContent::Deleted(_) = item.content {
-                continue;
-            }
-            if let Some(parent) = parent_map.get(&item.id) {
-                let id = format!("{}:{}", item.id.clock, item.id.client);
-                histories.push(History {
-                    id,
-                    parent,
-                    content: item.content.to_string(),
-                })
-            } else {
-                info!("headless id: {:?}", item.id);
-            }
+    for item in items {
+        if let ItemContent::Deleted(_) = item.content {
+            continue;
         }
-
-        serde_json::to_string(&histories).ok()
-    } else {
-        None
+        if let Some(parent) = parent_map.get(&item.id) {
+            let id = format!("{}:{}", item.id.clock, item.id.client);
+            histories.push(History {
+                id,
+                parent,
+                content: item.content.to_string(),
+            })
+        } else {
+            info!("headless id: {:?}", item.id);
+        }
     }
+
+    serde_json::to_string(&histories).ok()
 }
