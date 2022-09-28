@@ -1,3 +1,7 @@
+mod history;
+
+pub use history::{parse_history, History};
+
 use super::*;
 use crate::sync::*;
 use axum::{
@@ -7,91 +11,15 @@ use axum::{
 use dashmap::mapref::entry::Entry;
 use serde::Serialize;
 use std::{
-    collections::HashMap,
     panic::{catch_unwind, AssertUnwindSafe},
     sync::Arc,
 };
 use tokio::sync::{mpsc::channel, Mutex};
-use utoipa::ToSchema;
-use yrs::{
-    block::{Item, ItemContent, ID},
-    types::TypePtr,
-    Doc, Options, StateVector,
-};
+use yrs::{Doc, Options, StateVector};
 
 pub enum Migrate {
     Update(Vec<u8>),
     Full(Vec<u8>),
-}
-
-#[derive(Debug, Serialize, ToSchema)]
-pub struct History {
-    id: String,
-    parent: String,
-    content: String,
-}
-
-pub fn parse_history(doc: &Doc) -> Option<String> {
-    let update = doc.encode_state_as_update_v1(&StateVector::default());
-    if let Ok(update) = Update::decode_v1(&update) {
-        let items = update.as_items();
-
-        let mut histories = vec![];
-        let mut map: HashMap<ID, String> = HashMap::new();
-
-        let mut parse_parent = |item: &Item| {
-            let parent = match &item.parent {
-                TypePtr::Unknown => "unknown".to_owned(),
-                TypePtr::Branch(ptr) => {
-                    if let Some(name) = ptr.item_id().and_then(|id| map.get(&id)) {
-                        name.clone()
-                    } else {
-                        "null".to_owned()
-                    }
-                }
-                TypePtr::Named(name) => name.to_string(),
-                TypePtr::ID(id) => {
-                    if let Some(name) = map.get(id) {
-                        name.clone()
-                    } else {
-                        "null".to_owned()
-                    }
-                }
-            };
-
-            if ["unknown", "null"].contains(&parent.as_str()) {
-                None
-            } else {
-                let parent = if let Some(parent_sub) = &item.parent_sub {
-                    format!("{}.{}", parent, parent_sub)
-                } else {
-                    parent
-                };
-
-                map.insert(item.id, parent.clone());
-
-                Some(parent)
-            }
-        };
-
-        for item in items {
-            if let ItemContent::Deleted(_) = item.content {
-                continue;
-            }
-            if let Some(parent) = parse_parent(item) {
-                let id = format!("{}:{}", item.id.clock, item.id.client);
-                histories.push(History {
-                    id,
-                    parent,
-                    content: item.content.to_string(),
-                })
-            }
-        }
-
-        serde_json::to_string(&histories).ok()
-    } else {
-        None
-    }
 }
 
 fn migrate_update(updates: Vec<UpdateBinary>, doc: Doc) -> Doc {
