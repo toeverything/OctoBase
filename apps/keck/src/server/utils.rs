@@ -10,7 +10,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::Arc;
 use tokio::sync::{mpsc::channel, Mutex};
 use yrs::{
-    types::{DeepObservable, PathSegment},
+    types::{DeepObservable, Events, PathSegment},
     Doc, Options, StateVector,
 };
 
@@ -29,6 +29,9 @@ async fn migrate_update(db: &mut SQLite, doc: Doc) -> Result<Doc, sqlx::Error> {
         let id = update.id;
         match Update::decode_v1(&update.blob) {
             Ok(update) => {
+                update.as_items().iter().for_each(|item| {
+                    println!("{:?}", item);
+                });
                 if let Err(e) = catch_unwind(AssertUnwindSafe(|| trx.apply_update(update))) {
                     warn!("update {} merge failed, skip it: {:?}", id, e);
                 }
@@ -139,29 +142,15 @@ pub async fn init_doc(context: Arc<Context>, workspace: String) {
 
             if let Some(mut blocks) = blocks.get("content").and_then(|c| c.to_ymap()) {
                 let sub = blocks.observe_deep(move |_, e| {
-                    let paths = e
-                        .iter()
-                        .map(|e| {
-                            e.path()
-                                .into_iter()
-                                .map(|p| match p {
-                                    PathSegment::Key(k) => k.as_ref().to_string(),
-                                    PathSegment::Index(i) => i.to_string(),
-                                })
-                                .collect::<Vec<String>>()
-                                .join("/")
-                        })
-                        .collect::<Vec<_>>();
+                    let paths = parse_events(e);
+
                     let history = history.clone();
                     tokio::spawn(async move {
+                        let history = history.lock().await;
                         for path in &paths {
                             if !path.is_empty() {
-                                if let Err(e) = history
-                                    .lock()
-                                    .await
-                                    .send(BlockHistory::new(path.clone()))
-                                    .await
-                                {
+                                let block_history = BlockHistory::new(path.clone());
+                                if let Err(e) = history.send(block_history).await {
                                     warn!("Failed to log history: {}, {:?}", path, e);
                                 }
                             }
@@ -175,6 +164,22 @@ pub async fn init_doc(context: Arc<Context>, workspace: String) {
 
         entry.insert(Mutex::new(doc));
     };
+}
+
+fn parse_events(events: &Events) -> Vec<String> {
+    events
+        .iter()
+        .map(|e| {
+            e.path()
+                .into_iter()
+                .map(|p| match p {
+                    PathSegment::Key(k) => k.as_ref().to_string(),
+                    PathSegment::Index(i) => i.to_string(),
+                })
+                .collect::<Vec<String>>()
+                .join("/")
+        })
+        .collect::<Vec<_>>()
 }
 
 pub fn parse_doc<T>(any: T) -> impl IntoResponse
