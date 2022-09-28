@@ -1,10 +1,7 @@
 use super::*;
 
 use serde::Serialize;
-use std::{
-    collections::{HashMap, VecDeque},
-    rc::Rc,
-};
+use std::collections::{HashMap, HashSet, VecDeque};
 use utoipa::ToSchema;
 use yrs::{
     block::{Item, ItemContent, ID},
@@ -16,45 +13,22 @@ struct ParentMap(HashMap<ID, String>);
 
 impl ParentMap {
     fn from(items: &Vec<&Item>) -> Self {
-        let mut parent_map = HashMap::new();
-
-        for item in items {
-            if parent_map.contains_key(&item.id) {
-                debug!("key {} exists", item.id);
-            } else {
-                parent_map.insert(
-                    item.id.clone(),
-                    (item.parent.clone(), item.parent_sub.clone()),
-                );
-            }
-        }
-
         let mut name_map: HashMap<ID, String> = HashMap::new();
-        let mut padding_ptr: VecDeque<(ID, TypePtr, Option<Rc<str>>, usize)> = VecDeque::from(
-            parent_map
-                .iter()
-                .map(|(id, (parent, parent_sub))| {
-                    (id.clone(), parent.clone(), parent_sub.clone(), 0)
-                })
-                .clone()
-                .collect::<Vec<_>>(),
-        );
+        let mut padding_ptr: VecDeque<(&Item, usize)> =
+            VecDeque::from(items.iter().map(|i| (i.clone(), 0)).collect::<Vec<_>>());
 
-        while let Some((map_id, parent, parent_sub, retry)) = padding_ptr.pop_back() {
+        while let Some((item, retry)) = padding_ptr.pop_back() {
             if retry > 5 {
-                debug!(
-                    "retry failed: {:?}, {:?}, {:?}, {:?}, {:?}",
-                    map_id, parent, parent_sub, retry, padding_ptr
-                );
+                debug!("retry failed: {:?}, {:?}, {:?}", item, retry, padding_ptr);
                 break;
             }
-            let parent = match parent {
+            let parent = match &item.parent {
                 TypePtr::Unknown => "unknown".to_owned(),
                 TypePtr::Branch(ptr) => {
                     if let Some(name) = ptr.item_id().and_then(|item_id| name_map.get(&item_id)) {
                         name.clone()
                     } else {
-                        padding_ptr.push_front((map_id, parent, parent_sub, retry + 1));
+                        padding_ptr.push_front((item, retry + 1));
                         continue;
                     }
                 }
@@ -63,19 +37,19 @@ impl ParentMap {
                     if let Some(name) = name_map.get(&ptr_id) {
                         name.clone()
                     } else {
-                        padding_ptr.push_front((map_id, parent, parent_sub, retry + 1));
+                        padding_ptr.push_front((item, retry + 1));
                         continue;
                     }
                 }
             };
 
-            let parent = if let Some(parent_sub) = &parent_sub {
+            let parent = if let Some(parent_sub) = &item.parent_sub {
                 format!("{}.{}", parent, parent_sub)
             } else {
                 parent
             };
 
-            name_map.insert(map_id, parent.clone());
+            name_map.insert(item.id, parent.clone());
         }
 
         Self(name_map)
@@ -93,7 +67,25 @@ pub struct History {
     content: String,
 }
 
-pub fn parse_history(doc: &Doc) -> Option<String> {
+pub fn parse_history_client(doc: &Doc) -> Option<String> {
+    let update = doc.encode_state_as_update_v1(&StateVector::default());
+    if let Ok(update) = Update::decode_v1(&update) {
+        serde_json::to_string(
+            &update
+                .as_items()
+                .iter()
+                .map(|i| i.id.client)
+                .collect::<HashSet<_>>()
+                .into_iter()
+                .collect::<Vec<_>>(),
+        )
+        .ok()
+    } else {
+        None
+    }
+}
+
+pub fn parse_history(doc: &Doc, client: u64) -> Option<String> {
     let update = doc.encode_state_as_update_v1(&StateVector::default());
     let update = Update::decode_v1(&update).ok()?;
     let items = update.as_items();
@@ -106,12 +98,14 @@ pub fn parse_history(doc: &Doc) -> Option<String> {
             continue;
         }
         if let Some(parent) = parent_map.get(&item.id) {
-            let id = format!("{}:{}", item.id.clock, item.id.client);
-            histories.push(History {
-                id,
-                parent,
-                content: item.content.to_string(),
-            })
+            if item.id.client == client || client == 0 {
+                let id = format!("{}:{}", item.id.clock, item.id.client);
+                histories.push(History {
+                    id,
+                    parent,
+                    content: item.content.to_string(),
+                })
+            }
         } else {
             info!("headless id: {:?}", item.id);
         }

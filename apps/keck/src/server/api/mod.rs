@@ -45,6 +45,7 @@ impl Context {
         blocks::get_workspace,
         blocks::set_workspace,
         blocks::delete_workspace,
+        blocks::history_workspace_clients,
         blocks::history_workspace,
         blocks::get_block,
         blocks::set_block,
@@ -73,7 +74,14 @@ pub fn api_handler() -> Router {
                 .post(blocks::set_block)
                 .delete(blocks::delete_block),
         )
-        .route("/block/:workspace/history", get(blocks::history_workspace))
+        .route(
+            "/block/:workspace/history",
+            get(blocks::history_workspace_clients),
+        )
+        .route(
+            "/block/:workspace/history/:client",
+            get(blocks::history_workspace),
+        )
         .route(
             "/block/:workspace",
             get(blocks::get_workspace)
