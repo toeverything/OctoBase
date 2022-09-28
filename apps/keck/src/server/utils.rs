@@ -19,11 +19,7 @@ pub enum Migrate {
     Full(Vec<u8>),
 }
 
-const MAX_TRIM_UPDATE_LIMIT: i64 = 500;
-
-async fn migrate_update(db: &mut SQLite, doc: Doc) -> Result<Doc, sqlx::Error> {
-    let updates = db.all(0).await?;
-
+fn migrate_update(updates: Vec<UpdateBinary>, doc: Doc) -> Doc {
     let mut trx = doc.transact();
     for update in updates {
         let id = update.id;
@@ -38,7 +34,7 @@ async fn migrate_update(db: &mut SQLite, doc: Doc) -> Result<Doc, sqlx::Error> {
     }
     trx.commit();
 
-    Ok(doc)
+    doc
 }
 
 async fn load_doc(db: &mut SQLite) -> Result<Doc, sqlx::Error> {
@@ -47,42 +43,16 @@ async fn load_doc(db: &mut SQLite) -> Result<Doc, sqlx::Error> {
         ..Default::default()
     });
 
-    if db.count().await? == 0 {
+    let all_data = db.all().await?;
+
+    if all_data.is_empty() {
         let update = doc.encode_state_as_update_v1(&StateVector::default());
         db.insert(&update).await?;
     } else {
-        doc = migrate_update(db, doc).await?;
+        doc = migrate_update(all_data, doc);
     }
 
     Ok(doc)
-}
-
-async fn update_document(db: &mut SQLite, update: Migrate) -> Result<(), sqlx::Error> {
-    match update {
-        Migrate::Update(update) => {
-            db.insert(&update).await.unwrap();
-            if db.count().await.unwrap() > MAX_TRIM_UPDATE_LIMIT {
-                let doc = migrate_update(db, Doc::default()).await?;
-
-                let update = doc.encode_state_as_update_v1(&StateVector::default());
-                db.insert(&update).await?;
-
-                let clock = db.max_id().await?;
-                db.delete_before(clock).await?;
-            }
-        }
-        Migrate::Full(full) => {
-            if db.count().await? > 1 {
-                db.insert(&full).await?;
-
-                let clock = db.max_id().await?;
-                db.delete_before(clock).await?;
-
-                info!("full refresh: {}", db.table);
-            }
-        }
-    }
-    Ok(())
 }
 
 async fn create_doc(context: Arc<Context>, workspace: String) -> Doc {
@@ -110,7 +80,18 @@ pub async fn init_doc(context: Arc<Context>, workspace: String) {
                             conn,
                             table: workspace.clone(),
                         };
-                        if let Err(e) = update_document(&mut db, update).await {
+                        let res = match update {
+                            Migrate::Update(update) => {
+                                db.update(update, |all_data| {
+                                    let doc = migrate_update(all_data, Doc::default());
+
+                                    doc.encode_state_as_update_v1(&StateVector::default())
+                                })
+                                .await
+                            }
+                            Migrate::Full(full) => db.full_migrate(full).await,
+                        };
+                        if let Err(e) = res {
                             error!("failed to update document: {:?}", e);
                         }
                     } else {
