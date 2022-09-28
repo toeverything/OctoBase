@@ -18,6 +18,7 @@
 		"cssmodule",
 		"dashmap",
 		"datasource",
+		"Deque",
 		"fflate",
 		"fstore",
 		"groq",

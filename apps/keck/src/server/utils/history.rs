@@ -42,7 +42,7 @@ impl ParentMap {
 
         while let Some((map_id, parent, parent_sub, retry)) = padding_ptr.pop_back() {
             if retry > 5 {
-                println!(
+                debug!(
                     "retry failed: {:?}, {:?}, {:?}, {:?}, {:?}",
                     map_id, parent, parent_sub, retry, padding_ptr
                 );
@@ -113,7 +113,7 @@ pub fn parse_history(doc: &Doc) -> Option<String> {
                     content: item.content.to_string(),
                 })
             } else {
-                println!("cannot find: {:?}", item.id);
+                info!("headless id: {:?}", item.id);
             }
         }
 
