@@ -55,8 +55,7 @@ curl -X 'GET' 'http://localhost:3000/api/block/AFFiNE/affine_P2hA3XxAacZ8SKR'
 ````sh
 
 ```sh
-curl 'http://localhost:3000/api/block/AFFiNE/affine_P2hA3XxAacZ8SKR' \
-  --data-raw '{"test": 1}'
+curl -H "Content-Type: application/json"  'http://localhost:3000/api/block/AFFiNE/affine_P2hA3XxAacZ8SKR' --data-raw '{"test": 1}'
 ````
 
 #### Delete Block
