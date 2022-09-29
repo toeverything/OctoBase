@@ -1049,6 +1049,21 @@ impl Item {
         item
     }
 
+    pub fn resolve_parent(&self) -> Option<(TypePtr, Option<Rc<str>>)> {
+        if let Some(Block::Item(item)) = self.left.as_deref() {
+            if let TypePtr::Unknown = item.parent {
+                if let Some(Block::Item(item)) = item.right.as_deref() {
+                    return Some((item.parent.clone(), item.parent_sub.clone()));
+                }
+            } else {
+                return Some((item.parent.clone(), item.parent_sub.clone()));
+            }
+        } else if let Some(Block::Item(item)) = self.right.as_deref() {
+            return Some((item.parent.clone(), item.parent_sub.clone()));
+        }
+        None
+    }
+
     pub fn contains(&self, id: &ID) -> bool {
         self.id.client == id.client
             && id.clock >= self.id.clock

@@ -12,8 +12,30 @@ use yrs::{
 struct ParentMap(HashMap<ID, String>);
 
 impl ParentMap {
+    fn parse_parent(name_map: &HashMap<ID, String>, parent: TypePtr) -> Option<String> {
+        match parent {
+            TypePtr::Unknown => Some("unknown".to_owned()),
+            TypePtr::Branch(ptr) => {
+                if let Some(name) = ptr.item_id().and_then(|item_id| name_map.get(&item_id)) {
+                    Some(name.clone())
+                } else {
+                    None
+                }
+            }
+            TypePtr::Named(name) => Some(name.to_string()),
+            TypePtr::ID(ptr_id) => {
+                if let Some(name) = name_map.get(&ptr_id) {
+                    Some(name.clone())
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
     fn from(items: &Vec<&Item>) -> Self {
         let mut name_map: HashMap<ID, String> = HashMap::new();
+        println!("{:?}", items);
         let mut padding_ptr: VecDeque<(&Item, usize)> =
             VecDeque::from(items.iter().map(|i| (i.clone(), 0)).collect::<Vec<_>>());
 
@@ -22,28 +44,27 @@ impl ParentMap {
                 debug!("retry failed: {:?}, {:?}, {:?}", item, retry, padding_ptr);
                 break;
             }
-            let parent = match &item.parent {
-                TypePtr::Unknown => "unknown".to_owned(),
-                TypePtr::Branch(ptr) => {
-                    if let Some(name) = ptr.item_id().and_then(|item_id| name_map.get(&item_id)) {
-                        name.clone()
+            let (parent, parent_sub) = {
+                let parent = if item.parent == TypePtr::Unknown {
+                    if let Some((parent, parent_sub)) = item.resolve_parent() {
+                        Self::parse_parent(&name_map, parent).map(|parent| (parent, parent_sub))
                     } else {
-                        padding_ptr.push_front((item, retry + 1));
-                        continue;
+                        Some(("unknown".to_owned(), None))
                     }
-                }
-                TypePtr::Named(name) => name.to_string(),
-                TypePtr::ID(ptr_id) => {
-                    if let Some(name) = name_map.get(&ptr_id) {
-                        name.clone()
-                    } else {
-                        padding_ptr.push_front((item, retry + 1));
-                        continue;
-                    }
+                } else {
+                    Self::parse_parent(&name_map, item.parent.clone())
+                        .map(|parent| (parent, item.parent_sub.clone()))
+                };
+
+                if let Some(parent) = parent {
+                    parent
+                } else {
+                    padding_ptr.push_front((item, retry + 1));
+                    continue;
                 }
             };
 
-            let parent = if let Some(parent_sub) = &item.parent_sub {
+            let parent = if let Some(parent_sub) = parent_sub {
                 format!("{}.{}", parent, parent_sub)
             } else {
                 parent
@@ -88,10 +109,10 @@ pub fn parse_history_client(doc: &Doc) -> Option<String> {
 pub fn parse_history(doc: &Doc, client: u64) -> Option<String> {
     let update = doc.encode_state_as_update_v1(&StateVector::default());
     let update = Update::decode_v1(&update).ok()?;
-    let items = update.as_items();
+    let mut items = update.as_items();
 
     let mut histories = vec![];
-    let parent_map = ParentMap::from(&items);
+    let parent_map = ParentMap::from(&mut items);
 
     for item in items {
         if let ItemContent::Deleted(_) = item.content {

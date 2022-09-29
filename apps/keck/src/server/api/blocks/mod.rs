@@ -8,6 +8,7 @@ pub use block::{
 };
 pub use workspace::{
     __path_delete_workspace, __path_get_workspace, __path_history_workspace,
-    __path_history_workspace_clients, __path_set_workspace, delete_workspace, get_workspace,
-    history_workspace, history_workspace_clients, set_workspace,
+    __path_history_workspace_clients, __path_set_workspace, __path_workspace_client,
+    delete_workspace, get_workspace, history_workspace, history_workspace_clients, set_workspace,
+    workspace_client,
 };

@@ -100,6 +100,35 @@ pub async fn delete_workspace(
     get,
     tag = "Blocks",
     context_path = "/api/block",
+    path = "/{workspace}/client",
+    params(
+        ("workspace", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Get workspace client id", body = inline(u64)),
+        (status = 404, description = "Workspace not found")
+    )
+)]
+pub async fn workspace_client(
+    Extension(context): Extension<Arc<Context>>,
+    Path(workspace): Path<String>,
+) -> impl IntoResponse {
+    if let Some(doc) = context.doc.get(&workspace) {
+        let doc = doc.lock().await;
+        (
+            [(header::CONTENT_TYPE, "application/json")],
+            doc.client_id.to_string(),
+        )
+            .into_response()
+    } else {
+        StatusCode::NOT_FOUND.into_response()
+    }
+}
+
+#[utoipa::path(
+    get,
+    tag = "Blocks",
+    context_path = "/api/block",
     path = "/{workspace}/history",
     params(
         ("workspace", description = "workspace id"),
