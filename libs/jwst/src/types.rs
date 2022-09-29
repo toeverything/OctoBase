@@ -25,12 +25,20 @@ pub struct RemoveChildren {
 
 pub enum BlockContentValue {
     Json(JsonValue),
+    Boolean(bool),
     Text(String),
+    Number(i64),
 }
 
 impl From<JsonValue> for BlockContentValue {
     fn from(json: JsonValue) -> Self {
         Self::Json(json)
+    }
+}
+
+impl From<bool> for BlockContentValue {
+    fn from(bool: bool) -> Self {
+        Self::Boolean(bool)
     }
 }
 
@@ -43,5 +51,11 @@ impl From<String> for BlockContentValue {
 impl From<&str> for BlockContentValue {
     fn from(text: &str) -> Self {
         Self::Text(text.to_owned())
+    }
+}
+
+impl From<i64> for BlockContentValue {
+    fn from(num: i64) -> Self {
+        Self::Number(num)
     }
 }
