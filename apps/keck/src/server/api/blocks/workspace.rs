@@ -1,5 +1,3 @@
-use crate::sync::SQLite;
-
 use super::*;
 use axum::{extract::Path, http::header};
 
@@ -21,7 +19,7 @@ pub async fn get_workspace(
     Path(workspace): Path<String>,
 ) -> impl IntoResponse {
     info!("get_workspace: {}", workspace);
-    utils::init_doc(context.clone(), workspace.clone()).await;
+    utils::init_doc(context.clone(), &workspace).await;
 
     if let Some(doc) = context.doc.get(&workspace) {
         let doc = doc.value().lock().await;
@@ -50,7 +48,7 @@ pub async fn set_workspace(
 ) -> impl IntoResponse {
     info!("set_workspace: {}", workspace);
 
-    utils::init_doc(context.clone(), workspace.clone()).await;
+    utils::init_doc(context.clone(), &workspace).await;
 
     let doc = context.doc.get(&workspace).unwrap();
     let doc = doc.lock().await;
@@ -80,16 +78,7 @@ pub async fn delete_workspace(
         return StatusCode::NOT_FOUND;
     }
     context.subscribes.remove(&workspace);
-    let conn = if let Ok(conn) = context.db_conn.acquire().await {
-        conn
-    } else {
-        return StatusCode::INTERNAL_SERVER_ERROR;
-    };
-    let mut db = SQLite {
-        conn,
-        table: workspace.clone(),
-    };
-    if let Err(_) = db.drop().await {
+    if let Err(_) = context.db.drop(&workspace).await {
         return StatusCode::INTERNAL_SERVER_ERROR;
     };
 

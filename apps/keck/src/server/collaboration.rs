@@ -138,7 +138,7 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
         .insert((workspace.clone(), uuid.clone()), tx.clone());
 
     let init_data = {
-        utils::init_doc(context.clone(), workspace.clone()).await;
+        utils::init_doc(context.clone(), &workspace).await;
 
         let doc = context.doc.get(&workspace).unwrap();
         let mut doc = doc.lock().await;
