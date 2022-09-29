@@ -23,7 +23,6 @@ pub struct Context {
     pub storage: DashMap<String, Sender<Migrate>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub db: DbPool,
-    pub subscribes: DashMap<String, BlockSubscription>,
 }
 
 impl Context {
@@ -33,7 +32,6 @@ impl Context {
             storage: DashMap::new(),
             channel: DashMap::new(),
             db: DbPool::new(init_pool("jwst").await.expect("Cannot create database!")),
-            subscribes: DashMap::new(),
         }
     }
 }
