@@ -2,7 +2,6 @@ use super::*;
 use lib0::any::Any;
 use types::{BlockContentValue, JsonValue};
 use yrs::{Array, Map, PrelimArray, PrelimMap, Transaction};
-
 struct BlockChildrenPosition {
     pos: Option<u32>,
     before: Option<String>,
@@ -166,7 +165,12 @@ impl Block {
         self.updated.push_back(trx, array);
     }
 
-    fn set_value(block: &mut Map, trx: &mut Transaction, key: &str, value: JsonValue) -> bool {
+    pub(self) fn set_value(
+        block: &mut Map,
+        trx: &mut Transaction,
+        key: &str,
+        value: JsonValue,
+    ) -> bool {
         match value {
             JsonValue::Bool(v) => {
                 block.insert(trx, key.clone(), v);
@@ -208,8 +212,16 @@ impl Block {
                     self.log_update(trx);
                 }
             }
+            BlockContentValue::Boolean(bool) => {
+                self.content.insert(trx, key, bool);
+                self.log_update(trx);
+            }
             BlockContentValue::Text(text) => {
                 self.content.insert(trx, key, text);
+                self.log_update(trx);
+            }
+            BlockContentValue::Number(number) => {
+                self.content.insert(trx, key, number);
                 self.log_update(trx);
             }
         }
@@ -337,6 +349,23 @@ mod tests {
 
         debug_assert!(block.flavor() == "affine:text");
         debug_assert!(block.version() == [1, 0]);
+    }
+
+    #[test]
+    fn set_value() {
+        use super::Block;
+        use yrs::Doc;
+
+        let doc = Doc::default();
+        let mut trx = doc.transact();
+
+        let mut block = Block::new(&mut trx, "test", "affine:text", doc.client_id);
+        block.set(&mut trx, "bool", true);
+        block.set(&mut trx, "text", "hello world");
+        block.set(&mut trx, "num", 123);
+        debug_assert!(block.content().get("bool").unwrap().to_string() == "true");
+        debug_assert!(block.content().get("text").unwrap().to_string() == "hello world");
+        debug_assert!(block.content().get("num").unwrap().to_string() == "123");
     }
 
     #[test]
