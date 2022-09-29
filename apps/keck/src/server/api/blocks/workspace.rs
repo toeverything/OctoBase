@@ -24,7 +24,7 @@ pub async fn get_workspace(
     if let Some(doc) = context.doc.get(&workspace) {
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
-        utils::parse_doc(trx.get_map("blocks").to_json()).into_response()
+        utils::json_response(trx.get_map("blocks").to_json()).into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
@@ -53,7 +53,7 @@ pub async fn set_workspace(
     let doc = context.doc.get(&workspace).unwrap();
     let doc = doc.lock().await;
 
-    utils::parse_doc(doc.transact().get_map("blocks").to_json()).into_response()
+    utils::json_response(doc.transact().get_map("blocks").to_json()).into_response()
 }
 
 #[utoipa::path(

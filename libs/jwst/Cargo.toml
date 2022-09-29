@@ -8,6 +8,7 @@ license = "AGPL-3.0-only"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+chrono = "^0.4.22"
 log = "^0.4.17"
 utoipa = "^2.1.0"
 serde_json = "^1.0.85"

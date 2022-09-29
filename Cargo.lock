@@ -911,6 +911,7 @@ dependencies = [
 name = "jwst"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "lib0",
  "log",
  "serde",
@@ -923,9 +924,9 @@ dependencies = [
 name = "jwst_logger"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "fern",
  "log",
- "time 0.3.14",
 ]
 
 [[package]]
@@ -1983,7 +1984,6 @@ version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c3f9a28b618c3a6b9251b6908e9c99e04b9e5c02e6581ccbb67d59c34ef7f9b"
 dependencies = [
- "itoa",
  "libc",
  "num_threads",
 ]

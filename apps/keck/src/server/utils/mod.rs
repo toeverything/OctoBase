@@ -48,7 +48,7 @@ pub async fn init_doc(context: Arc<Context>, workspace: &str) {
     };
 }
 
-pub fn parse_doc<T>(any: T) -> impl IntoResponse
+pub fn json_response<T>(any: T) -> impl IntoResponse
 where
     T: Serialize,
 {
@@ -69,8 +69,8 @@ mod tests {
 
         {
             let mut trx = doc.transact();
-            let mut block = jwst::Block::new(&mut trx, "test", "text");
-            block.content().insert(&mut trx, "test", "test");
+            let mut block = jwst::Block::new(&mut trx, "test", "text", doc.client_id);
+            block.set(&mut trx, "test", "test");
             trx.commit();
         }
 

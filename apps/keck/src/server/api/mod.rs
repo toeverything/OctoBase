@@ -12,11 +12,10 @@ use axum::{
 use dashmap::DashMap;
 use jwst::Block;
 use serde_json::Value as JsonValue;
-use std::convert::TryFrom;
 use tokio::sync::{mpsc::Sender, Mutex};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
-use yrs::{Doc, Map, Transaction};
+use yrs::Doc;
 
 pub struct Context {
     pub doc: DashMap<String, Mutex<Doc>>,
@@ -47,6 +46,7 @@ impl Context {
         blocks::history_workspace,
         blocks::get_block,
         blocks::set_block,
+        blocks::get_block_history,
         blocks::delete_block,
         blocks::insert_block,
         blocks::remove_block,
@@ -61,6 +61,7 @@ pub fn api_docs() -> SwaggerUi {
 
 pub fn api_handler() -> Router {
     let block_operation = Router::new()
+        .route("/history", get(blocks::get_block_history))
         .route("/insert", post(blocks::insert_block))
         .route("/remove", post(blocks::remove_block));
 

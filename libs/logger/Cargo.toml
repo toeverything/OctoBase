@@ -7,12 +7,9 @@ license = "AGPL-3.0-only"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
+chrono = "^0.4.22"
 log = "^0.4.17"
 
 [dependencies.fern]
 version = "^0.6.1"
 features = ["colored"]
-
-[dependencies.time]
-version = "^0.3.14"
-features = ["formatting"]

@@ -1,5 +1,6 @@
 use super::*;
 use lib0::any::Any;
+use types::{BlockContentValue, JsonValue};
 use yrs::{Array, Map, PrelimArray, PrelimMap, Transaction};
 
 struct BlockChildrenPosition {
@@ -35,31 +36,48 @@ pub struct Block {
     // }
     // default_props: HashMap<String, BlockField>,
     id: String,
+    operator: i64,
     block: Map,
     children: Array,
     content: Map,
+    updated: Array,
 }
 
 impl Block {
-    fn get_root(trx: &mut Transaction) -> Map {
+    fn get_root(trx: &mut Transaction) -> (Map, Map) {
         let blocks = trx.get_map("blocks");
-        blocks
+        let content = blocks
             .get("content")
             .or_else(|| {
                 blocks.insert(trx, "content", PrelimMap::<Any>::new());
                 blocks.get("content")
             })
             .and_then(|b| b.to_ymap())
-            .unwrap()
+            .unwrap();
+        let updated = blocks
+            .get("updated")
+            .or_else(|| {
+                blocks.insert(trx, "updated", PrelimMap::<Any>::new());
+                blocks.get("updated")
+            })
+            .and_then(|b| b.to_ymap())
+            .unwrap();
+        (content, updated)
     }
 
     // Create a new block, skip create if block is already created.
-    pub fn new<B: ToString, F: ToString>(trx: &mut Transaction, block_id: B, flavor: F) -> Block {
+    pub fn new<B, F, O>(trx: &mut Transaction, block_id: B, flavor: F, operator: O) -> Block
+    where
+        B: ToString,
+        F: ToString,
+        O: TryInto<i64>,
+    {
         let block_id = block_id.to_string();
-        if let Some(block) = Self::from(trx, &block_id) {
+        let operator = operator.try_into().unwrap_or_default();
+        if let Some(block) = Self::from(trx, &block_id, operator) {
             block
         } else {
-            let blocks = Self::get_root(trx);
+            let (blocks, updated) = Self::get_root(trx);
 
             // init base struct
             blocks.insert(trx, block_id.clone(), PrelimMap::<Any>::new());
@@ -73,7 +91,10 @@ impl Block {
                 "sys:children",
                 PrelimArray::<Vec<String>, String>::from(vec![]),
             );
+            block.insert(trx, "sys:created", chrono::Utc::now().timestamp_nanos());
             block.insert(trx, "content", PrelimMap::<Any>::new());
+
+            updated.insert(trx, block_id.clone(), PrelimArray::<_, Any>::from([]));
 
             trx.commit();
 
@@ -82,18 +103,25 @@ impl Block {
                 .and_then(|c| c.to_yarray())
                 .unwrap();
             let content = block.get("content").and_then(|c| c.to_ymap()).unwrap();
+            let updated = updated.get(&block_id).and_then(|c| c.to_yarray()).unwrap();
 
             Self {
                 id: block_id.clone(),
+                operator,
                 block,
                 children,
                 content,
+                updated,
             }
         }
     }
 
-    pub fn from<B: ToString>(trx: &mut Transaction, block_id: B) -> Option<Block> {
-        let blocks = Self::get_root(trx);
+    pub fn from<B, O>(trx: &mut Transaction, block_id: B, operator: O) -> Option<Block>
+    where
+        B: ToString,
+        O: TryInto<i64>,
+    {
+        let (blocks, updated) = Self::get_root(trx);
 
         let block_id = block_id.to_string();
 
@@ -101,15 +129,23 @@ impl Block {
             .get(&block_id)
             .and_then(|b| b.to_ymap())
             .and_then(|block| {
+                updated
+                    .get(&block_id)
+                    .and_then(|u| u.to_yarray())
+                    .map(|updated| (block, updated))
+            })
+            .and_then(|(block, updated)| {
                 if let (Some(children), Some(content)) = (
                     block.get("sys:children").and_then(|c| c.to_yarray()),
                     block.get("content").and_then(|c| c.to_ymap()),
                 ) {
                     Some(Self {
                         id: block_id,
+                        operator: operator.try_into().unwrap_or_default(),
                         block,
                         children,
                         content,
+                        updated,
                     })
                 } else {
                     None
@@ -121,8 +157,62 @@ impl Block {
         &self.block
     }
 
-    pub fn content(&mut self) -> &mut Map {
+    pub(crate) fn content(&mut self) -> &mut Map {
         &mut self.content
+    }
+
+    fn log_update(&self, trx: &mut Transaction) {
+        let array = PrelimArray::from([self.operator, chrono::Utc::now().timestamp_nanos()]);
+        self.updated.push_back(trx, array);
+    }
+
+    fn set_value(block: &mut Map, trx: &mut Transaction, key: &str, value: JsonValue) -> bool {
+        match value {
+            JsonValue::Bool(v) => {
+                block.insert(trx, key.clone(), v);
+                true
+            }
+            JsonValue::Null => {
+                block.remove(trx, key);
+                true
+            }
+            JsonValue::Number(v) => {
+                if let Some(v) = v.as_f64() {
+                    block.insert(trx, key.clone(), v);
+                    true
+                } else if let Some(v) = v.as_i64() {
+                    block.insert(trx, key.clone(), v);
+                    true
+                } else if let Some(v) = v.as_u64() {
+                    block.insert(trx, key.clone(), i64::try_from(v).unwrap_or(0));
+                    true
+                } else {
+                    false
+                }
+            }
+            JsonValue::String(v) => {
+                block.insert(trx, key.clone(), v.clone());
+                true
+            }
+            _ => false,
+        }
+    }
+
+    pub fn set<T>(&mut self, trx: &mut Transaction, key: &str, value: T)
+    where
+        T: Into<BlockContentValue>,
+    {
+        match value.into() {
+            BlockContentValue::Json(json) => {
+                if Self::set_value(self.content(), trx, key, json) {
+                    self.log_update(trx);
+                }
+            }
+            BlockContentValue::Text(text) => {
+                self.content.insert(trx, key, text);
+                self.log_update(trx);
+            }
+        }
     }
 
     pub fn id(&self) -> String {
@@ -152,6 +242,35 @@ impl Block {
             .unwrap()
     }
 
+    pub fn updated(&self) -> i64 {
+        self.updated
+            .iter()
+            .filter_map(|v| v.to_yarray())
+            .last()
+            .and_then(|a| a.get(1).and_then(|i| i.to_string().parse::<i64>().ok()))
+            .unwrap_or_else(|| {
+                self.block
+                    .get("sys:flavor")
+                    .and_then(|i| i.to_string().parse::<i64>().ok())
+                    .unwrap_or_default()
+            })
+    }
+
+    pub fn history(&self) -> Vec<[i64; 2]> {
+        self.updated
+            .iter()
+            .filter_map(|v| v.to_yarray())
+            .map(|v| {
+                v.iter()
+                    .take(2)
+                    .filter_map(|s| s.to_string().parse::<i64>().ok())
+                    .collect::<Vec<_>>()
+            })
+            .filter(|v| v.len() == 2)
+            .map(|v| v.try_into().unwrap())
+            .collect()
+    }
+
     pub fn insert_children(&mut self, trx: &mut Transaction, options: InsertChildren) {
         self.remove_children(trx, (&options).into());
 
@@ -163,7 +282,7 @@ impl Block {
             children.push_back(trx, options.block_id);
         }
 
-        // this._setBlock(block.id, content);
+        self.log_update(trx);
     }
 
     pub fn remove_children(&mut self, trx: &mut Transaction, options: RemoveChildren) {
@@ -175,6 +294,7 @@ impl Block {
         {
             children.remove(trx, current_pos as u32)
         }
+        self.log_update(trx);
     }
 
     fn position_calculator(&self, max_pos: u32, position: BlockChildrenPosition) -> Option<u32> {
@@ -213,7 +333,7 @@ mod tests {
         let doc = Doc::default();
         let mut trx = doc.transact();
 
-        let block = Block::new(&mut trx, "test", "affine:text");
+        let block = Block::new(&mut trx, "test", "affine:text", 123);
 
         debug_assert!(block.flavor() == "affine:text");
         debug_assert!(block.version() == [1, 0]);
@@ -227,7 +347,7 @@ mod tests {
         let doc = Doc::default();
         let mut trx = doc.transact();
 
-        let mut block = Block::new(&mut trx, "a", "affine:text");
+        let mut block = Block::new(&mut trx, "a", "affine:text", 123);
 
         block.insert_children(
             &mut trx,
