@@ -15,14 +15,12 @@ pub struct UpdateBinary {
 #[derive(sqlx::FromRow)]
 pub struct Count(i64);
 
-const MAX_TRIM_UPDATE_LIMIT: i64 = 500;
-
-pub struct SQLite {
-    pub conn: PoolConnection<Sqlite>,
-    pub table: String,
+pub(super) struct DbConn<'a> {
+    pub(super) conn: PoolConnection<Sqlite>,
+    pub(super) table: &'a str,
 }
 
-impl SQLite {
+impl<'a> DbConn<'a> {
     pub async fn all(&mut self) -> Result<Vec<UpdateBinary>, Error> {
         let stmt = format!("SELECT * FROM {}", self.table);
         let ret = query_as::<_, UpdateBinary>(&stmt)
@@ -59,7 +57,7 @@ impl SQLite {
         Ok(())
     }
 
-    async fn replace_with(&mut self, blob: Vec<u8>) -> Result<(), Error> {
+    pub async fn replace_with(&mut self, blob: Vec<u8>) -> Result<(), Error> {
         let stmt = format!(
             r#"
         BEGIN TRANSACTION;
@@ -75,30 +73,6 @@ impl SQLite {
             .execute(&mut self.conn)
             .await
             .map(|_| ())
-    }
-
-    pub async fn update(
-        &mut self,
-        blob: Vec<u8>,
-        get_update: impl Fn(Vec<UpdateBinary>) -> Vec<u8>,
-    ) -> Result<(), Error> {
-        if self.count().await? > MAX_TRIM_UPDATE_LIMIT - 1 {
-            let all_data = self.all().await?;
-
-            self.replace_with(get_update(all_data)).await?;
-        } else {
-            self.insert(&blob).await?;
-        }
-
-        Ok(())
-    }
-
-    pub async fn full_migrate(&mut self, blob: Vec<u8>) -> Result<(), Error> {
-        if self.count().await? > 1 {
-            self.replace_with(blob).await
-        } else {
-            Ok(())
-        }
     }
 }
 
@@ -122,30 +96,25 @@ pub async fn init_pool<F: ToString>(file: F) -> Result<SqlitePool, Error> {
     SqlitePool::connect_with(options).await
 }
 
-pub async fn init<T: ToString>(pool: SqlitePool, table: T) -> Result<SQLite, Error> {
-    let mut db = SQLite {
-        conn: pool.acquire().await?,
-        table: table.to_string(),
-    };
-    db.create().await?;
-    Ok(db)
-}
-
 mod tests {
-    use super::*;
-
-    async fn init_memory_pool() -> anyhow::Result<SqlitePool> {
-        let path = format!("sqlite::memory:");
-        let options = SqliteConnectOptions::from_str(&path)?
-            .journal_mode(SqliteJournalMode::Wal)
-            .create_if_missing(true);
-        Ok(SqlitePool::connect_with(options).await?)
-    }
-
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
-        let pool = init_memory_pool().await?;
-        let mut sqlite = init(pool, "basic").await?;
+        use super::*;
+
+        async fn init_memory_pool() -> anyhow::Result<SqlitePool> {
+            let path = format!("sqlite::memory:");
+            let options = SqliteConnectOptions::from_str(&path)?
+                .journal_mode(SqliteJournalMode::Wal)
+                .create_if_missing(true);
+            Ok(SqlitePool::connect_with(options).await?)
+        }
+
+        let conn = init_memory_pool().await?.acquire().await?;
+        let mut sqlite = DbConn {
+            conn,
+            table: &"basic",
+        };
+        sqlite.create().await?;
 
         // empty table
         assert_eq!(sqlite.count().await?, 0);

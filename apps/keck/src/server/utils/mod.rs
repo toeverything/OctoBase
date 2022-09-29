@@ -10,101 +10,39 @@ use axum::{
 };
 use dashmap::mapref::entry::Entry;
 use serde::Serialize;
-use std::{
-    panic::{catch_unwind, AssertUnwindSafe},
-    sync::Arc,
-};
+use std::sync::Arc;
 use tokio::sync::{mpsc::channel, Mutex};
-use yrs::{Doc, Options, StateVector};
 
 pub enum Migrate {
     Update(Vec<u8>),
     Full(Vec<u8>),
 }
 
-fn migrate_update(updates: Vec<UpdateBinary>, doc: Doc) -> Doc {
-    let mut trx = doc.transact();
-    for update in updates {
-        let id = update.id;
-        match Update::decode_v1(&update.blob) {
-            Ok(update) => {
-                if let Err(e) = catch_unwind(AssertUnwindSafe(|| trx.apply_update(update))) {
-                    warn!("update {} merge failed, skip it: {:?}", id, e);
-                }
-            }
-            Err(err) => info!("failed to decode update: {:?}", err),
-        }
-    }
-    trx.commit();
-
-    doc
-}
-
-async fn load_doc(db: &mut SQLite) -> Result<Doc, sqlx::Error> {
-    let mut doc = Doc::with_options(Options {
-        skip_gc: true,
-        ..Default::default()
-    });
-
-    let all_data = db.all().await?;
-
-    if all_data.is_empty() {
-        let update = doc.encode_state_as_update_v1(&StateVector::default());
-        db.insert(&update).await?;
-    } else {
-        doc = migrate_update(all_data, doc);
-    }
-
-    Ok(doc)
-}
-
-async fn create_doc(context: Arc<Context>, workspace: String) -> Doc {
-    let mut db = init(context.db_conn.clone(), &workspace).await.unwrap();
-    let doc = load_doc(&mut db).await.unwrap();
-
-    doc
-}
-
-pub async fn init_doc(context: Arc<Context>, workspace: String) {
-    if let Entry::Vacant(entry) = context.doc.entry(workspace.clone()) {
-        let doc = create_doc(context.clone(), workspace.clone()).await;
+pub async fn init_doc(context: Arc<Context>, workspace: &str) {
+    if let Entry::Vacant(entry) = context.doc.entry(workspace.to_owned()) {
+        let doc = context.db.create_doc(workspace).await.unwrap();
         let (tx, mut rx) = channel::<Migrate>(100);
 
         {
             // storage thread
             let context = context.clone();
-            let workspace = workspace.clone();
+            let workspace = workspace.to_owned();
             tokio::spawn(async move {
                 while let Some(update) = rx.recv().await {
-                    let conn = context.db_conn.acquire().await;
-                    if let Ok(conn) = conn {
-                        let mut db = SQLite {
-                            conn,
-                            table: workspace.clone(),
-                        };
-                        let res = match update {
-                            Migrate::Update(update) => {
-                                db.update(update, |all_data| {
-                                    let doc = migrate_update(all_data, Doc::default());
-
-                                    doc.encode_state_as_update_v1(&StateVector::default())
-                                })
-                                .await
-                            }
-                            Migrate::Full(full) => db.full_migrate(full).await,
-                        };
-                        if let Err(e) = res {
-                            error!("failed to update document: {:?}", e);
-                        }
-                    } else {
-                        error!("get DB connection failed")
+                    let res = match update {
+                        Migrate::Update(update) => context.db.update(&workspace, update).await,
+                        Migrate::Full(full) => context.db.full_migrate(&workspace, full).await,
+                    };
+                    if let Err(e) = res {
+                        error!("failed to update document: {:?}", e);
                     }
                 }
+
                 info!("storage final: {}", workspace);
             });
         }
 
-        context.storage.insert(workspace.clone(), tx);
+        context.storage.insert(workspace.to_owned(), tx);
 
         entry.insert(Mutex::new(doc));
     };
@@ -123,9 +61,10 @@ where
 }
 
 mod tests {
-    use super::*;
     #[tokio::test]
     async fn doc_load_test() -> anyhow::Result<()> {
+        use super::*;
+        use yrs::{Doc, StateVector};
         let doc = Doc::default();
 
         {

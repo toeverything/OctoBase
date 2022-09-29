@@ -1,6 +1,6 @@
 mod blocks;
 
-use crate::sync::init_pool;
+use crate::sync::{init_pool, DbPool};
 
 use super::{utils::Migrate, *};
 use axum::{
@@ -12,7 +12,6 @@ use axum::{
 use dashmap::DashMap;
 use jwst::Block;
 use serde_json::Value as JsonValue;
-use sqlx::SqlitePool;
 use std::convert::TryFrom;
 use tokio::sync::{mpsc::Sender, Mutex};
 use utoipa::OpenApi;
@@ -23,7 +22,7 @@ pub struct Context {
     pub doc: DashMap<String, Mutex<Doc>>,
     pub storage: DashMap<String, Sender<Migrate>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
-    pub db_conn: SqlitePool,
+    pub db: DbPool,
     pub subscribes: DashMap<String, BlockSubscription>,
 }
 
@@ -33,7 +32,7 @@ impl Context {
             doc: DashMap::new(),
             storage: DashMap::new(),
             channel: DashMap::new(),
-            db_conn: init_pool("jwst").await.unwrap(),
+            db: DbPool::new(init_pool("jwst").await.expect("Cannot create database!")),
             subscribes: DashMap::new(),
         }
     }
