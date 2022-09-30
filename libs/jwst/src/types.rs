@@ -1,11 +1,39 @@
 pub use serde_json::Value as JsonValue;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use yrs::block::Prelim;
 
 pub struct BlockField {
     r#type: String,
     default: String,
+}
+
+#[derive(Serialize, Deserialize, utoipa::ToSchema)]
+pub enum HistoryOperation {
+    Create,
+    Update,
+    Remove,
+    Undefined,
+}
+
+impl From<String> for HistoryOperation {
+    fn from(str: String) -> Self {
+        match str.as_str() {
+            "create" => Self::Create,
+            "update" => Self::Update,
+            "remove" => Self::Remove,
+            _ => Self::Undefined,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, utoipa::ToSchema)]
+pub struct BlockHistory {
+    client: i64,
+    timestamp: i64,
+    block_id: String,
+    operation: HistoryOperation,
 }
 
 #[derive(Default, Deserialize, ToSchema)]

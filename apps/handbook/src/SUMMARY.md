@@ -5,3 +5,4 @@
 -   [Quick Start](./quick_start.md)
 -   [Tour of the API](./tour_api.md)
 -   [Use Case](./use_case.md)
+-   [Internal](./internal.md)

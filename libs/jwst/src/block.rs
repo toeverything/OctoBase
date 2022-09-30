@@ -1,6 +1,6 @@
 use super::*;
 use lib0::any::Any;
-use types::{BlockContentValue, JsonValue};
+use types::{BlockContentValue, BlockHistory, JsonValue};
 use yrs::{Array, Map, PrelimArray, PrelimMap, Transaction};
 struct BlockChildrenPosition {
     pos: Option<u32>,
@@ -45,6 +45,7 @@ pub struct Block {
 impl Block {
     fn get_root(trx: &mut Transaction) -> (Map, Map) {
         let blocks = trx.get_map("blocks");
+        // blocks.content
         let content = blocks
             .get("content")
             .or_else(|| {
@@ -53,6 +54,7 @@ impl Block {
             })
             .and_then(|b| b.to_ymap())
             .unwrap();
+        // blocks.updated
         let updated = blocks
             .get("updated")
             .or_else(|| {

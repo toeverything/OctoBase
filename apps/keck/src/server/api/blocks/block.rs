@@ -94,7 +94,7 @@ struct BlockHistory {
     timestamp: i64,
 }
 
-// remove block
+// get block history
 #[utoipa::path(
     get,
     tag = "Blocks",
@@ -178,7 +178,7 @@ pub async fn delete_block(
     }
 }
 
-// insert block
+// insert children block
 #[utoipa::path(
     post,
     tag = "Blocks",
@@ -222,7 +222,7 @@ pub async fn insert_block(
     }
 }
 
-// remove block
+// remove children block
 #[utoipa::path(
     post,
     tag = "Blocks",
