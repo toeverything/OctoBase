@@ -34,3 +34,38 @@ If everything worked, the command-line displays the following response.
 ```
 
 Then you can access the frontend from [localhost:3000](http://localhost:3000)
+
+### Start template frontend project
+
+1. Clone the official repos
+
+```sh
+git clone https://github.com/toeverything/jwst.git
+```
+
+2. Install dependencies
+
+```sh
+cd jwst
+cd frontend
+npm i -g pnpm
+pnpm i
+```
+
+3. Start the frontend project
+
+```sh
+pnpm start
+```
+
+![block id](./quick_start_1.jpg)
+
+Now you can access http://localhost:4200 to view the frontend page. There has a block id and two synced readonly text input, you can copy the block id, then replace `{block_id}` and use the follow command to send request to the jwst server, then that frontend text input will change automatically.
+
+```sh
+curl -X 'POST' \
+  'http://localhost:3000/api/block/test/{block_id}' \
+  -H 'accept: */*' \
+  -H 'Content-Type: application/json' \
+  -d '{"data":"textbox"}'
+```
