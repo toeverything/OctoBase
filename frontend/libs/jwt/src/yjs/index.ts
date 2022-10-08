@@ -1,24 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-/* eslint-disable max-lines */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/// <reference types="wicg-file-system-access" />
-import { saveAs } from 'file-saver';
-import { fromEvent } from 'file-selector';
 import { nanoid } from 'nanoid';
 import { debounce } from 'ts-debounce';
 import { Awareness } from 'y-protocols/awareness.js';
-import {
-    applyUpdate,
-    Array as YArray,
-    Doc,
-    encodeStateAsUpdate,
-    Map as YMap,
-    transact,
-} from 'yjs';
+import { Array as YArray, Doc, Map as YMap, transact } from 'yjs';
+
 import type { BlockItem } from '../types';
 import type { BlockEventBus } from '../utils';
-import { getLogger, sleep } from '../utils';
 import { RemoteBinaries } from './binary';
 import { YBlock } from './block';
 import { GateKeeper } from './gatekeeper';
@@ -30,10 +17,6 @@ import {
 import type { YProviderFactory } from './provider';
 import type { ChangedStateKeys, Connectivity } from './types';
 import { assertExists } from './utils';
-
-declare const JWT_DEV: boolean;
-// @ts-ignore
-const logger = getLogger('BlockDB:yjs');
 
 type YProvider = {
     awareness: Awareness;
@@ -151,8 +134,6 @@ export class YBlockManager {
     private readonly _blockUpdated!: YMap<YArray<YArray<number | string>>>;
     private readonly _blockMap = new Map<string, YBlock>();
 
-    private readonly _binaries!: RemoteBinaries;
-
     private readonly _eventBus: BlockEventBus;
 
     private readonly _reload: () => void;
@@ -196,6 +177,52 @@ export class YBlockManager {
                 this._blocks,
                 this._eventBus.type('history')
             );
+
+            this._blocks.observeDeep(events => {
+                const now = Date.now();
+
+                console.log(events);
+                const keys = events.flatMap(e => {
+                    // eslint-disable-next-line no-bitwise
+                    if ((e.path?.length | 0) > 0) {
+                        return [
+                            [e.path[0], 'update'] as [string, ChangedStateKeys],
+                        ];
+                    }
+                    return Array.from(e.changes.keys.entries()).map(
+                        ([k, { action }]) =>
+                            [k, action] as [string, ChangedStateKeys]
+                    );
+                });
+
+                this._eventBus
+                    .type('system')
+                    .topic('updated')
+                    .emit(new Map(keys));
+
+                transact(this._doc, () => {
+                    for (const [key, action] of keys) {
+                        if (action === 'delete') {
+                            this._blockUpdated.delete(key);
+                        } else {
+                            const updated = this._blockUpdated.get(key);
+
+                            const content = new YArray<number | string>();
+                            content.push([this._doc.clientID, now, action]);
+
+                            if (updated) {
+                                updated.push([content]);
+                            } else {
+                                const array = new YArray<
+                                    YArray<number | string>
+                                >();
+                                array.push([content]);
+                                this._blockUpdated.set(key, array);
+                            }
+                        }
+                    }
+                });
+            });
         };
         this._reload();
         this._synced = providers.synced;
@@ -238,46 +265,6 @@ export class YBlockManager {
         this._awareness.setLocalStateField('userId', providers.userId);
 
         this._awareness.on('update', debouncedEditingNotifier);
-
-        this._blocks.observeDeep(events => {
-            const now = Date.now();
-
-            const keys = events.flatMap(e => {
-                // eslint-disable-next-line no-bitwise
-                if ((e.path?.length | 0) > 0) {
-                    return [
-                        [e.path[0], 'update'] as [string, ChangedStateKeys],
-                    ];
-                }
-                return Array.from(e.changes.keys.entries()).map(
-                    ([k, { action }]) =>
-                        [k, action] as [string, ChangedStateKeys]
-                );
-            });
-
-            this._eventBus.type('system').topic('updated').emit(new Map(keys));
-
-            transact(this._doc, () => {
-                for (const [key, action] of keys) {
-                    if (action === 'delete') {
-                        this._blockUpdated.delete(key);
-                    } else {
-                        const updated = this._blockUpdated.get(key);
-
-                        const content = new YArray<number | string>();
-                        content.push([this._doc.clientID, now, action]);
-
-                        if (updated) {
-                            updated.push([content]);
-                        } else {
-                            const array = new YArray<YArray<number | string>>();
-                            array.push([content]);
-                            this._blockUpdated.set(key, array);
-                        }
-                    }
-                }
-            });
-        });
     }
 
     get synced() {
@@ -310,59 +297,6 @@ export class YBlockManager {
         };
 
         return {
-            save: () => {
-                const binary = encodeStateAsUpdate(this._doc);
-                saveAs(
-                    new Blob([binary]),
-                    `affine_workspace_${new Date().toDateString()}.apk`
-                );
-            },
-            load: async () => {
-                const handles = await window.showOpenFilePicker({
-                    types: [
-                        {
-                            description: 'AFFiNE Package',
-                            accept: {
-                                'application/affine': ['.apk'],
-                            },
-                        },
-                    ],
-                });
-                const [file] = (await fromEvent(handles)) as File[];
-                const binary = await file?.arrayBuffer();
-                // await this._provider.idb.clearData();
-                const doc = new Doc({ autoLoad: true, shouldLoad: true });
-                let updated = 0;
-                let isUpdated = false;
-                doc.on('update', () => {
-                    isUpdated = true;
-                    updated += 1;
-                });
-                setInterval(() => {
-                    if (updated > 0) {
-                        updated -= 1;
-                    }
-                }, 500);
-
-                const updateCheck = new Promise<void>(resolve => {
-                    const check = async () => {
-                        while (!isUpdated || updated > 0) {
-                            // eslint-disable-next-line no-await-in-loop
-                            await sleep();
-                        }
-                        resolve();
-                    };
-                    check();
-                });
-                // await new IndexedDBProvider(this._provider.idb.name, doc)
-                //     .whenSynced;
-                if (binary) {
-                    applyUpdate(doc, new Uint8Array(binary));
-                    await updateCheck;
-                }
-                // eslint-disable-next-line no-console
-                console.log('load success');
-            },
             parse: () => this._doc.toJSON(),
             parsePage: (page_id: string) => {
                 const blocks = this._blocks.toJSON();
@@ -432,7 +366,7 @@ export class YBlockManager {
 
         const block = this._blocks.get(id);
 
-        // Synchronous read cannot read binary
+        // TODO: Synchronous read cannot read binary
         if (block) {
             const instance = new YBlock({
                 id,
@@ -466,7 +400,7 @@ export class YBlockManager {
     getBlockByFlavor(flavor: BlockItem['flavor']): string[] {
         const keys: string[] = [];
         this._blocks.forEach((doc, key) => {
-            if (doc.get('flavor') === flavor) {
+            if (doc.get('sys:flavor') === flavor) {
                 keys.push(key);
             }
         });

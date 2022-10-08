@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { useBlock, useHistory, useSyncedState } from './utils';
+import { useBlock, useHistory, useSyncedState } from '@toeverything/jwt-react';
 
 const blockOptions = {
     workspace: 'test',

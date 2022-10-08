@@ -1,4 +1,5 @@
 /* eslint-disable max-lines */
+import { nanoid } from 'nanoid';
 import type { BlockItem } from '../types';
 import { BlockFlavors } from '../types';
 import type { TopicEventBus } from '../utils';
@@ -55,6 +56,7 @@ export class AbstractBlock<T extends object = object> {
     private readonly _history: HistoryManager;
     private readonly _root: AbstractBlock | undefined;
     protected readonly eventBus: TopicEventBus;
+    private readonly _internalId: string = nanoid(10);
 
     private readonly _contentExportersGetter: () => Map<
         string,
@@ -96,12 +98,8 @@ export class AbstractBlock<T extends object = object> {
             new Map(exporters?.metadata(block));
         this._tagExportersGetter = () => new Map(exporters?.tag(block));
 
-        this._block.on('content', 'internal', () => {
+        this._block.on('content', 'internal' + this._internalId, () => {
             this._cachedContent = undefined;
-        });
-
-        this._block.on('children', 'internal', () => {
-            this._cachedChildren = undefined;
         });
 
         JWT_DEV && loggerDebug(`init: exists ${this._id}`);
@@ -200,7 +198,7 @@ export class AbstractBlock<T extends object = object> {
 
     private _getDateText(timestamp?: number): string | undefined {
         try {
-            if (timestamp && !Number.isNaN(timestamp)) {
+            if (timestamp) {
                 return new Date(timestamp)
                     .toISOString()
                     .split('T')[0]
@@ -250,7 +248,7 @@ export class AbstractBlock<T extends object = object> {
 
     private _refreshParent(parent: AbstractBlock) {
         this._changeParent?.();
-        parent.addChildrenListener(this._id, states => {
+        parent.addChildrenListener(this._id + this._internalId, states => {
             if (states.get(this._id) === 'delete') {
                 this._emitParent(parent._id, 'delete');
             }
@@ -497,9 +495,8 @@ export class AbstractBlock<T extends object = object> {
         }
         if (!contents.length) {
             try {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const content = this.getContent() as any;
-                return JSON.stringify(content.toJSON());
+                const content = this.getContent();
+                return JSON.stringify(content);
                 // eslint-disable-next-line no-empty
             } catch (e) {}
         }
