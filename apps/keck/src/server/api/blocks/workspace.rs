@@ -132,7 +132,9 @@ pub async fn history_workspace_clients(
 ) -> impl IntoResponse {
     if let Some(doc) = context.doc.get(&workspace) {
         let doc = doc.lock().await;
-        if let Some(json) = utils::parse_history_client(&doc) {
+        if let Some(json) =
+            parse_history_client(&doc).and_then(|clients| serde_json::to_string(&clients).ok())
+        {
             ([(header::CONTENT_TYPE, "application/json")], json).into_response()
         } else {
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -152,7 +154,7 @@ pub async fn history_workspace_clients(
         ("client", description = "client id, is give 0 then return all clients histories"),
     ),
     responses(
-        (status = 200, description = "Get workspace history", body = inline([utils::History])),
+        (status = 200, description = "Get workspace history", body = inline([RawHistory])),
         (status = 400, description = "Client id invalid"),
         (status = 500, description = "Failed to get workspace history")
     )
@@ -165,7 +167,9 @@ pub async fn history_workspace(
     if let Some(doc) = context.doc.get(&workspace) {
         let doc = doc.lock().await;
         if let Ok(client) = client.parse::<u64>() {
-            if let Some(json) = utils::parse_history(&doc, client) {
+            if let Some(json) =
+                parse_history(&doc, client).and_then(|history| serde_json::to_string(&history).ok())
+            {
                 ([(header::CONTENT_TYPE, "application/json")], json).into_response()
             } else {
                 StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -175,5 +179,35 @@ pub async fn history_workspace(
         }
     } else {
         StatusCode::NOT_FOUND.into_response()
+    }
+}
+
+mod test {
+
+    #[tokio::test]
+    async fn workspace() {
+        use super::*;
+        use axum_test_helper::TestClient;
+
+        let context = Arc::new(Context::new().await);
+
+        let app = Router::new()
+            .route(
+                "/block/:workspace",
+                get(blocks::get_workspace)
+                    .post(blocks::set_workspace)
+                    .delete(blocks::delete_workspace),
+            )
+            .layer(Extension(context));
+
+        let client = TestClient::new(app);
+
+        let resp = client.post("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(resp.text().await, "{}");
+
+        let resp = client.get("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(resp.text().await, "{}");
     }
 }
