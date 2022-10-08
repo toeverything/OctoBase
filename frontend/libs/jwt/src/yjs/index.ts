@@ -148,7 +148,7 @@ export class YBlockManager {
     // Block Collection
     // key is a randomly generated global id
     private readonly _blocks!: YMap<YMap<unknown>>;
-    private readonly _blockUpdated!: YMap<YArray<[number, number]>>;
+    private readonly _blockUpdated!: YMap<YArray<YArray<number | string>>>;
     private readonly _blockMap = new Map<string, YBlock>();
 
     private readonly _binaries!: RemoteBinaries;
@@ -263,14 +263,14 @@ export class YBlockManager {
                         this._blockUpdated.delete(key);
                     } else {
                         const updated = this._blockUpdated.get(key);
-                        const content: [number, number] = [
-                            this._doc.clientID,
-                            now,
-                        ];
+
+                        const content = new YArray<number | string>();
+                        content.push([this._doc.clientID, now, action]);
+
                         if (updated) {
                             updated.push([content]);
                         } else {
-                            const array = new YArray<[number, number]>();
+                            const array = new YArray<YArray<number | string>>();
                             array.push([content]);
                             this._blockUpdated.set(key, array);
                         }
@@ -417,7 +417,7 @@ export class YBlockManager {
 
     private _getUpdated(id: string) {
         const updated = this._blockUpdated.get(id);
-        return updated?.get(updated.length - 1)?.[1];
+        return (updated?.get(updated.length - 1)?.get(1) as number) || 0;
     }
 
     private _getCreator(id: string) {

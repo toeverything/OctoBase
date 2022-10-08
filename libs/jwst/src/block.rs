@@ -1,6 +1,6 @@
 use super::*;
 use lib0::any::Any;
-use types::{BlockContentValue, BlockHistory, JsonValue};
+use types::{BlockContentValue, JsonValue};
 use yrs::{Array, Map, PrelimArray, PrelimMap, Transaction};
 struct BlockChildrenPosition {
     pos: Option<u32>,
@@ -166,11 +166,13 @@ impl Block {
         &mut self.content
     }
 
-    fn log_update(&self, trx: &mut Transaction) {
+    fn log_update(&self, trx: &mut Transaction, action: HistoryOperation) {
         let array = PrelimArray::from([
-            self.operator as f64,
-            chrono::Utc::now().timestamp_millis() as f64,
+            Any::Number(self.operator as f64),
+            Any::Number(chrono::Utc::now().timestamp_millis() as f64),
+            Any::String(Box::from(action.to_string())),
         ]);
+
         self.updated.push_back(trx, array);
     }
 
@@ -218,20 +220,20 @@ impl Block {
         match value.into() {
             BlockContentValue::Json(json) => {
                 if Self::set_value(self.content(), trx, key, json) {
-                    self.log_update(trx);
+                    self.log_update(trx, HistoryOperation::Update);
                 }
             }
             BlockContentValue::Boolean(bool) => {
                 self.content.insert(trx, key, bool);
-                self.log_update(trx);
+                self.log_update(trx, HistoryOperation::Update);
             }
             BlockContentValue::Text(text) => {
                 self.content.insert(trx, key, text);
-                self.log_update(trx);
+                self.log_update(trx, HistoryOperation::Update);
             }
             BlockContentValue::Number(number) => {
                 self.content.insert(trx, key, number);
-                self.log_update(trx);
+                self.log_update(trx, HistoryOperation::Update);
             }
         }
     }
@@ -277,18 +279,11 @@ impl Block {
             })
     }
 
-    pub fn history(&self) -> Vec<[i64; 2]> {
+    pub fn history(&self) -> Vec<BlockHistory> {
         self.updated
             .iter()
             .filter_map(|v| v.to_yarray())
-            .map(|v| {
-                v.iter()
-                    .take(2)
-                    .filter_map(|s| s.to_string().parse::<i64>().ok())
-                    .collect::<Vec<_>>()
-            })
-            .filter(|v| v.len() == 2)
-            .map(|v| v.try_into().unwrap())
+            .map(|v| (v, self.id.clone()).into())
             .collect()
     }
 
@@ -303,7 +298,7 @@ impl Block {
             children.push_back(trx, options.block_id);
         }
 
-        self.log_update(trx);
+        self.log_update(trx, HistoryOperation::Add);
     }
 
     pub fn remove_children(&mut self, trx: &mut Transaction, options: RemoveChildren) {
@@ -315,7 +310,7 @@ impl Block {
         {
             children.remove(trx, current_pos as u32)
         }
-        self.log_update(trx);
+        self.log_update(trx, HistoryOperation::Delete);
     }
 
     fn position_calculator(&self, max_pos: u32, position: BlockChildrenPosition) -> Option<u32> {

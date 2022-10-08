@@ -1,5 +1,5 @@
 use super::*;
-use jwst::{InsertChildren, RemoveChildren};
+use jwst::{BlockHistory, InsertChildren, RemoveChildren};
 
 #[utoipa::path(
     get,
@@ -88,12 +88,6 @@ pub async fn set_block(
     }
 }
 
-#[derive(Serialize, utoipa::ToSchema)]
-struct BlockHistory {
-    client: i64,
-    timestamp: i64,
-}
-
 // get block history
 #[utoipa::path(
     get,
@@ -121,15 +115,7 @@ pub async fn get_block_history(
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
         if let Some(block) = Block::from(&mut trx, &block, doc.client_id) {
-            utils::json_response(
-                &block
-                    .history()
-                    .iter()
-                    .cloned()
-                    .map(|[client, timestamp]| BlockHistory { client, timestamp })
-                    .collect::<Vec<_>>(),
-            )
-            .into_response()
+            utils::json_response(&block.history()).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
         }
