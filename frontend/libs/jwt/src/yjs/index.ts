@@ -181,7 +181,6 @@ export class YBlockManager {
             this._blocks.observeDeep(events => {
                 const now = Date.now();
 
-                console.log(events);
                 const keys = events.flatMap(e => {
                     // eslint-disable-next-line no-bitwise
                     if ((e.path?.length | 0) > 0) {

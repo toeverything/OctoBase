@@ -108,7 +108,6 @@ export const useBlock = (workspace?: string | undefined, blockId?: string) => {
         ) => {
             if (block) {
                 block.on('content', name, state => {
-                    console.log(state, block.getContent(), key);
                     callback((block.getContent() as any)[key] as T | undefined);
                 });
             }

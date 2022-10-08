@@ -17,8 +17,6 @@ export class HistoryManager {
             trackedOrigins: tracker ? new Set(tracker) : undefined,
         });
         this._eventBus = eventBus;
-        // eslint-disable-next-line no-console
-        console.log('HistoryManager', scope, eventBus, tracker);
 
         this._historyManager.on(
             'stack-item-added',
