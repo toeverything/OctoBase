@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use yrs::Array;
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize, ToSchema, Debug, PartialEq)]
 pub enum HistoryOperation {
     Add,
     Update,
@@ -34,12 +34,12 @@ impl ToString for HistoryOperation {
     }
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Serialize, Deserialize, ToSchema, Debug, PartialEq)]
 pub struct BlockHistory {
-    block_id: String,
-    client: i64,
-    timestamp: i64,
-    operation: HistoryOperation,
+    pub block_id: String,
+    pub client: i64,
+    pub timestamp: i64,
+    pub operation: HistoryOperation,
 }
 
 impl From<(Array, String)> for BlockHistory {

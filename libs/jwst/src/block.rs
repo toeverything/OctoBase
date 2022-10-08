@@ -26,7 +26,6 @@ impl From<&InsertChildren> for BlockChildrenPosition {
     }
 }
 
-#[derive(Debug)]
 pub struct Block {
     // block schema
     // for example: {
@@ -265,18 +264,28 @@ impl Block {
             .unwrap()
     }
 
+    pub fn created(&self) -> i64 {
+        self.block
+            .get("sys:created")
+            .and_then(|c| match c.to_json() {
+                Any::Number(n) => Some(n as i64),
+                _ => None,
+            })
+            .unwrap_or_default()
+    }
+
     pub fn updated(&self) -> i64 {
         self.updated
             .iter()
             .filter_map(|v| v.to_yarray())
             .last()
-            .and_then(|a| a.get(1).and_then(|i| i.to_string().parse::<i64>().ok()))
-            .unwrap_or_else(|| {
-                self.block
-                    .get("sys:flavor")
-                    .and_then(|i| i.to_string().parse::<i64>().ok())
-                    .unwrap_or_default()
+            .and_then(|a| {
+                a.get(1).and_then(|i| match i.to_json() {
+                    Any::Number(n) => Some(n as i64),
+                    _ => None,
+                })
             })
+            .unwrap_or_else(|| self.created())
     }
 
     pub fn history(&self) -> Vec<BlockHistory> {
@@ -308,9 +317,9 @@ impl Block {
             .iter()
             .position(|c| c.to_string() == options.block_id)
         {
-            children.remove(trx, current_pos as u32)
+            children.remove(trx, current_pos as u32);
+            self.log_update(trx, HistoryOperation::Delete);
         }
-        self.log_update(trx, HistoryOperation::Delete);
     }
 
     fn position_calculator(&self, max_pos: u32, position: BlockChildrenPosition) -> Option<u32> {
@@ -340,7 +349,6 @@ impl Block {
 }
 
 mod tests {
-
     #[test]
     fn init_block() {
         use super::Block;
@@ -349,27 +357,75 @@ mod tests {
         let doc = Doc::default();
         let mut trx = doc.transact();
 
+        // new block
         let block = Block::new(&mut trx, "test", "affine:text", 123);
+        assert_eq!(block.id(), "test");
+        assert_eq!(block.flavor(), "affine:text");
+        assert_eq!(block.version(), [1, 0]);
 
-        debug_assert!(block.flavor() == "affine:text");
-        debug_assert!(block.version() == [1, 0]);
+        // get exist block
+        let block = Block::from(&mut trx, "test", 123).unwrap();
+        assert_eq!(block.flavor(), "affine:text");
+        assert_eq!(block.version(), [1, 0]);
     }
 
     #[test]
     fn set_value() {
-        use super::Block;
+        use super::{Any, Block};
+        use serde_json::{Number, Value};
         use yrs::Doc;
 
         let doc = Doc::default();
         let mut trx = doc.transact();
 
         let mut block = Block::new(&mut trx, "test", "affine:text", doc.client_id);
+
+        // normal type set
         block.set(&mut trx, "bool", true);
         block.set(&mut trx, "text", "hello world");
+        block.set(&mut trx, "text_owned", "hello world".to_owned());
         block.set(&mut trx, "num", 123);
-        debug_assert!(block.content().get("bool").unwrap().to_string() == "true");
-        debug_assert!(block.content().get("text").unwrap().to_string() == "hello world");
-        debug_assert!(block.content().get("num").unwrap().to_string() == "123");
+        assert_eq!(block.content().get("bool").unwrap().to_string(), "true");
+        assert_eq!(
+            block.content().get("text").unwrap().to_string(),
+            "hello world"
+        );
+        assert_eq!(
+            block.content().get("text_owned").unwrap().to_string(),
+            "hello world"
+        );
+        assert_eq!(block.content().get("num").unwrap().to_string(), "123");
+
+        // json type set
+        block.set(&mut trx, "json_bool", Value::Bool(false));
+        block.set(
+            &mut trx,
+            "json_f64",
+            Value::Number(Number::from_f64(1.23).unwrap()),
+        );
+        block.set(&mut trx, "json_i64", Value::Number(i64::MAX.into()));
+        block.set(&mut trx, "json_u64", Value::Number(u64::MAX.into()));
+        block.set(&mut trx, "json_str", Value::String("test".into()));
+        assert_eq!(
+            block.content().get("json_bool").unwrap().to_json(),
+            Any::Bool(false)
+        );
+        assert_eq!(
+            block.content().get("json_f64").unwrap().to_json(),
+            Any::Number(1.23)
+        );
+        assert_eq!(
+            block.content().get("json_i64").unwrap().to_json(),
+            Any::Number(i64::MAX as f64)
+        );
+        assert_eq!(
+            block.content().get("json_u64").unwrap().to_json(),
+            Any::Number(u64::MAX as f64)
+        );
+        assert_eq!(
+            block.content().get("json_str").unwrap().to_json(),
+            Any::String("test".into())
+        );
     }
 
     #[test]
@@ -413,19 +469,28 @@ mod tests {
                 ..Default::default()
             },
         );
+        block.insert_children(
+            &mut trx,
+            InsertChildren {
+                block_id: "f".to_owned(),
+                after: Some("c".to_owned()),
+                ..Default::default()
+            },
+        );
 
-        debug_assert!(
+        assert_eq!(
             block
                 .children
                 .iter()
                 .map(|i| i.to_string())
-                .collect::<Vec<_>>()
-                == vec![
-                    "c".to_owned(),
-                    "d".to_owned(),
-                    "b".to_owned(),
-                    "e".to_owned()
-                ]
+                .collect::<Vec<_>>(),
+            vec![
+                "c".to_owned(),
+                "f".to_owned(),
+                "d".to_owned(),
+                "b".to_owned(),
+                "e".to_owned()
+            ]
         );
 
         block.remove_children(
@@ -435,13 +500,102 @@ mod tests {
             },
         );
 
-        debug_assert!(
+        assert_eq!(
             block
                 .children
                 .iter()
                 .map(|i| i.to_string())
-                .collect::<Vec<_>>()
-                == vec!["c".to_owned(), "b".to_owned(), "e".to_owned()]
+                .collect::<Vec<_>>(),
+            vec![
+                "c".to_owned(),
+                "f".to_owned(),
+                "b".to_owned(),
+                "e".to_owned()
+            ]
         );
+    }
+
+    #[test]
+    fn updated() {
+        use super::Block;
+        use yrs::Doc;
+
+        let doc = Doc::default();
+        let mut trx = doc.transact();
+
+        let mut block = Block::new(&mut trx, "a", "affine:text", 123);
+
+        block.set(&mut trx, "test", 1);
+
+        assert!(block.created() <= block.updated())
+    }
+
+    #[test]
+    fn history() {
+        use super::{Block, BlockHistory, HistoryOperation, InsertChildren, RemoveChildren};
+        use yrs::Doc;
+
+        let doc = Doc::default();
+        let mut trx = doc.transact();
+
+        let mut block = Block::new(&mut trx, "a", "affine:text", 123);
+
+        block.set(&mut trx, "test", 1);
+
+        let history = block.history();
+        assert_eq!(history.len(), 1);
+
+        let history = history.last().unwrap();
+
+        assert_eq!(
+            history,
+            &BlockHistory {
+                block_id: "a".to_owned(),
+                client: 123,
+                timestamp: history.timestamp,
+                operation: HistoryOperation::Update,
+            }
+        );
+
+        block.insert_children(
+            &mut trx,
+            InsertChildren {
+                block_id: "b".to_owned(),
+                ..Default::default()
+            },
+        );
+
+        block.remove_children(
+            &mut trx,
+            RemoveChildren {
+                block_id: "b".to_owned(),
+            },
+        );
+
+        let history = block.history();
+        assert_eq!(history.len(), 3);
+
+        if let [.., insert, remove] = history.as_slice() {
+            assert_eq!(
+                insert,
+                &BlockHistory {
+                    block_id: "a".to_owned(),
+                    client: 123,
+                    timestamp: insert.timestamp,
+                    operation: HistoryOperation::Add,
+                }
+            );
+            assert_eq!(
+                remove,
+                &BlockHistory {
+                    block_id: "a".to_owned(),
+                    client: 123,
+                    timestamp: remove.timestamp,
+                    operation: HistoryOperation::Delete,
+                }
+            );
+        } else {
+            assert!(false)
+        }
     }
 }
