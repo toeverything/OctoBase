@@ -3,5 +3,7 @@ mod history;
 mod types;
 
 pub use block::Block;
-pub use history::{BlockHistory, HistoryOperation};
+pub use history::{
+    parse_history, parse_history_client, BlockHistory, HistoryOperation, RawHistory,
+};
 pub use types::{BlockField, InsertChildren, RemoveChildren};

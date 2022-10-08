@@ -1,7 +1,3 @@
-mod history;
-
-pub use history::{parse_history, parse_history_client, History};
-
 use super::*;
 use crate::sync::*;
 use axum::{

@@ -1,12 +1,12 @@
-use super::*;
-
+use log::{debug, info};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet, VecDeque};
 use utoipa::ToSchema;
 use yrs::{
     block::{Item, ItemContent, ID},
     types::TypePtr,
-    Doc, StateVector,
+    updates::decoder::Decode,
+    Doc, StateVector, Update,
 };
 
 struct ParentMap(HashMap<ID, String>);
@@ -82,31 +82,28 @@ impl ParentMap {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-pub struct History {
+pub struct RawHistory {
     id: String,
     parent: String,
     content: String,
 }
 
-pub fn parse_history_client(doc: &Doc) -> Option<String> {
+pub fn parse_history_client(doc: &Doc) -> Option<Vec<u64>> {
     let update = doc.encode_state_as_update_v1(&StateVector::default());
-    if let Ok(update) = Update::decode_v1(&update) {
-        serde_json::to_string(
-            &update
-                .as_items()
-                .iter()
-                .map(|i| i.id.client)
-                .collect::<HashSet<_>>()
-                .into_iter()
-                .collect::<Vec<_>>(),
-        )
-        .ok()
-    } else {
-        None
-    }
+    let update = Update::decode_v1(&update).ok()?;
+
+    Some(
+        update
+            .as_items()
+            .iter()
+            .map(|i| i.id.client)
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>(),
+    )
 }
 
-pub fn parse_history(doc: &Doc, client: u64) -> Option<String> {
+pub fn parse_history(doc: &Doc, client: u64) -> Option<Vec<RawHistory>> {
     let update = doc.encode_state_as_update_v1(&StateVector::default());
     let update = Update::decode_v1(&update).ok()?;
     let mut items = update.as_items();
@@ -121,7 +118,7 @@ pub fn parse_history(doc: &Doc, client: u64) -> Option<String> {
         if let Some(parent) = parent_map.get(&item.id) {
             if item.id.client == client || client == 0 {
                 let id = format!("{}:{}", item.id.clock, item.id.client);
-                histories.push(History {
+                histories.push(RawHistory {
                     id,
                     parent,
                     content: item.content.to_string(),
@@ -132,5 +129,5 @@ pub fn parse_history(doc: &Doc, client: u64) -> Option<String> {
         }
     }
 
-    serde_json::to_string(&histories).ok()
+    Some(histories)
 }

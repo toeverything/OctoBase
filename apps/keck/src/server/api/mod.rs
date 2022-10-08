@@ -10,7 +10,7 @@ use axum::{
     Router,
 };
 use dashmap::DashMap;
-use jwst::Block;
+use jwst::{parse_history, parse_history_client, Block, RawHistory};
 use serde_json::Value as JsonValue;
 use tokio::sync::{mpsc::Sender, Mutex};
 use utoipa::OpenApi;
