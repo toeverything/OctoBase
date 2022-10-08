@@ -1,5 +1,6 @@
 /* eslint-disable max-lines */
 import type { DocumentSearchOptions } from 'flexsearch';
+
 import type { BlockSearchItem, ReadableContentExporter } from './block';
 import { AbstractBlock, BlockIndexer } from './block';
 import type { QueryIndexMetadata } from './block/indexer';
@@ -216,15 +217,13 @@ export class JwtStore implements IJwtStore {
     }
 
     /**
-     * Get a specific type of block, currently only the article type is supported
-     * @param blockType block type
+     * Get a specific flavor of block, currently only the article type is supported
+     * @param flavor block flavor
      * @returns
      */
     public getByFlavor(flavor: string): Map<string, AbstractBlock> {
         JWT_DEV && logger(`getByType: ${flavor}`);
-        const ids = this._blockIndexer.query({
-            flavor,
-        });
+        const ids = this.getBlockByFlavor(flavor);
 
         const docs = ids.map(id => [id, this.get(id)] as const);
 
@@ -513,7 +512,7 @@ export class JwtStore implements IJwtStore {
 
     /**
      * Get a Block, which is automatically created if it does not exist
-     * @param blockType block type, create a new text block when BlockTypes/BlockFlavors are not provided. If BlockTypes/BlockFlavors are provided, create a block of the corresponding type
+     * @param blockFlavor block type, create a new text block when BlockTypes/BlockFlavors are not provided. If BlockTypes/BlockFlavors are provided, create a block of the corresponding type
      * @param options.type The type of block created when block does not exist, the default is block
      * @param options.flavor The flavor of the block created when the block does not exist, the default is text
      * @param options.binary content of binary block, must be provided when type or block_id_or_type is binary

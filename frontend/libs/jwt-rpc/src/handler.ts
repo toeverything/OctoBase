@@ -4,9 +4,6 @@ import * as syncProtocol from 'y-protocols/sync';
 
 import { KeckProvider } from './keckprovider';
 
-const permissionDeniedHandler = (provider: KeckProvider, reason: string) =>
-    console.warn(`Permission denied to access ${provider.url}.\n${reason}`);
-
 export enum Message {
     sync = 0,
 }

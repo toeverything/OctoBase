@@ -25,7 +25,7 @@ const getJwtInitializer = () => {
         if (!workspaces[workspace]) {
             _asyncInitLoading.add(workspace);
             workspaces[workspace] = new JwtStore(workspace, options);
-            workspaces[workspace]?.buildIndex();
+            await workspaces[workspace]?.buildIndex();
             await workspaces[workspace]?.synced;
 
             if (JWT_DEV) {
