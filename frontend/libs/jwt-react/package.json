@@ -1,0 +1,11 @@
+{
+    "name": "@toeverything/jwt-react",
+    "version": "0.0.1",
+    "license": "MIT",
+    "author": "DarkSky <darksky2048@gmail.com>",
+    "dependencies": {
+        "jotai": "^1.8.4",
+        "nanoid": "^4.0.0",
+        "preact": "^10.11.1"
+    }
+}

@@ -16,6 +16,7 @@
         "baseUrl": ".",
         "paths": {
             "@toeverything/jwt": ["libs/jwt/src/index.ts"],
+            "@toeverything/jwt-react": ["libs/jwt-react/src/index.ts"],
             "@toeverything/jwt-rpc": ["libs/jwt-rpc/src/index.ts"]
         }
     },
