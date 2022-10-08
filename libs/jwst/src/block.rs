@@ -92,7 +92,11 @@ impl Block {
                 "sys:children",
                 PrelimArray::<Vec<String>, String>::from(vec![]),
             );
-            block.insert(trx, "sys:created", chrono::Utc::now().timestamp_millis());
+            block.insert(
+                trx,
+                "sys:created",
+                chrono::Utc::now().timestamp_millis() as f64,
+            );
             block.insert(trx, "content", PrelimMap::<Any>::new());
 
             updated.insert(trx, block_id.clone(), PrelimArray::<_, Any>::from([]));
@@ -163,7 +167,10 @@ impl Block {
     }
 
     fn log_update(&self, trx: &mut Transaction) {
-        let array = PrelimArray::from([self.operator, chrono::Utc::now().timestamp_millis()]);
+        let array = PrelimArray::from([
+            self.operator as f64,
+            chrono::Utc::now().timestamp_millis() as f64,
+        ]);
         self.updated.push_back(trx, array);
     }
 
