@@ -1,0 +1,18 @@
+FROM messense/rust-musl-cross:aarch64-musl AS builder
+ENV CARGO_TERM_COLOR="always"
+RUN rustup update nightly && \
+    rustup target add --toolchain nightly aarch64-unknown-linux-musl && \
+    rustup default nightly
+COPY . .
+RUN cargo build --release
+
+FROM ghcr.io/toeverything/affine:nightly-keck as static
+
+FROM alpine:latest as jwst
+WORKDIR /app
+COPY --from=builder \
+    /home/rust/src/target/aarch64-unknown-linux-musl/release/keck \
+    /usr/local/bin/jwst
+COPY --from=builder /home/rust/src/apps/handbook/book ./book
+COPY --from=static /app .
+ENTRYPOINT /usr/local/bin/jwst

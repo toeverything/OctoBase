@@ -49,6 +49,13 @@ jobs:
                   username: ${{ github.actor }}
                   password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
 
+            - name: Set up QEMU
+              uses: docker/setup-qemu-action@v1
+
+            - name: Set up Docker Buildx
+              id: buildx
+              uses: docker/setup-buildx-action@v1
+
             - name: Extract metadata (tags, labels) for Docker (jwst)
               id: meta_jwst
               uses: docker/metadata-action@v4
@@ -58,11 +65,23 @@ jobs:
                       ${{ env.IMAGE_TAG }}
                       ${{ env.IMAGE_TAG_LATEST }}
 
-            - name: Build and push Docker image (jwst)
+            - name: Build and push Docker image (jwst-amd64)
               uses: docker/build-push-action@v3
               with:
                   context: .
-                  file: ./.github/deployment/Dockerfile-jwst
+                  platforms: linux/amd64
+                  file: ./.github/deployment/Dockerfile-jwst-amd64
+                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
+                  tags: ${{ steps.meta_jwst.outputs.tags }}
+                  labels: ${{ steps.meta_jwst.outputs.labels }}
+                  target: jwst
+
+            - name: Build and push Docker image (jwst-aarch64)
+              uses: docker/build-push-action@v3
+              with:
+                  context: .
+                  platforms: linux/arm64/v8
+                  file: ./.github/deployment/Dockerfile-jwst-amd64
                   push: ${{ github.ref == 'refs/heads/master' && true || false }}
                   tags: ${{ steps.meta_jwst.outputs.tags }}
                   labels: ${{ steps.meta_jwst.outputs.labels }}
