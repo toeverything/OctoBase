@@ -34,8 +34,12 @@ pub async fn start_server() {
 
     let context = Arc::new(Context::new().await);
 
-    let app = Router::new()
-        .merge(api::api_docs())
+    let mut app = Router::new();
+    #[cfg(feature = "schema")]
+    {
+        app = app.merge(api::api_docs());
+    }
+    app = app
         // .nest("/api", api::api_handler())
         .nest("/api", api::api_handler())
         .nest(

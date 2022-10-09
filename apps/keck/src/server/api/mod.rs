@@ -14,6 +14,7 @@ use jwst::{parse_history, parse_history_client, Block, RawHistory};
 use serde_json::Value as JsonValue;
 use tokio::sync::{mpsc::Sender, Mutex};
 use utoipa::OpenApi;
+#[cfg(feature = "schema")]
 use utoipa_swagger_ui::SwaggerUi;
 use yrs::Doc;
 
@@ -55,6 +56,7 @@ impl Context {
 )]
 struct ApiDoc;
 
+#[cfg(feature = "schema")]
 pub fn api_docs() -> SwaggerUi {
     SwaggerUi::new("/swagger-ui/*tail").url("/api-doc/openapi.json", ApiDoc::openapi())
 }

@@ -5,6 +5,10 @@ authors = ["DarkSky <darksky2048@gmail.com>"]
 edition = "2021"
 license = "AGPL-3.0-only"
 
+[features]
+default = ["schema"]
+schema = ["utoipa-swagger-ui"]
+
 [dependencies]
 anyhow = "^1.0.64"
 chrono = "^0.4.22"
@@ -51,6 +55,7 @@ features = ["axum_extras"]
 [dependencies.utoipa-swagger-ui]
 version = "^2.0.1"
 features = ["axum"]
+optional = true
 
 [dependencies.uuid]
 version = "1.1.2"
