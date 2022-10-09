@@ -1,7 +1,7 @@
-FROM messense/rust-musl-cross:aarch64-musl AS builder
+FROM messense/rust-musl-cross:armv7-musleabi AS builder
 ENV CARGO_TERM_COLOR="always"
 RUN rustup update nightly && \
-    rustup target add --toolchain nightly aarch64-unknown-linux-musl && \
+    rustup target add --toolchain nightly armv7-unknown-linux-musleabi && \
     rustup default nightly
 COPY . .
 RUN --mount=type=cache,target=/home/rust/src/target,rw,sharing=private cargo build --release
@@ -11,7 +11,7 @@ FROM ghcr.io/toeverything/affine:nightly-keck as static
 FROM alpine:latest as jwst
 WORKDIR /app
 COPY --from=builder \
-    /home/rust/src/target/aarch64-unknown-linux-musl/release/keck \
+    /home/rust/src/target/armv7-unknown-linux-musleabi/release/keck \
     /usr/local/bin/jwst
 COPY --from=builder /home/rust/src/apps/handbook/book ./book
 COPY --from=static /app .
