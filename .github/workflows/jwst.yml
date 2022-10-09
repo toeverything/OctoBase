@@ -157,13 +157,13 @@ jobs:
                       ${{ env.IMAGE_TAG }}
                       ${{ env.IMAGE_TAG_LATEST }}
 
-            - name: Build and push Docker image (jwst-armv7)
-              uses: docker/build-push-action@v3
-              with:
-                  context: .
-                  platforms: linux/arm64/v7
-                  file: ./.github/deployment/Dockerfile-jwst-armv7
-                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
-                  tags: ${{ steps.meta_jwst.outputs.tags }}
-                  labels: ${{ steps.meta_jwst.outputs.labels }}
-                  target: jwst
+            # - name: Build and push Docker image (jwst-armv7)
+            #   uses: docker/build-push-action@v3
+            #   with:
+            #       context: .
+            #       platforms: linux/arm64/v7
+            #       file: ./.github/deployment/Dockerfile-jwst-armv7
+            #       push: ${{ github.ref == 'refs/heads/master' && true || false }}
+            #       tags: ${{ steps.meta_jwst.outputs.tags }}
+            #       labels: ${{ steps.meta_jwst.outputs.labels }}
+            #       target: jwst

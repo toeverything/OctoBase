@@ -4,7 +4,9 @@ RUN rustup update nightly && \
     rustup target add --toolchain nightly x86_64-unknown-linux-musl && \
     rustup default nightly
 COPY . .
-RUN --mount=type=cache,target=/home/rust/src/target,rw,sharing=private cargo build --release
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/home/rust/src/target,id=jwst_amd64 \
+    cargo build --release
 
 FROM ghcr.io/toeverything/affine:nightly-keck as static
 

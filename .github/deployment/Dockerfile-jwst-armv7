@@ -4,7 +4,9 @@ RUN rustup update nightly && \
     rustup target add --toolchain nightly armv7-unknown-linux-musleabi && \
     rustup default nightly
 COPY . .
-RUN --mount=type=cache,target=/home/rust/src/target,rw,sharing=private cargo build --release
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/home/rust/src/target,id=jwst_armv7 \
+    cargo build --release
 
 FROM ghcr.io/toeverything/affine:nightly-keck as static
 
