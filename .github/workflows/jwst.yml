@@ -79,7 +79,7 @@ jobs:
                   target: jwst
 
     jwst_aarch64:
-        runs-on: ubuntu-latest
+        runs-on: self-hosted
         environment: development
         permissions:
             contents: read
