@@ -1,9 +1,10 @@
 pub use yrs::{updates::decoder::Decode, Update};
 
+use lib0::{decoding::Read, encoding::Write};
 use yrs::{
     updates::{
-        decoder::Decoder,
-        encoder::{Encode, Encoder},
+        decoder::{Decoder, DecoderV1},
+        encoder::{Encode, Encoder, EncoderV1},
     },
     Doc, StateVector,
 };
@@ -17,49 +18,59 @@ pub fn write_sync<E: Encoder>(encoder: &mut E) {
     encoder.write_var(MSG_SYNC);
 }
 
-/// Create a sync step 1 message based on the state of the current shared document.
-pub fn write_step1<E: Encoder>(doc: &Doc, encoder: &mut E) {
-    let txn = doc.transact();
+pub fn encode_init_update(doc: &Doc) -> Vec<u8> {
+    let mut encoder = EncoderV1::new();
+    write_sync(&mut encoder);
 
+    // Create a sync step 1 message based on the state of the current shared document.
     encoder.write_var(MSG_SYNC_STEP_1);
-    encoder.write_buf(txn.state_vector().encode_v1());
+    encoder.write_buf(doc.transact().state_vector().encode_v1());
+
+    encoder.to_vec()
 }
 
-pub fn write_step2<E: Encoder>(doc: &Doc, sv: &[u8], encoder: &mut E) {
-    let txn = doc.transact();
-    let remote_sv = StateVector::decode_v1(sv).unwrap();
+pub fn encode_update(update: &[u8]) -> Vec<u8> {
+    let mut encoder = EncoderV1::new();
 
-    encoder.write_var(MSG_SYNC_STEP_2);
-    encoder.write_buf(txn.encode_diff_v1(&remote_sv));
-}
+    write_sync(&mut encoder);
 
-pub fn write_update<E: Encoder>(update: &[u8], encoder: &mut E) {
     encoder.write_var(MSG_SYNC_UPDATE);
     encoder.write_buf(update);
+
+    encoder.to_vec()
 }
 
-pub fn read_sync_message<D: Decoder, E: Encoder>(
-    doc: &Doc,
-    decoder: &mut D,
-    encoder: &mut E,
-) -> Option<Vec<u8>> {
-    let msg_type = decoder.read_var().unwrap();
-    match msg_type {
-        MSG_SYNC_STEP_1 => {
-            read_sync_step1(doc, decoder, encoder);
-            None
+pub fn decode_remote_message(doc: &Doc, binary: Vec<u8>) -> (Option<Vec<u8>>, Option<Vec<u8>>) {
+    let mut encoder = EncoderV1::new();
+    let mut decoder = DecoderV1::from(binary.as_slice());
+
+    if decoder.read_var::<u8>().unwrap() == MSG_SYNC as u8 {
+        write_sync(&mut encoder);
+
+        // read sync message
+        let msg_type = decoder.read_var().unwrap();
+        match msg_type {
+            MSG_SYNC_STEP_1 => {
+                read_sync_step1(doc, &mut decoder, &mut encoder);
+                (Some(encoder.to_vec()), None)
+            }
+            MSG_SYNC_STEP_2 => (None, Some(read_sync_step2(doc, &mut decoder))),
+            MSG_SYNC_UPDATE => (None, Some(read_update(doc, &mut decoder))),
+            other => panic!("Unknown message type: {} to {}", other, doc.client_id),
         }
-        MSG_SYNC_STEP_2 => Some(read_sync_step2(doc, decoder)),
-        MSG_SYNC_UPDATE => Some(read_update(doc, decoder)),
-        other => panic!("Unknown message type: {} to {}", other, doc.client_id),
+    } else {
+        (None, None)
     }
 }
 
-pub fn read_sync_step1<D: Decoder, E: Encoder>(doc: &Doc, decoder: &mut D, encoder: &mut E) {
-    write_step2(doc, decoder.read_buf().unwrap(), encoder)
+fn read_sync_step1<D: Decoder, E: Encoder>(doc: &Doc, decoder: &mut D, encoder: &mut E) {
+    let remote_sv = StateVector::decode_v1(decoder.read_buf().unwrap()).unwrap();
+
+    encoder.write_var(MSG_SYNC_STEP_2);
+    encoder.write_buf(doc.transact().encode_diff_v1(&remote_sv));
 }
 
-pub fn read_sync_step2<D: Decoder>(doc: &Doc, decoder: &mut D) -> Vec<u8> {
+fn read_sync_step2<D: Decoder>(doc: &Doc, decoder: &mut D) -> Vec<u8> {
     let mut txn = doc.transact();
 
     let buf = decoder.read_buf().unwrap();
@@ -68,6 +79,6 @@ pub fn read_sync_step2<D: Decoder>(doc: &Doc, decoder: &mut D) -> Vec<u8> {
     buf.to_vec()
 }
 
-pub fn read_update<D: Decoder>(doc: &Doc, decoder: &mut D) -> Vec<u8> {
+fn read_update<D: Decoder>(doc: &Doc, decoder: &mut D) -> Vec<u8> {
     read_sync_step2(doc, decoder)
 }

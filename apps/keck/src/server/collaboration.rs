@@ -13,13 +13,7 @@ use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::mpsc::channel;
 use utils::Migrate;
-use yrs::{
-    updates::{
-        decoder::{Decoder, DecoderV1},
-        encoder::{Encoder, EncoderV1},
-    },
-    Doc, StateVector,
-};
+use yrs::{Doc, StateVector};
 
 #[derive(Serialize)]
 pub struct WebSocketAuthentication {
@@ -44,10 +38,7 @@ pub async fn upgrade_handler(
 
 pub fn subscribe_handler(context: Arc<Context>, doc: &mut Doc, uuid: String, workspace: String) {
     let sub = doc.observe_update_v1(move |_, e| {
-        let mut encoder = EncoderV1::new();
-        write_sync(&mut encoder);
-        write_update(&e.update, &mut encoder);
-        let update = encoder.to_vec();
+        let update = encode_update(&e.update);
 
         let context = context.clone();
         let uuid = uuid.clone();
@@ -145,11 +136,7 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
 
         subscribe_handler(context.clone(), &mut doc, uuid.clone(), workspace.clone());
 
-        let mut encoder = EncoderV1::new();
-        write_sync(&mut encoder);
-        write_step1(&doc, &mut encoder);
-
-        encoder.to_vec()
+        encode_init_update(&doc)
     };
 
     if tx.send(Message::Binary(init_data)).await.is_err() {
@@ -163,29 +150,11 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
             let payload = {
                 let doc = context.doc.get(&workspace).unwrap();
                 let doc = doc.value().lock().await;
-                let mut encoder = EncoderV1::new();
-                let mut decoder = DecoderV1::from(binary.as_slice());
 
-                if decoder.read_info().unwrap() == MSG_SYNC as u8 {
-                    use std::panic::{catch_unwind, AssertUnwindSafe};
-                    catch_unwind(AssertUnwindSafe(|| {
-                        write_sync(&mut encoder);
-                        read_sync_message(&doc, &mut decoder, &mut encoder)
-                    }))
-                    .ok()
-                    .and_then(|update| {
-                        let payload = encoder.to_vec();
-                        if payload.len() > 1 {
-                            Some((Some(payload), update))
-                        } else {
-                            Some((None, update))
-                        }
-                    })
-                } else {
-                    None
-                }
+                use std::panic::{catch_unwind, AssertUnwindSafe};
+                catch_unwind(AssertUnwindSafe(|| decode_remote_message(&doc, binary)))
             };
-            if let Some((binary, update)) = payload {
+            if let Ok((binary, update)) = payload {
                 if let Some(update) = update {
                     if let Some(tx) = context.storage.get(&workspace) {
                         if let Err(e) = tx.send(Migrate::Update(update)).await {
