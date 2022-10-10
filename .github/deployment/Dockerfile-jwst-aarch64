@@ -1,8 +1,5 @@
 FROM messense/rust-musl-cross:aarch64-musl AS builder
 ENV CARGO_TERM_COLOR="always"
-RUN rustup update nightly && \
-    rustup target add --toolchain nightly aarch64-unknown-linux-musl && \
-    rustup default nightly
 COPY . .
 RUN --mount=type=cache,target=/root/.cargo/registry,rw,sharing=private \
     --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_aarch64 \
