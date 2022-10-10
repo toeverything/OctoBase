@@ -55,11 +55,13 @@ where
     }
 }
 
+#[cfg(test)]
 mod tests {
+    use super::*;
+
     #[tokio::test]
     async fn doc_load_test() -> anyhow::Result<()> {
-        use super::*;
-        use yrs::{Doc, StateVector};
+        use yrs::{updates::decoder::Decode, Doc, StateVector, Update};
         let doc = Doc::default();
 
         {

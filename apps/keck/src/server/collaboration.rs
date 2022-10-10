@@ -20,14 +20,21 @@ pub struct WebSocketAuthentication {
     protocol: String,
 }
 
-pub async fn auth_handler(Path(workspace): Path<String>) -> Json<WebSocketAuthentication> {
+pub fn collaboration_handler(router: Router) -> Router {
+    router.nest(
+        "/collaboration/:workspace",
+        post(collaboration::auth_handler).get(collaboration::upgrade_handler),
+    )
+}
+
+async fn auth_handler(Path(workspace): Path<String>) -> Json<WebSocketAuthentication> {
     info!("auth: {}", workspace);
     Json(WebSocketAuthentication {
         protocol: "AFFiNE".to_owned(),
     })
 }
 
-pub async fn upgrade_handler(
+async fn upgrade_handler(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
     ws: WebSocketUpgrade,
@@ -36,7 +43,7 @@ pub async fn upgrade_handler(
         .on_upgrade(|socket| async move { handle_socket(socket, workspace, context.clone()).await })
 }
 
-pub fn subscribe_handler(context: Arc<Context>, doc: &mut Doc, uuid: String, workspace: String) {
+fn subscribe_handler(context: Arc<Context>, doc: &mut Doc, uuid: String, workspace: String) {
     let sub = doc.observe_update_v1(move |_, e| {
         let update = encode_update(&e.update);
 

@@ -6,7 +6,11 @@ edition = "2021"
 license = "AGPL-3.0-only"
 
 [features]
-default = ["schema"]
+default = []
+affine = []
+jwst = ["api", "schema", "docs"]
+api = ["utoipa"]
+docs = ["mdbook"]
 schema = ["utoipa-swagger-ui"]
 
 [dependencies]
@@ -51,6 +55,7 @@ features = ["macros", "rt-multi-thread"]
 [dependencies.utoipa]
 version = "^2.1.0"
 features = ["axum_extras"]
+optional = true
 
 [dependencies.utoipa-swagger-ui]
 version = "^2.0.1"
@@ -83,6 +88,7 @@ axum-test-helper = "^0.1.1"
 [build-dependencies.mdbook]
 version = "^0.4.21"
 default-features = false
+optional = true
 
 [profile.dev.package.sqlx-macros]
 opt-level = 3

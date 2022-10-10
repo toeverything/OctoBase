@@ -34,18 +34,7 @@ pub async fn start_server() {
 
     let context = Arc::new(Context::new().await);
 
-    let mut app = Router::new();
-    #[cfg(feature = "schema")]
-    {
-        app = app.merge(api::api_docs());
-    }
-    app = app
-        // .nest("/api", api::api_handler())
-        .nest("/api", api::api_handler())
-        .nest(
-            "/collaboration/:workspace",
-            post(collaboration::auth_handler).get(collaboration::upgrade_handler),
-        )
+    let app = collaboration::collaboration_handler(api::api_handler(Router::new()))
         .layer(cors)
         .layer(Extension(context))
         .nest("/docs", get(files::docs_handler))

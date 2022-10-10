@@ -3,13 +3,86 @@ mod workspace;
 
 pub use super::*;
 pub use block::{
-    __path_delete_block, __path_get_block, __path_get_block_history, __path_insert_block,
-    __path_remove_block, __path_set_block, delete_block, get_block, get_block_history,
-    insert_block, remove_block, set_block,
+    delete_block, get_block, get_block_history, insert_block, remove_block, set_block,
 };
 pub use workspace::{
-    __path_delete_workspace, __path_get_workspace, __path_history_workspace,
-    __path_history_workspace_clients, __path_set_workspace, __path_workspace_client,
     delete_workspace, get_workspace, history_workspace, history_workspace_clients, set_workspace,
     workspace_client,
 };
+
+use utoipa::OpenApi;
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        workspace::get_workspace,
+        workspace::set_workspace,
+        workspace::delete_workspace,
+        workspace::workspace_client,
+        workspace::history_workspace_clients,
+        workspace::history_workspace,
+        block::get_block,
+        block::set_block,
+        block::get_block_history,
+        block::delete_block,
+        block::insert_block,
+        block::remove_block,
+    ),
+    tags((name = "Blocks", description = "Read and write remote blocks"))
+)]
+struct ApiDoc;
+
+fn doc_apis(router: Router) -> Router {
+    #[cfg(feature = "schema")]
+    {
+        router.merge(
+            utoipa_swagger_ui::SwaggerUi::new("/swagger-ui/*tail")
+                .url("/api-doc/openapi.json", ApiDoc::openapi()),
+        )
+    }
+    #[cfg(not(feature = "schema"))]
+    {
+        router
+    }
+}
+
+fn block_apis(router: Router) -> Router {
+    let block_operation = Router::new()
+        .route("/history", get(block::get_block_history))
+        .route("/insert", post(block::insert_block))
+        .route("/remove", post(block::remove_block));
+
+    doc_apis(router)
+        .nest("/block/:workspace/:block/", block_operation)
+        .route(
+            "/block/:workspace/:block",
+            get(block::get_block)
+                .post(block::set_block)
+                .delete(block::delete_block),
+        )
+}
+
+fn workspace_apis(router: Router) -> Router {
+    router
+        .route("/block/:workspace/client", get(workspace::workspace_client))
+        .route(
+            "/block/:workspace/history",
+            get(workspace::history_workspace_clients),
+        )
+        .route(
+            "/block/:workspace/history/:client",
+            get(workspace::history_workspace),
+        )
+        .route(
+            "/block/:workspace",
+            get(workspace::get_workspace)
+                .post(workspace::set_workspace)
+                .delete(workspace::delete_workspace),
+        )
+}
+
+pub fn blocks_apis(router: Router) -> Router {
+    let api_handler = workspace_apis(block_apis(Router::new()));
+
+    router.nest("/api", api_handler)
+}
