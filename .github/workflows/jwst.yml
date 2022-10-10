@@ -163,7 +163,7 @@ jobs:
             #       target: jwst
 
     jwst_publish:
-        runs-on: self-hosted
+        runs-on: ubuntu-latest
         needs: ['jwst_amd64', 'jwst_aarch64']
 
         steps:
@@ -189,7 +189,7 @@ jobs:
               run: |
                   docker pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-amd64
                   docker pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-aarch64
-                  docker manifest create --amend \
+                  docker manifest create \
                     ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }} \
                     ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-amd64 \
                     ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-aarch64
