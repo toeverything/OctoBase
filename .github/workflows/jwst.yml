@@ -186,10 +186,9 @@ jobs:
                   tags: ${{ env.IMAGE_TAG_LATEST }}
 
             - name: Create and push manifest images
-              uses: Noelware/docker-manifest-action@master # or use whatever version.
-              with:
-                  base-image: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}
-                  extra-images: |
-                      ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-amd64
-                      ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-aarch64
-                  push: true
+              run: |
+                  docker manifest create --amend \
+                    ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }} \
+                    ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-amd64 \
+                    ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-aarch64
+                  docker push ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}
