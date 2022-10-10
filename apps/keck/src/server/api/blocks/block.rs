@@ -1,5 +1,5 @@
 use super::*;
-use jwst::{BlockHistory, InsertChildren, RemoveChildren};
+use jwst::{BlockHistory, InsertChildren, RemoveChildren, Workspace};
 
 #[utoipa::path(
     get,
@@ -72,7 +72,8 @@ pub async fn set_block(
         // init block instance
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
-        let mut block = Block::new(&mut trx, &block, "text", doc.client_id);
+        let workspace = Workspace::new(&mut trx, workspace);
+        let mut block = workspace.create(&mut trx, &block, "text", doc.client_id);
 
         // set block content
         if let Some(block_content) = payload.as_object() {
@@ -114,7 +115,8 @@ pub async fn get_block_history(
         // init block instance
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
-        if let Some(block) = Block::from(&mut trx, &block, doc.client_id) {
+        let workspace = Workspace::new(&mut trx, workspace);
+        if let Some(block) = workspace.get(block, doc.client_id) {
             utils::json_response(&block.history()).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
@@ -196,7 +198,8 @@ pub async fn insert_block(
         // init block instance
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
-        if let Some(mut block) = Block::from(&mut trx, &block, doc.client_id) {
+        let workspace = Workspace::new(&mut trx, workspace);
+        if let Some(mut block) = workspace.get(block, doc.client_id) {
             block.insert_children(&mut trx, payload);
             // response block content
             utils::json_response(block.block().to_json()).into_response()
@@ -240,7 +243,8 @@ pub async fn remove_block(
         // init block instance
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
-        if let Some(mut block) = Block::from(&mut trx, &block, doc.client_id) {
+        let workspace = Workspace::new(&mut trx, workspace);
+        if let Some(mut block) = workspace.get(&block, doc.client_id) {
             block.remove_children(&mut trx, payload);
             // response block content
             utils::json_response(block.block().to_json()).into_response()

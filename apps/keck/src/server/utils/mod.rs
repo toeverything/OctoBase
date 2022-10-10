@@ -1,5 +1,4 @@
 use super::*;
-use crate::sync::*;
 use axum::{
     http::{header, StatusCode},
     response::IntoResponse,
@@ -65,7 +64,10 @@ mod tests {
 
         {
             let mut trx = doc.transact();
-            let mut block = jwst::Block::new(&mut trx, "test", "text", doc.client_id);
+
+            let workspace = jwst::Workspace::new(&mut trx, "test");
+            let mut block = workspace.create(&mut trx, "test", "text", doc.client_id);
+
             block.set(&mut trx, "test", "test");
             trx.commit();
         }

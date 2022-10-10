@@ -2,6 +2,7 @@ use super::*;
 use lib0::any::Any;
 use types::{BlockContentValue, JsonValue};
 use yrs::{Array, Map, PrelimArray, PrelimMap, Transaction};
+
 struct BlockChildrenPosition {
     pos: Option<u32>,
     before: Option<String>,
@@ -42,49 +43,36 @@ pub struct Block {
 }
 
 impl Block {
-    fn get_root(trx: &mut Transaction) -> (Map, Map) {
-        let blocks = trx.get_map("blocks");
-        // blocks.content
-        let content = blocks
-            .get("content")
-            .or_else(|| {
-                blocks.insert(trx, "content", PrelimMap::<Any>::new());
-                blocks.get("content")
-            })
-            .and_then(|b| b.to_ymap())
-            .unwrap();
-        // blocks.updated
-        let updated = blocks
-            .get("updated")
-            .or_else(|| {
-                blocks.insert(trx, "updated", PrelimMap::<Any>::new());
-                blocks.get("updated")
-            })
-            .and_then(|b| b.to_ymap())
-            .unwrap();
-        (content, updated)
-    }
-
     // Create a new block, skip create if block is already created.
-    pub fn new<B, F, O>(trx: &mut Transaction, block_id: B, flavor: F, operator: O) -> Block
+    pub fn new<B, F, O>(
+        workspace: &Workspace,
+        trx: &mut Transaction,
+        block_id: B,
+        flavor: F,
+        operator: O,
+    ) -> Block
     where
-        B: ToString,
-        F: ToString,
+        B: AsRef<str>,
+        F: AsRef<str>,
         O: TryInto<i64>,
     {
-        let block_id = block_id.to_string();
+        let block_id = block_id.as_ref();
         let operator = operator.try_into().unwrap_or_default();
-        if let Some(block) = Self::from(trx, &block_id, operator) {
+        if let Some(block) = Self::from(workspace, &block_id, operator) {
             block
         } else {
-            let (blocks, updated) = Self::get_root(trx);
-
             // init base struct
-            blocks.insert(trx, block_id.clone(), PrelimMap::<Any>::new());
-            let block = blocks.get(&block_id).and_then(|b| b.to_ymap()).unwrap();
+            workspace
+                .blocks()
+                .insert(trx, block_id.clone(), PrelimMap::<Any>::new());
+            let block = workspace
+                .blocks()
+                .get(&block_id)
+                .and_then(|b| b.to_ymap())
+                .unwrap();
 
             // init default schema
-            block.insert(trx, "sys:flavor", flavor.to_string());
+            block.insert(trx, "sys:flavor", flavor.as_ref());
             block.insert(trx, "sys:version", PrelimArray::from([1, 0]));
             block.insert(
                 trx,
@@ -98,7 +86,9 @@ impl Block {
             );
             block.insert(trx, "content", PrelimMap::<Any>::new());
 
-            updated.insert(trx, block_id.clone(), PrelimArray::<_, Any>::from([]));
+            workspace
+                .updated()
+                .insert(trx, block_id.clone(), PrelimArray::<_, Any>::from([]));
 
             trx.commit();
 
@@ -107,10 +97,14 @@ impl Block {
                 .and_then(|c| c.to_yarray())
                 .unwrap();
             let content = block.get("content").and_then(|c| c.to_ymap()).unwrap();
-            let updated = updated.get(&block_id).and_then(|c| c.to_yarray()).unwrap();
+            let updated = workspace
+                .updated()
+                .get(&block_id)
+                .and_then(|c| c.to_yarray())
+                .unwrap();
 
             Self {
-                id: block_id.clone(),
+                id: block_id.to_string(),
                 operator,
                 block,
                 children,
@@ -120,21 +114,19 @@ impl Block {
         }
     }
 
-    pub fn from<B, O>(trx: &mut Transaction, block_id: B, operator: O) -> Option<Block>
+    pub fn from<B, O>(workspace: &Workspace, block_id: B, operator: O) -> Option<Block>
     where
-        B: ToString,
+        B: AsRef<str>,
         O: TryInto<i64>,
     {
-        let (blocks, updated) = Self::get_root(trx);
-
-        let block_id = block_id.to_string();
-
-        blocks
-            .get(&block_id)
+        workspace
+            .blocks()
+            .get(block_id.as_ref())
             .and_then(|b| b.to_ymap())
             .and_then(|block| {
-                updated
-                    .get(&block_id)
+                workspace
+                    .updated()
+                    .get(block_id.as_ref())
                     .and_then(|u| u.to_yarray())
                     .map(|updated| (block, updated))
             })
@@ -144,7 +136,7 @@ impl Block {
                     block.get("content").and_then(|c| c.to_ymap()),
                 ) {
                     Some(Self {
-                        id: block_id,
+                        id: block_id.as_ref().to_string(),
                         operator: operator.try_into().unwrap_or_default(),
                         block,
                         children,
@@ -348,37 +340,43 @@ impl Block {
     }
 }
 
+#[test]
 mod tests {
+    use super::Workspace;
+
     #[test]
     fn init_block() {
-        use super::Block;
         use yrs::Doc;
 
         let doc = Doc::default();
         let mut trx = doc.transact();
 
+        let workspace = Workspace::new(&mut trx, "test");
+
         // new block
-        let block = Block::new(&mut trx, "test", "affine:text", 123);
+        let block = workspace.create(&mut trx, "test", "affine:text", 123);
         assert_eq!(block.id(), "test");
         assert_eq!(block.flavor(), "affine:text");
         assert_eq!(block.version(), [1, 0]);
 
         // get exist block
-        let block = Block::from(&mut trx, "test", 123).unwrap();
+        let block = workspace.get("test", 123).unwrap();
         assert_eq!(block.flavor(), "affine:text");
         assert_eq!(block.version(), [1, 0]);
     }
 
     #[test]
     fn set_value() {
-        use super::{Any, Block};
+        use super::Any;
         use serde_json::{Number, Value};
         use yrs::Doc;
 
         let doc = Doc::default();
         let mut trx = doc.transact();
 
-        let mut block = Block::new(&mut trx, "test", "affine:text", doc.client_id);
+        let workspace = Workspace::new(&mut trx, "test");
+
+        let mut block = workspace.create(&mut trx, "test", "affine:text", doc.client_id);
 
         // normal type set
         block.set(&mut trx, "bool", true);
@@ -430,13 +428,15 @@ mod tests {
 
     #[test]
     fn insert_remove_children() {
-        use super::{Block, InsertChildren, RemoveChildren};
+        use super::{InsertChildren, RemoveChildren};
         use yrs::Doc;
 
         let doc = Doc::default();
         let mut trx = doc.transact();
 
-        let mut block = Block::new(&mut trx, "a", "affine:text", 123);
+        let workspace = Workspace::new(&mut trx, "text");
+
+        let mut block = workspace.create(&mut trx, "a", "affine:text", 123);
 
         block.insert_children(
             &mut trx,
@@ -517,13 +517,13 @@ mod tests {
 
     #[test]
     fn updated() {
-        use super::Block;
         use yrs::Doc;
 
         let doc = Doc::default();
         let mut trx = doc.transact();
 
-        let mut block = Block::new(&mut trx, "a", "affine:text", 123);
+        let workspace = Workspace::new(&mut trx, "test");
+        let mut block = workspace.create(&mut trx, "a", "affine:text", 123);
 
         block.set(&mut trx, "test", 1);
 
@@ -532,13 +532,15 @@ mod tests {
 
     #[test]
     fn history() {
-        use super::{Block, BlockHistory, HistoryOperation, InsertChildren, RemoveChildren};
+        use super::{BlockHistory, HistoryOperation, InsertChildren, RemoveChildren};
         use yrs::Doc;
 
         let doc = Doc::default();
         let mut trx = doc.transact();
 
-        let mut block = Block::new(&mut trx, "a", "affine:text", 123);
+        let workspace = Workspace::new(&mut trx, "test");
+
+        let mut block = workspace.create(&mut trx, "a", "affine:text", 123);
 
         block.set(&mut trx, "test", 1);
 
