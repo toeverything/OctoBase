@@ -187,6 +187,8 @@ jobs:
 
             - name: Create and push manifest images
               run: |
+                  docker pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-amd64
+                  docker pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-aarch64
                   docker manifest create --amend \
                     ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }} \
                     ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-amd64 \
