@@ -11,6 +11,5 @@ FROM ghcr.io/toeverything/affine:nightly-keck as static
 FROM alpine:latest as affine
 WORKDIR /app
 COPY --from=builder /tmp/affine /usr/local/bin/affine
-COPY --from=builder /home/rust/src/apps/handbook/book ./book
 COPY --from=static /app .
 ENTRYPOINT /usr/local/bin/affine

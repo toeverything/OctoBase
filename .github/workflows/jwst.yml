@@ -190,7 +190,7 @@ jobs:
                   docker pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-amd64
                   docker pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-aarch64
                   docker manifest create \
-                    --amend ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }} \
+                    ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }} \
                     --amend ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-amd64 \
                     --amend ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-aarch64
-                  docker push ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}
+                  docker manifest push ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}
