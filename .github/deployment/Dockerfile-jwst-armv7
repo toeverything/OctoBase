@@ -6,7 +6,7 @@ RUN --mount=type=cache,target=/root/.cargo/registry,rw,sharing=private \
     cargo build --release --no-default-features --features jwst && \
     mv /home/rust/src/target/armv7-unknown-linux-musleabi/release/keck /tmp/jwst
 
-FROM ghcr.io/toeverything/affine:nightly-keck as static
+FROM --platform=linux/amd64 ghcr.io/toeverything/affine:nightly-keck as static
 
 FROM alpine:latest as jwst
 WORKDIR /app
