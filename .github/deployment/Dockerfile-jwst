@@ -4,7 +4,7 @@ COPY . .
 RUN mkdir .cargo && cargo vendor > .cargo/config
 
 FROM messense/rust-musl-cross:aarch64-musl AS builder-aarch64
-ENV CARGO_TERM_COLOR="always"
+ENV CARGO_TERM_COLOR="always" CARGO_BUILD_JOBS=2
 COPY . .
 COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
 COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config
@@ -14,7 +14,7 @@ RUN --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_aarch64 \
     mv /home/rust/src/apps/handbook/book /tmp/book-aarch64
 
 FROM messense/rust-musl-cross:x86_64-musl AS builder-amd64
-ENV CARGO_TERM_COLOR="always"
+ENV CARGO_TERM_COLOR="always" CARGO_BUILD_JOBS=2
 COPY . .
 COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
 COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config
@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_amd64 \
     mv /home/rust/src/apps/handbook/book /tmp/book-amd64
 
 FROM messense/rust-musl-cross:armv7-musleabi AS builder-armv7
-ENV CARGO_TERM_COLOR="always"
+ENV CARGO_TERM_COLOR="always" CARGO_BUILD_JOBS=2
 COPY . .
 COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
 COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config
