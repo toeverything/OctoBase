@@ -31,100 +31,21 @@ env:
     JWST_IMAGE_NAME: jwst
     IMAGE_TAG: canary-${{ github.sha }}
     IMAGE_TAG_LATEST: nightly-latest
+    LOCAL_CACHE: localhost:5000/toeverything/relocate:latest
 
 jobs:
-    jwst_amd64:
-        runs-on: ubuntu-latest
-        environment: development
-        permissions:
-            contents: read
-            packages: write
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v2
-
-            - name: Log in to the Container registry
-              uses: docker/login-action@v2
-              with:
-                  registry: ${{ env.REGISTRY }}
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
-
-            - name: Set up QEMU
-              uses: docker/setup-qemu-action@v1
-
-            - name: Set up Docker Buildx
-              id: buildx
-              uses: docker/setup-buildx-action@v1
-
-            - name: Extract metadata (tags, labels) for Docker (jwst)
-              id: meta_jwst
-              uses: docker/metadata-action@v4
-              with:
-                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}
-                  tags: ${{ env.IMAGE_TAG_LATEST }}-amd64
-
-            - name: Build and push Docker image (jwst-amd64)
-              uses: docker/build-push-action@v3
-              with:
-                  context: .
-                  platforms: linux/amd64
-                  file: ./.github/deployment/Dockerfile-jwst-amd64
-                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
-                  tags: ${{ steps.meta_jwst.outputs.tags }}
-                  labels: ${{ steps.meta_jwst.outputs.labels }}
-                  target: jwst
-
-    jwst_aarch64:
+    jwst:
         runs-on: self-hosted
         environment: development
         permissions:
             contents: read
             packages: write
 
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v2
-
-            - name: Log in to the Container registry
-              uses: docker/login-action@v2
-              with:
-                  registry: ${{ env.REGISTRY }}
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
-
-            - name: Set up QEMU
-              uses: docker/setup-qemu-action@v1
-
-            - name: Set up Docker Buildx
-              id: buildx
-              uses: docker/setup-buildx-action@v1
-
-            - name: Extract metadata (tags, labels) for Docker (jwst)
-              id: meta_jwst
-              uses: docker/metadata-action@v4
-              with:
-                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}
-                  tags: ${{ env.IMAGE_TAG_LATEST }}-aarch64
-
-            - name: Build and push Docker image (jwst-aarch64)
-              uses: docker/build-push-action@v3
-              with:
-                  context: .
-                  platforms: linux/arm64/v8
-                  file: ./.github/deployment/Dockerfile-jwst-aarch64
-                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
-                  tags: ${{ steps.meta_jwst.outputs.tags }}
-                  labels: ${{ steps.meta_jwst.outputs.labels }}
-                  target: jwst
-
-    jwst_armv7:
-        runs-on: self-hosted
-        environment: development
-        permissions:
-            contents: read
-            packages: write
+        services:
+            registry:
+                image: registry:2
+                ports:
+                    - 5000:5000
 
         steps:
             - name: Checkout
@@ -139,40 +60,6 @@ jobs:
 
             - name: Set up QEMU
               uses: docker/setup-qemu-action@v1
-
-            - name: Set up Docker Buildx
-              id: buildx
-              uses: docker/setup-buildx-action@v1
-
-            - name: Extract metadata (tags, labels) for Docker (jwst)
-              id: meta_jwst
-              uses: docker/metadata-action@v4
-              with:
-                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}
-                  tags: ${{ env.IMAGE_TAG_LATEST }}-armv7
-
-            - name: Build and push Docker image (jwst-armv7)
-              uses: docker/build-push-action@v3
-              with:
-                  context: .
-                  platforms: linux/arm/v7
-                  file: ./.github/deployment/Dockerfile-jwst-armv7
-                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
-                  tags: ${{ steps.meta_jwst.outputs.tags }}
-                  labels: ${{ steps.meta_jwst.outputs.labels }}
-                  target: jwst
-
-    jwst_publish:
-        runs-on: ubuntu-latest
-        needs: ['jwst_amd64', 'jwst_armv7', 'jwst_aarch64']
-
-        steps:
-            - name: Log in to the Container registry
-              uses: docker/login-action@v2
-              with:
-                  registry: ${{ env.REGISTRY }}
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
 
             - name: Set up Docker Buildx
               id: buildx
@@ -185,10 +72,50 @@ jobs:
                   images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}
                   tags: ${{ env.IMAGE_TAG_LATEST }}
 
+            - name: Build and push Docker image (jwst-baseline)
+              uses: docker/build-push-action@v3
+              with:
+                  context: .
+                  push: true
+                  file: ./.github/deployment/Dockerfile-jwst
+                  tags: ${{ env.LOCAL_CACHE }}
+                  target: jwst
+
+            - name: Build and push Docker image (jwst-aarch64)
+              uses: docker/build-push-action@v3
+              with:
+                  context: .
+                  platforms: linux/arm64/v8
+                  file: ./.github/deployment/Dockerfile-jwst-prod
+                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
+                  tags: ${{ steps.meta_jwst.outputs.tags }}-aarch64
+                  labels: ${{ steps.meta_jwst.outputs.labels }}
+                  target: jwst-aarch64
+
+            - name: Build and push Docker image (jwst-amd64)
+              uses: docker/build-push-action@v3
+              with:
+                  context: .
+                  platforms: linux/amd64
+                  file: ./.github/deployment/Dockerfile-jwst-prod
+                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
+                  tags: ${{ steps.meta_jwst.outputs.tags }}-amd64
+                  labels: ${{ steps.meta_jwst.outputs.labels }}
+                  target: jwst-amd64
+
+            - name: Build and push Docker image (jwst-armv7)
+              uses: docker/build-push-action@v3
+              with:
+                  context: .
+                  platforms: linux/arm/v7
+                  file: ./.github/deployment/Dockerfile-jwst-prod
+                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
+                  tags: ${{ steps.meta_jwst.outputs.tags }}-armv7
+                  labels: ${{ steps.meta_jwst.outputs.labels }}
+                  target: jwst-armv7
+
             - name: Create and push manifest images
               run: |
-                  docker pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-amd64
-                  docker pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-aarch64
                   docker manifest create \
                     ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }} \
                     --amend ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-amd64 \
