@@ -7,13 +7,15 @@ on:
         paths:
             - 'apps/keck/**'
             - '.github/deployment/Dockerfile-affine'
+            - '.github/deployment/Dockerfile-affine-prod'
             - '.github/workflows/affine.yml'
     pull_request:
         branches: [master]
         paths:
             - 'apps/keck/**'
             - '.github/deployment/Dockerfile-affine'
-            - '.github/workflows/jwsaffinet.yml'
+            - '.github/deployment/Dockerfile-affine-prod'
+            - '.github/workflows/affine.yml'
 
 # Cancels all previous workflow runs for pull requests that have not completed.
 # See https://docs.github.com/en/actions/using-jobs/using-concurrency
@@ -29,14 +31,21 @@ env:
     AFFINE_IMAGE_NAME: affine
     IMAGE_TAG: canary-${{ github.sha }}
     IMAGE_TAG_LATEST: nightly-server-latest
+    LOCAL_CACHE: localhost:5000/toeverything/relocate:latest
 
 jobs:
     affine:
-        runs-on: ubuntu-latest
+        runs-on: self-hosted
         environment: development
         permissions:
             contents: read
             packages: write
+
+        services:
+            registry:
+                image: registry:2
+                ports:
+                    - 5000:5000
 
         steps:
             - name: Checkout
@@ -49,20 +58,37 @@ jobs:
                   username: ${{ github.actor }}
                   password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
 
+            - name: Set up QEMU
+              uses: docker/setup-qemu-action@v1
+
+            - name: Set up Docker Buildx
+              id: buildx
+              uses: docker/setup-buildx-action@v1
+              with:
+                  driver-opts: network=host
+
             - name: Extract metadata (tags, labels) for Docker (affine)
               id: meta_affine
               uses: docker/metadata-action@v4
               with:
                   images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.AFFINE_IMAGE_NAME }}
-                  tags: |
-                      ${{ env.IMAGE_TAG }}
-                      ${{ env.IMAGE_TAG_LATEST }}
+                  tags: ${{ env.IMAGE_TAG_LATEST }}
+
+            - name: Build and push Docker image (affine-baseline)
+              uses: docker/build-push-action@v3
+              with:
+                  context: .
+                  push: true
+                  file: ./.github/deployment/Dockerfile-affine
+                  tags: ${{ env.LOCAL_CACHE }}
+                  target: jwst
 
             - name: Build and push Docker image (affine)
               uses: docker/build-push-action@v3
               with:
                   context: .
-                  file: ./.github/deployment/Dockerfile-affine
+                  platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
+                  file: ./.github/deployment/Dockerfile-affine-prod
                   push: ${{ github.ref == 'refs/heads/master' && true || false }}
                   tags: ${{ steps.meta_affine.outputs.tags }}
                   labels: ${{ steps.meta_affine.outputs.labels }}
