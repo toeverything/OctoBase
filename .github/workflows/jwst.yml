@@ -6,15 +6,15 @@ on:
         branches: [master]
         paths:
             - 'apps/keck/**'
-            - '.github/deployment/Dockerfile-jwst-amd64'
-            - '.github/deployment/Dockerfile-jwst-aarch64'
+            - '.github/deployment/Dockerfile-jwst'
+            - '.github/deployment/Dockerfile-jwst-prod'
             - '.github/workflows/jwst.yml'
     pull_request:
         branches: [master]
         paths:
             - 'apps/keck/**'
-            - '.github/deployment/Dockerfile-jwst-amd64'
-            - '.github/deployment/Dockerfile-jwst-aarch64'
+            - '.github/deployment/Dockerfile-jwst'
+            - '.github/deployment/Dockerfile-jwst-prod'
             - '.github/workflows/jwst.yml'
 
 # Cancels all previous workflow runs for pull requests that have not completed.
@@ -64,6 +64,8 @@ jobs:
             - name: Set up Docker Buildx
               id: buildx
               uses: docker/setup-buildx-action@v1
+              with:
+                  driver-opts: network=host
 
             - name: Extract metadata (tags, labels) for Docker (jwst)
               id: meta_jwst
@@ -81,44 +83,13 @@ jobs:
                   tags: ${{ env.LOCAL_CACHE }}
                   target: jwst
 
-            - name: Build and push Docker image (jwst-aarch64)
+            - name: Build and push Docker image (jwst)
               uses: docker/build-push-action@v3
               with:
                   context: .
-                  platforms: linux/arm64/v8
+                  platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
                   file: ./.github/deployment/Dockerfile-jwst-prod
                   push: ${{ github.ref == 'refs/heads/master' && true || false }}
-                  tags: ${{ steps.meta_jwst.outputs.tags }}-aarch64
+                  tags: ${{ steps.meta_jwst.outputs.tags }}
                   labels: ${{ steps.meta_jwst.outputs.labels }}
-                  target: jwst-aarch64
-
-            - name: Build and push Docker image (jwst-amd64)
-              uses: docker/build-push-action@v3
-              with:
-                  context: .
-                  platforms: linux/amd64
-                  file: ./.github/deployment/Dockerfile-jwst-prod
-                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
-                  tags: ${{ steps.meta_jwst.outputs.tags }}-amd64
-                  labels: ${{ steps.meta_jwst.outputs.labels }}
-                  target: jwst-amd64
-
-            - name: Build and push Docker image (jwst-armv7)
-              uses: docker/build-push-action@v3
-              with:
-                  context: .
-                  platforms: linux/arm/v7
-                  file: ./.github/deployment/Dockerfile-jwst-prod
-                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
-                  tags: ${{ steps.meta_jwst.outputs.tags }}-armv7
-                  labels: ${{ steps.meta_jwst.outputs.labels }}
-                  target: jwst-armv7
-
-            - name: Create and push manifest images
-              run: |
-                  docker manifest create \
-                    ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }} \
-                    --amend ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-amd64 \
-                    --amend ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-armv7 \
-                    --amend ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}-aarch64
-                  docker manifest push ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}:${{ env.IMAGE_TAG_LATEST }}
+                  target: jwst

@@ -1,14 +1,15 @@
 FROM messense/rust-musl-cross:x86_64-musl AS builder-dependencies
 ENV CARGO_TERM_COLOR="always"
 COPY . .
-RUN --mount=type=cache,target=/home/rust/src/vendor,rw,sharing=locked mkdir .cargo && cargo vendor > .cargo/config
+RUN mkdir .cargo && cargo vendor > .cargo/config
 
 FROM messense/rust-musl-cross:aarch64-musl AS builder-aarch64
 ENV CARGO_TERM_COLOR="always"
 COPY . .
 COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
 COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config
-RUN cargo build --release --no-default-features --features jwst && \
+RUN --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_aarch64 \
+    cargo build --release --no-default-features --features jwst && \
     mv /home/rust/src/target/aarch64-unknown-linux-musl/release/keck /tmp/jwst-aarch64 && \
     mv /home/rust/src/apps/handbook/book /tmp/book-aarch64
 
@@ -17,7 +18,8 @@ ENV CARGO_TERM_COLOR="always"
 COPY . .
 COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
 COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config
-RUN cargo build --release --no-default-features --features jwst && \
+RUN --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_amd64 \
+    cargo build --release --no-default-features --features jwst && \
     mv /home/rust/src/target/x86_64-unknown-linux-musl/release/keck /tmp/jwst-amd64 && \
     mv /home/rust/src/apps/handbook/book /tmp/book-amd64
 
@@ -26,14 +28,16 @@ ENV CARGO_TERM_COLOR="always"
 COPY . .
 COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
 COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config
-RUN cargo build --release --no-default-features --features jwst && \
+RUN --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_armv7 \
+    cargo build --release --no-default-features --features jwst && \
     mv /home/rust/src/target/armv7-unknown-linux-musleabi/release/keck /tmp/jwst-armv7 && \
     mv /home/rust/src/apps/handbook/book /tmp/book-armv7
 
 FROM alpine:latest as jwst
-COPY --from=builder-aarch64 /tmp/jwst-aarch64 /usr/local/bin/jwst-aarch64
-COPY --from=builder-aarch64 /tmp/book-aarch64 /usr/local/bin/book-aarch64
-COPY --from=builder-amd64 /tmp/jwst-amd64 /usr/local/bin/jwst-amd64
-COPY --from=builder-aarch64 /tmp/book-amd64 /usr/local/bin/book-amd64
-COPY --from=builder-armv7 /tmp/jwst-armv7 /usr/local/bin/jwst-armv7
-COPY --from=builder-armv7 /tmp/book-armv7 /usr/local/bin/book-armv7
+WORKDIR /app
+COPY --from=builder-aarch64 /tmp/jwst-aarch64 /app/linux/arm64/v8/jwst
+COPY --from=builder-aarch64 /tmp/book-aarch64 /app/linux/arm64/v8/book
+COPY --from=builder-amd64 /tmp/jwst-amd64 /app/linux/amd64/jwst
+COPY --from=builder-amd64 /tmp/book-amd64 /app/linux/amd64/book
+COPY --from=builder-armv7 /tmp/jwst-armv7 /app/linux/arm/v7/jwst
+COPY --from=builder-armv7 /tmp/book-armv7 /app/linux/arm/v7/book
