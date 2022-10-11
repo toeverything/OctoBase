@@ -351,7 +351,7 @@ impl Serialize for Block {
     }
 }
 
-#[test]
+#[cfg(test)]
 mod tests {
     use super::Workspace;
 

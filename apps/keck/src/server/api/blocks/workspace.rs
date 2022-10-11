@@ -210,6 +210,6 @@ mod test {
 
         let resp = client.get("/block/test").send().await;
         assert_eq!(resp.status(), StatusCode::OK);
-        assert_eq!(resp.text().await, "{}");
+        assert_eq!(resp.text().await, "{\"content\":{},\"updated\":{}}");
     }
 }

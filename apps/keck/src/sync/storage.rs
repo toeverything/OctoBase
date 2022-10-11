@@ -96,6 +96,7 @@ pub async fn init_pool<F: ToString>(file: F) -> Result<SqlitePool, Error> {
     SqlitePool::connect_with(options).await
 }
 
+#[cfg(test)]
 mod tests {
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
