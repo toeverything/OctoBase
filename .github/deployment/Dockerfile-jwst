@@ -35,8 +35,8 @@ RUN --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_armv7 \
 
 FROM alpine:latest as jwst
 WORKDIR /app
-COPY --from=builder-aarch64 /tmp/jwst-aarch64 /app/linux/arm64/v8/jwst
-COPY --from=builder-aarch64 /tmp/book-aarch64 /app/linux/arm64/v8/book
+COPY --from=builder-aarch64 /tmp/jwst-aarch64 /app/linux/arm64/jwst
+COPY --from=builder-aarch64 /tmp/book-aarch64 /app/linux/arm64/book
 COPY --from=builder-amd64 /tmp/jwst-amd64 /app/linux/amd64/jwst
 COPY --from=builder-amd64 /tmp/book-amd64 /app/linux/amd64/book
 COPY --from=builder-armv7 /tmp/jwst-armv7 /app/linux/arm/v7/jwst
