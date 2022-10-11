@@ -1,7 +1,7 @@
 FROM messense/rust-musl-cross:armv7-musleabi AS builder
 ENV CARGO_TERM_COLOR="always"
 COPY . .
-RUN --mount=type=cache,target=/root/.cargo/registry,rw,sharing=private \
+RUN --mount=type=tmpfs,target=/root/.cargo/registry \
     --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_armv7 \
     cargo build --release --no-default-features --features jwst && \
     mv /home/rust/src/target/armv7-unknown-linux-musleabi/release/keck /tmp/jwst
