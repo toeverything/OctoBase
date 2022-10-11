@@ -25,13 +25,9 @@ pub async fn get_block(
     if let Some(doc) = context.doc.get(&workspace) {
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
-        if let Some(block) = trx
-            .get_map("blocks")
-            .get("content")
-            .and_then(|b| b.to_ymap())
-            .and_then(|b| b.get(&block))
-        {
-            utils::json_response(block.to_json()).into_response()
+        let workspace = Workspace::new(&mut trx, workspace);
+        if let Some(block) = workspace.get(block, doc.client_id) {
+            utils::json_response(block).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
         }
@@ -150,12 +146,8 @@ pub async fn delete_block(
     if let Some(doc) = context.doc.get(&workspace) {
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
-        if let Some(_) = trx
-            .get_map("blocks")
-            .get("content")
-            .and_then(|b| b.to_ymap())
-            .and_then(|b| b.remove(&mut trx, &block))
-        {
+        let workspace = Workspace::new(&mut trx, workspace);
+        if workspace.remove(&mut trx, block, doc.client_id) {
             trx.commit();
             StatusCode::NO_CONTENT
         } else {

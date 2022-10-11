@@ -1,5 +1,6 @@
 use super::*;
 use lib0::any::Any;
+use serde::{ser::SerializeMap, Serialize, Serializer};
 use yrs::{Map, PrelimMap, Transaction};
 
 pub struct Workspace {
@@ -74,5 +75,25 @@ impl Workspace {
         O: TryInto<i64>,
     {
         Block::from(self, block_id, operator)
+    }
+
+    pub fn remove<S, O>(&self, trx: &mut Transaction, block_id: S, operator: O) -> bool
+    where
+        S: AsRef<str>,
+        O: TryInto<i64>,
+    {
+        self.blocks.remove(trx, block_id.as_ref()).is_some()
+    }
+}
+
+impl Serialize for Workspace {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(2))?;
+        map.serialize_entry("content", &self.blocks.to_json())?;
+        map.serialize_entry("updated", &self.updated.to_json())?;
+        map.end()
     }
 }

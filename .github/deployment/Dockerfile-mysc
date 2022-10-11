@@ -3,7 +3,7 @@ ENV CARGO_TERM_COLOR="always"
 COPY . .
 RUN --mount=type=cache,target=/root/.cargo/registry,rw,sharing=private \
     --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_amd64 \
-    cargo build --release --features jwst && \
+    cargo build --release --no-default-features --features jwst && \
     mv /home/rust/src/target/x86_64-unknown-linux-musl/release/keck /tmp/mysc
 
 FROM node:16-alpine as frontend

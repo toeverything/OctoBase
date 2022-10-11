@@ -6,7 +6,7 @@ edition = "2021"
 license = "AGPL-3.0-only"
 
 [features]
-default = []
+default = ["jwst"]
 affine = []
 jwst = ["api", "schema", "docs"]
 api = ["utoipa"]

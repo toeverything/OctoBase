@@ -1,5 +1,6 @@
 use super::*;
 use lib0::any::Any;
+use serde::{Serialize, Serializer};
 use types::{BlockContentValue, JsonValue};
 use yrs::{Array, Map, PrelimArray, PrelimMap, Transaction};
 
@@ -337,6 +338,16 @@ impl Block {
             }
         }
         None
+    }
+}
+
+impl Serialize for Block {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let any = self.block.to_json();
+        any.serialize(serializer)
     }
 }
 

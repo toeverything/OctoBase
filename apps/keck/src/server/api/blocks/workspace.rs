@@ -1,5 +1,6 @@
 use super::*;
 use axum::{extract::Path, http::header};
+use jwst::Workspace;
 
 #[utoipa::path(
     get,
@@ -24,7 +25,8 @@ pub async fn get_workspace(
     if let Some(doc) = context.doc.get(&workspace) {
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
-        utils::json_response(trx.get_map("blocks").to_json()).into_response()
+        let workspace = Workspace::new(&mut trx, workspace);
+        utils::json_response(workspace).into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
