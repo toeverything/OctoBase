@@ -26,7 +26,7 @@ pub async fn get_workspace(
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
         let workspace = Workspace::new(&mut trx, workspace);
-        utils::json_response(workspace).into_response()
+        Json(workspace).into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
@@ -55,7 +55,7 @@ pub async fn set_workspace(
     let doc = context.doc.get(&workspace).unwrap();
     let doc = doc.lock().await;
 
-    utils::json_response(doc.transact().get_map("blocks").to_json()).into_response()
+    Json(doc.transact().get_map("blocks").to_json()).into_response()
 }
 
 #[utoipa::path(

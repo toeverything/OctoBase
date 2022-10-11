@@ -1,10 +1,5 @@
 use super::*;
-use axum::{
-    http::{header, StatusCode},
-    response::IntoResponse,
-};
 use dashmap::mapref::entry::Entry;
-use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::{mpsc::channel, Mutex};
 
@@ -41,18 +36,6 @@ pub async fn init_doc(context: Arc<Context>, workspace: &str) {
 
         entry.insert(Mutex::new(doc));
     };
-}
-
-pub fn json_response<T>(any: T) -> impl IntoResponse
-where
-    T: Serialize,
-{
-    use serde_json::to_string;
-    if let Ok(data) = to_string(&any) {
-        ([(header::CONTENT_TYPE, "application/json")], data).into_response()
-    } else {
-        StatusCode::INTERNAL_SERVER_ERROR.into_response()
-    }
 }
 
 #[cfg(test)]

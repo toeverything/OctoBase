@@ -27,7 +27,7 @@ pub async fn get_block(
         let mut trx = doc.transact();
         let workspace = Workspace::new(&mut trx, workspace);
         if let Some(block) = workspace.get(block, doc.client_id) {
-            utils::json_response(block).into_response()
+            Json(block).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
         }
@@ -79,7 +79,7 @@ pub async fn set_block(
         }
 
         // response block content
-        utils::json_response(block.block().to_json()).into_response()
+        Json(block.block().to_json()).into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
@@ -113,7 +113,7 @@ pub async fn get_block_history(
         let mut trx = doc.transact();
         let workspace = Workspace::new(&mut trx, workspace);
         if let Some(block) = workspace.get(block, doc.client_id) {
-            utils::json_response(&block.history()).into_response()
+            Json(&block.history()).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
         }
@@ -194,7 +194,7 @@ pub async fn insert_block(
         if let Some(mut block) = workspace.get(block, doc.client_id) {
             block.insert_children(&mut trx, payload);
             // response block content
-            utils::json_response(block.block().to_json()).into_response()
+            Json(block.block().to_json()).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
         }
@@ -239,7 +239,7 @@ pub async fn remove_block(
         if let Some(mut block) = workspace.get(&block, doc.client_id) {
             block.remove_children(&mut trx, payload);
             // response block content
-            utils::json_response(block.block().to_json()).into_response()
+            Json(block.block().to_json()).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
         }
