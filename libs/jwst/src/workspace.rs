@@ -53,26 +53,24 @@ impl Workspace {
 
     // create a block with specified flavor
     // if block exists, return the exists block
-    pub fn create<B, F, O>(
+    pub fn create<B, F>(
         &self,
         trx: &mut Transaction,
         block_id: B,
         flavor: F,
-        operator: O,
+        operator: u64,
     ) -> Block
     where
         B: AsRef<str>,
         F: AsRef<str>,
-        O: TryInto<i64>,
     {
         Block::new(self, trx, block_id, flavor, operator)
     }
 
     // get a block if exists
-    pub fn get<S, O>(&self, block_id: S, operator: O) -> Option<Block>
+    pub fn get<S>(&self, block_id: S, operator: u64) -> Option<Block>
     where
         S: AsRef<str>,
-        O: TryInto<i64>,
     {
         Block::from(self, block_id, operator)
     }
