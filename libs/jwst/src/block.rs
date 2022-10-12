@@ -37,7 +37,7 @@ pub struct Block {
     // }
     // default_props: HashMap<String, BlockField>,
     id: String,
-    operator: i64,
+    operator: u64,
     block: Map,
     children: Array,
     content: Map,
@@ -46,20 +46,18 @@ pub struct Block {
 
 impl Block {
     // Create a new block, skip create if block is already created.
-    pub fn new<B, F, O>(
+    pub fn new<B, F>(
         workspace: &Workspace,
         trx: &mut Transaction,
         block_id: B,
         flavor: F,
-        operator: O,
+        operator: u64,
     ) -> Block
     where
         B: AsRef<str>,
         F: AsRef<str>,
-        O: TryInto<i64>,
     {
         let block_id = block_id.as_ref();
-        let operator = operator.try_into().unwrap_or_default();
         if let Some(block) = Self::from(workspace, &block_id, operator) {
             block
         } else {
@@ -120,10 +118,9 @@ impl Block {
         }
     }
 
-    pub fn from<B, O>(workspace: &Workspace, block_id: B, operator: O) -> Option<Block>
+    pub fn from<B>(workspace: &Workspace, block_id: B, operator: u64) -> Option<Block>
     where
         B: AsRef<str>,
-        O: TryInto<i64>,
     {
         workspace
             .blocks()
@@ -143,7 +140,7 @@ impl Block {
                 ) {
                     Some(Self {
                         id: block_id.as_ref().to_string(),
-                        operator: operator.try_into().unwrap_or_default(),
+                        operator,
                         block,
                         children,
                         content,
