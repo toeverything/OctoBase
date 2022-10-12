@@ -1012,14 +1012,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jwst-ffi"
-version = "0.1.0"
-dependencies = [
- "jwst",
- "yrs",
-]
-
-[[package]]
 name = "jwst_logger"
 version = "0.1.0"
 dependencies = [
