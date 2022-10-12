@@ -28,6 +28,7 @@ impl From<&InsertChildren> for BlockChildrenPosition {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Block {
     // block schema
     // for example: {
@@ -104,14 +105,18 @@ impl Block {
                 .and_then(|c| c.to_yarray())
                 .unwrap();
 
-            Self {
+            let block = Self {
                 id: block_id.to_string(),
                 operator,
                 block,
                 children,
                 content,
                 updated,
-            }
+            };
+
+            block.log_update(trx, HistoryOperation::Add);
+
+            block
         }
     }
 
@@ -158,7 +163,7 @@ impl Block {
         &mut self.content
     }
 
-    fn log_update(&self, trx: &mut Transaction, action: HistoryOperation) {
+    pub(crate) fn log_update(&self, trx: &mut Transaction, action: HistoryOperation) {
         let array = PrelimArray::from([
             Any::Number(self.operator as f64),
             Any::Number(chrono::Utc::now().timestamp_millis() as f64),
@@ -556,18 +561,27 @@ mod tests {
         block.set(&mut trx, "test", 1);
 
         let history = block.history();
-        assert_eq!(history.len(), 1);
 
-        let history = history.last().unwrap();
+        assert_eq!(history.len(), 2);
+
+        // let history = history.last().unwrap();
 
         assert_eq!(
             history,
-            &BlockHistory {
-                block_id: "a".to_owned(),
-                client: 123,
-                timestamp: history.timestamp,
-                operation: HistoryOperation::Update,
-            }
+            vec![
+                BlockHistory {
+                    block_id: "a".to_owned(),
+                    client: 123,
+                    timestamp: history.get(0).unwrap().timestamp,
+                    operation: HistoryOperation::Add,
+                },
+                BlockHistory {
+                    block_id: "a".to_owned(),
+                    client: 123,
+                    timestamp: history.get(1).unwrap().timestamp,
+                    operation: HistoryOperation::Update,
+                }
+            ]
         );
 
         block.insert_children(
@@ -586,7 +600,7 @@ mod tests {
         );
 
         let history = block.history();
-        assert_eq!(history.len(), 3);
+        assert_eq!(history.len(), 4);
 
         if let [.., insert, remove] = history.as_slice() {
             assert_eq!(

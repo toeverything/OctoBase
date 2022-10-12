@@ -147,7 +147,7 @@ pub async fn delete_block(
         let doc = doc.value().lock().await;
         let mut trx = doc.transact();
         let workspace = Workspace::new(&mut trx, workspace);
-        if workspace.remove(&mut trx, block, doc.client_id) {
+        if workspace.remove(&mut trx, block) {
             trx.commit();
             StatusCode::NO_CONTENT
         } else {

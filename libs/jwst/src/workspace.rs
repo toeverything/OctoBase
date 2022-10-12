@@ -77,12 +77,19 @@ impl Workspace {
         Block::from(self, block_id, operator)
     }
 
-    pub fn remove<S, O>(&self, trx: &mut Transaction, block_id: S, operator: O) -> bool
+    pub fn remove<S>(&self, trx: &mut Transaction, block_id: S) -> bool
     where
         S: AsRef<str>,
-        O: TryInto<i64>,
     {
         self.blocks.remove(trx, block_id.as_ref()).is_some()
+            && self.updated().remove(trx, block_id.as_ref()).is_some()
+    }
+
+    pub fn exists<S>(&self, block_id: S) -> bool
+    where
+        S: AsRef<str>,
+    {
+        self.blocks.contains(block_id.as_ref())
     }
 }
 
@@ -95,5 +102,43 @@ impl Serialize for Workspace {
         map.serialize_entry("content", &self.blocks.to_json())?;
         map.serialize_entry("updated", &self.updated.to_json())?;
         map.end()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Workspace;
+    use yrs::Doc;
+
+    #[test]
+    fn workspace() {
+        let doc = Doc::default();
+        let mut trx = doc.transact();
+
+        let workspace = Workspace::new(&mut trx, "test");
+
+        assert_eq!(workspace.id(), "test");
+        assert_eq!(workspace.blocks().len(), 0);
+        assert_eq!(workspace.updated().len(), 0);
+
+        let block = workspace.create(&mut trx, "block", "text", 0);
+        assert_eq!(workspace.blocks().len(), 1);
+        assert_eq!(workspace.updated().len(), 1);
+        assert_eq!(block.id(), "block");
+        assert_eq!(block.flavor(), "text");
+
+        assert_eq!(
+            workspace.get("block", doc.client_id).map(|b| b.id()),
+            Some("block".to_owned())
+        );
+
+        assert_eq!(workspace.exists("block"), true);
+
+        assert_eq!(workspace.remove(&mut trx, "block"), true);
+        assert_eq!(workspace.blocks().len(), 0);
+        assert_eq!(workspace.updated().len(), 0);
+        assert_eq!(workspace.get("block", doc.client_id), None);
+
+        assert_eq!(workspace.exists("block"), false);
     }
 }
