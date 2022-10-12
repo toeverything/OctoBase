@@ -320,6 +320,12 @@ impl Block {
         }
     }
 
+    pub fn exists_children(&self, options: ExistsChildren) -> Option<usize> {
+        self.children
+            .iter()
+            .position(|c| c.to_string() == options.block_id)
+    }
+
     fn position_calculator(&self, max_pos: u32, position: BlockChildrenPosition) -> Option<u32> {
         let BlockChildrenPosition { pos, before, after } = position;
         let children = &self.children;
@@ -548,7 +554,9 @@ mod tests {
 
     #[test]
     fn history() {
-        use super::{BlockHistory, HistoryOperation, InsertChildren, RemoveChildren};
+        use super::{
+            BlockHistory, ExistsChildren, HistoryOperation, InsertChildren, RemoveChildren,
+        };
         use yrs::Doc;
 
         let doc = Doc::default();
@@ -592,11 +600,25 @@ mod tests {
             },
         );
 
+        assert_eq!(
+            block.exists_children(ExistsChildren {
+                block_id: "b".to_owned(),
+            }),
+            Some(0)
+        );
+
         block.remove_children(
             &mut trx,
             RemoveChildren {
                 block_id: "b".to_owned(),
             },
+        );
+
+        assert_eq!(
+            block.exists_children(ExistsChildren {
+                block_id: "b".to_owned(),
+            }),
+            None
         );
 
         let history = block.history();

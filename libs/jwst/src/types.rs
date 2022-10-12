@@ -23,6 +23,12 @@ pub struct RemoveChildren {
     pub(crate) block_id: String,
 }
 
+#[derive(Deserialize, ToSchema)]
+#[schema(example = json!({"block_id": "jwstRf4rMzua7E"}))]
+pub struct ExistsChildren {
+    pub(crate) block_id: String,
+}
+
 pub enum BlockContentValue {
     Json(JsonValue),
     Boolean(bool),
