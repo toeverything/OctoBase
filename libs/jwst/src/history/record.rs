@@ -64,8 +64,8 @@ impl ToString for HistoryOperation {
 #[derive(Serialize, Deserialize, ToSchema, Debug, PartialEq)]
 pub struct BlockHistory {
     pub block_id: String,
-    pub client: i64,
-    pub timestamp: i64,
+    pub client: u64,
+    pub timestamp: u64,
     pub operation: HistoryOperation,
 }
 
@@ -76,11 +76,11 @@ impl From<(Array, String)> for BlockHistory {
             block_id,
             client: array
                 .get(0)
-                .and_then(|i| i.to_string().parse::<i64>().ok())
+                .and_then(|i| i.to_string().parse::<u64>().ok())
                 .unwrap_or_default(),
             timestamp: array
                 .get(1)
-                .and_then(|i| i.to_string().parse::<i64>().ok())
+                .and_then(|i| i.to_string().parse::<u64>().ok())
                 .unwrap_or_default(),
             operation: array
                 .get(2)

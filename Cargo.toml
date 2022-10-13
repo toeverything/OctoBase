@@ -1,3 +1,3 @@
 [workspace]
 
-members = ["apps/keck", "libs/jwst", "libs/logger"]
+members = ["apps/keck", "libs/jwst", "libs/jwst-ffi", "libs/yrs", "libs/logger"]

@@ -46,16 +46,15 @@ pub struct Block {
 
 impl Block {
     // Create a new block, skip create if block is already created.
-    pub fn new<B, F>(
+    pub fn new<B>(
         workspace: &Workspace,
         trx: &mut Transaction,
         block_id: B,
-        flavor: F,
+        flavor: &str,
         operator: u64,
     ) -> Block
     where
         B: AsRef<str>,
-        F: AsRef<str>,
     {
         let block_id = block_id.as_ref();
         if let Some(block) = Self::from(workspace, &block_id, operator) {
@@ -72,7 +71,7 @@ impl Block {
                 .unwrap();
 
             // init default schema
-            block.insert(trx, "sys:flavor", flavor.as_ref());
+            block.insert(trx, "sys:flavor", flavor);
             block.insert(trx, "sys:version", PrelimArray::from([1, 0]));
             block.insert(
                 trx,
@@ -88,7 +87,7 @@ impl Block {
 
             workspace
                 .updated()
-                .insert(trx, block_id.clone(), PrelimArray::<_, Any>::from([]));
+                .insert(trx, block_id, PrelimArray::<_, Any>::from([]));
 
             trx.commit();
 
@@ -259,24 +258,24 @@ impl Block {
             .unwrap()
     }
 
-    pub fn created(&self) -> i64 {
+    pub fn created(&self) -> u64 {
         self.block
             .get("sys:created")
             .and_then(|c| match c.to_json() {
-                Any::Number(n) => Some(n as i64),
+                Any::Number(n) => Some(n as u64),
                 _ => None,
             })
             .unwrap_or_default()
     }
 
-    pub fn updated(&self) -> i64 {
+    pub fn updated(&self) -> u64 {
         self.updated
             .iter()
             .filter_map(|v| v.to_yarray())
             .last()
             .and_then(|a| {
                 a.get(1).and_then(|i| match i.to_json() {
-                    Any::Number(n) => Some(n as i64),
+                    Any::Number(n) => Some(n as u64),
                     _ => None,
                 })
             })

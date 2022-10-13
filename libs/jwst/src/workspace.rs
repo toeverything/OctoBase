@@ -53,16 +53,15 @@ impl Workspace {
 
     // create a block with specified flavor
     // if block exists, return the exists block
-    pub fn create<B, F>(
+    pub fn create<B>(
         &self,
         trx: &mut Transaction,
         block_id: B,
-        flavor: F,
+        flavor: &str,
         operator: u64,
     ) -> Block
     where
         B: AsRef<str>,
-        F: AsRef<str>,
     {
         Block::new(self, trx, block_id, flavor, operator)
     }
@@ -75,18 +74,12 @@ impl Workspace {
         Block::from(self, block_id, operator)
     }
 
-    pub fn remove<S>(&self, trx: &mut Transaction, block_id: S) -> bool
-    where
-        S: AsRef<str>,
-    {
+    pub fn remove(&self, trx: &mut Transaction, block_id: &str) -> bool {
         self.blocks.remove(trx, block_id.as_ref()).is_some()
             && self.updated().remove(trx, block_id.as_ref()).is_some()
     }
 
-    pub fn exists<S>(&self, block_id: S) -> bool
-    where
-        S: AsRef<str>,
-    {
+    pub fn exists(&self, block_id: &str) -> bool {
         self.blocks.contains(block_id.as_ref())
     }
 }
