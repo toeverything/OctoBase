@@ -6,10 +6,10 @@ use yrs::Array;
 
 #[derive(Serialize, Deserialize, ToSchema, Debug, PartialEq)]
 pub enum HistoryOperation {
+    Undefined,
     Add,
     Update,
     Delete,
-    Undefined,
 }
 
 impl From<String> for HistoryOperation {
@@ -19,6 +19,33 @@ impl From<String> for HistoryOperation {
             "update" => Self::Update,
             "delete" => Self::Delete,
             _ => Self::Undefined,
+        }
+    }
+}
+
+impl Into<f64> for HistoryOperation {
+    fn into(self) -> f64 {
+        match self {
+            Self::Undefined => 0.0,
+            Self::Add => 1.0,
+            Self::Update => 2.0,
+            Self::Delete => 3.0,
+        }
+    }
+}
+
+impl From<f64> for HistoryOperation {
+    fn from(num: f64) -> Self {
+        if num >= 0.0 && num < 1.0 {
+            Self::Undefined
+        } else if num >= 1.0 && num < 2.0 {
+            Self::Add
+        } else if num >= 2.0 && num < 3.0 {
+            Self::Update
+        } else if num >= 3.0 && num < 4.0 {
+            Self::Delete
+        } else {
+            Self::Undefined
         }
     }
 }
