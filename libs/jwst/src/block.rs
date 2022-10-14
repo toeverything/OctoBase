@@ -217,15 +217,15 @@ impl Block {
                 }
             }
             BlockContentValue::Boolean(bool) => {
-                self.content.insert(trx, key, bool);
+                self.content().insert(trx, key, bool);
                 self.log_update(trx, HistoryOperation::Update);
             }
             BlockContentValue::Text(text) => {
-                self.content.insert(trx, key, text);
+                self.content().insert(trx, key, text);
                 self.log_update(trx, HistoryOperation::Update);
             }
             BlockContentValue::Number(number) => {
-                self.content.insert(trx, key, number);
+                self.content().insert(trx, key, number);
                 self.log_update(trx, HistoryOperation::Update);
             }
         }
@@ -288,6 +288,13 @@ impl Block {
             .filter_map(|v| v.to_yarray())
             .map(|v| (v, self.id.clone()).into())
             .collect()
+    }
+
+    pub fn children(&self) -> Vec<String> {
+        self.children
+            .iter()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>()
     }
 
     pub fn insert_children(&mut self, trx: &mut Transaction, options: InsertChildren) {
@@ -497,11 +504,7 @@ mod tests {
         );
 
         assert_eq!(
-            block
-                .children
-                .iter()
-                .map(|i| i.to_string())
-                .collect::<Vec<_>>(),
+            block.children(),
             vec![
                 "c".to_owned(),
                 "f".to_owned(),
