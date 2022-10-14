@@ -40,7 +40,7 @@ pub struct Block {
     operator: u64,
     block: Map,
     children: Array,
-    content: Map,
+    pub(self) content: Map,
     updated: Array,
 }
 
@@ -155,10 +155,6 @@ impl Block {
         &self.block
     }
 
-    pub(crate) fn content(&mut self) -> &mut Map {
-        &mut self.content
-    }
-
     pub(crate) fn log_update(&self, trx: &mut Transaction, action: HistoryOperation) {
         let array = PrelimArray::from([
             Any::Number(self.operator as f64),
@@ -212,20 +208,20 @@ impl Block {
     {
         match value.into() {
             BlockContentValue::Json(json) => {
-                if Self::set_value(self.content(), trx, key, json) {
+                if Self::set_value(&mut self.content, trx, key, json) {
                     self.log_update(trx, HistoryOperation::Update);
                 }
             }
             BlockContentValue::Boolean(bool) => {
-                self.content().insert(trx, key, bool);
+                self.content.insert(trx, key, bool);
                 self.log_update(trx, HistoryOperation::Update);
             }
             BlockContentValue::Text(text) => {
-                self.content().insert(trx, key, text);
+                self.content.insert(trx, key, text);
                 self.log_update(trx, HistoryOperation::Update);
             }
             BlockContentValue::Number(number) => {
-                self.content().insert(trx, key, number);
+                self.content.insert(trx, key, number);
                 self.log_update(trx, HistoryOperation::Update);
             }
         }
@@ -408,16 +404,16 @@ mod tests {
         block.set(&mut trx, "text", "hello world");
         block.set(&mut trx, "text_owned", "hello world".to_owned());
         block.set(&mut trx, "num", 123);
-        assert_eq!(block.content().get("bool").unwrap().to_string(), "true");
+        assert_eq!(block.content.get("bool").unwrap().to_string(), "true");
         assert_eq!(
-            block.content().get("text").unwrap().to_string(),
+            block.content.get("text").unwrap().to_string(),
             "hello world"
         );
         assert_eq!(
-            block.content().get("text_owned").unwrap().to_string(),
+            block.content.get("text_owned").unwrap().to_string(),
             "hello world"
         );
-        assert_eq!(block.content().get("num").unwrap().to_string(), "123");
+        assert_eq!(block.content.get("num").unwrap().to_string(), "123");
 
         // json type set
         block.set(&mut trx, "json_bool", Value::Bool(false));
@@ -430,23 +426,23 @@ mod tests {
         block.set(&mut trx, "json_u64", Value::Number(u64::MAX.into()));
         block.set(&mut trx, "json_str", Value::String("test".into()));
         assert_eq!(
-            block.content().get("json_bool").unwrap().to_json(),
+            block.content.get("json_bool").unwrap().to_json(),
             Any::Bool(false)
         );
         assert_eq!(
-            block.content().get("json_f64").unwrap().to_json(),
+            block.content.get("json_f64").unwrap().to_json(),
             Any::Number(1.23)
         );
         assert_eq!(
-            block.content().get("json_i64").unwrap().to_json(),
+            block.content.get("json_i64").unwrap().to_json(),
             Any::Number(i64::MAX as f64)
         );
         assert_eq!(
-            block.content().get("json_u64").unwrap().to_json(),
+            block.content.get("json_u64").unwrap().to_json(),
             Any::Number(u64::MAX as f64)
         );
         assert_eq!(
-            block.content().get("json_str").unwrap().to_json(),
+            block.content.get("json_str").unwrap().to_json(),
             Any::String("test".into())
         );
     }
