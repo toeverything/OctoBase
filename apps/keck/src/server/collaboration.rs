@@ -104,10 +104,12 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
                 sleep(Duration::from_secs(10)).await;
 
                 let update = {
-                    if let Some(doc) = context.doc.get(&workspace) {
+                    if let Some(workspace) = context.workspace.get(&workspace) {
                         Some(
-                            doc.lock()
+                            workspace
+                                .lock()
                                 .await
+                                .doc()
                                 .encode_state_as_update_v1(&StateVector::default()),
                         )
                     } else {
@@ -138,10 +140,11 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
     let init_data = {
         utils::init_doc(context.clone(), &workspace).await;
 
-        let doc = context.doc.get(&workspace).unwrap();
-        let mut doc = doc.lock().await;
+        let ws = context.workspace.get(&workspace).unwrap();
+        let mut ws = ws.lock().await;
+        let doc = ws.doc_mut();
 
-        subscribe_handler(context.clone(), &mut doc, uuid.clone(), workspace.clone());
+        subscribe_handler(context.clone(), doc, uuid.clone(), workspace.clone());
 
         encode_init_update(&doc)
     };
@@ -155,11 +158,12 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
     while let Some(msg) = socket_rx.next().await {
         if let Ok(Message::Binary(binary)) = msg {
             let payload = {
-                let doc = context.doc.get(&workspace).unwrap();
-                let doc = doc.value().lock().await;
+                let workspace = context.workspace.get(&workspace).unwrap();
+                let workspace = workspace.value().lock().await;
+                let doc = workspace.doc();
 
                 use std::panic::{catch_unwind, AssertUnwindSafe};
-                catch_unwind(AssertUnwindSafe(|| decode_remote_message(&doc, binary)))
+                catch_unwind(AssertUnwindSafe(|| decode_remote_message(doc, binary)))
             };
             if let Ok((binary, update)) = payload {
                 if let Some(update) = update {

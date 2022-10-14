@@ -1,5 +1,6 @@
 use super::*;
 use dashmap::mapref::entry::Entry;
+use jwst::Workspace;
 use std::sync::Arc;
 use tokio::sync::{mpsc::channel, Mutex};
 
@@ -9,7 +10,7 @@ pub enum Migrate {
 }
 
 pub async fn init_doc(context: Arc<Context>, workspace: &str) {
-    if let Entry::Vacant(entry) = context.doc.entry(workspace.to_owned()) {
+    if let Entry::Vacant(entry) = context.workspace.entry(workspace.to_owned()) {
         let doc = context.db.create_doc(workspace).await.unwrap();
         let (tx, mut rx) = channel::<Migrate>(100);
 
@@ -34,7 +35,7 @@ pub async fn init_doc(context: Arc<Context>, workspace: &str) {
 
         context.storage.insert(workspace.to_owned(), tx);
 
-        entry.insert(Mutex::new(doc));
+        entry.insert(Mutex::new(Workspace::from_doc(doc, workspace)));
     };
 }
 
@@ -44,18 +45,17 @@ mod tests {
 
     #[tokio::test]
     async fn doc_load_test() -> anyhow::Result<()> {
+        use jwst::Workspace;
         use yrs::{updates::decoder::Decode, Doc, StateVector, Update};
-        let doc = Doc::default();
 
-        {
-            let mut trx = doc.transact();
+        let workspace = Workspace::new("test");
+        workspace.with_trx(|mut t| {
+            let mut block = t.create("test", "text");
 
-            let workspace = jwst::Workspace::new(&mut trx, "test");
-            let mut block = workspace.create(&mut trx, "test", "text", doc.client_id);
+            block.set(&mut t.trx, "test", "test");
+        });
 
-            block.set(&mut trx, "test", "test");
-            trx.commit();
-        }
+        let doc = workspace.doc();
 
         let new_doc = {
             let update = doc.encode_state_as_update_v1(&StateVector::default());

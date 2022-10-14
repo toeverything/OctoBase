@@ -11,13 +11,12 @@ use axum::{
     Router,
 };
 use dashmap::DashMap;
-use jwst::{parse_history, parse_history_client, RawHistory};
+use jwst::{parse_history, parse_history_client, RawHistory, Workspace};
 use serde_json::Value as JsonValue;
 use tokio::sync::{mpsc::Sender, Mutex};
-use yrs::Doc;
 
 pub struct Context {
-    pub doc: DashMap<String, Mutex<Doc>>,
+    pub workspace: DashMap<String, Mutex<Workspace>>,
     pub storage: DashMap<String, Sender<Migrate>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub db: DbPool,
@@ -26,7 +25,7 @@ pub struct Context {
 impl Context {
     pub async fn new() -> Self {
         Context {
-            doc: DashMap::new(),
+            workspace: DashMap::new(),
             storage: DashMap::new(),
             channel: DashMap::new(),
             db: DbPool::new(init_pool("jwst").await.expect("Cannot create database!")),
