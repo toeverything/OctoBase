@@ -1,8 +1,9 @@
 use super::*;
 use lib0::any::Any;
 use serde::{Serialize, Serializer};
+use std::collections::HashMap;
 use types::{BlockContentValue, JsonValue};
-use yrs::{Array, Map, PrelimArray, PrelimMap, Transaction};
+use yrs::{types::Value, Array, Map, PrelimArray, PrelimMap, Transaction};
 
 struct BlockChildrenPosition {
     pos: Option<u32>,
@@ -40,7 +41,6 @@ pub struct Block {
     operator: u64,
     block: Map,
     children: Array,
-    pub(self) content: Map,
     updated: Array,
 }
 
@@ -95,7 +95,6 @@ impl Block {
                 .get("sys:children")
                 .and_then(|c| c.to_yarray())
                 .unwrap();
-            let content = block.get("content").and_then(|c| c.to_ymap()).unwrap();
             let updated = workspace
                 .updated()
                 .get(block_id)
@@ -107,7 +106,6 @@ impl Block {
                 operator,
                 block,
                 children,
-                content,
                 updated,
             };
 
@@ -133,16 +131,12 @@ impl Block {
                     .map(|updated| (block, updated))
             })
             .and_then(|(block, updated)| {
-                if let (Some(children), Some(content)) = (
-                    block.get("sys:children").and_then(|c| c.to_yarray()),
-                    block.get("content").and_then(|c| c.to_ymap()),
-                ) {
+                if let Some(children) = block.get("sys:children").and_then(|c| c.to_yarray()) {
                     Some(Self {
                         id: block_id.as_ref().to_string(),
                         operator,
                         block,
                         children,
-                        content,
                         updated,
                     })
                 } else {
@@ -206,25 +200,30 @@ impl Block {
     where
         T: Into<BlockContentValue>,
     {
+        let key = format!("prop:{}", key);
         match value.into() {
             BlockContentValue::Json(json) => {
-                if Self::set_value(&mut self.content, trx, key, json) {
+                if Self::set_value(&mut self.block, trx, &key, json) {
                     self.log_update(trx, HistoryOperation::Update);
                 }
             }
             BlockContentValue::Boolean(bool) => {
-                self.content.insert(trx, key, bool);
+                self.block.insert(trx, key, bool);
                 self.log_update(trx, HistoryOperation::Update);
             }
             BlockContentValue::Text(text) => {
-                self.content.insert(trx, key, text);
+                self.block.insert(trx, key, text);
                 self.log_update(trx, HistoryOperation::Update);
             }
             BlockContentValue::Number(number) => {
-                self.content.insert(trx, key, number);
+                self.block.insert(trx, key, number);
                 self.log_update(trx, HistoryOperation::Update);
             }
         }
+    }
+
+    pub fn get(&self, key: &str) -> Option<Value> {
+        self.block.get(&format!("prop:{}", key))
     }
 
     pub fn id(&self) -> String {
@@ -291,6 +290,19 @@ impl Block {
             .iter()
             .map(|v| v.to_string())
             .collect::<Vec<_>>()
+    }
+
+    pub fn content(&self) -> HashMap<String, Value> {
+        self.block
+            .iter()
+            .filter_map(|(key, val)| {
+                if key.starts_with("prop:") {
+                    Some((key[5..].to_owned(), val))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     pub fn insert_children(&mut self, trx: &mut Transaction, options: InsertChildren) {
@@ -363,6 +375,8 @@ impl Serialize for Block {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::Workspace;
 
     #[test]
@@ -385,6 +399,7 @@ mod tests {
     fn set_value() {
         use super::Any;
         use serde_json::{Number, Value};
+        use yrs::types::Value as YValue;
 
         let workspace = Workspace::new("test");
 
@@ -398,16 +413,6 @@ mod tests {
             block.set(trx, "text", "hello world");
             block.set(trx, "text_owned", "hello world".to_owned());
             block.set(trx, "num", 123);
-            assert_eq!(block.content.get("bool").unwrap().to_string(), "true");
-            assert_eq!(
-                block.content.get("text").unwrap().to_string(),
-                "hello world"
-            );
-            assert_eq!(
-                block.content.get("text_owned").unwrap().to_string(),
-                "hello world"
-            );
-            assert_eq!(block.content.get("num").unwrap().to_string(), "123");
 
             // json type set
             block.set(trx, "json_bool", Value::Bool(false));
@@ -422,25 +427,58 @@ mod tests {
 
             block
         });
+
+        assert_eq!(block.get("bool").unwrap().to_string(), "true");
+        assert_eq!(block.get("text").unwrap().to_string(), "hello world");
+        assert_eq!(block.get("text_owned").unwrap().to_string(), "hello world");
+        assert_eq!(block.get("num").unwrap().to_string(), "123");
+
+        assert_eq!(block.get("json_bool").unwrap().to_json(), Any::Bool(false));
+        assert_eq!(block.get("json_f64").unwrap().to_json(), Any::Number(1.23));
         assert_eq!(
-            block.content.get("json_bool").unwrap().to_json(),
-            Any::Bool(false)
-        );
-        assert_eq!(
-            block.content.get("json_f64").unwrap().to_json(),
-            Any::Number(1.23)
-        );
-        assert_eq!(
-            block.content.get("json_i64").unwrap().to_json(),
+            block.get("json_i64").unwrap().to_json(),
             Any::Number(i64::MAX as f64)
         );
         assert_eq!(
-            block.content.get("json_u64").unwrap().to_json(),
+            block.get("json_u64").unwrap().to_json(),
             Any::Number(u64::MAX as f64)
         );
         assert_eq!(
-            block.content.get("json_str").unwrap().to_json(),
+            block.get("json_str").unwrap().to_json(),
             Any::String("test".into())
+        );
+
+        assert_eq!(
+            block.content(),
+            vec![
+                ("bool".to_owned(), YValue::Any(Any::Bool(true))),
+                (
+                    "text".to_owned(),
+                    YValue::Any(Any::String("hello world".into()))
+                ),
+                (
+                    "text_owned".to_owned(),
+                    YValue::Any(Any::String("hello world".into()))
+                ),
+                ("num".to_owned(), YValue::Any(Any::BigInt(123))),
+                ("json_bool".to_owned(), YValue::Any(Any::Bool(false))),
+                ("json_f64".to_owned(), YValue::Any(Any::Number(1.23))),
+                (
+                    "json_i64".to_owned(),
+                    YValue::Any(Any::Number(i64::MAX as f64))
+                ),
+                (
+                    "json_u64".to_owned(),
+                    YValue::Any(Any::Number(u64::MAX as f64))
+                ),
+                (
+                    "json_str".to_owned(),
+                    YValue::Any(Any::String("test".into()))
+                ),
+            ]
+            .iter()
+            .cloned()
+            .collect::<HashMap<_, _>>()
         );
     }
 
