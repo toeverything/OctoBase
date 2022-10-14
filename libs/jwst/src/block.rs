@@ -367,21 +367,16 @@ mod tests {
 
     #[test]
     fn init_block() {
-        use yrs::Doc;
-
-        let doc = Doc::default();
-        let mut trx = doc.transact();
-
-        let workspace = Workspace::new(&mut trx, "test");
+        let workspace = Workspace::new("test");
 
         // new block
-        let block = workspace.create(&mut trx, "test", "affine:text", 123);
+        let block = workspace.get_trx().create("test", "affine:text");
         assert_eq!(block.id(), "test");
         assert_eq!(block.flavor(), "affine:text");
         assert_eq!(block.version(), [1, 0]);
 
         // get exist block
-        let block = workspace.get("test", 123).unwrap();
+        let block = workspace.get("test").unwrap();
         assert_eq!(block.flavor(), "affine:text");
         assert_eq!(block.version(), [1, 0]);
     }
@@ -390,41 +385,43 @@ mod tests {
     fn set_value() {
         use super::Any;
         use serde_json::{Number, Value};
-        use yrs::Doc;
 
-        let doc = Doc::default();
-        let mut trx = doc.transact();
+        let workspace = Workspace::new("test");
 
-        let workspace = Workspace::new(&mut trx, "test");
+        let block = workspace.with_trx(|mut t| {
+            let mut block = t.create("test", "affine:text");
 
-        let mut block = workspace.create(&mut trx, "test", "affine:text", doc.client_id);
+            let trx = &mut t.trx;
 
-        // normal type set
-        block.set(&mut trx, "bool", true);
-        block.set(&mut trx, "text", "hello world");
-        block.set(&mut trx, "text_owned", "hello world".to_owned());
-        block.set(&mut trx, "num", 123);
-        assert_eq!(block.content.get("bool").unwrap().to_string(), "true");
-        assert_eq!(
-            block.content.get("text").unwrap().to_string(),
-            "hello world"
-        );
-        assert_eq!(
-            block.content.get("text_owned").unwrap().to_string(),
-            "hello world"
-        );
-        assert_eq!(block.content.get("num").unwrap().to_string(), "123");
+            // normal type set
+            block.set(trx, "bool", true);
+            block.set(trx, "text", "hello world");
+            block.set(trx, "text_owned", "hello world".to_owned());
+            block.set(trx, "num", 123);
+            assert_eq!(block.content.get("bool").unwrap().to_string(), "true");
+            assert_eq!(
+                block.content.get("text").unwrap().to_string(),
+                "hello world"
+            );
+            assert_eq!(
+                block.content.get("text_owned").unwrap().to_string(),
+                "hello world"
+            );
+            assert_eq!(block.content.get("num").unwrap().to_string(), "123");
 
-        // json type set
-        block.set(&mut trx, "json_bool", Value::Bool(false));
-        block.set(
-            &mut trx,
-            "json_f64",
-            Value::Number(Number::from_f64(1.23).unwrap()),
-        );
-        block.set(&mut trx, "json_i64", Value::Number(i64::MAX.into()));
-        block.set(&mut trx, "json_u64", Value::Number(u64::MAX.into()));
-        block.set(&mut trx, "json_str", Value::String("test".into()));
+            // json type set
+            block.set(trx, "json_bool", Value::Bool(false));
+            block.set(
+                trx,
+                "json_f64",
+                Value::Number(Number::from_f64(1.23).unwrap()),
+            );
+            block.set(trx, "json_i64", Value::Number(i64::MAX.into()));
+            block.set(trx, "json_u64", Value::Number(u64::MAX.into()));
+            block.set(trx, "json_str", Value::String("test".into()));
+
+            block
+        });
         assert_eq!(
             block.content.get("json_bool").unwrap().to_json(),
             Any::Bool(false)
@@ -450,99 +447,96 @@ mod tests {
     #[test]
     fn insert_remove_children() {
         use super::{InsertChildren, RemoveChildren};
-        use yrs::Doc;
 
-        let doc = Doc::default();
-        let mut trx = doc.transact();
+        let workspace = Workspace::new("text");
 
-        let workspace = Workspace::new(&mut trx, "text");
+        workspace.with_trx(|mut t| {
+            let mut block = t.create("a", "affine:text");
+            let trx = &mut t.trx;
 
-        let mut block = workspace.create(&mut trx, "a", "affine:text", 123);
+            block.insert_children(
+                trx,
+                InsertChildren {
+                    block_id: "b".to_owned(),
+                    ..Default::default()
+                },
+            );
+            block.insert_children(
+                trx,
+                InsertChildren {
+                    block_id: "c".to_owned(),
+                    pos: Some(0),
+                    ..Default::default()
+                },
+            );
+            block.insert_children(
+                trx,
+                InsertChildren {
+                    block_id: "d".to_owned(),
+                    before: Some("b".to_owned()),
+                    ..Default::default()
+                },
+            );
+            block.insert_children(
+                trx,
+                InsertChildren {
+                    block_id: "e".to_owned(),
+                    after: Some("b".to_owned()),
+                    ..Default::default()
+                },
+            );
+            block.insert_children(
+                trx,
+                InsertChildren {
+                    block_id: "f".to_owned(),
+                    after: Some("c".to_owned()),
+                    ..Default::default()
+                },
+            );
 
-        block.insert_children(
-            &mut trx,
-            InsertChildren {
-                block_id: "b".to_owned(),
-                ..Default::default()
-            },
-        );
-        block.insert_children(
-            &mut trx,
-            InsertChildren {
-                block_id: "c".to_owned(),
-                pos: Some(0),
-                ..Default::default()
-            },
-        );
-        block.insert_children(
-            &mut trx,
-            InsertChildren {
-                block_id: "d".to_owned(),
-                before: Some("b".to_owned()),
-                ..Default::default()
-            },
-        );
-        block.insert_children(
-            &mut trx,
-            InsertChildren {
-                block_id: "e".to_owned(),
-                after: Some("b".to_owned()),
-                ..Default::default()
-            },
-        );
-        block.insert_children(
-            &mut trx,
-            InsertChildren {
-                block_id: "f".to_owned(),
-                after: Some("c".to_owned()),
-                ..Default::default()
-            },
-        );
+            assert_eq!(
+                block.children(),
+                vec![
+                    "c".to_owned(),
+                    "f".to_owned(),
+                    "d".to_owned(),
+                    "b".to_owned(),
+                    "e".to_owned()
+                ]
+            );
 
-        assert_eq!(
-            block.children(),
-            vec![
-                "c".to_owned(),
-                "f".to_owned(),
-                "d".to_owned(),
-                "b".to_owned(),
-                "e".to_owned()
-            ]
-        );
+            block.remove_children(
+                trx,
+                RemoveChildren {
+                    block_id: "d".to_owned(),
+                },
+            );
 
-        block.remove_children(
-            &mut trx,
-            RemoveChildren {
-                block_id: "d".to_owned(),
-            },
-        );
-
-        assert_eq!(
-            block
-                .children
-                .iter()
-                .map(|i| i.to_string())
-                .collect::<Vec<_>>(),
-            vec![
-                "c".to_owned(),
-                "f".to_owned(),
-                "b".to_owned(),
-                "e".to_owned()
-            ]
-        );
+            assert_eq!(
+                block
+                    .children
+                    .iter()
+                    .map(|i| i.to_string())
+                    .collect::<Vec<_>>(),
+                vec![
+                    "c".to_owned(),
+                    "f".to_owned(),
+                    "b".to_owned(),
+                    "e".to_owned()
+                ]
+            );
+        });
     }
 
     #[test]
     fn updated() {
-        use yrs::Doc;
+        let workspace = Workspace::new("test");
+        let block = workspace.with_trx(|mut t| {
+            let mut block = t.create("a", "affine:text");
+            block.set(&mut t.trx, "test", 1);
 
-        let doc = Doc::default();
-        let mut trx = doc.transact();
-
-        let workspace = Workspace::new(&mut trx, "test");
-        let mut block = workspace.create(&mut trx, "a", "affine:text", 123);
-
-        block.set(&mut trx, "test", 1);
+            block
+        });
 
         assert!(block.created() <= block.updated())
     }
@@ -554,67 +548,70 @@ mod tests {
         };
         use yrs::Doc;
 
-        let doc = Doc::default();
-        let mut trx = doc.transact();
+        let doc = Doc::with_client_id(123);
 
-        let workspace = Workspace::new(&mut trx, "test");
+        let workspace = Workspace::from_doc(doc, "test");
 
-        let mut block = workspace.create(&mut trx, "a", "affine:text", 123);
+        let block = workspace.with_trx(|mut t| {
+            let mut block = t.create("a", "affine:text");
+            let trx = &mut t.trx;
+            block.set(trx, "test", 1);
 
-        block.set(&mut trx, "test", 1);
+            let history = block.history();
 
-        let history = block.history();
+            assert_eq!(history.len(), 2);
 
-        assert_eq!(history.len(), 2);
+            // let history = history.last().unwrap();
 
-        // let history = history.last().unwrap();
+            assert_eq!(
+                history,
+                vec![
+                    BlockHistory {
+                        block_id: "a".to_owned(),
+                        client: 123,
+                        timestamp: history.get(0).unwrap().timestamp,
+                        operation: HistoryOperation::Add,
+                    },
+                    BlockHistory {
+                        block_id: "a".to_owned(),
+                        client: 123,
+                        timestamp: history.get(1).unwrap().timestamp,
+                        operation: HistoryOperation::Update,
+                    }
+                ]
+            );
 
-        assert_eq!(
-            history,
-            vec![
-                BlockHistory {
-                    block_id: "a".to_owned(),
-                    client: 123,
-                    timestamp: history.get(0).unwrap().timestamp,
-                    operation: HistoryOperation::Add,
+            block.insert_children(
+                trx,
+                InsertChildren {
+                    block_id: "b".to_owned(),
+                    ..Default::default()
                 },
-                BlockHistory {
-                    block_id: "a".to_owned(),
-                    client: 123,
-                    timestamp: history.get(1).unwrap().timestamp,
-                    operation: HistoryOperation::Update,
-                }
-            ]
-        );
+            );
 
-        block.insert_children(
-            &mut trx,
-            InsertChildren {
-                block_id: "b".to_owned(),
-                ..Default::default()
-            },
-        );
+            assert_eq!(
+                block.exists_children(ExistsChildren {
+                    block_id: "b".to_owned(),
+                }),
+                Some(0)
+            );
 
-        assert_eq!(
-            block.exists_children(ExistsChildren {
-                block_id: "b".to_owned(),
-            }),
-            Some(0)
-        );
+            block.remove_children(
+                trx,
+                RemoveChildren {
+                    block_id: "b".to_owned(),
+                },
+            );
 
-        block.remove_children(
-            &mut trx,
-            RemoveChildren {
-                block_id: "b".to_owned(),
-            },
-        );
+            assert_eq!(
+                block.exists_children(ExistsChildren {
+                    block_id: "b".to_owned(),
+                }),
+                None
+            );
 
-        assert_eq!(
-            block.exists_children(ExistsChildren {
-                block_id: "b".to_owned(),
-            }),
-            None
-        );
+            block
+        });
 
         let history = block.history();
         assert_eq!(history.len(), 4);

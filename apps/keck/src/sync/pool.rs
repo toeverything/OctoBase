@@ -71,14 +71,14 @@ impl DbPool {
     }
 
     pub async fn create_doc(&self, workspace: &str) -> Result<Doc, Error> {
-        let mut conn = self.get_conn(workspace).await?;
-
-        conn.create().await?;
-
         let mut doc = Doc::with_options(Options {
             skip_gc: true,
             ..Default::default()
         });
+
+        let mut conn = self.get_conn(workspace).await?;
+
+        conn.create().await?;
 
         let all_data = conn.all().await.unwrap();
 

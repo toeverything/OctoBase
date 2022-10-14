@@ -1,6 +1,5 @@
 use super::*;
 use axum::{extract::Path, http::header};
-use jwst::Workspace;
 
 #[utoipa::path(
     get,
@@ -22,11 +21,9 @@ pub async fn get_workspace(
     info!("get_workspace: {}", workspace);
     utils::init_doc(context.clone(), &workspace).await;
 
-    if let Some(doc) = context.doc.get(&workspace) {
-        let doc = doc.value().lock().await;
-        let mut trx = doc.transact();
-        let workspace = Workspace::new(&mut trx, workspace);
-        Json(workspace).into_response()
+    if let Some(workspace) = context.workspace.get(&workspace) {
+        let workspace = workspace.lock().await;
+        Json(&*workspace).into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
@@ -52,10 +49,10 @@ pub async fn set_workspace(
 
     utils::init_doc(context.clone(), &workspace).await;
 
-    let doc = context.doc.get(&workspace).unwrap();
-    let doc = doc.lock().await;
+    let workspace = context.workspace.get(&workspace).unwrap();
+    let workspace = workspace.lock().await;
 
-    Json(doc.transact().get_map("blocks").to_json()).into_response()
+    Json(workspace.doc().transact().get_map("blocks").to_json()).into_response()
 }
 
 #[utoipa::path(
@@ -76,7 +73,7 @@ pub async fn delete_workspace(
     Path(workspace): Path<String>,
 ) -> impl IntoResponse {
     info!("delete_workspace: {}", workspace);
-    if context.doc.remove(&workspace).is_none() {
+    if context.workspace.remove(&workspace).is_none() {
         return StatusCode::NOT_FOUND;
     }
     if let Err(_) = context.db.drop(&workspace).await {
@@ -103,13 +100,9 @@ pub async fn workspace_client(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
 ) -> impl IntoResponse {
-    if let Some(doc) = context.doc.get(&workspace) {
-        let doc = doc.lock().await;
-        (
-            [(header::CONTENT_TYPE, "application/json")],
-            doc.client_id.to_string(),
-        )
-            .into_response()
+    if let Some(workspace) = context.workspace.get(&workspace) {
+        let workspace = workspace.lock().await;
+        Json(workspace.client_id()).into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
@@ -132,12 +125,10 @@ pub async fn history_workspace_clients(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
 ) -> impl IntoResponse {
-    if let Some(doc) = context.doc.get(&workspace) {
-        let doc = doc.lock().await;
-        if let Some(json) =
-            parse_history_client(&doc).and_then(|clients| serde_json::to_string(&clients).ok())
-        {
-            ([(header::CONTENT_TYPE, "application/json")], json).into_response()
+    if let Some(workspace) = context.workspace.get(&workspace) {
+        let workspace = workspace.lock().await;
+        if let Some(history) = parse_history_client(workspace.doc()) {
+            Json(history).into_response()
         } else {
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
@@ -166,11 +157,11 @@ pub async fn history_workspace(
     Path(params): Path<(String, String)>,
 ) -> impl IntoResponse {
     let (workspace, client) = params;
-    if let Some(doc) = context.doc.get(&workspace) {
-        let doc = doc.lock().await;
+    if let Some(workspace) = context.workspace.get(&workspace) {
+        let workspace = workspace.lock().await;
         if let Ok(client) = client.parse::<u64>() {
-            if let Some(json) =
-                parse_history(&doc, client).and_then(|history| serde_json::to_string(&history).ok())
+            if let Some(json) = parse_history(workspace.doc(), client)
+                .and_then(|history| serde_json::to_string(&history).ok())
             {
                 ([(header::CONTENT_TYPE, "application/json")], json).into_response()
             } else {
@@ -206,7 +197,7 @@ mod test {
 
         let resp = client.post("/block/test").send().await;
         assert_eq!(resp.status(), StatusCode::OK);
-        assert_eq!(resp.text().await, "{}");
+        assert_eq!(resp.text().await, "{\"content\":{},\"updated\":{}}");
 
         let resp = client.get("/block/test").send().await;
         assert_eq!(resp.status(), StatusCode::OK);

@@ -1,5 +1,5 @@
 use super::*;
-use jwst::{BlockHistory, InsertChildren, RemoveChildren, Workspace};
+use jwst::{BlockHistory, InsertChildren, RemoveChildren};
 
 #[utoipa::path(
     get,
@@ -22,11 +22,9 @@ pub async fn get_block(
 ) -> impl IntoResponse {
     let (workspace, block) = params;
     info!("get_block: {}, {}", workspace, block);
-    if let Some(doc) = context.doc.get(&workspace) {
-        let doc = doc.value().lock().await;
-        let mut trx = doc.transact();
-        let workspace = Workspace::new(&mut trx, workspace);
-        if let Some(block) = workspace.get(block, doc.client_id) {
+    if let Some(workspace) = context.workspace.get(&workspace) {
+        let workspace = workspace.value().lock().await;
+        if let Some(block) = workspace.get(block) {
             Json(block).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
@@ -64,19 +62,20 @@ pub async fn set_block(
 ) -> impl IntoResponse {
     let (workspace, block) = params;
     info!("set_block: {}, {}", workspace, block);
-    if let Some(doc) = context.doc.get(&workspace) {
+    if let Some(workspace) = context.workspace.get(&workspace) {
         // init block instance
-        let doc = doc.value().lock().await;
-        let mut trx = doc.transact();
-        let workspace = Workspace::new(&mut trx, workspace);
-        let mut block = workspace.create(&mut trx, &block, "text", doc.client_id);
-
+        let workspace = workspace.lock().await;
         // set block content
-        if let Some(block_content) = payload.as_object() {
-            for (key, value) in block_content.iter() {
-                block.set(&mut trx, key, value.clone());
+        let block = workspace.with_trx(|mut t| {
+            let mut block = t.create(&block, "text");
+            // set block content
+            if let Some(block_content) = payload.as_object() {
+                for (key, value) in block_content.iter() {
+                    block.set(&mut t.trx, key, value.clone());
+                }
             }
-        }
+            block
+        });
 
         // response block content
         Json(block.block().to_json()).into_response()
@@ -107,12 +106,10 @@ pub async fn get_block_history(
 ) -> impl IntoResponse {
     let (workspace, block) = params;
     info!("get_block_history: {}, {}", workspace, block);
-    if let Some(doc) = context.doc.get(&workspace) {
+    if let Some(workspace) = context.workspace.get(&workspace) {
         // init block instance
-        let doc = doc.value().lock().await;
-        let mut trx = doc.transact();
-        let workspace = Workspace::new(&mut trx, workspace);
-        if let Some(block) = workspace.get(block, doc.client_id) {
+        let workspace = workspace.value().lock().await;
+        if let Some(block) = workspace.get(block) {
             Json(&block.history()).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
@@ -143,12 +140,9 @@ pub async fn delete_block(
 ) -> impl IntoResponse {
     let (workspace, block) = params;
     info!("delete_block: {}, {}", workspace, block);
-    if let Some(doc) = context.doc.get(&workspace) {
-        let doc = doc.value().lock().await;
-        let mut trx = doc.transact();
-        let workspace = Workspace::new(&mut trx, workspace);
-        if workspace.remove(&mut trx, &block) {
-            trx.commit();
+    if let Some(workspace) = context.workspace.get(&workspace) {
+        let workspace = workspace.value().lock().await;
+        if workspace.get_trx().remove(&block) {
             StatusCode::NO_CONTENT
         } else {
             StatusCode::NOT_FOUND
@@ -186,13 +180,13 @@ pub async fn insert_block(
 ) -> impl IntoResponse {
     let (workspace, block) = params;
     info!("insert_block: {}, {}", workspace, block);
-    if let Some(doc) = context.doc.get(&workspace) {
+    if let Some(workspace) = context.workspace.get(&workspace) {
         // init block instance
-        let doc = doc.value().lock().await;
-        let mut trx = doc.transact();
-        let workspace = Workspace::new(&mut trx, workspace);
-        if let Some(mut block) = workspace.get(block, doc.client_id) {
-            block.insert_children(&mut trx, payload);
+        let workspace = workspace.value().lock().await;
+        if let Some(mut block) = workspace.get(block) {
+            workspace.with_trx(|mut t| {
+                block.insert_children(&mut t.trx, payload);
+            });
             // response block content
             Json(block.block().to_json()).into_response()
         } else {
@@ -231,13 +225,13 @@ pub async fn remove_block(
 ) -> impl IntoResponse {
     let (workspace, block) = params;
     info!("insert_block: {}, {}", workspace, block);
-    if let Some(doc) = context.doc.get(&workspace) {
+    if let Some(workspace) = context.workspace.get(&workspace) {
         // init block instance
-        let doc = doc.value().lock().await;
-        let mut trx = doc.transact();
-        let workspace = Workspace::new(&mut trx, workspace);
-        if let Some(mut block) = workspace.get(&block, doc.client_id) {
-            block.remove_children(&mut trx, payload);
+        let workspace = workspace.value().lock().await;
+        if let Some(mut block) = workspace.get(&block) {
+            workspace.with_trx(|mut t| {
+                block.remove_children(&mut t.trx, payload);
+            });
             // response block content
             Json(block.block().to_json()).into_response()
         } else {
