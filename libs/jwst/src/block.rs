@@ -57,16 +57,16 @@ impl Block {
         B: AsRef<str>,
     {
         let block_id = block_id.as_ref();
-        if let Some(block) = Self::from(workspace, &block_id, operator) {
+        if let Some(block) = Self::from(workspace, block_id, operator) {
             block
         } else {
             // init base struct
             workspace
                 .blocks()
-                .insert(trx, block_id.clone(), PrelimMap::<Any>::new());
+                .insert(trx, block_id, PrelimMap::<Any>::new());
             let block = workspace
                 .blocks()
-                .get(&block_id)
+                .get(block_id)
                 .and_then(|b| b.to_ymap())
                 .unwrap();
 
@@ -98,7 +98,7 @@ impl Block {
             let content = block.get("content").and_then(|c| c.to_ymap()).unwrap();
             let updated = workspace
                 .updated()
-                .get(&block_id)
+                .get(block_id)
                 .and_then(|c| c.to_yarray())
                 .unwrap();
 
@@ -173,7 +173,7 @@ impl Block {
     ) -> bool {
         match value {
             JsonValue::Bool(v) => {
-                block.insert(trx, key.clone(), v);
+                block.insert(trx, key, v);
                 true
             }
             JsonValue::Null => {
@@ -182,20 +182,20 @@ impl Block {
             }
             JsonValue::Number(v) => {
                 if let Some(v) = v.as_f64() {
-                    block.insert(trx, key.clone(), v);
+                    block.insert(trx, key, v);
                     true
                 } else if let Some(v) = v.as_i64() {
-                    block.insert(trx, key.clone(), v);
+                    block.insert(trx, key, v);
                     true
                 } else if let Some(v) = v.as_u64() {
-                    block.insert(trx, key.clone(), i64::try_from(v).unwrap_or(0));
+                    block.insert(trx, key, i64::try_from(v).unwrap_or(0));
                     true
                 } else {
                     false
                 }
             }
             JsonValue::String(v) => {
-                block.insert(trx, key.clone(), v.clone());
+                block.insert(trx, key, v);
                 true
             }
             _ => false,

@@ -23,26 +23,26 @@ impl From<String> for HistoryOperation {
     }
 }
 
-impl Into<f64> for HistoryOperation {
-    fn into(self) -> f64 {
-        match self {
-            Self::Undefined => 0.0,
-            Self::Add => 1.0,
-            Self::Update => 2.0,
-            Self::Delete => 3.0,
+impl From<HistoryOperation> for f64 {
+    fn from(op: HistoryOperation) -> f64 {
+        match op {
+            HistoryOperation::Undefined => 0.0,
+            HistoryOperation::Add => 1.0,
+            HistoryOperation::Update => 2.0,
+            HistoryOperation::Delete => 3.0,
         }
     }
 }
 
 impl From<f64> for HistoryOperation {
     fn from(num: f64) -> Self {
-        if num >= 0.0 && num < 1.0 {
+        if (0.0..1.0).contains(&num) {
             Self::Undefined
-        } else if num >= 1.0 && num < 2.0 {
+        } else if (1.0..2.0).contains(&num) {
             Self::Add
-        } else if num >= 2.0 && num < 3.0 {
+        } else if (2.0..3.0).contains(&num) {
             Self::Update
-        } else if num >= 3.0 && num < 4.0 {
+        } else if (3.0..4.0).contains(&num) {
             Self::Delete
         } else {
             Self::Undefined

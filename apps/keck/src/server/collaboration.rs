@@ -58,11 +58,9 @@ fn subscribe_handler(context: Arc<Context>, doc: &mut Doc, uuid: String, workspa
                 if workspace.as_str() == ws.as_str() && id.as_str() != uuid.as_str() {
                     if tx.is_closed() {
                         closed.push(id.clone());
-                    } else {
-                        if let Err(e) = tx.send(Message::Binary(update.clone())).await {
-                            if !tx.is_closed() {
-                                error!("on observe_update error: {}", e);
-                            }
+                    } else if let Err(e) = tx.send(Message::Binary(update.clone())).await {
+                        if !tx.is_closed() {
+                            error!("on observe_update error: {}", e);
                         }
                     }
                 }
@@ -149,7 +147,7 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
 
         subscribe_handler(context.clone(), doc, uuid.clone(), workspace.clone());
 
-        encode_init_update(&doc)
+        encode_init_update(doc)
     };
 
     if tx.send(Message::Binary(init_data)).await.is_err() {

@@ -3,11 +3,6 @@ pub use serde_json::Value as JsonValue;
 use serde::Deserialize;
 use utoipa::ToSchema;
 
-pub struct BlockField {
-    r#type: String,
-    default: String,
-}
-
 #[derive(Default, Deserialize, ToSchema)]
 #[schema(example = json!({"block_id": "jwstRf4rMzua7E", "pos": 0}))]
 pub struct InsertChildren {

@@ -6,13 +6,13 @@ use axum::{
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
 
-const INDEX_DIST_PATH: &'static str = if cfg!(debug_assertions) {
+const INDEX_DIST_PATH: &str = if cfg!(debug_assertions) {
     "./frontend/dist/apps/jwst"
 } else {
     "/app/dist"
 };
 
-const DOCS_DIST_PATH: &'static str = if cfg!(debug_assertions) {
+const DOCS_DIST_PATH: &str = if cfg!(debug_assertions) {
     "./apps/handbook/book"
 } else {
     "/app/book"

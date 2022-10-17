@@ -80,7 +80,7 @@ pub async fn delete_workspace(
     if context.workspace.remove(&workspace).is_none() {
         return StatusCode::NOT_FOUND;
     }
-    if let Err(_) = context.db.drop(&workspace).await {
+    if context.db.drop(&workspace).await.is_err() {
         return StatusCode::INTERNAL_SERVER_ERROR;
     };
 

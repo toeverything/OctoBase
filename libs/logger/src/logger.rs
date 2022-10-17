@@ -31,10 +31,8 @@ pub struct Logger;
 
 impl log::Log for Logger {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        if cfg!(debug_assertions) {
-            if option_env!("JWST_DEV").is_some() {
-                return metadata.target() != "sqlx::query";
-            }
+        if cfg!(debug_assertions) && option_env!("JWST_DEV").is_some() {
+            return metadata.target() != "sqlx::query";
         }
         metadata.level() <= Level::Info && metadata.target() != "sqlx::query"
     }
