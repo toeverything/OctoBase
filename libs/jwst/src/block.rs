@@ -83,7 +83,6 @@ impl Block {
                 "sys:created",
                 chrono::Utc::now().timestamp_millis() as f64,
             );
-            block.insert(trx, "content", PrelimMap::<Any>::new());
 
             workspace
                 .updated()
