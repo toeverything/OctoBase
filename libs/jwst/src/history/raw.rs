@@ -35,7 +35,7 @@ impl ParentMap {
 
     fn from(items: &Vec<&Item>) -> Self {
         let mut name_map: HashMap<ID, String> = HashMap::new();
-        println!("{:?}", items);
+        // println!("{:?}", items);
         let mut padding_ptr: VecDeque<(&Item, usize)> =
             VecDeque::from(items.iter().map(|i| (i.clone(), 0)).collect::<Vec<_>>());
 
@@ -81,7 +81,7 @@ impl ParentMap {
     }
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, ToSchema, PartialEq)]
 pub struct RawHistory {
     id: String,
     parent: String,
@@ -130,4 +130,61 @@ pub fn parse_history(doc: &Doc, client: u64) -> Option<Vec<RawHistory>> {
     }
 
     Some(histories)
+}
+
+mod tests {
+    use crate::history;
+
+    
+    #[test]
+    fn parse_history_client_test() {
+        use super::*;
+        use crate::workspace::Workspace;
+
+        let workspace = Workspace::new("test");
+        workspace.with_trx(|mut t| {
+            let mut block = t.create("test", "text");
+            block.set(&mut t.trx, "test", "test");
+        });
+
+        let doc = workspace.doc();
+
+        let client = parse_history_client(&doc).unwrap();
+
+        assert_eq!(client[0], doc.client_id);
+    }
+
+    #[test]
+    fn parse_history_test() {
+        use super::*;
+        use crate::workspace::Workspace;
+
+        let workspace = Workspace::new("test");
+        workspace.with_trx(|mut t| {
+            let mut block = t.create("test", "text");
+        });
+        let doc = workspace.doc();
+
+        let history = parse_history(&doc, 0).unwrap();
+
+        let update = doc.encode_state_as_update_v1(&StateVector::default());
+        let update = Update::decode_v1(&update).unwrap();
+        let mut items = update.as_items();
+
+        let mut mock_histories: Vec<RawHistory> = vec![];
+        let parent_map = ParentMap::from(&mut items);
+        for item in items {
+            if let Some(parent) = parent_map.get(&item.id) {
+                let id = format!("{}:{}", item.id.clock, item.id.client);
+                mock_histories.push(RawHistory {
+                    id,
+                    parent,
+                    content: item.content.to_string(),
+                })
+            }            
+        }
+
+        assert_eq!(history, mock_histories);
+
+    }
 }
