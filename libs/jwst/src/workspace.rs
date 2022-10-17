@@ -1,7 +1,7 @@
 use super::*;
 use lib0::any::Any;
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use yrs::{Doc, Map, PrelimMap, Transaction};
+use yrs::{Doc, Map, PrelimMap, Subscription, Transaction, UpdateEvent};
 
 pub struct Workspace {
     id: String,
@@ -98,6 +98,13 @@ impl Workspace {
 
     pub fn exists(&self, block_id: &str) -> bool {
         self.blocks.contains(block_id.as_ref())
+    }
+
+    pub fn observe(
+        &mut self,
+        f: impl Fn(&Transaction, &UpdateEvent) -> () + 'static,
+    ) -> Subscription<UpdateEvent> {
+        self.doc.observe_update_v1(f)
     }
 }
 

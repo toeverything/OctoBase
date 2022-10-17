@@ -1,6 +1,10 @@
 use jwst::{Block, Workspace};
-use std::{ffi::CStr, os::raw::c_char, ptr};
-use yrs::Transaction;
+use std::{
+    ffi::{c_void, CStr},
+    os::raw::c_char,
+    ptr,
+};
+use yrs::{Subscription, Transaction, UpdateEvent};
 
 #[no_mangle]
 pub unsafe extern "C" fn block_new(
@@ -100,4 +104,23 @@ pub unsafe extern "C" fn workspace_exists_block(
         .as_ref()
         .unwrap()
         .exists(CStr::from_ptr(block_id).to_str().unwrap())
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn workspace_observe(
+    workspace: *mut Workspace,
+    env: *mut c_void,
+    func: extern "C" fn(*mut c_void, *const Transaction, *const UpdateEvent),
+) -> *mut Subscription<UpdateEvent> {
+    Box::into_raw(Box::new(
+        workspace
+            .as_mut()
+            .unwrap()
+            .observe(move |tx, upd| func(env, tx, upd)),
+    ))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn workspace_unobserve(subscription: *mut Subscription<UpdateEvent>) {
+    drop(Box::from_raw(subscription))
 }
