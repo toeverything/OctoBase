@@ -19,9 +19,10 @@ pub async fn get_workspace(
     Path(workspace): Path<String>,
 ) -> impl IntoResponse {
     info!("get_workspace: {}", workspace);
-    utils::init_doc(context.clone(), &workspace).await;
-
-    if let Some(workspace) = context.workspace.get(&workspace) {
+    if let Err(e) = utils::init_doc(context.clone(), &workspace).await {
+        error!("Failed to init doc: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    } else if let Some(workspace) = context.workspace.get(&workspace) {
         let workspace = workspace.lock().await;
         Json(&*workspace).into_response()
     } else {
@@ -47,12 +48,15 @@ pub async fn set_workspace(
 ) -> impl IntoResponse {
     info!("set_workspace: {}", workspace);
 
-    utils::init_doc(context.clone(), &workspace).await;
-
-    let workspace = context.workspace.get(&workspace).unwrap();
-    let workspace = workspace.lock().await;
-
-    Json(workspace.doc().transact().get_map("blocks").to_json()).into_response()
+    if let Err(e) = utils::init_doc(context.clone(), &workspace).await {
+        error!("Failed to init doc: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    } else if let Some(workspace) = context.workspace.get(&workspace) {
+        let workspace = workspace.lock().await;
+        Json(workspace.doc().transact().get_map("blocks").to_json()).into_response()
+    } else {
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
 }
 
 #[utoipa::path(
@@ -175,14 +179,23 @@ pub async fn history_workspace(
     }
 }
 
+#[cfg(test)]
 mod test {
+    use super::*;
+    use std::collections::HashMap;
 
     #[tokio::test]
     async fn workspace() {
-        use super::*;
         use axum_test_helper::TestClient;
+        use serde::Deserialize;
 
         let context = Arc::new(Context::new().await);
+
+        #[derive(Deserialize, PartialEq, Debug)]
+        struct WorkspaceStruct {
+            content: HashMap<String, ()>,
+            updated: HashMap<String, ()>,
+        }
 
         let app = Router::new()
             .route(
@@ -196,11 +209,24 @@ mod test {
         let client = TestClient::new(app);
 
         let resp = client.post("/block/test").send().await;
+
         assert_eq!(resp.status(), StatusCode::OK);
-        assert_eq!(resp.text().await, "{\"content\":{},\"updated\":{}}");
+        assert_eq!(
+            resp.json::<WorkspaceStruct>().await,
+            WorkspaceStruct {
+                content: HashMap::new(),
+                updated: HashMap::new()
+            }
+        );
 
         let resp = client.get("/block/test").send().await;
         assert_eq!(resp.status(), StatusCode::OK);
-        assert_eq!(resp.text().await, "{\"content\":{},\"updated\":{}}");
+        assert_eq!(
+            resp.json::<WorkspaceStruct>().await,
+            WorkspaceStruct {
+                content: HashMap::new(),
+                updated: HashMap::new()
+            }
+        );
     }
 }

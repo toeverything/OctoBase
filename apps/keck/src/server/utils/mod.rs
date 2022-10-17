@@ -1,6 +1,7 @@
 use super::*;
 use dashmap::mapref::entry::Entry;
 use jwst::Workspace;
+use sqlx::Error;
 use std::sync::Arc;
 use tokio::sync::{mpsc::channel, Mutex};
 
@@ -9,9 +10,9 @@ pub enum Migrate {
     Full(Vec<u8>),
 }
 
-pub async fn init_doc(context: Arc<Context>, workspace: &str) {
+pub async fn init_doc(context: Arc<Context>, workspace: &str) -> Result<(), Error> {
     if let Entry::Vacant(entry) = context.workspace.entry(workspace.to_owned()) {
-        let doc = context.db.create_doc(workspace).await.unwrap();
+        let doc = context.db.create_doc(workspace).await?;
         let (tx, mut rx) = channel::<Migrate>(100);
 
         {
@@ -37,6 +38,8 @@ pub async fn init_doc(context: Arc<Context>, workspace: &str) {
 
         entry.insert(Mutex::new(Workspace::from_doc(doc, workspace)));
     };
+
+    Ok(())
 }
 
 #[cfg(test)]
