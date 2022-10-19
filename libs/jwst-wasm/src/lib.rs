@@ -3,12 +3,19 @@ use jwst::{Block as JwstBlock, Workspace as JwstWorkspace};
 use wasm_bindgen::{prelude::*, JsCast};
 use yrs::{Subscription as YrsSubscription, UpdateEvent};
 
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
-#[wasm_bindgen(js_name = setPanicHook)]
-pub fn set_panic_hook() {
-    console_error_panic_hook::set_once();
+cfg_if::cfg_if! {
+    if #[cfg(feature = "custom_alloc")] {
+        #[global_allocator]
+        static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+    }
+}
+cfg_if::cfg_if! {
+    if #[cfg(feature = "log_panic")] {
+        #[wasm_bindgen(js_name = setPanicHook)]
+        pub fn set_panic_hook() {
+            console_error_panic_hook::set_once();
+        }
+    }
 }
 
 #[wasm_bindgen]

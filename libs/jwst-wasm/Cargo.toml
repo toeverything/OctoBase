@@ -5,15 +5,26 @@ authors = ["DarkSky <darksky2048@gmail.com>"]
 edition = "2021"
 license = "AGPL-3.0-only"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["custom_alloc", "log_panic"]
+custom_alloc = ["wee_alloc"]
+log_panic = ["console_error_panic_hook"]
+
 
 [dependencies]
-console_error_panic_hook = "^0.1.7"
+cfg-if = "^1.0.0"
 jwst = { path = "../jwst" }
 js-sys = "^0.3.60"
 wasm-bindgen = "^0.2.83"
-wee_alloc = "^0.4.5"
 yrs = { path = "../yrs" }
+
+[dependencies.console_error_panic_hook]
+version = "^0.1.7"
+optional = true
+
+[dependencies.wee_alloc]
+version = "^0.4.5"
+optional = true
 
 [lib]
 crate-type = ["cdylib"]
