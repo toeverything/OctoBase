@@ -157,6 +157,7 @@ impl WorkspaceTranscation<'_> {
 #[cfg(test)]
 mod test {
     use super::Workspace;
+    use yrs::Doc;
 
     #[test]
     fn workspace() {
@@ -178,12 +179,16 @@ mod test {
         );
 
         assert_eq!(workspace.exists("block"), true);
-
         assert_eq!(workspace.get_trx().remove("block"), true);
         assert_eq!(workspace.blocks().len(), 0);
         assert_eq!(workspace.updated().len(), 0);
         assert_eq!(workspace.get("block"), None);
 
         assert_eq!(workspace.exists("block"), false);
+
+        let doc = Doc::with_client_id(123);
+        let workspace = Workspace::from_doc(doc, "test");
+        assert_eq!(workspace.client_id(), 123);
+
     }
 }
