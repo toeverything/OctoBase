@@ -131,4 +131,4 @@ jobs:
             - uses: actions/upload-artifact@v2
               with:
                   name: tarpaulin-report
-                  path: tarpaulin-report.html
+                  path: apps/keck/tarpaulin-report.html
