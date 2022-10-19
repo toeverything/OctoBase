@@ -9,11 +9,12 @@ use axum::{
     Json,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
+use jwst::Workspace;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::mpsc::channel;
 use utils::Migrate;
-use yrs::{Doc, StateVector};
+use yrs::StateVector;
 
 #[derive(Serialize)]
 pub struct WebSocketAuthentication {
@@ -43,19 +44,24 @@ async fn upgrade_handler(
         .on_upgrade(|socket| async move { handle_socket(socket, workspace, context.clone()).await })
 }
 
-fn subscribe_handler(context: Arc<Context>, doc: &mut Doc, uuid: String, workspace: String) {
-    let sub = doc.observe_update_v1(move |_, e| {
+fn subscribe_handler(
+    context: Arc<Context>,
+    workspace: &mut Workspace,
+    uuid: String,
+    ws_id: String,
+) {
+    let sub = workspace.observe(move |_, e| {
         let update = encode_update(&e.update);
 
         let context = context.clone();
         let uuid = uuid.clone();
-        let workspace = workspace.clone();
+        let ws_id = ws_id.clone();
         tokio::spawn(async move {
             let mut closed = vec![];
 
             for item in context.channel.iter() {
                 let ((ws, id), tx) = item.pair();
-                if workspace.as_str() == ws.as_str() && id.as_str() != uuid.as_str() {
+                if &ws_id == ws && id != &uuid {
                     if tx.is_closed() {
                         closed.push(id.clone());
                     } else if let Err(e) = tx.send(Message::Binary(update.clone())).await {
@@ -66,7 +72,7 @@ fn subscribe_handler(context: Arc<Context>, doc: &mut Doc, uuid: String, workspa
                 }
             }
             for id in closed {
-                context.channel.remove(&(workspace.clone(), id));
+                context.channel.remove(&(ws_id.clone(), id));
             }
         });
     });
@@ -143,11 +149,10 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
 
         let ws = context.workspace.get(&workspace).unwrap();
         let mut ws = ws.lock().await;
-        let doc = ws.doc_mut();
 
-        subscribe_handler(context.clone(), doc, uuid.clone(), workspace.clone());
+        subscribe_handler(context.clone(), &mut ws, uuid.clone(), workspace.clone());
 
-        encode_init_update(doc)
+        encode_init_update(ws.doc())
     };
 
     if tx.send(Message::Binary(init_data)).await.is_err() {

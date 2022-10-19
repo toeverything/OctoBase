@@ -64,10 +64,6 @@ impl Workspace {
         &self.doc
     }
 
-    pub fn doc_mut(&mut self) -> &mut Doc {
-        &mut self.doc
-    }
-
     pub fn client_id(&self) -> u64 {
         self.doc.client_id
     }
