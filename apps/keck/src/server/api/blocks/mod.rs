@@ -35,10 +35,38 @@ struct ApiDoc;
 fn doc_apis(router: Router) -> Router {
     #[cfg(feature = "schema")]
     {
-        router.merge(
-            utoipa_swagger_ui::SwaggerUi::new("/swagger-ui/*tail")
-                .url("/api-doc/openapi.json", ApiDoc::openapi()),
-        )
+        use utoipa_swagger_ui::{serve, Config, Url};
+
+        async fn serve_swagger_ui(
+            Path(tail): Path<String>,
+            Extension(state): Extension<Arc<Config<'static>>>,
+        ) -> impl IntoResponse {
+            match serve(&tail[1..], state) {
+                Ok(file) => file
+                    .map(|file| {
+                        (
+                            StatusCode::OK,
+                            [("Content-Type", file.content_type)],
+                            file.bytes,
+                        )
+                            .into_response()
+                    })
+                    .unwrap_or_else(|| StatusCode::NOT_FOUND.into_response()),
+                Err(error) => {
+                    (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response()
+                }
+            }
+        }
+
+        let openapi = ApiDoc::openapi();
+
+        router
+            .route("/jwst.json", get(move || async { Json(openapi) }))
+            .route("/docs/*tail", get(serve_swagger_ui))
+            .layer(Extension(Arc::new(Config::new(vec![Url::new(
+                "JWST Api Docs",
+                "/api/jwst.json",
+            )]))))
     }
     #[cfg(not(feature = "schema"))]
     {
