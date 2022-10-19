@@ -8,7 +8,7 @@ on:
             - 'apps/keck/**'
             - 'libs/**'
             - '.github/deployment/Dockerfile-jwst'
-            - '.github/deployment/Dockerfile-jwst-prod'
+            - '.github/deployment/Dockerfile-mysc'
             - '.github/workflows/jwst.yml'
     pull_request:
         branches: [master]
@@ -16,7 +16,7 @@ on:
             - 'apps/keck/**'
             - 'libs/**'
             - '.github/deployment/Dockerfile-jwst'
-            - '.github/deployment/Dockerfile-jwst-prod'
+            - '.github/deployment/Dockerfile-mysc'
             - '.github/workflows/jwst.yml'
 
 # Cancels all previous workflow runs for pull requests that have not completed.
@@ -31,23 +31,17 @@ env:
     REGISTRY: ghcr.io
     NAMESPACE: toeverything
     JWST_IMAGE_NAME: jwst
+    MYSC_IMAGE_NAME: mysc
     IMAGE_TAG: canary-${{ github.sha }}
     IMAGE_TAG_LATEST: nightly-latest
-    LOCAL_CACHE: localhost:5000/toeverything/relocate:latest
 
 jobs:
     jwst:
-        runs-on: self-hosted
+        runs-on: ubuntu-latest
         environment: development
         permissions:
             contents: read
             packages: write
-
-        services:
-            registry:
-                image: registry:2
-                ports:
-                    - 5000:5000
 
         steps:
             - name: Checkout
@@ -60,41 +54,62 @@ jobs:
                   username: ${{ github.actor }}
                   password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
 
-            - name: Set up QEMU
-              uses: docker/setup-qemu-action@v1
-
-            - name: Set up Docker Buildx
-              id: buildx
-              uses: docker/setup-buildx-action@v1
-              with:
-                  driver-opts: network=host
-
             - name: Extract metadata (tags, labels) for Docker (jwst)
               id: meta_jwst
               uses: docker/metadata-action@v4
               with:
                   images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}
-                  tags: ${{ env.IMAGE_TAG_LATEST }}
-
-            - name: Build and push Docker image (jwst-baseline)
-              uses: docker/build-push-action@v3
-              with:
-                  context: .
-                  push: true
-                  file: ./.github/deployment/Dockerfile-jwst
-                  tags: ${{ env.LOCAL_CACHE }}
-                  target: jwst
+                  tags: |
+                      ${{ env.IMAGE_TAG }}
+                      ${{ env.IMAGE_TAG_LATEST }}
 
             - name: Build and push Docker image (jwst)
               uses: docker/build-push-action@v3
               with:
                   context: .
-                  platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
-                  file: ./.github/deployment/Dockerfile-jwst-prod
+                  file: ./.github/deployment/Dockerfile-jwst
                   push: ${{ github.ref == 'refs/heads/master' && true || false }}
                   tags: ${{ steps.meta_jwst.outputs.tags }}
                   labels: ${{ steps.meta_jwst.outputs.labels }}
                   target: jwst
+
+    mysc:
+        runs-on: ubuntu-latest
+        environment: development
+        permissions:
+            contents: read
+            packages: write
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+
+            - name: Log in to the Container registry
+              uses: docker/login-action@v2
+              with:
+                  registry: ${{ env.REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
+
+            - name: Extract metadata (tags, labels) for Docker (mysc)
+              id: meta_mysc
+              uses: docker/metadata-action@v4
+              with:
+                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.MYSC_IMAGE_NAME }}
+                  tags: |
+                      ${{ env.IMAGE_TAG }}
+                      ${{ env.IMAGE_TAG_LATEST }}
+
+            - name: Build and push Docker image (mysc)
+              uses: docker/build-push-action@v3
+              with:
+                  context: .
+                  file: ./.github/deployment/Dockerfile-mysc
+                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
+                  tags: ${{ steps.meta_mysc.outputs.tags }}
+                  labels: ${{ steps.meta_mysc.outputs.labels }}
+                  target: mysc
+
     lint:
         runs-on: ubuntu-latest
         steps:
@@ -103,21 +118,17 @@ jobs:
               with:
                   toolchain: nightly
                   override: true
-            - uses: actions-rs/cargo@v1
+            - name: Run cargo-tarpaulin
+              uses: actions-rs/tarpaulin@v0.1
               with:
-                  command: test
-                  args: --workspace --exclude yrs --all-features --no-fail-fast
+                  version: '0.22.0'
+                  out-type: 'Html'
+                  args: '--workspace --exclude yrs --all-features --no-fail-fast --engine Llvm'
               env:
                   CARGO_INCREMENTAL: '0'
-                  RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-                  RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-            - id: coverage
-              uses: actions-rs/grcov@v0.1
-            - uses: codecov/codecov-action@v3
+                  RUSTFLAGS: '-Zprofile -C opt-level=0 -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+                  RUSTDOCFLAGS: '-Zprofile-C opt-level=0 -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+            - uses: actions/upload-artifact@v2
               with:
-                  token: ${{ secrets.CODECOV_TOKEN }}
-                  files: ${{ steps.coverage.outputs.report }}
-                  flags: unittests
-                  name: jwst
-                  fail_ci_if_error: true
-                  verbose: true
+                  name: tarpaulin-report
+                  path: tarpaulin-report.html

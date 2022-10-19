@@ -3,16 +3,6 @@ ENV CARGO_TERM_COLOR="always"
 COPY . .
 RUN mkdir .cargo && cargo vendor > .cargo/config
 
-FROM messense/rust-musl-cross:aarch64-musl AS builder-aarch64
-ENV CARGO_TERM_COLOR="always" CARGO_BUILD_JOBS=2
-COPY . .
-COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
-COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config
-RUN --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_aarch64 \
-    cargo build --release --no-default-features --features jwst --package keck && \
-    mv /home/rust/src/target/aarch64-unknown-linux-musl/release/keck /tmp/jwst-aarch64 && \
-    mv /home/rust/src/apps/handbook/book /tmp/book-aarch64
-
 FROM messense/rust-musl-cross:x86_64-musl AS builder-amd64
 ENV CARGO_TERM_COLOR="always" CARGO_BUILD_JOBS=2
 COPY . .
@@ -23,21 +13,12 @@ RUN --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_amd64 \
     mv /home/rust/src/target/x86_64-unknown-linux-musl/release/keck /tmp/jwst-amd64 && \
     mv /home/rust/src/apps/handbook/book /tmp/book-amd64
 
-FROM messense/rust-musl-cross:armv7-musleabi AS builder-armv7
-ENV CARGO_TERM_COLOR="always" CARGO_BUILD_JOBS=2
-COPY . .
-COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
-COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config
-RUN --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_armv7 \
-    cargo build --release --no-default-features --features jwst --package keck && \
-    mv /home/rust/src/target/armv7-unknown-linux-musleabi/release/keck /tmp/jwst-armv7 && \
-    mv /home/rust/src/apps/handbook/book /tmp/book-armv7
+FROM ghcr.io/toeverything/affine:nightly-keck as relocate
+WORKDIR /app
+COPY --from=builder-amd64 /tmp/book-amd64 ./book
+COPY --from=builder-amd64 /tmp/jwst-amd64 ./jwst
 
 FROM alpine:latest as jwst
 WORKDIR /app
-COPY --from=builder-aarch64 /tmp/jwst-aarch64 /app/linux/arm64/jwst
-COPY --from=builder-aarch64 /tmp/book-aarch64 /app/linux/arm64/book
-COPY --from=builder-amd64 /tmp/jwst-amd64 /app/linux/amd64/jwst
-COPY --from=builder-amd64 /tmp/book-amd64 /app/linux/amd64/book
-COPY --from=builder-armv7 /tmp/jwst-armv7 /app/linux/arm/v7/jwst
-COPY --from=builder-armv7 /tmp/book-armv7 /app/linux/arm/v7/book
+COPY --from=relocate /app .
+ENTRYPOINT /app/jwst
