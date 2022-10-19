@@ -1,5 +1,5 @@
 use super::*;
-use jwst::{BlockHistory, InsertChildren, RemoveChildren};
+use jwst::{InsertChildren, RemoveChildren};
 
 #[utoipa::path(
     get,
@@ -95,7 +95,7 @@ pub async fn set_block(
         ("block", description = "block id"),
     ),
     responses(
-        (status = 200, description = "Get block history", body = inline([BlockHistory])),
+        (status = 200, description = "Get block history", body = [BlockHistory]),
         (status = 404, description = "Workspace or block not found"),
         (status = 500, description = "Failed to get block history")
     )
@@ -163,7 +163,7 @@ pub async fn delete_block(
         ("block", description = "block id"),
     ),
     request_body(
-        content = inline(InsertChildren),
+        content = InsertChildren,
         description = "json",
         content_type = "application/json"
     ),
@@ -208,7 +208,7 @@ pub async fn insert_block(
         ("block", description = "block id"),
     ),
     request_body(
-        content = inline(RemoveChildren),
+        content = RemoveChildren,
         description = "json",
         content_type = "application/json"
     ),

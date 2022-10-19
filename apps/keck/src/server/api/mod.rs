@@ -11,7 +11,7 @@ use axum::{
     Router,
 };
 use dashmap::DashMap;
-use jwst::{parse_history, parse_history_client, RawHistory, Workspace};
+use jwst::{parse_history, parse_history_client, Workspace};
 use serde_json::Value as JsonValue;
 use tokio::sync::{mpsc::Sender, Mutex};
 

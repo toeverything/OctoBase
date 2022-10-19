@@ -96,7 +96,7 @@ pub async fn delete_workspace(
         ("workspace", description = "workspace id"),
     ),
     responses(
-        (status = 200, description = "Get workspace client id", body = inline(u64)),
+        (status = 200, description = "Get workspace client id", body = u64),
         (status = 404, description = "Workspace not found")
     )
 )]
@@ -121,7 +121,7 @@ pub async fn workspace_client(
         ("workspace", description = "workspace id"),
     ),
     responses(
-        (status = 200, description = "Get workspace history client ids", body = inline([u64])),
+        (status = 200, description = "Get workspace history client ids", body = [u64]),
         (status = 500, description = "Failed to get workspace history")
     )
 )]
@@ -151,7 +151,7 @@ pub async fn history_workspace_clients(
         ("client", description = "client id, is give 0 then return all clients histories"),
     ),
     responses(
-        (status = 200, description = "Get workspace history", body = inline([RawHistory])),
+        (status = 200, description = "Get workspace history", body = [RawHistory]),
         (status = 400, description = "Client id invalid"),
         (status = 500, description = "Failed to get workspace history")
     )

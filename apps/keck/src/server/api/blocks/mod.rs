@@ -28,6 +28,12 @@ use utoipa::OpenApi;
         block::insert_block,
         block::remove_block,
     ),
+    components(
+        schemas(
+            jwst::InsertChildren, jwst::RemoveChildren,
+            jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory,
+        )
+    ),
     tags((name = "Blocks", description = "Read and write remote blocks"))
 )]
 struct ApiDoc;
