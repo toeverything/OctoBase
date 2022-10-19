@@ -132,15 +132,13 @@ pub fn parse_history(doc: &Doc, client: u64) -> Option<Vec<RawHistory>> {
     Some(histories)
 }
 
+#[cfg(test)]
 mod tests {
-    use crate::history;
+    use super::*;
+    use crate::Workspace;
 
-    
     #[test]
     fn parse_history_client_test() {
-        use super::*;
-        use crate::workspace::Workspace;
-
         let workspace = Workspace::new("test");
         workspace.with_trx(|mut t| {
             let mut block = t.create("test", "text");
@@ -156,12 +154,9 @@ mod tests {
 
     #[test]
     fn parse_history_test() {
-        use super::*;
-        use crate::workspace::Workspace;
-
         let workspace = Workspace::new("test");
         workspace.with_trx(|mut t| {
-            let mut block = t.create("test", "text");
+            t.create("test", "text");
         });
         let doc = workspace.doc();
 
@@ -181,10 +176,9 @@ mod tests {
                     parent,
                     content: item.content.to_string(),
                 })
-            }            
+            }
         }
 
         assert_eq!(history, mock_histories);
-
     }
 }
