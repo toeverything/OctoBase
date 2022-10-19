@@ -1,3 +1,15 @@
 [workspace]
 
-members = ["apps/keck", "libs/jwst", "libs/jwst-ffi", "libs/yrs", "libs/logger"]
+members = [
+    "apps/keck",
+    "libs/jwst",
+    "libs/jwst-ffi",
+    "libs/jwst-wasm",
+    "libs/yrs",
+    "libs/logger",
+]
+
+[profile.release]
+lto = true
+opt-level = "z"
+codegen-units = 1

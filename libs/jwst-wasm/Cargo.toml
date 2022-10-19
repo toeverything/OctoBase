@@ -1,0 +1,22 @@
+[package]
+name = "jwst-wasm"
+version = "0.1.0"
+authors = ["DarkSky <darksky2048@gmail.com>"]
+edition = "2021"
+license = "AGPL-3.0-only"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+console_error_panic_hook = "^0.1.7"
+jwst = { path = "../jwst" }
+js-sys = "^0.3.60"
+wasm-bindgen = "^0.2.83"
+wee_alloc = "^0.4.5"
+yrs = { path = "../yrs" }
+
+[lib]
+crate-type = ["cdylib"]
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = true

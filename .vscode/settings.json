@@ -8,6 +8,7 @@
 		"AUTOINCREMENT",
 		"Backlinks",
 		"bibtex",
+		"bindgen",
 		"blockdb",
 		"booktitle",
 		"buildingblocks",
