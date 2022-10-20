@@ -3,7 +3,7 @@
 	"editor.formatOnSave": true,
 	"editor.formatOnSaveMode": "file",
 	"editor.codeActionsOnSave": ["source.fixAll", "source.organizeImports"],
-	"prettier.prettierPath": "./frontend/node_modules/prettier",
+	"prettier.prettierPath": "./apps/frontend/node_modules/prettier",
 	"cSpell.words": [
 		"AUTOINCREMENT",
 		"Backlinks",

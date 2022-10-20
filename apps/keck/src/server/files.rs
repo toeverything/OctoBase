@@ -7,7 +7,7 @@ use tower::ServiceExt;
 use tower_http::services::ServeDir;
 
 const INDEX_DIST_PATH: &str = if cfg!(debug_assertions) {
-    "./frontend/dist/apps/jwst"
+    "./apps/frontend/dist/apps/jwst"
 } else {
     "/app/dist"
 };
