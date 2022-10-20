@@ -461,10 +461,7 @@ export class JwtStore implements IJwtStore {
                 block
             );
             if (exporter) {
-                const op = block.content.asMap();
-                if (op) {
-                    return exporter[1](op);
-                }
+                return exporter[1](block.content);
             }
         }
         return undefined;

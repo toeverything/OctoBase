@@ -10,10 +10,6 @@ import { RemoteBinaries } from './binary';
 import { YBlock } from './block';
 import { GateKeeper } from './gatekeeper';
 import { HistoryManager } from './history';
-import {
-    DO_NOT_USE_THIS_OR_YOU_WILL_BE_FIRED_SYMBOL_INTO_INNER as INTO_INNER,
-    YContentOperation,
-} from './operation';
 import type { YProviderFactory } from './provider';
 import type { ChangedStateKeys, Connectivity } from './types';
 import { assertExists } from './utils';
@@ -104,13 +100,6 @@ function initYProvider(
 
 export type { YBlock } from './block';
 export { HistoryManager } from './history';
-export type {
-    ContentTypes,
-    YArrayOperation,
-    YContentOperation,
-    YMapOperation,
-    YTextOperation,
-} from './operation';
 export { getYProviders } from './provider';
 export type { YProviderOptions, YProviderType } from './provider';
 
@@ -337,10 +326,7 @@ export class YBlockManager {
             flavor: options.flavor,
             children: [] as string[],
             created: Date.now(),
-            content: new YContentOperation(
-                this._eventBus.type('operation'),
-                new YMap()
-            ),
+            content: {},
         };
         this._setBlock(uuid, block);
         const result = this.getBlock(uuid);
@@ -418,18 +404,16 @@ export class YBlockManager {
             // Other modification operations are done in the block instance
 
             if (!block.size) {
-                const content = item.content[INTO_INNER]();
-                if (!content) {
-                    return;
-                }
-
                 const children = new YArray();
                 children.push(item.children);
 
                 block.set('sys:flavor', item.flavor);
                 block.set('sys:children', children);
                 block.set('sys:created', item.created);
-                block.set('content', content);
+
+                for (const [k, v] of Object.entries(item.content)) {
+                    block.set('prop:' + k, v);
+                }
 
                 this._blocks.set(key, block);
             }
