@@ -1094,6 +1094,7 @@ name = "jwst-ffi"
 version = "0.1.0"
 dependencies = [
  "jwst",
+ "lib0",
  "yrs",
 ]
 
