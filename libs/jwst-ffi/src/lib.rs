@@ -2,6 +2,7 @@ use jwst::{Block, Workspace};
 use lib0::any::Any;
 use std::{
     ffi::{c_void, CStr, CString},
+    mem::forget,
     os::raw::c_char,
     ptr,
 };
@@ -37,6 +38,47 @@ pub unsafe extern "C" fn block_get_created(block: *const Block) -> u64 {
 #[no_mangle]
 pub unsafe extern "C" fn block_get_updated(block: *const Block) -> u64 {
     block.as_ref().unwrap().updated()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn block_get_flavor(block: *const Block) -> *mut c_char {
+    CString::new(block.as_ref().unwrap().flavor())
+        .unwrap()
+        .into_raw()
+}
+
+#[repr(C)]
+pub struct BlockChildren {
+    len: usize,
+    data: *mut *mut c_char,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn block_get_children(block: *const Block) -> *mut BlockChildren {
+    let mut child: Box<[*mut c_char]> = block
+        .as_ref()
+        .unwrap()
+        .children()
+        .into_iter()
+        .map(|id| CString::new(id).unwrap().into_raw())
+        .collect();
+    let len = child.len();
+    let data = child.as_mut_ptr();
+
+    forget(child);
+
+    Box::into_raw(BlockChildren { len, data }.into())
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn block_children_destroy(children: *mut BlockChildren) {
+    let children = children.as_mut().unwrap();
+    let vec = Vec::from_raw_parts(children.data, children.len, children.len);
+
+    for item in vec {
+        let str = CString::from_raw(item);
+        drop(str)
+    }
 }
 
 pub const BLOCK_TAG_NUM: i8 = 1;
