@@ -7,8 +7,6 @@ import type { BlockListener, ChangedStates } from './types';
 import type { TopicEventBus } from '../utils';
 import { HistoryManager } from './history';
 import { ChildrenListenerHandler, ContentListenerHandler } from './listener';
-import { YContentOperation } from './operation';
-import { isYObject } from './utils';
 
 const GET_BLOCK_ITEM = Symbol('GET_BLOCK_ITEM');
 
@@ -53,12 +51,10 @@ export class YBlock {
         this._getCreator = props.getCreator;
         this._getYBlock = props.getYBlock;
 
-        const content = this._block.get('content') as YMap<unknown>;
-
         this._children.observe(event =>
             ChildrenListenerHandler(this._eventBus, event)
         );
-        content?.observeDeep(events =>
+        this._block.observeDeep(events =>
             ContentListenerHandler(this._eventBus, events)
         );
     }
@@ -79,12 +75,14 @@ export class YBlock {
         return this._id;
     }
 
-    get content(): YContentOperation {
-        const content = this._block.get('content');
-        if (isYObject(content)) {
-            return new YContentOperation(this._eventBus, content);
-        }
-        throw new Error(`Invalid content type: ${typeof content}`);
+    get content(): Record<string, unknown> {
+        const content: Record<string, unknown> = {};
+        this._block.forEach((value, key) => {
+            if (key.startsWith('prop:')) {
+                content[key.slice(5)] = value;
+            }
+        });
+        return content;
     }
 
     get flavor(): BlockItem['flavor'] {
@@ -105,6 +103,17 @@ export class YBlock {
 
     get children(): string[] {
         return this._children.toArray();
+    }
+
+    get<T = unknown>(key: string): T | undefined {
+        return this._block.get('prop:' + key) as T;
+    }
+
+    set<T = unknown>(key: string, value: T) {
+        const prop = 'prop:' + key;
+        if (this._block.get(prop) !== value) {
+            this._block.set(prop, value);
+        }
     }
 
     getChildren(ids?: (string | undefined)[]): YBlock[] {

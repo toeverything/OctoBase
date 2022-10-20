@@ -1,4 +1,3 @@
-import type { YContentOperation } from '../yjs';
 import type { RefMetadata } from './metadata';
 
 // block flavor
@@ -32,7 +31,7 @@ export type BlockItem = {
     // creator id
     readonly creator?: string | undefined;
     // Essentially what is stored here is either Uint8Array (binary resource) or YDoc (structured resource)
-    content: YContentOperation;
+    content: Record<string, unknown>;
 };
 
 export type BlockPage = {

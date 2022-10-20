@@ -1,7 +1,7 @@
 use super::*;
 use lib0::any::Any;
 use serde::{Serialize, Serializer};
-use types::{BlockContentValue, JsonValue};
+use std::collections::HashMap;
 use yrs::{Array, Map, PrelimArray, PrelimMap, Transaction};
 
 struct BlockChildrenPosition {
@@ -40,7 +40,6 @@ pub struct Block {
     operator: u64,
     block: Map,
     children: Array,
-    pub(self) content: Map,
     updated: Array,
 }
 
@@ -83,7 +82,6 @@ impl Block {
                 "sys:created",
                 chrono::Utc::now().timestamp_millis() as f64,
             );
-            block.insert(trx, "content", PrelimMap::<Any>::new());
 
             workspace
                 .updated()
@@ -95,7 +93,6 @@ impl Block {
                 .get("sys:children")
                 .and_then(|c| c.to_yarray())
                 .unwrap();
-            let content = block.get("content").and_then(|c| c.to_ymap()).unwrap();
             let updated = workspace
                 .updated()
                 .get(block_id)
@@ -107,7 +104,6 @@ impl Block {
                 operator,
                 block,
                 children,
-                content,
                 updated,
             };
 
@@ -133,26 +129,18 @@ impl Block {
                     .map(|updated| (block, updated))
             })
             .and_then(|(block, updated)| {
-                if let (Some(children), Some(content)) = (
-                    block.get("sys:children").and_then(|c| c.to_yarray()),
-                    block.get("content").and_then(|c| c.to_ymap()),
-                ) {
+                if let Some(children) = block.get("sys:children").and_then(|c| c.to_yarray()) {
                     Some(Self {
                         id: block_id.as_ref().to_string(),
                         operator,
                         block,
                         children,
-                        content,
                         updated,
                     })
                 } else {
                     None
                 }
             })
-    }
-
-    pub fn block(&self) -> &Map {
-        &self.block
     }
 
     pub(crate) fn log_update(&self, trx: &mut Transaction, action: HistoryOperation) {
@@ -165,65 +153,44 @@ impl Block {
         self.updated.push_back(trx, array);
     }
 
-    pub(self) fn set_value(
-        block: &mut Map,
-        trx: &mut Transaction,
-        key: &str,
-        value: JsonValue,
-    ) -> bool {
-        match value {
-            JsonValue::Bool(v) => {
-                block.insert(trx, key, v);
-                true
+    pub fn get(&self, key: &str) -> Option<Any> {
+        let key = format!("prop:{}", key);
+        self.block.get(&key).and_then(|v| match v.to_json() {
+            Any::Null | Any::Undefined | Any::Array(_) | Any::Buffer(_) | Any::Map(_) => {
+                error!("get wrong value at key {}", key);
+                None
             }
-            JsonValue::Null => {
-                block.remove(trx, key);
-                true
-            }
-            JsonValue::Number(v) => {
-                if let Some(v) = v.as_f64() {
-                    block.insert(trx, key, v);
-                    true
-                } else if let Some(v) = v.as_i64() {
-                    block.insert(trx, key, v);
-                    true
-                } else if let Some(v) = v.as_u64() {
-                    block.insert(trx, key, i64::try_from(v).unwrap_or(0));
-                    true
-                } else {
-                    false
-                }
-            }
-            JsonValue::String(v) => {
-                block.insert(trx, key, v);
-                true
-            }
-            _ => false,
-        }
+            v => Some(v),
+        })
     }
 
     pub fn set<T>(&mut self, trx: &mut Transaction, key: &str, value: T)
     where
-        T: Into<BlockContentValue>,
+        T: Into<Any>,
     {
+        let key = format!("prop:{}", key);
         match value.into() {
-            BlockContentValue::Json(json) => {
-                if Self::set_value(&mut self.content, trx, key, json) {
-                    self.log_update(trx, HistoryOperation::Update);
-                }
-            }
-            BlockContentValue::Boolean(bool) => {
-                self.content.insert(trx, key, bool);
+            Any::Bool(bool) => {
+                self.block.insert(trx, key, bool);
                 self.log_update(trx, HistoryOperation::Update);
             }
-            BlockContentValue::Text(text) => {
-                self.content.insert(trx, key, text);
+            Any::String(text) => {
+                self.block.insert(trx, key, text.to_string());
                 self.log_update(trx, HistoryOperation::Update);
             }
-            BlockContentValue::Number(number) => {
-                self.content.insert(trx, key, number);
+            Any::Number(number) => {
+                self.block.insert(trx, key, number);
                 self.log_update(trx, HistoryOperation::Update);
             }
+            Any::BigInt(number) => {
+                self.block.insert(trx, key, number);
+                self.log_update(trx, HistoryOperation::Update);
+            }
+            Any::Null | Any::Undefined => {
+                self.block.remove(trx, &key);
+                self.log_update(trx, HistoryOperation::Delete);
+            }
+            Any::Buffer(_) | Any::Array(_) | Any::Map(_) => {}
         }
     }
 
@@ -291,6 +258,19 @@ impl Block {
             .iter()
             .map(|v| v.to_string())
             .collect::<Vec<_>>()
+    }
+
+    pub fn content(&self) -> HashMap<String, Any> {
+        self.block
+            .iter()
+            .filter_map(|(key, val)| {
+                if key.starts_with("prop:") {
+                    Some((key[5..].to_owned(), val.to_json()))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     pub fn insert_children(&mut self, trx: &mut Transaction, options: InsertChildren) {
@@ -363,6 +343,8 @@ impl Serialize for Block {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::Workspace;
 
     #[test]
@@ -384,7 +366,6 @@ mod tests {
     #[test]
     fn set_value() {
         use super::Any;
-        use serde_json::{Number, Value};
 
         let workspace = Workspace::new("test");
 
@@ -397,50 +378,27 @@ mod tests {
             block.set(trx, "bool", true);
             block.set(trx, "text", "hello world");
             block.set(trx, "text_owned", "hello world".to_owned());
-            block.set(trx, "num", 123);
-            assert_eq!(block.content.get("bool").unwrap().to_string(), "true");
-            assert_eq!(
-                block.content.get("text").unwrap().to_string(),
-                "hello world"
-            );
-            assert_eq!(
-                block.content.get("text_owned").unwrap().to_string(),
-                "hello world"
-            );
-            assert_eq!(block.content.get("num").unwrap().to_string(), "123");
-
-            // json type set
-            block.set(trx, "json_bool", Value::Bool(false));
-            block.set(
-                trx,
-                "json_f64",
-                Value::Number(Number::from_f64(1.23).unwrap()),
-            );
-            block.set(trx, "json_i64", Value::Number(i64::MAX.into()));
-            block.set(trx, "json_u64", Value::Number(u64::MAX.into()));
-            block.set(trx, "json_str", Value::String("test".into()));
+            block.set(trx, "num", 123_i64);
 
             block
         });
+
+        assert_eq!(block.get("bool").unwrap().to_string(), "true");
+        assert_eq!(block.get("text").unwrap().to_string(), "hello world");
+        assert_eq!(block.get("text_owned").unwrap().to_string(), "hello world");
+        assert_eq!(block.get("num").unwrap().to_string(), "123");
+
         assert_eq!(
-            block.content.get("json_bool").unwrap().to_json(),
-            Any::Bool(false)
-        );
-        assert_eq!(
-            block.content.get("json_f64").unwrap().to_json(),
-            Any::Number(1.23)
-        );
-        assert_eq!(
-            block.content.get("json_i64").unwrap().to_json(),
-            Any::Number(i64::MAX as f64)
-        );
-        assert_eq!(
-            block.content.get("json_u64").unwrap().to_json(),
-            Any::Number(u64::MAX as f64)
-        );
-        assert_eq!(
-            block.content.get("json_str").unwrap().to_json(),
-            Any::String("test".into())
+            block.content(),
+            vec![
+                ("bool".to_owned(), Any::Bool(true)),
+                ("text".to_owned(), Any::String("hello world".into())),
+                ("text_owned".to_owned(), Any::String("hello world".into())),
+                ("num".to_owned(), Any::BigInt(123)),
+            ]
+            .iter()
+            .cloned()
+            .collect::<HashMap<_, _>>()
         );
     }
 

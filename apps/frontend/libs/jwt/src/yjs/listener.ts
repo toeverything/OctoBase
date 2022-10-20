@@ -32,15 +32,18 @@ export function ContentListenerHandler(
     events: YEvent<any>[],
     topic?: string
 ) {
-    const keys = events.flatMap(e => {
-        // eslint-disable-next-line no-bitwise
-        if ((e.path?.length | 0) > 0) {
-            return [[e.path[0], 'update'] as [string, 'update']];
-        }
-        return Array.from(e.changes.keys.entries()).map(
-            ([k, { action }]) => [k, action] as [string, typeof action]
-        );
-    });
+    const keys = events
+        .flatMap(e => {
+            // eslint-disable-next-line no-bitwise
+            if ((e.path?.length | 0) > 0) {
+                return [[e.path[0], 'update'] as [string, 'update']];
+            }
+            return Array.from(e.changes.keys.entries()).map(
+                ([k, { action }]) => [k, action] as [string, typeof action]
+            );
+        })
+        .filter(([k]) => k.startsWith('prop:'));
+
     if (keys.length) {
         eventBus.topic(topic || 'content').emit(new Map(keys));
     }

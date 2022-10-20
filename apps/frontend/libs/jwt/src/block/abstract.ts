@@ -4,13 +4,7 @@ import type { BlockItem } from '../types';
 import { BlockFlavors } from '../types';
 import type { TopicEventBus } from '../utils';
 import { getLogger } from '../utils';
-import type {
-    ContentTypes,
-    HistoryManager,
-    YBlock,
-    YContentOperation,
-    YMapOperation,
-} from '../yjs';
+import type { HistoryManager, YBlock } from '../yjs';
 import type {
     BlockListener,
     BlockPosition,
@@ -177,22 +171,14 @@ export class AbstractBlock<T extends object = object> {
 
     public getContent(): T {
         if (!this._cachedContent) {
-            this._cachedContent = this._block.content.getStructuredContent();
+            this._cachedContent = this._block.content;
         }
         return this._cachedContent as T;
     }
 
-    private _getEditableContent<
-        T extends ContentTypes = YContentOperation
-    >(): YMapOperation<T> {
-        return this._block.content.asMap() as YMapOperation<T>;
-    }
-
     public setContent(value: Partial<T>) {
-        const content = this._getEditableContent();
         Object.entries(value).forEach(([key, value]) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            content.set(key, value as any);
+            this._block.set(key, value);
         });
     }
 

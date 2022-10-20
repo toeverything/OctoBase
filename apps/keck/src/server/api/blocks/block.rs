@@ -1,5 +1,6 @@
 use super::*;
 use jwst::{InsertChildren, RemoveChildren};
+use lib0::any::Any;
 
 #[utoipa::path(
     get,
@@ -71,14 +72,16 @@ pub async fn set_block(
             // set block content
             if let Some(block_content) = payload.as_object() {
                 for (key, value) in block_content.iter() {
-                    block.set(&mut t.trx, key, value.clone());
+                    if let Ok(value) = serde_json::from_value::<Any>(value.clone()) {
+                        block.set(&mut t.trx, key, value);
+                    }
                 }
             }
             block
         });
 
         // response block content
-        Json(block.block().to_json()).into_response()
+        Json(block).into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
@@ -188,7 +191,7 @@ pub async fn insert_block(
                 block.insert_children(&mut t.trx, payload);
             });
             // response block content
-            Json(block.block().to_json()).into_response()
+            Json(block).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
         }
@@ -233,7 +236,7 @@ pub async fn remove_block(
                 block.remove_children(&mut t.trx, payload);
             });
             // response block content
-            Json(block.block().to_json()).into_response()
+            Json(block).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
         }
