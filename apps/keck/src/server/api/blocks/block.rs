@@ -1,6 +1,6 @@
 use super::*;
-use jwst::{InsertChildren, RemoveChildren};
 use lib0::any::Any;
+use utoipa::ToSchema;
 
 #[utoipa::path(
     get,
@@ -155,6 +155,16 @@ pub async fn delete_block(
     }
 }
 
+#[derive(Deserialize, ToSchema)]
+#[schema(example = json!({"Push": "jwstRf4rMzua7E"}))]
+
+pub enum InsertChildren {
+    Push(String),
+    InsertBefore { id: String, before: String },
+    InsertAfter { id: String, after: String },
+    InsertAt { id: String, pos: u32 },
+}
+
 // insert children block
 #[utoipa::path(
     post,
@@ -187,8 +197,17 @@ pub async fn insert_block(
         // init block instance
         let workspace = workspace.value().lock().await;
         if let Some(mut block) = workspace.get(block) {
-            workspace.with_trx(|mut t| {
-                block.insert_children(&mut t.trx, payload);
+            workspace.with_trx(|mut t| match payload {
+                InsertChildren::Push(block_id) => block.push_children(&mut t.trx, block_id),
+                InsertChildren::InsertBefore { id, before } => {
+                    block.insert_children_before(&mut t.trx, id, &before)
+                }
+                InsertChildren::InsertAfter { id, after } => {
+                    block.insert_children_after(&mut t.trx, id, &after)
+                }
+                InsertChildren::InsertAt { id, pos } => {
+                    block.insert_children_at(&mut t.trx, id, pos)
+                }
             });
             // response block content
             Json(block).into_response()
@@ -223,7 +242,7 @@ pub async fn insert_block(
 )]
 pub async fn remove_block(
     Extension(context): Extension<Arc<Context>>,
-    Json(payload): Json<RemoveChildren>,
+    Json(block_id): Json<String>,
     Path(params): Path<(String, String)>,
 ) -> impl IntoResponse {
     let (workspace, block) = params;
@@ -233,7 +252,7 @@ pub async fn remove_block(
         let workspace = workspace.value().lock().await;
         if let Some(mut block) = workspace.get(&block) {
             workspace.with_trx(|mut t| {
-                block.remove_children(&mut t.trx, payload);
+                block.remove_children(&mut t.trx, &block_id);
             });
             // response block content
             Json(block).into_response()
