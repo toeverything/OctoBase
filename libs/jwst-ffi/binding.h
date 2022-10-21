@@ -1,78 +1,91 @@
-#include <cstdarg>
-#include <cstdint>
-#include <cstdlib>
-#include <ostream>
-#include <new>
 
-constexpr static const int8_t BLOCK_TAG_NUM = 1;
+#ifndef JWST_FFI_H
+#define JWST_FFI_H
+typedef struct JWSTWorkspace {} JWSTWorkspace;
+typedef struct JWSTBlock {} JWSTBlock;
+typedef struct YTransaction {} YTransaction;
 
-constexpr static const int8_t BLOCK_TAG_INT = 2;
 
-constexpr static const int8_t BLOCK_TAG_BOOL = 3;
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 
-constexpr static const int8_t BLOCK_TAG_STR = 4;
+#define BLOCK_TAG_NUM 1
 
-struct BlockChildren {
+#define BLOCK_TAG_INT 2
+
+#define BLOCK_TAG_BOOL 3
+
+#define BLOCK_TAG_STR 4
+
+typedef struct BlockChildren {
   uintptr_t len;
   char **data;
-};
+} BlockChildren;
 
-union BlockValue {
+typedef union BlockValue {
   double num;
   int64_t int;
   bool bool;
   char *str;
-};
+} BlockValue;
 
-struct BlockContent {
+typedef struct BlockContent {
   int8_t tag;
-  BlockValue value;
-};
+  union BlockValue value;
+} BlockContent;
 
-extern "C" {
+JWSTBlock *block_new(const JWSTWorkspace *workspace,
+                     YTransaction *trx,
+                     const char *block_id,
+                     const char *flavor,
+                     uint64_t operator_);
 
-Block *block_new(const Workspace *workspace,
-                 Transaction *trx,
-                 const char *block_id,
-                 const char *flavor,
-                 uint64_t operator_);
+void block_destroy(JWSTBlock *block);
 
-void block_destroy(Block *block);
+uint64_t block_get_created(const JWSTBlock *block);
 
-uint64_t block_get_created(const Block *block);
+uint64_t block_get_updated(const JWSTBlock *block);
 
-uint64_t block_get_updated(const Block *block);
+char *block_get_flavor(const JWSTBlock *block);
 
-char *block_get_flavor(const Block *block);
+struct BlockChildren *block_get_children(const JWSTBlock *block);
 
-BlockChildren *block_get_children(const Block *block);
+void block_children_destroy(struct BlockChildren *children);
 
-void block_children_destroy(BlockChildren *children);
+struct BlockContent *block_get_content(const JWSTBlock *block, const char *key);
 
-BlockContent *block_get_content(const Block *block, const char *key);
+void block_set_content(JWSTBlock *block,
+                       const char *key,
+                       YTransaction *trx,
+                       struct BlockContent content);
 
-void block_set_content(Block *block, const char *key, Transaction *trx, BlockContent content);
+void block_content_destroy(struct BlockContent *content);
 
-void block_content_destroy(BlockContent *content);
+JWSTWorkspace *workspace_new(const char *id);
 
-Workspace *workspace_new(const char *id);
+void workspace_destroy(JWSTWorkspace *workspace);
 
-void workspace_destroy(Workspace *workspace);
+JWSTBlock *workspace_get_block(const JWSTWorkspace *workspace, const char *block_id);
 
-Block *workspace_get_block(const Workspace *workspace, const char *block_id);
+JWSTBlock *workspace_create_block(const JWSTWorkspace *workspace,
+                                  const char *block_id,
+                                  const char *flavor);
 
-Block *workspace_create_block(const Workspace *workspace, const char *block_id, const char *flavor);
+bool workspace_remove_block(const JWSTWorkspace *workspace, const char *block_id);
 
-bool workspace_remove_block(const Workspace *workspace, const char *block_id);
+bool workspace_exists_block(const JWSTWorkspace *workspace, const char *block_id);
 
-bool workspace_exists_block(const Workspace *workspace, const char *block_id);
+YTransaction *workspace_get_trx(JWSTWorkspace *workspace);
 
-Transaction *workspace_get_trx(Workspace *workspace);
+void trx_commit(YTransaction *trx);
 
-Subscription<UpdateEvent> *workspace_observe(Workspace *workspace,
+Subscription<UpdateEvent> *workspace_observe(JWSTWorkspace *workspace,
                                              void *env,
-                                             void (*func)(void*, const Transaction*, const UpdateEvent*));
+                                             void (*func)(void*, const YTransaction*, const UpdateEvent*));
 
 void workspace_unobserve(Subscription<UpdateEvent> *subscription);
 
-} // extern "C"
+
+#endif            
