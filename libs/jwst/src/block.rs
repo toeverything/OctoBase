@@ -4,30 +4,6 @@ use serde::{Serialize, Serializer};
 use std::collections::HashMap;
 use yrs::{Array, Map, PrelimArray, PrelimMap, Transaction};
 
-struct BlockChildrenPosition {
-    pos: Option<u32>,
-    before: Option<String>,
-    after: Option<String>,
-}
-
-impl From<&InsertChildren> for RemoveChildren {
-    fn from(options: &InsertChildren) -> RemoveChildren {
-        Self {
-            block_id: options.block_id.clone(),
-        }
-    }
-}
-
-impl From<&InsertChildren> for BlockChildrenPosition {
-    fn from(options: &InsertChildren) -> BlockChildrenPosition {
-        Self {
-            pos: options.pos,
-            before: options.before.clone(),
-            after: options.after.clone(),
-        }
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub struct Block {
     // block schema
@@ -273,61 +249,80 @@ impl Block {
             .collect()
     }
 
-    pub fn insert_children(&mut self, trx: &mut Transaction, options: InsertChildren) {
-        self.remove_children(trx, (&options).into());
+    pub fn push_children(&mut self, trx: &mut Transaction, block_id: String) {
+        self.remove_children(trx, &block_id);
+
+        self.children.push_back(trx, block_id);
+
+        self.log_update(trx, HistoryOperation::Add);
+    }
+
+    pub fn insert_children_at(&mut self, trx: &mut Transaction, block_id: String, pos: u32) {
+        self.remove_children(trx, &block_id);
 
         let children = &self.children;
 
-        if let Some(position) = self.position_calculator(children.len(), (&options).into()) {
-            children.insert(trx, position, options.block_id);
+        if children.len() > pos {
+            children.insert(trx, pos, block_id);
         } else {
-            children.push_back(trx, options.block_id);
+            children.push_back(trx, block_id);
         }
 
         self.log_update(trx, HistoryOperation::Add);
     }
 
-    pub fn remove_children(&mut self, trx: &mut Transaction, options: RemoveChildren) {
+    pub fn insert_children_before(
+        &mut self,
+        trx: &mut Transaction,
+        block_id: String,
+        reference: &str,
+    ) {
+        self.remove_children(trx, &block_id);
+
         let children = &self.children;
 
-        if let Some(current_pos) = children
-            .iter()
-            .position(|c| c.to_string() == options.block_id)
-        {
+        if let Some(pos) = children.iter().position(|c| c.to_string() == reference) {
+            children.insert(trx, pos as u32, block_id);
+        } else {
+            children.push_back(trx, block_id);
+        }
+
+        self.log_update(trx, HistoryOperation::Add);
+    }
+
+    pub fn insert_children_after(
+        &mut self,
+        trx: &mut Transaction,
+        block_id: String,
+        reference: &str,
+    ) {
+        self.remove_children(trx, &block_id);
+
+        let children = &self.children;
+
+        match children.iter().position(|c| c.to_string() == reference) {
+            Some(pos) if (pos as u32) < children.len() => {
+                children.insert(trx, pos as u32 + 1, block_id);
+            }
+            _ => {
+                children.push_back(trx, block_id);
+            }
+        }
+
+        self.log_update(trx, HistoryOperation::Add);
+    }
+
+    pub fn remove_children(&mut self, trx: &mut Transaction, block_id: &str) {
+        let children = &self.children;
+
+        if let Some(current_pos) = children.iter().position(|c| c.to_string() == block_id) {
             children.remove(trx, current_pos as u32);
             self.log_update(trx, HistoryOperation::Delete);
         }
     }
 
-    pub fn exists_children(&self, options: ExistsChildren) -> Option<usize> {
-        self.children
-            .iter()
-            .position(|c| c.to_string() == options.block_id)
-    }
-
-    fn position_calculator(&self, max_pos: u32, position: BlockChildrenPosition) -> Option<u32> {
-        let BlockChildrenPosition { pos, before, after } = position;
-        let children = &self.children;
-        if let Some(pos) = pos {
-            if pos < max_pos {
-                return Some(pos);
-            }
-        } else if let Some(before) = before {
-            if let Some(current_pos) = children.iter().position(|c| c.to_string() == before) {
-                let prev_pos = current_pos as u32;
-                if prev_pos < max_pos {
-                    return Some(prev_pos);
-                }
-            }
-        } else if let Some(after) = after {
-            if let Some(current_pos) = children.iter().position(|c| c.to_string() == after) {
-                let next_pos = current_pos as u32 + 1;
-                if next_pos < max_pos {
-                    return Some(next_pos);
-                }
-            }
-        }
-        None
+    pub fn exists_children(&self, block_id: &str) -> Option<usize> {
+        self.children.iter().position(|c| c.to_string() == block_id)
     }
 }
 
@@ -404,53 +399,17 @@ mod tests {
 
     #[test]
     fn insert_remove_children() {
-        use super::{InsertChildren, RemoveChildren};
-
         let workspace = Workspace::new("text");
 
         workspace.with_trx(|mut t| {
             let mut block = t.create("a", "affine:text");
             let trx = &mut t.trx;
 
-            block.insert_children(
-                trx,
-                InsertChildren {
-                    block_id: "b".to_owned(),
-                    ..Default::default()
-                },
-            );
-            block.insert_children(
-                trx,
-                InsertChildren {
-                    block_id: "c".to_owned(),
-                    pos: Some(0),
-                    ..Default::default()
-                },
-            );
-            block.insert_children(
-                trx,
-                InsertChildren {
-                    block_id: "d".to_owned(),
-                    before: Some("b".to_owned()),
-                    ..Default::default()
-                },
-            );
-            block.insert_children(
-                trx,
-                InsertChildren {
-                    block_id: "e".to_owned(),
-                    after: Some("b".to_owned()),
-                    ..Default::default()
-                },
-            );
-            block.insert_children(
-                trx,
-                InsertChildren {
-                    block_id: "f".to_owned(),
-                    after: Some("c".to_owned()),
-                    ..Default::default()
-                },
-            );
+            block.push_children(trx, "b".to_owned());
+            block.insert_children_at(trx, "c".to_owned(), 0);
+            block.insert_children_before(trx, "d".to_owned(), "b");
+            block.insert_children_after(trx, "e".to_owned(), "b");
+            block.insert_children_after(trx, "f".to_owned(), "c");
 
             assert_eq!(
                 block.children(),
@@ -463,12 +422,7 @@ mod tests {
                 ]
             );
 
-            block.remove_children(
-                trx,
-                RemoveChildren {
-                    block_id: "d".to_owned(),
-                },
-            );
+            block.remove_children(trx, "d");
 
             assert_eq!(
                 block
@@ -501,9 +455,7 @@ mod tests {
 
     #[test]
     fn history() {
-        use super::{
-            BlockHistory, ExistsChildren, HistoryOperation, InsertChildren, RemoveChildren,
-        };
+        use super::{BlockHistory, HistoryOperation};
         use yrs::Doc;
 
         let doc = Doc::with_client_id(123);
@@ -539,34 +491,13 @@ mod tests {
                 ]
             );
 
-            block.insert_children(
-                trx,
-                InsertChildren {
-                    block_id: "b".to_owned(),
-                    ..Default::default()
-                },
-            );
+            block.push_children(trx, "b".to_owned());
 
-            assert_eq!(
-                block.exists_children(ExistsChildren {
-                    block_id: "b".to_owned(),
-                }),
-                Some(0)
-            );
+            assert_eq!(block.exists_children("b"), Some(0));
 
-            block.remove_children(
-                trx,
-                RemoveChildren {
-                    block_id: "b".to_owned(),
-                },
-            );
+            block.remove_children(trx, "b");
 
-            assert_eq!(
-                block.exists_children(ExistsChildren {
-                    block_id: "b".to_owned(),
-                }),
-                None
-            );
+            assert_eq!(block.exists_children("b"), None);
 
             block
         });

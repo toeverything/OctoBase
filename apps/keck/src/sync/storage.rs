@@ -113,7 +113,7 @@ mod tests {
         let conn = init_memory_pool().await?.acquire().await?;
         let mut sqlite = DbConn {
             conn,
-            table: &"basic",
+            table: "basic",
         };
         sqlite.create().await?;
 

@@ -30,7 +30,7 @@ use utoipa::OpenApi;
     ),
     components(
         schemas(
-            jwst::InsertChildren, jwst::RemoveChildren,
+            block::InsertChildren,
             jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory,
         )
     ),
