@@ -79,6 +79,8 @@ bool workspace_exists_block(const JWSTWorkspace *workspace, const char *block_id
 
 YTransaction *workspace_get_trx(JWSTWorkspace *workspace);
 
+void trx_commit(YTransaction *trx);
+
 Subscription<UpdateEvent> *workspace_observe(JWSTWorkspace *workspace,
                                              void *env,
                                              void (*func)(void*, const YTransaction*, const UpdateEvent*));

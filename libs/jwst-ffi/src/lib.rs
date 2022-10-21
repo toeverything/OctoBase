@@ -268,6 +268,11 @@ pub unsafe extern "C" fn workspace_get_trx(workspace: *mut Workspace) -> *mut Tr
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn trx_commit(trx: *mut Transaction) {
+    drop(Box::from_raw(trx))
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn workspace_observe(
     workspace: *mut Workspace,
     env: *mut c_void,
