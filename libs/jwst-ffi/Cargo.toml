@@ -12,3 +12,6 @@ yrs = { path = "../yrs" }
 
 [lib]
 crate-type = ["staticlib"]
+
+[build-dependencies]
+cbindgen = "^0.24.3"
