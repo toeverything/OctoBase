@@ -3,41 +3,38 @@
 #define JWST_FFI_H
 typedef struct JWSTWorkspace {} JWSTWorkspace;
 typedef struct JWSTBlock {} JWSTBlock;
-typedef struct YTransaction {} YTransaction;        
+typedef struct YTransaction {} YTransaction;
 
 
-#include <cstdarg>
-#include <cstdint>
-#include <cstdlib>
-#include <ostream>
-#include <new>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 
-constexpr static const int8_t BLOCK_TAG_NUM = 1;
+#define BLOCK_TAG_NUM 1
 
-constexpr static const int8_t BLOCK_TAG_INT = 2;
+#define BLOCK_TAG_INT 2
 
-constexpr static const int8_t BLOCK_TAG_BOOL = 3;
+#define BLOCK_TAG_BOOL 3
 
-constexpr static const int8_t BLOCK_TAG_STR = 4;
+#define BLOCK_TAG_STR 4
 
-struct BlockChildren {
+typedef struct BlockChildren {
   uintptr_t len;
   char **data;
-};
+} BlockChildren;
 
-union BlockValue {
+typedef union BlockValue {
   double num;
   int64_t int;
   bool bool;
   char *str;
-};
+} BlockValue;
 
-struct BlockContent {
+typedef struct BlockContent {
   int8_t tag;
-  BlockValue value;
-};
-
-extern "C" {
+  union BlockValue value;
+} BlockContent;
 
 JWSTBlock *block_new(const JWSTWorkspace *workspace,
                      YTransaction *trx,
@@ -53,15 +50,18 @@ uint64_t block_get_updated(const JWSTBlock *block);
 
 char *block_get_flavor(const JWSTBlock *block);
 
-BlockChildren *block_get_children(const JWSTBlock *block);
+struct BlockChildren *block_get_children(const JWSTBlock *block);
 
-void block_children_destroy(BlockChildren *children);
+void block_children_destroy(struct BlockChildren *children);
 
-BlockContent *block_get_content(const JWSTBlock *block, const char *key);
+struct BlockContent *block_get_content(const JWSTBlock *block, const char *key);
 
-void block_set_content(JWSTBlock *block, const char *key, YTransaction *trx, BlockContent content);
+void block_set_content(JWSTBlock *block,
+                       const char *key,
+                       YTransaction *trx,
+                       struct BlockContent content);
 
-void block_content_destroy(BlockContent *content);
+void block_content_destroy(struct BlockContent *content);
 
 JWSTWorkspace *workspace_new(const char *id);
 
@@ -84,8 +84,6 @@ Subscription<UpdateEvent> *workspace_observe(JWSTWorkspace *workspace,
                                              void (*func)(void*, const YTransaction*, const UpdateEvent*));
 
 void workspace_unobserve(Subscription<UpdateEvent> *subscription);
-
-} // extern "C"
 
 
 #endif            

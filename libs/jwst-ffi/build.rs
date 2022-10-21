@@ -20,13 +20,14 @@ fn main() {
     cbindgen::Builder::new()
         .with_crate(crate_dir)
         .with_config(cbindgen::Config {
+            language: cbindgen::Language::C,
             header: Some(String::from(
                 r#"
 #ifndef JWST_FFI_H
 #define JWST_FFI_H
 typedef struct JWSTWorkspace {} JWSTWorkspace;
 typedef struct JWSTBlock {} JWSTBlock;
-typedef struct YTransaction {} YTransaction;        
+typedef struct YTransaction {} YTransaction;
 "#,
             )),
             trailer: Some(String::from(
