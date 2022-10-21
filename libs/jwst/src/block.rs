@@ -249,7 +249,7 @@ impl Block {
             .collect()
     }
 
-    pub fn push_children(&mut self, trx: &mut Transaction, block_id: String) {
+    pub fn push_children(&self, trx: &mut Transaction, block_id: String) {
         self.remove_children(trx, &block_id);
 
         self.children.push_back(trx, block_id);
@@ -257,7 +257,7 @@ impl Block {
         self.log_update(trx, HistoryOperation::Add);
     }
 
-    pub fn insert_children_at(&mut self, trx: &mut Transaction, block_id: String, pos: u32) {
+    pub fn insert_children_at(&self, trx: &mut Transaction, block_id: String, pos: u32) {
         self.remove_children(trx, &block_id);
 
         let children = &self.children;
@@ -271,12 +271,7 @@ impl Block {
         self.log_update(trx, HistoryOperation::Add);
     }
 
-    pub fn insert_children_before(
-        &mut self,
-        trx: &mut Transaction,
-        block_id: String,
-        reference: &str,
-    ) {
+    pub fn insert_children_before(&self, trx: &mut Transaction, block_id: String, reference: &str) {
         self.remove_children(trx, &block_id);
 
         let children = &self.children;
@@ -290,12 +285,7 @@ impl Block {
         self.log_update(trx, HistoryOperation::Add);
     }
 
-    pub fn insert_children_after(
-        &mut self,
-        trx: &mut Transaction,
-        block_id: String,
-        reference: &str,
-    ) {
+    pub fn insert_children_after(&self, trx: &mut Transaction, block_id: String, reference: &str) {
         self.remove_children(trx, &block_id);
 
         let children = &self.children;
@@ -312,7 +302,7 @@ impl Block {
         self.log_update(trx, HistoryOperation::Add);
     }
 
-    pub fn remove_children(&mut self, trx: &mut Transaction, block_id: &str) {
+    pub fn remove_children(&self, trx: &mut Transaction, block_id: &str) {
         let children = &self.children;
 
         if let Some(current_pos) = children.iter().position(|c| c.to_string() == block_id) {
@@ -402,7 +392,7 @@ mod tests {
         let workspace = Workspace::new("text");
 
         workspace.with_trx(|mut t| {
-            let mut block = t.create("a", "affine:text");
+            let block = t.create("a", "affine:text");
             let trx = &mut t.trx;
 
             block.push_children(trx, "b".to_owned());
