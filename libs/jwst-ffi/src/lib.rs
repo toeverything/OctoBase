@@ -71,6 +71,63 @@ pub unsafe extern "C" fn block_get_children(block: *const Block) -> *mut BlockCh
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn block_push_children(
+    block: *const Block,
+    trx: *mut Transaction,
+    block_id: *mut c_char,
+) {
+    let block = block.as_ref().unwrap();
+    let trx = trx.as_mut().unwrap();
+    let block_id = CString::from_raw(block_id).into_string().unwrap();
+
+    block.push_children(trx, block_id);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn block_insert_children_at(
+    block: *const Block,
+    trx: *mut Transaction,
+    block_id: *mut c_char,
+    pos: u32,
+) {
+    let block = block.as_ref().unwrap();
+    let trx = trx.as_mut().unwrap();
+    let block_id = CString::from_raw(block_id).into_string().unwrap();
+
+    block.insert_children_at(trx, block_id, pos);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn block_insert_children_before(
+    block: *const Block,
+    trx: *mut Transaction,
+    block_id: *mut c_char,
+    reference: *const c_char,
+) {
+    let block = block.as_ref().unwrap();
+    let trx = trx.as_mut().unwrap();
+    let block_id = CString::from_raw(block_id).into_string().unwrap();
+    let reference = CStr::from_ptr(reference).to_str().unwrap();
+
+    block.insert_children_before(trx, block_id, reference);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn block_insert_children_after(
+    block: *const Block,
+    trx: *mut Transaction,
+    block_id: *mut c_char,
+    reference: *const c_char,
+) {
+    let block = block.as_ref().unwrap();
+    let trx = trx.as_mut().unwrap();
+    let block_id = CString::from_raw(block_id).into_string().unwrap();
+    let reference = CStr::from_ptr(reference).to_str().unwrap();
+
+    block.insert_children_after(trx, block_id, reference);
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn block_children_destroy(children: *mut BlockChildren) {
     let children = children.as_mut().unwrap();
     let vec = Vec::from_raw_parts(children.data, children.len, children.len);

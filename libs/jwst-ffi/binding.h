@@ -52,6 +52,23 @@ char *block_get_flavor(const JWSTBlock *block);
 
 struct BlockChildren *block_get_children(const JWSTBlock *block);
 
+void block_push_children(const JWSTBlock *block, YTransaction *trx, char *block_id);
+
+void block_insert_children_at(const JWSTBlock *block,
+                              YTransaction *trx,
+                              char *block_id,
+                              uint32_t pos);
+
+void block_insert_children_before(const JWSTBlock *block,
+                                  YTransaction *trx,
+                                  char *block_id,
+                                  const char *reference);
+
+void block_insert_children_after(const JWSTBlock *block,
+                                 YTransaction *trx,
+                                 char *block_id,
+                                 const char *reference);
+
 void block_children_destroy(struct BlockChildren *children);
 
 struct BlockContent *block_get_content(const JWSTBlock *block, const char *key);

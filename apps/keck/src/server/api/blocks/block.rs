@@ -196,7 +196,7 @@ pub async fn insert_block(
     if let Some(workspace) = context.workspace.get(&workspace) {
         // init block instance
         let workspace = workspace.value().lock().await;
-        if let Some(mut block) = workspace.get(block) {
+        if let Some(block) = workspace.get(block) {
             workspace.with_trx(|mut t| match payload {
                 InsertChildren::Push(block_id) => block.push_children(&mut t.trx, block_id),
                 InsertChildren::InsertBefore { id, before } => {
@@ -250,7 +250,7 @@ pub async fn remove_block(
     if let Some(workspace) = context.workspace.get(&workspace) {
         // init block instance
         let workspace = workspace.value().lock().await;
-        if let Some(mut block) = workspace.get(&block) {
+        if let Some(block) = workspace.get(&block) {
             workspace.with_trx(|mut t| {
                 block.remove_children(&mut t.trx, &block_id);
             });
