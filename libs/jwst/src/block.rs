@@ -1,8 +1,14 @@
 use super::*;
 use lib0::any::Any;
 use serde::{Serialize, Serializer};
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::RangeInclusive};
 use yrs::{Array, Map, PrelimArray, PrelimMap, Transaction};
+
+// The largest int in js number.
+const MAX_JS_INT: i64 = 0x001F_FFFF_FFFF_FFFF;
+// The smallest int in js number.
+const MIN_JS_INT: i64 = -MAX_JS_INT;
+const JS_INT_RANGE: RangeInclusive<i64> = MIN_JS_INT..=MAX_JS_INT;
 
 #[derive(Debug, PartialEq)]
 pub struct Block {
@@ -159,7 +165,11 @@ impl Block {
                 self.log_update(trx, HistoryOperation::Update);
             }
             Any::BigInt(number) => {
-                self.block.insert(trx, key, number);
+                if JS_INT_RANGE.contains(&number) {
+                    self.block.insert(trx, key, number as f64);
+                } else {
+                    self.block.insert(trx, key, number);
+                }
                 self.log_update(trx, HistoryOperation::Update);
             }
             Any::Null | Any::Undefined => {

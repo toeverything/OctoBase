@@ -148,13 +148,10 @@ export class YBlockManager {
         this._gatekeeper = providers.gatekeeper;
         this._eventBus = eventBus;
         this._reload = () => {
-            const blocks = this._doc.getMap<YMap<any>>('blocks');
             // @ts-ignore
-            this._blocks =
-                blocks.get('content') || blocks.set('content', new YMap());
+            this._blocks = this._doc.getMap('blocks');
             // @ts-ignore
-            this._blockUpdated =
-                blocks.get('updated') || blocks.set('updated', new YMap());
+            this._blockUpdated = this._doc.getMap('updated');
             this._blockMap.clear();
             // @ts-ignore
             this._binaries = new RemoteBinaries(

@@ -77,6 +77,11 @@ mod tests {
             new_doc.transact().get_map("blocks").to_json()
         );
 
+        assert_json_diff::assert_json_eq!(
+            doc.transact().get_map("updated").to_json(),
+            new_doc.transact().get_map("updated").to_json()
+        );
+
         Ok(())
     }
 }
