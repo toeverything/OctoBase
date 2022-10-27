@@ -50,7 +50,7 @@ features = ["cors", "fs"]
 
 [dependencies.tokio]
 version = "^1.21.1"
-features = ["macros", "rt-multi-thread"]
+features = ["macros", "rt-multi-thread", "signal"]
 
 [dependencies.utoipa]
 version = "^2.1.0"
