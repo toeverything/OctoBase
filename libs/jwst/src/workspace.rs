@@ -1,7 +1,6 @@
 use super::*;
-use lib0::any::Any;
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use yrs::{Doc, Map, PrelimMap, Subscription, Transaction, UpdateEvent};
+use yrs::{Doc, Map, Subscription, Transaction, UpdateEvent};
 
 pub struct Workspace {
     id: String,
@@ -20,29 +19,13 @@ impl Workspace {
 
     pub fn from_doc<S: AsRef<str>>(doc: Doc, id: S) -> Workspace {
         let mut trx = doc.transact();
-        let blocks = trx.get_map("blocks");
-        // blocks.content
-        let content = blocks
-            .get("content")
-            .or_else(|| {
-                blocks.insert(&mut trx, "content", PrelimMap::<Any>::new());
-                blocks.get("content")
-            })
-            .and_then(|b| b.to_ymap())
-            .unwrap();
 
-        // blocks.updated
-        let updated = blocks
-            .get("updated")
-            .or_else(|| {
-                blocks.insert(&mut trx, "updated", PrelimMap::<Any>::new());
-                blocks.get("updated")
-            })
-            .and_then(|b| b.to_ymap())
-            .unwrap();
+        let blocks = trx.get_map("blocks");
+        let updated = trx.get_map("updated");
+
         Self {
             id: id.as_ref().to_string(),
-            blocks: content,
+            blocks,
             updated,
             doc,
         }
@@ -110,7 +93,7 @@ impl Serialize for Workspace {
         S: Serializer,
     {
         let mut map = serializer.serialize_map(Some(2))?;
-        map.serialize_entry("content", &self.blocks.to_json())?;
+        map.serialize_entry("blocks", &self.blocks.to_json())?;
         map.serialize_entry("updated", &self.updated.to_json())?;
         map.end()
     }
@@ -185,6 +168,5 @@ mod test {
         let doc = Doc::with_client_id(123);
         let workspace = Workspace::from_doc(doc, "test");
         assert_eq!(workspace.client_id(), 123);
-
     }
 }

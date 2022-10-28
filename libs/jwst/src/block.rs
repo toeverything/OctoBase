@@ -1,8 +1,14 @@
 use super::*;
 use lib0::any::Any;
 use serde::{Serialize, Serializer};
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::RangeInclusive};
 use yrs::{Array, Map, PrelimArray, PrelimMap, Transaction};
+
+// The largest int in js number.
+const MAX_JS_INT: i64 = 0x001F_FFFF_FFFF_FFFF;
+// The smallest int in js number.
+const MIN_JS_INT: i64 = -MAX_JS_INT;
+const JS_INT_RANGE: RangeInclusive<i64> = MIN_JS_INT..=MAX_JS_INT;
 
 #[derive(Debug, PartialEq)]
 pub struct Block {
@@ -159,7 +165,11 @@ impl Block {
                 self.log_update(trx, HistoryOperation::Update);
             }
             Any::BigInt(number) => {
-                self.block.insert(trx, key, number);
+                if JS_INT_RANGE.contains(&number) {
+                    self.block.insert(trx, key, number as f64);
+                } else {
+                    self.block.insert(trx, key, number);
+                }
                 self.log_update(trx, HistoryOperation::Update);
             }
             Any::Null | Any::Undefined => {
@@ -364,6 +374,7 @@ mod tests {
             block.set(trx, "text", "hello world");
             block.set(trx, "text_owned", "hello world".to_owned());
             block.set(trx, "num", 123_i64);
+            block.set(trx, "bigint", 9007199254740992_i64);
 
             block
         });
@@ -372,6 +383,7 @@ mod tests {
         assert_eq!(block.get("text").unwrap().to_string(), "hello world");
         assert_eq!(block.get("text_owned").unwrap().to_string(), "hello world");
         assert_eq!(block.get("num").unwrap().to_string(), "123");
+        assert_eq!(block.get("bigint").unwrap().to_string(), "9007199254740992");
 
         assert_eq!(
             block.content(),
@@ -379,7 +391,8 @@ mod tests {
                 ("bool".to_owned(), Any::Bool(true)),
                 ("text".to_owned(), Any::String("hello world".into())),
                 ("text_owned".to_owned(), Any::String("hello world".into())),
-                ("num".to_owned(), Any::BigInt(123)),
+                ("num".to_owned(), Any::Number(123.0)),
+                ("bigint".to_owned(), Any::BigInt(9007199254740992)),
             ]
             .iter()
             .cloned()
