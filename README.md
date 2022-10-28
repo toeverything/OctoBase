@@ -11,4 +11,4 @@ https://crdts.cloud/docs/index.html
 
 ### Roadmap
 
-open [Roadmap](https://github.com/toeverything/JWST/issues/9), know to the furture of GWST
+open [Roadmap](https://github.com/toeverything/JWST/issues/9), know to the furture of JWST
