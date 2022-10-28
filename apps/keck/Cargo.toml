@@ -8,6 +8,7 @@ license = "AGPL-3.0-only"
 [features]
 default = ["jwst"]
 affine = []
+mysql = ["sqlx/mysql", "dotenvy"]
 jwst = ["api", "schema", "docs"]
 api = ["utoipa"]
 docs = ["mdbook"]
@@ -17,6 +18,7 @@ schema = ["utoipa-swagger-ui"]
 anyhow = "^1.0.64"
 chrono = "^0.4.22"
 dashmap = "5.4.0"
+dotenvy = { version = "0.15.6", optional = true }
 futures = "^0.3.24"
 http = "^0.2.8"
 serde_json = "^1.0.85"

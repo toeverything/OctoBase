@@ -25,11 +25,20 @@ fn migrate_update(updates: Vec<UpdateBinary>, doc: Doc) -> Doc {
     doc
 }
 pub struct DbPool {
+    #[cfg(not(feature = "mysql"))]
     pool: SqlitePool,
+    #[cfg(feature = "mysql")]
+    pool: sqlx::MySqlPool,
 }
 
 impl DbPool {
+    #[cfg(not(feature = "mysql"))]
     pub fn new(pool: SqlitePool) -> Self {
+        Self { pool }
+    }
+
+    #[cfg(feature = "mysql")]
+    pub fn new(pool: sqlx::MySqlPool) -> Self {
         Self { pool }
     }
 

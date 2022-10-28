@@ -16,7 +16,10 @@ pub struct UpdateBinary {
 pub struct Count(i64);
 
 pub(super) struct DbConn<'a> {
+    #[cfg(not(feature = "mysql"))]
     pub(super) conn: PoolConnection<Sqlite>,
+    #[cfg(feature = "mysql")]
+    pub(super) conn: PoolConnection<sqlx::MySql>,
     pub(super) table: &'a str,
 }
 
@@ -76,6 +79,7 @@ impl<'a> DbConn<'a> {
     }
 }
 
+#[cfg(not(feature = "mysql"))]
 pub async fn init_pool<F: ToString>(file: F) -> Result<SqlitePool, Error> {
     use std::fs::create_dir;
     use std::path::PathBuf;
@@ -96,7 +100,13 @@ pub async fn init_pool<F: ToString>(file: F) -> Result<SqlitePool, Error> {
     SqlitePool::connect_with(options).await
 }
 
-#[cfg(test)]
+#[cfg(feature = "mysql")]
+pub async fn init_pool<F: ToString>(file: F) -> Result<sqlx::MySqlPool, Error> {
+    let env = dotenvy::var("DATABASE_URL").expect("Please provide DATABASE_URL config");
+    sqlx::MySqlPool::connect(&env).await
+}
+
+#[cfg(all(test, not(feature = "mysql")))]
 mod tests {
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
