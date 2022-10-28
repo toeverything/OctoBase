@@ -179,7 +179,7 @@ pub async fn history_workspace(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "mysql")))]
 mod test {
     use super::*;
     use std::collections::HashMap;
