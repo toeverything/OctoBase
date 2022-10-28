@@ -5,6 +5,7 @@
         "jwst": "apps/jwst",
         "libs-jwt": "libs/jwt",
         "libs-jwt-react": "libs/jwt-react",
-        "libs-jwt-rpc": "libs/jwt-rpc"
+        "libs-jwt-rpc": "libs/jwt-rpc",
+        "playground": "apps/playground"
     }
 }

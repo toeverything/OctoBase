@@ -56,7 +56,7 @@ importers:
       '@nrwl/cli': 14.7.5_@swc+core@1.3.1
       '@nrwl/eslint-plugin-nx': 14.7.5_6xmis5kjuo6lq6b3t2fzhuc4hy
       '@nrwl/linter': 14.7.5_j2vkqxket3eslu25tgzju3pqyu
-      '@nrwl/nx-cloud': 14.7.0
+      '@nrwl/nx-cloud': 15.0.0
       '@nrwl/react': 14.7.5_lw22jhs5hm7vdydv2b6edbtcqm
       '@nrwl/web': 14.7.5_rq6nshtxjh7asj7ykvrwhlam2q
       '@nrwl/workspace': 14.7.5_ecetarml32pqvmx3r4umcpsg5m
@@ -95,6 +95,16 @@ importers:
       '@emotion/babel-plugin': 11.10.2_@babel+core@7.19.1
       jotai: 1.8.3_3toe27fv7etiytxb5kxc7fxaw4
 
+  apps/playground:
+    specifiers:
+      '@types/wicg-file-system-access': ^2020.9.5
+      file-selector: ^0.6.0
+      yjs: ^13.5.42
+    dependencies:
+      '@types/wicg-file-system-access': 2020.9.5
+      file-selector: 0.6.0
+      yjs: 13.5.42
+
   libs/jwt:
     specifiers:
       '@types/debug': ^4.1.7
@@ -105,25 +115,25 @@ importers:
       fflate: ^0.7.4
       flexsearch: 0.7.21
       idb-keyval: ^6.2.0
-      immer: ^9.0.15
+      immer: ^9.0.16
       nanoid: ^4.0.0
       sift: ^16.0.0
       ts-debounce: ^4.0.0
       uuid: ^8.3.2
       y-protocols: ^1.0.5
-      yjs: ^13.5.41
+      yjs: ^13.5.42
     dependencies:
       '@types/flexsearch': 0.7.3
       debug: 4.3.4
       fast-sort: 3.2.0
       fflate: 0.7.4
       idb-keyval: 6.2.0
-      immer: 9.0.15
+      immer: 9.0.16
       nanoid: 4.0.0
       sift: 16.0.0
       uuid: 8.3.2
       y-protocols: 1.0.5
-      yjs: 13.5.41
+      yjs: 13.5.42
     devDependencies:
       '@types/debug': 4.1.7
       '@types/uuid': 8.3.4
@@ -132,23 +142,23 @@ importers:
 
   libs/jwt-react:
     specifiers:
-      jotai: ^1.8.4
+      jotai: ^1.9.0
       nanoid: ^4.0.0
-      preact: ^10.11.1
+      preact: ^10.11.2
     dependencies:
-      jotai: 1.8.5_react@18.2.0
+      jotai: 1.9.0_react@18.2.0
       nanoid: 4.0.0
-      preact: 10.11.1
+      preact: 10.11.2
 
   libs/jwt-rpc:
     specifiers:
       lib0: ^0.2.52
       y-protocols: ^1.0.5
-      yjs: ^13.5.41
+      yjs: ^13.5.42
     dependencies:
       lib0: 0.2.52
       y-protocols: 1.0.5
-      yjs: 13.5.41
+      yjs: 13.5.42
 
 packages:
 
@@ -2103,8 +2113,8 @@ packages:
       - typescript
     dev: true
 
-  /@nrwl/nx-cloud/14.7.0:
-    resolution: {integrity: sha512-sEGK5Ire5DC2liIsT89qR6SzZa46uinmWEAMz8ocMuu7nIMnwV9m15qajxhmYKasYsq9vTeT+x7BlZ4fnxPrNg==}
+  /@nrwl/nx-cloud/15.0.0:
+    resolution: {integrity: sha512-KAYmbx8M4we9gUn14rDnt5vMz+yYwIa4xJNsByWf7mjzC4lvBVZKqFzFGaklWzp/gJN/xyNleZt/Fg64k/kF+A==}
     hasBin: true
     dependencies:
       axios: 0.21.4
@@ -3233,6 +3243,10 @@ packages:
   /@types/uuid/8.3.4:
     resolution: {integrity: sha512-c/I8ZRb51j+pYGAu5CrFMRxqZ2ke4y2grEBO5AUjgSkSk+qT2Ea+OdWElz/OiMf5MNpn2b17kuVBwZLQJXzihw==}
     dev: true
+
+  /@types/wicg-file-system-access/2020.9.5:
+    resolution: {integrity: sha512-UYK244awtmcUYQfs7FR8710MJcefL2WvkyHMjA8yJzxd1mo0Gfn88sRZ1Bls7hiUhA2w7ne1gpJ9T5g3G0wOyA==}
+    dev: false
 
   /@types/ws/8.5.3:
     resolution: {integrity: sha512-6YOoWjruKj1uLf3INHH7D3qTXwFfEsg1kf3c0uDdSBJwfa/llkwIjrAGV7j7mVgGNbzTQ3HiHKKDXl6bJPD97w==}
@@ -5453,6 +5467,13 @@ packages:
       webpack: 5.74.0_@swc+core@1.3.1
     dev: true
 
+  /file-selector/0.6.0:
+    resolution: {integrity: sha512-QlZ5yJC0VxHxQQsQhXvBaC7VRJ2uaxTf+Tfpu4Z/OcVQJVpZO+DGU0rkoVW5ce2SccxugvpBJoMvUs59iILYdw==}
+    engines: {node: '>= 12'}
+    dependencies:
+      tslib: 2.4.0
+    dev: false
+
   /filelist/1.0.4:
     resolution: {integrity: sha512-w1cEuf3S+DrLCQL7ET6kz+gmlJdbq9J7yXCSjK/OZCPA+qEN1WyF4ZAf0YYJa4/shHJra2t/d/r8SV4Ji+x+8Q==}
     dependencies:
@@ -6067,8 +6088,8 @@ packages:
     dev: true
     optional: true
 
-  /immer/9.0.15:
-    resolution: {integrity: sha512-2eB/sswms9AEUSkOm4SbV5Y7Vmt/bKRwByd52jfLkW4OLYeaTP3EEiJ9agqU0O/tq6Dk62Zfj+TJSqfm1rLVGQ==}
+  /immer/9.0.16:
+    resolution: {integrity: sha512-qenGE7CstVm1NrHQbMh8YaSzTZTFNP3zPqr3YU0S0UY441j4bJTg4A2Hh5KAhwgaiU6ZZ1Ar6y/2f4TblnMReQ==}
     dev: false
 
   /immutable/4.1.0:
@@ -6806,36 +6827,33 @@ packages:
       react: 18.2.0
     dev: false
 
-  /jotai/1.8.5_react@18.2.0:
-    resolution: {integrity: sha512-c6MGQ3S0X8VctRUEmRLEL3FMib3F7Ppsx3x86c5XL+Gm6JjH6qIt0lb0F4yE2V5/9Tg+KhGiagfsdA5lg0D7cQ==}
+  /jotai/1.9.0_react@18.2.0:
+    resolution: {integrity: sha512-XYpSlxbxujUCTA8PNkzfj3+zF6XVyzo6XMZIEic3gXQCpTDPfmqhUj2FR8kwUACK5weosFrSBhesrjwfILUCoQ==}
     engines: {node: '>=12.7.0'}
     peerDependencies:
       '@babel/core': '*'
       '@babel/template': '*'
-      '@tanstack/query-core': '*'
-      '@urql/core': '*'
       immer: '*'
+      jotai-tanstack-query: '*'
+      jotai-urql: '*'
       optics-ts: '*'
       react: '>=16.8'
       valtio: '*'
-      wonka: '*'
       xstate: '*'
     peerDependenciesMeta:
       '@babel/core':
         optional: true
       '@babel/template':
         optional: true
-      '@tanstack/query-core':
-        optional: true
-      '@urql/core':
-        optional: true
       immer:
+        optional: true
+      jotai-tanstack-query:
+        optional: true
+      jotai-urql:
         optional: true
       optics-ts:
         optional: true
       valtio:
-        optional: true
-      wonka:
         optional: true
       xstate:
         optional: true
@@ -8162,8 +8180,8 @@ packages:
       source-map-js: 1.0.2
     dev: true
 
-  /preact/10.11.1:
-    resolution: {integrity: sha512-1Wz5PCRm6Fg+6BTXWJHhX4wRK9MZbZBHuwBqfZlOdVm2NqPe8/rjYpufvYCwJSGb9layyzB2jTTXfpCTynLqFQ==}
+  /preact/10.11.2:
+    resolution: {integrity: sha512-skAwGDFmgxhq1DCBHke/9e12ewkhc7WYwjuhHB8HHS8zkdtITXLRmUMTeol2ldxvLwYtwbFeifZ9uDDWuyL4Iw==}
     dev: false
 
   /prelude-ls/1.2.1:
@@ -9885,8 +9903,8 @@ packages:
       yargs-parser: 21.1.1
     dev: true
 
-  /yjs/13.5.41:
-    resolution: {integrity: sha512-4eSTrrs8OeI0heXKKioRY4ag7V5Bk85Z4MeniUyown3o3y0G7G4JpAZWrZWfTp7pzw2b53GkAQWKqHsHi9j9JA==}
+  /yjs/13.5.42:
+    resolution: {integrity: sha512-3aYBPeUSBUCs/vCOYolbyzhsQ6IDm1DeJgfhHVbW+6kq8YhWjkk2SUhYtBxd3lZPNsqmJGzYH9shKINhSVbEzw==}
     dependencies:
       lib0: 0.2.52
     dev: false
