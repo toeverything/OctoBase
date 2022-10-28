@@ -41,11 +41,12 @@ impl<'a> DbConn<'a> {
     }
 
     pub async fn insert(&mut self, blob: &[u8]) -> Result<(), Error> {
-        let stmt = format!("INSERT INTO {} VALUES (null, ?);", self.table);
+        let stmt = format!("INSERT INTO {} (blob) VALUES (?);", self.table);
         query(&stmt).bind(blob).execute(&mut self.conn).await?;
         Ok(())
     }
 
+    #[cfg(not(feature = "mysql"))]
     pub async fn create(&mut self) -> Result<(), Error> {
         let stmt = format!(
             "CREATE TABLE IF NOT EXISTS {} (id INTEGER PRIMARY KEY AUTOINCREMENT, blob BLOB);",
@@ -54,6 +55,17 @@ impl<'a> DbConn<'a> {
         query(&stmt).execute(&mut self.conn).await?;
         Ok(())
     }
+
+    #[cfg(feature = "mysql")]
+    pub async fn create(&mut self) -> Result<(), Error> {
+        let stmt = format!(
+            "CREATE TABLE IF NOT EXISTS {} (id INTEGER AUTO_INCREMENT, blob BLOB, PRIMARY KEY (id));",
+            self.table
+        );
+        query(&stmt).execute(&mut self.conn).await?;
+        Ok(())
+    }
+
     pub async fn drop(&mut self) -> Result<(), Error> {
         let stmt = format!("DROP TABLE IF EXISTS {};", self.table);
         query(&stmt).execute(&mut self.conn).await?;
