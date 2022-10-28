@@ -374,6 +374,7 @@ mod tests {
             block.set(trx, "text", "hello world");
             block.set(trx, "text_owned", "hello world".to_owned());
             block.set(trx, "num", 123_i64);
+            block.set(trx, "bigint", 9007199254740992_i64);
 
             block
         });
@@ -382,6 +383,7 @@ mod tests {
         assert_eq!(block.get("text").unwrap().to_string(), "hello world");
         assert_eq!(block.get("text_owned").unwrap().to_string(), "hello world");
         assert_eq!(block.get("num").unwrap().to_string(), "123");
+        assert_eq!(block.get("bigint").unwrap().to_string(), "9007199254740992");
 
         assert_eq!(
             block.content(),
@@ -389,7 +391,8 @@ mod tests {
                 ("bool".to_owned(), Any::Bool(true)),
                 ("text".to_owned(), Any::String("hello world".into())),
                 ("text_owned".to_owned(), Any::String("hello world".into())),
-                ("num".to_owned(), Any::BigInt(123)),
+                ("num".to_owned(), Any::Number(123.0)),
+                ("bigint".to_owned(), Any::BigInt(9007199254740992)),
             ]
             .iter()
             .cloned()
