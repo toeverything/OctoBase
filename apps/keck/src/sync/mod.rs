@@ -13,5 +13,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "mysql")] {
         type Database = sqlx::MySql;
         type DatabasePool = sqlx::MySqlPool;
+    } else {
+         unimplemented!("Unsupported database");
     }
 }

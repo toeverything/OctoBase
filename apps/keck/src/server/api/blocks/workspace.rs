@@ -179,7 +179,7 @@ pub async fn history_workspace(
     }
 }
 
-#[cfg(all(test, not(feature = "mysql")))]
+#[cfg(all(test, feature = "sqlite"))]
 mod test {
     use super::*;
     use std::collections::HashMap;
@@ -193,7 +193,7 @@ mod test {
 
         #[derive(Deserialize, PartialEq, Debug)]
         struct WorkspaceStruct {
-            content: HashMap<String, ()>,
+            blocks: HashMap<String, ()>,
             updated: HashMap<String, ()>,
         }
 
@@ -214,7 +214,7 @@ mod test {
         assert_eq!(
             resp.json::<WorkspaceStruct>().await,
             WorkspaceStruct {
-                content: HashMap::new(),
+                blocks: HashMap::new(),
                 updated: HashMap::new()
             }
         );
@@ -224,7 +224,7 @@ mod test {
         assert_eq!(
             resp.json::<WorkspaceStruct>().await,
             WorkspaceStruct {
-                content: HashMap::new(),
+                blocks: HashMap::new(),
                 updated: HashMap::new()
             }
         );

@@ -71,22 +71,20 @@ impl<'a> DbConn<'a> {
         Ok(())
     }
 
-    #[cfg(not(feature = "mysql"))]
     pub async fn create(&mut self) -> Result<(), Error> {
-        let stmt = format!(
-            "CREATE TABLE IF NOT EXISTS {} (id INTEGER PRIMARY KEY AUTOINCREMENT, blob BLOB);",
-            self.table
-        );
-        query(&stmt).execute(&mut self.conn).await?;
-        Ok(())
-    }
-
-    #[cfg(feature = "mysql")]
-    pub async fn create(&mut self) -> Result<(), Error> {
-        let stmt = format!(
-            "CREATE TABLE IF NOT EXISTS {} (id INTEGER AUTO_INCREMENT, blob BLOB, PRIMARY KEY (id));",
-            self.table
-        );
+        let stmt = if cfg!(feature = "sqlite") {
+            format!(
+                "CREATE TABLE IF NOT EXISTS {} (id INTEGER PRIMARY KEY AUTOINCREMENT, blob BLOB);",
+                self.table
+            )
+        } else if cfg!(feature = "mysql") {
+            format!(
+                "CREATE TABLE IF NOT EXISTS {} (id INTEGER AUTO_INCREMENT, blob BLOB, PRIMARY KEY (id));",
+                self.table
+            )
+        } else {
+            unimplemented!("Unsupported database")
+        };
         query(&stmt).execute(&mut self.conn).await?;
         Ok(())
     }
@@ -119,12 +117,10 @@ impl<'a> DbConn<'a> {
 #[cfg(all(test, feature = "sqlite"))]
 mod tests {
     async fn init_memory_pool() -> anyhow::Result<sqlx::SqlitePool> {
-        use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
+        use sqlx::sqlite::SqliteConnectOptions;
         use std::str::FromStr;
         let path = format!("sqlite::memory:");
-        let options = SqliteConnectOptions::from_str(&path)?
-            .journal_mode(SqliteJournalMode::Wal)
-            .create_if_missing(true);
+        let options = SqliteConnectOptions::from_str(&path)?.create_if_missing(true);
         Ok(sqlx::SqlitePool::connect_with(options).await?)
     }
 
@@ -142,12 +138,16 @@ mod tests {
         // empty table
         assert_eq!(sqlite.count().await?, 0);
 
+        println!("{:?}", sqlite.all().await?);
+
         // first insert
         sqlite.insert(&[1, 2, 3, 4]).await?;
         assert_eq!(sqlite.count().await?, 1);
+        println!("{:?}", sqlite.all().await?);
 
         // second insert
         sqlite.replace_with(vec![2, 2, 3, 4]).await?;
+        println!("{:?}", sqlite.all().await?);
         assert_eq!(
             sqlite.all().await?,
             vec![UpdateBinary {
