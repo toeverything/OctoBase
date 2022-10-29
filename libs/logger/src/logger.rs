@@ -16,7 +16,7 @@ pub fn init_logger(level: Level) -> Result<(), log::SetLoggerError> {
         .format(move |out, message, record| {
             out.finish(format_args!(
                 "[{}][{:>5}][{}] {}",
-                chrono::Local::now().format("[%m-%d %H:%M:%S]"),
+                chrono::Local::now().format("%m-%d %H:%M:%S"),
                 colors.color(record.level()),
                 record.target(),
                 message
