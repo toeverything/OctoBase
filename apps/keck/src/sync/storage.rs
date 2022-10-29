@@ -1,12 +1,5 @@
+use super::{Database, DatabasePool};
 use sqlx::{pool::PoolConnection, query, query_as, Error};
-
-#[cfg(feature = "sqlite")]
-use sqlx::{
-    sqlite::{Sqlite, SqliteConnectOptions, SqliteJournalMode},
-    SqlitePool,
-};
-#[cfg(feature = "sqlite")]
-use std::str::FromStr;
 
 #[derive(sqlx::FromRow, Debug, PartialEq)]
 pub struct UpdateBinary {
@@ -17,11 +10,41 @@ pub struct UpdateBinary {
 #[derive(sqlx::FromRow)]
 pub struct Count(i64);
 
+cfg_if::cfg_if! {
+    if #[cfg(feature = "sqlite")] {
+        pub async fn init_pool<F: ToString>(file: F) -> Result<DatabasePool, Error> {
+            use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
+            use std::fs::create_dir;
+            use std::path::PathBuf;
+            use std::str::FromStr;
+
+            let data = PathBuf::from("data");
+            if !data.exists() {
+                create_dir(data)?;
+            }
+            let path = format!(
+                "sqlite:{}",
+                std::env::current_dir()
+                    .unwrap()
+                    .join(format!("./data/{}.db", file.to_string()))
+                    .display()
+            );
+            let options = SqliteConnectOptions::from_str(&path)?
+                .journal_mode(SqliteJournalMode::Wal)
+                .create_if_missing(true);
+            DatabasePool::connect_with(options).await
+        }
+    } else if #[cfg(feature = "mysql")] {
+        pub async fn init_pool<D: ToString>(database: D) -> Result<DatabasePool, Error> {
+            let env = dotenvy::var("DATABASE_URL")
+                .unwrap_or_else(|_| format!("mysql://localhost/{}", database.to_string()));
+            DatabasePool::connect(&env).await
+        }
+    }
+}
+
 pub(super) struct DbConn<'a> {
-    #[cfg(feature = "sqlite")]
-    pub(super) conn: PoolConnection<Sqlite>,
-    #[cfg(feature = "mysql")]
-    pub(super) conn: PoolConnection<sqlx::MySql>,
+    pub(super) conn: PoolConnection<Database>,
     pub(super) table: &'a str,
 }
 
@@ -93,47 +116,21 @@ impl<'a> DbConn<'a> {
     }
 }
 
-#[cfg(not(feature = "mysql"))]
-pub async fn init_pool<F: ToString>(file: F) -> Result<SqlitePool, Error> {
-    use std::fs::create_dir;
-    use std::path::PathBuf;
-    let data = PathBuf::from("data");
-    if !data.exists() {
-        create_dir(data)?;
-    }
-    let path = format!(
-        "sqlite:{}",
-        std::env::current_dir()
-            .unwrap()
-            .join(format!("./data/{}.db", file.to_string()))
-            .display()
-    );
-    let options = SqliteConnectOptions::from_str(&path)?
-        .journal_mode(SqliteJournalMode::Wal)
-        .create_if_missing(true);
-    SqlitePool::connect_with(options).await
-}
-
-#[cfg(feature = "mysql")]
-pub async fn init_pool<D: ToString>(database: D) -> Result<sqlx::MySqlPool, Error> {
-    let env = dotenvy::var("DATABASE_URL")
-        .unwrap_or_else(|_| format!("mysql://localhost/{}", database.to_string()));
-    sqlx::MySqlPool::connect(&env).await
-}
-
-#[cfg(all(test, not(feature = "mysql")))]
+#[cfg(all(test, feature = "sqlite"))]
 mod tests {
+    async fn init_memory_pool() -> anyhow::Result<sqlx::SqlitePool> {
+        use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
+        use std::str::FromStr;
+        let path = format!("sqlite::memory:");
+        let options = SqliteConnectOptions::from_str(&path)?
+            .journal_mode(SqliteJournalMode::Wal)
+            .create_if_missing(true);
+        Ok(sqlx::SqlitePool::connect_with(options).await?)
+    }
+
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
         use super::*;
-
-        async fn init_memory_pool() -> anyhow::Result<SqlitePool> {
-            let path = format!("sqlite::memory:");
-            let options = SqliteConnectOptions::from_str(&path)?
-                .journal_mode(SqliteJournalMode::Wal)
-                .create_if_missing(true);
-            Ok(SqlitePool::connect_with(options).await?)
-        }
 
         let conn = init_memory_pool().await?.acquire().await?;
         let mut sqlite = DbConn {

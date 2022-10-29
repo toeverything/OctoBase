@@ -1,3 +1,4 @@
+use super::DatabasePool;
 use jwst_logger::{info, warn};
 use sqlx::Error;
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -25,20 +26,11 @@ fn migrate_update(updates: Vec<UpdateBinary>, doc: Doc) -> Doc {
     doc
 }
 pub struct DbPool {
-    #[cfg(feature = "sqlite")]
-    pool: sqlx::SqlitePool,
-    #[cfg(feature = "mysql")]
-    pool: sqlx::MySqlPool,
+    pool: DatabasePool,
 }
 
 impl DbPool {
-    #[cfg(feature = "sqlite")]
-    pub fn new(pool: sqlx::SqlitePool) -> Self {
-        Self { pool }
-    }
-
-    #[cfg(feature = "mysql")]
-    pub fn new(pool: sqlx::MySqlPool) -> Self {
+    pub fn new(pool: DatabasePool) -> Self {
         Self { pool }
     }
 
