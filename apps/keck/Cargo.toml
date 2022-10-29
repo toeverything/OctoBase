@@ -8,9 +8,10 @@ license = "AGPL-3.0-only"
 [features]
 default = ["jwst"]
 affine = []
+sqlite = ["sqlx/sqlite"]
 mysql = ["sqlx/mysql", "dotenvy"]
-jwst = ["api", "schema", "docs"]
-mysc = ["jwst", "mysql"]
+jwst = ["api", "schema", "docs", "sqlite"]
+mysc = ["api", "schema", "docs", "mysql"]
 api = ["utoipa"]
 docs = ["mdbook"]
 schema = ["utoipa-swagger-ui"]
@@ -48,7 +49,7 @@ features = ["derive"]
 
 [dependencies.sqlx]
 version = "^0.6.2"
-features = ["chrono", "macros", "migrate", "runtime-tokio-rustls", "sqlite"]
+features = ["chrono", "macros", "migrate", "runtime-tokio-rustls"]
 
 [dependencies.tower-http]
 version = "^0.3.4"

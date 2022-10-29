@@ -28,7 +28,7 @@ impl Context {
             workspace: DashMap::new(),
             storage: DashMap::new(),
             channel: DashMap::new(),
-            db: DbPool::new(init_pool("jwst").await.expect("Cannot create database!")),
+            db: DbPool::new(init_pool("jwst").await.expect("Cannot create database")),
         }
     }
 }

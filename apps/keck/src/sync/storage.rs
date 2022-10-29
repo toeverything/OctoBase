@@ -1,9 +1,11 @@
+use sqlx::{pool::PoolConnection, query, query_as, Error};
+
+#[cfg(feature = "sqlite")]
 use sqlx::{
-    pool::PoolConnection,
-    query, query_as,
     sqlite::{Sqlite, SqliteConnectOptions, SqliteJournalMode},
-    Error, SqlitePool,
+    SqlitePool,
 };
+#[cfg(feature = "sqlite")]
 use std::str::FromStr;
 
 #[derive(sqlx::FromRow, Debug, PartialEq)]
@@ -16,7 +18,7 @@ pub struct UpdateBinary {
 pub struct Count(i64);
 
 pub(super) struct DbConn<'a> {
-    #[cfg(not(feature = "mysql"))]
+    #[cfg(feature = "sqlite")]
     pub(super) conn: PoolConnection<Sqlite>,
     #[cfg(feature = "mysql")]
     pub(super) conn: PoolConnection<sqlx::MySql>,
@@ -113,8 +115,9 @@ pub async fn init_pool<F: ToString>(file: F) -> Result<SqlitePool, Error> {
 }
 
 #[cfg(feature = "mysql")]
-pub async fn init_pool<F: ToString>(file: F) -> Result<sqlx::MySqlPool, Error> {
-    let env = dotenvy::var("DATABASE_URL").expect("Please provide DATABASE_URL config");
+pub async fn init_pool<D: ToString>(database: D) -> Result<sqlx::MySqlPool, Error> {
+    let env = dotenvy::var("DATABASE_URL")
+        .unwrap_or_else(|_| format!("mysql://localhost/{}", database.to_string()));
     sqlx::MySqlPool::connect(&env).await
 }
 

@@ -1,5 +1,5 @@
 use jwst_logger::{info, warn};
-use sqlx::{Error, SqlitePool};
+use sqlx::Error;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use yrs::{updates::decoder::Decode, Doc, Options, StateVector, Update};
 
@@ -25,15 +25,15 @@ fn migrate_update(updates: Vec<UpdateBinary>, doc: Doc) -> Doc {
     doc
 }
 pub struct DbPool {
-    #[cfg(not(feature = "mysql"))]
-    pool: SqlitePool,
+    #[cfg(feature = "sqlite")]
+    pool: sqlx::SqlitePool,
     #[cfg(feature = "mysql")]
     pool: sqlx::MySqlPool,
 }
 
 impl DbPool {
-    #[cfg(not(feature = "mysql"))]
-    pub fn new(pool: SqlitePool) -> Self {
+    #[cfg(feature = "sqlite")]
+    pub fn new(pool: sqlx::SqlitePool) -> Self {
         Self { pool }
     }
 
