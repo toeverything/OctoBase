@@ -42,6 +42,10 @@ impl DbPool {
         Self { pool }
     }
 
+    pub async fn close(&self) {
+        self.pool.close().await;
+    }
+
     async fn get_conn<'a>(&self, table: &'a str) -> Result<DbConn<'a>, Error> {
         Ok(DbConn {
             conn: self.pool.acquire().await?,
