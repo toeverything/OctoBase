@@ -1,6 +1,9 @@
 use super::*;
 use axum::{extract::Path, http::header};
 
+/// Get a exists workspace by id
+/// - Return 200 Ok and workspace's data if workspace is exists.
+/// - Return 404 Not Found if workspace not exists.
 #[utoipa::path(
     get,
     tag = "Blocks",
@@ -10,7 +13,7 @@ use axum::{extract::Path, http::header};
         ("workspace", description = "workspace id"),
     ),
     responses(
-        (status = 200, description = "Get workspace data"),
+        (status = 200, description = "Get workspace data", body = Workspace),
         (status = 404, description = "Workspace not found")
     )
 )]
@@ -19,10 +22,7 @@ pub async fn get_workspace(
     Path(workspace): Path<String>,
 ) -> impl IntoResponse {
     info!("get_workspace: {}", workspace);
-    if let Err(e) = utils::init_doc(context.clone(), &workspace).await {
-        error!("Failed to init doc: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR.into_response()
-    } else if let Some(workspace) = context.workspace.get(&workspace) {
+    if let Some(workspace) = context.workspace.get(&workspace) {
         let workspace = workspace.lock().await;
         Json(&*workspace).into_response()
     } else {
@@ -30,6 +30,9 @@ pub async fn get_workspace(
     }
 }
 
+/// Create a workspace by id
+/// - Return 200 Ok and workspace's data if init success or workspace is exists.
+/// - Return 500 Internal Server Error if init failed.
 #[utoipa::path(
     post,
     tag = "Blocks",
@@ -39,7 +42,8 @@ pub async fn get_workspace(
         ("workspace", description = "workspace id"),
     ),
     responses(
-        (status = 200, description = "Get workspace data")
+        (status = 200, description = "Return workspace data", body = Workspace),
+        (status = 500, description = "Failed to init a workspace")
     )
 )]
 pub async fn set_workspace(
@@ -53,12 +57,16 @@ pub async fn set_workspace(
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     } else if let Some(workspace) = context.workspace.get(&workspace) {
         let workspace = workspace.lock().await;
-        Json(workspace.doc().transact().get_map("blocks").to_json()).into_response()
+        Json(&*workspace).into_response()
     } else {
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }
 
+/// Delete a exists workspace by id
+/// - Return 204 No Content if delete successful.
+/// - Return 404 Not Found if workspace not exists.
+/// - Return 500 Internal Server Error if delete failed.
 #[utoipa::path(
     delete,
     tag = "Blocks",
@@ -69,6 +77,7 @@ pub async fn set_workspace(
     ),
     responses(
         (status = 204, description = "Workspace data deleted"),
+        (status = 404, description = "Workspace not exists"),
         (status = 500, description = "Failed to delete workspace")
     )
 )]
@@ -87,6 +96,11 @@ pub async fn delete_workspace(
     StatusCode::NO_CONTENT
 }
 
+/// Get current client id of server
+///
+/// When server initializes or gets a workspace, before the workspace is deleted or the server is restarted, any http api modifying the workspace will use same client id.
+///
+/// This interface return the client id that server will used.
 #[utoipa::path(
     get,
     tag = "Blocks",
@@ -112,6 +126,15 @@ pub async fn workspace_client(
     }
 }
 
+/// Get all client ids of a workspace
+///
+/// This interface returns all client ids that have modified the workspace
+///
+/// Every client write something into a workspace will generate a unique id.
+///
+/// For example:
+///   - The user initializes a workspace instance on the web page, synchronizes data from the server, and writes some data to the workspace. All modifications to the workspace use the same client id before the instance is destroyed.
+///   - The server initializes or gets a workspace. Before the workspace is deleted or the server is restarted, any http api modifying the workspace will use the same client id
 #[utoipa::path(
     get,
     tag = "Blocks",
@@ -141,6 +164,9 @@ pub async fn history_workspace_clients(
     }
 }
 
+/// Get special client id's modification history of a workspace
+///
+/// If client id set to 0, return all modification history of a workspace.
 #[utoipa::path(
     get,
     tag = "Blocks",
@@ -182,20 +208,12 @@ pub async fn history_workspace(
 #[cfg(all(test, feature = "sqlite"))]
 mod test {
     use super::*;
-    use std::collections::HashMap;
 
     #[tokio::test]
     async fn workspace() {
         use axum_test_helper::TestClient;
-        use serde::Deserialize;
 
         let context = Arc::new(Context::new().await);
-
-        #[derive(Deserialize, PartialEq, Debug)]
-        struct WorkspaceStruct {
-            blocks: HashMap<String, ()>,
-            updated: HashMap<String, ()>,
-        }
 
         let app = Router::new()
             .route(
@@ -212,21 +230,15 @@ mod test {
 
         assert_eq!(resp.status(), StatusCode::OK);
         assert_eq!(
-            resp.json::<WorkspaceStruct>().await,
-            WorkspaceStruct {
-                blocks: HashMap::new(),
-                updated: HashMap::new()
-            }
+            resp.json::<schema::Workspace>().await,
+            schema::Workspace::default()
         );
 
         let resp = client.get("/block/test").send().await;
         assert_eq!(resp.status(), StatusCode::OK);
         assert_eq!(
-            resp.json::<WorkspaceStruct>().await,
-            WorkspaceStruct {
-                blocks: HashMap::new(),
-                updated: HashMap::new()
-            }
+            resp.json::<schema::Workspace>().await,
+            schema::Workspace::default()
         );
     }
 }

@@ -4,9 +4,9 @@ use yrs::{Doc, Map, Subscription, Transaction, UpdateEvent};
 
 pub struct Workspace {
     id: String,
+    doc: Doc,
     blocks: Map,
     updated: Map,
-    doc: Doc,
 }
 
 unsafe impl Send for Workspace {}
@@ -25,9 +25,9 @@ impl Workspace {
 
         Self {
             id: id.as_ref().to_string(),
+            doc,
             blocks,
             updated,
-            doc,
         }
     }
 

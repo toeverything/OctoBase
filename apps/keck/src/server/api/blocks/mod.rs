@@ -1,4 +1,5 @@
 mod block;
+mod schema;
 mod workspace;
 
 pub use super::*;
@@ -30,8 +31,9 @@ use utoipa::OpenApi;
     ),
     components(
         schemas(
-            block::InsertChildren,
-            jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory,
+            schema::InsertChildren,
+            schema::Workspace, schema::Block, schema::BlockRawHistory,
+            jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory
         )
     ),
     tags((name = "Blocks", description = "Read and write remote blocks"))

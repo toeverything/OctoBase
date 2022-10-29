@@ -7,7 +7,7 @@ license = "AGPL-3.0-only"
 
 [features]
 default = ["jwst"]
-affine = []
+affine = ["sqlite"]
 sqlite = ["sqlx/sqlite"]
 mysql = ["sqlx/mysql", "dotenvy"]
 jwst = ["api", "schema", "docs", "sqlite"]

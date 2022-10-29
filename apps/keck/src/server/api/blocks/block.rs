@@ -1,6 +1,5 @@
-use super::*;
+use super::{schema::InsertChildren, *};
 use lib0::any::Any;
-use utoipa::ToSchema;
 
 #[utoipa::path(
     get,
@@ -153,16 +152,6 @@ pub async fn delete_block(
     } else {
         StatusCode::NOT_FOUND
     }
-}
-
-#[derive(Deserialize, ToSchema)]
-#[schema(example = json!({"Push": "jwstRf4rMzua7E"}))]
-
-pub enum InsertChildren {
-    Push(String),
-    InsertBefore { id: String, before: String },
-    InsertAfter { id: String, after: String },
-    InsertAt { id: String, pos: u32 },
 }
 
 // insert children block
