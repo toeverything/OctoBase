@@ -1,68 +1,101 @@
 # How to organize you own data with JWST
 
-## An Example how to use the JWST Data Model
+In JWST, we unify different data structures into the concept of Block, and different Blocks have similar properties.
 
-In JWST, Block will storage in a flat Map like structure, and every block will has some common key-value like this:
+For example, headings, normal text lines, and Todo all have a text content property in common, but their Flavor is different, while Todo has a clicked property that confirms completion.
+
+In this way, we can define different Block Flavors to represent different data types, for example:
 
 ```js
-Map {
-    "page_id": Block {
-        // difference flavor means different block type
-        "sys:flavor": "affine:page",
-        // block create timestamp
-        "sys:created": 1666158236651,
-        // block's children, all children will be a block_id that can link to another block
-        // page block has top level blocks children
-        "sys:children": ["block_id1", "block_id5"],
-    },
-    "block_id1": Block {
-        "sys:flavor": "affine:heading1",
-        "sys:created": 1666158236651,
-        "sys:children": ["block_id2", "block_id3", "block_id4"],
-        // all you custom data will storage with a prop prefix
-        "prop:title": "This is a Heading1 Title"
-    },
-    "block_id2": Block {
-        "sys:flavor": "affine:todo",
-        "sys:created": 1666158236651,
-        "sys:children": [],
-        // all you custom data will storage with a prop prefix
-        "prop:text": "this is a todo1",
-        "prop:clicked": false
-    },
-    "block_id3": Block {
-        "sys:flavor": "affine:todo",
-        "sys:created": 1666158236651,
-        "sys:children": [],
-        // all you custom data will storage with a prop prefix
-        "prop:text": "this is a todo2",
-        "prop:clicked": false
-    },
-    "block_id4": Block {
-        "sys:flavor": "affine:text",
-        "sys:created": 1666158236651,
-        "sys:children": [],
-        // all you custom data will storage with a prop prefix
-        "prop:text": "this is a normal line3",
-    },
-    "block_id5": Block {
-        "sys:flavor": "affine:todo",
-        "sys:created": 1666158236651,
-        "sys:children": [],
-        // all you custom data will storage with a prop prefix
-        "prop:text": "this is a normal line 4 on top level",
-    }
+const titleBlock = {
+	flavor: 'affine:title',
+	created: 1666158236651,
+	children: [],
+	props: {
+		text: 'This is a Title',
+	},
+}
+const textBlock = {
+	flavor: 'affine:text',
+	created: 1666158236651,
+	children: [],
+	props: {
+		text: 'This is a normal line',
+	},
+}
+const todoBlock = {
+	flavor: 'affine:todo',
+	created: 1666158236651,
+	children: [],
+	props: {
+		text: 'This is a todo',
+		clicked: false,
+	},
 }
 ```
 
-You can image that structure like a tree, we can organize them on view like this:
+To illustrate with a simple example, suppose we have a page with a title, a todo list, and a normal text line, as shown in the following image:
 
-![block structure to view](./how_to_organize_your_data_1.jpg)
+![block structure to view](./core_concept_1.jpg)
 
-On above image, every lines are a block, so we can easily reorder them based on `sys:children` edit, JWST provide a series of API to help you do that.
+In JWST, we can define it like this:
 
-And you also can see that lines has difference style, like todo checkbox or heading1, that types will change by `sys:flavor` key, and you can add your own flavor to extend JWST.
+1. We treat a page as a Block
+2. We also treat the title and text line as a Block
+3. Each line of content in a Page is treated as a child in the Page Block
 
-How the flavor of a block should be expressed depends on the definition of the developer. For example, in the rich text block editor, we usually define different flavors as different text line types, such as todo, h1/h2/h3, unordered list, etc. , and in the whiteboard, we can define a block as different graphics, such as squares, triangles, pentagrams, etc., and we can define the length, width, height, brush trajectory, etc. of different graphics through `prop:xxx`.
+Then we can reorganize the data shown in the figure above with Block:
 
-JWST provides a series of API interfaces so that you can easily organize the relationship between various blocks - parent-child relationship of blocks, front and back order, etc., as well as modifications to basic data structures such as rich RichText, Map, Array, etc., and all these modifications can be Conflict-free merge with any remote offline.
+```js
+const title = {
+	flavor: 'affine:title',
+	created: 1666158236651,
+	children: [],
+	props: {
+		text: 'Welcome to the AFFiNE Alpha',
+	},
+}
+const text = {
+	flavor: 'affine:text',
+	created: 1666158236651,
+	children: [],
+	props: {
+		// Here we ignore how to express rich text Link
+		text: 'The AFFiNE Alpha is here! You can also view our Official Website!',
+	},
+}
+const todo1 = {
+	flavor: 'affine:todo',
+	created: 1666158236651,
+	children: [],
+	props: {
+		text: 'Try AFFiNE Alpha',
+		clicked: true,
+	},
+}
+const todo2 = {
+	flavor: 'affine:todo',
+	created: 1666158236651,
+	children: [],
+	props: {
+		text: 'Have a good night',
+		clicked: false,
+	},
+}
+
+title.children = [text, todo1, todo2]
+```
+
+At this point we have reorganized a rich text page into structured data, and now we can:
+
+-   Change the order of text lines by adjusting the order of children
+-   Change the text line style by adjusting the flavor
+-   Change the actual text content by adjusting the content in the props
+
+In actual use, you do not need to manually edit the data in the structure. JWST provides a series of easy-to-use APIs that allow you:
+
+-   Organize parent-child relationship of blocks, front and back order, etc.
+-   Modify the properties with basic data structures such as RichText, Map, Array, String, Number, etc.
+-   Reactively update data when local or remote modifications occur
+
+And all these modifications can be Conflict-free merge with any remote offline.

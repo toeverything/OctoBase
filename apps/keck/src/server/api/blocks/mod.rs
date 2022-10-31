@@ -36,13 +36,18 @@ use utoipa::OpenApi;
             jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory
         )
     ),
-    tags((name = "Blocks", description = "Read and write remote blocks"))
+    tags(
+        (name = "Workspace", description = "Read and write remote workspace"),
+        (name = "Blocks", description = "Read and write remote blocks")
+    )
 )]
 struct ApiDoc;
 
+const README: &str = include_str!("../../../../../handbook/src/README.md");
+const CORE_CONCEPT: &str = include_str!("../../../../../handbook/src/core_concept.md");
+
 fn doc_apis(router: Router) -> Router {
-    #[cfg(feature = "schema")]
-    {
+    if cfg!(feature = "schema") {
         use utoipa_swagger_ui::{serve, Config, Url};
 
         async fn serve_swagger_ui(
@@ -66,7 +71,8 @@ fn doc_apis(router: Router) -> Router {
             }
         }
 
-        let openapi = ApiDoc::openapi();
+        let mut openapi = ApiDoc::openapi();
+        openapi.info.description = Some(vec![README, CORE_CONCEPT].join("\n"));
 
         router
             .route("/jwst.json", get(move || async { Json(openapi) }))
@@ -75,9 +81,7 @@ fn doc_apis(router: Router) -> Router {
                 "JWST Api Docs",
                 "/api/jwst.json",
             )]))))
-    }
-    #[cfg(not(feature = "schema"))]
-    {
+    } else {
         router
     }
 }

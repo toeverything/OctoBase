@@ -6,7 +6,7 @@ use axum::{extract::Path, http::header};
 /// - Return 404 Not Found if workspace not exists.
 #[utoipa::path(
     get,
-    tag = "Blocks",
+    tag = "Workspace",
     context_path = "/api/block",
     path = "/{workspace}",
     params(
@@ -35,7 +35,7 @@ pub async fn get_workspace(
 /// - Return 500 Internal Server Error if init failed.
 #[utoipa::path(
     post,
-    tag = "Blocks",
+    tag = "Workspace",
     context_path = "/api/block",
     path = "/{workspace}",
     params(
@@ -69,7 +69,7 @@ pub async fn set_workspace(
 /// - Return 500 Internal Server Error if delete failed.
 #[utoipa::path(
     delete,
-    tag = "Blocks",
+    tag = "Workspace",
     context_path = "/api/block",
     path = "/{workspace}",
     params(
@@ -103,7 +103,7 @@ pub async fn delete_workspace(
 /// This interface return the client id that server will used.
 #[utoipa::path(
     get,
-    tag = "Blocks",
+    tag = "Workspace",
     context_path = "/api/block",
     path = "/{workspace}/client",
     params(
@@ -137,7 +137,7 @@ pub async fn workspace_client(
 ///   - The server initializes or gets a workspace. Before the workspace is deleted or the server is restarted, any http api modifying the workspace will use the same client id
 #[utoipa::path(
     get,
-    tag = "Blocks",
+    tag = "Workspace",
     context_path = "/api/block",
     path = "/{workspace}/history",
     params(
@@ -169,7 +169,7 @@ pub async fn history_workspace_clients(
 /// If client id set to 0, return all modification history of a workspace.
 #[utoipa::path(
     get,
-    tag = "Blocks",
+    tag = "Workspace",
     context_path = "/api/block",
     path = "/{workspace}/history/{client}",
     params(
