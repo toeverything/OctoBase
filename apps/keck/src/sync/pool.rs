@@ -68,10 +68,6 @@ impl DbPool {
         DatabasePool::connect(&env).await.map(|pool| Self { pool })
     }
 
-    pub fn new(pool: DatabasePool) -> Self {
-        Self { pool }
-    }
-
     pub async fn close(&self) {
         self.pool.close().await;
     }
@@ -185,35 +181,32 @@ impl DbPool {
 
 #[cfg(all(test, feature = "sqlite"))]
 mod tests {
-    async fn init_memory_pool() -> anyhow::Result<sqlx::SqlitePool> {
+    use super::*;
+
+    async fn init_memory_pool() -> anyhow::Result<DbPool> {
         use sqlx::sqlite::SqliteConnectOptions;
         use std::str::FromStr;
         let path = format!("sqlite::memory:");
         let options = SqliteConnectOptions::from_str(&path)?.create_if_missing(true);
-        Ok(sqlx::SqlitePool::connect_with(options).await?)
+        let pool = sqlx::SqlitePool::connect_with(options).await?;
+        Ok(DbPool { pool })
     }
 
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
-        use super::*;
-
         let pool = init_memory_pool().await?;
-        let pool = DbPool::new(pool);
         pool.create("basic").await?;
 
         // empty table
         assert_eq!(pool.count("basic").await?, 0);
 
-        println!("{:?}", pool.all("basic").await?);
-
         // first insert
         pool.insert("basic", &[1, 2, 3, 4]).await?;
         assert_eq!(pool.count("basic").await?, 1);
-        println!("{:?}", pool.all("basic").await?);
 
         // second insert
         pool.replace_with("basic", vec![2, 2, 3, 4]).await?;
-        println!("{:?}", pool.all("basic").await?);
+
         assert_eq!(
             pool.all("basic").await?,
             vec![UpdateBinary {
