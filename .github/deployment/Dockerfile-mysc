@@ -9,7 +9,7 @@ COPY . .
 COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
 COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config
 RUN --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_amd64 \
-    cargo build --release --no-default-features --features jwst --package keck && \
+    cargo build --release --no-default-features --features mysc --package keck && \
     mv /home/rust/src/target/x86_64-unknown-linux-musl/release/keck /tmp/jwst-amd64 && \
     mv /home/rust/src/apps/handbook/book /tmp/book-amd64
 
