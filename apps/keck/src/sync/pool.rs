@@ -66,6 +66,16 @@ impl DbPool {
             .map(|pool| Self { pool })
     }
 
+    #[cfg(all(test, feature = "sqlite"))]
+    pub async fn init_memory_pool() -> Result<Self, Error> {
+        use sqlx::sqlite::SqliteConnectOptions;
+        use std::str::FromStr;
+        let path = format!("sqlite::memory:");
+        let options = SqliteConnectOptions::from_str(&path)?.create_if_missing(true);
+        let pool = sqlx::SqlitePool::connect_with(options).await?;
+        Ok(Self { pool })
+    }
+
     #[cfg(feature = "mysql")]
     pub async fn init_pool(database: &str) -> Result<Self, Error> {
         let env = dotenvy::var("DATABASE_URL")
@@ -183,22 +193,13 @@ impl DbPool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(feature = "sqlite")]
-    async fn init_memory_pool() -> anyhow::Result<DbPool> {
-        use sqlx::sqlite::SqliteConnectOptions;
-        use std::str::FromStr;
-        let path = format!("sqlite::memory:");
-        let options = SqliteConnectOptions::from_str(&path)?.create_if_missing(true);
-        let pool = sqlx::SqlitePool::connect_with(options).await?;
-        Ok(DbPool { pool })
-    }
 
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
         use super::*;
 
         #[cfg(feature = "sqlite")]
-        let pool = init_memory_pool().await?;
+        let pool = DbPool::init_memory_pool().await?;
         #[cfg(feature = "mysql")]
         let pool = DbPool::init_pool("jwst").await?;
         pool.create("basic").await?;

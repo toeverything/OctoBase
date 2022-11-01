@@ -3,7 +3,8 @@ mod schema;
 mod workspace;
 
 pub use block::{
-    delete_block, get_block, get_block_history, insert_block, remove_block, set_block,
+    delete_block, get_block, get_block_history, insert_block_children, remove_block_children,
+    set_block,
 };
 pub use workspace::{
     delete_workspace, get_workspace, history_workspace, history_workspace_clients, set_workspace,
@@ -27,8 +28,8 @@ use utoipa::OpenApi;
         block::set_block,
         block::get_block_history,
         block::delete_block,
-        block::insert_block,
-        block::remove_block,
+        block::insert_block_children,
+        block::remove_block_children,
     ),
     components(
         schemas(
@@ -90,8 +91,8 @@ fn doc_apis(router: Router) -> Router {
 fn block_apis(router: Router) -> Router {
     let block_operation = Router::new()
         .route("/history", get(block::get_block_history))
-        .route("/insert", post(block::insert_block))
-        .route("/remove", post(block::remove_block));
+        .route("/children", post(block::insert_block_children))
+        .route("/children/:children", delete(block::remove_block_children));
 
     doc_apis(router)
         .nest("/block/:workspace/:block/", block_operation)

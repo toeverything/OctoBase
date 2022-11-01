@@ -1,6 +1,9 @@
 use super::*;
 use lib0::any::Any;
 
+/// Get a `Block` by id
+/// - Return 200 and `Block`'s data if `Block` is exists.
+/// - Return 404 Not Found if `Workspace` or `Block` not exists.
 #[utoipa::path(
     get,
     tag = "Blocks",
@@ -11,9 +14,8 @@ use lib0::any::Any;
         ("block", description = "block id"),
     ),
     responses(
-        (status = 200, description = "Get block"),
+        (status = 200, description = "Get block", body = Block),
         (status = 404, description = "Workspace or block content not found"),
-        (status = 500, description = "Block data error")
     )
 )]
 pub async fn get_block(
@@ -34,7 +36,9 @@ pub async fn get_block(
     }
 }
 
-// create or set block with content
+/// Create or set `Block` with content
+/// - Return 200 and `Block`'s data if `Block`'s content set successful.
+/// - Return 404 Not Found if `Workspace` not exists.
 #[utoipa::path(
     post,
     tag = "Blocks",
@@ -50,9 +54,8 @@ pub async fn get_block(
         content_type = "application/json"
     ),
     responses(
-        (status = 200, description = "Block created and content was set"),
+        (status = 200, description = "Block created and content was set", body = Block),
         (status = 404, description = "Workspace not found"),
-        (status = 500, description = "Failed to create block")
     )
 )]
 pub async fn set_block(
@@ -86,7 +89,9 @@ pub async fn set_block(
     }
 }
 
-// get block history
+/// Get `Block` history
+/// - Return 200 and `Block`'s history if `Block` exists.
+/// - Return 404 Not Found if `Workspace` or `Block` not exists.
 #[utoipa::path(
     get,
     tag = "Blocks",
@@ -99,7 +104,6 @@ pub async fn set_block(
     responses(
         (status = 200, description = "Get block history", body = [BlockHistory]),
         (status = 404, description = "Workspace or block not found"),
-        (status = 500, description = "Failed to get block history")
     )
 )]
 pub async fn get_block_history(
@@ -121,7 +125,9 @@ pub async fn get_block_history(
     }
 }
 
-// delete block
+/// Delete block
+/// - Return 204 No Content if delete successful.
+/// - Return 404 Not Found if `Workspace` or `Block` not exists.
 #[utoipa::path(
     delete,
     tag = "Blocks",
@@ -154,12 +160,14 @@ pub async fn delete_block(
     }
 }
 
-// insert children block
+/// Insert a another `Block` into a `Block`'s children
+/// - Return 200 and `Block`'s data if insert successful.
+/// - Return 404 Not Found if `Workspace` or `Block` not exists.
 #[utoipa::path(
     post,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}/insert",
+    path = "/{workspace}/{block}/children",
     params(
         ("workspace", description = "workspace id"),
         ("block", description = "block id"),
@@ -170,12 +178,12 @@ pub async fn delete_block(
         content_type = "application/json"
     ),
     responses(
-        (status = 200, description = "Block inserted"),
+        (status = 200, description = "Block inserted", body = Block),
         (status = 404, description = "Workspace or block not found"),
         (status = 500, description = "Failed to insert block")
     )
 )]
-pub async fn insert_block(
+pub async fn insert_block_children(
     Extension(context): Extension<Arc<Context>>,
     Json(payload): Json<InsertChildren>,
     Path(params): Path<(String, String)>,
@@ -208,40 +216,35 @@ pub async fn insert_block(
     }
 }
 
-// remove children block
+/// Remove children in `Block`
+/// - Return 200 and `Block`'s data if remove successful.
+/// - Return 404 Not Found if `Workspace` or `Block` not exists.
 #[utoipa::path(
-    post,
+    delete,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}/remove",
+    path = "/{workspace}/{block}/children/{children}",
     params(
         ("workspace", description = "workspace id"),
         ("block", description = "block id"),
     ),
-    request_body(
-        content = RemoveChildren,
-        description = "json",
-        content_type = "application/json"
-    ),
     responses(
-        (status = 200, description = "Block children removed"),
+        (status = 200, description = "Block children removed", body = Block),
         (status = 404, description = "Workspace or block not found"),
-        (status = 500, description = "Failed to remove block children")
     )
 )]
-pub async fn remove_block(
+pub async fn remove_block_children(
     Extension(context): Extension<Arc<Context>>,
-    Json(block_id): Json<String>,
-    Path(params): Path<(String, String)>,
+    Path(params): Path<(String, String, String)>,
 ) -> impl IntoResponse {
-    let (workspace, block) = params;
+    let (workspace, block, children_id) = params;
     info!("insert_block: {}, {}", workspace, block);
     if let Some(workspace) = context.workspace.get(&workspace) {
         // init block instance
         let workspace = workspace.value().lock().await;
         if let Some(block) = workspace.get(&block) {
             workspace.with_trx(|mut t| {
-                block.remove_children(&mut t.trx, &block_id);
+                block.remove_children(&mut t.trx, &children_id);
             });
             // response block content
             Json(block).into_response()

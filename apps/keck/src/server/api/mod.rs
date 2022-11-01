@@ -23,14 +23,16 @@ pub struct Context {
 }
 
 impl Context {
-    pub async fn new() -> Self {
+    pub async fn new(default_pool: Option<DbPool>) -> Self {
         Context {
             workspace: DashMap::new(),
             storage: DashMap::new(),
             channel: DashMap::new(),
-            db: DbPool::init_pool("jwst")
-                .await
-                .expect("Cannot create database"),
+            db: default_pool.unwrap_or(
+                DbPool::init_pool("jwst")
+                    .await
+                    .expect("Cannot create database"),
+            ),
         }
     }
 }

@@ -4,8 +4,8 @@ mod files;
 mod utils;
 
 use axum::{
-    routing::{get, post},
-    Extension, Router,
+    routing::{delete, get, post},
+    Extension, Router, Server,
 };
 use http::Method;
 use std::{net::SocketAddr, sync::Arc};
@@ -38,7 +38,7 @@ async fn shutdown_signal() {
         _ = terminate => {},
     }
 
-    info!("signal received, starting graceful shutdown");
+    info!("Shutdown signal received, starting graceful shutdown");
 }
 
 pub async fn start_server() {
@@ -61,7 +61,7 @@ pub async fn start_server() {
         .allow_origin(origins)
         .allow_headers(Any);
 
-    let context = Arc::new(Context::new().await);
+    let context = Arc::new(Context::new(None).await);
 
     let app = collaboration::collaboration_handler(api::api_handler(Router::new()))
         .layer(cors)
@@ -71,13 +71,16 @@ pub async fn start_server() {
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("listening on {}", addr);
-    axum::Server::bind(&addr)
+
+    if let Err(e) = Server::bind(&addr)
         .serve(app.into_make_service())
         .with_graceful_shutdown(shutdown_signal())
         .await
-        .unwrap();
+    {
+        error!("Server shutdown due to error: {}", e);
+    }
 
     context.db.close().await;
 
-    info!("shutdown final");
+    info!("Server shutdown complete");
 }
