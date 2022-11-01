@@ -52,7 +52,7 @@ pub async fn set_workspace(
 ) -> impl IntoResponse {
     info!("set_workspace: {}", workspace);
 
-    if let Err(e) = utils::init_doc(context.clone(), &workspace).await {
+    if let Err(e) = init_doc(context.clone(), &workspace).await {
         error!("Failed to init doc: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     } else if let Some(workspace) = context.workspace.get(&workspace) {

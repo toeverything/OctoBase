@@ -3,7 +3,6 @@ mod collaboration;
 mod files;
 mod utils;
 
-use crate::{server::api::Context, utils::*};
 use axum::{
     routing::{get, post},
     Extension, Router,
@@ -12,6 +11,9 @@ use http::Method;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::signal;
 use tower_http::cors::{Any, CorsLayer};
+
+use api::Context;
+use utils::*;
 
 async fn shutdown_signal() {
     let ctrl_c = async {

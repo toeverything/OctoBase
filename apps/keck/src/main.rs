@@ -1,8 +1,7 @@
 mod server;
 mod sync;
-mod utils;
 
-use utils::*;
+use jwst_logger::{init_logger, Level};
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
