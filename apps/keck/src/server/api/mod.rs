@@ -3,7 +3,7 @@ mod blocks;
 
 use crate::sync::DbPool;
 
-use super::{utils::Migrate, *};
+use super::*;
 use axum::{
     extract::{ws::Message, Json, Path},
     http::StatusCode,

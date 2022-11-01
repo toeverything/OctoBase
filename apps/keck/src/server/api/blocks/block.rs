@@ -1,4 +1,4 @@
-use super::{schema::InsertChildren, *};
+use super::*;
 use lib0::any::Any;
 
 #[utoipa::path(

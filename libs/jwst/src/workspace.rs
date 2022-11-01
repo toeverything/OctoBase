@@ -135,7 +135,7 @@ impl WorkspaceTranscation<'_> {
 
 #[cfg(test)]
 mod test {
-    use super::Workspace;
+    use super::*;
     use yrs::Doc;
 
     #[test]

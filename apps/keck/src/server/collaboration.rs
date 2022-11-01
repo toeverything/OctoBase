@@ -13,7 +13,6 @@ use jwst::Workspace;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::mpsc::channel;
-use utils::Migrate;
 use yrs::StateVector;
 
 #[derive(Serialize)]

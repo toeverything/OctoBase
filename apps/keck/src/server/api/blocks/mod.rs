@@ -2,7 +2,6 @@ mod block;
 mod schema;
 mod workspace;
 
-pub use super::*;
 pub use block::{
     delete_block, get_block, get_block_history, insert_block, remove_block, set_block,
 };
@@ -11,6 +10,8 @@ pub use workspace::{
     workspace_client,
 };
 
+use super::*;
+use schema::InsertChildren;
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]

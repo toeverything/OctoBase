@@ -338,9 +338,8 @@ impl Serialize for Block {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::collections::HashMap;
-
-    use super::Workspace;
 
     #[test]
     fn init_block() {
@@ -360,8 +359,6 @@ mod tests {
 
     #[test]
     fn set_value() {
-        use super::Any;
-
         let workspace = Workspace::new("test");
 
         let block = workspace.with_trx(|mut t| {
@@ -458,7 +455,6 @@ mod tests {
 
     #[test]
     fn history() {
-        use super::{BlockHistory, HistoryOperation};
         use yrs::Doc;
 
         let doc = Doc::with_client_id(123);

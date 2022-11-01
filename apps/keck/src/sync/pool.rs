@@ -1,8 +1,13 @@
-use super::DatabasePool;
 use jwst_logger::{info, warn};
 use sqlx::{query, query_as, Error};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use yrs::{updates::decoder::Decode, Doc, Options, StateVector, Update};
+
+#[cfg(feature = "sqlite")]
+type DatabasePool = sqlx::SqlitePool;
+
+#[cfg(feature = "mysql")]
+type DatabasePool = sqlx::MySqlPool;
 
 const MAX_TRIM_UPDATE_LIMIT: i64 = 500;
 
