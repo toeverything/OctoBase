@@ -13,7 +13,7 @@ use std::{net::SocketAddr, sync::Arc};
 use tokio::signal;
 use tower_http::cors::{Any, CorsLayer};
 
-async fn shutdown_signal(context: Arc<Context>) {
+async fn shutdown_signal() {
     let ctrl_c = async {
         signal::ctrl_c()
             .await
@@ -37,8 +37,6 @@ async fn shutdown_signal(context: Arc<Context>) {
     }
 
     info!("signal received, starting graceful shutdown");
-    context.db.close().await;
-    info!("shutdown final");
 }
 
 pub async fn start_server() {
@@ -73,7 +71,11 @@ pub async fn start_server() {
     info!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
-        .with_graceful_shutdown(shutdown_signal(context.clone()))
+        .with_graceful_shutdown(shutdown_signal())
         .await
         .unwrap();
+
+    context.db.close().await;
+
+    info!("shutdown final");
 }
