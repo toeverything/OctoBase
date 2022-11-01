@@ -1,7 +1,7 @@
 #[cfg(feature = "api")]
 mod blocks;
 
-use crate::sync::{init_pool, DbPool};
+use crate::sync::DbPool;
 
 use super::{utils::Migrate, *};
 use axum::{
@@ -28,7 +28,9 @@ impl Context {
             workspace: DashMap::new(),
             storage: DashMap::new(),
             channel: DashMap::new(),
-            db: DbPool::new(init_pool("jwst").await.expect("Cannot create database")),
+            db: DbPool::init_pool("jwst")
+                .await
+                .expect("Cannot create database"),
         }
     }
 }

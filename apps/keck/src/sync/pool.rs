@@ -1,10 +1,8 @@
 use super::DatabasePool;
 use jwst_logger::{info, warn};
-use sqlx::Error;
+use sqlx::{query, query_as, Error};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use yrs::{updates::decoder::Decode, Doc, Options, StateVector, Update};
-
-use super::{DbConn, UpdateBinary};
 
 const MAX_TRIM_UPDATE_LIMIT: i64 = 500;
 
@@ -25,11 +23,51 @@ fn migrate_update(updates: Vec<UpdateBinary>, doc: Doc) -> Doc {
 
     doc
 }
+
+#[derive(sqlx::FromRow, Debug, PartialEq)]
+pub struct UpdateBinary {
+    pub id: i64,
+    pub blob: Vec<u8>,
+}
+
 pub struct DbPool {
     pool: DatabasePool,
 }
 
 impl DbPool {
+    #[cfg(feature = "sqlite")]
+    pub async fn init_pool(file: &str) -> Result<Self, Error> {
+        use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
+        use std::fs::create_dir;
+        use std::path::PathBuf;
+        use std::str::FromStr;
+
+        let data = PathBuf::from("data");
+        if !data.exists() {
+            create_dir(data)?;
+        }
+        let path = format!(
+            "sqlite:{}",
+            std::env::current_dir()
+                .unwrap()
+                .join(format!("./data/{}.db", file.to_string()))
+                .display()
+        );
+        let options = SqliteConnectOptions::from_str(&path)?
+            .journal_mode(SqliteJournalMode::Wal)
+            .create_if_missing(true);
+        DatabasePool::connect_with(options)
+            .await
+            .map(|pool| Self { pool })
+    }
+
+    #[cfg(feature = "mysql")]
+    pub async fn init_pool(database: &str) -> Result<Self, Error> {
+        let env = dotenvy::var("DATABASE_URL")
+            .unwrap_or_else(|_| format!("mysql://localhost/{}", database.to_string()));
+        DatabasePool::connect(&env).await.map(|pool| Self { pool })
+    }
+
     pub fn new(pool: DatabasePool) -> Self {
         Self { pool }
     }
@@ -38,38 +76,87 @@ impl DbPool {
         self.pool.close().await;
     }
 
-    async fn get_conn<'a>(&self, table: &'a str) -> Result<DbConn<'a>, Error> {
-        Ok(DbConn {
-            conn: self.pool.acquire().await?,
-            table,
-        })
+    async fn all(&self, table: &str) -> Result<Vec<UpdateBinary>, Error> {
+        let stmt = format!("SELECT * FROM {}", table);
+        let ret = query_as::<_, UpdateBinary>(&stmt)
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(ret)
+    }
+
+    async fn count(&self, table: &str) -> Result<i64, Error> {
+        #[derive(sqlx::FromRow)]
+        struct Count(i64);
+
+        let stmt = format!("SELECT count(*) FROM {}", table);
+        let ret = query_as::<_, Count>(&stmt).fetch_one(&self.pool).await?;
+        Ok(ret.0)
+    }
+
+    async fn create(&self, table: &str) -> Result<(), Error> {
+        #[cfg(feature = "sqlite")]
+        let stmt = format!(
+            "CREATE TABLE IF NOT EXISTS {} (id INTEGER PRIMARY KEY AUTOINCREMENT, blob BLOB);",
+            table
+        );
+        #[cfg(feature = "mysql")]
+        let stmt = format!(
+            "CREATE TABLE IF NOT EXISTS {} (id INTEGER AUTO_INCREMENT, blob BLOB, PRIMARY KEY (id));",
+            table
+        );
+        query(&stmt).execute(&self.pool).await?;
+        Ok(())
+    }
+
+    async fn insert(&self, table: &str, blob: &[u8]) -> Result<(), Error> {
+        let stmt = format!("INSERT INTO {} (blob) VALUES (?);", table);
+        query(&stmt).bind(blob).execute(&self.pool).await?;
+        Ok(())
+    }
+
+    async fn replace_with(&self, table: &str, blob: Vec<u8>) -> Result<(), Error> {
+        let stmt = format!(
+            r#"
+        BEGIN TRANSACTION;
+        DELETE FROM {};
+        INSERT INTO {} (blob) VALUES (?);
+        COMMIT;
+        "#,
+            table, table
+        );
+
+        query(&stmt)
+            .bind(blob)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
     }
 
     pub async fn drop(&self, table: &str) -> Result<(), Error> {
-        self.get_conn(table).await?.drop().await
+        let stmt = format!("DROP TABLE IF EXISTS {};", table);
+        query(&stmt).execute(&self.pool).await?;
+        Ok(())
     }
 
     pub async fn update(&self, table: &str, blob: Vec<u8>) -> Result<(), Error> {
-        let mut conn = self.get_conn(table).await?;
-        if conn.count().await? > MAX_TRIM_UPDATE_LIMIT - 1 {
-            let data = conn.all().await?;
+        if self.count(table).await? > MAX_TRIM_UPDATE_LIMIT - 1 {
+            let data = self.all(table).await?;
 
             let doc = migrate_update(data, Doc::default());
 
             let data = doc.encode_state_as_update_v1(&StateVector::default());
 
-            conn.replace_with(data).await?;
+            self.replace_with(table, data).await?;
         } else {
-            conn.insert(&blob).await?;
+            self.insert(table, &blob).await?;
         }
 
         Ok(())
     }
 
     pub async fn full_migrate(&self, table: &str, blob: Vec<u8>) -> Result<(), Error> {
-        let mut conn = self.get_conn(table).await?;
-        if conn.count().await? > 1 {
-            conn.replace_with(blob).await
+        if self.count(table).await? > 1 {
+            self.replace_with(table, blob).await
         } else {
             Ok(())
         }
@@ -81,19 +168,73 @@ impl DbPool {
             ..Default::default()
         });
 
-        let mut conn = self.get_conn(workspace).await?;
+        self.create(workspace).await?;
 
-        conn.create().await?;
-
-        let all_data = conn.all().await.unwrap();
+        let all_data = self.all(workspace).await.unwrap();
 
         if all_data.is_empty() {
             let update = doc.encode_state_as_update_v1(&StateVector::default());
-            conn.insert(&update).await.unwrap();
+            self.insert(workspace, &update).await.unwrap();
         } else {
             doc = migrate_update(all_data, doc);
         }
 
         Ok(doc)
+    }
+}
+
+#[cfg(all(test, feature = "sqlite"))]
+mod tests {
+    async fn init_memory_pool() -> anyhow::Result<sqlx::SqlitePool> {
+        use sqlx::sqlite::SqliteConnectOptions;
+        use std::str::FromStr;
+        let path = format!("sqlite::memory:");
+        let options = SqliteConnectOptions::from_str(&path)?.create_if_missing(true);
+        Ok(sqlx::SqlitePool::connect_with(options).await?)
+    }
+
+    #[tokio::test]
+    async fn basic_storage_test() -> anyhow::Result<()> {
+        use super::*;
+
+        let pool = init_memory_pool().await?;
+        let pool = DbPool::new(pool);
+        pool.create("basic").await?;
+
+        // empty table
+        assert_eq!(pool.count("basic").await?, 0);
+
+        println!("{:?}", pool.all("basic").await?);
+
+        // first insert
+        pool.insert("basic", &[1, 2, 3, 4]).await?;
+        assert_eq!(pool.count("basic").await?, 1);
+        println!("{:?}", pool.all("basic").await?);
+
+        // second insert
+        pool.replace_with("basic", vec![2, 2, 3, 4]).await?;
+        println!("{:?}", pool.all("basic").await?);
+        assert_eq!(
+            pool.all("basic").await?,
+            vec![UpdateBinary {
+                id: 2,
+                blob: vec![2, 2, 3, 4]
+            }]
+        );
+        assert_eq!(pool.count("basic").await?, 1);
+
+        pool.drop("basic").await?;
+        pool.create("basic").await?;
+        pool.insert("basic", &[1, 2, 3, 4]).await?;
+        assert_eq!(
+            pool.all("basic").await?,
+            vec![UpdateBinary {
+                id: 1,
+                blob: vec![1, 2, 3, 4]
+            }]
+        );
+        assert_eq!(pool.count("basic").await?, 1);
+
+        Ok(())
     }
 }
