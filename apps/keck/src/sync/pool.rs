@@ -102,7 +102,7 @@ impl DbPool {
         );
         #[cfg(feature = "mysql")]
         let stmt = format!(
-            "CREATE TABLE IF NOT EXISTS {} (id INTEGER AUTO_INCREMENT, blob BLOB, PRIMARY KEY (id));",
+            "CREATE TABLE IF NOT EXISTS {} (`id` INTEGER AUTO_INCREMENT, `blob` BLOB, PRIMARY KEY (id));",
             table
         );
         query(&stmt).execute(&self.pool).await?;
@@ -110,27 +110,23 @@ impl DbPool {
     }
 
     async fn insert(&self, table: &str, blob: &[u8]) -> Result<(), Error> {
-        let stmt = format!("INSERT INTO {} (blob) VALUES (?);", table);
+        let stmt = format!("INSERT INTO {} (`blob`) VALUES (?);", table);
         query(&stmt).bind(blob).execute(&self.pool).await?;
         Ok(())
     }
 
     async fn replace_with(&self, table: &str, blob: Vec<u8>) -> Result<(), Error> {
-        let stmt = format!(
-            r#"
-        BEGIN TRANSACTION;
-        DELETE FROM {};
-        INSERT INTO {} (blob) VALUES (?);
-        COMMIT;
-        "#,
-            table, table
-        );
+        let mut tx = self.pool.begin().await?;
 
-        query(&stmt)
-            .bind(blob)
-            .execute(&self.pool)
-            .await
-            .map(|_| ())
+        let stmt = format!("DELETE FROM {}", table);
+        query(&stmt).execute(&mut tx).await?;
+
+        let stmt = format!("INSERT INTO {} (`blob`) VALUES (?);", table);
+        query(&stmt).bind(blob).execute(&mut tx).await?;
+
+        tx.commit().await?;
+
+        Ok(())
     }
 
     pub async fn drop(&self, table: &str) -> Result<(), Error> {
@@ -184,10 +180,10 @@ impl DbPool {
     }
 }
 
-#[cfg(all(test, feature = "sqlite"))]
+#[cfg(test)]
 mod tests {
     use super::*;
-
+    #[cfg(feature = "sqlite")]
     async fn init_memory_pool() -> anyhow::Result<DbPool> {
         use sqlx::sqlite::SqliteConnectOptions;
         use std::str::FromStr;
@@ -199,7 +195,12 @@ mod tests {
 
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
+        use super::*;
+
+        #[cfg(feature = "sqlite")]
         let pool = init_memory_pool().await?;
+        #[cfg(feature = "mysql")]
+        let pool = DbPool::init_pool("jwst").await?;
         pool.create("basic").await?;
 
         // empty table
