@@ -70,7 +70,7 @@ pub async fn set_block(
         let workspace = workspace.lock().await;
         // set block content
         let block = workspace.with_trx(|mut t| {
-            let mut block = t.create(&block, "text");
+            let block = t.create(&block, "text");
             // set block content
             if let Some(block_content) = payload.as_object() {
                 for (key, value) in block_content.iter() {
@@ -195,15 +195,25 @@ pub async fn insert_block_children(
         let workspace = workspace.value().lock().await;
         if let Some(block) = workspace.get(block) {
             workspace.with_trx(|mut t| match payload {
-                InsertChildren::Push(block_id) => block.push_children(&mut t.trx, block_id),
+                InsertChildren::Push(block_id) => {
+                    if let Some(child) = workspace.get(&block_id) {
+                        block.push_children(&mut t.trx, &child)
+                    }
+                }
                 InsertChildren::InsertBefore { id, before } => {
-                    block.insert_children_before(&mut t.trx, id, &before)
+                    if let Some(child) = workspace.get(&id) {
+                        block.insert_children_before(&mut t.trx, &child, &before)
+                    }
                 }
                 InsertChildren::InsertAfter { id, after } => {
-                    block.insert_children_after(&mut t.trx, id, &after)
+                    if let Some(child) = workspace.get(&id) {
+                        block.insert_children_after(&mut t.trx, &child, &after)
+                    }
                 }
                 InsertChildren::InsertAt { id, pos } => {
-                    block.insert_children_at(&mut t.trx, id, pos)
+                    if let Some(child) = workspace.get(&id) {
+                        block.insert_children_at(&mut t.trx, &child, pos)
+                    }
                 }
             });
             // response block content
@@ -237,14 +247,16 @@ pub async fn remove_block_children(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String, String)>,
 ) -> impl IntoResponse {
-    let (workspace, block, children_id) = params;
+    let (workspace, block, child_id) = params;
     info!("insert_block: {}, {}", workspace, block);
     if let Some(workspace) = context.workspace.get(&workspace) {
         // init block instance
         let workspace = workspace.value().lock().await;
         if let Some(block) = workspace.get(&block) {
             workspace.with_trx(|mut t| {
-                block.remove_children(&mut t.trx, &children_id);
+                if let Some(child) = workspace.get(&child_id) {
+                    block.remove_children(&mut t.trx, &child);
+                }
             });
             // response block content
             Json(block).into_response()
