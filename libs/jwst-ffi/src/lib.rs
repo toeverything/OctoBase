@@ -74,57 +74,57 @@ pub unsafe extern "C" fn block_get_children(block: *const Block) -> *mut BlockCh
 pub unsafe extern "C" fn block_push_children(
     block: *const Block,
     trx: *mut Transaction,
-    block_id: *mut c_char,
+    child: *const Block,
 ) {
     let block = block.as_ref().unwrap();
     let trx = trx.as_mut().unwrap();
-    let block_id = CString::from_raw(block_id).into_string().unwrap();
+    let child = child.as_ref().unwrap();
 
-    block.push_children(trx, block_id);
+    block.push_children(trx, child);
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn block_insert_children_at(
     block: *const Block,
     trx: *mut Transaction,
-    block_id: *mut c_char,
+    child: *const Block,
     pos: u32,
 ) {
     let block = block.as_ref().unwrap();
     let trx = trx.as_mut().unwrap();
-    let block_id = CString::from_raw(block_id).into_string().unwrap();
+    let child = child.as_ref().unwrap();
 
-    block.insert_children_at(trx, block_id, pos);
+    block.insert_children_at(trx, child, pos);
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn block_insert_children_before(
     block: *const Block,
     trx: *mut Transaction,
-    block_id: *mut c_char,
+    child: *const Block,
     reference: *const c_char,
 ) {
     let block = block.as_ref().unwrap();
     let trx = trx.as_mut().unwrap();
-    let block_id = CString::from_raw(block_id).into_string().unwrap();
+    let child = child.as_ref().unwrap();
     let reference = CStr::from_ptr(reference).to_str().unwrap();
 
-    block.insert_children_before(trx, block_id, reference);
+    block.insert_children_before(trx, child, reference);
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn block_insert_children_after(
     block: *const Block,
     trx: *mut Transaction,
-    block_id: *mut c_char,
+    child: *const Block,
     reference: *const c_char,
 ) {
     let block = block.as_ref().unwrap();
     let trx = trx.as_mut().unwrap();
-    let block_id = CString::from_raw(block_id).into_string().unwrap();
+    let child = child.as_ref().unwrap();
     let reference = CStr::from_ptr(reference).to_str().unwrap();
 
-    block.insert_children_after(trx, block_id, reference);
+    block.insert_children_after(trx, child, reference);
 }
 
 #[no_mangle]

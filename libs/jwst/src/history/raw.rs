@@ -141,7 +141,7 @@ mod tests {
     fn parse_history_client_test() {
         let workspace = Workspace::new("test");
         workspace.with_trx(|mut t| {
-            let mut block = t.create("test", "text");
+            let block = t.create("test", "text");
             block.set(&mut t.trx, "test", "test");
         });
 
