@@ -1,3 +1,8 @@
+# blocksuite-blockbase
+
+an open source Firebase alternative. Start your project with a Postgres database, Authentication, instant APIs, Edge Functions, Realtime subscriptions, and Storage.
+
+
 ## JWST - MultiPlatform CRDT collaborative database
 
 JWST is a set of collaborative backend and database implemented based on CRDTs.
