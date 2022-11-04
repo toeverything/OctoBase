@@ -1,7 +1,7 @@
 FROM messense/rust-musl-cross:x86_64-musl AS builder-dependencies
 ENV CARGO_TERM_COLOR="always"
 COPY . .
-RUN mkdir .cargo && cargo vendor > .cargo/config
+RUN cargo vendor > .cargo/config
 
 FROM messense/rust-musl-cross:aarch64-musl AS builder-aarch64
 ENV CARGO_TERM_COLOR="always"
