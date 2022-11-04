@@ -1,4 +1,4 @@
-# blocksuite-blockbase
+# blocksuite-jwstbase
 
 an open source Firebase alternative. Start your project with a collaborative database, Authentication, instant APIs, Realtime subscriptions, and Storage.
 
