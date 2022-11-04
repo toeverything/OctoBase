@@ -1,7 +1,10 @@
 # blocksuite-blockbase
 
-an open source Firebase alternative. Start your project with a Postgres database, Authentication, instant APIs, Edge Functions, Realtime subscriptions, and Storage.
+an open source Firebase alternative. Start your project with a collaborative database, Authentication, instant APIs, Realtime subscriptions, and Storage.
 
+* JWST
+* Keck
+* ...
 
 ## JWST - MultiPlatform CRDT collaborative database
 
