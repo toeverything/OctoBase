@@ -120,15 +120,9 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
                     }
                 };
 
-                if let Some((tx, update)) = context
-                    .storage
-                    .get(&workspace)
-                    .and_then(|tx| update.map(|update| (tx, update)))
-                {
-                    if let Err(e) = tx.send(Migrate::Full(update)).await {
-                        if !tx.is_closed() {
-                            error!("migrate full send error: {}", e);
-                        }
+                if let Some(update) = update {
+                    if let Err(e) = context.db.full_migrate(&workspace, update).await {
+                        error!("db write error: {}", e.to_string());
                     }
                 }
             }
@@ -172,14 +166,8 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
             };
             if let Ok((binary, update)) = payload {
                 if let Some(update) = update {
-                    if let Some(tx) = context.storage.get(&workspace) {
-                        if let Err(e) = tx.send(Migrate::Update(update)).await {
-                            if !tx.is_closed() {
-                                error!("storage send error: {}", e.to_string());
-                            }
-                            // client disconnected
-                            return;
-                        }
+                    if let Err(e) = context.db.update(&workspace, update).await {
+                        error!("db write error: {}", e.to_string());
                     }
                 }
                 if let Some(binary) = binary {

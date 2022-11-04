@@ -17,7 +17,6 @@ use tokio::sync::{mpsc::Sender, Mutex};
 
 pub struct Context {
     pub workspace: DashMap<String, Mutex<Workspace>>,
-    pub storage: DashMap<String, Sender<Migrate>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub db: DbPool,
 }
@@ -26,7 +25,6 @@ impl Context {
     pub async fn new(default_pool: Option<DbPool>) -> Self {
         Context {
             workspace: DashMap::new(),
-            storage: DashMap::new(),
             channel: DashMap::new(),
             db: default_pool.unwrap_or(
                 DbPool::init_pool("jwst")
