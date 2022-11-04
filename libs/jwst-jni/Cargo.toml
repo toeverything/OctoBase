@@ -1,0 +1,22 @@
+[package]
+name = "jwst-jni"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+android_logger = "^0.11.1"
+jni-sys = "^0.3.0"
+jwst = { path = "../jwst" }
+log = "^0.4.17"
+log-panics = "^2.1.0"
+rifgen = "^0.1.61"
+
+[build-dependencies]
+flapigen = { git = "https://github.com/Dushistov/flapigen-rs", rev = "5ccbdef4557a2f4950078824dad970876b964160" } # 0.6.0-pre13
+rifgen = "^0.1.61"
+
+[lib]
+name = "jwst"
+crate-type = ["cdylib"]
