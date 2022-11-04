@@ -1,5 +1,13 @@
 # blocksuite-jwstbase
 
+<a href="https://join.slack.com/t/blocksuitedev/shared_invite/zt-1h0zz3b8z-nFpWSu6a6~yId7PxiMcBHA">
+  <img src="https://img.shields.io/badge/-Slack-grey?logo=slack">
+</a>
+<a href="https://twitter.com/BlockSuiteDev">
+  <img src="https://img.shields.io/badge/-Twitter-grey?logo=twitter">
+</a>
+
+
 an open source Firebase alternative. Start your project with a collaborative database, Authentication, instant APIs, Realtime subscriptions, and Storage.
 
 * JWST
