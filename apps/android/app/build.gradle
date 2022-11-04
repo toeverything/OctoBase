@@ -15,13 +15,6 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        ndk.abiFilters 'armeabi-v7a','arm64-v8a','x86','x86_64'
-    }
-
-    sourceSets {
-        main {
-            jniLibs.srcDirs = ['src/main/libs']
-        }
     }
 
     buildTypes {
@@ -40,47 +33,12 @@ android {
 }
 
 dependencies {
-
     implementation 'androidx.core:core-ktx:1.7.0'
     implementation 'androidx.appcompat:appcompat:1.5.1'
     implementation 'com.google.android.material:material:1.7.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.3'
+    implementation(project(path: ":jwst"))
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
-}
-
-def rustBasePath = "../.."
-def archTriplets = [
-        'armeabi-v7a': 'armv7-linux-androideabi',
-        'arm64-v8a': 'aarch64-linux-android',
-]
-
-archTriplets.each { arch, target ->
-    project.ext.cargo_target_directory = rustBasePath + "/target"
-    // Build with cargo
-    tasks.create(name: "cargo-build-${arch}", type: Exec, description: "Building core for ${arch}") {
-        workingDir rustBasePath
-        commandLine 'cargo', 'build', "--package=jwst-jni", "--target=${target}", '--release'
-    }
-    // Copy build libs into this app's libs directory
-    tasks.create(name: "rust-deploy-${arch}", type: Copy, dependsOn: "cargo-build-${arch}", description: "Copy rust libs for (${arch}) to jniLibs") {
-        from "../${project.ext.cargo_target_directory}/${target}/release"
-        include "*.so"
-        into "src/main/libs/${arch}"
-    }
-
-    // Hook up tasks to execute before building java
-    tasks.withType(JavaCompile) {
-        compileTask -> compileTask.dependsOn "rust-deploy-${arch}"
-    }
-    preBuild.dependsOn "rust-deploy-${arch}"
-
-    // Hook up clean tasks
-    tasks.create(name: "clean-${arch}", type: Delete, description: "Deleting built libs for ${arch}", dependsOn: "cargo-output-dir-${arch}") {
-        delete fileTree("${project.ext.cargo_target_directory}/${target}/release") {
-            include '*.so'
-        }
-    }
-    clean.dependsOn "clean-${arch}"
 }
