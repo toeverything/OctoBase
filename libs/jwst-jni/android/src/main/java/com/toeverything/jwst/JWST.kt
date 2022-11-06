@@ -2,7 +2,6 @@ package com.toeverything.jwst
 
 import com.toeverything.jwst.lib.Workspace as JwstWorkspace;
 
-
 class Workspace {
 
     /**
