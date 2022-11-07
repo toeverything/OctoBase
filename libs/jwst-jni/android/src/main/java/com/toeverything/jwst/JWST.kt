@@ -1,5 +1,7 @@
 package com.toeverything.jwst
 
+import com.toeverything.jwst.lib.OnWorkspaceTransaction
+import com.toeverything.jwst.lib.WorkspaceTransaction
 import com.toeverything.jwst.lib.Block as JwstBlock;
 import java.util.*
 import com.toeverything.jwst.lib.Workspace as JwstWorkspace;
@@ -12,7 +14,7 @@ class Workspace {
      */
     external fun stringFromJNI(): String
 
-    var workspace: JwstWorkspace
+    private var workspace: JwstWorkspace
 
     companion object {
         // Used to load the 'jwst' library on application startup.
@@ -39,5 +41,9 @@ class Workspace {
 
     public fun exists(block_id: String): Boolean {
         return this.workspace.exists(block_id);
+    }
+
+    public fun withTrx(callback: (trx: WorkspaceTransaction) -> Unit) {
+        this.workspace.withTrx { trx -> callback(trx) }
     }
 }

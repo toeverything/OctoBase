@@ -10,17 +10,35 @@ fn main() {
     Generator::new(TypeCases::CamelCase, Language::Java, "src").generate_interface(in_src);
 
     let template = fs::read_to_string(in_src).unwrap();
-    let template = [&template, r#"
-foreign_class!(
-	class WorkspaceTransaction {
+    let template = template
+        .split("use jni_sys::*;")
+        .into_iter()
+        .collect::<Vec<_>>();
+    let template = template
+        .first()
+        .into_iter()
+        .chain(["use jni_sys::*;"].iter())
+        .chain([
+r#"foreign_class!(
+    class WorkspaceTransaction {
         self_type WorkspaceTransaction;
         private constructor new<'a>() -> WorkspaceTransaction<'a> {
             unimplemented!()
         }
-		fn WorkspaceTransaction::remove(& mut self , block_id : String)->bool; alias remove;
-		fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavor : String)->Block; alias create;
-	}
-);"#].join("\n");
+        fn WorkspaceTransaction::remove(& mut self , block_id : String)->bool; alias remove;
+        fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavor : String)->Block; alias create;
+    }
+);"#,
+r#"foreign_callback!(
+    callback OnWorkspaceTransaction {
+        self_type OnWorkspaceTransaction;
+        onTrx = OnWorkspaceTransaction::on_trx(& self , trx : WorkspaceTransaction);
+    }
+);"#].iter())
+        .chain(template.iter().skip(1))
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("\n");
 
     fs::write(in_src, template).unwrap();
 

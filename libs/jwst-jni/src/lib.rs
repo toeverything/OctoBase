@@ -20,6 +20,10 @@ impl WorkspaceTransaction<'_> {
     }
 }
 
+pub trait OnWorkspaceTransaction {
+    fn on_trx(&self, trx: WorkspaceTransaction);
+}
+
 pub struct Workspace(JwstWorkspace);
 
 impl Workspace {
@@ -51,6 +55,12 @@ impl Workspace {
     #[generate_interface]
     pub fn exists(&self, block_id: &str) -> bool {
         self.0.exists(block_id)
+    }
+
+    #[generate_interface]
+    pub fn with_trx(&self, on_trx: Box<dyn OnWorkspaceTransaction>) {
+        self.0
+            .with_trx(|trx| on_trx.on_trx(WorkspaceTransaction(trx)))
     }
 }
 

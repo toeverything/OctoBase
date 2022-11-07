@@ -10,6 +10,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         var workspace = Workspace("asd");
+        workspace.withTrx { trx -> trx.create("a", "b") };
+        var block = workspace.get("a").get();
 
+        this.title = workspace.client_id().toString();
     }
 }

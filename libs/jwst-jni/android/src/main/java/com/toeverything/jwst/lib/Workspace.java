@@ -51,6 +51,11 @@ public final class Workspace {
     }
     private static native boolean do_exists(long self, @NonNull String block_id);
 
+    public final void withTrx(@NonNull OnWorkspaceTransaction on_trx) {
+        do_withTrx(mNativeObj, on_trx);
+    }
+    private static native void do_withTrx(long self, OnWorkspaceTransaction on_trx);
+
     public synchronized void delete() {
         if (mNativeObj != 0) {
             do_delete(mNativeObj);
