@@ -1,5 +1,5 @@
 use super::*;
-use axum::{extract::Path, http::header};
+use axum::{extract::Path, http::header, response::Response};
 
 /// Get a exists `Workspace` by id
 /// - Return 200 Ok and `Workspace`'s data if `Workspace` is exists.
@@ -20,7 +20,7 @@ use axum::{extract::Path, http::header};
 pub async fn get_workspace(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
-) -> impl IntoResponse {
+) -> Response {
     info!("get_workspace: {}", workspace);
     if let Some(workspace) = context.workspace.get(&workspace) {
         let workspace = workspace.lock().await;
@@ -49,7 +49,7 @@ pub async fn get_workspace(
 pub async fn set_workspace(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
-) -> impl IntoResponse {
+) -> Response {
     info!("set_workspace: {}", workspace);
 
     match init_workspace(&context, &workspace).await {
@@ -85,7 +85,7 @@ pub async fn set_workspace(
 pub async fn delete_workspace(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
-) -> impl IntoResponse {
+) -> StatusCode {
     info!("delete_workspace: {}", workspace);
     if context.workspace.remove(&workspace).is_none() {
         return StatusCode::NOT_FOUND;
@@ -119,7 +119,7 @@ pub async fn delete_workspace(
 pub async fn workspace_client(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
-) -> impl IntoResponse {
+) -> Response {
     if let Some(workspace) = context.workspace.get(&workspace) {
         let workspace = workspace.lock().await;
         Json(workspace.client_id()).into_response()
@@ -155,7 +155,7 @@ pub async fn workspace_client(
 pub async fn history_workspace_clients(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
-) -> impl IntoResponse {
+) -> Response {
     if let Some(workspace) = context.workspace.get(&workspace) {
         let workspace = workspace.lock().await;
         if let Some(history) = parse_history_client(workspace.doc()) {
@@ -189,7 +189,7 @@ pub async fn history_workspace_clients(
 pub async fn history_workspace(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
-) -> impl IntoResponse {
+) -> Response {
     let (workspace, client) = params;
     if let Some(workspace) = context.workspace.get(&workspace) {
         let workspace = workspace.lock().await;
