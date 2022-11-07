@@ -135,12 +135,14 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
         .insert((workspace.clone(), uuid.clone()), tx.clone());
 
     let init_data = {
-        if let Err(e) = init_doc(context.clone(), &workspace).await {
-            error!("Failed to init doc: {}", e);
-            return;
-        }
+        let ws = match init_workspace(&context, &workspace).await {
+            Ok(doc) => doc,
+            Err(e) => {
+                error!("Failed to init doc: {}", e);
+                return;
+            }
+        };
 
-        let ws = context.workspace.get(&workspace).unwrap();
         let mut ws = ws.lock().await;
 
         subscribe_handler(context.clone(), &mut ws, uuid.clone(), workspace.clone());

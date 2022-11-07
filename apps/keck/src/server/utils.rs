@@ -1,22 +1,25 @@
 use super::*;
-use dashmap::mapref::entry::Entry;
+use dashmap::mapref::{entry::Entry, one::RefMut};
 use jwst::Workspace;
 use sqlx::Error;
-use std::sync::Arc;
 use tokio::sync::Mutex;
 
 pub use jwst_logger::{debug, error, info, warn};
 pub use serde::{Deserialize, Serialize};
 pub use uuid::Uuid;
 
-pub async fn init_doc(context: Arc<Context>, workspace: &str) -> Result<(), Error> {
-    if let Entry::Vacant(entry) = context.workspace.entry(workspace.to_owned()) {
-        let doc = context.db.create_doc(workspace).await?;
+pub async fn init_workspace<'a>(
+    context: &'a Context,
+    workspace: &str,
+) -> Result<RefMut<'a, String, Mutex<Workspace>>, Error> {
+    match context.workspace.entry(workspace.to_owned()) {
+        Entry::Vacant(entry) => {
+            let doc = context.db.create_doc(workspace).await?;
 
-        entry.insert(Mutex::new(Workspace::from_doc(doc, workspace)));
-    };
-
-    Ok(())
+            Ok(entry.insert(Mutex::new(Workspace::from_doc(doc, workspace))))
+        }
+        Entry::Occupied(o) => Ok(o.into_ref()),
+    }
 }
 
 #[cfg(test)]
