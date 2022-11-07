@@ -1,4 +1,5 @@
 use super::*;
+use axum::response::Response;
 use lib0::any::Any;
 
 /// Get a `Block` by id
@@ -62,25 +63,32 @@ pub async fn set_block(
     Extension(context): Extension<Arc<Context>>,
     Json(payload): Json<JsonValue>,
     Path(params): Path<(String, String)>,
-) -> impl IntoResponse {
-    let (workspace, block) = params;
-    info!("set_block: {}, {}", workspace, block);
-    if let Some(workspace) = context.workspace.get(&workspace) {
+) -> Response {
+    let (ws_id, block) = params;
+    info!("set_block: {}, {}", ws_id, block);
+    if let Some(workspace) = context.workspace.get(&ws_id) {
         // init block instance
         let workspace = workspace.lock().await;
         // set block content
-        let block = workspace.with_trx(|mut t| {
-            let block = t.create(&block, "text");
-            // set block content
-            if let Some(block_content) = payload.as_object() {
-                for (key, value) in block_content.iter() {
-                    if let Ok(value) = serde_json::from_value::<Any>(value.clone()) {
-                        block.set(&mut t.trx, key, value);
-                    }
+        let mut t = workspace.get_trx();
+        let block = t.create(&block, "text");
+        // set block content
+        if let Some(block_content) = payload.as_object() {
+            let mut changed = false;
+            for (key, value) in block_content.iter() {
+                changed = true;
+                if let Ok(value) = serde_json::from_value::<Any>(value.clone()) {
+                    block.set(&mut t.trx, key, value);
                 }
             }
-            block
-        });
+
+            if changed {
+                let update = t.trx.encode_update_v1();
+                if let Err(e) = context.db.update(&ws_id, update).await {
+                    error!("db write error: {}", e.to_string());
+                }
+            }
+        }
 
         // response block content
         Json(block).into_response()
@@ -146,11 +154,16 @@ pub async fn delete_block(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
 ) -> impl IntoResponse {
-    let (workspace, block) = params;
-    info!("delete_block: {}, {}", workspace, block);
-    if let Some(workspace) = context.workspace.get(&workspace) {
+    let (ws_id, block) = params;
+    info!("delete_block: {}, {}", ws_id, block);
+    if let Some(workspace) = context.workspace.get(&ws_id) {
         let workspace = workspace.value().lock().await;
-        if workspace.get_trx().remove(&block) {
+        let mut t = workspace.get_trx();
+        if t.remove(&block) {
+            let update = t.trx.encode_update_v1();
+            if let Err(e) = context.db.update(&ws_id, update).await {
+                error!("db write error: {}", e.to_string());
+            }
             StatusCode::NO_CONTENT
         } else {
             StatusCode::NOT_FOUND

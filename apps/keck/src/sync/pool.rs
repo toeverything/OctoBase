@@ -192,8 +192,6 @@ impl DbPool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
         use super::*;

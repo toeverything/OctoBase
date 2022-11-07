@@ -104,6 +104,8 @@ pub struct WorkspaceTransaction<'a> {
     pub trx: Transaction,
 }
 
+unsafe impl Send for WorkspaceTransaction<'_> {}
+
 impl WorkspaceTransaction<'_> {
     pub fn remove<S: AsRef<str>>(&mut self, block_id: S) -> bool {
         self.ws

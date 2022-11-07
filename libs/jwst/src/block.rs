@@ -25,6 +25,8 @@ pub struct Block {
     updated: Array,
 }
 
+unsafe impl Send for Block {}
+
 impl Block {
     // Create a new block, skip create if block is already created.
     pub fn new<B, F>(
