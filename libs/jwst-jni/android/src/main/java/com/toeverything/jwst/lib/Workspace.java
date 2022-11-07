@@ -9,6 +9,48 @@ public final class Workspace {
     }
     private static native long init(@NonNull String id);
 
+    public final @NonNull String id() {
+        String ret = do_id(mNativeObj);
+
+        return ret;
+    }
+    private static native @NonNull String do_id(long self);
+
+    public final long clientId() {
+        long ret = do_clientId(mNativeObj);
+
+        return ret;
+    }
+    private static native long do_clientId(long self);
+
+    public final @NonNull WorkspaceTransaction getTrx() {
+        long ret = do_getTrx(mNativeObj);
+        WorkspaceTransaction convRet = new WorkspaceTransaction(InternalPointerMarker.RAW_PTR, ret);
+
+        return convRet;
+    }
+    private static native long do_getTrx(long self);
+
+    public final @NonNull java.util.Optional<Block> get(@NonNull String block_id) {
+        long ret = do_get(mNativeObj, block_id);
+        java.util.Optional<Block> convRet;
+        if (ret != 0) {
+            convRet = java.util.Optional.of(new Block(InternalPointerMarker.RAW_PTR, ret));
+        } else {
+            convRet = java.util.Optional.empty();
+        }
+
+        return convRet;
+    }
+    private static native long do_get(long self, @NonNull String block_id);
+
+    public final boolean exists(@NonNull String block_id) {
+        boolean ret = do_exists(mNativeObj, block_id);
+
+        return ret;
+    }
+    private static native boolean do_exists(long self, @NonNull String block_id);
+
     public synchronized void delete() {
         if (mNativeObj != 0) {
             do_delete(mNativeObj);

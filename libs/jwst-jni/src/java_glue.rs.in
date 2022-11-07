@@ -2,8 +2,31 @@
 use crate::*;
 use jni_sys::*;
 foreign_class!(
+	class Block {
+		self_type Block;
+		constructor Block::new(workspace : & Workspace , block_id : String , flavor : String , operator : u64)->Block;
+	}
+);
+foreign_class!(
 	class Workspace {
 		self_type Workspace;
 		constructor Workspace::new(id : String)->Workspace;
+		fn Workspace::id(& self)->String; alias id;
+		fn Workspace::client_id(& self)->u64; alias clientId;
+		fn Workspace::get_trx(& self)->WorkspaceTransaction; alias getTrx;
+		fn Workspace::get(& self , block_id : String)->Option<Block>; alias get;
+		fn Workspace::exists(& self , block_id : & str)->bool; alias exists;
+	}
+);
+
+
+foreign_class!(
+	class WorkspaceTransaction {
+        self_type WorkspaceTransaction;
+        private constructor new<'a>() -> WorkspaceTransaction<'a> {
+            unimplemented!()
+        }
+		fn WorkspaceTransaction::remove(& mut self , block_id : String)->bool; alias remove;
+		fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavor : String)->Block; alias create;
 	}
 );

@@ -1,5 +1,7 @@
 package com.toeverything.jwst
 
+import com.toeverything.jwst.lib.Block as JwstBlock;
+import java.util.*
 import com.toeverything.jwst.lib.Workspace as JwstWorkspace;
 
 class Workspace {
@@ -21,5 +23,21 @@ class Workspace {
 
     constructor(id: String) {
         this.workspace = JwstWorkspace(id)
+    }
+
+    public fun id(): String {
+        return this.workspace.id();
+    }
+
+    public fun client_id(): Long {
+        return this.workspace.clientId();
+    }
+
+    public fun get(block_id: String): Optional<JwstBlock> {
+        return this.workspace.get(block_id);
+    }
+
+    public fun exists(block_id: String): Boolean {
+        return this.workspace.exists(block_id);
     }
 }

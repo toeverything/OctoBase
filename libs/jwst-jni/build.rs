@@ -9,6 +9,21 @@ fn main() {
 
     Generator::new(TypeCases::CamelCase, Language::Java, "src").generate_interface(in_src);
 
+    let template = fs::read_to_string(in_src).unwrap();
+    let template = [&template, r#"
+foreign_class!(
+	class WorkspaceTransaction {
+        self_type WorkspaceTransaction;
+        private constructor new<'a>() -> WorkspaceTransaction<'a> {
+            unimplemented!()
+        }
+		fn WorkspaceTransaction::remove(& mut self , block_id : String)->bool; alias remove;
+		fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavor : String)->Block; alias create;
+	}
+);"#].join("\n");
+
+    fs::write(in_src, template).unwrap();
+
     //delete the lib folder then create it again to prevent obsolete files from staying
     let java_folder = Path::new("android").join("src/main/java/com/toeverything/jwst/lib");
     if java_folder.exists() {

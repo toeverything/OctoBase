@@ -7,4 +7,4 @@ pub use history::{
     parse_history, parse_history_client, BlockHistory, HistoryOperation, RawHistory,
 };
 pub use log::error;
-pub use workspace::Workspace;
+pub use workspace::{Workspace, WorkspaceTransaction};

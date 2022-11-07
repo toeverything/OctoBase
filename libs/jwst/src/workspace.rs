@@ -51,8 +51,8 @@ impl Workspace {
         self.doc.client_id
     }
 
-    pub fn with_trx<T>(&self, f: impl FnOnce(WorkspaceTranscation) -> T) -> T {
-        let trx = WorkspaceTranscation {
+    pub fn with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> T {
+        let trx = WorkspaceTransaction {
             trx: self.doc.transact(),
             ws: self,
         };
@@ -60,8 +60,8 @@ impl Workspace {
         f(trx)
     }
 
-    pub fn get_trx(&self) -> WorkspaceTranscation {
-        WorkspaceTranscation {
+    pub fn get_trx(&self) -> WorkspaceTransaction {
+        WorkspaceTransaction {
             trx: self.doc.transact(),
             ws: self,
         }
@@ -99,13 +99,13 @@ impl Serialize for Workspace {
     }
 }
 
-pub struct WorkspaceTranscation<'a> {
+pub struct WorkspaceTransaction<'a> {
     pub ws: &'a Workspace,
     pub trx: Transaction,
 }
 
-impl WorkspaceTranscation<'_> {
-    pub fn remove(&mut self, block_id: &str) -> bool {
+impl WorkspaceTransaction<'_> {
+    pub fn remove<S: AsRef<str>>(&mut self, block_id: S) -> bool {
         self.ws
             .blocks
             .remove(&mut self.trx, block_id.as_ref())
@@ -119,9 +119,10 @@ impl WorkspaceTranscation<'_> {
 
     // create a block with specified flavor
     // if block exists, return the exists block
-    pub fn create<B>(&mut self, block_id: B, flavor: &str) -> Block
+    pub fn create<B, F>(&mut self, block_id: B, flavor: F) -> Block
     where
         B: AsRef<str>,
+        F: AsRef<str>,
     {
         Block::new(
             self.ws,

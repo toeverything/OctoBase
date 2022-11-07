@@ -27,15 +27,16 @@ pub struct Block {
 
 impl Block {
     // Create a new block, skip create if block is already created.
-    pub fn new<B>(
+    pub fn new<B, F>(
         workspace: &Workspace,
         trx: &mut Transaction,
         block_id: B,
-        flavor: &str,
+        flavor: F,
         operator: u64,
     ) -> Block
     where
         B: AsRef<str>,
+        F: AsRef<str>,
     {
         let block_id = block_id.as_ref();
         if let Some(block) = Self::from(workspace, block_id, operator) {
@@ -52,7 +53,7 @@ impl Block {
                 .unwrap();
 
             // init default schema
-            block.insert(trx, "sys:flavor", flavor);
+            block.insert(trx, "sys:flavor", flavor.as_ref());
             block.insert(trx, "sys:version", PrelimArray::from([1, 0]));
             block.insert(
                 trx,
