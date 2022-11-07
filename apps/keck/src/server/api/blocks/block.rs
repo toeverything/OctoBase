@@ -22,7 +22,7 @@ use lib0::any::Any;
 pub async fn get_block(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
-) -> impl IntoResponse {
+) -> Response {
     let (workspace, block) = params;
     info!("get_block: {}, {}", workspace, block);
     if let Some(workspace) = context.workspace.get(&workspace) {
@@ -117,7 +117,7 @@ pub async fn set_block(
 pub async fn get_block_history(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
-) -> impl IntoResponse {
+) -> Response {
     let (workspace, block) = params;
     info!("get_block_history: {}, {}", workspace, block);
     if let Some(workspace) = context.workspace.get(&workspace) {
@@ -153,7 +153,7 @@ pub async fn get_block_history(
 pub async fn delete_block(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
-) -> impl IntoResponse {
+) -> StatusCode {
     let (ws_id, block) = params;
     info!("delete_block: {}, {}", ws_id, block);
     if let Some(workspace) = context.workspace.get(&ws_id) {
@@ -200,7 +200,7 @@ pub async fn insert_block_children(
     Extension(context): Extension<Arc<Context>>,
     Json(payload): Json<InsertChildren>,
     Path(params): Path<(String, String)>,
-) -> impl IntoResponse {
+) -> Response {
     let (workspace, block) = params;
     info!("insert_block: {}, {}", workspace, block);
     if let Some(workspace) = context.workspace.get(&workspace) {
@@ -259,7 +259,7 @@ pub async fn insert_block_children(
 pub async fn remove_block_children(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String, String)>,
-) -> impl IntoResponse {
+) -> Response {
     let (workspace, block, child_id) = params;
     info!("insert_block: {}, {}", workspace, block);
     if let Some(workspace) = context.workspace.get(&workspace) {
