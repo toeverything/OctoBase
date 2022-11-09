@@ -91,7 +91,10 @@ fn doc_apis(router: Router) -> Router {
 fn block_apis(router: Router) -> Router {
     let block_operation = Router::new()
         .route("/history", get(block::get_block_history))
-        .route("/children", post(block::insert_block_children))
+        .route(
+            "/children",
+            get(block::get_block_children).post(block::insert_block_children),
+        )
         .route("/children/:children", delete(block::remove_block_children));
 
     doc_apis(router)
@@ -120,6 +123,10 @@ fn workspace_apis(router: Router) -> Router {
             get(workspace::get_workspace)
                 .post(workspace::set_workspace)
                 .delete(workspace::delete_workspace),
+        )
+        .route(
+            "/block/:workspace/blocks",
+            get(workspace::get_workspace_block),
         )
 }
 

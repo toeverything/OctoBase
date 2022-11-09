@@ -15,6 +15,25 @@ use jwst::{parse_history, parse_history_client, Workspace};
 use serde_json::Value as JsonValue;
 use tokio::sync::{mpsc::Sender, Mutex};
 
+#[derive(Deserialize)]
+#[cfg_attr(feature = "api", derive(utoipa::IntoParams))]
+pub struct Pagination {
+    #[serde(default)]
+    offset: usize,
+    #[serde(default = "default_limit")]
+    limit: usize,
+}
+
+fn default_limit() -> usize {
+    usize::MAX
+}
+
+#[derive(Serialize)]
+pub struct PageData<T> {
+    total: usize,
+    data: T,
+}
+
 pub struct Context {
     pub workspace: DashMap<String, Mutex<Workspace>>,
     pub channel: DashMap<(String, String), Sender<Message>>,

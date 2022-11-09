@@ -1,5 +1,5 @@
 use super::*;
-use axum::response::Response;
+use axum::{extract::Query, response::Response};
 use lib0::any::Any;
 
 /// Get a `Block` by id
@@ -170,6 +170,59 @@ pub async fn delete_block(
         }
     } else {
         StatusCode::NOT_FOUND
+    }
+}
+
+/// Get children in `Block`
+/// - Return 200 and `Block`'s children ID.
+/// - Return 404 Not Found if `Workspace` or `Block` not exists.
+#[utoipa::path(
+    get,
+    tag = "Blocks",
+    context_path = "/api/block",
+    path = "/{workspace}/{block}/children",
+    params(
+        ("workspace", description = "workspace id"),
+        ("block", description = "block id"),
+        Pagination
+    ),
+    responses(
+        (status = 200, description = "Get block children", body = PageData<[String]>),
+        (status = 404, description = "Workspace or block not found"),
+    )
+)]
+pub async fn get_block_children(
+    Extension(context): Extension<Arc<Context>>,
+    Path(params): Path<(String, String)>,
+    Query(pagination): Query<Pagination>,
+) -> Response {
+    let (workspace, block) = params;
+    let Pagination { offset, limit } = pagination;
+    info!("get_block_children: {}, {}", workspace, block);
+    if let Some(workspace) = context.workspace.get(&workspace) {
+        let workspace = workspace.value().lock().await;
+        if let Some(block) = workspace.get(&block) {
+            let data: Vec<String> = block.children_iter().skip(offset).take(limit).collect();
+
+            let status = if data.is_empty() {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::OK
+            };
+
+            (
+                status,
+                Json(PageData {
+                    total: block.children_len() as usize,
+                    data,
+                }),
+            )
+                .into_response()
+        } else {
+            StatusCode::NOT_FOUND.into_response()
+        }
+    } else {
+        StatusCode::NOT_FOUND.into_response()
     }
 }
 

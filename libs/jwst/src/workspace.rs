@@ -76,6 +76,25 @@ impl Workspace {
         Block::from(self, block_id, self.doc.client_id)
     }
 
+    pub fn block_count(&self) -> u32 {
+        self.blocks.len()
+    }
+
+    #[inline]
+    pub fn block_iter(&self) -> impl Iterator<Item = Block> + '_ {
+        self.blocks
+            .iter()
+            .zip(self.updated.iter())
+            .map(|((id, block), (_, updated))| {
+                Block::from_raw_parts(
+                    id.to_owned(),
+                    block.to_ymap().unwrap(),
+                    updated.to_yarray().unwrap(),
+                    self.doc.client_id,
+                )
+            })
+    }
+
     pub fn exists(&self, block_id: &str) -> bool {
         self.blocks.contains(block_id.as_ref())
     }
