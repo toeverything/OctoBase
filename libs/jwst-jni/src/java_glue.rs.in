@@ -23,6 +23,13 @@ foreign_class!(
 	class Block {
 		self_type Block;
 		constructor Block::new(workspace : & Workspace , block_id : String , flavor : String , operator : u64)->Block;
+		fn Block::id(& self)->String; alias id;
+		fn Block::flavor(& self)->String; alias flavor;
+		fn Block::version(& self)->String; alias version;
+		fn Block::created(& self)->u64; alias created;
+		fn Block::updated(& self)->u64; alias updated;
+		fn Block::parent(& self)->Option<String>; alias parent;
+		fn Block::children(& self)->Vec<String>; alias children;
 	}
 );
 foreign_class!(
