@@ -10,6 +10,7 @@ pub struct Workspace {
 }
 
 unsafe impl Send for Workspace {}
+unsafe impl Sync for Workspace {}
 
 impl Workspace {
     pub fn new<S: AsRef<str>>(id: S) -> Self {

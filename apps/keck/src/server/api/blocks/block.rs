@@ -201,34 +201,48 @@ pub async fn insert_block_children(
     Json(payload): Json<InsertChildren>,
     Path(params): Path<(String, String)>,
 ) -> Response {
-    let (workspace, block) = params;
-    info!("insert_block: {}, {}", workspace, block);
-    if let Some(workspace) = context.workspace.get(&workspace) {
+    let (ws_id, block) = params;
+    info!("insert_block: {}, {}", ws_id, block);
+    if let Some(workspace) = context.workspace.get(&ws_id) {
         // init block instance
         let workspace = workspace.value().lock().await;
         if let Some(block) = workspace.get(block) {
-            workspace.with_trx(|mut t| match payload {
+            let mut t = workspace.get_trx();
+            let mut changed = false;
+            match payload {
                 InsertChildren::Push(block_id) => {
                     if let Some(child) = workspace.get(&block_id) {
+                        changed = true;
                         block.push_children(&mut t.trx, &child)
                     }
                 }
                 InsertChildren::InsertBefore { id, before } => {
                     if let Some(child) = workspace.get(&id) {
+                        changed = true;
                         block.insert_children_before(&mut t.trx, &child, &before)
                     }
                 }
                 InsertChildren::InsertAfter { id, after } => {
                     if let Some(child) = workspace.get(&id) {
+                        changed = true;
                         block.insert_children_after(&mut t.trx, &child, &after)
                     }
                 }
                 InsertChildren::InsertAt { id, pos } => {
                     if let Some(child) = workspace.get(&id) {
+                        changed = true;
                         block.insert_children_at(&mut t.trx, &child, pos)
                     }
                 }
-            });
+            }
+
+            if changed {
+                let update = t.trx.encode_update_v1();
+                if let Err(e) = context.db.update(&ws_id, update).await {
+                    error!("db write error: {}", e.to_string());
+                }
+            }
+
             // response block content
             Json(block).into_response()
         } else {
@@ -260,17 +274,22 @@ pub async fn remove_block_children(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String, String)>,
 ) -> Response {
-    let (workspace, block, child_id) = params;
-    info!("insert_block: {}, {}", workspace, block);
-    if let Some(workspace) = context.workspace.get(&workspace) {
+    let (ws_id, block, child_id) = params;
+    info!("insert_block: {}, {}", ws_id, block);
+    if let Some(workspace) = context.workspace.get(&ws_id) {
         // init block instance
         let workspace = workspace.value().lock().await;
         if let Some(block) = workspace.get(&block) {
-            workspace.with_trx(|mut t| {
-                if let Some(child) = workspace.get(&child_id) {
-                    block.remove_children(&mut t.trx, &child);
+            let mut t = workspace.get_trx();
+            if let Some(child) = workspace.get(&child_id) {
+                block.remove_children(&mut t.trx, &child);
+
+                let update = t.trx.encode_update_v1();
+                if let Err(e) = context.db.update(&ws_id, update).await {
+                    error!("db write error: {}", e.to_string());
                 }
-            });
+            }
+
             // response block content
             Json(block).into_response()
         } else {
