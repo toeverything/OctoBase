@@ -49,7 +49,7 @@ r#"foreign_callback!(
     }
     fs::create_dir(&java_folder).unwrap();
     let swig_gen = flapigen::Generator::new(LanguageConfig::JavaConfig(
-        JavaConfig::new(java_folder.into(), "com.toeverything.jwst.lib".into())
+        JavaConfig::new(java_folder, "com.toeverything.jwst.lib".into())
             .use_null_annotation_from_package("androidx.annotation".into()),
     ))
     .rustfmt_bindings(true);

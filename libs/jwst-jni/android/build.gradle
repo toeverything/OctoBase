@@ -11,10 +11,14 @@ android {
         minSdk 28
         targetSdk 32
 
+        aarMetadata {
+            minCompileSdk = 28
+        }
+
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
 
-        ndk.abiFilters 'armeabi-v7a','arm64-v8a','x86','x86_64'
+        ndk.abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
     }
 
     sourceSets {
@@ -25,7 +29,7 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -51,7 +55,7 @@ dependencies {
 def rustBasePath = "../.."
 def archTriplets = [
         'armeabi-v7a': 'armv7-linux-androideabi',
-        'arm64-v8a': 'aarch64-linux-android',
+        'arm64-v8a'  : 'aarch64-linux-android',
 ]
 
 archTriplets.each { arch, target ->

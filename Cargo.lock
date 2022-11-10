@@ -1227,6 +1227,7 @@ dependencies = [
  "flapigen",
  "jni-sys",
  "jwst",
+ "lib0",
  "log",
  "log-panics",
  "rifgen",
@@ -1299,9 +1300,9 @@ dependencies = [
 
 [[package]]
 name = "lib0"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db088f7d98d549ba85e37d4d1909f7fbef5ec215938b8cc74c68758197867390"
+checksum = "43a4d1318cbf1ad281d3c0c41ea6984f349be2d3a3c9366409a5b5938cc9c9f0"
 dependencies = [
  "serde",
  "serde_json",
