@@ -71,8 +71,8 @@ archTriplets.each { arch, target ->
     project.ext.cargo_target_directory = rustBasePath + "/target"
     // Build with cargo
     tasks.create(name: "cargo-build-${arch}", type: Exec, description: "Building core for ${arch}") {
-        workingDir rustBasePath
-        commandLine 'cargo', 'build', "--package=jwst-jni", "--target=${target}", '--release'
+        workingDir rustBasePath + "/.."
+        commandLine 'cargo', 'ndk', "-t", arch, 'build', "--package=jwst-jni", '--release'
     }
     // Copy build libs into this app's libs directory
     tasks.create(name: "rust-deploy-${arch}", type: Copy, dependsOn: "cargo-build-${arch}", description: "Copy rust libs for (${arch}) to jniLibs") {

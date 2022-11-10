@@ -2,9 +2,7 @@
 CARGO_WORKSPACE_DIR = { value = "", relative = true }
 
 [target.aarch64-linux-android]
-linker = "/Users/ds/Library/Android/sdk/ndk/25.1.8937393/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android28-clang++"
 runner = "./apps/android/run-on-android.sh"
 
 [target.armv7-linux-androideabi]
-linker = "/Users/ds/Library/Android/sdk/ndk/25.1.8937393/toolchains/llvm/prebuilt/darwin-x86_64/bin/armv7a-linux-androideabi28-clang++"
 runner = "./apps/android/run-on-android.sh"

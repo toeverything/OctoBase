@@ -18,6 +18,10 @@ jobs:
                   distribution: 'adopt'
             - name: Validate Gradle wrapper
               uses: gradle/wrapper-validation-action@e6e38bacfdf1a337459f332974bb2327a31aaf4b
+            - uses: nttld/setup-ndk@v1
+              id: setup-ndk
+              with:
+                  ndk-version: r25b
             - uses: actions-rs/toolchain@v1
               with:
                   toolchain: stable
@@ -26,6 +30,7 @@ jobs:
               with:
                   toolchain: stable
                   target: aarch64-linux-android
+            - run: cargo install cargo-ndk
             - name: Publish package
               uses: gradle/gradle-build-action@v2
               with:
@@ -33,3 +38,4 @@ jobs:
                   build-root-directory: apps/android
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
