@@ -15,7 +15,6 @@ dependencyResolutionManagement {
 rootProject.name = "JWST-Demo"
 include ':app'
 include ':jwst'
-include ':jwst-rust'
 
 project(':jwst').projectDir = new File(rootDir, '../../libs/jwst-jni/android/')
-project(':jwst-rust').projectDir = new File(rootDir, '../../libs/jwst-jni/')
+

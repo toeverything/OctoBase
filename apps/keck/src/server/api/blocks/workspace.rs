@@ -134,7 +134,7 @@ pub async fn workspace_client(
 }
 
 /// Get `Block` in `Workspace`
-/// - Return 200 and `Block`'s children ID.
+/// - Return 200 and `Block`'s ID.
 /// - Return 404 Not Found if `Workspace` or `Block` not exists.
 #[utoipa::path(
     get,
@@ -143,7 +143,6 @@ pub async fn workspace_client(
     path = "/{workspace}/blocks",
     params(
         ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
         Pagination
     ),
     responses(

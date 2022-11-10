@@ -1,22 +1,14 @@
 package com.toeverything.jwst
 
-import com.toeverything.jwst.lib.WorkspaceTransaction as JwstWorkspaceTransaction;
-import com.toeverything.jwst.lib.Block as JwstBlock;
 import java.util.*
-import com.toeverything.jwst.lib.Workspace as JwstWorkspace;
+import com.toeverything.jwst.lib.WorkspaceTransaction as JwstWorkspaceTransaction
+import com.toeverything.jwst.lib.Block as JwstBlock
+import com.toeverything.jwst.lib.Workspace as JwstWorkspace
 
 class Workspace(id: String) {
-
-    /**
-     * A native method that is implemented by the 'jwst' native library,
-     * which is packaged with this application.
-     */
-    external fun stringFromJNI(): String
-
-    internal var workspace: JwstWorkspace
+    private var workspace: JwstWorkspace
 
     companion object {
-        // Used to load the 'jwst' library on application startup.
         init {
             System.loadLibrary("jwst")
         }
@@ -26,23 +18,23 @@ class Workspace(id: String) {
         this.workspace = JwstWorkspace(id)
     }
 
-    public fun id(): String {
+    fun id(): String {
         return this.workspace.id();
     }
 
-    public fun client_id(): Long {
+    fun client_id(): Long {
         return this.workspace.clientId();
     }
 
-    public fun get(block_id: String): Optional<Block> {
+    fun get(block_id: String): Optional<Block> {
         return this.workspace.get(block_id).map { block -> Block(block) };
     }
 
-    public fun exists(block_id: String): Boolean {
+    fun exists(block_id: String): Boolean {
         return this.workspace.exists(block_id);
     }
 
-    public fun withTrx(callback: (trx: WorkspaceTransaction) -> Unit) {
+    fun withTrx(callback: (trx: WorkspaceTransaction) -> Unit) {
         this.workspace.withTrx { trx -> callback(WorkspaceTransaction(trx)) }
     }
 }
@@ -55,23 +47,17 @@ class WorkspaceTransaction constructor(internal var trx: JwstWorkspaceTransactio
         }
     }
 
-    public fun create(id: String, flavor: String): Block {
+    fun create(id: String, flavor: String): Block {
         return Block(this.trx.create(id, flavor));
     }
 
-    public fun remove(block_id: String): Boolean {
+    fun remove(block_id: String): Boolean {
         return this.trx.remove(block_id)
     }
 }
 
 
-class Block constructor(internal var block: JwstBlock) {
-    /**
-     * A native method that is implemented by the 'jwst' native library,
-     * which is packaged with this application.
-     */
-    external fun stringFromJNI(): String
-
+class Block constructor(private var block: JwstBlock) {
     companion object {
         // Used to load the 'jwst' library on application startup.
         init {
@@ -79,7 +65,7 @@ class Block constructor(internal var block: JwstBlock) {
         }
     }
 
-    public fun <T> set(trx: WorkspaceTransaction, key: String, value: T?) {
+    fun <T> set(trx: WorkspaceTransaction, key: String, value: T?) {
         value?.let {
             if (it is Boolean) {
                 this.block.setBool(trx.trx, key, it)
@@ -101,8 +87,7 @@ class Block constructor(internal var block: JwstBlock) {
         }
     }
 
-
-    public fun get(key: String): Optional<Any> {
+    fun get(key: String): Optional<Any> {
         return when {
             this.block.isBool(key) -> Optional.of(this.block.getBool(key))
                 .filter(OptionalLong::isPresent)
@@ -120,51 +105,51 @@ class Block constructor(internal var block: JwstBlock) {
         }
     }
 
-    public fun id(): String {
+    fun id(): String {
         return this.block.id()
     }
 
-    public fun flavor(): String {
+    fun flavor(): String {
         return this.block.flavor()
     }
 
-    public fun created(): Long {
+    fun created(): Long {
         return this.block.created()
     }
 
-    public fun updated(): Long {
+    fun updated(): Long {
         return this.block.updated()
     }
 
-    public fun parent(): Optional<String> {
+    fun parent(): Optional<String> {
         return this.block.parent()
     }
 
-    public fun children(): Array<String> {
+    fun children(): Array<String> {
         return this.block.children()
     }
 
-    public fun pushChildren(trx: WorkspaceTransaction, block: Block) {
+    fun pushChildren(trx: WorkspaceTransaction, block: Block) {
         this.block.pushChildren(trx.trx, block.block)
     }
 
-    public fun insertChildrenAt(trx: WorkspaceTransaction, block: Block, index: Long) {
+    fun insertChildrenAt(trx: WorkspaceTransaction, block: Block, index: Long) {
         this.block.insertChildrenAt(trx.trx, block.block, index)
     }
 
-    public fun insertChildrenBefore(trx: WorkspaceTransaction, block: Block, before: String) {
+    fun insertChildrenBefore(trx: WorkspaceTransaction, block: Block, before: String) {
         this.block.insertChildrenBefore(trx.trx, block.block, before)
     }
 
-    public fun insertChildrenAfter(trx: WorkspaceTransaction, block: Block, after: String) {
+    fun insertChildrenAfter(trx: WorkspaceTransaction, block: Block, after: String) {
         this.block.insertChildrenAfter(trx.trx, block.block, after)
     }
 
-    public fun removeChildren(trx: WorkspaceTransaction, block: Block) {
+    fun removeChildren(trx: WorkspaceTransaction, block: Block) {
         this.block.removeChildren(trx.trx, block.block)
     }
 
-    public fun existsChildren(block_id: String): Int {
+    fun existsChildren(block_id: String): Int {
         return this.block.existsChildren(block_id)
     }
 }
