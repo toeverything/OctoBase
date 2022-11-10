@@ -1,5 +1,10 @@
 use super::*;
-use axum::{extract::Path, http::header, response::Response};
+use axum::{
+    extract::{Path, Query},
+    http::header,
+    response::Response,
+};
+use jwst::Block;
 
 /// Get a exists `Workspace` by id
 /// - Return 200 Ok and `Workspace`'s data if `Workspace` is exists.
@@ -123,6 +128,48 @@ pub async fn workspace_client(
     if let Some(workspace) = context.workspace.get(&workspace) {
         let workspace = workspace.lock().await;
         Json(workspace.client_id()).into_response()
+    } else {
+        StatusCode::NOT_FOUND.into_response()
+    }
+}
+
+/// Get `Block` in `Workspace`
+/// - Return 200 and `Block`'s children ID.
+/// - Return 404 Not Found if `Workspace` or `Block` not exists.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/block",
+    path = "/{workspace}/blocks",
+    params(
+        ("workspace", description = "workspace id"),
+        ("block", description = "block id"),
+        Pagination
+    ),
+    responses(
+        (status = 200, description = "Get Blocks", body = PageData<[Block]>),
+        (status = 404, description = "Workspace or block not found"),
+    )
+)]
+pub async fn get_workspace_block(
+    Extension(context): Extension<Arc<Context>>,
+    Path(workspace): Path<String>,
+    Query(pagination): Query<Pagination>,
+) -> Response {
+    let Pagination { offset, limit } = pagination;
+    info!("get_workspace_block: {}", workspace);
+    if let Some(workspace) = context.workspace.get(&workspace) {
+        let workspace = workspace.value().lock().await;
+        let total = workspace.block_count() as usize;
+        let data: Vec<Block> = workspace.block_iter().skip(offset).take(limit).collect();
+
+        let status = if data.is_empty() {
+            StatusCode::NOT_FOUND
+        } else {
+            StatusCode::OK
+        };
+
+        (status, Json(PageData { total, data })).into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }

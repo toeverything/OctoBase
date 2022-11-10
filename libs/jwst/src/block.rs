@@ -115,6 +115,17 @@ impl Block {
         })
     }
 
+    pub fn from_raw_parts(id: String, block: Map, updated: Array, operator: u64) -> Block {
+        let children = block.get("sys:children").unwrap().to_yarray().unwrap();
+        Self {
+            id,
+            operator,
+            block,
+            children,
+            updated,
+        }
+    }
+
     pub(crate) fn log_update(&self, trx: &mut Transaction, action: HistoryOperation) {
         let array = PrelimArray::from([
             Any::Number(self.operator as f64),
@@ -240,6 +251,15 @@ impl Block {
 
     pub fn children(&self) -> Vec<String> {
         self.children.iter().map(|v| v.to_string()).collect()
+    }
+
+    #[inline]
+    pub fn children_iter(&self) -> impl Iterator<Item = String> + '_ {
+        self.children.iter().map(|v| v.to_string())
+    }
+
+    pub fn children_len(&self) -> u32 {
+        self.children.len()
     }
 
     pub fn content(&self) -> HashMap<String, Any> {
