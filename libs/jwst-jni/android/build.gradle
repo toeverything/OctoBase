@@ -100,10 +100,10 @@ publishing {
    repositories {
        maven {
            name = "GitHubPackages"
-           url = "https://maven.pkg.github.com/toeverything/jwst"
+           url = uri("https://maven.pkg.github.com/toeverything/JWSTBase")
            credentials {
-               username = System.getenv("GITHUB_ACTOR")
-               password = System.getenv("GITHUB_TOKEN")
+               username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
+               password = project.findProperty("gpr.token") ?: System.getenv("GITHUB_TOKEN")
            }
        }
    }
@@ -115,8 +115,8 @@ publishing {
     // }
     publications {
         release(MavenPublication) {
-            groupId = 'com.toeverything.jwst'
-            artifactId = 'jwst'
+            groupId = 'com.toeverything'
+            artifactId = 'jwstbase'
             version = '0.1'
 
             afterEvaluate {

@@ -2,7 +2,6 @@ package com.example.jwst_demo
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import com.toeverything.jwst.Block
 import com.toeverything.jwst.Workspace
 
 class MainActivity : AppCompatActivity() {
