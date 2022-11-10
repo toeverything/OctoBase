@@ -20,12 +20,6 @@ android {
             enable = true
         }
 
-        publishing {
-            singleVariant('release') {
-                withSourcesJar()
-            }
-        }
-
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
 
@@ -42,6 +36,12 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
         }
     }
 
@@ -97,13 +97,30 @@ archTriplets.each { arch, target ->
 }
 
 publishing {
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = "https://maven.pkg.github.com/toeverything/jwst"
-            credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
+   repositories {
+       maven {
+           name = "GitHubPackages"
+           url = "https://maven.pkg.github.com/toeverything/jwst"
+           credentials {
+               username = System.getenv("GITHUB_ACTOR")
+               password = System.getenv("GITHUB_TOKEN")
+           }
+       }
+   }
+    // repositories {
+    //     maven {
+    //         name = 'jwst'
+    //         url = "${project.buildDir}/jwst"
+    //     }
+    // }
+    publications {
+        release(MavenPublication) {
+            groupId = 'com.toeverything.jwst'
+            artifactId = 'jwst'
+            version = '0.1'
+
+            afterEvaluate {
+                from components.release
             }
         }
     }

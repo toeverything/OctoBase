@@ -21,7 +21,7 @@ jobs:
             - name: Publish package
               uses: gradle/gradle-build-action@v2
               with:
-                  arguments: :jwst:publish
+                  arguments: :jwst:publishReleasePublicationToGitHubPackagesRepository
                   build-root-directory: apps/android
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
