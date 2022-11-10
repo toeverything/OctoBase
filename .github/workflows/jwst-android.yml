@@ -20,9 +20,11 @@ jobs:
               uses: gradle/wrapper-validation-action@e6e38bacfdf1a337459f332974bb2327a31aaf4b
             - uses: actions-rs/toolchain@v1
               with:
+                  toolchain: stable
                   target: armv7-linux-androideabi
             - uses: actions-rs/toolchain@v1
               with:
+                  toolchain: stable
                   target: aarch64-linux-android
             - name: Publish package
               uses: gradle/gradle-build-action@v2
