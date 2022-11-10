@@ -199,12 +199,12 @@ public final class Block {
     }
     private static native void do_removeChildren(long self, long trx, long block);
 
-    public final int existsChildren(@NonNull String block_id) {
-        int ret = do_existsChildren(mNativeObj, block_id);
+    public final long existsChildren(@NonNull String block_id) {
+        long ret = do_existsChildren(mNativeObj, block_id);
 
         return ret;
     }
-    private static native int do_existsChildren(long self, @NonNull String block_id);
+    private static native long do_existsChildren(long self, @NonNull String block_id);
 
     public synchronized void delete() {
         if (mNativeObj != 0) {
