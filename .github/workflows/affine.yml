@@ -1,20 +1,22 @@
 name: Build AFFiNE
 
 on:
+    release:
+        types: [created]
     workflow_dispatch:
     push:
         branches: [master]
         paths:
-            - 'apps/keck/**'
-            - 'libs/**'
+            # - 'apps/keck/**'
+            # - 'libs/**'
             - '.github/deployment/Dockerfile-affine'
             - '.github/deployment/Dockerfile-affine-prod'
             - '.github/workflows/affine.yml'
     pull_request:
         branches: [master]
         paths:
-            - 'apps/keck/**'
-            - 'libs/**'
+            # - 'apps/keck/**'
+            # - 'libs/**'
             - '.github/deployment/Dockerfile-affine'
             - '.github/deployment/Dockerfile-affine-prod'
             - '.github/workflows/affine.yml'
