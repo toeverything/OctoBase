@@ -48,7 +48,7 @@ foreign_class!(
 		fn Block::insert_children_before(& self , trx : & mut WorkspaceTransaction , block : & Block , reference : & str ,); alias insertChildrenBefore;
 		fn Block::insert_children_after(& self , trx : & mut WorkspaceTransaction , block : & Block , reference : & str ,); alias insertChildrenAfter;
 		fn Block::remove_children(& self , trx : & mut WorkspaceTransaction , block : & Block); alias removeChildren;
-		fn Block::exists_children(& self , block_id : & str)->isize; alias existsChildren;
+		fn Block::exists_children(& self , block_id : & str)->i32; alias existsChildren;
 	}
 );
 foreign_class!(

@@ -179,10 +179,10 @@ impl Block {
     }
 
     #[generate_interface]
-    pub fn exists_children(&self, block_id: &str) -> isize {
+    pub fn exists_children(&self, block_id: &str) -> i32 {
         self.0
             .exists_children(block_id)
-            .map(|i| i as isize)
+            .map(|i| i as i32)
             .unwrap_or(-1)
     }
 }
