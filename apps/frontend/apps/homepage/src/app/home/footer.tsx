@@ -14,7 +14,7 @@ export const Footer = () => (
         }}
     >
         <Typography sx={{ display: 'flex' }}>
-            JWST is an
+            JWSTBase is an
             <span
                 style={{
                     color: '#5085f6cc',

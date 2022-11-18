@@ -7,7 +7,7 @@ export const Header = () => (
         <AlignCenteredContainer maxWidth="md" sx={{ height: '3rem' }}>
             <Grid container>
                 <Grid item xs={2}>
-                    <Typography variant="h5">JWST Base</Typography>
+                    <Typography variant="h5">JWSTBase</Typography>
                 </Grid>
             </Grid>
         </AlignCenteredContainer>
