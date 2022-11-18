@@ -7,6 +7,8 @@
   <img src="https://img.shields.io/badge/-Twitter-grey?logo=twitter">
 </a>
 
+[![stars](https://img.shields.io/github/stars/toeverything/JWSTBase.svg?style=flat&logo=github&colorB=red&label=stars)](https://github.com/toeverything/JWSTBase)
+
 an open source Firebase alternative. Start your project with a collaborative database, Authentication, instant APIs, Realtime subscriptions, and Storage.
 
 -   MultiPlatform CRDT collaborative database
