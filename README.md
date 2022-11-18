@@ -46,7 +46,7 @@ https://crdts.cloud/docs/index.html
 └── libs ##
     ├── jwst  ## jwst core library
     ├── jwst-ffi ## A foreign function interface (FFI) is a mechanism by which a program written in one programming language can call routines or make use of services written in another.
-    ├── jwst-jni# ##  he Java Native Interface (JNI) is a foreign function interface programming framework that enables Java code running in a Java virtual
+    ├── jwst-jni# ##  the Java Native Interface (JNI) is a foreign function interface programming framework that enables Java code running in a Java virtual
     ├── jwst-wasm ## a binary instruction format for a stack-based virtual machine
     ├── logger
     └── yrs ## rust implements y-protocal
