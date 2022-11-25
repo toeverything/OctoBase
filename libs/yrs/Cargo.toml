@@ -1,12 +1,9 @@
 [package]
 name = "yrs"
-version = "0.12.0"
+version = "0.13.0"
 description = "High performance implementation of the Yjs CRDT"
 license = "MIT"
-authors = [
-    "Kevin Jahns <kevin.jahns@pm.me>",
-    "Bartosz Sypytkowski <b.sypytkowski@gmail.com>",
-]
+authors = ["Kevin Jahns <kevin.jahns@pm.me>", "Bartosz Sypytkowski <b.sypytkowski@gmail.com>"]
 keywords = ["crdt", "yrs"]
 edition = "2021"
 homepage = "https://github.com/y-crdt/y-crdt/"
@@ -14,9 +11,11 @@ repository = "https://github.com/y-crdt/y-crdt/"
 readme = "./README.md"
 
 [dependencies]
-lib0 = "^0.12.0"
+thiserror = "1"
 rand = { version = "0.7.0", features = ["wasm-bindgen"] }
+lib0 = "^0.13.0"
 smallstr = { version = "^0.3.0", features = ["union"] }
+atomic_refcell = "0.1"
 
 [dev-dependencies]
 criterion = "^0.4.0"

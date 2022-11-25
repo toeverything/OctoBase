@@ -10,7 +10,6 @@ default = ["custom_alloc", "log_panic"]
 custom_alloc = ["wee_alloc"]
 log_panic = ["console_error_panic_hook"]
 
-
 [dependencies]
 cfg-if = "^1.0.0"
 jwst = { path = "../jwst" }

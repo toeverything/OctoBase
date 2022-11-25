@@ -1,12 +1,15 @@
 use super::*;
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use yrs::{Doc, Map, Subscription, Transaction, UpdateEvent};
+use yrs::{
+    types::ToJson, Doc, Map, MapRef, Transact, Transaction, TransactionMut, UpdateEvent,
+    UpdateSubscription,
+};
 
 pub struct Workspace {
     id: String,
     doc: Doc,
-    blocks: Map,
-    updated: Map,
+    blocks: MapRef,
+    updated: MapRef,
 }
 
 unsafe impl Send for Workspace {}
@@ -19,10 +22,8 @@ impl Workspace {
     }
 
     pub fn from_doc<S: AsRef<str>>(doc: Doc, id: S) -> Workspace {
-        let mut trx = doc.transact();
-
-        let blocks = trx.get_map("blocks");
-        let updated = trx.get_map("updated");
+        let blocks = doc.get_or_insert_map("blocks");
+        let updated = doc.get_or_insert_map("updated");
 
         Self {
             id: id.as_ref().to_string(),
@@ -36,12 +37,12 @@ impl Workspace {
         self.id.clone()
     }
 
-    pub fn blocks(&self) -> &Map {
-        &self.blocks
+    pub fn blocks(&self) -> MapRef {
+        self.blocks
     }
 
-    pub fn updated(&self) -> &Map {
-        &self.updated
+    pub fn updated(&self) -> MapRef {
+        self.updated
     }
 
     pub fn doc(&self) -> &Doc {
@@ -55,6 +56,7 @@ impl Workspace {
     pub fn with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> T {
         let trx = WorkspaceTransaction {
             trx: self.doc.transact(),
+            trx_mut: self.doc.transact_mut(),
             ws: self,
         };
 
@@ -64,24 +66,13 @@ impl Workspace {
     pub fn get_trx(&self) -> WorkspaceTransaction {
         WorkspaceTransaction {
             trx: self.doc.transact(),
+            trx_mut: self.doc.transact_mut(),
             ws: self,
         }
     }
 
-    // get a block if exists
-    pub fn get<S>(&self, block_id: S) -> Option<Block>
-    where
-        S: AsRef<str>,
-    {
-        Block::from(self, block_id, self.doc.client_id)
-    }
-
-    pub fn block_count(&self) -> u32 {
-        self.blocks.len()
-    }
-
     #[inline]
-    pub fn block_iter(&self) -> impl Iterator<Item = Block> + '_ {
+    pub fn block_iter(&self, trx: TransactionMut<'_>) -> impl Iterator<Item = Block> + '_ {
         self.blocks
             .iter()
             .zip(self.updated.iter())
@@ -95,15 +86,11 @@ impl Workspace {
             })
     }
 
-    pub fn exists(&self, block_id: &str) -> bool {
-        self.blocks.contains(block_id.as_ref())
-    }
-
     pub fn observe(
         &mut self,
-        f: impl Fn(&Transaction, &UpdateEvent) -> () + 'static,
-    ) -> Subscription<UpdateEvent> {
-        self.doc.observe_update_v1(f)
+        f: impl Fn(&TransactionMut, &UpdateEvent) -> () + 'static,
+    ) -> Option<UpdateSubscription> {
+        self.doc.observe_update_v1(f).ok()
     }
 }
 
@@ -113,15 +100,17 @@ impl Serialize for Workspace {
         S: Serializer,
     {
         let mut map = serializer.serialize_map(Some(2))?;
-        map.serialize_entry("blocks", &self.blocks.to_json())?;
-        map.serialize_entry("updated", &self.updated.to_json())?;
+        let trx = self.doc.transact();
+        map.serialize_entry("blocks", &self.blocks.to_json(&trx))?;
+        map.serialize_entry("updated", &self.updated.to_json(&trx))?;
         map.end()
     }
 }
 
 pub struct WorkspaceTransaction<'a> {
     pub ws: &'a Workspace,
-    pub trx: Transaction,
+    pub trx: Transaction<'a>,
+    pub trx_mut: TransactionMut<'a>,
 }
 
 unsafe impl Send for WorkspaceTransaction<'_> {}
@@ -130,12 +119,12 @@ impl WorkspaceTransaction<'_> {
     pub fn remove<S: AsRef<str>>(&mut self, block_id: S) -> bool {
         self.ws
             .blocks
-            .remove(&mut self.trx, block_id.as_ref())
+            .remove(&mut self.trx_mut, block_id.as_ref())
             .is_some()
             && self
                 .ws
                 .updated()
-                .remove(&mut self.trx, block_id.as_ref())
+                .remove(&mut self.trx_mut, block_id.as_ref())
                 .is_some()
     }
 
@@ -148,11 +137,27 @@ impl WorkspaceTransaction<'_> {
     {
         Block::new(
             self.ws,
-            &mut self.trx,
+            &self.trx_mut,
             block_id,
             flavor,
             self.ws.doc.client_id,
         )
+    }
+
+    // get a block if exists
+    pub fn get<S>(&self, block_id: S) -> Option<Block>
+    where
+        S: AsRef<str>,
+    {
+        Block::from(self.ws, self.trx, block_id, self.ws.doc.client_id)
+    }
+
+    pub fn exists(&self, block_id: &str) -> bool {
+        self.ws.blocks.contains(&self.trx, block_id.as_ref())
+    }
+
+    pub fn block_count(&self) -> u32 {
+        self.ws.blocks.len(&self.trx)
     }
 }
 
@@ -165,28 +170,28 @@ mod test {
     fn workspace() {
         let workspace = Workspace::new("test");
 
+        let mut trx = workspace.get_trx();
+
         assert_eq!(workspace.id(), "test");
-        assert_eq!(workspace.blocks().len(), 0);
-        assert_eq!(workspace.updated().len(), 0);
+        assert_eq!(workspace.blocks().len(&mut trx.trx), 0);
+        assert_eq!(workspace.updated().len(&mut trx.trx), 0);
 
-        let block = workspace.get_trx().create("block", "text");
-        assert_eq!(workspace.blocks().len(), 1);
-        assert_eq!(workspace.updated().len(), 1);
+        let block = trx.create("block", "text");
+
+        assert_eq!(workspace.blocks().len(&mut trx.trx), 1);
+        assert_eq!(workspace.updated().len(&mut trx.trx), 1);
         assert_eq!(block.id(), "block");
-        assert_eq!(block.flavor(), "text");
+        assert_eq!(block.flavor(&mut trx.trx), "text");
 
-        assert_eq!(
-            workspace.get("block").map(|b| b.id()),
-            Some("block".to_owned())
-        );
+        assert_eq!(trx.get("block").map(|b| b.id()), Some("block".to_owned()));
 
-        assert_eq!(workspace.exists("block"), true);
-        assert_eq!(workspace.get_trx().remove("block"), true);
-        assert_eq!(workspace.blocks().len(), 0);
-        assert_eq!(workspace.updated().len(), 0);
-        assert_eq!(workspace.get("block"), None);
+        assert_eq!(trx.exists("block"), true);
+        assert_eq!(trx.remove("block"), true);
+        assert_eq!(workspace.blocks().len(&mut trx.trx), 0);
+        assert_eq!(workspace.updated().len(&mut trx.trx), 0);
+        assert_eq!(trx.get("block"), None);
 
-        assert_eq!(workspace.exists("block"), false);
+        assert_eq!(trx.exists("block"), false);
 
         let doc = Doc::with_client_id(123);
         let workspace = Workspace::from_doc(doc, "test");
