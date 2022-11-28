@@ -6,6 +6,7 @@ on:
         branches: [master]
         paths:
             - 'apps/keck/**'
+            - 'apps/cloud/**'
             - 'apps/handbook/**'
             - 'libs/**'
             - '.github/deployment/Dockerfile-jwst'
@@ -15,6 +16,7 @@ on:
         branches: [master]
         paths:
             - 'apps/keck/**'
+            - 'apps/cloud/**'
             - 'apps/handbook/**'
             - 'libs/**'
             - '.github/deployment/Dockerfile-jwst'
