@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "apps/cloud",
     "apps/keck",
     "libs/jwst",
     "libs/jwst-ffi",
