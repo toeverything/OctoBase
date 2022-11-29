@@ -1,0 +1,36 @@
+[package]
+name = "jwst-storage"
+version = "0.1.0"
+edition = "2021"
+authors = ["DarkSky <darksky2048@gmail.com>"]
+license = "AGPL-3.0-only"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["sqlite"]
+sqlite = ["sqlx/sqlite"]
+mysql = ["sqlx/mysql", "dotenvy"]
+
+[dependencies]
+anyhow = "^1.0.65"
+chrono = "^0.4.22"
+
+[dependencies.dotenvy]
+version = "^0.15.6"
+optional = true
+
+[dependencies.sqlx]
+version = "^0.6.2"
+features = ["chrono", "macros", "migrate", "runtime-tokio-rustls"]
+
+[dependencies.tokio]
+version = "^1.21.2"
+features = ["macros", "rt-multi-thread", "signal"]
+
+[dependencies.jwst_logger]
+path = "../../libs/logger"
+
+[dependencies.yrs]
+path = "../../libs/yrs"
+version = "^0.12.0"

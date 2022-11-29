@@ -6,6 +6,7 @@ members = [
     "libs/jwst",
     "libs/jwst-ffi",
     "libs/jwst-jni",
+    "libs/jwst-storage",
     "libs/jwst-wasm",
     "libs/yrs",
     "libs/logger",

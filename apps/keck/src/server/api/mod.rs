@@ -1,7 +1,7 @@
 #[cfg(feature = "api")]
 mod blocks;
 
-use crate::sync::DbPool;
+use jwst_storage::Database;
 
 use super::*;
 use axum::{
@@ -37,16 +37,16 @@ pub struct PageData<T> {
 pub struct Context {
     pub workspace: DashMap<String, Mutex<Workspace>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
-    pub db: DbPool,
+    pub db: Database,
 }
 
 impl Context {
-    pub async fn new(default_pool: Option<DbPool>) -> Self {
+    pub async fn new(default_pool: Option<Database>) -> Self {
         Context {
             workspace: DashMap::new(),
             channel: DashMap::new(),
             db: default_pool.unwrap_or(
-                DbPool::init_pool("jwst")
+                Database::init_pool("jwst")
                     .await
                     .expect("Cannot create database"),
             ),

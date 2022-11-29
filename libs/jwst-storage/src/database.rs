@@ -35,11 +35,11 @@ pub struct UpdateBinary {
     pub blob: Vec<u8>,
 }
 
-pub struct DbPool {
+pub struct Database {
     pool: DatabasePool,
 }
 
-impl DbPool {
+impl Database {
     #[cfg(feature = "sqlite")]
     pub async fn init_pool(file: &str) -> Result<Self, Error> {
         use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
@@ -197,9 +197,9 @@ mod tests {
         use super::*;
 
         #[cfg(feature = "sqlite")]
-        let pool = DbPool::init_memory_pool().await?;
+        let pool = Database::init_memory_pool().await?;
         #[cfg(feature = "mysql")]
-        let pool = DbPool::init_pool("jwst").await?;
+        let pool = Database::init_pool("jwst").await?;
         pool.create("basic").await?;
 
         // empty table

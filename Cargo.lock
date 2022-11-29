@@ -1284,6 +1284,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "jwst-storage"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dotenvy",
+ "jwst_logger",
+ "sqlx",
+ "tokio",
+ "yrs",
+]
+
+[[package]]
 name = "jwst-wasm"
 version = "0.1.0"
 dependencies = [
@@ -1314,20 +1327,18 @@ dependencies = [
  "axum",
  "axum-test-helper",
  "cfg-if 1.0.0",
- "chrono",
  "dashmap",
- "dotenvy",
  "fern",
  "futures",
  "http",
  "jwst",
+ "jwst-storage",
  "jwst_logger",
  "lib0",
  "log",
  "mdbook",
  "serde",
  "serde_json",
- "sqlx",
  "thiserror",
  "time 0.3.16",
  "tokio",
@@ -2650,10 +2661,8 @@ version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24c5b2d25fa654cc5f841750b8e1cdedbe21189bf9a9382ee90bfa9dd3562396"
 dependencies = [
- "native-tls",
  "once_cell",
  "tokio",
- "tokio-native-tls",
  "tokio-rustls",
 ]
 
