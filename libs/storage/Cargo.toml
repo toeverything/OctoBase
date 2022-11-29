@@ -1,5 +1,5 @@
 [package]
-name = "jwst-storage"
+name = "jwst_storage"
 version = "0.1.0"
 edition = "2021"
 authors = ["DarkSky <darksky2048@gmail.com>"]

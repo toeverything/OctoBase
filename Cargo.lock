@@ -1284,19 +1284,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jwst-storage"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "dotenvy",
- "jwst_logger",
- "sqlx",
- "tokio",
- "yrs",
-]
-
-[[package]]
 name = "jwst-wasm"
 version = "0.1.0"
 dependencies = [
@@ -1319,6 +1306,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "jwst_storage"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dotenvy",
+ "jwst_logger",
+ "sqlx",
+ "tokio",
+ "yrs",
+]
+
+[[package]]
 name = "keck"
 version = "0.1.0"
 dependencies = [
@@ -1332,8 +1332,8 @@ dependencies = [
  "futures",
  "http",
  "jwst",
- "jwst-storage",
  "jwst_logger",
+ "jwst_storage",
  "lib0",
  "log",
  "mdbook",
@@ -3175,9 +3175,9 @@ checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
 
 [[package]]
 name = "utoipa"
-version = "2.2.0"
+version = "2.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6289c644ea23411b0f81773544ee2a59e7497b8867f268fb30b330dea87cb360"
+checksum = "b626abb3bbbe41ce00df6dea3d109a83a034930245c3307026d82d71e7a06e43"
 dependencies = [
  "indexmap",
  "serde",
@@ -3187,9 +3187,9 @@ dependencies = [
 
 [[package]]
 name = "utoipa-gen"
-version = "2.2.0"
+version = "2.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ecf8547910b3e16a2e3506c2edf30c569462b7a975a4435dc5001a92314b43f1"
+checksum = "250e8cdb0461b6fbaa1c1acb7f08300d773713fab721776becf5f7386b41a791"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",

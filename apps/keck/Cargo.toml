@@ -7,9 +7,9 @@ license = "AGPL-3.0-only"
 
 [features]
 default = ["jwst"]
-affine = ["jwst-storage/sqlite"]
-jwst = ["api", "schema", "docs", "jwst-storage/sqlite"]
-mysc = ["api", "schema", "docs", "jwst-storage/mysql"]
+affine = ["jwst_storage/sqlite"]
+jwst = ["api", "schema", "docs", "jwst_storage/sqlite"]
+mysc = ["api", "schema", "docs", "jwst_storage/mysql"]
 api = ["utoipa"]
 docs = ["mdbook"]
 schema = ["utoipa-swagger-ui"]
@@ -50,12 +50,12 @@ version = "^1.21.2"
 features = ["macros", "rt-multi-thread", "signal"]
 
 [dependencies.utoipa]
-version = "^2.2.0"
+version = "^2.4.2"
 features = ["axum_extras"]
 optional = true
 
 [dependencies.utoipa-swagger-ui]
-version = "^2.0.1"
+version = "^2.0.2"
 features = ["axum"]
 optional = true
 
@@ -75,11 +75,11 @@ version = "^0.12.0"
 [dependencies.jwst]
 path = "../../libs/jwst"
 
-[dependencies.jwst-storage]
-path = "../../libs/jwst-storage"
-
 [dependencies.jwst_logger]
 path = "../../libs/logger"
+
+[dependencies.jwst_storage]
+path = "../../libs/storage"
 
 [dev-dependencies]
 assert-json-diff = "^2.0.2"
