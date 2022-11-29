@@ -55,10 +55,10 @@ fn doc_apis(router: Router) -> Router {
         use utoipa_swagger_ui::{serve, Config, Url};
 
         async fn serve_swagger_ui(
-            Path(tail): Path<String>,
+            tail: Option<Path<String>>,
             Extension(state): Extension<Arc<Config<'static>>>,
         ) -> impl IntoResponse {
-            match serve(&tail[1..], state) {
+            match serve(&tail.map(|p| p.to_string()).unwrap_or("".into()), state) {
                 Ok(file) => file
                     .map(|file| {
                         (
@@ -80,6 +80,7 @@ fn doc_apis(router: Router) -> Router {
 
         router
             .route("/jwst.json", get(move || async { Json(openapi) }))
+            .route("/docs/", get(serve_swagger_ui))
             .route("/docs/*tail", get(serve_swagger_ui))
             .layer(Extension(Arc::new(Config::new(vec![Url::new(
                 "JWST Api Docs",

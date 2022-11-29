@@ -26,7 +26,7 @@ thiserror = "^1.0.37"
 time = "^0.3.15"
 
 [dependencies.axum]
-version = "^0.5.16"
+version = "^0.6.1"
 features = ["ws"]
 
 [dependencies.fern]

@@ -66,8 +66,8 @@ pub async fn start_server() {
     let app = collaboration::collaboration_handler(api::api_handler(Router::new()))
         .layer(cors)
         .layer(Extension(context.clone()))
-        .nest("/docs", get(files::docs_handler))
-        .fallback(get(files::index_handler));
+        .nest_service("/docs", get(files::docs_handler))
+        .fallback_service(get(files::index_handler));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("listening on {}", addr);

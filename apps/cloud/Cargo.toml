@@ -4,7 +4,7 @@ edition = "2021"
 version = "0.1.0"
 
 [dependencies]
-axum = { version = "0.5.16", features = ["ws"] }
+axum = { version = "^0.6.1", features = ["ws"] }
 dotenvy = "0.15.6"
 futures = "0.3.25"
 http = "0.2.8"

@@ -61,8 +61,8 @@ pub async fn get_block(
 )]
 pub async fn set_block(
     Extension(context): Extension<Arc<Context>>,
-    Json(payload): Json<JsonValue>,
     Path(params): Path<(String, String)>,
+    Json(payload): Json<JsonValue>,
 ) -> Response {
     let (ws_id, block) = params;
     info!("set_block: {}, {}", ws_id, block);
@@ -251,8 +251,8 @@ pub async fn get_block_children(
 )]
 pub async fn insert_block_children(
     Extension(context): Extension<Arc<Context>>,
-    Json(payload): Json<InsertChildren>,
     Path(params): Path<(String, String)>,
+    Json(payload): Json<InsertChildren>,
 ) -> Response {
     let (ws_id, block) = params;
     info!("insert_block: {}, {}", ws_id, block);

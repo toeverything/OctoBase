@@ -21,7 +21,7 @@ pub struct WebSocketAuthentication {
 }
 
 pub fn collaboration_handler(router: Router) -> Router {
-    router.nest(
+    router.nest_service(
         "/collaboration/:workspace",
         post(collaboration::auth_handler).get(collaboration::upgrade_handler),
     )
