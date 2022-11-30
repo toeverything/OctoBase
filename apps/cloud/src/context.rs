@@ -73,7 +73,14 @@ impl Context {
             .await
     }
 
-    pub async fn get_permited_workspace(&self, user_id: &str) {}
+    pub async fn get_permited_workspace(&self, user_id: &str) -> sqlx::Result<Vec<Workspace>> {
+        let stmt = "SELECT ";
+
+        query_as::<_, Workspace>(&stmt)
+            .bind(user_id)
+            .fetch_all(&self.db)
+            .await
+    }
 
     pub async fn add_permission(&self, user_id: &str) {}
 

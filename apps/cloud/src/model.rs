@@ -2,6 +2,23 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Type};
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Claims {
+    // name of project
+    pub aud: String,
+    pub auth_time: usize,
+    pub email: String,
+    pub email_verified: bool,
+    pub exp: usize,
+    pub iat: usize,
+    pub iss: String,
+    pub name: String,
+    // picture of avatar
+    pub picture: String,
+    pub sub: String,
+    pub user_id: String,
+}
+
 #[derive(Type, Serialize_repr, Deserialize_repr)]
 #[repr(i16)]
 pub enum WorkspaceType {
@@ -40,7 +57,7 @@ pub enum PermissionType {
 
 #[derive(Deserialize)]
 pub struct CreatePermission {
-    workspace_id: i32,
+    pub workspace_id: i32,
     #[serde(rename = "type")]
-    type_: PermissionType,
+    pub type_: PermissionType,
 }

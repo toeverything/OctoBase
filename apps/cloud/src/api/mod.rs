@@ -8,14 +8,18 @@ use axum::{
 use http::StatusCode;
 use tower::ServiceBuilder;
 
-use crate::{context::Context, layer::make_auth_layer, model::CreateWorkspace, utils::Claims};
+use crate::{
+    context::Context,
+    layer::make_firebase_auth_layer,
+    model::{Claims, CreateWorkspace},
+};
 
 mod ws;
 
 pub fn make_rest_route() -> Router {
     Router::new()
         .route("/workspace", get(get_workspace).post(create_workspace))
-        .layer(ServiceBuilder::new().layer(make_auth_layer()))
+        .layer(ServiceBuilder::new().layer(make_firebase_auth_layer()))
 }
 
 async fn get_workspace(
