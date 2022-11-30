@@ -3,8 +3,10 @@ use std::{net::SocketAddr, sync::Arc};
 use axum::{Extension, Router, Server};
 use tracing::{error, info};
 
+mod api;
 mod context;
 mod layer;
+mod model;
 mod utils;
 
 #[tokio::main]
@@ -14,6 +16,7 @@ async fn main() {
     let context = Arc::new(context::Context::new().await);
 
     let app = Router::new()
+        .nest("/api", api::make_rest_route())
         .layer(layer::make_cors_layer())
         .layer(Extension(context.clone()));
 

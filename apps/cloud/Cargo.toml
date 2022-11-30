@@ -4,12 +4,15 @@ edition = "2021"
 version = "0.1.0"
 
 [dependencies]
-axum = { version = "^0.6.1", features = ["ws"] }
+axum = { version = "0.6.0", features = ["ws"] }
+chrono = { version = "0.4.23", features = ["serde"] }
 dotenvy = "0.15.6"
 futures = "0.3.25"
 http = "0.2.8"
+http-body = "0.4.5"
 jsonwebtoken = "8.1.1"
 serde = { version = "1.0.145", features = ["derive"] }
+serde_repr = "0.1.9"
 sqlx = { version = "0.6.2", features = [
     "chrono",
     "macros",
@@ -21,6 +24,7 @@ tokio = { version = "1.21.2", features = [
     "rt-multi-thread",
     "signal",
 ] }
-tower-http = { version = "0.3.4", features = ["cors"] }
+tower = "0.4.13"
+tower-http = { version = "0.3.4", features = ["auth", "cors"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
