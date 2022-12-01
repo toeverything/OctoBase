@@ -1,3 +1,6 @@
-mod database;
+mod blobs;
+mod documents;
+mod types;
 
-pub use database::Database;
+pub use blobs::BlobDatabase;
+pub use documents::DocDatabase;

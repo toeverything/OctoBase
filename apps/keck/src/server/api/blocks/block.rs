@@ -84,7 +84,7 @@ pub async fn set_block(
 
             if changed {
                 let update = t.trx.encode_update_v1();
-                if let Err(e) = context.db.update(&ws_id, update).await {
+                if let Err(e) = context.docs.update(&ws_id, update).await {
                     error!("db write error: {}", e.to_string());
                 }
             }
@@ -161,7 +161,7 @@ pub async fn delete_block(
         let mut t = workspace.get_trx();
         if t.remove(&block) {
             let update = t.trx.encode_update_v1();
-            if let Err(e) = context.db.update(&ws_id, update).await {
+            if let Err(e) = context.docs.update(&ws_id, update).await {
                 error!("db write error: {}", e.to_string());
             }
             StatusCode::NO_CONTENT
@@ -291,7 +291,7 @@ pub async fn insert_block_children(
 
             if changed {
                 let update = t.trx.encode_update_v1();
-                if let Err(e) = context.db.update(&ws_id, update).await {
+                if let Err(e) = context.docs.update(&ws_id, update).await {
                     error!("db write error: {}", e.to_string());
                 }
             }
@@ -338,7 +338,7 @@ pub async fn remove_block_children(
                 block.remove_children(&mut t.trx, &child);
 
                 let update = t.trx.encode_update_v1();
-                if let Err(e) = context.db.update(&ws_id, update).await {
+                if let Err(e) = context.docs.update(&ws_id, update).await {
                     error!("db write error: {}", e.to_string());
                 }
             }

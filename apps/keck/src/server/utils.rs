@@ -13,7 +13,7 @@ pub async fn init_workspace<'a>(
 ) -> Result<RefMut<'a, String, Mutex<Workspace>>, anyhow::Error> {
     match context.workspace.entry(workspace.to_owned()) {
         Entry::Vacant(entry) => {
-            let doc = context.db.create_doc(workspace).await?;
+            let doc = context.docs.create_doc(workspace).await?;
 
             Ok(entry.insert(Mutex::new(Workspace::from_doc(doc, workspace))))
         }

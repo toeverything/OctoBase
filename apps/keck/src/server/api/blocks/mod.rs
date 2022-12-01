@@ -134,7 +134,5 @@ fn workspace_apis(router: Router) -> Router {
 }
 
 pub fn blocks_apis(router: Router) -> Router {
-    let api_handler = workspace_apis(block_apis(Router::new()));
-
-    router.nest("/api", api_handler)
+    workspace_apis(block_apis(router))
 }

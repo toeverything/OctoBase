@@ -22,6 +22,8 @@ pub fn make_cors_layer() -> CorsLayer {
         "http://127.0.0.1:4200".parse().unwrap(),
         "http://localhost:3000".parse().unwrap(),
         "http://127.0.0.1:3000".parse().unwrap(),
+        "http://localhost:5173".parse().unwrap(),
+        "http://127.0.0.1:5173".parse().unwrap(),
     ];
 
     CorsLayer::new()

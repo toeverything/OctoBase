@@ -4,7 +4,7 @@ mod files;
 mod utils;
 
 use axum::{
-    routing::{delete, get, post},
+    routing::{delete, get, head, post},
     Extension, Router, Server,
 };
 use http::Method;
@@ -47,6 +47,8 @@ pub async fn start_server() {
         "http://127.0.0.1:4200".parse().unwrap(),
         "http://localhost:3000".parse().unwrap(),
         "http://127.0.0.1:3000".parse().unwrap(),
+        "http://localhost:5173".parse().unwrap(),
+        "http://127.0.0.1:5173".parse().unwrap(),
     ];
 
     let cors = CorsLayer::new()
@@ -61,7 +63,7 @@ pub async fn start_server() {
         .allow_origin(origins)
         .allow_headers(Any);
 
-    let context = Arc::new(Context::new(None).await);
+    let context = Arc::new(Context::new(None, None).await);
 
     let app = collaboration::collaboration_handler(api::api_handler(Router::new()))
         .layer(cors)
@@ -80,7 +82,7 @@ pub async fn start_server() {
         error!("Server shutdown due to error: {}", e);
     }
 
-    context.db.close().await;
+    context.docs.close().await;
 
     info!("Server shutdown complete");
 }

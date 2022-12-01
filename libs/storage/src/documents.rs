@@ -1,13 +1,8 @@
+use super::types::DatabasePool;
 use jwst_logger::{info, warn};
 use sqlx::{query, query_as, Error};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use yrs::{updates::decoder::Decode, Doc, Options, StateVector, Update};
-
-#[cfg(feature = "sqlite")]
-type DatabasePool = sqlx::SqlitePool;
-
-#[cfg(feature = "mysql")]
-type DatabasePool = sqlx::MySqlPool;
 
 const MAX_TRIM_UPDATE_LIMIT: i64 = 500;
 
@@ -35,11 +30,11 @@ pub struct UpdateBinary {
     pub blob: Vec<u8>,
 }
 
-pub struct Database {
+pub struct DocDatabase {
     pool: DatabasePool,
 }
 
-impl Database {
+impl DocDatabase {
     #[cfg(feature = "sqlite")]
     pub async fn init_pool(file: &str) -> Result<Self, Error> {
         use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
@@ -197,7 +192,7 @@ mod tests {
         use super::*;
 
         #[cfg(feature = "sqlite")]
-        let pool = Database::init_memory_pool().await?;
+        let pool = DocDatabase::init_memory_pool().await?;
         #[cfg(feature = "mysql")]
         let pool = Database::init_pool("jwst").await?;
         pool.create("basic").await?;

@@ -121,7 +121,7 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
                 };
 
                 if let Some(update) = update {
-                    if let Err(e) = context.db.full_migrate(&workspace, update).await {
+                    if let Err(e) = context.docs.full_migrate(&workspace, update).await {
                         error!("db write error: {}", e.to_string());
                     }
                 }
@@ -168,7 +168,7 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
             };
             if let Ok((binary, update)) = payload {
                 if let Some(update) = update {
-                    if let Err(e) = context.db.update(&workspace, update).await {
+                    if let Err(e) = context.docs.update(&workspace, update).await {
                         error!("db write error: {}", e.to_string());
                     }
                 }
