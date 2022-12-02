@@ -62,7 +62,10 @@ impl BlobDatabase {
     pub async fn init_pool(database: &str) -> Result<Self, Error> {
         let env = dotenvy::var("DATABASE_URL")
             .unwrap_or_else(|_| format!("mysql://localhost/{}", database.to_string()));
-        DatabasePool::connect(&env).await.map(|pool| Self { pool })
+        DatabasePool::connect(&env).await.map(|pool| Self {
+            pool,
+            workspaces: Arc::default(),
+        })
     }
 
     pub async fn close(&self) {

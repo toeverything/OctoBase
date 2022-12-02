@@ -22,42 +22,74 @@ pub struct Claims {
 #[derive(Type, Serialize_repr, Deserialize_repr)]
 #[repr(i16)]
 pub enum WorkspaceType {
-    Personal = 0,
-    Team = 1,
+    Private = 0,
+    Normal = 1,
 }
 
 #[derive(FromRow, Serialize)]
 pub struct Workspace {
-    id: i32,
-    owner: String,
-    public: bool,
-    name: String,
-    avatar_url: Option<String>,
+    pub id: i32,
+    pub public: bool,
     #[serde(rename = "type")]
     #[sqlx(rename = "type")]
-    type_: WorkspaceType,
-    created_at: NaiveDateTime,
+    pub type_: WorkspaceType,
+    pub created_at: NaiveDateTime,
+}
+
+#[derive(FromRow, Serialize)]
+pub struct WorkspaceWithPermission {
+    pub permission: PermissionType,
+    #[serde(flatten)]
+    #[sqlx(flatten)]
+    pub workspace: Workspace,
 }
 
 #[derive(Deserialize)]
 pub struct CreateWorkspace {
     pub name: String,
-    pub avatar_url: Option<String>,
-    #[serde(rename = "type")]
-    pub type_: WorkspaceType,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateWorkspace {
     pub public: bool,
 }
 
-#[derive(Type, Serialize_repr, Deserialize_repr)]
+#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(i16)]
 pub enum PermissionType {
     Read = 0,
     Write = 1,
+    Admin = 2,
+    Owner = 3,
+}
+
+impl PermissionType {
+    pub fn can_write(&self) -> bool {
+        *self >= Self::Write
+    }
+
+    pub fn can_admin(&self) -> bool {
+        *self >= Self::Admin
+    }
 }
 
 #[derive(Deserialize)]
 pub struct CreatePermission {
     pub workspace_id: i32,
-    #[serde(rename = "type")]
-    pub type_: PermissionType,
+    // TODO: currently default to write
+    // #[serde(rename = "type")]
+    // pub type_: PermissionType,
+}
+
+#[derive(FromRow)]
+pub struct Exist {
+    pub exists: bool,
+}
+
+#[derive(FromRow, Serialize)]
+pub struct ShareUrl {
+    pub id: i32,
+    pub workspace_id: i32,
+    pub url: String,
+    pub created_at: NaiveDateTime,
 }
