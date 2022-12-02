@@ -5,9 +5,11 @@ version = "0.1.0"
 
 [dependencies]
 axum = { version = "0.6.0", features = ["ws"] }
+base64 = "0.13.1"
 chrono = { version = "0.4.23", features = ["serde"] }
 dotenvy = "0.15.6"
 futures = "0.3.25"
+hmac = "0.12.1"
 http = "0.2.8"
 http-body = "0.4.5"
 jsonwebtoken = "8.1.1"
@@ -18,6 +20,7 @@ reqwest = { version = "0.11.13", features = [
 ], default-features = false }
 serde = { version = "1.0.145", features = ["derive"] }
 serde_repr = "0.1.9"
+sha2 = "0.10.6"
 sqlx = { version = "0.6.2", features = [
     "chrono",
     "macros",

@@ -5,6 +5,7 @@ use tracing::{error, info};
 
 mod api;
 mod context;
+mod database;
 mod layer;
 mod model;
 mod utils;

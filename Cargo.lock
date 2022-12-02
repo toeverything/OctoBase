@@ -23,9 +23,11 @@ name = "affine-cloud"
 version = "0.1.0"
 dependencies = [
  "axum 0.6.1",
+ "base64",
  "chrono",
  "dotenvy",
  "futures",
+ "hmac",
  "http",
  "http-body",
  "jsonwebtoken",
@@ -33,6 +35,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_repr",
+ "sha2",
  "sqlx",
  "tokio",
  "tower",
