@@ -1,10 +1,15 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyFloat, PyList, PyFunction};
 use jwst::{Block as JwstBlock, Workspace as JwstWorkspace};
-use yrs::{Subscription as YrsSubscription, UpdateEvent};
+use yrs::{Doc as YrsDoc, Map as YrsMap, Subscription as YrsSubscription, UpdateEvent};
 
+#[pyclass(subclass)]
+pub struct Doc(YrsDoc);
 
-// #[pyclass(subclass)]
+#[pyclass(subclass, unsendable)]
+pub struct Map(YrsMap);
+
+#[pyclass(subclass, unsendable)]
 pub struct Subscription(YrsSubscription<UpdateEvent>);
 
 #[pyclass(subclass)]
@@ -15,6 +20,11 @@ impl Workspace {
     #[new]
     fn new(id: String) -> Self {
         Self(JwstWorkspace::new(id))
+    }
+
+    #[getter]
+    fn id(&self) -> String {
+        self.0.id().clone()
     }
 
     #[getter]
@@ -30,8 +40,25 @@ impl Workspace {
         self.0.get(block_id).map(|b| Block(b))
     }
 
+    pub fn block_count(&self) -> u32 {
+        self.0.block_count()
+    }
+
+    pub fn block_iter(&self) -> Vec<Block> {
+        self.0.block_iter().map(|b| Block(b)).collect()
+    }
+
     pub fn exists(&self, block_id: String) -> bool {
         self.0.exists(&block_id)
+    }
+
+    pub fn observe(&mut self, callback: PyObject) -> Subscription {
+        Subscription(self.0.observe(move |_, u| {
+            Python::with_gil(|py| {
+                let update = PyList::new(py, u.update.as_slice());
+                callback.call1(py, (update,)).unwrap();
+            })
+        }))
     }
 }
 
@@ -42,6 +69,13 @@ pub struct Block(JwstBlock);
 impl Block {
     pub fn id(&self) -> String {
         self.0.id().to_string()
+    }
+
+    pub fn client_id(&self) -> Vec<String> {
+        self.0
+            .children()
+            .into_iter()
+            .collect::<Vec<String>>()
     }
 }
 
