@@ -1,10 +1,22 @@
 use super::*;
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use yrs::{Doc, Map, Subscription, Transaction, UpdateEvent};
+use y_sync::{
+    awareness::Awareness,
+    sync::{DefaultProtocol, Error, Message, MessageReader, Protocol, SyncMessage},
+};
+use yrs::{
+    updates::{
+        decoder::{Decode, DecoderV1},
+        encoder::{Encode, Encoder, EncoderV1},
+    },
+    Doc, Map, StateVector, Subscription, Transaction, Update, UpdateEvent,
+};
+
+static PROTOCOL: DefaultProtocol = DefaultProtocol;
 
 pub struct Workspace {
     id: String,
-    doc: Doc,
+    awareness: Awareness,
     blocks: Map,
     updated: Map,
 }
@@ -26,7 +38,7 @@ impl Workspace {
 
         Self {
             id: id.as_ref().to_string(),
-            doc,
+            awareness: Awareness::new(doc),
             blocks,
             updated,
         }
@@ -45,16 +57,16 @@ impl Workspace {
     }
 
     pub fn doc(&self) -> &Doc {
-        &self.doc
+        self.awareness.doc()
     }
 
     pub fn client_id(&self) -> u64 {
-        self.doc.client_id
+        self.awareness.doc().client_id
     }
 
     pub fn with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> T {
         let trx = WorkspaceTransaction {
-            trx: self.doc.transact(),
+            trx: self.awareness.doc().transact(),
             ws: self,
         };
 
@@ -63,7 +75,7 @@ impl Workspace {
 
     pub fn get_trx(&self) -> WorkspaceTransaction {
         WorkspaceTransaction {
-            trx: self.doc.transact(),
+            trx: self.awareness.doc().transact(),
             ws: self,
         }
     }
@@ -73,7 +85,7 @@ impl Workspace {
     where
         S: AsRef<str>,
     {
-        Block::from(self, block_id, self.doc.client_id)
+        Block::from(self, block_id, self.client_id())
     }
 
     pub fn block_count(&self) -> u32 {
@@ -90,7 +102,7 @@ impl Workspace {
                     id.to_owned(),
                     block.to_ymap().unwrap(),
                     updated.to_yarray().unwrap(),
-                    self.doc.client_id,
+                    self.client_id(),
                 )
             })
     }
@@ -103,7 +115,47 @@ impl Workspace {
         &mut self,
         f: impl Fn(&Transaction, &UpdateEvent) -> () + 'static,
     ) -> Subscription<UpdateEvent> {
-        self.doc.observe_update_v1(f)
+        self.awareness.doc_mut().observe_update_v1(f)
+    }
+
+    pub fn sync_migration(&self) -> Vec<u8> {
+        self.doc()
+            .encode_state_as_update_v1(&StateVector::default())
+    }
+
+    pub fn sync_init_message(&self) -> Result<Vec<u8>, Error> {
+        let mut encoder = EncoderV1::new();
+        PROTOCOL.start(&self.awareness, &mut encoder)?;
+        Ok(encoder.to_vec())
+    }
+
+    fn sync_handle_message(&mut self, msg: Message) -> Result<Option<Message>, Error> {
+        match msg {
+            Message::Sync(msg) => match msg {
+                SyncMessage::SyncStep1(sv) => PROTOCOL.handle_sync_step1(&self.awareness, sv),
+                SyncMessage::SyncStep2(update) => {
+                    PROTOCOL.handle_sync_step2(&mut self.awareness, Update::decode_v1(&update)?)
+                }
+                SyncMessage::Update(update) => {
+                    PROTOCOL.handle_update(&mut self.awareness, Update::decode_v1(&update)?)
+                }
+            },
+            Message::Auth(reason) => PROTOCOL.handle_auth(&self.awareness, reason),
+            Message::AwarenessQuery => PROTOCOL.handle_awareness_query(&self.awareness),
+            Message::Awareness(update) => {
+                PROTOCOL.handle_awareness_update(&mut self.awareness, update)
+            }
+            Message::Custom(tag, data) => PROTOCOL.missing_handle(&mut self.awareness, tag, data),
+        }
+    }
+
+    pub fn sync_decode_message(&mut self, binary: Vec<u8>) -> Vec<Vec<u8>> {
+        let mut decoder = DecoderV1::from(binary.as_slice());
+
+        MessageReader::new(&mut decoder)
+            .filter_map(|msg| msg.ok().and_then(|msg| self.sync_handle_message(msg).ok()?))
+            .map(|reply| reply.encode_v1())
+            .collect()
     }
 }
 
@@ -151,7 +203,7 @@ impl WorkspaceTransaction<'_> {
             &mut self.trx,
             block_id,
             flavor,
-            self.ws.doc.client_id,
+            self.ws.client_id(),
         )
     }
 }
@@ -160,6 +212,40 @@ impl WorkspaceTransaction<'_> {
 mod test {
     use super::*;
     use yrs::Doc;
+
+    #[test]
+    fn doc_load_test() {
+        let workspace = Workspace::new("test");
+        workspace.with_trx(|mut t| {
+            let block = t.create("test", "text");
+
+            block.set(&mut t.trx, "test", "test");
+        });
+
+        let doc = workspace.doc();
+
+        let new_doc = {
+            let update = doc.encode_state_as_update_v1(&StateVector::default());
+            let doc = Doc::default();
+            let mut trx = doc.transact();
+            match Update::decode_v1(&update) {
+                Ok(update) => trx.apply_update(update),
+                Err(err) => info!("failed to decode update: {:?}", err),
+            }
+            trx.commit();
+            doc
+        };
+
+        assert_json_diff::assert_json_eq!(
+            doc.transact().get_map("blocks").to_json(),
+            new_doc.transact().get_map("blocks").to_json()
+        );
+
+        assert_json_diff::assert_json_eq!(
+            doc.transact().get_map("updated").to_json(),
+            new_doc.transact().get_map("updated").to_json()
+        );
+    }
 
     #[test]
     fn workspace() {

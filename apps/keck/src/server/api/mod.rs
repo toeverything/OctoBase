@@ -3,8 +3,6 @@ mod blobs;
 #[cfg(feature = "api")]
 mod blocks;
 
-use jwst_storage::{BlobDatabase, DocDatabase};
-
 use super::*;
 use axum::{
     extract::{ws::Message, Json, Path},
@@ -14,6 +12,7 @@ use axum::{
 };
 use dashmap::DashMap;
 use jwst::{parse_history, parse_history_client, Workspace};
+use jwst_storage::{BlobDatabase, DocDatabase};
 use serde_json::Value as JsonValue;
 use tokio::sync::{mpsc::Sender, Mutex};
 

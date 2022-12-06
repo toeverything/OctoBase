@@ -1,0 +1,20 @@
+use lib0::encoding::Write;
+use yrs::updates::encoder::{Encoder, EncoderV1};
+
+const MSG_SYNC: usize = 0;
+const MSG_SYNC_UPDATE: usize = 2;
+
+fn write_sync<E: Encoder>(encoder: &mut E) {
+    encoder.write_var(MSG_SYNC);
+}
+
+pub fn encode_update(update: &[u8]) -> Vec<u8> {
+    let mut encoder = EncoderV1::new();
+
+    write_sync(&mut encoder);
+
+    encoder.write_var(MSG_SYNC_UPDATE);
+    encoder.write_buf(update);
+
+    encoder.to_vec()
+}

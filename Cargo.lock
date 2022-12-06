@@ -1394,12 +1394,14 @@ dependencies = [
 name = "jwst"
 version = "0.1.0"
 dependencies = [
+ "assert-json-diff",
  "chrono",
  "lib0",
  "log",
  "serde",
  "serde_json",
  "utoipa",
+ "y-sync",
  "yrs",
 ]
 
@@ -1467,7 +1469,6 @@ name = "keck"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "assert-json-diff",
  "axum 0.6.1",
  "axum-test-helper",
  "cfg-if 1.0.0",
@@ -1491,7 +1492,6 @@ dependencies = [
  "utoipa",
  "utoipa-swagger-ui",
  "uuid",
- "yrs",
 ]
 
 [[package]]
@@ -3776,6 +3776,15 @@ dependencies = [
  "rusticata-macros",
  "thiserror",
  "time 0.3.16",
+]
+
+[[package]]
+name = "y-sync"
+version = "0.1.0"
+dependencies = [
+ "lib0",
+ "thiserror",
+ "yrs",
 ]
 
 [[package]]
