@@ -3779,6 +3779,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "y-sync"
+version = "0.1.0"
+dependencies = [
+ "lib0",
+ "thiserror",
+ "yrs",
+]
+
+[[package]]
 name = "yrs"
 version = "0.12.0"
 dependencies = [
