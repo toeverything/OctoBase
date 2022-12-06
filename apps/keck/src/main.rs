@@ -1,5 +1,4 @@
 mod server;
-mod sync;
 
 use jwst_logger::{init_logger, Level};
 

@@ -68,10 +68,6 @@ features = ["v4"]
 version = "^0.12.0"
 features = ["lib0-serde"]
 
-[dependencies.yrs]
-path = "../../libs/yrs"
-version = "^0.12.0"
-
 [dependencies.jwst]
 path = "../../libs/jwst"
 
@@ -82,7 +78,6 @@ path = "../../libs/logger"
 path = "../../libs/storage"
 
 [dev-dependencies]
-assert-json-diff = "^2.0.2"
 axum-test-helper = "^0.1.1"
 
 [build-dependencies.mdbook]
