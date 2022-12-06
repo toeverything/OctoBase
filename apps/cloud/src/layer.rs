@@ -6,6 +6,7 @@ use futures::future::BoxFuture;
 use http::{header::CACHE_CONTROL, HeaderMap, Method, Request, Response, StatusCode};
 use http_body::combinators::UnsyncBoxBody;
 use jsonwebtoken::{decode, decode_header, DecodingKey, Validation};
+use reqwest::Client;
 use tokio::sync::{RwLock, RwLockReadGuard};
 use tower_http::{
     auth::{AsyncAuthorizeRequest, AsyncRequireAuthorizationLayer},
@@ -48,13 +49,15 @@ struct AuthState {
 #[derive(Clone)]
 pub struct Auth {
     state: Arc<RwLock<AuthState>>,
+    http_client: Client,
 }
 
 impl Auth {
     async fn init_from_firebase(&self) -> RwLockReadGuard<AuthState> {
-        let req = reqwest::get(
+        let req = self.http_client.get(
             "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
         )
+        .send()
         .await.unwrap();
 
         let now = Utc::now().naive_utc();
@@ -136,8 +139,9 @@ impl<B: Send + Sync + 'static> AsyncAuthorizeRequest<B> for Auth {
     }
 }
 
-pub fn make_firebase_auth_layer() -> AsyncRequireAuthorizationLayer<Auth> {
+pub fn make_firebase_auth_layer(http_client: Client) -> AsyncRequireAuthorizationLayer<Auth> {
     AsyncRequireAuthorizationLayer::new(Auth {
+        http_client,
         state: Arc::new(RwLock::new(AuthState {
             expires: NaiveDateTime::MIN,
             pub_key: HashMap::new(),
