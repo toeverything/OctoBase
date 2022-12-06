@@ -17,7 +17,7 @@ async fn main() {
     let context = Arc::new(context::Context::new().await);
 
     let app = Router::new()
-        .nest("/api", api::make_rest_route())
+        .nest("/api", api::make_rest_route(context.clone()))
         .layer(layer::make_cors_layer())
         .layer(Extension(context.clone()));
 
