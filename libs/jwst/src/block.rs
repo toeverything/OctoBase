@@ -1,3 +1,5 @@
+use crate::workspace::WorkspaceContent;
+
 use super::*;
 use lib0::any::Any;
 use serde::{Serialize, Serializer};
@@ -41,7 +43,7 @@ impl Block {
         F: AsRef<str>,
     {
         let block_id = block_id.as_ref();
-        if let Some(block) = Self::from(workspace, block_id, operator) {
+        if let Some(block) = Self::from(workspace.content(), block_id, operator) {
             block
         } else {
             // init base struct
@@ -98,7 +100,7 @@ impl Block {
         }
     }
 
-    pub fn from<B>(workspace: &Workspace, block_id: B, operator: u64) -> Option<Block>
+    pub fn from<B>(workspace: &WorkspaceContent, block_id: B, operator: u64) -> Option<Block>
     where
         B: AsRef<str>,
     {
