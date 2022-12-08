@@ -35,7 +35,7 @@ https://crdts.cloud/docs/index.html
 │   ├── frontend ## jwst playground, landingpage
 │   ├── handbook ## jwst docs
 │   ├── cloud ## affine-cloud backend
-│   └── keck ## livedemo backend
+│   └── keck ## collaboration backend
 └── libs ##
     ├── jwst  ## jwst core library
     ├── jwst-ffi ## jwst binging for C ffi
