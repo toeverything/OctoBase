@@ -3,17 +3,50 @@ use sqlx::{query, query_as, FromRow, Postgres, Transaction};
 use crate::{
     context::Context,
     model::{
-        CreatePermission, CreateWorkspace, Exist, Id, Permission, PermissionType, UpdateWorkspace,
-        UserCredType, Workspace, WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
+        Count, CreateUser, CreateWorkspace, GoogleClaims, Id, Permission, PermissionType,
+        RefreshToken, UpdateWorkspace, User, UserCred, UserLogin, UserWithNonce, Workspace,
+        WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
     },
 };
 
-pub enum CreatePrivateWorkspaceError {
-    Exist,
-}
-
 impl Context {
     pub async fn init_db(&self) {
+        let stmt = "CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            avatar_url TEXT,
+            token_nonce SMALLINT DEFAULT 0,
+            password TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );";
+        query(&stmt)
+            .execute(&self.db)
+            .await
+            .expect("create table users failed");
+
+        let stmt = "CREATE UNIQUE INDEX IF NOT EXISTS users_email ON users(email);";
+        query(&stmt)
+            .execute(&self.db)
+            .await
+            .expect("create users index failed");
+
+        let stmt = "CREATE TABLE IF NOT EXISTS google_users (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                google_id TEXT NOT NULL
+            );";
+        query(&stmt)
+            .execute(&self.db)
+            .await
+            .expect("create table google_users failed");
+
+        let stmt = "CREATE UNIQUE INDEX IF NOT EXISTS google_users_id ON google_users(google_id);";
+        query(&stmt)
+            .execute(&self.db)
+            .await
+            .expect("create google users index failed");
+
         let stmt = "CREATE TABLE IF NOT EXISTS workspaces (
             id SERIAL PRIMARY KEY,
             public BOOL NOT NULL,
@@ -27,13 +60,14 @@ impl Context {
 
         let stmt = "CREATE TABLE IF NOT EXISTS permissions (
             id SERIAL PRIMARY KEY,
-            workspace_id INTEGER REFERENCES workspaces(id),
-            user_cred TEXT NOT NULL,
-            user_cred_type SMAILLINT NOT NULL,
+            workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id),
+            user_email TEXT,
             type SMALLINT NOT NULL,
             accepted BOOL DEFAULT True,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE (workspace_id, user_cred)
+            UNIQUE (workspace_id, user_id),
+            UNIQUE (workspace_id, user_email)
         );";
         query(&stmt)
             .execute(&self.db)
@@ -41,95 +75,193 @@ impl Context {
             .expect("create table permissions failed");
 
         let stmt = "CREATE TABLE IF NOT EXISTS workspace_data (
-                id SERIAL PRIMARY KEY,
-                workspace_id INTEGER REFERENCES workspaces(id),
-                workspace_data bytea,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );";
+            id SERIAL PRIMARY KEY,
+            workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
+            workspace_data bytea,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );";
         query(&stmt)
             .execute(&self.db)
             .await
             .expect("create table workspace_url failed");
     }
 
-    pub async fn can_read_workspace(&self, user_id: &str, workspace_id: i32) -> sqlx::Result<bool> {
-        #[derive(FromRow)]
-        struct Public {
-            public: bool,
-        }
+    pub async fn get_user_by_id(&self, user_id: i32) -> sqlx::Result<Option<User>> {
+        let stmt = "SELECT id, name, email, avatar_url, created_at FROM users WHERE id = $1";
 
-        let public = "SELECT public FROM workspace WHERE id = $1";
-
-        let public = query_as::<_, Public>(&public)
-            .bind(workspace_id)
-            .fetch_one(&self.db)
-            .await?
-            .public;
-
-        if public {
-            return Ok(true);
-        }
-
-        self.get_permission(user_id, workspace_id)
-            .await
-            .map(|p| p.is_some())
-    }
-
-    pub async fn get_permission(
-        &self,
-        user_id: &str,
-        workspace_id: i32,
-    ) -> sqlx::Result<Option<PermissionType>> {
-        #[derive(FromRow)]
-        struct Permission {
-            #[sqlx(rename = "type")]
-            type_: PermissionType,
-        }
-
-        let stmt = "SELECT type FROM permissions WHERE user_cred = $1 and workspace_id = $2";
-
-        query_as::<_, Permission>(&stmt)
+        query_as::<_, User>(stmt)
             .bind(user_id)
-            .bind(workspace_id)
             .fetch_optional(&self.db)
             .await
-            .map(|p| p.map(|p| p.type_))
+    }
+
+    pub async fn get_user_by_email(&self, email: &str) -> sqlx::Result<Option<User>> {
+        let stmt = "SELECT id, name, email, avatar_url, created_at FROM users WHERE email = $1";
+
+        query_as::<_, User>(stmt)
+            .bind(email)
+            .fetch_optional(&self.db)
+            .await
+    }
+
+    pub async fn user_login(&self, login: UserLogin) -> sqlx::Result<Option<UserWithNonce>> {
+        let stmt = "SELECT 
+            id, name, email, avatar_url, token_nonce, created_at
+        FROM users
+        WHERE email = $1 and password = $2";
+
+        query_as::<_, UserWithNonce>(stmt)
+            .bind(login.email)
+            .bind(login.password)
+            .fetch_optional(&self.db)
+            .await
+    }
+
+    pub async fn refresh_token(&self, token: RefreshToken) -> sqlx::Result<Option<UserWithNonce>> {
+        let stmt = "SELECT 
+            id, name, email, avatar_url, token_nonce, created_at
+        FROM users
+        WHERE id = $1 and token_nonce = $2";
+
+        query_as::<_, UserWithNonce>(stmt)
+            .bind(token.user_id)
+            .bind(token.token_nonce)
+            .fetch_optional(&self.db)
+            .await
+    }
+
+    async fn update_cred(
+        trx: &mut Transaction<'static, Postgres>,
+        user_id: i32,
+        user_email: &str,
+    ) -> sqlx::Result<()> {
+        let update_cred = format!(
+            "UPDATE permissions
+                SET user_id = $1,
+                    user_email = null
+            WHERE user_email = $2",
+        );
+
+        query(&update_cred)
+            .bind(user_id)
+            .bind(user_email)
+            .execute(&mut *trx)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn create_user(&self, user: CreateUser) -> sqlx::Result<Option<User>> {
+        let mut trx = self.db.begin().await?;
+        let create_user = "INSERT INTO users 
+            (name, password, email, avatar_url) 
+            VALUES ($1, $2, $3, $4)
+        ON CONFLICT email DO NOTHING
+        RETURNING id, name, email, avatar_url, created_at";
+
+        let Some(user) = query_as::<_, User>(create_user)
+            .bind(user.name)
+            .bind(user.password)
+            .bind(user.email)
+            .bind(user.avatar_url)
+            .fetch_optional(&mut trx)
+            .await? else {
+                return Ok(None)
+        };
+
+        Self::create_workspace(&mut trx, user.id, WorkspaceType::Private).await?;
+
+        Self::update_cred(&mut trx, user.id, &user.email).await?;
+
+        trx.commit().await?;
+
+        Ok(Some(user))
+    }
+
+    pub async fn google_user_login(&self, claims: &GoogleClaims) -> sqlx::Result<UserWithNonce> {
+        let mut trx = self.db.begin().await?;
+        let update_user = "UPDATE users
+        SET
+            name = $1,
+            email = $2,
+            avatar_url = $3
+        FROM google_users
+        WHERE google_users.google_id = $4 and google_users.user_id = users.id
+        RETURNING users.id, users.name, users.email, users.avatar_url,
+            users.token_nonce, users.created_at";
+
+        if let Some(user) = query_as::<_, UserWithNonce>(update_user)
+            .bind(&claims.name)
+            .bind(&claims.email)
+            .bind(&claims.picture)
+            .bind(&claims.user_id)
+            .fetch_optional(&mut trx)
+            .await?
+        {
+            return Ok(user);
+        }
+
+        let create_user = "INSERT INTO users 
+            (name, email, avatar_url) 
+            VALUES ($1, $2, $3)
+        ON CONFLICT (email) DO NOTHING
+        RETURNING id, name, email, avatar_url, token_nonce, created_at";
+
+        let user = query_as::<_, UserWithNonce>(create_user)
+            .bind(&claims.name)
+            .bind(&claims.email)
+            .bind(&claims.picture)
+            .fetch_one(&mut trx)
+            .await?;
+
+        let create_google_user = "INSERT INTO google_users 
+            (user_id, google_id)
+            VALUES ($1, $2)
+            ON CONFLICT DO NOTHING";
+
+        query(create_google_user)
+            .bind(user.user.id)
+            .bind(&claims.user_id)
+            .execute(&mut trx)
+            .await?;
+
+        Self::create_workspace(&mut trx, user.user.id, WorkspaceType::Private).await?;
+
+        Self::update_cred(&mut trx, user.user.id, &user.user.email).await?;
+
+        trx.commit().await?;
+
+        Ok(user)
     }
 
     pub async fn get_workspace_by_id(&self, workspace_id: i32) -> sqlx::Result<WorkspaceDetail> {
-        let get_workspace = "SELECT id,public,type,created_at FROM workspaces WHERE id = $1;";
+        let get_workspace = "SELECT id, public, type, created_at FROM workspaces WHERE id = $1;";
 
         let workspace = query_as::<_, Workspace>(&get_workspace)
             .bind(workspace_id)
             .fetch_one(&self.db)
             .await?;
 
-        #[derive(FromRow)]
-        struct UserId {
-            user_cred: String,
-        }
-
         let get_owner = format!(
-            "SELECT user_cred FROM permissions WHERE workspace_id = $1 AND type = {}",
+            "SELECT
+                users.id, users.name, users.email, users.avatar_url,users.created_at
+            FROM permissions
+            INNER JOIN users
+                ON permissions.user_id = users.id
+            WHERE workspace_id = $1 AND type = {}",
             PermissionType::Owner as i16
         );
 
-        let owner = query_as::<_, UserId>(&get_owner)
+        let owner = query_as::<_, User>(&get_owner)
             .bind(workspace_id)
             .fetch_one(&self.db)
-            .await?
-            .user_cred;
+            .await?;
 
-        #[derive(FromRow)]
-        struct MemberCount {
-            count: i32,
-        }
-
-        let get_member_count = "SELECT COUNT(permission.user_cred)
+        let get_member_count = "SELECT COUNT(permissions.id)
             FROM permissions
             WHERE workspace_id = $1 and accepted = True";
 
-        let member_count = query_as::<_, MemberCount>(get_member_count)
+        let member_count = query_as::<_, Count>(get_member_count)
             .bind(workspace_id)
             .fetch_one(&self.db)
             .await?
@@ -144,13 +276,12 @@ impl Context {
 
     async fn create_workspace(
         trx: &mut Transaction<'static, Postgres>,
-        user_id: &str,
+        user_id: i32,
         ws_type: WorkspaceType,
     ) -> sqlx::Result<Workspace> {
         let create_workspace = format!(
-            "INSERT INTO workspaces 
-                (public, type) VALUES (false, $1) 
-            RETURNING id,public,created_at,type;",
+            "INSERT INTO workspaces (public, type) VALUES (false, $1) 
+            RETURNING id, public, created_at, type;",
         );
 
         let workspace = query_as::<_, Workspace>(&create_workspace)
@@ -160,9 +291,8 @@ impl Context {
 
         let create_permission = format!(
             "INSERT INTO permissions
-                (user_cred, user_cred_type, workspace_id, type, accepted)
-                VALUES ($1, {}, $2, {}, True);",
-            UserCredType::Id as i16,
+                (user_id, workspace_id, type, accepted)
+            VALUES ($1, $2, {}, True);",
             PermissionType::Owner as i16
         );
 
@@ -175,42 +305,9 @@ impl Context {
         Ok(workspace)
     }
 
-    pub async fn init_user(
-        &self,
-        user_id: &str,
-    ) -> sqlx::Result<Result<Workspace, CreatePrivateWorkspaceError>> {
-        let mut trx = self.db.begin().await?;
-        let get_private_workspace = format!(
-            "SELECT EXISTS (
-                SELECT 1 FROM permissions
-                INNER JOIN workspaces
-                  ON permissions.workspace_id = workspaces.id
-                WHERE permissions.user_cred = $1 and permissions.type = {} and workspaces.type = {}
-            )",
-            PermissionType::Owner as i16,
-            WorkspaceType::Private as i16
-        );
-
-        let exist = query_as::<_, Exist>(&get_private_workspace)
-            .bind(user_id)
-            .fetch_one(&mut trx)
-            .await?
-            .exists;
-
-        if exist {
-            return Ok(Err(CreatePrivateWorkspaceError::Exist));
-        }
-
-        let workspace = Self::create_workspace(&mut trx, user_id, WorkspaceType::Private).await?;
-
-        trx.commit().await?;
-
-        Ok(Ok(workspace))
-    }
-
     pub async fn create_normal_workspace(
         &self,
-        user_id: &str,
+        user_id: i32,
         data: CreateWorkspace,
     ) -> sqlx::Result<Workspace> {
         let mut trx = self.db.begin().await?;
@@ -225,33 +322,47 @@ impl Context {
         &self,
         workspace_id: i32,
         data: UpdateWorkspace,
-    ) -> sqlx::Result<Workspace> {
+    ) -> sqlx::Result<Option<Workspace>> {
         let update_workspace = format!(
             "UPDATE workspaces
                 SET public = $1
             WHERE id = $2 and type = {}
-            RETURNING id,public,type,created_at;",
+            RETURNING id, public, type, created_at;",
             WorkspaceType::Normal as i16
         );
 
         query_as::<_, Workspace>(&update_workspace)
-            .bind(workspace_id)
             .bind(data.public)
-            .fetch_one(&self.db)
+            .bind(workspace_id)
+            .fetch_optional(&self.db)
             .await
+    }
+
+    pub async fn delete_workspace(&self, workspace_id: i32) -> sqlx::Result<bool> {
+        let delete_workspace = format!(
+            "DELETE FROM workspaces CASCADE
+            WHERE id = $1 and type = {}",
+            WorkspaceType::Normal as i16
+        );
+
+        query(&delete_workspace)
+            .bind(workspace_id)
+            .execute(&self.db)
+            .await
+            .map(|q| q.rows_affected() != 0)
     }
 
     pub async fn get_user_workspaces(
         &self,
-        user_id: &str,
+        user_id: i32,
     ) -> sqlx::Result<Vec<WorkspaceWithPermission>> {
         let stmt = "SELECT 
-            workspaces.id,workspaces.public,workspaces.created_at,workspaces.type,
+            workspaces.id, workspaces.public, workspaces.created_at, workspaces.type,
             permissions.type as permission
         FROM permissions
         INNER JOIN workspaces
           ON permissions.workspace_id = workspaces.id
-        WHERE user_cred = $1";
+        WHERE user_id = $1";
 
         query_as::<_, WorkspaceWithPermission>(&stmt)
             .bind(user_id)
@@ -261,7 +372,7 @@ impl Context {
 
     pub async fn get_workspace_members(&self, workspace_id: i32) -> sqlx::Result<Vec<Permission>> {
         let stmt = "SELECT 
-            id, workspace_id, type, user_cred, user_cred_type, accepted, created_at
+            id, workspace_id, type, user_id, user_email, accepted, created_at
             FROM permissions
             WHERE workspace_id = $1";
 
@@ -271,52 +382,90 @@ impl Context {
             .await
     }
 
+    pub async fn get_permission(
+        &self,
+        user_id: i32,
+        workspace_id: i32,
+    ) -> sqlx::Result<Option<PermissionType>> {
+        #[derive(FromRow)]
+        struct Permission {
+            #[sqlx(rename = "type")]
+            type_: PermissionType,
+        }
+
+        let stmt = "SELECT type FROM permissions WHERE user_id = $1 and workspace_id = $2";
+
+        query_as::<_, Permission>(&stmt)
+            .bind(user_id)
+            .bind(workspace_id)
+            .fetch_optional(&self.db)
+            .await
+            .map(|p| p.map(|p| p.type_))
+    }
+
     pub async fn create_permission(
         &self,
-        data: &CreatePermission,
+        email: &str,
         workspace_id: i32,
         permission_type: PermissionType,
-    ) -> sqlx::Result<Option<i32>> {
-        let stmt = "INSERT INTO permissions (user_cred, user_cred_type, workspace_id, type) 
-                VALUES ($1, $2, $3, $4)
-            ON CONFLICT DO NOTHING
-            RETURNING id";
+    ) -> sqlx::Result<Option<(i32, UserCred)>> {
+        let user = self.get_user_by_email(email).await?;
 
-        query_as::<_, Id>(&stmt)
-            .bind(&data.user_cred)
-            .bind(data.user_cred_type as i32)
+        let stmt = format!(
+            "INSERT INTO permissions (user_id, user_email, workspace_id, type)
+            SELECT $1, $2, $3, $4
+            FROM workspaces
+                WHERE workspaces.type = {}
+            ON CONFLICT DO NOTHING
+            RETURNING id",
+            WorkspaceType::Normal as i16
+        );
+
+        let query = query_as::<_, Id>(&stmt);
+
+        let (query, user) = match user {
+            Some(user) => (
+                query.bind(user.id).bind::<Option<String>>(None),
+                UserCred::Registered(user),
+            ),
+            None => (
+                query.bind::<Option<i32>>(None).bind(email),
+                UserCred::UnRegistered(email.to_owned()),
+            ),
+        };
+
+        let id = query
             .bind(workspace_id)
             .bind(permission_type as i16)
             .fetch_optional(&self.db)
-            .await
-            .map(|i| i.map(|i| i.id))
+            .await?;
+
+        Ok(if let Some(id) = id {
+            Some((id.id, user))
+        } else {
+            None
+        })
     }
 
-    pub async fn accept_permission(
-        &self,
-        user_id: &str,
-        permission_id: i32,
-    ) -> sqlx::Result<Option<Permission>> {
-        let stmt = format!(
-            "UPDATE permissions
-                SET 
-            WHERE id = $1 and user_cred = $2 and user_cred_type = {}
-            RETURNING id, user_cred, workspace_id, type, accepted, created_at",
-            UserCredType::Id as i32
-        );
+    pub async fn accept_permission(&self, permission_id: i32) -> sqlx::Result<Option<Permission>> {
+        let stmt = "UPDATE permissions
+                SET accepted = True
+            WHERE id = $1
+            RETURNING id, user_id, user_email, workspace_id, type, accepted, created_at";
 
         query_as::<_, Permission>(&stmt)
             .bind(permission_id)
-            .bind(user_id)
             .fetch_optional(&self.db)
             .await
     }
 
-    pub async fn delete_permission(&self, permission_id: i32) -> sqlx::Result<()> {
+    pub async fn delete_permission(&self, permission_id: i32) -> sqlx::Result<bool> {
         let stmt = "DELETE FROM permissions where permission_id = $1";
 
-        query(&stmt).bind(permission_id).execute(&self.db).await?;
-
-        Ok(())
+        query(&stmt)
+            .bind(permission_id)
+            .execute(&self.db)
+            .await
+            .map(|q| q.rows_affected() != 0)
     }
 }
