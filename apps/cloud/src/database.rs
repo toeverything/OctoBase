@@ -3,9 +3,9 @@ use sqlx::{query, query_as, FromRow, Postgres, Transaction};
 use crate::{
     context::Context,
     model::{
-        Count, CreateUser, CreateWorkspace, GoogleClaims, Id, Permission, PermissionType,
-        RefreshToken, UpdateWorkspace, User, UserCred, UserLogin, UserWithNonce, Workspace,
-        WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
+        Count, CreateUser, CreateWorkspace, GoogleClaims, Id, Member, Permission, PermissionType,
+        RefreshToken, UpdateWorkspace, User, UserCred, UserLogin, UserQuery, UserWithNonce,
+        Workspace, WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
     },
 };
 
@@ -86,11 +86,11 @@ impl Context {
             .expect("create table workspace_url failed");
     }
 
-    pub async fn get_user_by_id(&self, user_id: i32) -> sqlx::Result<Option<User>> {
-        let stmt = "SELECT id, name, email, avatar_url, created_at FROM users WHERE id = $1";
+    pub async fn query_user(&self, query: UserQuery) -> sqlx::Result<Option<User>> {
+        let stmt = "SELECT id, name, email, avatar_url, created_at FROM users WHERE email = $1";
 
         query_as::<_, User>(stmt)
-            .bind(user_id)
+            .bind(query.email)
             .fetch_optional(&self.db)
             .await
     }
@@ -370,13 +370,17 @@ impl Context {
             .await
     }
 
-    pub async fn get_workspace_members(&self, workspace_id: i32) -> sqlx::Result<Vec<Permission>> {
+    pub async fn get_workspace_members(&self, workspace_id: i32) -> sqlx::Result<Vec<Member>> {
         let stmt = "SELECT 
-            id, workspace_id, type, user_id, user_email, accepted, created_at
+            permissions.id, permissions.type, permissions.user_email,
+            permissions.accepted, permissions.created_at,
+            users.id as user_id, users.name as user_name, users.email as user_table_email, users.avatar_url,users.created_at as user_created_at
             FROM permissions
+            LEFT JOIN users
+            ON users.id = permissions.user_id
             WHERE workspace_id = $1";
 
-        query_as::<_, Permission>(stmt)
+        query_as::<_, Member>(stmt)
             .bind(workspace_id)
             .fetch_all(&self.db)
             .await
@@ -430,7 +434,9 @@ impl Context {
             ),
             None => (
                 query.bind::<Option<i32>>(None).bind(email),
-                UserCred::UnRegistered(email.to_owned()),
+                UserCred::UnRegistered {
+                    email: email.to_owned(),
+                },
             ),
         };
 

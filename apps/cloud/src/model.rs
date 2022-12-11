@@ -1,7 +1,7 @@
 use chrono::naive::serde::{ts_milliseconds, ts_seconds};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Type};
+use sqlx::{self, postgres::PgRow, types::chrono::NaiveDateTime, FromRow, Row, Type};
 
 #[derive(Debug, Deserialize)]
 pub struct GoogleClaims {
@@ -30,11 +30,16 @@ pub struct User {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(FromRow, Deserialize)]
+#[derive(FromRow)]
 pub struct UserWithNonce {
     #[sqlx(flatten)]
     pub user: User,
     pub token_nonce: i16,
+}
+
+#[derive(Deserialize)]
+pub struct UserQuery {
+    pub email: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -172,15 +177,52 @@ pub struct CreatePermission {
 #[serde(tag = "type")]
 pub enum UserCred {
     Registered(User),
-    UnRegistered(String),
+    UnRegistered { email: String },
 }
 
 #[derive(Serialize)]
 pub struct Member {
+    pub id: i32,
     pub user: UserCred,
     pub accepted: bool,
     #[serde(rename = "type")]
     pub type_: PermissionType,
+    #[serde(with = "ts_milliseconds")]
+    pub created_at: NaiveDateTime,
+}
+
+impl FromRow<'_, PgRow> for Member {
+    fn from_row(row: &PgRow) -> sqlx::Result<Self> {
+        let id = row.try_get("id")?;
+        let accepted = row.try_get("accepted")?;
+        let type_ = row.try_get("type")?;
+        let created_at = row.try_get("created_at")?;
+
+        let user = if let Some(email) = row.try_get("user_email")? {
+            UserCred::UnRegistered { email }
+        } else {
+            let id = row.try_get("user_id")?;
+            let name = row.try_get("user_name")?;
+            let email = row.try_get("user_table_email")?;
+            let avatar_url = row.try_get("avatar_url")?;
+            let created_at = row.try_get("user_created_at")?;
+            UserCred::Registered(User {
+                id,
+                name,
+                email,
+                avatar_url,
+                created_at,
+            })
+        };
+
+        Ok(Member {
+            id,
+            accepted,
+            user,
+            type_,
+            created_at,
+        })
+    }
 }
 
 #[derive(FromRow)]
