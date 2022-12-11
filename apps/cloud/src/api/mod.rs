@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::Path,
+    extract::{Path, Query},
     response::{IntoResponse, Response},
     routing::{delete, get, post, Router},
     Extension, Json,
@@ -16,7 +16,7 @@ use crate::{
     layer::make_firebase_auth_layer,
     model::{
         Claims, CreatePermission, CreateWorkspace, MakeToken, PermissionType, RefreshToken,
-        UpdateWorkspace, UserCred, UserToken, UserWithNonce,
+        UpdateWorkspace, UserCred, UserQuery, UserToken, UserWithNonce,
     },
 };
 
@@ -29,6 +29,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .nest(
             "/",
             Router::new()
+                .route("/user", get(query_user))
                 .route("/workspace", get(get_workspaces).post(create_workspace))
                 .route(
                     "/workspace/:id",
@@ -46,6 +47,21 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
                         .layer(make_firebase_auth_layer(ctx.key.jwt_decode.clone())),
                 ),
         )
+}
+
+async fn query_user(
+    Extension(ctx): Extension<Arc<Context>>,
+    Query(payload): Query<UserQuery>,
+) -> Response {
+    if payload.email.is_none() {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+
+    match ctx.query_user(payload).await {
+        Ok(Some(user)) => Json(user).into_response(),
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
 }
 
 async fn make_token(
@@ -237,7 +253,7 @@ async fn create_permission(
     let mailbox = Mailbox::new(
         match user_cred {
             UserCred::Registered(user) => Some(user.name),
-            UserCred::UnRegistered(_) => None,
+            UserCred::UnRegistered { .. } => None,
         },
         addr,
     );
