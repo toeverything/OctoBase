@@ -86,7 +86,7 @@ pub struct RefreshToken {
     pub token_nonce: i16,
 }
 
-#[derive(Type, Serialize_repr, Deserialize_repr)]
+#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Clone, Copy)]
 #[repr(i16)]
 pub enum WorkspaceType {
     Private = 0,
@@ -95,7 +95,7 @@ pub enum WorkspaceType {
 
 #[derive(FromRow, Serialize)]
 pub struct Workspace {
-    pub id: i32,
+    pub id: i64,
     pub public: bool,
     #[serde(rename = "type")]
     #[sqlx(rename = "type")]
@@ -124,6 +124,7 @@ pub struct WorkspaceDetail {
 #[derive(Deserialize)]
 pub struct CreateWorkspace {
     pub name: String,
+    pub avatar: String,
 }
 
 #[derive(Deserialize)]
@@ -142,11 +143,11 @@ pub enum PermissionType {
 
 #[derive(FromRow, Serialize)]
 pub struct Permission {
-    pub id: i32,
+    pub id: i64,
     #[serde(rename = "type")]
     #[sqlx(rename = "type")]
     pub type_: PermissionType,
-    pub workspace_id: i32,
+    pub workspace_id: i64,
     pub user_id: Option<i32>,
     pub user_email: Option<String>,
     pub accepted: bool,
@@ -182,7 +183,7 @@ pub enum UserCred {
 
 #[derive(Serialize)]
 pub struct Member {
-    pub id: i32,
+    pub id: i64,
     pub user: UserCred,
     pub accepted: bool,
     #[serde(rename = "type")]
@@ -233,6 +234,11 @@ pub struct Exist {
 #[derive(FromRow)]
 pub struct Id {
     pub id: i32,
+}
+
+#[derive(FromRow)]
+pub struct BigId {
+    pub id: i64,
 }
 
 #[derive(FromRow)]

@@ -51,18 +51,16 @@ impl Context {
         let db = PgPool::connect(&db_env).await.expect("wrong database URL");
 
         let key = {
-            let aes_env = dotenvy::var("AES_KEY").expect("should provide AES key");
+            let key_env = dotenvy::var("SIGN_KEY").expect("should provide AES key");
 
             let mut hasher = Sha256::new();
-            hasher.update(aes_env.as_bytes());
+            hasher.update(key_env.as_bytes());
             let hash = hasher.finalize();
 
             let aes = Aes256Gcm::new_from_slice(&hash[..]).unwrap();
 
-            let jwt_env = dotenvy::var("JWT_KEY").expect("should provide JWT key");
-
-            let jwt_encode = EncodingKey::from_secret(jwt_env.as_bytes());
-            let jwt_decode = DecodingKey::from_secret(jwt_env.as_bytes());
+            let jwt_encode = EncodingKey::from_secret(key_env.as_bytes());
+            let jwt_decode = DecodingKey::from_secret(key_env.as_bytes());
             KeyContext {
                 jwt_encode,
                 jwt_decode,
