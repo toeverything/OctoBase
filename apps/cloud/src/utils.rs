@@ -1,6 +1,4 @@
 use chrono::Duration;
-use hmac::Hmac;
-use sha2::Sha256;
 use tokio::signal;
 use tracing::info;
 
@@ -113,5 +111,3 @@ impl CacheControl {
         Some(ret)
     }
 }
-
-pub type HmacSha256 = Hmac<Sha256>;

@@ -1,20 +1,15 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use axum::body::Bytes;
-use chrono::{NaiveDateTime, Utc};
-use futures::future::BoxFuture;
-use http::{header::CACHE_CONTROL, HeaderMap, Method, Request, Response, StatusCode};
+use http::{Method, Request, Response, StatusCode};
 use http_body::combinators::UnsyncBoxBody;
-use jsonwebtoken::{decode, decode_header, DecodingKey, Validation};
-use tokio::sync::{RwLock, RwLockReadGuard};
+use jsonwebtoken::DecodingKey;
 use tower_http::{
-    auth::{AsyncAuthorizeRequest, AsyncRequireAuthorizationLayer},
+    auth::{AuthorizeRequest, RequireAuthorizationLayer},
     cors::{Any, CorsLayer},
 };
-use tracing::info;
-use x509_parser::prelude::parse_x509_pem;
 
-use crate::{model::Claims, utils::CacheControl};
+use crate::model::Claims;
 
 pub fn make_cors_layer() -> CorsLayer {
     let origins = [
@@ -40,107 +35,41 @@ pub fn make_cors_layer() -> CorsLayer {
         .allow_headers(Any)
 }
 
-struct AuthState {
-    expires: NaiveDateTime,
-    pub_key: HashMap<String, DecodingKey>,
-}
-
 #[derive(Clone)]
 pub struct Auth {
-    state: Arc<RwLock<AuthState>>,
+    decoding_key: DecodingKey,
 }
 
-impl Auth {
-    async fn init_from_firebase(&self) -> RwLockReadGuard<AuthState> {
-        let req = reqwest::get(
-            "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
-        )
-        .await.unwrap();
+impl<B> AuthorizeRequest<B> for Auth {
+    type ResponseBody = UnsyncBoxBody<Bytes, axum::Error>;
 
-        let now = Utc::now().naive_utc();
-        let cache = req.headers().get(CACHE_CONTROL).unwrap().to_str().unwrap();
-        let cache = CacheControl::parse(cache).unwrap();
-        let expires = now + cache.max_age.unwrap();
-
-        let body: HashMap<String, String> = req.json().await.unwrap();
-
-        let pub_key = body
-            .into_iter()
-            .map(|(key, value)| {
-                let (_, pem) = parse_x509_pem(value.as_bytes()).expect("decode PEM error");
-                let cert = pem.parse_x509().expect("decode certificate error");
-
-                let pub_key = pem::encode(&pem::Pem {
-                    tag: String::from("PUBLIC KEY"),
-                    contents: cert.public_key().raw.to_vec(),
-                });
-                let decode = DecodingKey::from_rsa_pem(pub_key.as_bytes()).unwrap();
-
-                (key, decode)
+    fn authorize(&mut self, request: &mut Request<B>) -> Result<(), Response<Self::ResponseBody>> {
+        use jsonwebtoken::{decode, Validation};
+        // TODO: some route don't need auth
+        if let Some(claims) = request
+            .headers()
+            .get("Authorization")
+            .and_then(|header| header.to_str().ok())
+            .and_then(|token| {
+                decode::<Claims>(token, &self.decoding_key, &Validation::default())
+                    .map(|d| d.claims)
+                    .ok()
             })
-            .collect();
+        {
+            request.extensions_mut().insert(Arc::new(claims));
 
-        let mut state = self.state.write().await;
-
-        state.expires = expires;
-        state.pub_key = pub_key;
-
-        state.downgrade()
-    }
-
-    async fn decode_firebase_jwt(&self, headers: &HeaderMap) -> Option<Claims> {
-        let token = headers.get("Authorization")?.to_str().ok()?;
-        let header = decode_header(token).ok()?;
-        let state = self.state.read().await;
-
-        let state = if state.expires < Utc::now().naive_utc() {
-            drop(state);
-            self.init_from_firebase().await
+            Ok(())
         } else {
-            state
-        };
-        let key = state.pub_key.get(&header.kid?)?;
+            let unauthorized_response = Response::builder()
+                .status(StatusCode::UNAUTHORIZED)
+                .body(UnsyncBoxBody::default())
+                .unwrap();
 
-        match decode::<Claims>(token, key, &Validation::new(header.alg)).map(|d| d.claims) {
-            Ok(c) => Some(c),
-            Err(e) => {
-                info!("invalid token {}", e);
-                None
-            }
+            Err(unauthorized_response)
         }
     }
 }
 
-impl<B: Send + Sync + 'static> AsyncAuthorizeRequest<B> for Auth {
-    type RequestBody = B;
-    type ResponseBody = UnsyncBoxBody<Bytes, axum::Error>;
-
-    type Future = BoxFuture<'static, Result<Request<B>, Response<Self::ResponseBody>>>;
-
-    fn authorize(&mut self, mut request: Request<B>) -> Self::Future {
-        let state = self.clone();
-        Box::pin(async move {
-            if let Some(claims) = state.decode_firebase_jwt(request.headers()).await {
-                request.extensions_mut().insert(Arc::new(claims));
-
-                Ok(request)
-            } else {
-                let unauthorized_response = Response::builder()
-                    .status(StatusCode::UNAUTHORIZED)
-                    .body(UnsyncBoxBody::default())
-                    .unwrap();
-
-                Err(unauthorized_response)
-            }
-        })
-    }
-}
-
-pub fn make_firebase_auth_layer() -> AsyncRequireAuthorizationLayer<Auth> {
-    AsyncRequireAuthorizationLayer::new(Auth {
-        state: Arc::new(RwLock::new(AuthState {
-            expires: NaiveDateTime::MIN,
-            pub_key: HashMap::new(),
-        })),
-    })
+pub fn make_firebase_auth_layer(decoding_key: DecodingKey) -> RequireAuthorizationLayer<Auth> {
+    RequireAuthorizationLayer::custom(Auth { decoding_key })
 }

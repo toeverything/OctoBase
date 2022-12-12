@@ -34,7 +34,8 @@ https://crdts.cloud/docs/index.html
 │   ├── android ##  Android scaffolding project
 │   ├── frontend ## jwst playground, landingpage
 │   ├── handbook ## jwst docs
-│   └── keck ## affine-cloud backend
+│   ├── cloud ## affine-cloud backend
+│   └── keck ## collaboration backend
 └── libs ##
     ├── jwst  ## jwst core library
     ├── jwst-ffi ## jwst binging for C ffi

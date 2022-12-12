@@ -20,7 +20,7 @@
 //! build resilient applications that sync through multiple communication
 //! mediums all at once. We don't have this ecosystem yet in Yrs, but you can
 //! build them easily on your own.
-
+#![allow(warnings)]
 mod alt;
 pub mod block;
 mod block_store;

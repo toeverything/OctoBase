@@ -172,11 +172,11 @@ impl DocDatabase {
 
         self.create(workspace).await?;
 
-        let all_data = self.all(workspace).await.unwrap();
+        let all_data = self.all(workspace).await?;
 
         if all_data.is_empty() {
             let update = doc.encode_state_as_update_v1(&StateVector::default());
-            self.insert(workspace, &update).await.unwrap();
+            self.insert(workspace, &update).await?;
         } else {
             doc = migrate_update(all_data, doc);
         }

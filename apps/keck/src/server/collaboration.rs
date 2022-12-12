@@ -1,5 +1,4 @@
 use super::*;
-use crate::sync::{decode_remote_message, encode_init_update, encode_update};
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
@@ -9,11 +8,10 @@ use axum::{
     Json,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
-use jwst::Workspace;
+use jwst::{encode_update, Workspace};
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::mpsc::channel;
-use yrs::StateVector;
 
 #[derive(Serialize)]
 pub struct WebSocketAuthentication {
@@ -99,31 +97,20 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
     }
 
     {
-        let workspace = workspace.clone();
+        let workspace_id = workspace.clone();
         let context = context.clone();
         tokio::spawn(async move {
             use tokio::time::{sleep, Duration};
             loop {
                 sleep(Duration::from_secs(10)).await;
 
-                let update = {
-                    if let Some(workspace) = context.workspace.get(&workspace) {
-                        Some(
-                            workspace
-                                .lock()
-                                .await
-                                .doc()
-                                .encode_state_as_update_v1(&StateVector::default()),
-                        )
-                    } else {
-                        None
-                    }
-                };
-
-                if let Some(update) = update {
-                    if let Err(e) = context.docs.full_migrate(&workspace, update).await {
+                if let Some(workspace) = context.workspace.get(&workspace_id) {
+                    let update = workspace.lock().await.sync_migration();
+                    if let Err(e) = context.docs.full_migrate(&workspace_id, update).await {
                         error!("db write error: {}", e.to_string());
                     }
+                } else {
+                    break;
                 }
             }
         });
@@ -134,7 +121,7 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
         .channel
         .insert((workspace.clone(), uuid.clone()), tx.clone());
 
-    let init_data = {
+    if let Ok(init_data) = {
         let ws = match init_workspace(&context, &workspace).await {
             Ok(doc) => doc,
             Err(e) => {
@@ -147,10 +134,14 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
 
         subscribe_handler(context.clone(), &mut ws, uuid.clone(), workspace.clone());
 
-        encode_init_update(ws.doc())
-    };
-
-    if tx.send(Message::Binary(init_data)).await.is_err() {
+        ws.sync_init_message()
+    } {
+        if tx.send(Message::Binary(init_data)).await.is_err() {
+            context.channel.remove(&(workspace, uuid));
+            // client disconnected
+            return;
+        }
+    } else {
         context.channel.remove(&(workspace, uuid));
         // client disconnected
         return;
@@ -160,20 +151,14 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
         if let Ok(Message::Binary(binary)) = msg {
             let payload = {
                 let workspace = context.workspace.get(&workspace).unwrap();
-                let workspace = workspace.value().lock().await;
-                let doc = workspace.doc();
+                let mut workspace = workspace.value().lock().await;
 
                 use std::panic::{catch_unwind, AssertUnwindSafe};
-                catch_unwind(AssertUnwindSafe(|| decode_remote_message(doc, binary)))
+                catch_unwind(AssertUnwindSafe(|| workspace.sync_decode_message(binary)))
             };
-            if let Ok((binary, update)) = payload {
-                if let Some(update) = update {
-                    if let Err(e) = context.docs.update(&workspace, update).await {
-                        error!("db write error: {}", e.to_string());
-                    }
-                }
-                if let Some(binary) = binary {
-                    if let Err(e) = tx.send(Message::Binary(binary)).await {
+            if let Ok(messages) = payload {
+                for reply in messages {
+                    if let Err(e) = tx.send(Message::Binary(reply)).await {
                         if !tx.is_closed() {
                             error!("socket send error: {}", e.to_string());
                         }

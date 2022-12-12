@@ -8,6 +8,7 @@ members = [
     "libs/jwst-jni",
     "libs/jwst-wasm",
     "libs/jwst-py",
+    "libs/y-sync",
     "libs/yrs",
     "libs/logger",
     "libs/storage",
