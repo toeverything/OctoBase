@@ -136,8 +136,8 @@ pub struct UpdateWorkspace {
 pub enum PermissionType {
     Read = 0,
     Write = 1,
-    Admin = 2,
-    Owner = 3,
+    Admin = 10,
+    Owner = 99,
 }
 
 #[derive(FromRow, Serialize)]

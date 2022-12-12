@@ -18,34 +18,24 @@ impl Context {
             avatar_url TEXT,
             token_nonce SMALLINT DEFAULT 0,
             password TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (email)
         );";
         query(&stmt)
             .execute(&self.db)
             .await
             .expect("create table users failed");
 
-        let stmt = "CREATE UNIQUE INDEX IF NOT EXISTS users_email ON users(email);";
-        query(&stmt)
-            .execute(&self.db)
-            .await
-            .expect("create users index failed");
-
         let stmt = "CREATE TABLE IF NOT EXISTS google_users (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id),
-                google_id TEXT NOT NULL
-            );";
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            google_id TEXT NOT NULL,
+            UNIQUE (google_id)
+        );";
         query(&stmt)
             .execute(&self.db)
             .await
             .expect("create table google_users failed");
-
-        let stmt = "CREATE UNIQUE INDEX IF NOT EXISTS google_users_id ON google_users(google_id);";
-        query(&stmt)
-            .execute(&self.db)
-            .await
-            .expect("create google users index failed");
 
         let stmt = "CREATE TABLE IF NOT EXISTS workspaces (
             id SERIAL PRIMARY KEY,
@@ -73,17 +63,6 @@ impl Context {
             .execute(&self.db)
             .await
             .expect("create table permissions failed");
-
-        let stmt = "CREATE TABLE IF NOT EXISTS workspace_data (
-            id SERIAL PRIMARY KEY,
-            workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
-            workspace_data bytea,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );";
-        query(&stmt)
-            .execute(&self.db)
-            .await
-            .expect("create table workspace_url failed");
     }
 
     pub async fn query_user(&self, query: UserQuery) -> sqlx::Result<Option<User>> {
