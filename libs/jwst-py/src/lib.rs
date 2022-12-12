@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use pyo3::types::{PyFloat, PyList, PyFunction};
+use pyo3::types::PyList;
 use jwst::{Block as JwstBlock, Workspace as JwstWorkspace};
 use yrs::{Doc as YrsDoc, Map as YrsMap, Subscription as YrsSubscription, UpdateEvent};
 
