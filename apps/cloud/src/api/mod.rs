@@ -24,6 +24,7 @@ mod ws;
 
 pub fn make_rest_route(ctx: Arc<Context>) -> Router {
     Router::new()
+        .route("/healthz", get(health_check))
         .route("/user/token", post(make_token))
         .route("/invitation/:path", post(accept_invitation))
         .nest(
@@ -47,6 +48,10 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
                         .layer(make_firebase_auth_layer(ctx.key.jwt_decode.clone())),
                 ),
         )
+}
+
+async fn health_check() -> Response {
+    StatusCode::OK.into_response()
 }
 
 async fn query_user(
