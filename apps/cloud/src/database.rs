@@ -3,11 +3,17 @@ use sqlx::{query, query_as, FromRow, Postgres, Transaction};
 use crate::{
     context::Context,
     model::{
-        Count, CreateUser, CreateWorkspace, GoogleClaims, Id, Member, Permission, PermissionType,
-        RefreshToken, UpdateWorkspace, User, UserCred, UserLogin, UserQuery, UserWithNonce,
-        Workspace, WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
+        BigId, Count, CreateUser, CreateWorkspace, GoogleClaims, Id, Member, Permission,
+        PermissionType, RefreshToken, UpdateWorkspace, User, UserCred, UserLogin, UserQuery,
+        UserWithNonce, Workspace, WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
     },
 };
+
+#[derive(FromRow)]
+struct PermissionQuery {
+    #[sqlx(rename = "type")]
+    type_: PermissionType,
+}
 
 impl Context {
     pub async fn init_db(&self) {
@@ -38,7 +44,7 @@ impl Context {
             .expect("create table google_users failed");
 
         let stmt = "CREATE TABLE IF NOT EXISTS workspaces (
-            id SERIAL PRIMARY KEY,
+            id BIGSERIAL PRIMARY KEY,
             public BOOL NOT NULL,
             type SMALLINT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -49,8 +55,8 @@ impl Context {
             .expect("create table workspaces failed");
 
         let stmt = "CREATE TABLE IF NOT EXISTS permissions (
-            id SERIAL PRIMARY KEY,
-            workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
+            id BIGSERIAL PRIMARY KEY,
+            workspace_id BIGINT REFERENCES workspaces(id) ON DELETE CASCADE,
             user_id INTEGER REFERENCES users(id),
             user_email TEXT,
             type SMALLINT NOT NULL,
@@ -213,13 +219,22 @@ impl Context {
         Ok(user)
     }
 
-    pub async fn get_workspace_by_id(&self, workspace_id: i32) -> sqlx::Result<WorkspaceDetail> {
+    pub async fn get_workspace_by_id(
+        &self,
+        workspace_id: i64,
+    ) -> sqlx::Result<Option<WorkspaceDetail>> {
         let get_workspace = "SELECT id, public, type, created_at FROM workspaces WHERE id = $1;";
 
         let workspace = query_as::<_, Workspace>(&get_workspace)
             .bind(workspace_id)
-            .fetch_one(&self.db)
+            .fetch_optional(&self.db)
             .await?;
+
+        let workspace = match workspace {
+            Some(ws) if ws.type_ == WorkspaceType::Private => return Ok(None),
+            Some(ws) => ws,
+            None => return Ok(None),
+        };
 
         let get_owner = format!(
             "SELECT
@@ -246,11 +261,11 @@ impl Context {
             .await?
             .count;
 
-        Ok(WorkspaceDetail {
+        Ok(Some(WorkspaceDetail {
             owner,
             member_count,
             workspace,
-        })
+        }))
     }
 
     async fn create_workspace(
@@ -299,7 +314,7 @@ impl Context {
 
     pub async fn update_workspace(
         &self,
-        workspace_id: i32,
+        workspace_id: i64,
         data: UpdateWorkspace,
     ) -> sqlx::Result<Option<Workspace>> {
         let update_workspace = format!(
@@ -317,7 +332,7 @@ impl Context {
             .await
     }
 
-    pub async fn delete_workspace(&self, workspace_id: i32) -> sqlx::Result<bool> {
+    pub async fn delete_workspace(&self, workspace_id: i64) -> sqlx::Result<bool> {
         let delete_workspace = format!(
             "DELETE FROM workspaces CASCADE
             WHERE id = $1 and type = {}",
@@ -349,7 +364,7 @@ impl Context {
             .await
     }
 
-    pub async fn get_workspace_members(&self, workspace_id: i32) -> sqlx::Result<Vec<Member>> {
+    pub async fn get_workspace_members(&self, workspace_id: i64) -> sqlx::Result<Vec<Member>> {
         let stmt = "SELECT 
             permissions.id, permissions.type, permissions.user_email,
             permissions.accepted, permissions.created_at,
@@ -368,19 +383,33 @@ impl Context {
     pub async fn get_permission(
         &self,
         user_id: i32,
-        workspace_id: i32,
+        workspace_id: i64,
     ) -> sqlx::Result<Option<PermissionType>> {
-        #[derive(FromRow)]
-        struct Permission {
-            #[sqlx(rename = "type")]
-            type_: PermissionType,
-        }
-
         let stmt = "SELECT type FROM permissions WHERE user_id = $1 and workspace_id = $2";
 
-        query_as::<_, Permission>(&stmt)
+        query_as::<_, PermissionQuery>(&stmt)
             .bind(user_id)
             .bind(workspace_id)
+            .fetch_optional(&self.db)
+            .await
+            .map(|p| p.map(|p| p.type_))
+    }
+
+    pub async fn get_permission_by_permission_id(
+        &self,
+        user_id: i32,
+        permission_id: i64,
+    ) -> sqlx::Result<Option<PermissionType>> {
+        let stmt = "SELECT type FROM permissions
+        WHERE
+            user_id = $1
+        AND
+            workspace_id = (SELECT workspace_id FROM permissions WHERE permissions.id = $2)
+        ";
+
+        query_as::<_, PermissionQuery>(&stmt)
+            .bind(user_id)
+            .bind(permission_id)
             .fetch_optional(&self.db)
             .await
             .map(|p| p.map(|p| p.type_))
@@ -389,22 +418,22 @@ impl Context {
     pub async fn create_permission(
         &self,
         email: &str,
-        workspace_id: i32,
+        workspace_id: i64,
         permission_type: PermissionType,
-    ) -> sqlx::Result<Option<(i32, UserCred)>> {
+    ) -> sqlx::Result<Option<(i64, UserCred)>> {
         let user = self.get_user_by_email(email).await?;
 
         let stmt = format!(
             "INSERT INTO permissions (user_id, user_email, workspace_id, type)
             SELECT $1, $2, $3, $4
             FROM workspaces
-                WHERE workspaces.type = {}
+                WHERE workspaces.type = {} and workspaces.id = $3
             ON CONFLICT DO NOTHING
             RETURNING id",
             WorkspaceType::Normal as i16
         );
 
-        let query = query_as::<_, Id>(&stmt);
+        let query = query_as::<_, BigId>(&stmt);
 
         let (query, user) = match user {
             Some(user) => (
@@ -432,7 +461,7 @@ impl Context {
         })
     }
 
-    pub async fn accept_permission(&self, permission_id: i32) -> sqlx::Result<Option<Permission>> {
+    pub async fn accept_permission(&self, permission_id: i64) -> sqlx::Result<Option<Permission>> {
         let stmt = "UPDATE permissions
                 SET accepted = True
             WHERE id = $1
@@ -444,7 +473,7 @@ impl Context {
             .await
     }
 
-    pub async fn delete_permission(&self, permission_id: i32) -> sqlx::Result<bool> {
+    pub async fn delete_permission(&self, permission_id: i64) -> sqlx::Result<bool> {
         let stmt = "DELETE FROM permissions where permission_id = $1";
 
         query(&stmt)

@@ -145,7 +145,7 @@ async fn get_workspaces(
 async fn get_workspace_by_id(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i32>,
+    Path(id): Path<i64>,
 ) -> Response {
     match ctx.get_permission(claims.user.id, id).await {
         Ok(Some(_)) => (),
@@ -154,7 +154,8 @@ async fn get_workspace_by_id(
     }
 
     match ctx.get_workspace_by_id(id).await {
-        Ok(data) => Json(data).into_response(),
+        Ok(Some(data)) => Json(data).into_response(),
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 }
@@ -174,7 +175,7 @@ async fn create_workspace(
 async fn update_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i32>,
+    Path(id): Path<i64>,
     Json(payload): Json<UpdateWorkspace>,
 ) -> Response {
     match ctx.get_permission(claims.user.id, id).await {
@@ -193,7 +194,7 @@ async fn update_workspace(
 async fn delete_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i32>,
+    Path(id): Path<i64>,
 ) -> Response {
     match ctx.get_permission(claims.user.id, id).await {
         Ok(Some(p)) if p.is_owner() => (),
@@ -211,7 +212,7 @@ async fn delete_workspace(
 async fn get_members(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i32>,
+    Path(id): Path<i64>,
 ) -> Response {
     match ctx.get_permission(claims.user.id, id).await {
         Ok(Some(p)) if p.can_admin() => (),
@@ -229,7 +230,7 @@ async fn get_members(
 async fn create_permission(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i32>,
+    Path(id): Path<i64>,
     Json(data): Json<CreatePermission>,
 ) -> Response {
     match ctx.get_permission(claims.user.id, id).await {
@@ -275,10 +276,14 @@ async fn create_permission(
         // TODO: https://github.com/lettre/lettre/issues/743
         Err(e) if e.is_response() => {
             if let Err(_) = ctx.mail.client.send(email).await {
+                let _ = ctx.delete_permission(permission_id);
                 return StatusCode::INTERNAL_SERVER_ERROR.into_response();
             }
         }
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Err(_) => {
+            let _ = ctx.delete_permission(permission_id).await;
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
     };
 
     StatusCode::OK.into_response()
@@ -296,11 +301,11 @@ async fn accept_invitation(
         return StatusCode::BAD_REQUEST.into_response();
     };
 
-    let Ok(data) = TryInto::<[u8; 4]>::try_into(data) else {
+    let Ok(data) = TryInto::<[u8; 8]>::try_into(data) else {
         return StatusCode::BAD_REQUEST.into_response();
     };
 
-    match ctx.accept_permission(i32::from_le_bytes(data)).await {
+    match ctx.accept_permission(i64::from_le_bytes(data)).await {
         Ok(Some(p)) => Json(p).into_response(),
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -310,9 +315,12 @@ async fn accept_invitation(
 async fn delete_permission(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i32>,
+    Path(id): Path<i64>,
 ) -> Response {
-    match ctx.get_permission(claims.user.id, id).await {
+    match ctx
+        .get_permission_by_permission_id(claims.user.id, id)
+        .await
+    {
         Ok(Some(p)) if p.can_admin() => (),
         Ok(_) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
