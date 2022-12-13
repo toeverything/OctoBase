@@ -1,6 +1,6 @@
 {
     "name": "@toeverything/jwt-rpc",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "license": "MIT",
     "author": "DarkSky <darksky2048@gmail.com>",
     "dependencies": {
