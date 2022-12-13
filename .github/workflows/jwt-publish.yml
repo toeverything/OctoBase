@@ -11,7 +11,7 @@ jobs:
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
         permissions:
             packages: write
-            contents: read
+            contents: write
         steps:
             - uses: actions/checkout@v2
               with:
