@@ -15,15 +15,15 @@ Based on JWST, you can not only implement a rich text editor for offline writing
 
 As an offline collaborative data database, JWST has the following characteristics:
 
-📚 Offline collaboration, Schemaless, structured/unstructured/rich text data storage available across terminals.
+- 📚 **Multi-platform available** offline collaboration, Schemaless, structured/unstructured/rich text data storage .
 
-🗃️ Binary storage that supports data deduplication and rich media editing.
+- 🗃️ **Binary storage** that supports data deduplication and rich media editing.
 
-🔍 High-performance real-time full-text indexing, high-quality multilingual word segmentation support.
+- 🔍 **High-performance real-time full-text indexing** with high-quality multilingual word segmentation support.
 
-🌐 Point-to-point/central server synchronization support, rich multi-platform native support.
+- 🌐 **Point-to-point / central server synchronization** with rich multi-platform native support.
 
-🔒 Fine-grained permission control, advanced permission management.
+- 🔒 **Fine-grained permission control** with advanced permission management.
 
 By providing native offline collaboration, full-text indexing, and binary storage, JWST enables you to easily build secure, high-performance local-first collaborative applications using the same set of data abstractions on multiple platforms.
 
