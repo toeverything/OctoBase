@@ -31,6 +31,12 @@
                 "maxWarnings": 0,
                 "lintFilePatterns": ["libs/jwt/**/*.{ts,tsx,js,jsx}"]
             }
+        },
+        "version": {
+            "executor": "@jscutlery/semver:version",
+            "options": {
+                "preset": "conventional"
+            }
         }
     }
 }
