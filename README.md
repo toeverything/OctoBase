@@ -9,23 +9,29 @@
 
 [![stars](https://img.shields.io/github/stars/toeverything/JWSTBase.svg?style=flat&logo=github&colorB=red&label=stars)](https://github.com/toeverything/JWSTBase)
 
-an open source Firebase alternative. Start your project with a collaborative database, Authentication, instant APIs, Realtime subscriptions, and Storage.
+JWST is an offline-available, scalable, self-contained collaborative database, which was originally designed for AFFiNE. AFFiNE is a local-first open source knowledge base that provides full functionality in any network environment.
 
--   MultiPlatform CRDT collaborative database
--   instant APIs
--   Authentication
--   Storage
--   ...
+Based on JWST, you can not only implement a rich text editor for offline writing, but also implement richer offline collaboration functions based on JWST's data abstraction, such as: multidimensional tables, drawing boards, chat software, etc.
 
-open [RoadMap](https://github.com/toeverything/JWST/issues/9), know to the future of JWST
+As an offline collaborative data database, JWST has the following characteristics:
 
-## MultiPlatform CRDT collaborative database
+📚 Offline collaboration, Schemaless, structured/unstructured/rich text data storage available across terminals.
 
-JWST is a set of collaborative backend and database implemented based on CRDTs.
-It is the core to resolve conflicts between the duplication of data and manage the databases so that real-time collaboration and local-first storage is possible.
-It supports local storage and serve-side storage.
+🗃️ Binary storage that supports data deduplication and rich media editing.
 
-https://crdts.cloud/docs/index.html
+🔍 High-performance real-time full-text indexing, high-quality multilingual word segmentation support.
+
+🌐 Point-to-point/central server synchronization support, rich multi-platform native support.
+
+🔒 Fine-grained permission control, advanced permission management.
+
+By providing native offline collaboration, full-text indexing, and binary storage, JWST enables you to easily build secure, high-performance local-first collaborative applications using the same set of data abstractions on multiple platforms.
+
+JWST can be used either as a stand-alone server database, or directly included in your application as an embedded database and remain fully functional.
+
+Open [RoadMap](https://github.com/toeverything/JWST/issues/9), know to the future of JWST
+
+Open [Document](https://crdts.cloud/docs/index.html), know how to use JWST
 
 ## Project Overview
 
