@@ -249,6 +249,7 @@ export class YBlockManager {
 
         this._awareness.setLocalStateField('userId', providers.userId);
 
+        // @ts-ignore
         this._awareness.on('update', debouncedEditingNotifier);
     }
 

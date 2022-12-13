@@ -1,0 +1,71 @@
+name: jwt-publish
+
+on:
+    workflow_run:
+        workflows: ['jwt-release']
+        types:
+            - completed
+jobs:
+    publish-gpr:
+        runs-on: ubuntu-latest
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        permissions:
+            packages: write
+            contents: read
+        steps:
+            - uses: actions/checkout@v2
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@v2
+              with:
+                  node-version: 16
+                  registry-url: https://npm.pkg.github.com/
+            - uses: pnpm/action-setup@v2
+              name: Install pnpm
+              id: pnpm-install
+              with:
+                  version: 7
+                  run_install: false
+
+            - name: Get pnpm store directory
+              id: pnpm-cache
+              shell: bash
+              run: |
+                  echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+            - uses: actions/cache@v3
+              name: Setup pnpm cache
+              with:
+                  path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+                  key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+                  restore-keys: |
+                      ${{ runner.os }}-pnpm-store-
+
+            - name: Build Library
+              run: pnpm install && npx nx affected --type=libs --base=last-release --target=build
+              working-directory: apps/frontend
+            - name: Check jwt
+              id: check_jwt
+              uses: andstor/file-existence-action@v1
+              with:
+                  files: apps/frontend/dist/libs/jwt
+            - name: Publish jwt
+              run: npm publish
+              working-directory: apps/frontend/dist/libs/jwt
+              if: steps.check_jwt.outputs.files_exists == 'true'
+              env:
+                  NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+            - name: Check jwt-rpc
+              id: check_jwt_rpc
+              uses: andstor/file-existence-action@v1
+              with:
+                  files: apps/frontend/dist/libs/jwt-rpc
+            - name: publish jwt-rpc
+              run: npm publish
+              working-directory: apps/frontend/dist/libs/jwt-rpc
+              if: steps.check_jwt_rpc.outputs.files_exists == 'true'
+              env:
+                  NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+            - name: refresh tags
+              run: |
+                  git tag -f last-release
+                  git push origin last-release --force

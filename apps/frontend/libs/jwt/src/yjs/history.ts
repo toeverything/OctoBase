@@ -18,6 +18,8 @@ export class HistoryManager {
         });
         this._eventBus = eventBus;
 
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         this._historyManager.on(
             'stack-item-added',
             (event: { stackItem: StackItem }) => {
@@ -26,6 +28,8 @@ export class HistoryManager {
             }
         );
 
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         this._historyManager.on(
             'stack-item-popped',
             (event: { stackItem: StackItem }) => {

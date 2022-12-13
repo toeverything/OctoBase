@@ -14,7 +14,8 @@
                 "entryFile": "libs/jwt/src/index.ts",
                 "external": ["react/jsx-runtime"],
                 "rollupConfig": "@nrwl/react/plugins/bundle-rollup",
-                "compiler": "swc",
+                "format": ["esm", "cjs"],
+                "compiler": "babel",
                 "assets": [
                     {
                         "glob": "libs/jwt/README.md",

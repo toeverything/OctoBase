@@ -3,6 +3,9 @@
     "version": "0.1.0",
     "license": "MIT",
     "author": "DarkSky <darksky2048@gmail.com>",
+    "publishConfig": {
+        "@toeverything:registry": "https://npm.pkg.github.com"
+    },
     "dependencies": {
         "lib0": "^0.2.52",
         "yjs": "^13.5.42",

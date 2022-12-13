@@ -1,5 +1,5 @@
 {
-    "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+    "$schema": "../../node_modules/nx/schemas/project-schema.json",
     "sourceRoot": "libs/jwt-rpc/src",
     "projectType": "library",
     "tags": ["datasource:jwt-rpc"],
@@ -14,6 +14,7 @@
                 "entryFile": "libs/jwt-rpc/src/index.ts",
                 "external": ["react/jsx-runtime"],
                 "rollupConfig": "@nrwl/react/plugins/bundle-rollup",
+                "format": ["esm", "cjs"],
                 "compiler": "babel",
                 "assets": [
                     {

@@ -51,7 +51,7 @@ export const getYProviders = (
                         {
                             params: options.params,
                         }
-                    );
+                    ) as any;
 
                     // Wait for ws synchronization to complete, otherwise the data will be modified in reverse, which can be optimized later
                     return new Promise((resolve, reject) => {

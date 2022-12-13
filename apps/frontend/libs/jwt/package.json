@@ -3,11 +3,8 @@
     "version": "0.1.0",
     "license": "MIT",
     "author": "DarkSky <darksky2048@gmail.com>",
-    "devDependencies": {
-        "@types/debug": "^4.1.7",
-        "@types/uuid": "^8.3.4",
-        "flexsearch": "0.7.21",
-        "ts-debounce": "^4.0.0"
+    "publishConfig": {
+        "@toeverything:registry": "https://npm.pkg.github.com"
     },
     "dependencies": {
         "@types/flexsearch": "^0.7.3",
@@ -21,5 +18,11 @@
         "uuid": "^8.3.2",
         "y-protocols": "^1.0.5",
         "yjs": "^13.5.42"
+    },
+    "devDependencies": {
+        "@types/debug": "^4.1.7",
+        "@types/uuid": "^8.3.4",
+        "flexsearch": "0.7.21",
+        "ts-debounce": "^4.0.0"
     }
 }
