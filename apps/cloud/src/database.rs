@@ -93,7 +93,7 @@ impl Context {
         let stmt = "SELECT 
             id, name, email, avatar_url, token_nonce, created_at
         FROM users
-        WHERE email = $1 and password = $2";
+        WHERE email = $1 AND password = $2";
 
         query_as::<_, UserWithNonce>(stmt)
             .bind(login.email)
@@ -106,7 +106,7 @@ impl Context {
         let stmt = "SELECT 
             id, name, email, avatar_url, token_nonce, created_at
         FROM users
-        WHERE id = $1 and token_nonce = $2";
+        WHERE id = $1 AND token_nonce = $2";
 
         query_as::<_, UserWithNonce>(stmt)
             .bind(token.user_id)
@@ -171,7 +171,7 @@ impl Context {
             email = $2,
             avatar_url = $3
         FROM google_users
-        WHERE google_users.google_id = $4 and google_users.user_id = users.id
+        WHERE google_users.google_id = $4 AND google_users.user_id = users.id
         RETURNING users.id, users.name, users.email, users.avatar_url,
             users.token_nonce, users.created_at";
 
@@ -253,7 +253,7 @@ impl Context {
 
         let get_member_count = "SELECT COUNT(permissions.id)
             FROM permissions
-            WHERE workspace_id = $1 and accepted = True";
+            WHERE workspace_id = $1 AND accepted = True";
 
         let member_count = query_as::<_, Count>(get_member_count)
             .bind(workspace_id)
@@ -320,7 +320,7 @@ impl Context {
         let update_workspace = format!(
             "UPDATE workspaces
                 SET public = $1
-            WHERE id = $2 and type = {}
+            WHERE id = $2 AND type = {}
             RETURNING id, public, type, created_at;",
             WorkspaceType::Normal as i16
         );
@@ -335,7 +335,7 @@ impl Context {
     pub async fn delete_workspace(&self, workspace_id: i64) -> sqlx::Result<bool> {
         let delete_workspace = format!(
             "DELETE FROM workspaces CASCADE
-            WHERE id = $1 and type = {}",
+            WHERE id = $1 AND type = {}",
             WorkspaceType::Normal as i16
         );
 
@@ -385,7 +385,7 @@ impl Context {
         user_id: i32,
         workspace_id: i64,
     ) -> sqlx::Result<Option<PermissionType>> {
-        let stmt = "SELECT type FROM permissions WHERE user_id = $1 and workspace_id = $2";
+        let stmt = "SELECT type FROM permissions WHERE user_id = $1 AND workspace_id = $2";
 
         query_as::<_, PermissionQuery>(&stmt)
             .bind(user_id)
@@ -419,7 +419,7 @@ impl Context {
         let stmt = "SELECT FROM permissions 
             WHERE user_id = $1 
                 AND workspace_id = $2
-                OR (SELECT True FROM workspaces WHERE id = $2 and public = True)
+                OR (SELECT True FROM workspaces WHERE id = $2 AND public = True)
             ";
 
         query(&stmt)
@@ -442,7 +442,7 @@ impl Context {
             "INSERT INTO permissions (user_id, user_email, workspace_id, type)
             SELECT $1, $2, $3, $4
             FROM workspaces
-                WHERE workspaces.type = {} and workspaces.id = $3
+                WHERE workspaces.type = {} AND workspaces.id = $3
             ON CONFLICT DO NOTHING
             RETURNING id",
             WorkspaceType::Normal as i16
@@ -489,10 +489,29 @@ impl Context {
     }
 
     pub async fn delete_permission(&self, permission_id: i64) -> sqlx::Result<bool> {
-        let stmt = "DELETE FROM permissions where permission_id = $1";
+        let stmt = "DELETE FROM permissions WHERE permission_id = $1";
 
         query(&stmt)
             .bind(permission_id)
+            .execute(&self.db)
+            .await
+            .map(|q| q.rows_affected() != 0)
+    }
+
+    pub async fn delete_permission_by_query(
+        &self,
+        user_id: i32,
+        workspace_id: i64,
+    ) -> sqlx::Result<bool> {
+        let stmt = format!(
+            "DELETE FROM permissions
+            WHERE user_id = $1 AND workspace_id = $2 AND type != {}",
+            PermissionType::Owner as i16
+        );
+
+        query(&stmt)
+            .bind(user_id)
+            .bind(workspace_id)
             .execute(&self.db)
             .await
             .map(|q| q.rows_affected() != 0)
