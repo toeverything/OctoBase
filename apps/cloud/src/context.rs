@@ -1,10 +1,12 @@
 use std::collections::HashMap;
+use std::path::Path;
 
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use chrono::{NaiveDateTime, Utc};
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
+use jwst_storage::blob::{self};
 use lettre::message::Mailbox;
 use lettre::AsyncSmtpTransport;
 use lettre::{transport::smtp::authentication::Credentials, Tokio1Executor};
@@ -42,6 +44,7 @@ pub struct Context {
     firebase: RwLock<FirebaseContext>,
     pub mail: MailContext,
     pub db: PgPool,
+    pub blob: blob::LocalFs,
 }
 
 impl Context {
@@ -97,12 +100,17 @@ impl Context {
             pub_key: HashMap::new(),
         });
 
+        let blob_env = dotenvy::var("BLOB_STORAGE_PATH").expect("should provide blob storage path");
+
+        let blob = blob::LocalFs::new(Some(16), Path::new(&blob_env).into()).await;
+
         let ctx = Self {
             db,
             key,
             firebase,
             mail,
             http_client: Client::new(),
+            blob,
         };
 
         ctx.init_db().await;

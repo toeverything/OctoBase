@@ -7,13 +7,14 @@ use chrono::NaiveDateTime;
 use chrono::{DateTime, Utc};
 use futures::{stream::StreamExt, Stream};
 use sha3::{Digest, Sha3_256};
-use tokio::fs::File;
+use tokio::fs::{create_dir_all, File};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{Semaphore, SemaphorePermit};
 use tokio::{fs, io};
 use tokio_util::io::ReaderStream;
 
 pub struct Metadata {
+    pub size: u64,
     pub last_modified: NaiveDateTime,
 }
 
@@ -23,12 +24,10 @@ pub trait BlobStorage {
 
     async fn get(&self, path: impl AsRef<Path> + Send) -> io::Result<Self::Read>;
     async fn get_metedata(&self, path: impl AsRef<Path> + Send) -> io::Result<Metadata>;
-    async fn exist(&self, path: impl AsRef<Path> + Send) -> bool;
-    async fn put(&self, stream: impl Stream<Item = Bytes> + Send) -> io::Result<String>;
-    async fn put_in_workspace(
+    async fn put(
         &self,
-        workspace: i64,
         stream: impl Stream<Item = Bytes> + Send,
+        prefix: Option<String>,
     ) -> io::Result<String>;
     async fn rename(
         &self,
@@ -44,6 +43,12 @@ pub struct LocalFs {
     path: Box<Path>,
     temp_counter: AtomicU8,
 }
+
+const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
+    base64::engine::fast_portable::FastPortable::from(
+        &base64::alphabet::URL_SAFE,
+        base64::engine::fast_portable::NO_PAD,
+    );
 
 impl LocalFs {
     pub async fn new(max_parallel: Option<u8>, path: Box<Path>) -> Self {
@@ -105,7 +110,11 @@ impl LocalFs {
 
         file.sync_all().await?;
 
-        let hash = format!("{:X}", hasher.finalize());
+        if !path.exists() {
+            create_dir_all(path).await?;
+        }
+
+        let hash = base64::encode_engine(hasher.finalize(), &URL_SAFE_ENGINE);
         let path = path.join(&hash);
 
         fs::rename(buf, path).await?;
@@ -134,25 +143,23 @@ impl BlobStorage for LocalFs {
         let last_modifier: DateTime<Utc> = last_modified.into();
 
         Ok(Metadata {
+            size: meta.len(),
             last_modified: last_modifier.naive_utc(),
         })
     }
 
-    async fn exist(&self, path: impl AsRef<Path> + Send) -> bool {
-        fs::metadata(self.path.join(path)).await.is_ok()
-    }
-
-    async fn put(&self, stream: impl Stream<Item = Bytes> + Send) -> io::Result<String> {
-        self.put_file(&self.path, stream).await
-    }
-
-    async fn put_in_workspace(
+    async fn put(
         &self,
-        workspace: i64,
         stream: impl Stream<Item = Bytes> + Send,
+        prefix: Option<String>,
     ) -> io::Result<String> {
-        self.put_file(&self.path.join(workspace.to_string()), stream)
-            .await
+        self.put_file(
+            &prefix
+                .map(|prefix| self.path.join(prefix))
+                .unwrap_or_else(|| self.path.to_path_buf()),
+            stream,
+        )
+        .await
     }
 
     async fn rename(
