@@ -7,7 +7,7 @@ use chrono::NaiveDateTime;
 use chrono::{DateTime, Utc};
 use futures::{stream::StreamExt, Stream};
 use sha3::{Digest, Sha3_256};
-use tokio::fs::File;
+use tokio::fs::{create_dir_all, File};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{Semaphore, SemaphorePermit};
 use tokio::{fs, io};
@@ -24,11 +24,10 @@ pub trait BlobStorage {
 
     async fn get(&self, path: impl AsRef<Path> + Send) -> io::Result<Self::Read>;
     async fn get_metedata(&self, path: impl AsRef<Path> + Send) -> io::Result<Metadata>;
-    async fn put(&self, stream: impl Stream<Item = Bytes> + Send) -> io::Result<String>;
-    async fn put_in_workspace(
+    async fn put(
         &self,
-        workspace: i64,
         stream: impl Stream<Item = Bytes> + Send,
+        prefix: Option<String>,
     ) -> io::Result<String>;
     async fn rename(
         &self,
@@ -111,6 +110,10 @@ impl LocalFs {
 
         file.sync_all().await?;
 
+        if !path.exists() {
+            create_dir_all(path).await?;
+        }
+
         let hash = base64::encode_engine(hasher.finalize(), &URL_SAFE_ENGINE);
         let path = path.join(&hash);
 
@@ -145,17 +148,18 @@ impl BlobStorage for LocalFs {
         })
     }
 
-    async fn put(&self, stream: impl Stream<Item = Bytes> + Send) -> io::Result<String> {
-        self.put_file(&self.path, stream).await
-    }
-
-    async fn put_in_workspace(
+    async fn put(
         &self,
-        workspace: i64,
         stream: impl Stream<Item = Bytes> + Send,
+        prefix: Option<String>,
     ) -> io::Result<String> {
-        self.put_file(&self.path.join(workspace.to_string()), stream)
-            .await
+        self.put_file(
+            &prefix
+                .map(|prefix| self.path.join(prefix))
+                .unwrap_or_else(|| self.path.to_path_buf()),
+            stream,
+        )
+        .await
     }
 
     async fn rename(

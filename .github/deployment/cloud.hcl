@@ -48,7 +48,7 @@ job "affine-cloud" {
                 MAIL_PROVIDER = "smtp.gmail.com"
                 MAIL_TITLE = "Send from AFFiNE Cloud"
                 # MAIL_CONTENT_PATH = 
-                # STORAGE_PATH = 
+                BLOB_STORAGE_PATH = "/home/affine/affine-cloud/blobs"
             }
             config {
                 image       = "ghcr.io/toeverything/cloud:canary-a62b96b9e019ec94a146525242fab2a4bbd3cd2a"

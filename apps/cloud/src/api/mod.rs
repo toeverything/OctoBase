@@ -221,7 +221,7 @@ impl Context {
         (header, StreamBody::new(file)).into_response()
     }
 
-    async fn upload_blob(&self, stream: BodyStream) -> Response {
+    async fn upload_blob(&self, stream: BodyStream, workspace: Option<i64>) -> Response {
         // TODO: cancel
         let mut has_error = false;
         let stream = stream
@@ -230,8 +230,9 @@ impl Context {
                 future::ready(x.is_ok())
             })
             .filter_map(|data| future::ready(data.ok()));
+        let workspace = workspace.map(|id| id.to_string());
 
-        if let Ok(path) = self.blob.put(stream).await {
+        if let Ok(path) = self.blob.put(stream, workspace).await {
             if has_error {
                 let _ = self.blob.delete(&path).await;
             }
@@ -263,7 +264,7 @@ async fn upload_blob(
         return StatusCode::PAYLOAD_TOO_LARGE.into_response();
     }
 
-    ctx.upload_blob(stream).await
+    ctx.upload_blob(stream, None).await
 }
 
 async fn get_workspace_by_id(
@@ -369,7 +370,7 @@ async fn upload_blob_in_workspace(
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 
-    ctx.upload_blob(stream).await
+    ctx.upload_blob(stream, Some(workspace)).await
 }
 
 async fn get_members(
