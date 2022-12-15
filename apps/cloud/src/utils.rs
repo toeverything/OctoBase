@@ -111,3 +111,15 @@ impl CacheControl {
         Some(ret)
     }
 }
+
+pub const NO_PAD_ENGINE: base64::engine::fast_portable::FastPortable =
+    base64::engine::fast_portable::FastPortable::from(
+        &base64::alphabet::STANDARD,
+        base64::engine::fast_portable::NO_PAD,
+    );
+
+pub const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
+    base64::engine::fast_portable::FastPortable::from(
+        &base64::alphabet::URL_SAFE,
+        base64::engine::fast_portable::NO_PAD,
+    );

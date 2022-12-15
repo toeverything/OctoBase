@@ -1,14 +1,25 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, Query},
+    body::StreamBody,
+    extract::{BodyStream, Path, Query},
+    headers::ContentLength,
     response::{IntoResponse, Response},
-    routing::{delete, get, post, Router},
-    Extension, Json,
+    routing::{delete, get, post, put, Router},
+    Extension, Json, TypedHeader,
 };
-use chrono::{Duration, Utc};
-use http::StatusCode;
+use chrono::{DateTime, Duration, Utc};
+use futures::{future, StreamExt};
+use http::{
+    header::{
+        CACHE_CONTROL, CONTENT_LENGTH, CONTENT_TYPE, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH,
+        LAST_MODIFIED,
+    },
+    HeaderMap, HeaderValue, StatusCode,
+};
+use jwst_storage::blob::BlobStorage;
 use lettre::{message::Mailbox, AsyncTransport, Message};
+use mime::APPLICATION_OCTET_STREAM;
 use tower::ServiceBuilder;
 
 use crate::{
@@ -18,6 +29,7 @@ use crate::{
         Claims, CreatePermission, CreateWorkspace, MakeToken, PermissionType, RefreshToken,
         UpdateWorkspace, UserCred, UserQuery, UserToken, UserWithNonce,
     },
+    utils::{NO_PAD_ENGINE, URL_SAFE_ENGINE},
 };
 
 mod ws;
@@ -26,6 +38,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
     Router::new()
         .route("/healthz", get(health_check))
         .route("/user/token", post(make_token))
+        .route("/blob", put(upload_blob))
         .route("/blob/:name", get(get_blob))
         .route("/invitation/:path", post(accept_invitation))
         .nest(
@@ -43,6 +56,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
                     "/workspace/:id/permission",
                     get(get_members).post(create_permission),
                 )
+                .route("/workspace/:id/blob", put(upload_blob_in_workspace))
                 .route("/workspace/:id/blob/:name", get(get_blob_in_workspace))
                 .route("/permission/:id", delete(delete_permission))
                 .layer(
@@ -86,7 +100,7 @@ async fn make_token(
             None,
         ),
         MakeToken::Refresh { token } => {
-            let Ok(input) = base64::decode_config(token.clone(), base64::STANDARD_NO_PAD) else {
+            let Ok(input) = base64::decode_engine(token.clone(), &NO_PAD_ENGINE) else {
                 return StatusCode::BAD_REQUEST.into_response();
             };
             let Some(data) = ctx.decrypt_aes(input) else {
@@ -117,7 +131,7 @@ async fn make_token(
 
                 let data = ctx.encrypt_aes(json.as_bytes());
 
-                base64::encode_config(data, base64::STANDARD_NO_PAD)
+                base64::encode_engine(data, &NO_PAD_ENGINE)
             });
 
             let claims = Claims {
@@ -144,7 +158,113 @@ async fn get_workspaces(
     }
 }
 
-async fn get_blob(Extension(ctx): Extension<Arc<Context>>, Path(name): Path<String>) {}
+impl Context {
+    async fn get_blob(
+        &self,
+        name: &str,
+        path: &std::path::Path,
+        method: http::Method,
+        headers: HeaderMap,
+    ) -> Response {
+        if let Some(etag) = headers.get(IF_NONE_MATCH).and_then(|h| h.to_str().ok()) {
+            if etag == name {
+                return StatusCode::NOT_MODIFIED.into_response();
+            }
+        }
+
+        let Ok(meta) = self.blob.get_metedata(path).await else {
+            return StatusCode::NOT_FOUND.into_response()
+        };
+
+        if let Some(modified_since) = headers
+            .get(IF_MODIFIED_SINCE)
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| DateTime::parse_from_rfc2822(s).ok())
+        {
+            if meta.last_modified <= modified_since.naive_utc() {
+                return StatusCode::NOT_MODIFIED.into_response();
+            }
+        }
+
+        let mut header = HeaderMap::with_capacity(5);
+        header.insert(ETAG, HeaderValue::from_str(&name).unwrap());
+
+        header.insert(
+            CONTENT_TYPE,
+            HeaderValue::from_str(&APPLICATION_OCTET_STREAM.to_string()).unwrap(),
+        );
+
+        header.insert(
+            LAST_MODIFIED,
+            HeaderValue::from_str(&DateTime::<Utc>::from_utc(meta.last_modified, Utc).to_rfc2822())
+                .unwrap(),
+        );
+
+        header.insert(
+            CONTENT_LENGTH,
+            HeaderValue::from_str(&meta.size.to_string()).unwrap(),
+        );
+
+        header.insert(
+            CACHE_CONTROL,
+            HeaderValue::from_str("public, immutable, max-age=31536000").unwrap(),
+        );
+
+        if method == http::Method::HEAD {
+            return header.into_response();
+        };
+
+        let Ok(file) = self.blob.get(path).await else {
+        return StatusCode::NOT_FOUND.into_response()
+    };
+
+        (header, StreamBody::new(file)).into_response()
+    }
+
+    async fn upload_blob(&self, stream: BodyStream) -> Response {
+        // TODO: cancel
+        let mut has_error = false;
+        let stream = stream
+            .take_while(|x| {
+                has_error = x.is_err();
+                future::ready(x.is_ok())
+            })
+            .filter_map(|data| future::ready(data.ok()));
+
+        if let Ok(path) = self.blob.put(stream).await {
+            if has_error {
+                let _ = self.blob.delete(&path).await;
+            }
+        } else {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        };
+
+        StatusCode::OK.into_response()
+    }
+}
+
+async fn get_blob(
+    Extension(ctx): Extension<Arc<Context>>,
+    Path(name): Path<String>,
+    method: http::Method,
+    headers: HeaderMap,
+) -> Response {
+    let path = std::path::Path::new(&name);
+
+    ctx.get_blob(&name, path, method, headers).await
+}
+
+async fn upload_blob(
+    Extension(ctx): Extension<Arc<Context>>,
+    TypedHeader(length): TypedHeader<ContentLength>,
+    stream: BodyStream,
+) -> Response {
+    if length.0 > 500 * 1024 {
+        return StatusCode::PAYLOAD_TOO_LARGE.into_response();
+    }
+
+    ctx.upload_blob(stream).await
+}
 
 async fn get_workspace_by_id(
     Extension(ctx): Extension<Arc<Context>>,
@@ -215,8 +335,41 @@ async fn delete_workspace(
 
 async fn get_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
+    Extension(claims): Extension<Arc<Claims>>,
     Path((workspace, name)): Path<(i64, String)>,
-) {
+    method: http::Method,
+    headers: HeaderMap,
+) -> Response {
+    match ctx.can_read_workspace(claims.user.id, workspace).await {
+        Ok(true) => (),
+        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+
+    let workspace = workspace.to_string();
+    let path = std::path::Path::new(&workspace).join(&name);
+
+    ctx.get_blob(&name, &path, method, headers).await
+}
+
+async fn upload_blob_in_workspace(
+    Extension(ctx): Extension<Arc<Context>>,
+    Extension(claims): Extension<Arc<Claims>>,
+    Path(workspace): Path<i64>,
+    TypedHeader(length): TypedHeader<ContentLength>,
+    stream: BodyStream,
+) -> Response {
+    if length.0 > 10 * 1024 * 1024 {
+        return StatusCode::PAYLOAD_TOO_LARGE.into_response();
+    }
+
+    match ctx.can_read_workspace(claims.user.id, workspace).await {
+        Ok(true) => (),
+        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+
+    ctx.upload_blob(stream).await
 }
 
 async fn get_members(
@@ -264,7 +417,7 @@ async fn create_permission(
 
     let encrypted = ctx.encrypt_aes(&permission_id.to_le_bytes()[..]);
 
-    let path = base64::encode_config(encrypted, base64::URL_SAFE_NO_PAD);
+    let path = base64::encode_engine(encrypted, &URL_SAFE_ENGINE);
 
     let mailbox = Mailbox::new(
         match user_cred {
@@ -303,7 +456,7 @@ async fn accept_invitation(
     Extension(ctx): Extension<Arc<Context>>,
     Path(url): Path<String>,
 ) -> Response {
-    let Ok(input) = base64::decode_config(url, base64::URL_SAFE_NO_PAD) else {
+    let Ok(input) = base64::decode_engine(url, &URL_SAFE_ENGINE) else {
         return StatusCode::BAD_REQUEST.into_response();
     };
 

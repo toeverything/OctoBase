@@ -415,6 +415,21 @@ impl Context {
             .map(|p| p.map(|p| p.type_))
     }
 
+    pub async fn can_read_workspace(&self, user_id: i32, workspace_id: i64) -> sqlx::Result<bool> {
+        let stmt = "SELECT FROM permissions 
+            WHERE user_id = $1 
+                AND workspace_id = $2
+                OR (SELECT True FROM workspaces WHERE id = $2 and public = True)
+            ";
+
+        query(&stmt)
+            .bind(user_id)
+            .bind(workspace_id)
+            .fetch_optional(&self.db)
+            .await
+            .map(|p| p.is_some())
+    }
+
     pub async fn create_permission(
         &self,
         email: &str,

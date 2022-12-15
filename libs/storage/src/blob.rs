@@ -14,6 +14,7 @@ use tokio::{fs, io};
 use tokio_util::io::ReaderStream;
 
 pub struct Metadata {
+    pub size: u64,
     pub last_modified: NaiveDateTime,
 }
 
@@ -23,7 +24,6 @@ pub trait BlobStorage {
 
     async fn get(&self, path: impl AsRef<Path> + Send) -> io::Result<Self::Read>;
     async fn get_metedata(&self, path: impl AsRef<Path> + Send) -> io::Result<Metadata>;
-    async fn exist(&self, path: impl AsRef<Path> + Send) -> bool;
     async fn put(&self, stream: impl Stream<Item = Bytes> + Send) -> io::Result<String>;
     async fn put_in_workspace(
         &self,
@@ -44,6 +44,12 @@ pub struct LocalFs {
     path: Box<Path>,
     temp_counter: AtomicU8,
 }
+
+const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
+    base64::engine::fast_portable::FastPortable::from(
+        &base64::alphabet::URL_SAFE,
+        base64::engine::fast_portable::NO_PAD,
+    );
 
 impl LocalFs {
     pub async fn new(max_parallel: Option<u8>, path: Box<Path>) -> Self {
@@ -105,7 +111,7 @@ impl LocalFs {
 
         file.sync_all().await?;
 
-        let hash = format!("{:X}", hasher.finalize());
+        let hash = base64::encode_engine(hasher.finalize(), &URL_SAFE_ENGINE);
         let path = path.join(&hash);
 
         fs::rename(buf, path).await?;
@@ -134,12 +140,9 @@ impl BlobStorage for LocalFs {
         let last_modifier: DateTime<Utc> = last_modified.into();
 
         Ok(Metadata {
+            size: meta.len(),
             last_modified: last_modifier.naive_utc(),
         })
-    }
-
-    async fn exist(&self, path: impl AsRef<Path> + Send) -> bool {
-        fs::metadata(self.path.join(path)).await.is_ok()
     }
 
     async fn put(&self, stream: impl Stream<Item = Bytes> + Send) -> io::Result<String> {
