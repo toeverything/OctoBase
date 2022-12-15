@@ -7,9 +7,8 @@ license = "AGPL-3.0-only"
 
 [features]
 default = ["jwst"]
-affine = ["jwst_storage/sqlite"]
-jwst = ["api", "schema", "docs", "jwst_storage/sqlite"]
-mysc = ["api", "schema", "docs", "jwst_storage/mysql"]
+jwst = ["api", "schema", "docs", "sqlx/sqlite"]
+mysc = ["api", "schema", "docs", "sqlx/mysql", "dotenvy"]
 api = ["utoipa"]
 docs = ["mdbook"]
 schema = ["utoipa-swagger-ui"]
@@ -74,8 +73,18 @@ path = "../../libs/jwst"
 [dependencies.jwst_logger]
 path = "../../libs/logger"
 
-[dependencies.jwst_storage]
-path = "../../libs/storage"
+[dependencies.sqlx]
+version = "^0.6.2"
+features = ["chrono", "macros", "migrate", "runtime-tokio-rustls"]
+
+[dependencies.yrs]
+path = "../../libs/yrs"
+version = "^0.12.0"
+
+[dependencies.dotenvy]
+version = "0.15.6"
+default-features = false
+optional = true
 
 [dev-dependencies]
 axum-test-helper = "^0.1.1"

@@ -18,7 +18,7 @@ pub struct BlobDatabase {
 }
 
 impl BlobDatabase {
-    #[cfg(feature = "sqlite")]
+    #[cfg(feature = "jwst")]
     pub async fn init_pool(file: &str) -> Result<Self, Error> {
         use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
         use std::fs::create_dir;
@@ -45,7 +45,7 @@ impl BlobDatabase {
         })
     }
 
-    #[cfg(all(test, feature = "sqlite"))]
+    #[cfg(all(test, feature = "jwst"))]
     pub async fn init_memory_pool() -> Result<Self, Error> {
         use sqlx::sqlite::SqliteConnectOptions;
         use std::str::FromStr;
@@ -58,7 +58,7 @@ impl BlobDatabase {
         })
     }
 
-    #[cfg(feature = "mysql")]
+    #[cfg(feature = "mysc")]
     pub async fn init_pool(database: &str) -> Result<Self, Error> {
         let env = dotenvy::var("DATABASE_URL")
             .unwrap_or_else(|_| format!("mysql://localhost/{}", database.to_string()));
@@ -73,12 +73,12 @@ impl BlobDatabase {
     }
 
     pub async fn create(&self, table: &str) -> Result<(), Error> {
-        #[cfg(feature = "sqlite")]
+        #[cfg(feature = "jwst")]
         let stmt = format!(
             "CREATE TABLE IF NOT EXISTS {} (hash TEXT PRIMARY KEY, blob BLOB);",
             table
         );
-        #[cfg(feature = "mysql")]
+        #[cfg(feature = "mysc")]
         let stmt = format!(
             "CREATE TABLE IF NOT EXISTS {} (`hash` VARCHAR(10) AUTO_INCREMENT, `blob` BLOB, PRIMARY KEY (hash));",
             table
@@ -180,9 +180,9 @@ mod tests {
     async fn basic_storage_test() -> anyhow::Result<()> {
         use super::*;
 
-        #[cfg(feature = "sqlite")]
+        #[cfg(feature = "jwst")]
         let pool = BlobDatabase::init_memory_pool().await?;
-        #[cfg(feature = "mysql")]
+        #[cfg(feature = "mysc")]
         let pool = Database::init_pool("jwst").await?;
         pool.create("basic").await?;
 

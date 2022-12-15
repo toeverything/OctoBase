@@ -18,7 +18,6 @@ async fn main() {
 
     let app = Router::new()
         .nest("/api", api::make_rest_route(context.clone()))
-        .layer(layer::make_cors_layer())
         .layer(Extension(context.clone()));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));

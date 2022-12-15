@@ -35,7 +35,7 @@ pub struct DocDatabase {
 }
 
 impl DocDatabase {
-    #[cfg(feature = "sqlite")]
+    #[cfg(feature = "jwst")]
     pub async fn init_pool(file: &str) -> Result<Self, Error> {
         use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
         use std::fs::create_dir;
@@ -61,7 +61,7 @@ impl DocDatabase {
             .map(|pool| Self { pool })
     }
 
-    #[cfg(all(test, feature = "sqlite"))]
+    #[cfg(all(test, feature = "jwst"))]
     pub async fn init_memory_pool() -> Result<Self, Error> {
         use sqlx::sqlite::SqliteConnectOptions;
         use std::str::FromStr;
@@ -71,7 +71,7 @@ impl DocDatabase {
         Ok(Self { pool })
     }
 
-    #[cfg(feature = "mysql")]
+    #[cfg(feature = "mysc")]
     pub async fn init_pool(database: &str) -> Result<Self, Error> {
         let env = dotenvy::var("DATABASE_URL")
             .unwrap_or_else(|_| format!("mysql://localhost/{}", database.to_string()));
@@ -100,12 +100,12 @@ impl DocDatabase {
     }
 
     async fn create(&self, table: &str) -> Result<(), Error> {
-        #[cfg(feature = "sqlite")]
+        #[cfg(feature = "jwst")]
         let stmt = format!(
             "CREATE TABLE IF NOT EXISTS {} (id INTEGER PRIMARY KEY AUTOINCREMENT, blob BLOB);",
             table
         );
-        #[cfg(feature = "mysql")]
+        #[cfg(feature = "mysc")]
         let stmt = format!(
             "CREATE TABLE IF NOT EXISTS {} (`id` INTEGER AUTO_INCREMENT, `blob` BLOB, PRIMARY KEY (id));",
             table
@@ -191,7 +191,7 @@ mod tests {
     async fn basic_storage_test() -> anyhow::Result<()> {
         use super::*;
 
-        #[cfg(feature = "sqlite")]
+        #[cfg(feature = "jwst")]
         let pool = DocDatabase::init_memory_pool().await?;
         #[cfg(feature = "mysql")]
         let pool = Database::init_pool("jwst").await?;

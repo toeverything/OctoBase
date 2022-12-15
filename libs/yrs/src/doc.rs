@@ -47,6 +47,7 @@ pub struct Doc {
 }
 
 unsafe impl Send for Doc {}
+unsafe impl Sync for Doc {}
 
 impl Doc {
     /// Creates a new document with a randomized client identifier.

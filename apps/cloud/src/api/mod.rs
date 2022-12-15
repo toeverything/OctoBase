@@ -26,6 +26,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
     Router::new()
         .route("/healthz", get(health_check))
         .route("/user/token", post(make_token))
+        .route("/blob/:name", get(get_blob))
         .route("/invitation/:path", post(accept_invitation))
         .nest(
             "/",
@@ -42,6 +43,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
                     "/workspace/:id/permission",
                     get(get_members).post(create_permission),
                 )
+                .route("/workspace/:id/blob/:name", get(get_blob_in_workspace))
                 .route("/permission/:id", delete(delete_permission))
                 .layer(
                     ServiceBuilder::new()
@@ -142,6 +144,8 @@ async fn get_workspaces(
     }
 }
 
+async fn get_blob(Extension(ctx): Extension<Arc<Context>>, Path(name): Path<String>) {}
+
 async fn get_workspace_by_id(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
@@ -207,6 +211,12 @@ async fn delete_workspace(
         Ok(false) => StatusCode::NOT_FOUND.into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
+}
+
+async fn get_blob_in_workspace(
+    Extension(ctx): Extension<Arc<Context>>,
+    Path((workspace, name)): Path<(i64, String)>,
+) {
 }
 
 async fn get_members(
