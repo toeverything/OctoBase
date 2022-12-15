@@ -1,6 +1,7 @@
 mod api;
 mod collaboration;
 mod files;
+mod storage;
 mod utils;
 
 use axum::{
