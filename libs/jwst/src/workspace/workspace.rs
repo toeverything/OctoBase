@@ -1,20 +1,10 @@
-use super::*;
+use super::{plugins::setup_plugin, *};
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use std::any::Any;
-use y_sync::{
-    awareness::Awareness,
-    sync::{DefaultProtocol, Error, Message, MessageReader, Protocol, SyncMessage},
-};
-use yrs::{
-    updates::{
-        decoder::{Decode, DecoderV1},
-        encoder::{Encode, Encoder, EncoderV1},
-    },
-    Doc, Map, StateVector, Subscription, Transaction, Update, UpdateEvent,
-};
+use y_sync::{awareness::Awareness, sync::Error};
+use yrs::{Doc, Map, Subscription, Transaction, UpdateEvent};
 
 use super::PluginMap;
-use plugins::{PluginImpl, PluginRegister};
+use plugins::PluginImpl;
 
 pub struct Workspace {
     content: Content,
@@ -24,7 +14,7 @@ pub struct Workspace {
     ///
     /// Public just for the crate as we experiment with the plugins interface.
     /// See [plugins].
-    pub(crate) plugins: PluginMap,
+    pub(super) plugins: PluginMap,
 }
 
 unsafe impl Send for Workspace {}
@@ -37,20 +27,6 @@ impl Workspace {
     }
 
     pub fn from_doc<S: AsRef<str>>(doc: Doc, id: S) -> Workspace {
-        let mut workspace = Self::from_doc_without_plugins(doc, id);
-
-        // default plugins
-        #[cfg(feature = "workspace-search")]
-        {
-            // Set up search
-            workspace.setup_plugin(IndexingPluginRegister::default());
-        }
-
-        workspace
-    }
-
-    /// Crate public interface to create the workspace with no plugins for testing.
-    pub(crate) fn from_doc_without_plugins<S: AsRef<str>>(doc: Doc, id: S) -> Workspace {
         let mut trx = doc.transact();
 
         // TODO: Initial index in Tantivy including:
@@ -59,7 +35,7 @@ impl Workspace {
         let blocks = trx.get_map("blocks");
         let updated = trx.get_map("updated");
 
-        Self {
+        let workspace = Self {
             content: Content {
                 id: id.as_ref().to_string(),
                 awareness: Awareness::new(doc),
@@ -67,18 +43,9 @@ impl Workspace {
                 updated,
             },
             plugins: Default::default(),
-        }
-    }
+        };
 
-    /// Setup a [WorkspacePlugin] and insert it into the [Workspace].
-    /// See [plugins].
-    pub(super) fn setup_plugin(
-        &mut self,
-        config: impl PluginRegister,
-    ) -> Result<&mut Self, Box<dyn std::error::Error>> {
-        let plugin = config.setup(self)?;
-        self.plugins.insert_plugin(plugin)?;
-        Ok(self)
+        setup_plugin(workspace)
     }
 
     /// Allow the plugin to run any necessary updates it could have flagged via observers.
@@ -99,6 +66,8 @@ impl Workspace {
         &self,
         options: &SearchQueryOptions,
     ) -> Result<SearchBlockList, Box<dyn std::error::Error>> {
+        use plugins::IndexingPluginImpl;
+
         let search_plugin = self
             .get_plugin::<IndexingPluginImpl>()
             .expect("text search was set up by default");
@@ -107,6 +76,8 @@ impl Workspace {
 
     #[cfg(feature = "workspace-search")]
     pub fn update_search_index(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        use plugins::IndexingPluginImpl;
+
         self.update_plugin::<IndexingPluginImpl>()
     }
 
@@ -187,10 +158,6 @@ impl Workspace {
         self.content.sync_init_message()
     }
 
-    fn sync_handle_message(&mut self, msg: Message) -> Result<Option<Message>, Error> {
-        self.content.sync_handle_message(msg)
-    }
-
     pub fn sync_decode_message(&mut self, binary: &[u8]) -> Vec<Vec<u8>> {
         self.content.sync_decode_message(binary)
     }
@@ -249,7 +216,8 @@ impl WorkspaceTransaction<'_> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use yrs::Doc;
+    use log::info;
+    use yrs::{updates::decoder::Decode, Doc, StateVector, Update};
 
     #[test]
     fn doc_load_test() {
@@ -315,112 +283,5 @@ mod test {
         let doc = Doc::with_client_id(123);
         let workspace = Workspace::from_doc(doc, "test");
         assert_eq!(workspace.client_id(), 123);
-    }
-}
-
-#[cfg(all(test, feature = "workspace-search"))]
-mod test_search {
-    //! Consider moving this code out of the crate so we can properly
-    //! demonstrate and validate that this integration testing
-    //! is exactly how another crate would be able to use workspace search.
-
-    use super::*;
-    use yrs::Doc;
-
-    // out of order for now, in the future, this can be made in order by sorting before
-    // we reduce to just the block ids. Then maybe we could first sort on score, then sort on
-    // block id.
-    macro_rules! expect_result_ids {
-        ($search_results:ident, $id_str_array:expr) => {
-            let mut sorted_ids = $search_results
-                .items
-                .iter()
-                .map(|i| &i.block_id)
-                .collect::<Vec<_>>();
-            sorted_ids.sort();
-            assert_eq!(
-                sorted_ids, $id_str_array,
-                "Expected found ids (left) match expected ids (right) for search results"
-            );
-        };
-    }
-    macro_rules! expect_search_gives_ids {
-        ($workspace:ident, $query_text:expr, $id_str_array:expr) => {
-            let search_result = $workspace
-                .search(&SearchQueryOptions {
-                    query: $query_text.to_string(),
-                })
-                .expect("no error searching");
-
-            let line = line!();
-            println!("Search results (workspace.rs:{line}): {search_result:#?}"); // will show if there is an issue running the test
-
-            expect_result_ids!(search_result, $id_str_array);
-        };
-    }
-
-    #[test]
-    fn basic_search_test() {
-        // default workspace should be set up with search plugin under these features.
-        let mut wk = Workspace::from_doc(Default::default(), "wk-load");
-
-        wk.with_trx(|mut t| {
-            let block = t.create("b1", "text");
-            block.set(&mut t.trx, "test", "test");
-
-            let block = t.create("a", "affine:text");
-            let b = t.create("b", "affine:text");
-            let c = t.create("c", "affine:text");
-            let d = t.create("d", "affine:text");
-            let e = t.create("e", "affine:text");
-            let f = t.create("f", "affine:text");
-            let trx = &mut t.trx;
-
-            b.set(trx, "title", "Title B content");
-            b.set(trx, "text", "Text B content bbb xxx");
-
-            c.set(trx, "title", "Title C content");
-            c.set(trx, "text", "Text C content ccc xxx yyy");
-
-            d.set(trx, "title", "Title D content");
-            d.set(trx, "text", "Text D content ddd yyy");
-            // assert_eq!(b.get(trx, "title"), "Title content");
-            // b.set(trx, "text", "Text content");
-
-            // pushing blocks in
-            {
-                block.push_children(trx, &b);
-                block.insert_children_at(trx, &c, 0);
-                block.insert_children_before(trx, &d, "b");
-                block.insert_children_after(trx, &e, "b");
-                block.insert_children_after(trx, &f, "c");
-
-                assert_eq!(
-                    block.children(),
-                    vec![
-                        "c".to_owned(),
-                        "f".to_owned(),
-                        "d".to_owned(),
-                        "b".to_owned(),
-                        "e".to_owned()
-                    ]
-                );
-            }
-
-            // Question: Is this supposed to indicate that since this block is detached, then we should not be indexing it?
-            // For example, should we walk up the parent tree to check if each block is actually attached?
-            block.remove_children(trx, &d);
-        });
-
-        println!("Blocks: {:#?}", wk.blocks()); // shown if there is an issue running the test.
-
-        // update search index before making new queries
-        wk.update_search_index().expect("update text search plugin");
-
-        expect_search_gives_ids!(wk, "content", &["b", "c", "d"]);
-        expect_search_gives_ids!(wk, "bbb", &["b"]);
-        expect_search_gives_ids!(wk, "ccc", &["c"]);
-        expect_search_gives_ids!(wk, "xxx", &["b", "c"]);
-        expect_search_gives_ids!(wk, "yyy", &["c", "d"]);
     }
 }

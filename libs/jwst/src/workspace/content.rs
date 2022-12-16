@@ -1,6 +1,4 @@
 use super::*;
-use serde::{ser::SerializeMap, Serialize, Serializer};
-use std::any::Any;
 use y_sync::{
     awareness::Awareness,
     sync::{DefaultProtocol, Error, Message, MessageReader, Protocol, SyncMessage},
@@ -99,7 +97,7 @@ impl Content {
         Ok(encoder.to_vec())
     }
 
-    pub(super) fn sync_handle_message(&mut self, msg: Message) -> Result<Option<Message>, Error> {
+    fn sync_handle_message(&mut self, msg: Message) -> Result<Option<Message>, Error> {
         match msg {
             Message::Sync(msg) => match msg {
                 SyncMessage::SyncStep1(sv) => PROTOCOL.handle_sync_step1(&self.awareness, sv),

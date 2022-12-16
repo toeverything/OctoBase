@@ -1,81 +1,20 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::rc::Rc;
-use std::sync::atomic::AtomicU32;
-use std::sync::Arc;
-
+use super::{Content, PluginImpl, SearchBlockItem, SearchBlockList, SearchQueryOptions};
 use lib0::any::Any;
+use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::{atomic::AtomicU32, Arc};
 use tantivy::{collector::TopDocs, query::QueryParser, schema::*, Index, ReloadPolicy};
-use yrs::updates::decoder::Decode;
-
-use super::{Content, PluginImpl, PluginRegister, Workspace};
-use serde::{Deserialize, Serialize};
-
-/// Part of [SearchResult]
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SearchBlockItem {
-    /// Dev information. In future perhaps a way to only create this in some kind of "debug mode".
-    pub debug_string: Option<String>,
-    pub block_id: String,
-    // Additional info not be necessary for v0, since the front-end
-    // only needs to know the search specific info, which could just
-    // be the Block IDs since the front-end will end up rendering the
-    // blocks anyways.
-    // // WIP: other tantivy info like score etc?
-    // pub search_meta: HashMap<String, lib0::any::Any>,
-}
-
-/// Returned from [Workspace::search]
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SearchBlockList {
-    /// Dev information. In future perhaps a way to only create this in some kind of "debug mode".
-    pub debug_string: Option<String>,
-    pub items: Vec<SearchBlockItem>,
-    // Additional info not be necessary for v0, since the front-end
-    // only needs to know the search specific info, which could just
-    // be the Block IDs since the front-end will end up rendering the
-    // blocks anyways.
-    // // WIP: other tantivy info like score etc?
-    // pub search_meta: HashMap<String, lib0::any::Any>,
-}
-
-/// Options passed into [Workspace::search]
-#[derive(Debug)]
-pub struct SearchQueryOptions {
-    /// Primary search text string.
-    pub query: String,
-}
-
-#[derive(Default, Debug)]
-pub struct IndexingPluginRegister {
-    pub(self) storage_kind: IndexingStorageKind,
-}
-
-#[derive(Debug)]
-pub enum IndexingStorageKind {
-    /// Store index in memory (default)
-    RAM,
-    /// Store index in a specific directory
-    #[allow(dead_code)]
-    PersistedDirectory(PathBuf),
-}
-
-impl Default for IndexingStorageKind {
-    fn default() -> Self {
-        Self::RAM
-    }
-}
 
 pub struct IndexingPluginImpl {
     // /// `true` if the text search has not yet populated the Tantivy index
     // /// `false` if there should only be incremental changes necessary to the blocks.
     // first_index: bool,
-    queue_reindex: Arc<AtomicU32>,
-    schema: Schema,
-    index: Rc<Index>,
-    query_parser: QueryParser,
+    pub(super) queue_reindex: Arc<AtomicU32>,
+    pub(super) schema: Schema,
+    pub(super) index: Rc<Index>,
+    pub(super) query_parser: QueryParser,
     // need to keep so it gets dropped with this plugin
-    _update_sub: yrs::Subscription<yrs::UpdateEvent>,
+    pub(super) _update_sub: yrs::Subscription<yrs::UpdateEvent>,
 }
 
 impl IndexingPluginImpl {
@@ -165,60 +104,6 @@ impl PluginImpl for IndexingPluginImpl {
     }
 }
 
-impl PluginRegister for IndexingPluginRegister {
-    type Plugin = IndexingPluginImpl;
-    fn setup(self, ws: &mut Workspace) -> Result<IndexingPluginImpl, Box<dyn std::error::Error>> {
-        let mut schema_builder = Schema::builder();
-        schema_builder.add_text_field("block_id", STRING | STORED);
-        schema_builder.add_text_field("title", TEXT); // props:title
-        schema_builder.add_text_field("body", TEXT); // props:text
-        let schema = schema_builder.build();
-
-        let index_dir: Box<dyn tantivy::Directory> = match &self.storage_kind {
-            IndexingStorageKind::RAM => Box::new(tantivy::directory::RamDirectory::create()),
-            IndexingStorageKind::PersistedDirectory(dir) => {
-                Box::new(tantivy::directory::MmapDirectory::open(dir)?)
-            }
-        };
-
-        let index = Rc::new(Index::open_or_create(index_dir, schema.clone())?);
-        let title = schema.get_field("title").unwrap();
-        let body = schema.get_field("body").unwrap();
-
-        let queue_reindex = Arc::new(AtomicU32::new(
-            // require an initial re-index by setting the default above 0
-            1,
-        ));
-
-        let sub = ws.observe({
-            let queue_reindex = queue_reindex.clone();
-            move |_txn, e| {
-                // upd.update
-                let u = yrs::Update::decode_v1(&e.update).unwrap();
-                let _items = u
-                    .as_items()
-                    .into_iter()
-                    .map(|i| format!("\n  {i:?}"))
-                    .collect::<String>();
-                for item in u.as_items() {
-                    item.id;
-                }
-
-                queue_reindex.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            }
-        });
-
-        Ok(IndexingPluginImpl {
-            schema,
-            query_parser: QueryParser::for_index(&index, vec![title, body]),
-            index,
-            queue_reindex,
-            // needs to drop sub with everything else
-            _update_sub: sub,
-        })
-    }
-}
-
 impl IndexingPluginImpl {
     fn re_index_content<BlockIdTitleAndTextIter>(
         &mut self,
@@ -296,17 +181,14 @@ mod test {
 
     #[test]
     fn basic_search_test() {
-        let mut wk = {
-            let mut wk = Workspace::from_doc_without_plugins(Default::default(), "wk-load");
+        let mut workspace = {
+            let workspace = Workspace::from_doc(Default::default(), "wk-load");
             // even though the plugin is added by default,
-            wk.setup_plugin(IndexingPluginRegister {
-                storage_kind: IndexingStorageKind::RAM,
-            });
-
-            wk
+            super::super::super::insert_plugin(workspace, IndexingPluginRegister::ram())
+                .expect("failed to insert plugin")
         };
 
-        wk.with_trx(|mut t| {
+        workspace.with_trx(|mut t| {
             let block = t.create("b1", "text");
             block.set(&mut t.trx, "test", "test");
 
@@ -354,12 +236,13 @@ mod test {
             block.remove_children(trx, &d);
         });
 
-        println!("Blocks: {:#?}", wk.blocks()); // shown if there is an issue running the test.
+        println!("Blocks: {:#?}", workspace.blocks()); // shown if there is an issue running the test.
 
-        wk.update_plugin::<IndexingPluginImpl>()
+        workspace
+            .update_plugin::<IndexingPluginImpl>()
             .expect("update text search plugin");
 
-        let search_plugin = wk.get_plugin::<IndexingPluginImpl>().unwrap();
+        let search_plugin = workspace.get_plugin::<IndexingPluginImpl>().unwrap();
 
         expect_search_gives_ids!(search_plugin, "content", &["b", "c", "d"]);
         expect_search_gives_ids!(search_plugin, "bbb", &["b"]);

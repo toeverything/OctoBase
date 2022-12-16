@@ -46,10 +46,6 @@ impl PluginMap {
         self.map.get::<P>()
     }
 
-    pub(crate) fn get_plugin_mut<P: PluginImpl>(&mut self) -> Option<&mut P> {
-        self.map.get_mut::<P>()
-    }
-
     pub(crate) fn update_plugin<P: PluginImpl>(
         &mut self,
         content: &Content,

@@ -2,11 +2,8 @@ mod content;
 mod plugins;
 mod workspace;
 
-use super::{info, Block};
-
-#[cfg(feature = "workspace-search")]
-use plugins::{IndexingPluginImpl, IndexingPluginRegister, IndexingStorageKind};
-use plugins::{PluginImpl, PluginMap, PluginRegister};
+use super::Block;
+use plugins::PluginMap;
 
 pub(crate) use content::Content;
 
