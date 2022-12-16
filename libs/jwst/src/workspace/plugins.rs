@@ -1,6 +1,6 @@
 //! Plugins are an internal experimental interface for extending the [Workspace].
 
-use super::{Workspace, WorkspaceContent};
+use super::*;
 use type_map::TypeMap;
 
 /// A configuration from which a [WorkspacePlugin] can be created from.
