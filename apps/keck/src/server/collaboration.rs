@@ -154,7 +154,7 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
                 let mut workspace = workspace.value().lock().await;
 
                 use std::panic::{catch_unwind, AssertUnwindSafe};
-                catch_unwind(AssertUnwindSafe(|| workspace.sync_decode_message(binary)))
+                catch_unwind(AssertUnwindSafe(|| workspace.sync_decode_message(&binary)))
             };
             if let Ok(messages) = payload {
                 for reply in messages {

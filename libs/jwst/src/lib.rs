@@ -9,4 +9,4 @@ pub use history::{
 };
 pub use log::{error, info};
 pub use utils::encode_update;
-pub use workspace::{Workspace, WorkspaceTransaction};
+pub use workspace::{SearchQueryOptions, Workspace, WorkspaceTransaction};

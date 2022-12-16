@@ -1,12 +1,22 @@
 pub use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 #[derive(Default, Deserialize, PartialEq, Debug, ToSchema)]
 pub struct Workspace {
     pub(super) blocks: HashMap<String, Block>,
     pub(super) updated: HashMap<String, BlockRawHistory>,
+}
+
+#[derive(Default, Deserialize, Serialize, PartialEq, Debug, ToSchema)]
+pub struct BlockSearchList {
+    pub(super) blocks: Vec<BlockSearchItem>,
+}
+
+#[derive(Default, Deserialize, Serialize, PartialEq, Debug, ToSchema)]
+pub struct BlockSearchItem {
+    pub(super) block_id: String,
 }
 
 #[derive(Deserialize, PartialEq, Debug, ToSchema)]

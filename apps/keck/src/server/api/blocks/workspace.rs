@@ -1,10 +1,14 @@
-use super::*;
+use super::{
+    schema::{BlockSearchItem, BlockSearchList},
+    *,
+};
 use axum::{
     extract::{Path, Query},
     http::header,
     response::Response,
 };
 use jwst::Block;
+use utoipa::IntoParams;
 
 /// Get a exists `Workspace` by id
 /// - Return 200 Ok and `Workspace`'s data if `Workspace` is exists.
@@ -31,7 +35,11 @@ pub async fn get_workspace(
         let workspace = workspace.lock().await;
         Json(&*workspace).into_response()
     } else {
-        StatusCode::NOT_FOUND.into_response()
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({workspace:?}) not found"),
+        )
+            .into_response()
     }
 }
 
@@ -90,16 +98,20 @@ pub async fn set_workspace(
 pub async fn delete_workspace(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
-) -> StatusCode {
+) -> Response {
     info!("delete_workspace: {}", workspace);
     if context.workspace.remove(&workspace).is_none() {
-        return StatusCode::NOT_FOUND;
+        return (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({workspace:?}) not found"),
+        )
+            .into_response();
     }
     if context.docs.drop(&workspace).await.is_err() {
-        return StatusCode::INTERNAL_SERVER_ERROR;
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
 
-    StatusCode::NO_CONTENT
+    StatusCode::NO_CONTENT.into_response()
 }
 
 /// Get current client id of server
@@ -129,7 +141,78 @@ pub async fn workspace_client(
         let workspace = workspace.lock().await;
         Json(workspace.client_id()).into_response()
     } else {
-        StatusCode::NOT_FOUND.into_response()
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({workspace:?}) not found"),
+        )
+            .into_response()
+    }
+}
+
+/// Block search query
+// See doc for using utoipa search queries example here: https://github.com/juhaku/utoipa/blob/6c7f6a2d/examples/todo-axum/src/main.rs#L124-L130
+#[derive(Deserialize, IntoParams)]
+pub struct BlockSearchQuery {
+    /// Search by title and text.
+    query: String,
+}
+
+/// Search workspace blocks of server
+///
+/// This will return back a list of relevant blocks.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/search",
+    path = "/{workspace}",
+    params(
+        ("workspace", description = "workspace id"),
+        BlockSearchQuery,
+    ),
+    responses(
+        (status = 200, description = "Search results", body = BlockSearchList),
+    )
+)]
+pub async fn workspace_search(
+    Extension(context): Extension<Arc<Context>>,
+    Path(workspace): Path<String>,
+    query: Query<BlockSearchQuery>,
+) -> Response {
+    let query_text = &query.query;
+    let workspace_id = &workspace;
+    info!("workspace_search: {workspace_id:?} query = {query_text:?}");
+    if let Some(workspace) = context.workspace.get(&workspace) {
+        let mut workspace = workspace.lock().await;
+
+        match workspace.update_search_index().and_then(|()| {
+            workspace.search(&jwst::SearchQueryOptions {
+                query: query_text.to_string(),
+            })
+        }) {
+            Ok(list) => {
+                debug!("workspace_search: {workspace_id:?} query = {query_text:?}; {list:#?}");
+                Json(BlockSearchList {
+                    blocks: list
+                        .items
+                        .into_iter()
+                        .map(|item| BlockSearchItem {
+                            block_id: item.block_id,
+                        })
+                        .collect(),
+                })
+                .into_response()
+            }
+            Err(err) => {
+                error!("Internal server error calling workspace_search: {err:?}");
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            }
+        }
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({workspace:?}) not found"),
+        )
+            .into_response()
     }
 }
 
@@ -156,7 +239,7 @@ pub async fn get_workspace_block(
     Query(pagination): Query<Pagination>,
 ) -> Response {
     let Pagination { offset, limit } = pagination;
-    info!("get_workspace_block: {}", workspace);
+    info!("get_workspace_block: {workspace:?}");
     if let Some(workspace) = context.workspace.get(&workspace) {
         let workspace = workspace.value().lock().await;
         let total = workspace.block_count() as usize;
@@ -170,7 +253,11 @@ pub async fn get_workspace_block(
 
         (status, Json(PageData { total, data })).into_response()
     } else {
-        StatusCode::NOT_FOUND.into_response()
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({workspace:?}) not found"),
+        )
+            .into_response()
     }
 }
 
@@ -210,7 +297,11 @@ pub async fn history_workspace_clients(
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     } else {
-        StatusCode::NOT_FOUND.into_response()
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({workspace:?}) not found"),
+        )
+            .into_response()
     }
 }
 
@@ -251,7 +342,11 @@ pub async fn history_workspace(
             StatusCode::BAD_REQUEST.into_response()
         }
     } else {
-        StatusCode::NOT_FOUND.into_response()
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({workspace:?}) not found"),
+        )
+            .into_response()
     }
 }
 

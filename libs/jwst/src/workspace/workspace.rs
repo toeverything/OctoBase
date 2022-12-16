@@ -1,24 +1,20 @@
-use super::*;
+use super::{plugins::setup_plugin, *};
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use y_sync::{
-    awareness::Awareness,
-    sync::{DefaultProtocol, Error, Message, MessageReader, Protocol, SyncMessage},
-};
-use yrs::{
-    updates::{
-        decoder::{Decode, DecoderV1},
-        encoder::{Encode, Encoder, EncoderV1},
-    },
-    Doc, Map, StateVector, Subscription, Transaction, Update, UpdateEvent,
-};
+use y_sync::{awareness::Awareness, sync::Error};
+use yrs::{Doc, Map, Subscription, Transaction, UpdateEvent};
 
-static PROTOCOL: DefaultProtocol = DefaultProtocol;
+use super::PluginMap;
+use plugins::PluginImpl;
 
 pub struct Workspace {
-    id: String,
-    awareness: Awareness,
-    blocks: Map,
-    updated: Map,
+    content: Content,
+    /// We store plugins so that their ownership is tied to [Workspace].
+    /// This enables us to properly manage lifetimes of observers which will subscribe
+    /// into events that the [Workspace] experiences, like block updates.
+    ///
+    /// Public just for the crate as we experiment with the plugins interface.
+    /// See [plugins].
+    pub(super) plugins: PluginMap,
 }
 
 unsafe impl Send for Workspace {}
@@ -33,40 +29,65 @@ impl Workspace {
     pub fn from_doc<S: AsRef<str>>(doc: Doc, id: S) -> Workspace {
         let mut trx = doc.transact();
 
+        // TODO: Initial index in Tantivy including:
+        //  * Tree visitor collecting all child blocks which are correct flavor for extracted text
+        //  * Extract prop:text / prop:title for index to block ID in Tantivy
         let blocks = trx.get_map("blocks");
         let updated = trx.get_map("updated");
 
-        Self {
-            id: id.as_ref().to_string(),
-            awareness: Awareness::new(doc),
-            blocks,
-            updated,
-        }
+        let workspace = Self {
+            content: Content {
+                id: id.as_ref().to_string(),
+                awareness: Awareness::new(doc),
+                blocks,
+                updated,
+            },
+            plugins: Default::default(),
+        };
+
+        setup_plugin(workspace)
     }
 
-    pub fn id(&self) -> String {
-        self.id.clone()
+    /// Allow the plugin to run any necessary updates it could have flagged via observers.
+    /// See [plugins].
+    pub(super) fn update_plugin<P: PluginImpl>(
+        &mut self,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.plugins.update_plugin::<P>(&self.content)
     }
 
-    pub fn blocks(&self) -> &Map {
-        &self.blocks
+    /// See [plugins].
+    pub(super) fn get_plugin<P: PluginImpl>(&self) -> Option<&P> {
+        self.plugins.get_plugin::<P>()
     }
 
-    pub fn updated(&self) -> &Map {
-        &self.updated
+    #[cfg(feature = "workspace-search")]
+    pub fn search(
+        &self,
+        options: &SearchQueryOptions,
+    ) -> Result<SearchBlockList, Box<dyn std::error::Error>> {
+        use plugins::IndexingPluginImpl;
+
+        let search_plugin = self
+            .get_plugin::<IndexingPluginImpl>()
+            .expect("text search was set up by default");
+        search_plugin.search(options)
     }
 
-    pub fn doc(&self) -> &Doc {
-        self.awareness.doc()
+    #[cfg(feature = "workspace-search")]
+    pub fn update_search_index(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        use plugins::IndexingPluginImpl;
+
+        self.update_plugin::<IndexingPluginImpl>()
     }
 
-    pub fn client_id(&self) -> u64 {
-        self.awareness.doc().client_id
+    pub fn content(&self) -> &Content {
+        &self.content
     }
 
     pub fn with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> T {
         let trx = WorkspaceTransaction {
-            trx: self.awareness.doc().transact(),
+            trx: self.content.awareness.doc().transact(),
             ws: self,
         };
 
@@ -75,9 +96,28 @@ impl Workspace {
 
     pub fn get_trx(&self) -> WorkspaceTransaction {
         WorkspaceTransaction {
-            trx: self.awareness.doc().transact(),
+            trx: self.content.awareness.doc().transact(),
             ws: self,
         }
+    }
+    pub fn id(&self) -> String {
+        self.content.id()
+    }
+
+    pub fn blocks(&self) -> &Map {
+        self.content.blocks()
+    }
+
+    pub fn updated(&self) -> &Map {
+        self.content.updated()
+    }
+
+    pub fn doc(&self) -> &Doc {
+        self.content.doc()
+    }
+
+    pub fn client_id(&self) -> u64 {
+        self.content.client_id()
     }
 
     // get a block if exists
@@ -85,77 +125,41 @@ impl Workspace {
     where
         S: AsRef<str>,
     {
-        Block::from(self, block_id, self.client_id())
+        self.content.get(block_id)
     }
 
     pub fn block_count(&self) -> u32 {
-        self.blocks.len()
+        self.content.block_count()
     }
 
     #[inline]
     pub fn block_iter(&self) -> impl Iterator<Item = Block> + '_ {
-        self.blocks
-            .iter()
-            .zip(self.updated.iter())
-            .map(|((id, block), (_, updated))| {
-                Block::from_raw_parts(
-                    id.to_owned(),
-                    block.to_ymap().unwrap(),
-                    updated.to_yarray().unwrap(),
-                    self.client_id(),
-                )
-            })
+        self.content.block_iter()
     }
 
+    /// Check if the block exists in this workspace's blocks.
     pub fn exists(&self, block_id: &str) -> bool {
-        self.blocks.contains(block_id.as_ref())
+        self.content.exists(block_id)
     }
 
+    /// Subscribe to update events.
     pub fn observe(
         &mut self,
         f: impl Fn(&Transaction, &UpdateEvent) -> () + 'static,
     ) -> Subscription<UpdateEvent> {
-        self.awareness.doc_mut().observe_update_v1(f)
+        self.content.observe(f)
     }
 
     pub fn sync_migration(&self) -> Vec<u8> {
-        self.doc()
-            .encode_state_as_update_v1(&StateVector::default())
+        self.content.sync_migration()
     }
 
     pub fn sync_init_message(&self) -> Result<Vec<u8>, Error> {
-        let mut encoder = EncoderV1::new();
-        PROTOCOL.start(&self.awareness, &mut encoder)?;
-        Ok(encoder.to_vec())
+        self.content.sync_init_message()
     }
 
-    fn sync_handle_message(&mut self, msg: Message) -> Result<Option<Message>, Error> {
-        match msg {
-            Message::Sync(msg) => match msg {
-                SyncMessage::SyncStep1(sv) => PROTOCOL.handle_sync_step1(&self.awareness, sv),
-                SyncMessage::SyncStep2(update) => {
-                    PROTOCOL.handle_sync_step2(&mut self.awareness, Update::decode_v1(&update)?)
-                }
-                SyncMessage::Update(update) => {
-                    PROTOCOL.handle_update(&mut self.awareness, Update::decode_v1(&update)?)
-                }
-            },
-            Message::Auth(reason) => PROTOCOL.handle_auth(&self.awareness, reason),
-            Message::AwarenessQuery => PROTOCOL.handle_awareness_query(&self.awareness),
-            Message::Awareness(update) => {
-                PROTOCOL.handle_awareness_update(&mut self.awareness, update)
-            }
-            Message::Custom(tag, data) => PROTOCOL.missing_handle(&mut self.awareness, tag, data),
-        }
-    }
-
-    pub fn sync_decode_message(&mut self, binary: Vec<u8>) -> Vec<Vec<u8>> {
-        let mut decoder = DecoderV1::from(binary.as_slice());
-
-        MessageReader::new(&mut decoder)
-            .filter_map(|msg| msg.ok().and_then(|msg| self.sync_handle_message(msg).ok()?))
-            .map(|reply| reply.encode_v1())
-            .collect()
+    pub fn sync_decode_message(&mut self, binary: &[u8]) -> Vec<Vec<u8>> {
+        self.content.sync_decode_message(binary)
     }
 }
 
@@ -165,8 +169,8 @@ impl Serialize for Workspace {
         S: Serializer,
     {
         let mut map = serializer.serialize_map(Some(2))?;
-        map.serialize_entry("blocks", &self.blocks.to_json())?;
-        map.serialize_entry("updated", &self.updated.to_json())?;
+        map.serialize_entry("blocks", &self.content.blocks.to_json())?;
+        map.serialize_entry("updated", &self.content.updated.to_json())?;
         map.end()
     }
 }
@@ -181,6 +185,7 @@ unsafe impl Send for WorkspaceTransaction<'_> {}
 impl WorkspaceTransaction<'_> {
     pub fn remove<S: AsRef<str>>(&mut self, block_id: S) -> bool {
         self.ws
+            .content
             .blocks
             .remove(&mut self.trx, block_id.as_ref())
             .is_some()
@@ -211,7 +216,8 @@ impl WorkspaceTransaction<'_> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use yrs::Doc;
+    use log::info;
+    use yrs::{updates::decoder::Decode, Doc, StateVector, Update};
 
     #[test]
     fn doc_load_test() {
