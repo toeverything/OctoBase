@@ -25,6 +25,7 @@ use utoipa::OpenApi;
         workspace::history_workspace_clients,
         workspace::history_workspace,
         workspace::get_workspace_block,
+        workspace::workspace_search,
         block::get_block,
         block::set_block,
         block::get_block_history,
@@ -37,6 +38,7 @@ use utoipa::OpenApi;
         schemas(
             schema::InsertChildren,
             schema::Workspace, schema::Block, schema::BlockRawHistory,
+            schema::BlockSearchList, schema::BlockSearchItem,
             jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory
         )
     ),
@@ -131,6 +133,7 @@ fn workspace_apis(router: Router) -> Router {
             "/block/:workspace/blocks",
             get(workspace::get_workspace_block),
         )
+        .route("/search/:workspace", get(workspace::workspace_search))
 }
 
 pub fn blocks_apis(router: Router) -> Router {

@@ -1,10 +1,14 @@
-use super::*;
+use super::{
+    schema::{BlockSearchItem, BlockSearchList},
+    *,
+};
 use axum::{
     extract::{Path, Query},
     http::header,
     response::Response,
 };
 use jwst::Block;
+use utoipa::IntoParams;
 
 /// Get a exists `Workspace` by id
 /// - Return 200 Ok and `Workspace`'s data if `Workspace` is exists.
@@ -128,6 +132,68 @@ pub async fn workspace_client(
     if let Some(workspace) = context.workspace.get(&workspace) {
         let workspace = workspace.lock().await;
         Json(workspace.client_id()).into_response()
+    } else {
+        StatusCode::NOT_FOUND.into_response()
+    }
+}
+
+/// Block search query
+// See doc for using utoipa search queries example here: https://github.com/juhaku/utoipa/blob/6c7f6a2d/examples/todo-axum/src/main.rs#L124-L130
+#[derive(Deserialize, IntoParams)]
+pub struct BlockSearchQuery {
+    /// Search by title and text.
+    query: String,
+}
+
+/// Search workspace blocks of server
+///
+/// This will return back a list of relevant blocks.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/search",
+    path = "/{workspace}",
+    params(
+        ("workspace", description = "workspace id"),
+        BlockSearchQuery,
+    ),
+    responses(
+        (status = 200, description = "Search results", body = BlockSearchList),
+    )
+)]
+pub async fn workspace_search(
+    Extension(context): Extension<Arc<Context>>,
+    Path(workspace_id): Path<String>,
+    query: Query<BlockSearchQuery>,
+) -> Response {
+    let query_text = &query.query;
+    info!("workspace_search: {workspace_id:?} query = {query_text:?}");
+    if let Some(workspace) = context.workspace.get(&workspace_id) {
+        let mut workspace = workspace.lock().await;
+
+        match workspace.update_search_index().and_then(|()| {
+            workspace.search(&jwst::SearchQueryOptions {
+                query: query_text.to_string(),
+            })
+        }) {
+            Ok(list) => {
+                debug!("workspace_search: {workspace_id:?} query = {query_text:?}; {list:#?}");
+                Json(BlockSearchList {
+                    blocks: list
+                        .items
+                        .into_iter()
+                        .map(|item| BlockSearchItem {
+                            block_id: item.block_id,
+                        })
+                        .collect(),
+                })
+                .into_response()
+            }
+            Err(err) => {
+                error!("Internal server error calling workspace_search: {err:?}");
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            }
+        }
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
