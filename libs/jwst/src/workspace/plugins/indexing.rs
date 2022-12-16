@@ -8,7 +8,7 @@ use lib0::any::Any;
 use tantivy::{collector::TopDocs, query::QueryParser, schema::*, Index, ReloadPolicy};
 use yrs::updates::decoder::Decode;
 
-use super::{Workspace, WorkspaceContent, WorkspacePlugin, WorkspacePluginConfig};
+use super::{Content, PluginImpl, PluginRegister, Workspace};
 use serde::{Deserialize, Serialize};
 
 /// Part of [SearchResult]
@@ -47,12 +47,12 @@ pub struct SearchQueryOptions {
 }
 
 #[derive(Default, Debug)]
-pub struct WorkspaceTextSearchPluginConfig {
-    pub storage_kind: WorkspaceTextSearchPluginConfigStorageKind,
+pub struct IndexingPluginRegister {
+    pub(self) storage_kind: IndexingStorageKind,
 }
 
 #[derive(Debug)]
-pub enum WorkspaceTextSearchPluginConfigStorageKind {
+pub enum IndexingStorageKind {
     /// Store index in memory (default)
     RAM,
     /// Store index in a specific directory
@@ -60,13 +60,13 @@ pub enum WorkspaceTextSearchPluginConfigStorageKind {
     PersistedDirectory(PathBuf),
 }
 
-impl Default for WorkspaceTextSearchPluginConfigStorageKind {
+impl Default for IndexingStorageKind {
     fn default() -> Self {
         Self::RAM
     }
 }
 
-pub struct WorkspaceTextSearchPlugin {
+pub struct IndexingPluginImpl {
     // /// `true` if the text search has not yet populated the Tantivy index
     // /// `false` if there should only be incremental changes necessary to the blocks.
     // first_index: bool,
@@ -78,7 +78,7 @@ pub struct WorkspaceTextSearchPlugin {
     _update_sub: yrs::Subscription<yrs::UpdateEvent>,
 }
 
-impl WorkspaceTextSearchPlugin {
+impl IndexingPluginImpl {
     pub fn search(
         &self,
         search_options: &SearchQueryOptions,
@@ -126,8 +126,8 @@ impl WorkspaceTextSearchPlugin {
     }
 }
 
-impl WorkspacePlugin for WorkspaceTextSearchPlugin {
-    fn on_update(&mut self, ws: &WorkspaceContent) -> Result<(), Box<dyn std::error::Error>> {
+impl PluginImpl for IndexingPluginImpl {
+    fn on_update(&mut self, ws: &Content) -> Result<(), Box<dyn std::error::Error>> {
         let curr = self.queue_reindex.load(std::sync::atomic::Ordering::SeqCst);
         if curr > 0 {
             let mut re_index_list = HashMap::<String, (Option<String>, Option<String>)>::new();
@@ -165,12 +165,9 @@ impl WorkspacePlugin for WorkspaceTextSearchPlugin {
     }
 }
 
-impl WorkspacePluginConfig for WorkspaceTextSearchPluginConfig {
-    type Plugin = WorkspaceTextSearchPlugin;
-    fn setup(
-        self,
-        ws: &mut Workspace,
-    ) -> Result<WorkspaceTextSearchPlugin, Box<dyn std::error::Error>> {
+impl PluginRegister for IndexingPluginRegister {
+    type Plugin = IndexingPluginImpl;
+    fn setup(self, ws: &mut Workspace) -> Result<IndexingPluginImpl, Box<dyn std::error::Error>> {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("block_id", STRING | STORED);
         schema_builder.add_text_field("title", TEXT); // props:title
@@ -178,10 +175,8 @@ impl WorkspacePluginConfig for WorkspaceTextSearchPluginConfig {
         let schema = schema_builder.build();
 
         let index_dir: Box<dyn tantivy::Directory> = match &self.storage_kind {
-            WorkspaceTextSearchPluginConfigStorageKind::RAM => {
-                Box::new(tantivy::directory::RamDirectory::create())
-            }
-            WorkspaceTextSearchPluginConfigStorageKind::PersistedDirectory(dir) => {
+            IndexingStorageKind::RAM => Box::new(tantivy::directory::RamDirectory::create()),
+            IndexingStorageKind::PersistedDirectory(dir) => {
                 Box::new(tantivy::directory::MmapDirectory::open(dir)?)
             }
         };
@@ -213,7 +208,7 @@ impl WorkspacePluginConfig for WorkspaceTextSearchPluginConfig {
             }
         });
 
-        Ok(WorkspaceTextSearchPlugin {
+        Ok(IndexingPluginImpl {
             schema,
             query_parser: QueryParser::for_index(&index, vec![title, body]),
             index,
@@ -224,7 +219,7 @@ impl WorkspacePluginConfig for WorkspaceTextSearchPluginConfig {
     }
 }
 
-impl WorkspaceTextSearchPlugin {
+impl IndexingPluginImpl {
     fn re_index_content<BlockIdTitleAndTextIter>(
         &mut self,
         blocks: BlockIdTitleAndTextIter,
@@ -304,8 +299,8 @@ mod test {
         let mut wk = {
             let mut wk = Workspace::from_doc_without_plugins(Default::default(), "wk-load");
             // even though the plugin is added by default,
-            wk.setup_plugin(WorkspaceTextSearchPluginConfig {
-                storage_kind: WorkspaceTextSearchPluginConfigStorageKind::RAM,
+            wk.setup_plugin(IndexingPluginRegister {
+                storage_kind: IndexingStorageKind::RAM,
             });
 
             wk
@@ -361,10 +356,10 @@ mod test {
 
         println!("Blocks: {:#?}", wk.blocks()); // shown if there is an issue running the test.
 
-        wk.update_plugin::<WorkspaceTextSearchPlugin>()
+        wk.update_plugin::<IndexingPluginImpl>()
             .expect("update text search plugin");
 
-        let search_plugin = wk.get_plugin::<WorkspaceTextSearchPlugin>().unwrap();
+        let search_plugin = wk.get_plugin::<IndexingPluginImpl>().unwrap();
 
         expect_search_gives_ids!(search_plugin, "content", &["b", "c", "d"]);
         expect_search_gives_ids!(search_plugin, "bbb", &["b"]);

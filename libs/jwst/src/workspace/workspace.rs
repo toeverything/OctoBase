@@ -13,25 +13,18 @@ use yrs::{
     Doc, Map, StateVector, Subscription, Transaction, Update, UpdateEvent,
 };
 
-use super::WorkspacePluginMap;
-pub(crate) use plugins::{WorkspacePlugin, WorkspacePluginConfig};
+use super::PluginMap;
+use plugins::{PluginImpl, PluginRegister};
 
 pub struct Workspace {
-    content: WorkspaceContent,
+    content: Content,
     /// We store plugins so that their ownership is tied to [Workspace].
     /// This enables us to properly manage lifetimes of observers which will subscribe
     /// into events that the [Workspace] experiences, like block updates.
     ///
     /// Public just for the crate as we experiment with the plugins interface.
     /// See [plugins].
-    pub(crate) plugins: WorkspacePluginMap,
-    // /// Global version of the workspace
-    // ///
-    // /// This is used by extensions such as Text Search to determine
-    // /// what blocks have changed since their last indexing.
-    // ///
-    // /// This makes extensions behave more like a pull-based system.
-    // local_version: u64,
+    pub(crate) plugins: PluginMap,
 }
 
 unsafe impl Send for Workspace {}
@@ -50,7 +43,7 @@ impl Workspace {
         #[cfg(feature = "workspace-search")]
         {
             // Set up search
-            workspace.setup_plugin(WorkspaceTextSearchPluginConfig::default());
+            workspace.setup_plugin(IndexingPluginRegister::default());
         }
 
         workspace
@@ -67,7 +60,7 @@ impl Workspace {
         let updated = trx.get_map("updated");
 
         Self {
-            content: WorkspaceContent {
+            content: Content {
                 id: id.as_ref().to_string(),
                 awareness: Awareness::new(doc),
                 blocks,
@@ -79,9 +72,9 @@ impl Workspace {
 
     /// Setup a [WorkspacePlugin] and insert it into the [Workspace].
     /// See [plugins].
-    pub(crate) fn setup_plugin(
+    pub(super) fn setup_plugin(
         &mut self,
-        config: impl WorkspacePluginConfig,
+        config: impl PluginRegister,
     ) -> Result<&mut Self, Box<dyn std::error::Error>> {
         let plugin = config.setup(self)?;
         self.plugins.insert_plugin(plugin)?;
@@ -90,14 +83,14 @@ impl Workspace {
 
     /// Allow the plugin to run any necessary updates it could have flagged via observers.
     /// See [plugins].
-    pub(crate) fn update_plugin<P: WorkspacePlugin>(
+    pub(super) fn update_plugin<P: PluginImpl>(
         &mut self,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self.plugins.update_plugin::<P>(&self.content)
     }
 
     /// See [plugins].
-    pub(crate) fn get_plugin<P: WorkspacePlugin>(&self) -> Option<&P> {
+    pub(super) fn get_plugin<P: PluginImpl>(&self) -> Option<&P> {
         self.plugins.get_plugin::<P>()
     }
 
@@ -107,17 +100,17 @@ impl Workspace {
         options: &SearchQueryOptions,
     ) -> Result<SearchBlockList, Box<dyn std::error::Error>> {
         let search_plugin = self
-            .get_plugin::<WorkspaceTextSearchPlugin>()
+            .get_plugin::<IndexingPluginImpl>()
             .expect("text search was set up by default");
         search_plugin.search(options)
     }
 
     #[cfg(feature = "workspace-search")]
     pub fn update_search_index(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.update_plugin::<WorkspaceTextSearchPlugin>()
+        self.update_plugin::<IndexingPluginImpl>()
     }
 
-    pub fn content(&self) -> &WorkspaceContent {
+    pub fn content(&self) -> &Content {
         &self.content
     }
 

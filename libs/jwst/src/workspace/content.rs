@@ -17,7 +17,7 @@ static PROTOCOL: DefaultProtocol = DefaultProtocol;
 
 // Is the workspace here supposed to contain a source of truth for the
 // block data?
-pub struct WorkspaceContent {
+pub struct Content {
     pub(super) id: String,
     // indexers: Vec<Box<dyn search_indexing::BlockIndexer>>,
     pub(super) awareness: Awareness,
@@ -27,7 +27,7 @@ pub struct WorkspaceContent {
     pub(super) updated: Map,
 }
 
-impl WorkspaceContent {
+impl Content {
     pub fn id(&self) -> String {
         self.id.clone()
     }

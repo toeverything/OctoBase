@@ -1,4 +1,4 @@
-use crate::workspace::WorkspaceContent;
+use crate::workspace::Content;
 
 use super::*;
 use lib0::any::Any;
@@ -100,7 +100,7 @@ impl Block {
         }
     }
 
-    pub fn from<B>(workspace: &WorkspaceContent, block_id: B, operator: u64) -> Option<Block>
+    pub fn from<B>(workspace: &Content, block_id: B, operator: u64) -> Option<Block>
     where
         B: AsRef<str>,
     {
@@ -264,7 +264,7 @@ impl Block {
         self.children.len()
     }
 
-    pub fn content(&self) -> HashMap<String, Any> {
+    pub(crate) fn content(&self) -> HashMap<String, Any> {
         self.block
             .iter()
             .filter_map(|(key, val)| {
