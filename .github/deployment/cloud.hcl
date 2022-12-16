@@ -48,15 +48,16 @@ job "affine-cloud" {
                 MAIL_PROVIDER = "smtp.gmail.com"
                 MAIL_TITLE = "Send from AFFiNE Cloud"
                 # MAIL_CONTENT_PATH = 
-                BLOB_STORAGE_PATH = "/home/affine/affine-cloud/blobs"
+                BLOB_STORAGE_PATH = "/blobs"
             }
             config {
-                image       = "ghcr.io/toeverything/cloud:canary-a62b96b9e019ec94a146525242fab2a4bbd3cd2a"
+                image       = "ghcr.io/toeverything/cloud:canary-44496296ce40be4790134dc34b1cd434983cbd5b"
                 force_pull  = true
                 ports       = ["affine-cloud"]
                 labels      = {
                     "io.portainer.accesscontrol.teams" = "development"
                 }
+                volumes     = ["/home/affine/affine-cloud/blobs:/blobs"]
             }
             resources {
                 cpu    = 100 # MHz
