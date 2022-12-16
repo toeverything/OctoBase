@@ -35,7 +35,11 @@ pub async fn get_workspace(
         let workspace = workspace.lock().await;
         Json(&*workspace).into_response()
     } else {
-        StatusCode::NOT_FOUND.into_response()
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({workspace:?}) not found"),
+        )
+            .into_response()
     }
 }
 
@@ -94,16 +98,20 @@ pub async fn set_workspace(
 pub async fn delete_workspace(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
-) -> StatusCode {
+) -> Response {
     info!("delete_workspace: {}", workspace);
     if context.workspace.remove(&workspace).is_none() {
-        return StatusCode::NOT_FOUND;
+        return (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({workspace:?}) not found"),
+        )
+            .into_response();
     }
     if context.docs.drop(&workspace).await.is_err() {
-        return StatusCode::INTERNAL_SERVER_ERROR;
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
 
-    StatusCode::NO_CONTENT
+    StatusCode::NO_CONTENT.into_response()
 }
 
 /// Get current client id of server
@@ -133,7 +141,11 @@ pub async fn workspace_client(
         let workspace = workspace.lock().await;
         Json(workspace.client_id()).into_response()
     } else {
-        StatusCode::NOT_FOUND.into_response()
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({workspace:?}) not found"),
+        )
+            .into_response()
     }
 }
 
@@ -163,12 +175,13 @@ pub struct BlockSearchQuery {
 )]
 pub async fn workspace_search(
     Extension(context): Extension<Arc<Context>>,
-    Path(workspace_id): Path<String>,
+    Path(workspace): Path<String>,
     query: Query<BlockSearchQuery>,
 ) -> Response {
     let query_text = &query.query;
+    let workspace_id = &workspace;
     info!("workspace_search: {workspace_id:?} query = {query_text:?}");
-    if let Some(workspace) = context.workspace.get(&workspace_id) {
+    if let Some(workspace) = context.workspace.get(&workspace) {
         let mut workspace = workspace.lock().await;
 
         match workspace.update_search_index().and_then(|()| {
@@ -195,7 +208,11 @@ pub async fn workspace_search(
             }
         }
     } else {
-        StatusCode::NOT_FOUND.into_response()
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({workspace:?}) not found"),
+        )
+            .into_response()
     }
 }
 
@@ -222,7 +239,7 @@ pub async fn get_workspace_block(
     Query(pagination): Query<Pagination>,
 ) -> Response {
     let Pagination { offset, limit } = pagination;
-    info!("get_workspace_block: {}", workspace);
+    info!("get_workspace_block: {workspace:?}");
     if let Some(workspace) = context.workspace.get(&workspace) {
         let workspace = workspace.value().lock().await;
         let total = workspace.block_count() as usize;
@@ -236,7 +253,11 @@ pub async fn get_workspace_block(
 
         (status, Json(PageData { total, data })).into_response()
     } else {
-        StatusCode::NOT_FOUND.into_response()
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({workspace:?}) not found"),
+        )
+            .into_response()
     }
 }
 
@@ -276,7 +297,11 @@ pub async fn history_workspace_clients(
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     } else {
-        StatusCode::NOT_FOUND.into_response()
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({workspace:?}) not found"),
+        )
+            .into_response()
     }
 }
 
@@ -317,7 +342,11 @@ pub async fn history_workspace(
             StatusCode::BAD_REQUEST.into_response()
         }
     } else {
-        StatusCode::NOT_FOUND.into_response()
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({workspace:?}) not found"),
+        )
+            .into_response()
     }
 }
 
