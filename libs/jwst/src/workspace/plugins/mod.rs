@@ -9,7 +9,7 @@ pub(super) use indexing::IndexingPluginImpl;
 pub(super) use plugins::{PluginImpl, PluginMap, PluginRegister};
 
 #[cfg(feature = "workspace-search")]
-pub use indexing::{SearchBlockItem, SearchBlockList, SearchQueryOptions};
+pub use indexing::SearchResults;
 
 /// Setup a [WorkspacePlugin] and insert it into the [Workspace].
 /// See [plugins].

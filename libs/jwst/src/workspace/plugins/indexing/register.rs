@@ -6,10 +6,9 @@ use std::{
 };
 use tantivy::{
     query::QueryParser,
-    schema::{Schema, STORED, STRING, TEXT},
+    schema::{IndexRecordOption, Schema, TextFieldIndexing, TextOptions, STORED, STRING},
     Index,
 };
-use yrs::updates::decoder::Decode;
 
 #[derive(Debug)]
 enum IndexingStorageKind {
@@ -50,10 +49,16 @@ impl IndexingPluginRegister {
 impl PluginRegister for IndexingPluginRegister {
     type Plugin = IndexingPluginImpl;
     fn setup(self, ws: &mut Workspace) -> Result<IndexingPluginImpl, Box<dyn std::error::Error>> {
+        let options = TextOptions::default().set_indexing_options(
+            TextFieldIndexing::default()
+                .set_tokenizer(LANG_CN)
+                .set_index_option(IndexRecordOption::WithFreqsAndPositions),
+        );
+
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("block_id", STRING | STORED);
-        schema_builder.add_text_field("title", TEXT); // props:title
-        schema_builder.add_text_field("body", TEXT); // props:text
+        schema_builder.add_text_field("title", options.clone()); // props:title
+        schema_builder.add_text_field("body", options.clone()); // props:text
         let schema = schema_builder.build();
 
         let index_dir: Box<dyn tantivy::Directory> = match &self.storage_kind {
@@ -63,7 +68,12 @@ impl PluginRegister for IndexingPluginRegister {
             }
         };
 
-        let index = Rc::new(Index::open_or_create(index_dir, schema.clone())?);
+        let index = Rc::new({
+            let index = Index::open_or_create(index_dir, schema.clone())?;
+            tokenizers_register(index.tokenizers());
+            index
+        });
+
         let title = schema.get_field("title").unwrap();
         let body = schema.get_field("body").unwrap();
 
@@ -74,17 +84,17 @@ impl PluginRegister for IndexingPluginRegister {
 
         let sub = ws.observe({
             let queue_reindex = queue_reindex.clone();
-            move |_txn, e| {
+            move |_txn, _e| {
                 // upd.update
-                let u = yrs::Update::decode_v1(&e.update).unwrap();
-                let _items = u
-                    .as_items()
-                    .into_iter()
-                    .map(|i| format!("\n  {i:?}"))
-                    .collect::<String>();
-                for item in u.as_items() {
-                    item.id;
-                }
+                // let u = yrs::Update::decode_v1(&e.update).unwrap();
+                // let _items = u
+                //     .as_items()
+                //     .into_iter()
+                //     .map(|i| format!("\n  {i:?}"))
+                //     .collect::<String>();
+                // for item in u.as_items() {
+                //     item.id;
+                // }
 
                 queue_reindex.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             }

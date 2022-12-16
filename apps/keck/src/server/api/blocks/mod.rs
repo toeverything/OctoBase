@@ -38,8 +38,8 @@ use utoipa::OpenApi;
         schemas(
             schema::InsertChildren,
             schema::Workspace, schema::Block, schema::BlockRawHistory,
-            schema::BlockSearchList, schema::BlockSearchItem,
-            jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory
+            jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory,
+            jwst::SearchResults
         )
     ),
     tags(

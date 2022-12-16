@@ -1,7 +1,4 @@
-use super::{
-    schema::{BlockSearchItem, BlockSearchList},
-    *,
-};
+use super::*;
 use axum::{
     extract::{Path, Query},
     http::header,
@@ -170,7 +167,7 @@ pub struct BlockSearchQuery {
         BlockSearchQuery,
     ),
     responses(
-        (status = 200, description = "Search results", body = BlockSearchList),
+        (status = 200, description = "Search results", body = SearchResults),
     )
 )]
 pub async fn workspace_search(
@@ -184,23 +181,10 @@ pub async fn workspace_search(
     if let Some(workspace) = context.workspace.get(&workspace) {
         let mut workspace = workspace.lock().await;
 
-        match workspace.update_search_index().and_then(|()| {
-            workspace.search(&jwst::SearchQueryOptions {
-                query: query_text.to_string(),
-            })
-        }) {
+        match workspace.search(query_text) {
             Ok(list) => {
                 debug!("workspace_search: {workspace_id:?} query = {query_text:?}; {list:#?}");
-                Json(BlockSearchList {
-                    blocks: list
-                        .items
-                        .into_iter()
-                        .map(|item| BlockSearchItem {
-                            block_id: item.block_id,
-                        })
-                        .collect(),
-                })
-                .into_response()
+                Json(list).into_response()
             }
             Err(err) => {
                 error!("Internal server error calling workspace_search: {err:?}");

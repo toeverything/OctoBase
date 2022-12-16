@@ -1,9 +1,21 @@
-use super::{Content, PluginImpl, SearchBlockItem, SearchBlockList, SearchQueryOptions};
+use super::{Content, PluginImpl};
 use lib0::any::Any;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{atomic::AtomicU32, Arc};
 use tantivy::{collector::TopDocs, query::QueryParser, schema::*, Index, ReloadPolicy};
+use utoipa::ToSchema;
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct SearchResult {
+    pub block_id: String,
+    pub score: f32,
+}
+
+/// Returned from [Workspace::search]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct SearchResults(Vec<SearchResult>);
 
 pub struct IndexingPluginImpl {
     // /// `true` if the text search has not yet populated the Tantivy index
@@ -18,11 +30,10 @@ pub struct IndexingPluginImpl {
 }
 
 impl IndexingPluginImpl {
-    pub fn search(
+    pub fn search<S: AsRef<str>>(
         &self,
-        search_options: &SearchQueryOptions,
-    ) -> Result<SearchBlockList, Box<dyn std::error::Error>> {
-        let mut debug_string = format!("Searching with: {search_options:?}\n");
+        query: S,
+    ) -> Result<SearchResults, Box<dyn std::error::Error>> {
         let mut items = Vec::new();
 
         let reader = self
@@ -31,7 +42,7 @@ impl IndexingPluginImpl {
             .reload_policy(ReloadPolicy::OnCommit)
             .try_into()?;
         let searcher = reader.searcher();
-        let query = self.query_parser.parse_query(&search_options.query)?;
+        let query = self.query_parser.parse_query(query.as_ref())?;
         let top_docs = searcher.search(&query, &TopDocs::with_limit(10))?;
         // The actual documents still need to be retrieved from Tantivy’s store.
         // Since the body field was not configured as stored, the document returned will only contain a title.
@@ -39,14 +50,12 @@ impl IndexingPluginImpl {
         if !top_docs.is_empty() {
             let block_id_field = self.schema.get_field("block_id").unwrap();
 
-            for (search_score, doc_address) in top_docs {
-                use std::fmt::Write;
+            for (score, doc_address) in top_docs {
                 let retrieved_doc = searcher.doc(doc_address)?;
                 if let Some(Value::Str(id)) = retrieved_doc.get_first(block_id_field) {
-                    writeln!(&mut debug_string, "{id}")?;
-                    items.push(SearchBlockItem {
-                        debug_string: Some(format!("Score: {search_score}")),
+                    items.push(SearchResult {
                         block_id: id.to_string(),
+                        score,
                     })
                 } else {
                     let to_json = self.schema.to_json(&retrieved_doc);
@@ -58,10 +67,7 @@ impl IndexingPluginImpl {
             }
         }
 
-        Ok(SearchBlockList {
-            debug_string: Some(debug_string),
-            items,
-        })
+        Ok(SearchResults(items))
     }
 }
 
@@ -153,7 +159,7 @@ mod test {
     macro_rules! expect_result_ids {
         ($search_results:ident, $id_str_array:expr) => {
             let mut sorted_ids = $search_results
-                .items
+                .0
                 .iter()
                 .map(|i| &i.block_id)
                 .collect::<Vec<_>>();
@@ -167,9 +173,7 @@ mod test {
     macro_rules! expect_search_gives_ids {
         ($search_plugin:ident, $query_text:expr, $id_str_array:expr) => {
             let search_result = $search_plugin
-                .search(&SearchQueryOptions {
-                    query: $query_text.to_string(),
-                })
+                .search($query_text)
                 .expect("no error searching");
 
             let line = line!();
@@ -208,8 +212,12 @@ mod test {
 
             d.set(trx, "title", "Title D content");
             d.set(trx, "text", "Text D content ddd yyy");
-            // assert_eq!(b.get(trx, "title"), "Title content");
-            // b.set(trx, "text", "Text content");
+      
+            e.set(trx, "title", "人民日报");
+            e.set(trx, "text", "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途");
+
+            f.set(trx, "title", "美国首次成功在核聚变反应中实现“净能量增益”");
+            f.set(trx, "text", "当地时间13日，美国能源部官员宣布，由美国政府资助的加州劳伦斯·利弗莫尔国家实验室（LLNL），首次成功在核聚变反应中实现“净能量增益”，即聚变反应产生的能量大于促发该反应的镭射能量。");
 
             // pushing blocks in
             {
@@ -249,5 +257,11 @@ mod test {
         expect_search_gives_ids!(search_plugin, "ccc", &["c"]);
         expect_search_gives_ids!(search_plugin, "xxx", &["b", "c"]);
         expect_search_gives_ids!(search_plugin, "yyy", &["c", "d"]);
+
+        expect_search_gives_ids!(search_plugin, "人民日报", &["e"]);
+        expect_search_gives_ids!(search_plugin, "技术学校", &["e"]);
+
+        expect_search_gives_ids!(search_plugin, "核聚变反应", &["f"]);
+        expect_search_gives_ids!(search_plugin, "镭射能量", &["f"]);
     }
 }

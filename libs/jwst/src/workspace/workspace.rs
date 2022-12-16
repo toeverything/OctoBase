@@ -62,23 +62,19 @@ impl Workspace {
     }
 
     #[cfg(feature = "workspace-search")]
-    pub fn search(
-        &self,
-        options: &SearchQueryOptions,
-    ) -> Result<SearchBlockList, Box<dyn std::error::Error>> {
+    pub fn search<S: AsRef<str>>(
+        &mut self,
+        options: S,
+    ) -> Result<SearchResults, Box<dyn std::error::Error>> {
         use plugins::IndexingPluginImpl;
+
+        // refresh index if doc has update
+        self.update_plugin::<IndexingPluginImpl>()?;
 
         let search_plugin = self
             .get_plugin::<IndexingPluginImpl>()
             .expect("text search was set up by default");
         search_plugin.search(options)
-    }
-
-    #[cfg(feature = "workspace-search")]
-    pub fn update_search_index(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        use plugins::IndexingPluginImpl;
-
-        self.update_plugin::<IndexingPluginImpl>()
     }
 
     pub fn content(&self) -> &Content {
