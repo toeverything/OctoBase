@@ -1,0 +1,19 @@
+[package]
+name = "cang-jie"
+version = "0.14.0"
+authors = ["DCjanus <DCjanus@dcjanus.com>"]
+edition = "2018"
+description = "A Chinese tokenizer for tantivy"
+license = "MIT"
+repository = "https://github.com/DCjanus/cang-jie"
+readme = "README.MD"
+keywords = ["search", "tokenizer", "Chinese", "tantivy"]
+
+[dependencies]
+tantivy = "^0.19.0"
+jieba-rs = { version = "0.6.7", default-features = false }
+log = "^0.4.17"
+
+[dev-dependencies]
+flexi_logger = "^0.24.2"
+time = "^0.3.17"
