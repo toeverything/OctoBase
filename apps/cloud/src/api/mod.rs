@@ -17,10 +17,11 @@ use http::{
     },
     HeaderMap, HeaderValue, StatusCode,
 };
-use jwst_storage::blob::BlobStorage;
+use jwst_storage::{blob::BlobStorage, doc::DocStorage};
 use lettre::{message::Mailbox, AsyncTransport, Message};
 use mime::APPLICATION_OCTET_STREAM;
 use tower::ServiceBuilder;
+use yrs::{Doc, StateVector};
 
 use crate::{
     context::Context,
@@ -33,6 +34,7 @@ use crate::{
 };
 
 mod ws;
+pub use ws::*;
 
 pub fn make_rest_route(ctx: Arc<Context>) -> Router {
     Router::new()
@@ -56,6 +58,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
                     "/workspace/:id/permission",
                     get(get_members).post(invite_member).delete(leave_workspace),
                 )
+                .route("/workspace/:id/doc", get(get_doc))
                 .route("/workspace/:id/blob", put(upload_blob_in_workspace))
                 .route("/workspace/:id/blob/:name", get(get_blob_in_workspace))
                 .route("/permission/:id", delete(remove_user))
@@ -290,7 +293,20 @@ async fn create_workspace(
     Extension(claims): Extension<Arc<Claims>>,
     Json(payload): Json<CreateWorkspace>,
 ) -> Response {
-    if let Ok(data) = ctx.create_normal_workspace(claims.user.id, payload).await {
+    if let Ok(data) = ctx.create_normal_workspace(claims.user.id).await {
+        let doc = {
+            let doc = Doc::new();
+            let mut trx = doc.transact();
+            let meta = trx.get_map("metadata");
+            meta.insert(&mut trx, "sys:name", payload.name);
+            meta.insert(&mut trx, "sys:avatar", payload.avatar);
+            trx.commit();
+            doc
+        };
+        if let Err(_) = ctx.doc.storage.write_doc(data.id, &doc).await {
+            StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        };
+
         Json(data).into_response()
     } else {
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -354,6 +370,34 @@ async fn get_blob_in_workspace(
     let path = std::path::Path::new(&workspace).join(&name);
 
     ctx.get_blob(&name, &path, method, headers).await
+}
+
+async fn get_doc(
+    Extension(ctx): Extension<Arc<Context>>,
+    Extension(claims): Extension<Arc<Claims>>,
+    Path(workspace_id): Path<i64>,
+) -> Response {
+    match ctx.can_read_workspace(claims.user.id, workspace_id).await {
+        Ok(true) => (),
+        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+
+    if let Some(doc) = ctx.doc.try_get_workspace(workspace_id) {
+        return doc
+            .read()
+            .await
+            .doc()
+            .encode_state_as_update_v1(&StateVector::default())
+            .into_response();
+    }
+
+    match ctx.doc.storage.get(workspace_id).await {
+        Ok(doc) => doc
+            .encode_state_as_update_v1(&StateVector::default())
+            .into_response(),
+        Err(_) => StatusCode::NOT_FOUND.into_response(),
+    }
 }
 
 async fn upload_blob_in_workspace(

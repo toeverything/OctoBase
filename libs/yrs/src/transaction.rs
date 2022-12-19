@@ -40,6 +40,8 @@ pub struct Transaction {
     committed: bool,
 }
 
+unsafe impl Send for Transaction {}
+
 impl Transaction {
     pub(crate) fn new(store: StoreRef) -> Transaction {
         let begin_timestamp = store.blocks.get_state_vector();

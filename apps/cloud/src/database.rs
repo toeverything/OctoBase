@@ -3,9 +3,9 @@ use sqlx::{query, query_as, FromRow, Postgres, Transaction};
 use crate::{
     context::Context,
     model::{
-        BigId, Count, CreateUser, CreateWorkspace, GoogleClaims, Id, Member, Permission,
-        PermissionType, RefreshToken, UpdateWorkspace, User, UserCred, UserLogin, UserQuery,
-        UserWithNonce, Workspace, WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
+        BigId, Count, CreateUser, GoogleClaims, Member, Permission, PermissionType, RefreshToken,
+        UpdateWorkspace, User, UserCred, UserLogin, UserQuery, UserWithNonce, Workspace,
+        WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
     },
 };
 
@@ -115,19 +115,30 @@ impl Context {
             .await
     }
 
+    pub async fn verify_refresh_token(&self, token: &RefreshToken) -> sqlx::Result<bool> {
+        let stmt = "SELECT True
+        FROM users
+        WHERE id = $1 AND token_nonce = $2";
+
+        query(stmt)
+            .bind(token.user_id)
+            .bind(token.token_nonce)
+            .fetch_optional(&self.db)
+            .await
+            .map(|r| r.is_some())
+    }
+
     async fn update_cred(
         trx: &mut Transaction<'static, Postgres>,
         user_id: i32,
         user_email: &str,
     ) -> sqlx::Result<()> {
-        let update_cred = format!(
-            "UPDATE permissions
-                SET user_id = $1,
-                    user_email = null
-            WHERE user_email = $2",
-        );
+        let update_cred = "UPDATE permissions
+        SET user_id = $1,
+            user_email = NULL
+        WHERE user_email = $2";
 
-        query(&update_cred)
+        query(update_cred)
             .bind(user_id)
             .bind(user_email)
             .execute(&mut *trx)
@@ -238,7 +249,7 @@ impl Context {
 
         let get_owner = format!(
             "SELECT
-                users.id, users.name, users.email, users.avatar_url,users.created_at
+                users.id, users.name, users.email, users.avatar_url, users.created_at
             FROM permissions
             INNER JOIN users
                 ON permissions.user_id = users.id
@@ -299,11 +310,7 @@ impl Context {
         Ok(workspace)
     }
 
-    pub async fn create_normal_workspace(
-        &self,
-        user_id: i32,
-        data: CreateWorkspace,
-    ) -> sqlx::Result<Workspace> {
+    pub async fn create_normal_workspace(&self, user_id: i32) -> sqlx::Result<Workspace> {
         let mut trx = self.db.begin().await?;
         let workspace = Self::create_workspace(&mut trx, user_id, WorkspaceType::Normal).await?;
 
@@ -419,8 +426,7 @@ impl Context {
         let stmt = "SELECT FROM permissions 
             WHERE user_id = $1 
                 AND workspace_id = $2
-                OR (SELECT True FROM workspaces WHERE id = $2 AND public = True)
-            ";
+                OR (SELECT True FROM workspaces WHERE id = $2 AND public = True)";
 
         query(&stmt)
             .bind(user_id)

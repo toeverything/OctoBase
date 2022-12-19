@@ -17,7 +17,10 @@ async fn main() {
     let context = Arc::new(context::Context::new().await);
 
     let app = Router::new()
-        .nest("/api", api::make_rest_route(context.clone()))
+        .nest(
+            "/api",
+            api::make_rest_route(context.clone()).nest("/sync", api::make_ws_route()),
+        )
         .layer(Extension(context.clone()));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));

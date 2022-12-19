@@ -8,12 +8,15 @@ aes-gcm = "0.10.1"
 axum = { version = "0.6.0", features = ["headers", "ws"] }
 base64 = "0.20.0"
 chrono = { version = "0.4.23", features = ["serde"] }
+dashmap = "5.4.0"
 dotenvy = "0.15.6"
 futures = "0.3.25"
 hmac = "0.12.1"
 http = "0.2.8"
 http-body = "0.4.5"
 jsonwebtoken = "8.1.1"
+jwst = { path = "../../libs/jwst" }
+jwst_storage = { path = "../../libs/storage" }
 lettre = { version = "0.10.1", features = [
     "builder",
     "tokio1",
@@ -21,6 +24,8 @@ lettre = { version = "0.10.1", features = [
     "smtp-transport",
     "tokio1-rustls-tls",
 ], default-features = false }
+mime = "0.3.16"
+moka = { version = "0.9.6", features = ["future"] }
 pem = "1.1.0"
 rand = "0.8.5"
 reqwest = { version = "0.11.13", features = [
@@ -37,15 +42,15 @@ sqlx = { version = "0.6.2", features = [
     "postgres",
     "runtime-tokio-rustls",
 ] }
-jwst_storage = { path = "../../libs/storage" }
 tokio = { version = "1.21.2", features = [
     "macros",
     "rt-multi-thread",
     "signal",
 ] }
 tower = "0.4.13"
-tower-http = { version = "0.3.4", features = ["auth", "cors"] }
+tower-http = { version = "0.3.4", features = ["auth"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
 x509-parser = "0.14.0"
-mime = "0.3.16"
+yrs = { path = "../../libs/yrs" }
+y-sync = { path = "../../libs/y-sync" }

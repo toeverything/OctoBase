@@ -1,6 +1,9 @@
 use super::{plugins::setup_plugin, *};
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use y_sync::{awareness::Awareness, sync::Error};
+use y_sync::{
+    awareness::Awareness,
+    sync::{Error, Message},
+};
 use yrs::{Doc, Map, Subscription, Transaction, UpdateEvent};
 
 use super::PluginMap;
@@ -156,6 +159,10 @@ impl Workspace {
 
     pub fn sync_decode_message(&mut self, binary: &[u8]) -> Vec<Vec<u8>> {
         self.content.sync_decode_message(binary)
+    }
+
+    pub fn sync_handle_message(&mut self, msg: Message) -> Result<Option<Message>, Error> {
+        self.content.sync_handle_message(msg)
     }
 }
 
