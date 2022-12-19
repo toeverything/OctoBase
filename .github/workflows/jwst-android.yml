@@ -1,4 +1,4 @@
-name: Publish package to GitHub Packages
+name: Android Publish Package
 on:
     release:
         types: [created]

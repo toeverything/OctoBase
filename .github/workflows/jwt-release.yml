@@ -1,4 +1,4 @@
-name: jwt-release
+name: Npm Version Bump
 
 on:
     - workflow_dispatch
@@ -43,6 +43,7 @@ jobs:
               run: |
                   pnpm install
                   npx nx affected --base=last-release --target=version --parallel=1
+                  git tag publish
                   git push --tags
               working-directory: apps/frontend
               env:

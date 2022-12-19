@@ -1,8 +1,8 @@
-name: jwt-publish
+name: Npm Publish
 
 on:
     workflow_run:
-        workflows: ['jwt-release']
+        workflows: ['Npm Version Bump']
         types:
             - completed
 jobs:
@@ -16,6 +16,7 @@ jobs:
             - uses: actions/checkout@v2
               with:
                   fetch-depth: 0
+                  ref: 'publish'
             - uses: actions/setup-node@v2
               with:
                   node-version: 16
@@ -69,3 +70,4 @@ jobs:
               run: |
                   git tag -f last-release
                   git push origin last-release --force
+                  git push --delete origin publish
