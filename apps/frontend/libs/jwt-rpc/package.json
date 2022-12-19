@@ -6,10 +6,11 @@
     "publishConfig": {
         "@toeverything:registry": "https://npm.pkg.github.com"
     },
-    "dependencies": {
+    "dependencies": {},
+    "devDependencies": {},
+    "peerDependencies": {
         "lib0": "^0.2.52",
         "yjs": "^13.5.42",
         "y-protocols": "^1.0.5"
-    },
-    "devDependencies": {}
+    }
 }

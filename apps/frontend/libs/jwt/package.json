@@ -7,7 +7,6 @@
         "@toeverything:registry": "https://npm.pkg.github.com"
     },
     "dependencies": {
-        "@types/flexsearch": "^0.7.3",
         "debug": "^4.3.4",
         "fast-sort": "^3.2.0",
         "fflate": "^0.7.4",
@@ -15,14 +14,17 @@
         "immer": "^9.0.16",
         "nanoid": "^4.0.0",
         "sift": "^16.0.0",
-        "uuid": "^8.3.2",
-        "y-protocols": "^1.0.5",
-        "yjs": "^13.5.42"
+        "ts-debounce": "^4.0.0",
+        "uuid": "^8.3.2"
     },
     "devDependencies": {
         "@types/debug": "^4.1.7",
-        "@types/uuid": "^8.3.4",
+        "@types/flexsearch": "^0.7.3",
+        "@types/uuid": "^8.3.4"
+    },
+    "peerDependencies": {
         "flexsearch": "0.7.21",
-        "ts-debounce": "^4.0.0"
+        "y-protocols": "^1.0.5",
+        "yjs": "^13.5.42"
     }
 }
