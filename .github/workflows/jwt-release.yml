@@ -42,7 +42,7 @@ jobs:
               shell: bash
               run: |
                   pnpm install
-                  npx nx affected --target=version
+                  npx nx affected --base=last-release --target=version --parallel=1
                   git push --tags
               working-directory: apps/frontend
               env:
