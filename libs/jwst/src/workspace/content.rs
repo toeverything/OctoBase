@@ -23,6 +23,7 @@ pub struct Content {
     pub(super) blocks: Map,
     // What is this?
     pub(super) updated: Map,
+    pub(super) metadata: Map,
 }
 
 impl Content {

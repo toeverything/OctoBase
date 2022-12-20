@@ -71,6 +71,7 @@ dependencies = [
  "jwst",
  "jwst_storage",
  "lettre",
+ "lib0",
  "mime",
  "moka",
  "pem",

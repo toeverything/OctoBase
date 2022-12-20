@@ -17,8 +17,10 @@ use http::{
     },
     HeaderMap, HeaderValue, StatusCode,
 };
+use jwst::Workspace as JWSTWorkspace;
 use jwst_storage::{blob::BlobStorage, doc::DocStorage};
 use lettre::{message::Mailbox, AsyncTransport, Message};
+use lib0::any::Any;
 use mime::APPLICATION_OCTET_STREAM;
 use tower::ServiceBuilder;
 use yrs::{Doc, StateVector};
@@ -30,7 +32,7 @@ use crate::{
         Claims, CreatePermission, CreateWorkspace, MakeToken, PermissionType, RefreshToken,
         UpdateWorkspace, UserCred, UserQuery, UserToken, UserWithNonce,
     },
-    utils::{NO_PAD_ENGINE, URL_SAFE_ENGINE},
+    utils::URL_SAFE_ENGINE,
 };
 
 mod ws;
@@ -295,15 +297,15 @@ async fn create_workspace(
 ) -> Response {
     if let Ok(data) = ctx.create_normal_workspace(claims.user.id).await {
         let doc = {
-            let doc = Doc::new();
-            let mut trx = doc.transact();
-            let meta = trx.get_map("metadata");
-            meta.insert(&mut trx, "sys:name", payload.name);
-            meta.insert(&mut trx, "sys:avatar", payload.avatar);
-            trx.commit();
+            let doc = JWSTWorkspace::new(data.id.to_string());
+
+            doc.with_trx(|mut t| {
+                t.set_metadata("name", Any::String(payload.name.into_boxed_str()));
+                t.set_metadata("avatar", Any::String(payload.avatar.into_boxed_str()));
+            });
             doc
         };
-        if let Err(_) = ctx.doc.storage.write_doc(data.id, &doc).await {
+        if let Err(_) = ctx.doc.storage.write_doc(data.id, doc.doc()).await {
             StatusCode::INTERNAL_SERVER_ERROR.into_response();
         };
 
