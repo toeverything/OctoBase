@@ -100,7 +100,7 @@ async fn make_token(
             None,
         ),
         MakeToken::Refresh { token } => {
-            let Ok(input) = base64::decode_engine(token.clone(), &NO_PAD_ENGINE) else {
+            let Ok(input) = base64::decode_engine(token.clone(), &URL_SAFE_ENGINE) else {
                 return StatusCode::BAD_REQUEST.into_response();
             };
             let Some(data) = ctx.decrypt_aes(input) else {
@@ -131,7 +131,7 @@ async fn make_token(
 
                 let data = ctx.encrypt_aes(json.as_bytes());
 
-                base64::encode_engine(data, &NO_PAD_ENGINE)
+                base64::encode_engine(data, &URL_SAFE_ENGINE)
             });
 
             let claims = Claims {
