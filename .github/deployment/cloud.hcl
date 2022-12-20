@@ -47,17 +47,22 @@ job "affine-cloud" {
                 MAIL_FROM = "noreply@toeverything.info"
                 MAIL_PROVIDER = "smtp.gmail.com"
                 MAIL_TITLE = "Send from AFFiNE Cloud"
-                # MAIL_CONTENT_PATH = 
+                MAIL_CONTENT_PATH = "/mails"
+                DOC_STORAGE_PATH =  "/docs"
                 BLOB_STORAGE_PATH = "/blobs"
             }
             config {
-                image       = "ghcr.io/toeverything/cloud:canary-44496296ce40be4790134dc34b1cd434983cbd5b"
+                image       = "ghcr.io/toeverything/cloud:canary-795a745677c812298040cb773ac5c87c1efde082"
                 force_pull  = true
                 ports       = ["affine-cloud"]
                 labels      = {
                     "io.portainer.accesscontrol.teams" = "development"
                 }
-                volumes     = ["/home/affine/affine-cloud/blobs:/blobs"]
+                volumes     = [
+                    "/home/affine/affine-cloud/mails:/mails",
+                    "/home/affine/affine-cloud/docs:/docs",
+                    "/home/affine/affine-cloud/blobs:/blobs"
+                ]
             }
             resources {
                 cpu    = 100 # MHz
