@@ -125,4 +125,19 @@ impl Content {
             .map(|reply| reply.encode_v1())
             .collect()
     }
+
+    pub fn sync_decode_single_message(
+        &mut self,
+        binary: &[u8],
+    ) -> Result<Option<Vec<u8>>, y_sync::sync::Error> {
+        let mut decoder = DecoderV1::from(binary);
+
+        if let Some(msg) = MessageReader::new(&mut decoder).next() {
+            let msg = msg?;
+            if let Some(reply) = self.sync_handle_message(msg)? {
+                return Ok(Some(reply.encode_v1()));
+            }
+        }
+        Ok(None)
+    }
 }
