@@ -19,8 +19,8 @@ pub unsafe extern "C" fn block_new(
     Box::into_raw(Box::new(Block::new(
         workspace.as_ref().unwrap(),
         trx.as_mut().unwrap(),
-        CStr::from_ptr(block_id).to_str().unwrap(),
-        CStr::from_ptr(flavor).to_str().unwrap(),
+        CStr::from_ptr(block_id).into(),
+        CStr::from_ptr(flavor).into(),
         operator,
     )))
 }
@@ -107,7 +107,7 @@ pub unsafe extern "C" fn block_insert_children_before(
     let block = block.as_ref().unwrap();
     let trx = trx.as_mut().unwrap();
     let child = child.as_ref().unwrap();
-    let reference = CStr::from_ptr(reference).to_str().unwrap();
+    let reference = CStr::from_ptr(reference).into();
 
     block.insert_children_before(trx, child, reference);
 }
@@ -122,7 +122,7 @@ pub unsafe extern "C" fn block_insert_children_after(
     let block = block.as_ref().unwrap();
     let trx = trx.as_mut().unwrap();
     let child = child.as_ref().unwrap();
-    let reference = CStr::from_ptr(reference).to_str().unwrap();
+    let reference = CStr::from_ptr(reference).into();
 
     block.insert_children_after(trx, child, reference);
 }
@@ -183,7 +183,7 @@ pub unsafe extern "C" fn block_get_content(
     let res = block
         .as_ref()
         .unwrap()
-        .get(CStr::from_ptr(key).to_str().unwrap());
+        .get(CStr::from_ptr(key).into());
 
     if let Some(res) = res {
         match res {
@@ -235,7 +235,7 @@ pub unsafe extern "C" fn block_set_content(
 ) {
     let block = block.as_mut().unwrap();
     let trx = trx.as_mut().unwrap();
-    let key = CStr::from_ptr(key).to_str().unwrap();
+    let key = CStr::from_ptr(key).into();
 
     let value = content;
 
@@ -254,7 +254,7 @@ pub unsafe extern "C" fn block_content_destroy(content: *mut BlockContent) {
 #[no_mangle]
 pub unsafe extern "C" fn workspace_new(id: *const c_char) -> *mut Workspace {
     Box::into_raw(Box::new(Workspace::new(
-        CStr::from_ptr(id).to_str().unwrap(),
+        CStr::from_ptr(id).into(),
     )))
 }
 
@@ -271,7 +271,7 @@ pub unsafe extern "C" fn workspace_get_block(
     let block = workspace
         .as_ref()
         .unwrap()
-        .get(CStr::from_ptr(block_id).to_str().unwrap());
+        .get(CStr::from_ptr(block_id).into();
 
     if let Some(block) = block {
         Box::leak(Box::new(block))
@@ -286,8 +286,8 @@ pub unsafe extern "C" fn workspace_create_block(
     block_id: *const c_char,
     flavor: *const c_char,
 ) -> *mut Block {
-    let block_id = CStr::from_ptr(block_id).to_str().unwrap();
-    let flavor = CStr::from_ptr(flavor).to_str().unwrap();
+    let block_id = CStr::from_ptr(block_id).into();
+    let flavor = CStr::from_ptr(flavor).into();
     let block = workspace
         .as_ref()
         .unwrap()
@@ -306,7 +306,7 @@ pub unsafe extern "C" fn workspace_remove_block(
         .as_ref()
         .unwrap()
         .get_trx()
-        .remove(CStr::from_ptr(block_id).to_str().unwrap())
+        .remove(CStr::from_ptr(block_id).into())
 }
 #[no_mangle]
 pub unsafe extern "C" fn workspace_exists_block(
@@ -316,7 +316,7 @@ pub unsafe extern "C" fn workspace_exists_block(
     workspace
         .as_ref()
         .unwrap()
-        .exists(CStr::from_ptr(block_id).to_str().unwrap())
+        .exists(CStr::from_ptr(block_id).into())
 }
 
 #[no_mangle]
