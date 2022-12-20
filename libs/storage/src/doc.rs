@@ -130,7 +130,11 @@ impl DocStorage for LocalFs {
         let _ = self.get_parallel().await;
         let path = self.get_path(workspace);
 
-        let mut file = fs::OpenOptions::new().append(true).open(&path).await?;
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .append(true)
+            .open(&path)
+            .await?;
         let size = file.metadata().await?.len();
 
         file.seek(SeekFrom::Start(size - 8)).await?;
