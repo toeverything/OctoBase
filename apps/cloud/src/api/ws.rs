@@ -23,7 +23,7 @@ use tokio::sync::{
 use y_sync::sync::MessageReader;
 use yrs::updates::{decoder::DecoderV1, encoder::Encode};
 
-use crate::{context::Context, model::RefreshToken, utils::NO_PAD_ENGINE};
+use crate::{context::Context, model::RefreshToken, utils::URL_SAFE_ENGINE};
 
 pub struct WebSocketContext {
     id: AtomicU64,
@@ -60,7 +60,7 @@ async fn ws_handler(
     Query(Param { token }): Query<Param>,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let user: Option<RefreshToken> = base64::decode_engine(token, &NO_PAD_ENGINE)
+    let user: Option<RefreshToken> = base64::decode_engine(token, &URL_SAFE_ENGINE)
         .ok()
         .and_then(|byte| ctx.decrypt_aes(byte))
         .and_then(|data| serde_json::from_slice(&data).ok());

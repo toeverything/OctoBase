@@ -1,3 +1,5 @@
+use jwst::Workspace as JWSTWorkspace;
+use jwst_storage::doc::DocStorage;
 use sqlx::{query, query_as, FromRow, Postgres, Transaction};
 
 use crate::{
@@ -221,7 +223,12 @@ impl Context {
             .execute(&mut trx)
             .await?;
 
-        Self::create_workspace(&mut trx, user.user.id, WorkspaceType::Private).await?;
+        let ws = Self::create_workspace(&mut trx, user.user.id, WorkspaceType::Private).await?;
+
+        self.doc
+            .storage
+            .write_doc(ws.id, JWSTWorkspace::new(ws.id.to_string()).doc())
+            .await?;
 
         Self::update_cred(&mut trx, user.user.id, &user.user.email).await?;
 
@@ -424,7 +431,7 @@ impl Context {
 
     pub async fn can_read_workspace(&self, user_id: i32, workspace_id: i64) -> sqlx::Result<bool> {
         let stmt = "SELECT FROM permissions 
-            WHERE user_id = $1 
+            WHERE user_id = $1
                 AND workspace_id = $2
                 OR (SELECT True FROM workspaces WHERE id = $2 AND public = True)";
 
