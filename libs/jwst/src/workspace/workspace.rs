@@ -1,6 +1,14 @@
+use std::ops::RangeInclusive;
+
+use crate::utils::JS_INT_RANGE;
+
 use super::{plugins::setup_plugin, *};
+use lib0::any::Any;
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use y_sync::{awareness::Awareness, sync::Error};
+use y_sync::{
+    awareness::Awareness,
+    sync::{Error, Message},
+};
 use yrs::{Doc, Map, Subscription, Transaction, UpdateEvent};
 
 use super::PluginMap;
@@ -34,6 +42,7 @@ impl Workspace {
         //  * Extract prop:text / prop:title for index to block ID in Tantivy
         let blocks = trx.get_map("blocks");
         let updated = trx.get_map("updated");
+        let metadata = trx.get_map("metadata");
 
         let workspace = Self {
             content: Content {
@@ -41,6 +50,7 @@ impl Workspace {
                 awareness: Awareness::new(doc),
                 blocks,
                 updated,
+                metadata,
             },
             plugins: Default::default(),
         };
@@ -133,6 +143,10 @@ impl Workspace {
         self.content.block_iter()
     }
 
+    pub fn metadata(&self) -> &Map {
+        &self.content.metadata
+    }
+
     /// Check if the block exists in this workspace's blocks.
     pub fn exists(&self, block_id: &str) -> bool {
         self.content.exists(block_id)
@@ -156,6 +170,10 @@ impl Workspace {
 
     pub fn sync_decode_message(&mut self, binary: &[u8]) -> Vec<Vec<u8>> {
         self.content.sync_decode_message(binary)
+    }
+
+    pub fn sync_handle_message(&mut self, msg: Message) -> Result<Option<Message>, Error> {
+        self.content.sync_handle_message(msg)
     }
 }
 
@@ -206,6 +224,34 @@ impl WorkspaceTransaction<'_> {
             flavor,
             self.ws.client_id(),
         )
+    }
+
+    pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) {
+        let key = format!("sys:{}", key);
+        match value.into() {
+            Any::Bool(bool) => {
+                self.ws.metadata().insert(&mut self.trx, key, bool);
+            }
+            Any::String(text) => {
+                self.ws
+                    .metadata()
+                    .insert(&mut self.trx, key, text.to_string());
+            }
+            Any::Number(number) => {
+                self.ws.metadata().insert(&mut self.trx, key, number);
+            }
+            Any::BigInt(number) => {
+                if JS_INT_RANGE.contains(&number) {
+                    self.ws.metadata().insert(&mut self.trx, key, number as f64);
+                } else {
+                    self.ws.metadata().insert(&mut self.trx, key, number);
+                }
+            }
+            Any::Null | Any::Undefined => {
+                self.ws.metadata().remove(&mut self.trx, &key);
+            }
+            Any::Buffer(_) | Any::Array(_) | Any::Map(_) => {}
+        }
     }
 }
 

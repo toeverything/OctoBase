@@ -1,15 +1,19 @@
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use chrono::{NaiveDateTime, Utc};
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
-use jwst_storage::blob::{self};
+use jwst::Workspace as JWSTWorkspace;
+use jwst_storage::doc::DocStorage;
+use jwst_storage::{blob, doc};
 use lettre::message::Mailbox;
 use lettre::AsyncSmtpTransport;
 use lettre::{transport::smtp::authentication::Credentials, Tokio1Executor};
+use moka::future::Cache;
 use rand::{thread_rng, Rng};
 use reqwest::Client;
 use sha2::{Digest, Sha256};
@@ -18,6 +22,7 @@ use tokio::sync::{RwLock, RwLockReadGuard};
 use tracing::info;
 use x509_parser::prelude::parse_x509_pem;
 
+use crate::api::WebSocketContext;
 use crate::model::{Claims, GoogleClaims};
 use crate::utils::CacheControl;
 
@@ -38,6 +43,38 @@ pub struct MailContext {
     pub title: String,
 }
 
+pub struct DocStore {
+    cache: Cache<i64, Arc<RwLock<JWSTWorkspace>>>,
+    pub storage: doc::LocalFs,
+}
+
+impl DocStore {
+    async fn new() -> DocStore {
+        let doc_env = dotenvy::var("DOC_STORAGE_PATH").expect("should provide doc storage path");
+
+        DocStore {
+            cache: Cache::new(1000),
+            storage: doc::LocalFs::new(Some(16), 500, Path::new(&doc_env).into()).await,
+        }
+    }
+
+    pub async fn get_workspace(&self, id: i64) -> Option<Arc<RwLock<JWSTWorkspace>>> {
+        self.cache
+            .try_get_with(id, async move {
+                self.storage
+                    .get(id)
+                    .await
+                    .map(|f| Arc::new(RwLock::new(JWSTWorkspace::from_doc(f, id.to_string()))))
+            })
+            .await
+            .ok()
+    }
+
+    pub fn try_get_workspace(&self, id: i64) -> Option<Arc<RwLock<JWSTWorkspace>>> {
+        self.cache.get(&id)
+    }
+}
+
 pub struct Context {
     pub key: KeyContext,
     pub http_client: Client,
@@ -45,6 +82,8 @@ pub struct Context {
     pub mail: MailContext,
     pub db: PgPool,
     pub blob: blob::LocalFs,
+    pub doc: DocStore,
+    pub ws: WebSocketContext,
 }
 
 impl Context {
@@ -110,7 +149,9 @@ impl Context {
             firebase,
             mail,
             http_client: Client::new(),
+            doc: DocStore::new().await,
             blob,
+            ws: WebSocketContext::new(),
         };
 
         ctx.init_db().await;

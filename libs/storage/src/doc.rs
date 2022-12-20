@@ -1,40 +1,21 @@
 use std::io::{ErrorKind, SeekFrom};
-use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
-use fs4::tokio::AsyncFileExt;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, BufReader};
 use tokio::sync::{Semaphore, SemaphorePermit};
-use tokio::task::spawn_blocking;
 use tokio::{fs, io};
 use yrs::updates::decoder::Decode;
 use yrs::{Doc, StateVector, Update};
 
 #[async_trait]
 pub trait DocStorage {
-    async fn get(&self, workspace_id: i64) -> io::Result<Vec<Box<[u8]>>>;
-    async fn create(&self, workspace_id: i64, doc: &Doc) -> io::Result<()>;
-    async fn write_update(&self, workspace: i64, data: &[u8]) -> io::Result<()>;
+    async fn get(&self, workspace_id: i64) -> io::Result<Doc>;
+    async fn write_doc(&self, workspace_id: i64, doc: &Doc) -> io::Result<()>;
+    /// Return false means update exceeding max update
+    async fn write_update(&self, workspace: i64, data: &[u8]) -> io::Result<bool>;
     async fn delete(&self, workspace_id: i64) -> io::Result<()>;
-}
-
-fn migrate_update(updates: &[Box<[u8]>], doc: Doc) -> Doc {
-    let mut trx = doc.transact();
-    for update in updates {
-        match Update::decode_v1(update) {
-            Ok(update) => {
-                if let Err(e) = catch_unwind(AssertUnwindSafe(|| trx.apply_update(update))) {
-                    // warn!("update {} merge failed, skip it: {:?}", id, e);
-                }
-            }
-            Err(_) => {} // Err(err) => info!("failed to decode update: {:?}", err),
-        }
-    }
-    trx.commit();
-
-    doc
 }
 
 // The structure of record in disk is basically
@@ -81,9 +62,10 @@ impl LocalFs {
         buffer
     }
 
-    async fn parse_file(&self, file: &mut File) -> io::Result<Vec<Box<[u8]>>> {
+    async fn parse_file(&self, file: &mut File) -> io::Result<Doc> {
         let mut file = BufReader::new(file);
-        let mut res = Vec::new();
+        let doc = Doc::new();
+        let mut trx = doc.transact();
 
         loop {
             let len = file.read_u64_le().await;
@@ -94,21 +76,26 @@ impl LocalFs {
                 Err(e) => return Err(e),
             };
 
-            let mut buf = vec![0; len as usize];
-            file.read_exact(&mut buf).await?;
+            let mut update = vec![0; len as usize];
+            file.read_exact(&mut update).await?;
 
-            res.push(buf.into_boxed_slice());
+            match Update::decode_v1(&update) {
+                Ok(update) => trx.apply_update(update),
+                Err(_) => return Err(io::Error::new(io::ErrorKind::InvalidData, "decode error")),
+            }
 
             file.read_u64_le().await?;
         }
 
-        Ok(res)
+        trx.commit();
+
+        Ok(doc)
     }
 }
 
 #[async_trait]
 impl DocStorage for LocalFs {
-    async fn get(&self, workspace: i64) -> io::Result<Vec<Box<[u8]>>> {
+    async fn get(&self, workspace: i64) -> io::Result<Doc> {
         let _ = self.get_parallel().await;
         let path = self.get_path(workspace);
 
@@ -117,13 +104,15 @@ impl DocStorage for LocalFs {
         self.parse_file(&mut file).await
     }
 
-    async fn create(&self, workspace: i64, doc: &Doc) -> io::Result<()> {
+    /// This function is not atomic -- please provide external lock mechanism
+    async fn write_doc(&self, workspace: i64, doc: &Doc) -> io::Result<()> {
         let _ = self.get_parallel().await;
         let path = self.get_path(workspace);
 
         let mut file = fs::OpenOptions::new()
             .write(true)
             .create(true)
+            .truncate(true)
             .open(path)
             .await?;
 
@@ -136,48 +125,32 @@ impl DocStorage for LocalFs {
         file.sync_all().await
     }
 
-    async fn write_update(&self, workspace: i64, data: &[u8]) -> io::Result<()> {
+    /// This function is not atomic -- please provide external lock mechanism
+    async fn write_update(&self, workspace: i64, data: &[u8]) -> io::Result<bool> {
         let _ = self.get_parallel().await;
         let path = self.get_path(workspace);
 
-        let mut file = fs::OpenOptions::new().append(true).open(&path).await?;
-
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .append(true)
+            .open(&path)
+            .await?;
         let size = file.metadata().await?.len();
 
         file.seek(SeekFrom::Start(size - 8)).await?;
 
-        // There maybe potential race condition but it doesn't matter
-        // As we doesn't need exact count
         let count = file.read_u64_le().await? + 1;
 
         if count as usize > self.max_update {
-            let mut file = spawn_blocking(move || file.lock_exclusive().map(|_| file)).await??;
-
-            let mut file_data = self.parse_file(&mut file).await?;
-
-            file_data.push(data.into());
-
-            let doc = migrate_update(&file_data, Doc::default());
-
-            let data = doc.encode_state_as_update_v1(&StateVector::default());
-
-            let data = Self::make_record(&data, 0);
-
-            file.set_len(0).await?;
-
-            file.write_all(&data).await?;
-
-            file.sync_all().await?;
-
-            spawn_blocking(move || file.unlock()).await??;
-        } else {
-            let data = Self::make_record(data, count);
-
-            file.write_all(&data).await?;
-            file.sync_all().await?;
+            return Ok(false);
         }
 
-        Ok(())
+        let data = Self::make_record(data, count);
+
+        file.write_all(&data).await?;
+        file.sync_all().await?;
+
+        Ok(true)
     }
 
     async fn delete(&self, workspace: i64) -> io::Result<()> {

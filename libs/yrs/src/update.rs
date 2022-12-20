@@ -89,6 +89,8 @@ pub struct Update {
     pub(crate) delete_set: DeleteSet,
 }
 
+unsafe impl Send for Update {}
+
 impl Update {
     pub fn new() -> Self {
         Self::default()

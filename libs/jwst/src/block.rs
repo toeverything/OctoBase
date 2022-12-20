@@ -1,16 +1,10 @@
-use crate::workspace::Content;
+use crate::{utils::JS_INT_RANGE, workspace::Content};
 
 use super::*;
 use lib0::any::Any;
 use serde::{Serialize, Serializer};
 use std::{collections::HashMap, ops::RangeInclusive};
 use yrs::{Array, Map, PrelimArray, PrelimMap, Transaction};
-
-// The largest int in js number.
-const MAX_JS_INT: i64 = 0x001F_FFFF_FFFF_FFFF;
-// The smallest int in js number.
-const MIN_JS_INT: i64 = -MAX_JS_INT;
-const JS_INT_RANGE: RangeInclusive<i64> = MIN_JS_INT..=MAX_JS_INT;
 
 #[derive(Debug, PartialEq)]
 pub struct Block {

@@ -23,6 +23,7 @@ pub struct Content {
     pub(super) blocks: Map,
     // What is this?
     pub(super) updated: Map,
+    pub(super) metadata: Map,
 }
 
 impl Content {
@@ -97,7 +98,7 @@ impl Content {
         Ok(encoder.to_vec())
     }
 
-    fn sync_handle_message(&mut self, msg: Message) -> Result<Option<Message>, Error> {
+    pub fn sync_handle_message(&mut self, msg: Message) -> Result<Option<Message>, Error> {
         match msg {
             Message::Sync(msg) => match msg {
                 SyncMessage::SyncStep1(sv) => PROTOCOL.handle_sync_step1(&self.awareness, sv),
@@ -124,20 +125,5 @@ impl Content {
             .filter_map(|msg| msg.ok().and_then(|msg| self.sync_handle_message(msg).ok()?))
             .map(|reply| reply.encode_v1())
             .collect()
-    }
-
-    pub fn sync_decode_single_message(
-        &mut self,
-        binary: &[u8],
-    ) -> Result<Option<Vec<u8>>, y_sync::sync::Error> {
-        let mut decoder = DecoderV1::from(binary);
-
-        if let Some(msg) = MessageReader::new(&mut decoder).next() {
-            let msg = msg?;
-            if let Some(reply) = self.sync_handle_message(msg)? {
-                return Ok(Some(reply.encode_v1()));
-            }
-        }
-        Ok(None)
     }
 }
