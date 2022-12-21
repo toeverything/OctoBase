@@ -5,14 +5,15 @@ members = [
     "apps/keck",
     "libs/cang-jie",
     "libs/jwst",
+    "libs/jwst-embedded",
     "libs/jwst-ffi",
     "libs/jwst-jni",
-    "libs/jwst-wasm",
+    "libs/jwst-logger",
     "libs/jwst-py",
+    "libs/jwst-storage",
+    "libs/jwst-wasm",
     "libs/y-sync",
     "libs/yrs",
-    "libs/logger",
-    "libs/storage",
 ]
 
 [profile.release]

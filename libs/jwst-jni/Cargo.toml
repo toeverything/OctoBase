@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-android_logger = "^0.11.1"
+android_logger = "^0.11.3"
 jni-sys = "^0.3.0"
 jwst = { path = "../jwst" }
 lib0 = "^0.12.1"
