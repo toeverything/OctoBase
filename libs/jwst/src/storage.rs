@@ -31,10 +31,5 @@ pub trait BlobStorage {
         stream: impl Stream<Item = Bytes> + Send,
         prefix: Option<String>,
     ) -> io::Result<String>;
-    async fn rename(
-        &self,
-        from: impl AsRef<Path> + Send,
-        to: impl AsRef<Path> + Send,
-    ) -> io::Result<()>;
     async fn delete(&self, path: impl AsRef<Path> + Send) -> io::Result<()>;
 }

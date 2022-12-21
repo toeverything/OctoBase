@@ -216,16 +216,6 @@ impl BlobStorage for BlobEmbeddedStorage {
         Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
     }
 
-    async fn rename(
-        &self,
-        from: impl AsRef<Path> + Send,
-        to: impl AsRef<Path> + Send,
-    ) -> io::Result<()> {
-        // let _ = self.get_parallel().await;
-        // fs::rename(self.path.join(from), self.path.join(to)).await
-        Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
-    }
-
     async fn delete(&self, path: impl AsRef<Path> + Send) -> io::Result<()> {
         // let _ = self.get_parallel().await;
         // fs::remove_file(self.path.join(path)).await
