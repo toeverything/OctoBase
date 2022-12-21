@@ -1,5 +1,4 @@
-use jwst::Workspace as JWSTWorkspace;
-use jwst_storage::doc::DocStorage;
+use jwst::{DocStorage, Workspace as JWSTWorkspace};
 use sqlx::{query, query_as, FromRow, Postgres, Transaction};
 
 use crate::{

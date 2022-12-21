@@ -1,5 +1,3 @@
-use std::ops::RangeInclusive;
-
 use crate::utils::JS_INT_RANGE;
 
 use super::{plugins::setup_plugin, *};
@@ -42,7 +40,7 @@ impl Workspace {
         //  * Extract prop:text / prop:title for index to block ID in Tantivy
         let blocks = trx.get_map("blocks");
         let updated = trx.get_map("updated");
-        let metadata = trx.get_map("metadata");
+        let metadata = trx.get_map("space:meta");
 
         let workspace = Self {
             content: Content {

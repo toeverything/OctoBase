@@ -3,7 +3,6 @@ use flexi_logger::{Logger, Record};
 use jieba_rs::Jieba;
 use std::{collections::HashSet, io, iter::FromIterator, sync::Arc};
 use tantivy::{collector::TopDocs, doc, query::QueryParser, schema::*, Index};
-use time::format_description::well_known::Rfc3339;
 
 #[test]
 fn full_test_unicode_split() -> tantivy::Result<()> {
@@ -29,9 +28,15 @@ fn full_test_unicode_split() -> tantivy::Result<()> {
     index.tokenizers().register(CANG_JIE, tokenizer()); // Build cang-jie Tokenizer
 
     let mut index_writer = index.writer(50 * 1024 * 1024)?;
-    index_writer.add_document(doc! { title => "南京长江大桥" });
-    index_writer.add_document(doc! { title => "这个是长江" });
-    index_writer.add_document(doc! { title => "这个是南京长" });
+    index_writer
+        .add_document(doc! { title => "南京长江大桥" })
+        .unwrap();
+    index_writer
+        .add_document(doc! { title => "这个是长江" })
+        .unwrap();
+    index_writer
+        .add_document(doc! { title => "这个是南京长" })
+        .unwrap();
     index_writer.commit()?;
 
     let reader = index.reader()?;

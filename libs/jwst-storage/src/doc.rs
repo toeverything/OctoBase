@@ -1,22 +1,11 @@
-use std::io::{ErrorKind, SeekFrom};
-use std::path::{Path, PathBuf};
-
+use super::*;
 use async_trait::async_trait;
-use tokio::fs::File;
-use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, BufReader};
-use tokio::sync::{Semaphore, SemaphorePermit};
-use tokio::{fs, io};
-use yrs::updates::decoder::Decode;
-use yrs::{Doc, StateVector, Update};
-
-#[async_trait]
-pub trait DocStorage {
-    async fn get(&self, workspace_id: i64) -> io::Result<Doc>;
-    async fn write_doc(&self, workspace_id: i64, doc: &Doc) -> io::Result<()>;
-    /// Return false means update exceeding max update
-    async fn write_update(&self, workspace: i64, data: &[u8]) -> io::Result<bool>;
-    async fn delete(&self, workspace_id: i64) -> io::Result<()>;
-}
+use jwst::DocStorage;
+use std::{
+    io::{ErrorKind, SeekFrom},
+    path::{Path, PathBuf},
+};
+use yrs::{updates::decoder::Decode, Doc, StateVector, Update};
 
 // The structure of record in disk is basically
 // length of record|record data|record count

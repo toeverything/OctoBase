@@ -1,41 +1,16 @@
-use std::sync::atomic::Ordering;
-use std::{path::Path, sync::atomic::AtomicU8};
-
+use super::*;
 use async_trait::async_trait;
 use bytes::Bytes;
-use chrono::NaiveDateTime;
 use chrono::{DateTime, Utc};
 use futures::{stream::StreamExt, Stream};
-use sha3::{Digest, Sha3_256};
-use tokio::fs::{create_dir_all, File};
-use tokio::io::AsyncWriteExt;
-use tokio::sync::{Semaphore, SemaphorePermit};
-use tokio::{fs, io};
+use jwst::{BlobMetadata, BlobStorage};
+use sha2::{Digest, Sha256};
+use std::{
+    path::Path,
+    sync::atomic::{AtomicU8, Ordering},
+};
+use tokio::fs::create_dir_all;
 use tokio_util::io::ReaderStream;
-
-pub struct Metadata {
-    pub size: u64,
-    pub last_modified: NaiveDateTime,
-}
-
-#[async_trait]
-pub trait BlobStorage {
-    type Read: Stream + Send;
-
-    async fn get(&self, path: impl AsRef<Path> + Send) -> io::Result<Self::Read>;
-    async fn get_metedata(&self, path: impl AsRef<Path> + Send) -> io::Result<Metadata>;
-    async fn put(
-        &self,
-        stream: impl Stream<Item = Bytes> + Send,
-        prefix: Option<String>,
-    ) -> io::Result<String>;
-    async fn rename(
-        &self,
-        from: impl AsRef<Path> + Send,
-        to: impl AsRef<Path> + Send,
-    ) -> io::Result<()>;
-    async fn delete(&self, path: impl AsRef<Path> + Send) -> io::Result<()>;
-}
 
 pub struct LocalFs {
     // If we are using a NFS, it would handle max parallel itself
@@ -99,7 +74,7 @@ impl LocalFs {
             .open(buf.as_path())
             .await?;
 
-        let mut hasher = Sha3_256::new();
+        let mut hasher = Sha256::new();
 
         let mut stream = Box::pin(stream);
 
@@ -136,13 +111,13 @@ impl BlobStorage for LocalFs {
         Ok(file)
     }
 
-    async fn get_metedata(&self, path: impl AsRef<Path> + Send) -> io::Result<Metadata> {
+    async fn get_metedata(&self, path: impl AsRef<Path> + Send) -> io::Result<BlobMetadata> {
         let meta = fs::metadata(self.path.join(path)).await?;
 
         let last_modified = meta.modified()?;
         let last_modifier: DateTime<Utc> = last_modified.into();
 
-        Ok(Metadata {
+        Ok(BlobMetadata {
             size: meta.len(),
             last_modified: last_modifier.naive_utc(),
         })

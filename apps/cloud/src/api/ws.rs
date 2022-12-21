@@ -14,7 +14,7 @@ use axum::{
 };
 use dashmap::{mapref::entry::Entry, DashMap};
 use futures::{SinkExt, StreamExt};
-use jwst_storage::doc::DocStorage;
+use jwst::DocStorage;
 use serde::Deserialize;
 use tokio::sync::{
     mpsc::{channel, Sender},

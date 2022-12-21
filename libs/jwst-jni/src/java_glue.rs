@@ -10,5 +10,6 @@
     clippy::let_unit_value,
     clippy::clone_on_copy
 )]
+#![allow(warnings)]
 
 include!(concat!(env!("OUT_DIR"), "/java_glue.rs"));
