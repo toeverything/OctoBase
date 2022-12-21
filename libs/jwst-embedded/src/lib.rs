@@ -1,14 +1,5 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+mod blobs;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+use jwst::{BlobMetadata, BlobStorage, DocStorage};
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use blobs::BlobEmbeddedStorage;

@@ -25,7 +25,7 @@ pub trait BlobStorage {
     type Read: Stream + Send;
 
     async fn get(&self, path: impl AsRef<Path> + Send) -> io::Result<Self::Read>;
-    async fn get_metedata(&self, path: impl AsRef<Path> + Send) -> io::Result<BlobMetadata>;
+    async fn get_metadata(&self, path: impl AsRef<Path> + Send) -> io::Result<BlobMetadata>;
     async fn put(
         &self,
         stream: impl Stream<Item = Bytes> + Send,

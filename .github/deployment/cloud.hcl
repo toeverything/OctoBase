@@ -52,7 +52,7 @@ job "affine-cloud" {
                 BLOB_STORAGE_PATH = "/blobs"
             }
             config {
-                image       = "ghcr.io/toeverything/cloud:canary-795a745677c812298040cb773ac5c87c1efde082"
+                image       = "ghcr.io/toeverything/cloud:canary-42dc93544903fdf88aebac25da866ed80c1e0fdb"
                 force_pull  = true
                 ports       = ["affine-cloud"]
                 labels      = {

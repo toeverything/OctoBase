@@ -177,7 +177,7 @@ impl Context {
             }
         }
 
-        let Ok(meta) = self.blob.get_metedata(path).await else {
+        let Ok(meta) = self.blob.get_metadata(path).await else {
             return StatusCode::NOT_FOUND.into_response()
         };
 

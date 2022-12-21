@@ -111,7 +111,7 @@ impl BlobStorage for LocalFs {
         Ok(file)
     }
 
-    async fn get_metedata(&self, path: impl AsRef<Path> + Send) -> io::Result<BlobMetadata> {
+    async fn get_metadata(&self, path: impl AsRef<Path> + Send) -> io::Result<BlobMetadata> {
         let meta = fs::metadata(self.path.join(path)).await?;
 
         let last_modified = meta.modified()?;
