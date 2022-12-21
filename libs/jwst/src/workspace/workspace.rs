@@ -225,7 +225,7 @@ impl WorkspaceTransaction<'_> {
     }
 
     pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) {
-        let key = format!("sys:{}", key);
+        let key = key.to_string();
         match value.into() {
             Any::Bool(bool) => {
                 self.ws.metadata().insert(&mut self.trx, key, bool);

@@ -5,7 +5,7 @@ use crate::{
     context::Context,
     model::{
         BigId, Count, CreateUser, GoogleClaims, Member, Permission, PermissionType, RefreshToken,
-        UpdateWorkspace, User, UserCred, UserLogin, UserQuery, UserWithNonce, Workspace,
+        UpdateWorkspace, User, UserCred, UserInWorkspace, UserLogin, UserWithNonce, Workspace,
         WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
     },
 };
@@ -70,15 +70,6 @@ impl Context {
             .execute(&self.db)
             .await
             .expect("create table permissions failed");
-    }
-
-    pub async fn query_user(&self, query: UserQuery) -> sqlx::Result<Option<User>> {
-        let stmt = "SELECT id, name, email, avatar_url, created_at FROM users WHERE email = $1";
-
-        query_as::<_, User>(stmt)
-            .bind(query.email)
-            .fetch_optional(&self.db)
-            .await
     }
 
     pub async fn get_user_by_email(&self, email: &str) -> sqlx::Result<Option<User>> {
@@ -248,7 +239,13 @@ impl Context {
             .await?;
 
         let workspace = match workspace {
-            Some(ws) if ws.type_ == WorkspaceType::Private => return Ok(None),
+            Some(workspace) if workspace.type_ == WorkspaceType::Private => {
+                return Ok(Some(WorkspaceDetail {
+                    owner: None,
+                    member_count: 0,
+                    workspace,
+                }))
+            }
             Some(ws) => ws,
             None => return Ok(None),
         };
@@ -279,7 +276,7 @@ impl Context {
             .count;
 
         Ok(Some(WorkspaceDetail {
-            owner,
+            owner: Some(owner),
             member_count,
             workspace,
         }))
@@ -379,13 +376,14 @@ impl Context {
 
     pub async fn get_workspace_members(&self, workspace_id: i64) -> sqlx::Result<Vec<Member>> {
         let stmt = "SELECT 
-            permissions.id, permissions.type, permissions.user_email,
+            permissions.id, permissions.type,
             permissions.accepted, permissions.created_at,
-            users.id as user_id, users.name as user_name, users.email as user_table_email, users.avatar_url,users.created_at as user_created_at
-            FROM permissions
-            LEFT JOIN users
+            users.id as user_id, users.name as user_name, users.email as user_email, users.avatar_url,
+            users.created_at as user_created_at
+        FROM permissions
+        LEFT JOIN users
             ON users.id = permissions.user_id
-            WHERE workspace_id = $1";
+        WHERE workspace_id = $1";
 
         query_as::<_, Member>(stmt)
             .bind(workspace_id)
@@ -527,5 +525,52 @@ impl Context {
             .execute(&self.db)
             .await
             .map(|q| q.rows_affected() != 0)
+    }
+
+    pub async fn get_user_in_workspace_by_email(
+        &self,
+        workspace_id: i64,
+        email: &str,
+    ) -> sqlx::Result<UserInWorkspace> {
+        let stmt = "SELECT 
+            id, name, email, avatar_url, token_nonce, created_at
+        FROM users";
+
+        let user = query_as::<_, User>(stmt)
+            .bind(workspace_id)
+            .fetch_optional(&self.db)
+            .await?;
+
+        Ok(if let Some(user) = user {
+            let stmt = "SELECT True FROM permissions WHERE workspace_id = $1 AND user_id = $2";
+
+            let in_workspace = query(stmt)
+                .bind(workspace_id)
+                .bind(user.id)
+                .fetch_optional(&self.db)
+                .await?
+                .is_some();
+
+            UserInWorkspace {
+                user: UserCred::Registered(user),
+                in_workspace,
+            }
+        } else {
+            let stmt = "SELECT True FROM permissions WHERE workspace_id = $1 AND user_email = $2";
+
+            let in_workspace = query_as::<_, User>(stmt)
+                .bind(workspace_id)
+                .bind(email)
+                .fetch_optional(&self.db)
+                .await?
+                .is_some();
+
+            UserInWorkspace {
+                user: UserCred::UnRegistered {
+                    email: email.to_string(),
+                },
+                in_workspace,
+            }
+        })
     }
 }

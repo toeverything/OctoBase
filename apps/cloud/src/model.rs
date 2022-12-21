@@ -40,6 +40,7 @@ pub struct UserWithNonce {
 #[derive(Deserialize)]
 pub struct UserQuery {
     pub email: Option<String>,
+    pub workspace_id: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -112,12 +113,12 @@ pub struct WorkspaceWithPermission {
     pub workspace: Workspace,
 }
 
-#[derive(FromRow, Serialize)]
+#[derive(Serialize)]
 pub struct WorkspaceDetail {
-    pub owner: User,
+    // None if it's private
+    pub owner: Option<User>,
     pub member_count: i64,
     #[serde(flatten)]
-    #[sqlx(flatten)]
     pub workspace: Workspace,
 }
 
@@ -186,7 +187,6 @@ pub struct Member {
     pub id: i64,
     pub user: UserCred,
     pub accepted: bool,
-    #[serde(rename = "type")]
     pub type_: PermissionType,
     #[serde(with = "ts_milliseconds")]
     pub created_at: NaiveDateTime,
@@ -224,6 +224,13 @@ impl FromRow<'_, PgRow> for Member {
             created_at,
         })
     }
+}
+
+#[derive(Serialize)]
+pub struct UserInWorkspace {
+    #[serde(flatten)]
+    pub user: UserCred,
+    pub in_workspace: bool,
 }
 
 #[derive(FromRow)]

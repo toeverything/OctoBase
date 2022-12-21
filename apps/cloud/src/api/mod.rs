@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use axum::{
     body::StreamBody,
@@ -21,9 +21,8 @@ use jwst::{BlobStorage, DocStorage, Workspace as JWSTWorkspace};
 use lettre::{message::Mailbox, AsyncTransport, Message};
 use lib0::any::Any;
 use mime::APPLICATION_OCTET_STREAM;
-use tokio::io;
 use tower::ServiceBuilder;
-use yrs::{Doc, StateVector};
+use yrs::StateVector;
 
 use crate::{
     context::Context,
@@ -41,6 +40,7 @@ pub use ws::*;
 pub fn make_rest_route(ctx: Arc<Context>) -> Router {
     Router::new()
         .route("/healthz", get(health_check))
+        .route("/user", get(query_user))
         .route("/user/token", post(make_token))
         .route("/blob", put(upload_blob))
         .route("/blob/:name", get(get_blob))
@@ -48,7 +48,6 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .nest(
             "/",
             Router::new()
-                .route("/user", get(query_user))
                 .route("/workspace", get(get_workspaces).post(create_workspace))
                 .route(
                     "/workspace/:id",
@@ -79,14 +78,17 @@ async fn query_user(
     Extension(ctx): Extension<Arc<Context>>,
     Query(payload): Query<UserQuery>,
 ) -> Response {
-    if payload.email.is_none() {
-        return StatusCode::BAD_REQUEST.into_response();
-    }
-
-    match ctx.query_user(payload).await {
-        Ok(Some(user)) => Json(user).into_response(),
-        Ok(None) => StatusCode::NOT_FOUND.into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    if let (Some(email), Some(workspace_id)) = (payload.email, payload.workspace_id) {
+        if let Ok(user) = ctx
+            .get_user_in_workspace_by_email(workspace_id, &email)
+            .await
+        {
+            Json(vec![user]).into_response()
+        } else {
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    } else {
+        StatusCode::BAD_REQUEST.into_response()
     }
 }
 
@@ -311,19 +313,6 @@ async fn create_workspace(
         };
         if let Err(_) = ctx.doc.storage.write_doc(data.id, doc.doc()).await {
             StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        };
-
-        let mut new_path = PathBuf::from(data.id.to_string());
-        new_path.push(&payload.avatar);
-
-        match ctx.blob.rename(payload.avatar, new_path).await {
-            Err(e) if e.kind() == io::ErrorKind::NotFound => {
-                StatusCode::BAD_REQUEST.into_response();
-            }
-            Err(_) => {
-                StatusCode::INTERNAL_SERVER_ERROR.into_response();
-            }
-            _ => (),
         };
 
         Json(data).into_response()
