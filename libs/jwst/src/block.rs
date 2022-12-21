@@ -3,7 +3,7 @@ use crate::{utils::JS_INT_RANGE, workspace::Content};
 use super::*;
 use lib0::any::Any;
 use serde::{Serialize, Serializer};
-use std::{collections::HashMap, ops::RangeInclusive};
+use std::collections::HashMap;
 use yrs::{Array, Map, PrelimArray, PrelimMap, Transaction};
 
 #[derive(Debug, PartialEq)]

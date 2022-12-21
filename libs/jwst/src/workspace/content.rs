@@ -17,11 +17,8 @@ static PROTOCOL: DefaultProtocol = DefaultProtocol;
 // block data?
 pub struct Content {
     pub(super) id: String,
-    // indexers: Vec<Box<dyn search_indexing::BlockIndexer>>,
     pub(super) awareness: Awareness,
-    // Are these the blocks as committed / synced?
     pub(super) blocks: Map,
-    // What is this?
     pub(super) updated: Map,
     pub(super) metadata: Map,
 }

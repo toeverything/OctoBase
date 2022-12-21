@@ -17,6 +17,9 @@ sha2 = "0.10.6"
 bytes = "1.3.0"
 base64 = "0.20.0"
 
+[dependencies.jwst]
+path = "../jwst"
+
 [dependencies.yrs]
 path = "../yrs"
 version = "^0.12.0"

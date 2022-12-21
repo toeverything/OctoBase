@@ -7,12 +7,12 @@ use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use chrono::{NaiveDateTime, Utc};
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
-use jwst::Workspace as JWSTWorkspace;
-use jwst_storage::doc::DocStorage;
-use jwst_storage::{blob, doc};
-use lettre::message::Mailbox;
-use lettre::AsyncSmtpTransport;
-use lettre::{transport::smtp::authentication::Credentials, Tokio1Executor};
+use jwst::{DocStorage, Workspace as JWSTWorkspace};
+use jwst_storage::{BlobFsStorage, DocFsStorage};
+use lettre::{
+    message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
+    Tokio1Executor,
+};
 use moka::future::Cache;
 use rand::{thread_rng, Rng};
 use reqwest::Client;
@@ -45,7 +45,7 @@ pub struct MailContext {
 
 pub struct DocStore {
     cache: Cache<i64, Arc<RwLock<JWSTWorkspace>>>,
-    pub storage: doc::LocalFs,
+    pub storage: DocFsStorage,
 }
 
 impl DocStore {
@@ -54,7 +54,7 @@ impl DocStore {
 
         DocStore {
             cache: Cache::new(1000),
-            storage: doc::LocalFs::new(Some(16), 500, Path::new(&doc_env).into()).await,
+            storage: DocFsStorage::new(Some(16), 500, Path::new(&doc_env).into()).await,
         }
     }
 
@@ -81,7 +81,7 @@ pub struct Context {
     firebase: RwLock<FirebaseContext>,
     pub mail: MailContext,
     pub db: PgPool,
-    pub blob: blob::LocalFs,
+    pub blob: BlobFsStorage,
     pub doc: DocStore,
     pub ws: WebSocketContext,
 }
@@ -141,7 +141,7 @@ impl Context {
 
         let blob_env = dotenvy::var("BLOB_STORAGE_PATH").expect("should provide blob storage path");
 
-        let blob = blob::LocalFs::new(Some(16), Path::new(&blob_env).into()).await;
+        let blob = BlobFsStorage::new(Some(16), Path::new(&blob_env).into()).await;
 
         let ctx = Self {
             db,

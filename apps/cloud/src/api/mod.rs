@@ -17,8 +17,7 @@ use http::{
     },
     HeaderMap, HeaderValue, StatusCode,
 };
-use jwst::Workspace as JWSTWorkspace;
-use jwst_storage::{blob::BlobStorage, doc::DocStorage};
+use jwst::{BlobStorage, DocStorage, Workspace as JWSTWorkspace};
 use lettre::{message::Mailbox, AsyncTransport, Message};
 use lib0::any::Any;
 use mime::APPLICATION_OCTET_STREAM;
