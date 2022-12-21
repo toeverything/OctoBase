@@ -300,6 +300,9 @@ impl std::fmt::Display for Store {
 #[derive(Debug, Clone)]
 pub(crate) struct StoreRef(Rc<UnsafeCell<Store>>);
 
+unsafe impl Send for StoreRef {}
+unsafe impl Sync for StoreRef {}
+
 impl Deref for StoreRef {
     type Target = Store;
 

@@ -6,7 +6,7 @@ use bytes::Bytes;
 use chrono::NaiveDateTime;
 use chrono::{DateTime, Utc};
 use futures::{stream::StreamExt, Stream};
-use sha3::{Digest, Sha3_256};
+use sha2::{Digest, Sha256};
 use tokio::fs::{create_dir_all, File};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{Semaphore, SemaphorePermit};
@@ -99,7 +99,7 @@ impl LocalFs {
             .open(buf.as_path())
             .await?;
 
-        let mut hasher = Sha3_256::new();
+        let mut hasher = Sha256::new();
 
         let mut stream = Box::pin(stream);
 

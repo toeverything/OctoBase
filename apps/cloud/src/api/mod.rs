@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use axum::{
     body::StreamBody,
@@ -22,6 +22,7 @@ use jwst_storage::{blob::BlobStorage, doc::DocStorage};
 use lettre::{message::Mailbox, AsyncTransport, Message};
 use lib0::any::Any;
 use mime::APPLICATION_OCTET_STREAM;
+use tokio::io;
 use tower::ServiceBuilder;
 use yrs::{Doc, StateVector};
 
@@ -240,12 +241,13 @@ impl Context {
         if let Ok(path) = self.blob.put(stream, workspace).await {
             if has_error {
                 let _ = self.blob.delete(&path).await;
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            } else {
+                path.into_response()
             }
         } else {
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        };
-
-        StatusCode::OK.into_response()
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
     }
 }
 
@@ -301,12 +303,28 @@ async fn create_workspace(
 
             doc.with_trx(|mut t| {
                 t.set_metadata("name", Any::String(payload.name.into_boxed_str()));
-                t.set_metadata("avatar", Any::String(payload.avatar.into_boxed_str()));
+                t.set_metadata(
+                    "avatar",
+                    Any::String(payload.avatar.clone().into_boxed_str()),
+                );
             });
             doc
         };
         if let Err(_) = ctx.doc.storage.write_doc(data.id, doc.doc()).await {
             StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        };
+
+        let mut new_path = PathBuf::from(data.id.to_string());
+        new_path.push(&payload.avatar);
+
+        match ctx.blob.rename(payload.avatar, new_path).await {
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                StatusCode::BAD_REQUEST.into_response();
+            }
+            Err(_) => {
+                StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            }
+            _ => (),
         };
 
         Json(data).into_response()
