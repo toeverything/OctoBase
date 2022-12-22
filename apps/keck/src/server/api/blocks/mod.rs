@@ -39,7 +39,7 @@ use utoipa::OpenApi;
             schema::InsertChildren,
             schema::Workspace, schema::Block, schema::BlockRawHistory,
             jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory,
-            jwst::SearchResults
+            jwst::SearchResults, jwst::SearchResult
         )
     ),
     tags(

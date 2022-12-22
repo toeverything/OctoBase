@@ -11,4 +11,6 @@ pub use history::{
 pub use log::{error, info};
 pub use storage::{BlobMetadata, BlobStorage, DocStorage};
 pub use utils::encode_update;
-pub use workspace::{SearchResults, Workspace, WorkspaceTransaction};
+#[cfg(feature = "workspace-search")]
+pub use workspace::{SearchResult, SearchResults};
+pub use workspace::{Workspace, WorkspaceTransaction};
