@@ -499,7 +499,7 @@ impl Context {
     }
 
     pub async fn delete_permission(&self, permission_id: i64) -> sqlx::Result<bool> {
-        let stmt = "DELETE FROM permissions WHERE permission_id = $1";
+        let stmt = "DELETE FROM permissions WHERE id = $1";
 
         query(&stmt)
             .bind(permission_id)
