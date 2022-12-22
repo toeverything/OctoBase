@@ -81,6 +81,22 @@ impl Context {
             .await
     }
 
+    pub async fn get_workspace_owner(&self, workspace_id: i64) -> sqlx::Result<User> {
+        let stmt = format!(
+            "SELECT
+                users.id, users.name, users.email, users.avatar_url, users.created_at
+            FROM permissions
+            INNER JOIN users
+                ON permissions.user_id = users.id
+            WHERE workspace_id = $1 AND type = {}",
+            PermissionType::Owner as i16
+        );
+        query_as::<_, User>(&stmt)
+            .bind(workspace_id)
+            .fetch_one(&self.db)
+            .await
+    }
+
     pub async fn user_login(&self, login: UserLogin) -> sqlx::Result<Option<UserWithNonce>> {
         let stmt = "SELECT 
             id, name, email, avatar_url, token_nonce, created_at
@@ -250,20 +266,7 @@ impl Context {
             None => return Ok(None),
         };
 
-        let get_owner = format!(
-            "SELECT
-                users.id, users.name, users.email, users.avatar_url, users.created_at
-            FROM permissions
-            INNER JOIN users
-                ON permissions.user_id = users.id
-            WHERE workspace_id = $1 AND type = {}",
-            PermissionType::Owner as i16
-        );
-
-        let owner = query_as::<_, User>(&get_owner)
-            .bind(workspace_id)
-            .fetch_one(&self.db)
-            .await?;
+        let owner = self.get_workspace_owner(workspace_id).await?;
 
         let get_member_count = "SELECT COUNT(permissions.id)
             FROM permissions
