@@ -262,7 +262,7 @@ impl Context {
             .await
             .ok_or_else(|| format!("Workspace({id:?}) not found."))?;
 
-        let search_results = workspace_arc_rw.blocking_write().search(&query_string)?;
+        let search_results = workspace_arc_rw.write().await.search(&query_string)?;
 
         Ok(search_results)
     }
