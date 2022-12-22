@@ -29,7 +29,7 @@ use crate::{
     layer::make_firebase_auth_layer,
     model::{
         Claims, CreatePermission, CreateWorkspace, MakeToken, PermissionType, RefreshToken,
-        UpdateWorkspace, UserCred, UserQuery, UserToken, UserWithNonce,
+        UpdateWorkspace, UserCred, UserQuery, UserToken, UserWithNonce, WorkspaceSearchInput,
     },
     utils::URL_SAFE_ENGINE,
 };
@@ -60,6 +60,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
                     get(get_members).post(invite_member).delete(leave_workspace),
                 )
                 .route("/workspace/:id/doc", get(get_doc))
+                .route("/workspace/:id/search", post(search_workspace))
                 .route("/workspace/:id/blob", put(upload_blob_in_workspace))
                 .route("/workspace/:id/blob/:name", get(get_blob_in_workspace))
                 .route("/permission/:id", delete(remove_user))
@@ -426,6 +427,26 @@ async fn upload_blob_in_workspace(
     }
 
     ctx.upload_blob(stream, Some(workspace)).await
+}
+
+/// Resolves to [WorkspaceSearchResults]
+async fn search_workspace(
+    Extension(ctx): Extension<Arc<Context>>,
+    Extension(claims): Extension<Arc<Claims>>,
+    Path(id): Path<i64>,
+    Json(payload): Json<WorkspaceSearchInput>,
+) -> Response {
+    match ctx.get_permission(claims.user.id, id).await {
+        Ok(Some(_)) => (), // read permission
+        Ok(_) => return StatusCode::FORBIDDEN.into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+
+    match ctx.search_workspace(id, &payload.query).await {
+        Ok(results) => Json(results).into_response(),
+        Err(err) if format!("{err}").contains("not found") => StatusCode::NOT_FOUND.into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
 }
 
 async fn get_members(

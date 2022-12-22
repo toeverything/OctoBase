@@ -7,7 +7,7 @@ use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use chrono::{NaiveDateTime, Utc};
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
-use jwst::{DocStorage, Workspace as JWSTWorkspace};
+use jwst::{DocStorage, SearchResults, Workspace as JWSTWorkspace};
 use jwst_storage::{BlobFsStorage, DocFsStorage};
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
@@ -249,5 +249,21 @@ impl Context {
         let nonce = nonce.try_into().ok()?;
 
         self.key.aes.decrypt(nonce, content).ok()
+    }
+
+    pub async fn search_workspace(
+        &self,
+        id: i64,
+        query_string: &str,
+    ) -> Result<SearchResults, Box<dyn std::error::Error>> {
+        let workspace_arc_rw = self
+            .doc
+            .get_workspace(id)
+            .await
+            .ok_or_else(|| format!("Workspace({id:?}) not found."))?;
+
+        let search_results = workspace_arc_rw.blocking_write().search(&query_string)?;
+
+        Ok(search_results)
     }
 }
