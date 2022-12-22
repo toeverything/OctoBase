@@ -132,7 +132,7 @@ impl Context {
             let invite_title =
                 dotenvy::var("MAIL_INVITE_TITLE").expect("should provide email title");
             template
-                .register_template_string("INVITE_TITLE", invite_title)
+                .register_template_string("MAIL_INVITE_TITLE", invite_title)
                 .expect("should privide valid email title");
 
             let invite_file =
