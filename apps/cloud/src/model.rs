@@ -130,6 +130,21 @@ pub struct CreateWorkspace {
 }
 
 #[derive(Deserialize)]
+pub struct WorkspaceSearchInput {
+    pub query: String,
+}
+
+#[derive(Serialize)]
+pub struct WorkspaceSearchResults {
+    pub items: Vec<WorkspaceSearchResult>,
+}
+
+#[derive(Serialize)]
+pub struct WorkspaceSearchResult {
+    pub block_id: String,
+}
+
+#[derive(Deserialize)]
 pub struct UpdateWorkspace {
     pub public: bool,
 }

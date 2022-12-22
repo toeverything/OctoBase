@@ -17,6 +17,7 @@ use http::{
     },
     HeaderMap, HeaderValue, StatusCode,
 };
+use http_body::combinators::UnsyncBoxBody;
 use jwst::{BlobStorage, DocStorage, Workspace as JWSTWorkspace};
 use lettre::{
     message::{Attachment, Mailbox, MultiPart, SinglePart},
@@ -29,11 +30,12 @@ use tower::ServiceBuilder;
 use yrs::StateVector;
 
 use crate::{
-    context::Context,
+    context::{Context, ContextRequestError},
     layer::make_firebase_auth_layer,
     model::{
         Claims, CreatePermission, CreateWorkspace, MakeToken, PermissionType, RefreshToken,
-        UpdateWorkspace, UserCred, UserQuery, UserToken, UserWithNonce, WorkspaceMetadata,
+        UpdateWorkspace, UserCred, UserQuery, UserToken, UserWithNonce, WorkspaceSearchInput,
+        WorkspaceMetadata
     },
     utils::URL_SAFE_ENGINE,
 };
@@ -64,6 +66,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
                     get(get_members).post(invite_member).delete(leave_workspace),
                 )
                 .route("/workspace/:id/doc", get(get_doc))
+                .route("/workspace/:id/search", post(search_workspace))
                 .route("/workspace/:id/blob", put(upload_blob_in_workspace))
                 .route("/workspace/:id/blob/:name", get(get_blob_in_workspace))
                 .route("/permission/:id", delete(remove_user))
@@ -166,6 +169,22 @@ async fn get_workspaces(
         Json(data).into_response()
     } else {
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
+}
+
+impl IntoResponse for ContextRequestError {
+    fn into_response(self) -> Response {
+        match self {
+            ContextRequestError::BadUserInput { user_message } => {
+                (StatusCode::BAD_REQUEST, user_message).into_response()
+            }
+            ContextRequestError::WorkspaceNotFound { workspace_id } => (
+                StatusCode::NOT_FOUND,
+                format!("Workspace({workspace_id:?}) not found."),
+            )
+                .into_response(),
+            ContextRequestError::Other(err) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        }
     }
 }
 
@@ -430,6 +449,27 @@ async fn upload_blob_in_workspace(
     }
 
     ctx.upload_blob(stream, Some(workspace)).await
+}
+
+/// Resolves to [WorkspaceSearchResults]
+async fn search_workspace(
+    Extension(ctx): Extension<Arc<Context>>,
+    Extension(claims): Extension<Arc<Claims>>,
+    Path(id): Path<i64>,
+    Json(payload): Json<WorkspaceSearchInput>,
+) -> Response {
+    match ctx.can_read_workspace(claims.user.id, id).await {
+        Ok(true) => (),
+        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+
+    let search_results = match ctx.search_workspace(id, &payload.query).await {
+        Ok(results) => results,
+        Err(err) => return err.into_response(),
+    };
+
+    Json(search_results).into_response()
 }
 
 async fn get_members(

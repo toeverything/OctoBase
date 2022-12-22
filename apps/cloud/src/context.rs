@@ -8,7 +8,7 @@ use chrono::{NaiveDateTime, Utc};
 use handlebars::Handlebars;
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
-use jwst::{DocStorage, Workspace as JWSTWorkspace};
+use jwst::{DocStorage, SearchResults, Workspace as JWSTWorkspace};
 use jwst_storage::{BlobFsStorage, DocFsStorage};
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
@@ -86,6 +86,32 @@ pub struct Context {
     pub blob: BlobFsStorage,
     pub doc: DocStore,
     pub ws: WebSocketContext,
+}
+
+pub enum ContextRequestError {
+    WorkspaceNotFound {
+        workspace_id: i64,
+    },
+    /// "Bad Request"
+    BadUserInput {
+        /// Something potentially helpful to the caller about what was wrong
+        user_message: String,
+    },
+    /// "Internal Server Error" type of thing.
+    /// It should probably not be surfaced to the user.
+    Other(Box<dyn std::error::Error>),
+}
+
+impl ContextRequestError {
+    fn other<E: std::error::Error + 'static>(value: E) -> Self {
+        Self::Other(Box::new(value))
+    }
+}
+
+impl From<Box<dyn std::error::Error>> for ContextRequestError {
+    fn from(value: Box<dyn std::error::Error>) -> Self {
+        Self::Other(value)
+    }
 }
 
 impl Context {
@@ -267,5 +293,21 @@ impl Context {
         let nonce = nonce.try_into().ok()?;
 
         self.key.aes.decrypt(nonce, content).ok()
+    }
+
+    pub async fn search_workspace(
+        &self,
+        id: i64,
+        query_string: &str,
+    ) -> Result<SearchResults, ContextRequestError> {
+        let workspace_arc_rw = self
+            .doc
+            .get_workspace(id)
+            .await
+            .ok_or_else(|| ContextRequestError::WorkspaceNotFound { workspace_id: id })?;
+
+        let search_results = workspace_arc_rw.write().await.search(&query_string)?;
+
+        Ok(search_results)
     }
 }
