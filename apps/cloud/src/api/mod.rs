@@ -18,9 +18,13 @@ use http::{
     HeaderMap, HeaderValue, StatusCode,
 };
 use jwst::{BlobStorage, DocStorage, Workspace as JWSTWorkspace};
-use lettre::{message::Mailbox, AsyncTransport, Message};
+use lettre::{
+    message::{Attachment, Mailbox, MultiPart, SinglePart},
+    AsyncTransport, Message,
+};
 use lib0::any::Any;
 use mime::APPLICATION_OCTET_STREAM;
+use serde::Serialize;
 use tower::ServiceBuilder;
 use yrs::StateVector;
 
@@ -29,7 +33,7 @@ use crate::{
     layer::make_firebase_auth_layer,
     model::{
         Claims, CreatePermission, CreateWorkspace, MakeToken, PermissionType, RefreshToken,
-        UpdateWorkspace, UserCred, UserQuery, UserToken, UserWithNonce,
+        UpdateWorkspace, UserCred, UserQuery, UserToken, UserWithNonce, WorkspaceMetadata,
     },
     utils::URL_SAFE_ENGINE,
 };
@@ -222,8 +226,8 @@ impl Context {
         };
 
         let Ok(file) = self.blob.get(path).await else {
-        return StatusCode::NOT_FOUND.into_response()
-    };
+            return StatusCode::NOT_FOUND.into_response()
+        };
 
         (header, StreamBody::new(file)).into_response()
     }
@@ -473,7 +477,36 @@ async fn invite_member(
 
     let encrypted = ctx.encrypt_aes(&permission_id.to_le_bytes()[..]);
 
-    let path = base64::encode_engine(encrypted, &URL_SAFE_ENGINE);
+    let invite_code = base64::encode_engine(encrypted, &URL_SAFE_ENGINE);
+
+    let metadata = {
+        let Some(ws) = ctx.doc.get_workspace(id).await else {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        };
+
+        let ws = ws.read().await;
+
+        if let Some(metadata) = WorkspaceMetadata::parse(ws.metadata()) {
+            metadata
+        } else {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+
+    let Ok(mut file) = ctx.blob.get(&metadata.avatar).await else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    };
+
+    let mut file_content = Vec::new();
+    while let Some(chunk) = file.next().await {
+        if let Ok(chunk) = chunk {
+            file_content.extend_from_slice(&chunk);
+        } else {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    }
+
+    let workspace_avatar = lettre::message::Body::new(file_content);
 
     let mailbox = Mailbox::new(
         match user_cred {
@@ -483,11 +516,54 @@ async fn invite_member(
         addr,
     );
 
+    #[derive(Serialize)]
+    struct Title {
+        inviter_name: String,
+        workspace_name: String,
+    }
+
+    let Ok(title) = ctx.mail.template.render("MAIL_INVITE_TITLE", &Title {
+        inviter_name: claims.user.name.clone(),
+        workspace_name: metadata.name.clone(),
+    }) else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+
+    #[derive(Serialize)]
+    struct Content {
+        inviter_name: String,
+        site_url: String,
+        avatar_url: String,
+        workspace_name: String,
+        invite_code: String,
+    }
+
+    let Ok(content) = ctx.mail.template.render("MAIL_INVITE_CONTENT", &Content {    
+        inviter_name: claims.user.name.clone(),
+        site_url: ctx.site_url.clone(),
+        avatar_url: claims.user.avatar_url.to_owned().unwrap_or("".to_string()),
+        workspace_name: metadata.name,
+        invite_code,
+    }) else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+
+    let msg_body = MultiPart::mixed().multipart(
+        MultiPart::mixed().multipart(
+            MultiPart::related()
+                .singlepart(SinglePart::html(content))
+                .singlepart(
+                    Attachment::new_inline("avatar".to_string())
+                        .body(workspace_avatar, "image/png".parse().unwrap()),
+                ),
+        ),
+    );
+
     let email = Message::builder()
         .from(ctx.mail.mail_box.clone())
         .to(mailbox)
-        .subject(&ctx.mail.title)
-        .body(path)
+        .subject(title)
+        .multipart(msg_body)
         .unwrap();
 
     match ctx.mail.client.send(email.clone()).await {
