@@ -490,6 +490,89 @@ async fn get_members(
     }
 }
 
+async fn make_invite_email(
+    ctx: &Context,
+    id: i64,
+    claims: &Claims,
+    invite_code: &str,
+) -> Option<(String, MultiPart)> {
+    let metadata = {
+        let ws = ctx.doc.get_workspace(id).await?;
+
+        let ws = ws.read().await;
+
+        WorkspaceMetadata::parse(ws.metadata())?
+    };
+
+    let mut file = ctx.blob.get(&metadata.avatar).await.ok()?;
+
+    let mut file_content = Vec::new();
+    while let Some(chunk) = file.next().await {
+        if let Ok(chunk) = chunk {
+            file_content.extend(&chunk);
+        } else {
+            return None;
+        }
+    }
+
+    let workspace_avatar = lettre::message::Body::new(file_content);
+
+    #[derive(Serialize)]
+    struct Title {
+        inviter_name: String,
+        workspace_name: String,
+    }
+
+    let title = ctx
+        .mail
+        .template
+        .render(
+            "MAIL_INVITE_TITLE",
+            &Title {
+                inviter_name: claims.user.name.clone(),
+                workspace_name: metadata.name.clone(),
+            },
+        )
+        .ok()?;
+
+    #[derive(Serialize)]
+    struct Content {
+        inviter_name: String,
+        site_url: String,
+        avatar_url: String,
+        workspace_name: String,
+        invite_code: String,
+    }
+
+    let content = ctx
+        .mail
+        .template
+        .render(
+            "MAIL_INVITE_CONTENT",
+            &Content {
+                inviter_name: claims.user.name.clone(),
+                site_url: ctx.site_url.clone(),
+                avatar_url: claims.user.avatar_url.to_owned().unwrap_or("".to_string()),
+                workspace_name: metadata.name,
+                invite_code: invite_code.to_string(),
+            },
+        )
+        .ok()?;
+
+    let msg_body = MultiPart::mixed().multipart(
+        MultiPart::mixed().multipart(
+            MultiPart::related()
+                .singlepart(SinglePart::html(content))
+                .singlepart(
+                    Attachment::new_inline("avatar".to_string())
+                        .body(workspace_avatar, "image/png".parse().unwrap()),
+                ),
+        ),
+    );
+
+    Some((title, msg_body))
+}
+
 async fn invite_member(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
@@ -519,35 +602,6 @@ async fn invite_member(
 
     let invite_code = base64::encode_engine(encrypted, &URL_SAFE_ENGINE);
 
-    let metadata = {
-        let Some(ws) = ctx.doc.get_workspace(id).await else {
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        };
-
-        let ws = ws.read().await;
-
-        if let Some(metadata) = WorkspaceMetadata::parse(ws.metadata()) {
-            metadata
-        } else {
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        }
-    };
-
-    let Ok(mut file) = ctx.blob.get(&metadata.avatar).await else {
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response()
-    };
-
-    let mut file_content = Vec::new();
-    while let Some(chunk) = file.next().await {
-        if let Ok(chunk) = chunk {
-            file_content.extend_from_slice(&chunk);
-        } else {
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        }
-    }
-
-    let workspace_avatar = lettre::message::Body::new(file_content);
-
     let mailbox = Mailbox::new(
         match user_cred {
             UserCred::Registered(user) => Some(user.name),
@@ -556,48 +610,10 @@ async fn invite_member(
         addr,
     );
 
-    #[derive(Serialize)]
-    struct Title {
-        inviter_name: String,
-        workspace_name: String,
-    }
-
-    let Ok(title) = ctx.mail.template.render("MAIL_INVITE_TITLE", &Title {
-        inviter_name: claims.user.name.clone(),
-        workspace_name: metadata.name.clone(),
-    }) else {
+    let Some((title, msg_body)) = make_invite_email(&ctx, id, &claims, &invite_code).await else {
+        let _ = ctx.delete_permission(permission_id);
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
-
-    #[derive(Serialize)]
-    struct Content {
-        inviter_name: String,
-        site_url: String,
-        avatar_url: String,
-        workspace_name: String,
-        invite_code: String,
-    }
-
-    let Ok(content) = ctx.mail.template.render("MAIL_INVITE_CONTENT", &Content {    
-        inviter_name: claims.user.name.clone(),
-        site_url: ctx.site_url.clone(),
-        avatar_url: claims.user.avatar_url.to_owned().unwrap_or("".to_string()),
-        workspace_name: metadata.name,
-        invite_code,
-    }) else {
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-    };
-
-    let msg_body = MultiPart::mixed().multipart(
-        MultiPart::mixed().multipart(
-            MultiPart::related()
-                .singlepart(SinglePart::html(content))
-                .singlepart(
-                    Attachment::new_inline("avatar".to_string())
-                        .body(workspace_avatar, "image/png".parse().unwrap()),
-                ),
-        ),
-    );
 
     let email = Message::builder()
         .from(ctx.mail.mail_box.clone())
