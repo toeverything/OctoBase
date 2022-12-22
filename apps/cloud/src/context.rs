@@ -86,6 +86,32 @@ pub struct Context {
     pub ws: WebSocketContext,
 }
 
+pub enum ContextRequestError {
+    WorkspaceNotFound {
+        workspace_id: i64,
+    },
+    /// "Bad Request"
+    BadUserInput {
+        /// Something potentially helpful to the caller about what was wrong
+        user_message: String,
+    },
+    /// "Internal Server Error" type of thing.
+    /// It should probably not be surfaced to the user.
+    Other(Box<dyn std::error::Error>),
+}
+
+impl ContextRequestError {
+    fn other<E: std::error::Error + 'static>(value: E) -> Self {
+        Self::Other(Box::new(value))
+    }
+}
+
+impl From<Box<dyn std::error::Error>> for ContextRequestError {
+    fn from(value: Box<dyn std::error::Error>) -> Self {
+        Self::Other(value)
+    }
+}
+
 impl Context {
     pub async fn new() -> Context {
         let db_env = dotenvy::var("DATABASE_URL").expect("should provide databse URL");
@@ -255,12 +281,12 @@ impl Context {
         &self,
         id: i64,
         query_string: &str,
-    ) -> Result<SearchResults, Box<dyn std::error::Error>> {
+    ) -> Result<SearchResults, ContextRequestError> {
         let workspace_arc_rw = self
             .doc
             .get_workspace(id)
             .await
-            .ok_or_else(|| format!("Workspace({id:?}) not found."))?;
+            .ok_or_else(|| ContextRequestError::WorkspaceNotFound { workspace_id: id })?;
 
         let search_results = workspace_arc_rw.write().await.search(&query_string)?;
 

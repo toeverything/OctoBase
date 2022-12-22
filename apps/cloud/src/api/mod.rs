@@ -17,6 +17,7 @@ use http::{
     },
     HeaderMap, HeaderValue, StatusCode,
 };
+use http_body::combinators::UnsyncBoxBody;
 use jwst::{BlobStorage, DocStorage, Workspace as JWSTWorkspace};
 use lettre::{message::Mailbox, AsyncTransport, Message};
 use lib0::any::Any;
@@ -25,7 +26,7 @@ use tower::ServiceBuilder;
 use yrs::StateVector;
 
 use crate::{
-    context::Context,
+    context::{Context, ContextRequestError},
     layer::make_firebase_auth_layer,
     model::{
         Claims, CreatePermission, CreateWorkspace, MakeToken, PermissionType, RefreshToken,
@@ -163,6 +164,22 @@ async fn get_workspaces(
         Json(data).into_response()
     } else {
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
+}
+
+impl IntoResponse for ContextRequestError {
+    fn into_response(self) -> Response {
+        match self {
+            ContextRequestError::BadUserInput { user_message } => {
+                (StatusCode::BAD_REQUEST, user_message).into_response()
+            }
+            ContextRequestError::WorkspaceNotFound { workspace_id } => (
+                StatusCode::NOT_FOUND,
+                format!("Workspace({workspace_id:?}) not found."),
+            )
+                .into_response(),
+            ContextRequestError::Other(err) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        }
     }
 }
 
@@ -436,17 +453,18 @@ async fn search_workspace(
     Path(id): Path<i64>,
     Json(payload): Json<WorkspaceSearchInput>,
 ) -> Response {
-    match ctx.get_permission(claims.user.id, id).await {
-        Ok(Some(_)) => (), // read permission
-        Ok(_) => return StatusCode::FORBIDDEN.into_response(),
+    match ctx.can_read_workspace(claims.user.id, id).await {
+        Ok(true) => (),
+        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
 
-    match ctx.search_workspace(id, &payload.query).await {
-        Ok(results) => Json(results).into_response(),
-        Err(err) if format!("{err}").contains("not found") => StatusCode::NOT_FOUND.into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    }
+    let search_results = match ctx.search_workspace(id, &payload.query).await {
+        Ok(results) => results,
+        Err(err) => return err.into_response(),
+    };
+
+    Json(search_results).into_response()
 }
 
 async fn get_members(
