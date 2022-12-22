@@ -5,6 +5,7 @@ use std::sync::Arc;
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use chrono::{NaiveDateTime, Utc};
+use handlebars::Handlebars;
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::{DocStorage, SearchResults, Workspace as JWSTWorkspace};
@@ -40,7 +41,7 @@ struct FirebaseContext {
 pub struct MailContext {
     pub client: AsyncSmtpTransport<Tokio1Executor>,
     pub mail_box: Mailbox,
-    pub title: String,
+    pub template: Handlebars<'static>,
 }
 
 pub struct DocStore {
@@ -77,6 +78,7 @@ impl DocStore {
 
 pub struct Context {
     pub key: KeyContext,
+    pub site_url: String,
     pub http_client: Client,
     firebase: RwLock<FirebaseContext>,
     pub mail: MailContext,
@@ -152,11 +154,24 @@ impl Context {
 
             let mail_from = dotenvy::var("MAIL_FROM").expect("should provide email from");
             let mail_box = mail_from.parse().expect("shoud provide valid mail from");
-            let title = dotenvy::var("MAIL_TITLE").expect("should provide email title");
+            let mut template = Handlebars::new();
+            let invite_title =
+                dotenvy::var("MAIL_INVITE_TITLE").expect("should provide email title");
+            template
+                .register_template_string("INVITE_TITLE", invite_title)
+                .expect("should privide valid email title");
+
+            let invite_file =
+                dotenvy::var("MAIL_INVITE_FILE").expect("should provide email content");
+
+            template
+                .register_template_file("MAIL_INVITE_CONTENT", &invite_file)
+                .expect("should privide valid email file");
+
             MailContext {
                 client,
                 mail_box,
-                title,
+                template,
             }
         };
 
@@ -169,6 +184,8 @@ impl Context {
 
         let blob = BlobFsStorage::new(Some(16), Path::new(&blob_env).into()).await;
 
+        let site_url = dotenvy::var("SITE_URL").expect("should provide side url");
+
         let ctx = Self {
             db,
             key,
@@ -177,6 +194,7 @@ impl Context {
             http_client: Client::new(),
             doc: DocStore::new().await,
             blob,
+            site_url,
             ws: WebSocketContext::new(),
         };
 

@@ -61,7 +61,7 @@ impl Context {
             user_id INTEGER REFERENCES users(id),
             user_email TEXT,
             type SMALLINT NOT NULL,
-            accepted BOOL DEFAULT True,
+            accepted BOOL DEFAULT False,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE (workspace_id, user_id),
             UNIQUE (workspace_id, user_email)
@@ -78,6 +78,22 @@ impl Context {
         query_as::<_, User>(stmt)
             .bind(email)
             .fetch_optional(&self.db)
+            .await
+    }
+
+    pub async fn get_workspace_owner(&self, workspace_id: i64) -> sqlx::Result<User> {
+        let stmt = format!(
+            "SELECT
+                users.id, users.name, users.email, users.avatar_url, users.created_at
+            FROM permissions
+            INNER JOIN users
+                ON permissions.user_id = users.id
+            WHERE workspace_id = $1 AND type = {}",
+            PermissionType::Owner as i16
+        );
+        query_as::<_, User>(&stmt)
+            .bind(workspace_id)
+            .fetch_one(&self.db)
             .await
     }
 
@@ -250,20 +266,7 @@ impl Context {
             None => return Ok(None),
         };
 
-        let get_owner = format!(
-            "SELECT
-                users.id, users.name, users.email, users.avatar_url, users.created_at
-            FROM permissions
-            INNER JOIN users
-                ON permissions.user_id = users.id
-            WHERE workspace_id = $1 AND type = {}",
-            PermissionType::Owner as i16
-        );
-
-        let owner = query_as::<_, User>(&get_owner)
-            .bind(workspace_id)
-            .fetch_one(&self.db)
-            .await?;
+        let owner = self.get_workspace_owner(workspace_id).await?;
 
         let get_member_count = "SELECT COUNT(permissions.id)
             FROM permissions
@@ -376,9 +379,9 @@ impl Context {
 
     pub async fn get_workspace_members(&self, workspace_id: i64) -> sqlx::Result<Vec<Member>> {
         let stmt = "SELECT 
-            permissions.id, permissions.type,
+            permissions.id, permissions.type, permissions.user_email,
             permissions.accepted, permissions.created_at,
-            users.id as user_id, users.name as user_name, users.email as user_email, users.avatar_url,
+            users.id as user_id, users.name as user_name, users.email as user_table_email, users.avatar_url,
             users.created_at as user_created_at
         FROM permissions
         LEFT JOIN users
@@ -499,7 +502,7 @@ impl Context {
     }
 
     pub async fn delete_permission(&self, permission_id: i64) -> sqlx::Result<bool> {
-        let stmt = "DELETE FROM permissions WHERE permission_id = $1";
+        let stmt = "DELETE FROM permissions WHERE id = $1";
 
         query(&stmt)
             .bind(permission_id)

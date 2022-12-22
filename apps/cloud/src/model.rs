@@ -2,6 +2,7 @@ use chrono::naive::serde::{ts_milliseconds, ts_seconds};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use sqlx::{self, postgres::PgRow, types::chrono::NaiveDateTime, FromRow, Row, Type};
+use yrs::Map;
 
 #[derive(Debug, Deserialize)]
 pub struct GoogleClaims {
@@ -266,4 +267,18 @@ pub struct BigId {
 #[derive(FromRow)]
 pub struct Count {
     pub count: i64,
+}
+
+pub struct WorkspaceMetadata {
+    pub name: String,
+    pub avatar: String,
+}
+
+impl WorkspaceMetadata {
+    pub fn parse(metadata: &Map) -> Option<Self> {
+        let name = metadata.get("name")?.to_string();
+        let avatar = metadata.get("avatar")?.to_string();
+
+        Some(WorkspaceMetadata { name, avatar })
+    }
 }

@@ -46,20 +46,20 @@ job "affine-cloud" {
                 MAIL_PASSWORD = ""
                 MAIL_FROM = "noreply@toeverything.info"
                 MAIL_PROVIDER = "smtp.gmail.com"
-                MAIL_TITLE = "Send from AFFiNE Cloud"
-                MAIL_CONTENT_PATH = "/mails"
+                MAIL_INVITE_TITLE = "{inviter_name} invited you to join {workspace_name}"
+                MAIL_INVITE_FILE = "/app/invite.html"
+                SITE_URL = "https://pathfinder.affine.systems"
                 DOC_STORAGE_PATH =  "/docs"
                 BLOB_STORAGE_PATH = "/blobs"
             }
             config {
-                image       = "ghcr.io/toeverything/cloud:canary-42dc93544903fdf88aebac25da866ed80c1e0fdb"
+                image       = "ghcr.io/toeverything/cloud:canary-b6b4ec7b811408911c91d4c877f5646683dedf57"
                 force_pull  = true
                 ports       = ["affine-cloud"]
                 labels      = {
                     "io.portainer.accesscontrol.teams" = "development"
                 }
                 volumes     = [
-                    "/home/affine/affine-cloud/mails:/mails",
                     "/home/affine/affine-cloud/docs:/docs",
                     "/home/affine/affine-cloud/blobs:/blobs"
                 ]

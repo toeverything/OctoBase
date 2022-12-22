@@ -64,6 +64,7 @@ dependencies = [
  "dashmap",
  "dotenvy",
  "futures 0.3.25",
+ "handlebars",
  "hmac",
  "http",
  "http-body",

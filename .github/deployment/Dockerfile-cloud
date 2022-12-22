@@ -10,11 +10,13 @@ COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
 COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config
 RUN --mount=type=cache,target=/home/rust/src/target,rw,id=cloud_amd64 \
     cargo build --release --no-default-features --package affine-cloud && \
-    mv /home/rust/src/target/x86_64-unknown-linux-musl/release/affine-cloud /tmp/cloud-amd64
+    mv /home/rust/src/target/x86_64-unknown-linux-musl/release/affine-cloud /tmp/cloud-amd64 && \
+    mv /home/rust/src/apps/cloud/static /tmp/static
 
 FROM ghcr.io/toeverything/affine:nightly-keck as relocate
 WORKDIR /app
 COPY --from=builder-amd64 /tmp/cloud-amd64 ./cloud
+COPY --from=builder-amd64 /tmp/static ./
 
 FROM alpine:latest as cloud
 WORKDIR /app
