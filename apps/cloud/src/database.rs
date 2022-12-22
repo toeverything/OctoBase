@@ -376,7 +376,7 @@ impl Context {
 
     pub async fn get_workspace_members(&self, workspace_id: i64) -> sqlx::Result<Vec<Member>> {
         let stmt = "SELECT 
-            permissions.id, permissions.type, permissions.user_email
+            permissions.id, permissions.type, permissions.user_email,
             permissions.accepted, permissions.created_at,
             users.id as user_id, users.name as user_name, users.email as user_table_email, users.avatar_url,
             users.created_at as user_created_at
