@@ -51,9 +51,10 @@ job "affine-cloud" {
                 SITE_URL = "https://pathfinder.affine.systems"
                 DOC_STORAGE_PATH =  "/docs"
                 BLOB_STORAGE_PATH = "/blobs"
+                FIREBASE_PROJECT_ID = "pathfinder-52392"
             }
             config {
-                image       = "ghcr.io/toeverything/cloud:canary-b6b4ec7b811408911c91d4c877f5646683dedf57"
+                image       = "ghcr.io/toeverything/cloud:canary-d86de96c8d291f6e0d3365985d52a1b3efa3be02"
                 force_pull  = true
                 ports       = ["affine-cloud"]
                 labels      = {
