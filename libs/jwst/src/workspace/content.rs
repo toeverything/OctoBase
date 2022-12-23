@@ -103,7 +103,11 @@ impl Content {
                     PROTOCOL.handle_sync_step2(&mut self.awareness, Update::decode_v1(&update)?)
                 }
                 SyncMessage::Update(update) => {
-                    PROTOCOL.handle_update(&mut self.awareness, Update::decode_v1(&update)?)
+                    let mut txn = self.awareness.doc().transact();
+                    txn.apply_update(Update::decode_v1(&update)?);
+                    txn.commit();
+                    let update = txn.encode_update_v1();
+                    Ok(Some(Message::Sync(SyncMessage::Update(update))))
                 }
             },
             Message::Auth(reason) => PROTOCOL.handle_auth(&self.awareness, reason),

@@ -188,7 +188,7 @@ impl Context {
 
         let blob = BlobFsStorage::new(Some(16), Path::new(&blob_env).into()).await;
 
-        let site_url = dotenvy::var("SITE_URL").expect("should provide side url");
+        let site_url = dotenvy::var("SITE_URL").expect("should provide site url");
 
         let ctx = Self {
             db,

@@ -171,7 +171,7 @@ async fn handle_socket(
                         let mut reader = MessageReader::new(&mut decoder);
 
                         // TODO: subdoc
-                        let update = if let Some(msg) = reader.next() {
+                        let message = if let Some(msg) = reader.next() {
                             if let Ok(msg) = msg {
                                 msg
                             } else {
@@ -190,35 +190,38 @@ async fn handle_socket(
 
                         let reply = {
                             let mut doc = doc.write().await;
+                            use y_sync::sync::{Message, SyncMessage};
 
                             let reply = match catch_unwind(AssertUnwindSafe(|| {
-                                doc.sync_handle_message(update)
+                                doc.sync_handle_message(message)
                             })) {
-                                Ok(Ok(Some(reply))) => reply.encode_v1(),
+                                Ok(Ok(Some(reply))) => reply,
                                 Ok(Ok(None)) => continue,
                                 _ => return,
                             };
 
-                            let write_res = task_ctx
-                                .doc
-                                .storage
-                                .write_update(workspace_id, &reply)
-                                .await;
+                            if let Message::Sync(SyncMessage::Update(update)) = &reply {
+                                let write_res = task_ctx
+                                    .doc
+                                    .storage
+                                    .write_update(workspace_id, update)
+                                    .await;
 
-                            match write_res {
-                                Ok(true) => (),
-                                Ok(false) => {
-                                    if let Err(_) = task_ctx
-                                        .doc
-                                        .storage
-                                        .write_doc(workspace_id, doc.doc())
-                                        .await
-                                    {
-                                        break;
+                                match write_res {
+                                    Ok(true) => (),
+                                    Ok(false) => {
+                                        if let Err(_) = task_ctx
+                                            .doc
+                                            .storage
+                                            .write_doc(workspace_id, doc.doc())
+                                            .await
+                                        {
+                                            break;
+                                        }
                                     }
-                                }
-                                Err(_) => break,
-                            };
+                                    Err(_) => break,
+                                };
+                            }
 
                             reply
                         };
@@ -227,7 +230,7 @@ async fn handle_socket(
 
                         for s in socket.iter() {
                             if s.id != id {
-                                let _ = s.sender.send(Message::Binary(reply.clone())).await;
+                                let _ = s.sender.send(Message::Binary(reply.encode_v1())).await;
                             }
                         }
                     } else {
