@@ -34,6 +34,7 @@ pub struct KeyContext {
 }
 
 struct FirebaseContext {
+    id: String,
     expires: NaiveDateTime,
     pub_key: HashMap<String, DecodingKey>,
 }
@@ -175,7 +176,10 @@ impl Context {
             }
         };
 
+        let firebase_id = dotenvy::var("FIREBASE_PROJECT_ID").expect("should provide Firebase ID");
+
         let firebase = RwLock::new(FirebaseContext {
+            id: firebase_id,
             expires: NaiveDateTime::MIN,
             pub_key: HashMap::new(),
         });
@@ -254,7 +258,11 @@ impl Context {
         };
         let key = state.pub_key.get(&header.kid?)?;
 
-        match decode::<GoogleClaims>(&token, key, &Validation::new(header.alg)).map(|d| d.claims) {
+        let mut validation = Validation::new(header.alg);
+
+        validation.set_audience(&[&state.id]);
+
+        match decode::<GoogleClaims>(&token, key, &validation).map(|d| d.claims) {
             Ok(c) => Some(c),
             Err(e) => {
                 info!("invalid token {}", e);
