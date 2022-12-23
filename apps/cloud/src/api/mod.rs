@@ -502,7 +502,6 @@ async fn make_invite_email(
 
         WorkspaceMetadata::parse(ws.metadata())?
     };
-    println!("load metadata");
 
     let mut file = ctx.blob.get(&metadata.avatar).await.ok()?;
 
@@ -510,8 +509,6 @@ async fn make_invite_email(
     while let Some(chunk) = file.next().await {
         file_content.extend(chunk.ok()?);
     }
-
-    println!("load avatar");
 
     let workspace_avatar = lettre::message::Body::new(file_content);
 
@@ -532,8 +529,6 @@ async fn make_invite_email(
             },
         )
         .ok()?;
-
-    println!("load title");
 
     #[derive(Serialize)]
     struct Content {
@@ -558,8 +553,6 @@ async fn make_invite_email(
             },
         )
         .ok()?;
-
-    println!("load content");
 
     let msg_body = MultiPart::mixed().multipart(
         MultiPart::mixed().multipart(
@@ -628,14 +621,12 @@ async fn invite_member(
         Ok(_) => {}
         // TODO: https://github.com/lettre/lettre/issues/743
         Err(e) if e.is_response() => {
-            if let Err(e) = ctx.mail.client.send(email).await {
-                println!("{e}");
+            if let Err(_) = ctx.mail.client.send(email).await {
                 let _ = ctx.delete_permission(permission_id);
                 return StatusCode::INTERNAL_SERVER_ERROR.into_response();
             }
         }
-        Err(e) => {
-            println!("{e}");
+        Err(_) => {
             let _ = ctx.delete_permission(permission_id).await;
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
