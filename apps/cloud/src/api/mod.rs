@@ -17,7 +17,6 @@ use http::{
     },
     HeaderMap, HeaderValue, StatusCode,
 };
-use http_body::combinators::UnsyncBoxBody;
 use jwst::{BlobStorage, DocStorage, Workspace as JWSTWorkspace};
 use lettre::{
     message::{Attachment, Mailbox, MultiPart, SinglePart},
@@ -34,8 +33,8 @@ use crate::{
     layer::make_firebase_auth_layer,
     model::{
         Claims, CreatePermission, CreateWorkspace, MakeToken, PermissionType, RefreshToken,
-        UpdateWorkspace, UserCred, UserQuery, UserToken, UserWithNonce, WorkspaceSearchInput,
-        WorkspaceMetadata
+        UpdateWorkspace, UserCred, UserQuery, UserToken, UserWithNonce, WorkspaceMetadata,
+        WorkspaceSearchInput,
     },
     utils::URL_SAFE_ENGINE,
 };
@@ -503,17 +502,16 @@ async fn make_invite_email(
 
         WorkspaceMetadata::parse(ws.metadata())?
     };
+    println!("load metadata");
 
     let mut file = ctx.blob.get(&metadata.avatar).await.ok()?;
 
     let mut file_content = Vec::new();
     while let Some(chunk) = file.next().await {
-        if let Ok(chunk) = chunk {
-            file_content.extend(&chunk);
-        } else {
-            return None;
-        }
+        file_content.extend(chunk.ok()?);
     }
+
+    println!("load avatar");
 
     let workspace_avatar = lettre::message::Body::new(file_content);
 
@@ -534,6 +532,8 @@ async fn make_invite_email(
             },
         )
         .ok()?;
+
+    println!("load title");
 
     #[derive(Serialize)]
     struct Content {
@@ -558,6 +558,8 @@ async fn make_invite_email(
             },
         )
         .ok()?;
+
+    println!("load content");
 
     let msg_body = MultiPart::mixed().multipart(
         MultiPart::mixed().multipart(
@@ -626,12 +628,14 @@ async fn invite_member(
         Ok(_) => {}
         // TODO: https://github.com/lettre/lettre/issues/743
         Err(e) if e.is_response() => {
-            if let Err(_) = ctx.mail.client.send(email).await {
+            if let Err(e) = ctx.mail.client.send(email).await {
+                println!("{e}");
                 let _ = ctx.delete_permission(permission_id);
                 return StatusCode::INTERNAL_SERVER_ERROR.into_response();
             }
         }
-        Err(_) => {
+        Err(e) => {
+            println!("{e}");
             let _ = ctx.delete_permission(permission_id).await;
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
