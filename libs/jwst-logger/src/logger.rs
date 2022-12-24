@@ -5,15 +5,13 @@ use tracing_subscriber::prelude::*;
 
 #[inline]
 pub fn init_logger() {
-    let writer = stderr.with_max_level(Level::WARN).or_else(
-        stdout
-            .with_filter(|meta| meta.target() != "sqlx::query" && meta.target() != "runtime.spawn")
-            .with_max_level(if cfg!(debug_assertions) {
-                Level::DEBUG
-            } else {
-                Level::INFO
-            }),
-    );
+    let writer = stderr
+        .with_max_level(Level::WARN)
+        .or_else(stdout.with_max_level(if cfg!(debug_assertions) {
+            Level::DEBUG
+        } else {
+            Level::INFO
+        }));
 
     tracing_subscriber::registry()
         .with(

@@ -60,9 +60,15 @@ where
             let normalized_meta = event.normalized_metadata();
             let meta = normalized_meta.as_ref().unwrap_or_else(|| event.metadata());
 
+            if option_env!("JWST_DEV").is_none() {
+                if meta.target() == "sqlx::query" || meta.target() == "runtime.spawn" {
+                    return Ok(());
+                }
+            }
+
             write!(
                 &mut writer,
-                "[{}][{}][{}] ",
+                "\r[{}][{}][{}] ",
                 Color::DarkGray.paint(LogTime::get_time()),
                 Self::format_level(meta.level()),
                 Color::LightMagenta.paint(meta.target())
