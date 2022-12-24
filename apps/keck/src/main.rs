@@ -1,6 +1,6 @@
 mod server;
 
-use jwst_logger::{init_logger, Level};
+use jwst_logger::init_logger;
 
 #[tokio::main]
 async fn main() {
