@@ -1,47 +1,27 @@
 use super::*;
-use fern::{
-    colors::{Color, ColoredLevelConfig},
-    Dispatch,
-};
+use std::io::{stderr, stdout};
+use tracing::Level;
+use tracing_subscriber::prelude::*;
 
 #[inline]
-pub fn init_logger(level: Level) -> Result<(), log::SetLoggerError> {
-    let colors = ColoredLevelConfig::new()
-        .trace(Color::Black)
-        .debug(Color::White)
-        .info(Color::Green)
-        .warn(Color::Yellow)
-        .debug(Color::Red);
-    Dispatch::new()
-        .format(move |out, message, record| {
-            out.finish(format_args!(
-                "[{}][{:>5}][{}] {}",
-                chrono::Local::now().format("%m-%d %H:%M:%S"),
-                colors.color(record.level()),
-                record.target(),
-                message
-            ))
-        })
-        .level(level.to_level_filter())
-        .chain(Box::new(Logger {}) as Box<dyn log::Log>)
-        .apply()
-}
+pub fn init_logger() {
+    let writer = stderr.with_max_level(Level::WARN).or_else(
+        stdout
+            .with_filter(|meta| meta.target() != "sqlx::query" && meta.target() != "runtime.spawn")
+            .with_max_level(if cfg!(debug_assertions) {
+                Level::DEBUG
+            } else {
+                Level::INFO
+            }),
+    );
 
-pub struct Logger;
-
-impl log::Log for Logger {
-    fn enabled(&self, metadata: &Metadata) -> bool {
-        if cfg!(debug_assertions) && option_env!("JWST_DEV").is_some() {
-            return metadata.target() != "sqlx::query";
-        }
-        metadata.level() <= Level::Info && metadata.target() != "sqlx::query"
-    }
-
-    fn log(&self, record: &Record) {
-        if self.enabled(record.metadata()) {
-            println!("{}", record.args());
-        }
-    }
-
-    fn flush(&self) {}
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .map_writer(move |_| writer)
+                .map_event_format(|e| JWSTFormatter {
+                    default: e.with_timer(LogTime),
+                }),
+        )
+        .init();
 }

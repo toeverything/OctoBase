@@ -70,6 +70,7 @@ dependencies = [
  "http-body",
  "jsonwebtoken",
  "jwst",
+ "jwst-logger",
  "jwst-storage",
  "lettre",
  "lib0",
@@ -86,8 +87,6 @@ dependencies = [
  "tokio",
  "tower",
  "tower-http",
- "tracing",
- "tracing-subscriber",
  "x509-parser",
  "y-sync",
  "yrs",
@@ -1942,8 +1941,12 @@ name = "jwst-logger"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "fern",
  "log",
+ "nu-ansi-term",
+ "tokio",
+ "tracing",
+ "tracing-log",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -4054,6 +4057,7 @@ dependencies = [
  "signal-hook-registry",
  "socket2",
  "tokio-macros",
+ "tracing",
  "windows-sys",
 ]
 

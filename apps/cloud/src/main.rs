@@ -1,7 +1,6 @@
-use std::{net::SocketAddr, sync::Arc};
-
 use axum::{Extension, Router, Server};
-use tracing::{error, info};
+use jwst_logger::{error, info, init_logger};
+use std::{net::SocketAddr, sync::Arc};
 
 mod api;
 mod context;
@@ -12,7 +11,7 @@ mod utils;
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    init_logger();
 
     let context = Arc::new(context::Context::new().await);
 

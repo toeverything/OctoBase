@@ -9,6 +9,7 @@ use handlebars::Handlebars;
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::{DocStorage, SearchResults, Workspace as JWSTWorkspace};
+use jwst_logger::info;
 use jwst_storage::{BlobFsStorage, DocFsStorage};
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
@@ -20,7 +21,6 @@ use reqwest::Client;
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use tokio::sync::{RwLock, RwLockReadGuard};
-use tracing::info;
 use x509_parser::prelude::parse_x509_pem;
 
 use crate::api::WebSocketContext;
