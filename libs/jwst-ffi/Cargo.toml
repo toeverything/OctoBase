@@ -6,9 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lib0 = "0.12.0"
 jwst = { path = "../jwst" }
-yrs = { path = "../yrs" }
+lib0 = { path = "../../forks/y-crdt/lib0" }
+yrs = { path = "../../forks/y-crdt/yrs" }
 
 [lib]
 crate-type = ["staticlib"]

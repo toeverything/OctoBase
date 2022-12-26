@@ -2,7 +2,7 @@ pub use serde_json::Value as JsonValue;
 
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use yrs::Array;
+use yrs::{Array, ArrayRef, Transaction};
 
 #[derive(Serialize, Deserialize, ToSchema, Debug, PartialEq)]
 pub enum HistoryOperation {
@@ -69,22 +69,22 @@ pub struct BlockHistory {
     pub operation: HistoryOperation,
 }
 
-impl From<(Array, String)> for BlockHistory {
-    fn from(params: (Array, String)) -> Self {
-        let (array, block_id) = params;
+impl From<(ArrayRef, &mut Transaction<'_>, String)> for BlockHistory {
+    fn from(params: (ArrayRef, &mut Transaction, String)) -> Self {
+        let (array, trx, block_id) = params;
         Self {
             block_id,
             client: array
-                .get(0)
-                .and_then(|i| i.to_string().parse::<u64>().ok())
+                .get(trx, 0)
+                .and_then(|i| i.to_string(trx).parse::<u64>().ok())
                 .unwrap_or_default(),
             timestamp: array
-                .get(1)
-                .and_then(|i| i.to_string().parse::<u64>().ok())
+                .get(trx, 1)
+                .and_then(|i| i.to_string(trx).parse::<u64>().ok())
                 .unwrap_or_default(),
             operation: array
-                .get(2)
-                .map(|i| i.to_string())
+                .get(trx, 2)
+                .map(|i| i.to_string(trx))
                 .unwrap_or_default()
                 .into(),
         }

@@ -3,6 +3,8 @@
 members = [
     "apps/cloud",
     "apps/keck",
+    "forks/y-crdt/yrs",
+    "forks/y-sync",
     "libs/cang-jie",
     "libs/jwst",
     "libs/jwst-ffi",
@@ -11,9 +13,14 @@ members = [
     "libs/jwst-py",
     "libs/jwst-storage",
     "libs/jwst-wasm",
-    "libs/y-sync",
-    "libs/yrs",
+    "libs/logger",
+    "libs/storage",
 ]
+
+[patch.crates-io]
+yrs = { path = 'forks/y-crdt/yrs' }
+lib0 = { path = 'forks/y-crdt/lib0' }
+y-sync = { path = 'forks/y-sync' }
 
 [profile.release]
 lto = true

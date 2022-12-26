@@ -7,7 +7,10 @@ use y_sync::{
     awareness::Awareness,
     sync::{Error, Message},
 };
-use yrs::{Doc, Map, Subscription, Transaction, UpdateEvent};
+use yrs::{
+    types::ToJson, Doc, Map, MapRef, Transact, Transaction, TransactionMut, UpdateEvent,
+    UpdateSubscription,
+};
 
 use super::PluginMap;
 use plugins::PluginImpl;
@@ -38,14 +41,15 @@ impl Workspace {
         // TODO: Initial index in Tantivy including:
         //  * Tree visitor collecting all child blocks which are correct flavor for extracted text
         //  * Extract prop:text / prop:title for index to block ID in Tantivy
-        let blocks = trx.get_map("blocks");
-        let updated = trx.get_map("updated");
-        let metadata = trx.get_map("space:meta");
+        let blocks = doc.get_or_insert_map("blocks");
+        let updated = doc.get_or_insert_map("updated");
+        let metadata = doc.get_or_insert_map("space:meta");
 
         let workspace = Self {
             content: Content {
                 id: id.as_ref().to_string(),
                 awareness: Awareness::new(doc),
+                doc,
                 blocks,
                 updated,
                 metadata,
@@ -85,13 +89,22 @@ impl Workspace {
         search_plugin.search(options)
     }
 
+    pub fn blocks(&self) -> &MapRef {
+        self.content.blocks()
+    }
+
+    pub fn updated(&self) -> &MapRef {
+        self.content.updated()
+    }
+
     pub fn content(&self) -> &Content {
         &self.content
     }
 
     pub fn with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> T {
         let trx = WorkspaceTransaction {
-            trx: self.content.awareness.doc().transact(),
+            trx: self.doc().transact(),
+            trx_mut: self.doc().transact_mut(),
             ws: self,
         };
 
@@ -100,20 +113,13 @@ impl Workspace {
 
     pub fn get_trx(&self) -> WorkspaceTransaction {
         WorkspaceTransaction {
-            trx: self.content.awareness.doc().transact(),
+            trx: self.doc().transact(),
+            trx_mut: self.doc().transact_mut(),
             ws: self,
         }
     }
     pub fn id(&self) -> String {
         self.content.id()
-    }
-
-    pub fn blocks(&self) -> &Map {
-        self.content.blocks()
-    }
-
-    pub fn updated(&self) -> &Map {
-        self.content.updated()
     }
 
     pub fn doc(&self) -> &Doc {
@@ -141,7 +147,7 @@ impl Workspace {
         self.content.block_iter()
     }
 
-    pub fn metadata(&self) -> &Map {
+    pub fn metadata(&self) -> &MapRef {
         &self.content.metadata
     }
 
@@ -150,11 +156,10 @@ impl Workspace {
         self.content.exists(block_id)
     }
 
-    /// Subscribe to update events.
     pub fn observe(
         &mut self,
-        f: impl Fn(&Transaction, &UpdateEvent) -> () + 'static,
-    ) -> Subscription<UpdateEvent> {
+        f: impl Fn(&TransactionMut, &UpdateEvent) -> () + 'static,
+    ) -> Option<UpdateSubscription> {
         self.content.observe(f)
     }
 
@@ -181,15 +186,17 @@ impl Serialize for Workspace {
         S: Serializer,
     {
         let mut map = serializer.serialize_map(Some(2))?;
-        map.serialize_entry("blocks", &self.content.blocks.to_json())?;
-        map.serialize_entry("updated", &self.content.updated.to_json())?;
+        let read_txn = self.doc().transact();
+        map.serialize_entry("blocks", &self.content.blocks.to_json(&read_txn))?;
+        map.serialize_entry("updated", &self.content.updated.to_json(&read_txn))?;
         map.end()
     }
 }
 
 pub struct WorkspaceTransaction<'a> {
     pub ws: &'a Workspace,
-    pub trx: Transaction,
+    pub trx: Transaction<'a>,
+    pub trx_mut: TransactionMut<'a>,
 }
 
 unsafe impl Send for WorkspaceTransaction<'_> {}
@@ -199,12 +206,12 @@ impl WorkspaceTransaction<'_> {
         self.ws
             .content
             .blocks
-            .remove(&mut self.trx, block_id.as_ref())
+            .remove(&mut self.trx_mut, block_id.as_ref())
             .is_some()
             && self
                 .ws
                 .updated()
-                .remove(&mut self.trx, block_id.as_ref())
+                .remove(&mut self.trx_mut, block_id.as_ref())
                 .is_some()
     }
 
@@ -217,36 +224,57 @@ impl WorkspaceTransaction<'_> {
     {
         Block::new(
             self.ws,
-            &mut self.trx,
+            &self.trx_mut,
             block_id,
             flavor,
             self.ws.client_id(),
         )
     }
 
+    // get a block if exists
+    pub fn get<S>(&self, block_id: S) -> Option<Block>
+    where
+        S: AsRef<str>,
+    {
+        Block::from(self.ws.content(), self.trx, block_id, self.ws.client_id())
+    }
+
+    pub fn exists(&self, block_id: &str) -> bool {
+        self.ws
+            .content()
+            .blocks()
+            .contains(&self.trx, block_id.as_ref())
+    }
+
+    pub fn block_count(&self) -> u32 {
+        self.ws.content().blocks().len(&self.trx)
+    }
+
     pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) {
         let key = key.to_string();
         match value.into() {
             Any::Bool(bool) => {
-                self.ws.metadata().insert(&mut self.trx, key, bool);
+                self.ws.metadata().insert(&mut self.trx_mut, key, bool);
             }
             Any::String(text) => {
                 self.ws
                     .metadata()
-                    .insert(&mut self.trx, key, text.to_string());
+                    .insert(&mut self.trx_mut, key, text.to_string());
             }
             Any::Number(number) => {
-                self.ws.metadata().insert(&mut self.trx, key, number);
+                self.ws.metadata().insert(&mut self.trx_mut, key, number);
             }
             Any::BigInt(number) => {
                 if JS_INT_RANGE.contains(&number) {
-                    self.ws.metadata().insert(&mut self.trx, key, number as f64);
+                    self.ws
+                        .metadata()
+                        .insert(&mut self.trx_mut, key, number as f64);
                 } else {
-                    self.ws.metadata().insert(&mut self.trx, key, number);
+                    self.ws.metadata().insert(&mut self.trx_mut, key, number);
                 }
             }
             Any::Null | Any::Undefined => {
-                self.ws.metadata().remove(&mut self.trx, &key);
+                self.ws.metadata().remove(&mut self.trx_mut, &key);
             }
             Any::Buffer(_) | Any::Array(_) | Any::Map(_) => {}
         }
@@ -257,7 +285,7 @@ impl WorkspaceTransaction<'_> {
 mod test {
     use super::*;
     use log::info;
-    use yrs::{updates::decoder::Decode, Doc, StateVector, Update};
+    use yrs::{updates::decoder::Decode, Doc, ReadTxn, StateVector, Update};
 
     #[test]
     fn doc_load_test() {
@@ -265,15 +293,15 @@ mod test {
         workspace.with_trx(|mut t| {
             let block = t.create("test", "text");
 
-            block.set(&mut t.trx, "test", "test");
+            block.set(&mut t.trx_mut, "test", "test");
         });
 
         let doc = workspace.doc();
 
         let new_doc = {
-            let update = doc.encode_state_as_update_v1(&StateVector::default());
             let doc = Doc::default();
-            let mut trx = doc.transact();
+            let mut trx = doc.transact_mut();
+            let update = trx.encode_state_as_update_v1(&StateVector::default());
             match Update::decode_v1(&update) {
                 Ok(update) => trx.apply_update(update),
                 Err(err) => info!("failed to decode update: {:?}", err),
@@ -282,14 +310,15 @@ mod test {
             doc
         };
 
+        let trx = doc.transact();
         assert_json_diff::assert_json_eq!(
-            doc.transact().get_map("blocks").to_json(),
-            new_doc.transact().get_map("blocks").to_json()
+            doc.transact().get_map("blocks").unwrap().to_json(&trx),
+            new_doc.transact().get_map("blocks").unwrap().to_json(&trx)
         );
 
         assert_json_diff::assert_json_eq!(
-            doc.transact().get_map("updated").to_json(),
-            new_doc.transact().get_map("updated").to_json()
+            doc.transact().get_map("updated").unwrap().to_json(&trx),
+            new_doc.transact().get_map("updated").unwrap().to_json(&trx)
         );
     }
 
@@ -297,28 +326,28 @@ mod test {
     fn workspace() {
         let workspace = Workspace::new("test");
 
+        let mut trx = workspace.get_trx();
+
         assert_eq!(workspace.id(), "test");
-        assert_eq!(workspace.blocks().len(), 0);
-        assert_eq!(workspace.updated().len(), 0);
+        assert_eq!(workspace.blocks().len(&mut trx.trx), 0);
+        assert_eq!(workspace.updated().len(&mut trx.trx), 0);
 
-        let block = workspace.get_trx().create("block", "text");
-        assert_eq!(workspace.blocks().len(), 1);
-        assert_eq!(workspace.updated().len(), 1);
+        let block = trx.create("block", "text");
+
+        assert_eq!(workspace.blocks().len(&mut trx.trx), 1);
+        assert_eq!(workspace.updated().len(&mut trx.trx), 1);
         assert_eq!(block.id(), "block");
-        assert_eq!(block.flavor(), "text");
+        assert_eq!(block.flavor(&mut trx.trx), "text");
 
-        assert_eq!(
-            workspace.get("block").map(|b| b.id()),
-            Some("block".to_owned())
-        );
+        assert_eq!(trx.get("block").map(|b| b.id()), Some("block".to_owned()));
 
-        assert_eq!(workspace.exists("block"), true);
-        assert_eq!(workspace.get_trx().remove("block"), true);
-        assert_eq!(workspace.blocks().len(), 0);
-        assert_eq!(workspace.updated().len(), 0);
-        assert_eq!(workspace.get("block"), None);
+        assert_eq!(trx.exists("block"), true);
+        assert_eq!(trx.remove("block"), true);
+        assert_eq!(workspace.blocks().len(&mut trx.trx), 0);
+        assert_eq!(workspace.updated().len(&mut trx.trx), 0);
+        assert_eq!(trx.get("block"), None);
 
-        assert_eq!(workspace.exists("block"), false);
+        assert_eq!(trx.exists("block"), false);
 
         let doc = Doc::with_client_id(123);
         let workspace = Workspace::from_doc(doc, "test");

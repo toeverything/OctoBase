@@ -26,21 +26,19 @@ tokio = "1.23.0"
 [dependencies.cang-jie]
 path = "../cang-jie"
 
+[dependencies.lib0]
+path = "../../forks/y-crdt/lib0"
+features = ["lib0-serde"]
+
 [dependencies.serde]
 version = "1.0.151"
 features = ["derive"]
 
-[dependencies.lib0]
-version = "0.12.0"
-features = ["lib0-serde"]
+[dependencies.yrs]
+path = "../../forks/y-crdt/yrs"
 
 [dependencies.y-sync]
-path = "../y-sync"
-version = "0.1.0"
-
-[dependencies.yrs]
-path = "../yrs"
-version = "0.12.0"
+path = "../../forks/y-sync"
 
 [dev-dependencies]
 assert-json-diff = "2.0.2"

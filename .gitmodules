@@ -1,0 +1,6 @@
+[submodule "forks/y-crdt"]
+	path = forks/y-crdt
+	url = https://github.com/toeverything/y-crdt
+[submodule "y-sync"]
+	path = forks/y-sync
+	url = https://github.com/toeverything/y-sync.git

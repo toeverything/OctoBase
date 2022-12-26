@@ -1,0 +1,23 @@
+{
+  "folders": [
+    {
+      "path": ".."
+    },
+    {
+      "name": "🔒 YRS 🔒",
+      "path": "../forks/y-crdt/yrs"
+    }
+  ],
+  "settings": {
+    "explorer.fileNesting.expand": false,
+    "files.exclude": {
+      "**/.git": true,
+      "**/.svn": true,
+      "**/.hg": true,
+      "**/CVS": true,
+      "**/.DS_Store": true,
+      "**/Thumbs.db": true,
+      "forks/y-crdt/*": true
+    }
+  }
+}
