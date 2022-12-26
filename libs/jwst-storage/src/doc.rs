@@ -1,6 +1,4 @@
 use super::*;
-use async_trait::async_trait;
-use jwst::DocStorage;
 use std::{
     io::{ErrorKind, SeekFrom},
     path::{Path, PathBuf},
@@ -9,14 +7,14 @@ use yrs::{updates::decoder::Decode, Doc, StateVector, Update};
 
 // The structure of record in disk is basically
 // length of record|record data|record count
-pub struct LocalFs {
+pub struct FileSystem {
     // If we are using a NFS, it would handle max parallel itself
     max_parallel: Option<Semaphore>,
     max_update: usize,
     path: Box<Path>,
 }
 
-impl LocalFs {
+impl FileSystem {
     pub async fn new(max_parallel: Option<u8>, max_update: usize, path: Box<Path>) -> Self {
         let max_parallel = max_parallel.map(|m| Semaphore::new(m as usize));
         let meta = fs::metadata(&path).await.expect("Cannot read path");
@@ -83,7 +81,7 @@ impl LocalFs {
 }
 
 #[async_trait]
-impl DocStorage for LocalFs {
+impl DocStorage for FileSystem {
     async fn get(&self, workspace: i64) -> io::Result<Doc> {
         let _ = self.get_parallel().await;
         let path = self.get_path(workspace);

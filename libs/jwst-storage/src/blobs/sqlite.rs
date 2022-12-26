@@ -1,8 +1,5 @@
 use super::*;
-use async_trait::async_trait;
-use bytes::Bytes;
-use futures::{stream, stream::StreamExt, Stream};
-use sha2::{Digest, Sha256};
+use chrono::Utc;
 use sqlx::{query, query_as, Error};
 use std::{
     collections::HashSet,
@@ -10,7 +7,6 @@ use std::{
     sync::{Arc, RwLock},
 };
 use tokio::io;
-use tokio_util::io::ReaderStream;
 
 #[derive(sqlx::FromRow, Debug, PartialEq)]
 pub struct BlobBinary {
@@ -56,7 +52,11 @@ impl SQLite {
 
     pub async fn create(&self, table: &str) -> Result<(), Error> {
         let stmt = format!(
-            "CREATE TABLE IF NOT EXISTS {} (hash TEXT PRIMARY KEY, blob BLOB);",
+            "CREATE TABLE IF NOT EXISTS {} (
+                hash TEXT PRIMARY KEY,
+                blob BLOB,
+                created_at TIMESTAMP
+            );",
             table
         );
 
@@ -108,16 +108,46 @@ impl SQLite {
         Ok(ret.0 == 1)
     }
 
+    pub async fn metadata(&self, table: &str, hash: &str) -> Result<BlobMetadata, Error> {
+        if !self.workspaces.read().unwrap().contains(table) {
+            self.create(table).await?
+        }
+
+        #[derive(sqlx::FromRow)]
+        struct Metadata {
+            size: i64,
+            created_at: i64,
+        }
+
+        let stmt = format!(
+            "SELECT length(blob) as size, created_at from {} where hash = ?",
+            table
+        );
+        let ret = query_as::<_, Metadata>(&stmt)
+            .bind(hash)
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(BlobMetadata {
+            size: ret.size as u64,
+            last_modified: chrono::NaiveDateTime::from_timestamp_millis(ret.created_at).unwrap(),
+        })
+    }
+
     pub async fn insert(&self, table: &str, hash: &str, blob: &[u8]) -> Result<(), Error> {
         if !self.workspaces.read().unwrap().contains(table) {
             self.create(table).await?
         }
 
         if !self.exists(table, hash).await? {
-            let stmt = format!("INSERT INTO {} (`hash`, `blob`) VALUES (?, ?);", table);
+            let stmt = format!(
+                "INSERT INTO {} (`hash`, `blob`, `created_at`) VALUES (?, ?, ?);",
+                table
+            );
             query(&stmt)
                 .bind(hash)
                 .bind(blob)
+                .bind(Utc::now().timestamp_millis())
                 .execute(&self.pool)
                 .await?;
         }
@@ -156,7 +186,7 @@ impl SQLite {
         let buffer = stream
             .flat_map(|buffer| {
                 hasher.update(&buffer);
-                stream::iter(buffer)
+                iter(buffer)
             })
             .collect()
             .await;
@@ -179,7 +209,11 @@ impl BlobStorage for SQLite {
         Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
     }
     async fn get_metadata(&self, workspace: String, id: String) -> io::Result<BlobMetadata> {
-        Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
+        if let Ok(metadata) = self.metadata(&workspace, &id).await {
+            Ok(metadata)
+        } else {
+            Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
+        }
     }
     async fn put_blob(
         &self,
@@ -263,6 +297,11 @@ mod tests {
             }]
         );
         assert_eq!(pool.count("basic").await?, 1);
+
+        let metadata = pool.metadata("basic", "test1").await?;
+
+        assert_eq!(metadata.size, 4);
+        assert_eq!(metadata.last_modified.timestamp(), Utc::now().timestamp());
 
         Ok(())
     }

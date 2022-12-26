@@ -1,16 +1,11 @@
 use super::*;
-use async_trait::async_trait;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
-use futures::{stream::StreamExt, Stream};
-use jwst::{BlobMetadata, BlobStorage};
-use sha2::{Digest, Sha256};
 use std::{
     path::Path,
     sync::atomic::{AtomicU8, Ordering},
 };
 use tokio::fs::create_dir_all;
-use tokio_util::io::ReaderStream;
 
 pub struct FileSystem {
     // If we are using a NFS, it would handle max parallel itself

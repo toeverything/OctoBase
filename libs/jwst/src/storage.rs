@@ -2,11 +2,8 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use chrono::NaiveDateTime;
 use futures::Stream;
-use std::path::Path;
 use tokio::io;
 use yrs::Doc;
-
-use crate::workspace;
 
 #[async_trait]
 pub trait DocStorage {
@@ -17,6 +14,7 @@ pub trait DocStorage {
     async fn delete(&self, workspace_id: i64) -> io::Result<()>;
 }
 
+#[derive(Debug)]
 pub struct BlobMetadata {
     pub size: u64,
     pub last_modified: NaiveDateTime,
