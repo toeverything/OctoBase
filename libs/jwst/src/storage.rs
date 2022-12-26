@@ -6,6 +6,8 @@ use std::path::Path;
 use tokio::io;
 use yrs::Doc;
 
+use crate::workspace;
+
 #[async_trait]
 pub trait DocStorage {
     async fn get(&self, workspace_id: i64) -> io::Result<Doc>;
@@ -24,12 +26,13 @@ pub struct BlobMetadata {
 pub trait BlobStorage {
     type Read: Stream + Send;
 
-    async fn get(&self, path: impl AsRef<Path> + Send) -> io::Result<Self::Read>;
-    async fn get_metadata(&self, path: impl AsRef<Path> + Send) -> io::Result<BlobMetadata>;
-    async fn put(
+    async fn get_blob(&self, workspace: Option<String>, id: String) -> io::Result<Self::Read>;
+    async fn get_metadata(&self, workspace: String, id: String) -> io::Result<BlobMetadata>;
+    async fn put_blob(
         &self,
+        workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
-        prefix: Option<String>,
     ) -> io::Result<String>;
-    async fn delete(&self, path: impl AsRef<Path> + Send) -> io::Result<()>;
+    async fn delete_blob(&self, workspace: Option<String>, id: String) -> io::Result<()>;
+    async fn delete_workspace(&self, workspace: String) -> io::Result<()>;
 }

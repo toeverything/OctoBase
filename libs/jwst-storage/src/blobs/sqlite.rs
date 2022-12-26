@@ -1,20 +1,16 @@
 use super::*;
 use async_trait::async_trait;
 use bytes::Bytes;
-use futures::{sink::Buffer, stream, stream::StreamExt, Stream};
-use path_ext::PathExt;
+use futures::{stream, stream::StreamExt, Stream};
+use sha2::{Digest, Sha256};
 use sqlx::{query, query_as, Error};
 use std::{
     collections::HashSet,
     io::Cursor,
-    path::Path,
     sync::{Arc, RwLock},
 };
-use tokio::{
-    io::{self, AsyncBufReadExt, AsyncRead, BufReader, BufStream},
-    sync::SemaphorePermit,
-};
-use tokio_util::io::{ReaderStream, StreamReader};
+use tokio::io;
+use tokio_util::io::ReaderStream;
 
 #[derive(sqlx::FromRow, Debug, PartialEq)]
 pub struct BlobBinary {
@@ -22,12 +18,12 @@ pub struct BlobBinary {
     pub blob: Vec<u8>,
 }
 
-pub struct BlobEmbeddedStorage {
+pub struct SQLite {
     pool: DatabasePool,
     workspaces: Arc<RwLock<HashSet<String>>>,
 }
 
-impl BlobEmbeddedStorage {
+impl SQLite {
     pub async fn init_pool(file: &str) -> Result<Self, Error> {
         use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
         use std::fs::create_dir;
@@ -52,37 +48,6 @@ impl BlobEmbeddedStorage {
             pool,
             workspaces: Arc::default(),
         })
-    }
-
-    // async fn get_parallel(&self) -> Option<SemaphorePermit> {
-    //     if let Some(m) = &self.max_parallel {
-    //         Some(m.acquire().await.unwrap())
-    //     } else {
-    //         None
-    //     }
-    // }
-
-    fn split_path(path: impl AsRef<Path> + Send) -> Option<[String; 2]> {
-        if let [Some(name), Some(path)] = path.as_ref().components().fold(
-            [Option::<String>::None, Option::<String>::None],
-            |[name, path], c| {
-                if name.is_none() {
-                    [Some(c.full_str().into()), path]
-                } else {
-                    [
-                        name,
-                        path.map_or_else(
-                            || Some(c.full_str().into()),
-                            |s| format!("{}/{}", s, c.full_str()).into(),
-                        ),
-                    ]
-                }
-            },
-        ) {
-            Some([name, path])
-        } else {
-            None
-        }
     }
 
     pub async fn close(&self) {
@@ -184,54 +149,67 @@ impl BlobEmbeddedStorage {
         query(&stmt).execute(&self.pool).await?;
         Ok(())
     }
+
+    pub async fn get_hash(stream: impl Stream<Item = Bytes> + Send) -> (String, Vec<u8>) {
+        let mut hasher = Sha256::new();
+
+        let buffer = stream
+            .flat_map(|buffer| {
+                hasher.update(&buffer);
+                stream::iter(buffer)
+            })
+            .collect()
+            .await;
+
+        let hash = base64::encode_engine(hasher.finalize(), &URL_SAFE_ENGINE);
+        (hash, buffer)
+    }
 }
 
 #[async_trait]
-impl BlobStorage for BlobEmbeddedStorage {
+impl BlobStorage for SQLite {
     type Read = ReaderStream<Cursor<Vec<u8>>>;
 
-    async fn get(&self, path: impl AsRef<Path> + Send) -> io::Result<Self::Read> {
-        if let Some([table, name]) = Self::split_path(path) {
-            if let Ok(blob) = self.get(&table, &name).await {
-                return Ok(ReaderStream::new(Cursor::new(blob.blob)));
-            }
+    async fn get_blob(&self, workspace: Option<String>, id: String) -> io::Result<Self::Read> {
+        let workspace = workspace.unwrap_or("__default__".into());
+        if let Ok(blob) = self.get(&workspace, &id).await {
+            return Ok(ReaderStream::new(Cursor::new(blob.blob)));
         }
+
         Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
     }
-
-    async fn put(
+    async fn get_metadata(&self, workspace: String, id: String) -> io::Result<BlobMetadata> {
+        Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
+    }
+    async fn put_blob(
         &self,
+        workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
-        prefix: Option<String>,
     ) -> io::Result<String> {
-        // let buffer =
+        let workspace = workspace.unwrap_or("__default__".into());
 
-        // self.put_file(
-        //     &prefix
-        //         .map(|prefix| self.path.join(prefix))
-        //         .unwrap_or_else(|| self.path.to_path_buf()),
-        //     stream,
-        // )
-        // .await
-        Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
+        let (hash, blob) = Self::get_hash(stream).await;
+
+        if self.insert(&workspace, &hash, &blob).await.is_ok() {
+            Ok(hash)
+        } else {
+            Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
+        }
     }
-
-    async fn delete(&self, path: impl AsRef<Path> + Send) -> io::Result<()> {
-        // let _ = self.get_parallel().await;
-        // fs::remove_file(self.path.join(path)).await
-        Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
+    async fn delete_blob(&self, workspace: Option<String>, id: String) -> io::Result<()> {
+        let workspace = workspace.unwrap_or("__default__".into());
+        if let Ok(_success) = self.delete(&workspace, &id).await {
+            Ok(())
+        } else {
+            Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
+        }
     }
-
-    async fn get_metadata(&self, path: impl AsRef<Path> + Send) -> io::Result<BlobMetadata> {
-        // self.count(table)
-        // let last_modified = meta.modified()?;
-        // let last_modifier: DateTime<Utc> = last_modified.into();
-
-        // Ok(BlobMetadata {
-        //     size: 0,                           // meta.len(),
-        //     last_modified: Default::default(), //last_modifier.naive_utc(),
-        // })
-        Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
+    async fn delete_workspace(&self, workspace: String) -> io::Result<()> {
+        if self.drop(&workspace).await.is_ok() {
+            Ok(())
+        } else {
+            Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
+        }
     }
 }
 
@@ -239,13 +217,13 @@ impl BlobStorage for BlobEmbeddedStorage {
 mod tests {
     use super::*;
 
-    async fn init_memory_pool() -> Result<BlobEmbeddedStorage, Error> {
+    async fn init_memory_pool() -> Result<SQLite, Error> {
         use sqlx::sqlite::SqliteConnectOptions;
         use std::str::FromStr;
         let path = format!("sqlite::memory:");
         let options = SqliteConnectOptions::from_str(&path)?.create_if_missing(true);
         let pool = sqlx::SqlitePool::connect_with(options).await?;
-        Ok(BlobEmbeddedStorage {
+        Ok(SQLite {
             pool,
             workspaces: Arc::default(),
         })

@@ -55,3 +55,7 @@ tower-http = { version = "0.3.5", features = ["auth"] }
 x509-parser = "0.14.0"
 y-sync = { path = "../../libs/y-sync" }
 yrs = { path = "../../libs/yrs" }
+
+[dependencies.tokio-util]
+version = "^0.7.4"
+features = ["io"]

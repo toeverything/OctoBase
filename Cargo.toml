@@ -5,7 +5,6 @@ members = [
     "apps/keck",
     "libs/cang-jie",
     "libs/jwst",
-    "libs/jwst-embedded",
     "libs/jwst-ffi",
     "libs/jwst-jni",
     "libs/jwst-logger",

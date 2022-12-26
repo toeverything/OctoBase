@@ -48,7 +48,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/user", get(query_user))
         .route("/user/token", post(make_token))
         .route("/blob", put(upload_blob))
-        .route("/blob/:name", get(get_blob))
+        .route("/blob/:workspace/:name", get(get_blob))
         .route("/invitation/:path", post(accept_invitation))
         .nest(
             "/",
@@ -190,18 +190,18 @@ impl IntoResponse for ContextRequestError {
 impl Context {
     async fn get_blob(
         &self,
-        name: &str,
-        path: &std::path::Path,
+        workspace: String,
+        id: String,
         method: http::Method,
         headers: HeaderMap,
     ) -> Response {
         if let Some(etag) = headers.get(IF_NONE_MATCH).and_then(|h| h.to_str().ok()) {
-            if etag == name {
+            if etag == id {
                 return StatusCode::NOT_MODIFIED.into_response();
             }
         }
 
-        let Ok(meta) = self.blob.get_metadata(path).await else {
+        let Ok(meta) = self.blob.get_metadata(workspace.clone(), id.clone()).await else {
             return StatusCode::NOT_FOUND.into_response()
         };
 
@@ -216,7 +216,7 @@ impl Context {
         }
 
         let mut header = HeaderMap::with_capacity(5);
-        header.insert(ETAG, HeaderValue::from_str(&name).unwrap());
+        header.insert(ETAG, HeaderValue::from_str(&id).unwrap());
 
         header.insert(
             CONTENT_TYPE,
@@ -243,7 +243,7 @@ impl Context {
             return header.into_response();
         };
 
-        let Ok(file) = self.blob.get(path).await else {
+        let Ok(file) = self.blob.get_blob(Some(workspace),id).await else {
             return StatusCode::NOT_FOUND.into_response()
         };
 
@@ -261,12 +261,12 @@ impl Context {
             .filter_map(|data| future::ready(data.ok()));
         let workspace = workspace.map(|id| id.to_string());
 
-        if let Ok(path) = self.blob.put(stream, workspace).await {
+        if let Ok(id) = self.blob.put_blob(workspace.clone(), stream).await {
             if has_error {
-                let _ = self.blob.delete(&path).await;
+                let _ = self.blob.delete_blob(workspace, id).await;
                 StatusCode::INTERNAL_SERVER_ERROR.into_response()
             } else {
-                path.into_response()
+                id.into_response()
             }
         } else {
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -276,13 +276,11 @@ impl Context {
 
 async fn get_blob(
     Extension(ctx): Extension<Arc<Context>>,
-    Path(name): Path<String>,
+    Path((workspace, id)): Path<(String, String)>,
     method: http::Method,
     headers: HeaderMap,
 ) -> Response {
-    let path = std::path::Path::new(&name);
-
-    ctx.get_blob(&name, path, method, headers).await
+    ctx.get_blob(workspace, id, method, headers).await
 }
 
 async fn upload_blob(
@@ -375,7 +373,7 @@ async fn delete_workspace(
 
     match ctx.delete_workspace(id).await {
         Ok(true) => {
-            let _ = ctx.blob.delete(&id.to_string()).await;
+            let _ = ctx.blob.delete_workspace(id.to_string()).await;
             StatusCode::OK.into_response()
         }
         Ok(false) => StatusCode::NOT_FOUND.into_response(),
@@ -386,7 +384,7 @@ async fn delete_workspace(
 async fn get_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path((workspace, name)): Path<(i64, String)>,
+    Path((workspace, id)): Path<(i64, String)>,
     method: http::Method,
     headers: HeaderMap,
 ) -> Response {
@@ -397,9 +395,8 @@ async fn get_blob_in_workspace(
     }
 
     let workspace = workspace.to_string();
-    let path = std::path::Path::new(&workspace).join(&name);
 
-    ctx.get_blob(&name, &path, method, headers).await
+    ctx.get_blob(workspace, id, method, headers).await
 }
 
 async fn get_doc(
@@ -503,7 +500,7 @@ async fn make_invite_email(
         WorkspaceMetadata::parse(ws.metadata())?
     };
 
-    let mut file = ctx.blob.get(&metadata.avatar).await.ok()?;
+    let mut file = ctx.blob.get_blob(None, metadata.avatar).await.ok()?;
 
     let mut file_content = Vec::new();
     while let Some(chunk) = file.next().await {

@@ -12,20 +12,14 @@ use std::{
 use tokio::fs::create_dir_all;
 use tokio_util::io::ReaderStream;
 
-pub struct LocalFs {
+pub struct FileSystem {
     // If we are using a NFS, it would handle max parallel itself
     max_parallel: Option<Semaphore>,
     path: Box<Path>,
     temp_counter: AtomicU8,
 }
 
-const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
-    base64::engine::fast_portable::FastPortable::from(
-        &base64::alphabet::URL_SAFE,
-        base64::engine::fast_portable::NO_PAD,
-    );
-
-impl LocalFs {
+impl FileSystem {
     pub async fn new(max_parallel: Option<u8>, path: Box<Path>) -> Self {
         let max_parallel = max_parallel.map(|m| Semaphore::new(m as usize));
         let meta = fs::metadata(&path).await.expect("Cannot read path");
@@ -99,20 +93,26 @@ impl LocalFs {
 }
 
 #[async_trait]
-impl BlobStorage for LocalFs {
+impl BlobStorage for FileSystem {
     type Read = ReaderStream<File>;
 
-    async fn get(&self, path: impl AsRef<Path> + Send) -> io::Result<Self::Read> {
+    async fn get_blob(&self, workspace: Option<String>, id: String) -> io::Result<Self::Read> {
         let _ = self.get_parallel().await;
-        let file = File::open(self.path.join(path)).await?;
+        let file = File::open(
+            workspace
+                .map(|workspace| self.path.join(workspace))
+                .unwrap_or_else(|| self.path.to_path_buf())
+                .join(id),
+        )
+        .await?;
 
         let file = ReaderStream::new(file);
 
         Ok(file)
     }
 
-    async fn get_metadata(&self, path: impl AsRef<Path> + Send) -> io::Result<BlobMetadata> {
-        let meta = fs::metadata(self.path.join(path)).await?;
+    async fn get_metadata(&self, workspace: String, id: String) -> io::Result<BlobMetadata> {
+        let meta = fs::metadata(self.path.join(workspace).join(id)).await?;
 
         let last_modified = meta.modified()?;
         let last_modifier: DateTime<Utc> = last_modified.into();
@@ -123,22 +123,33 @@ impl BlobStorage for LocalFs {
         })
     }
 
-    async fn put(
+    async fn put_blob(
         &self,
+        workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
-        prefix: Option<String>,
     ) -> io::Result<String> {
         self.put_file(
-            &prefix
-                .map(|prefix| self.path.join(prefix))
+            &workspace
+                .map(|workspace| self.path.join(workspace))
                 .unwrap_or_else(|| self.path.to_path_buf()),
             stream,
         )
         .await
     }
 
-    async fn delete(&self, path: impl AsRef<Path> + Send) -> io::Result<()> {
+    async fn delete_blob(&self, workspace: Option<String>, id: String) -> io::Result<()> {
         let _ = self.get_parallel().await;
-        fs::remove_file(self.path.join(path)).await
+        fs::remove_file(
+            &workspace
+                .map(|workspace| self.path.join(workspace))
+                .unwrap_or_else(|| self.path.to_path_buf())
+                .join(id),
+        )
+        .await
+    }
+
+    async fn delete_workspace(&self, workspace: String) -> io::Result<()> {
+        let _ = self.get_parallel().await;
+        fs::remove_dir_all(self.path.join(workspace)).await
     }
 }
