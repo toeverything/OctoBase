@@ -8,7 +8,8 @@ use yrs::{
         decoder::{Decode, DecoderV1},
         encoder::{Encode, Encoder, EncoderV1},
     },
-    Doc, Map, StateVector, Subscription, Transaction, Update, UpdateEvent,
+    Doc, Map, MapRef, ReadTxn, StateVector, Transact, TransactionMut, Update, UpdateEvent,
+    UpdateSubscription,
 };
 
 static PROTOCOL: DefaultProtocol = DefaultProtocol;
@@ -18,9 +19,10 @@ static PROTOCOL: DefaultProtocol = DefaultProtocol;
 pub struct Content {
     pub(super) id: String,
     pub(super) awareness: Awareness,
-    pub(super) blocks: Map,
-    pub(super) updated: Map,
-    pub(super) metadata: Map,
+    pub(super) doc: Doc,
+    pub(super) blocks: MapRef,
+    pub(super) updated: MapRef,
+    pub(super) metadata: MapRef,
 }
 
 impl Content {
@@ -28,11 +30,11 @@ impl Content {
         self.id.clone()
     }
 
-    pub fn blocks(&self) -> &Map {
+    pub fn blocks(&self) -> &MapRef {
         &self.blocks
     }
 
-    pub fn updated(&self) -> &Map {
+    pub fn updated(&self) -> &MapRef {
         &self.updated
     }
 
@@ -41,7 +43,7 @@ impl Content {
     }
 
     pub fn client_id(&self) -> u64 {
-        self.awareness.doc().client_id
+        self.awareness.doc().client_id()
     }
 
     // get a block if exists
@@ -49,43 +51,57 @@ impl Content {
     where
         S: AsRef<str>,
     {
-        Block::from(self, block_id, self.client_id())
+        Block::from(self, self.doc.transact(), block_id, self.client_id())
     }
 
     pub fn block_count(&self) -> u32 {
-        self.blocks.len()
+        self.blocks.len(&self.doc.transact())
     }
 
     #[inline]
     pub fn block_iter<'a>(&'a self) -> impl Iterator<Item = Block> + 'a {
+        let txn = self.doc.transact();
         self.blocks
-            .iter()
-            .zip(self.updated.iter())
+            .iter(&txn)
+            .zip(self.updated.iter(&txn))
             .map(|((id, block), (_, updated))| {
                 Block::from_raw_parts(
                     id.to_owned(),
+                    &txn,
                     block.to_ymap().unwrap(),
                     updated.to_yarray().unwrap(),
                     self.client_id(),
                 )
             })
+            // Originally, this was collected and into_iter to save time during
+            // yrs 0.14 update.
+            //
+            // TODO: consider if we can actually make this an iterator, or
+            // if there is a long term issue with holding a Transaction open
+            // while iterating, because it read locks the document.
+            .collect::<Vec<_>>()
+            .into_iter()
     }
 
     /// Check if the block exists in this workspace's blocks.
     pub fn exists(&self, block_id: &str) -> bool {
-        self.blocks.contains(block_id.as_ref())
+        self.blocks
+            .contains(&self.doc.transact(), block_id.as_ref())
     }
 
     /// Subscribe to update events.
     pub fn observe(
         &mut self,
-        f: impl Fn(&Transaction, &UpdateEvent) -> () + 'static,
-    ) -> Subscription<UpdateEvent> {
-        self.awareness.doc_mut().observe_update_v1(f)
+        f: impl Fn(&TransactionMut, &UpdateEvent) -> () + 'static,
+    ) -> Option<UpdateSubscription> {
+        // TODO: should we be able to expect able to observe?
+        // OR: Should we return a Result...
+        self.awareness.doc_mut().observe_update_v1(f).ok()
     }
 
     pub fn sync_migration(&self) -> Vec<u8> {
         self.doc()
+            .transact()
             .encode_state_as_update_v1(&StateVector::default())
     }
 

@@ -3,8 +3,6 @@
 members = [
     "apps/cloud",
     "apps/keck",
-    "forks/y-crdt/yrs",
-    "forks/y-sync",
     "libs/cang-jie",
     "libs/jwst",
     "libs/jwst-ffi",
@@ -13,9 +11,9 @@ members = [
     "libs/jwst-py",
     "libs/jwst-storage",
     "libs/jwst-wasm",
-    "libs/logger",
-    "libs/storage",
 ]
+
+exclude = ["forks/y-crdt/yrs", "forks/y-crdt/lib0", "forks/y-sync"]
 
 [patch.crates-io]
 yrs = { path = 'forks/y-crdt/yrs' }

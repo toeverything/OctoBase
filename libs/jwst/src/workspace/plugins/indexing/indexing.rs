@@ -1,6 +1,7 @@
 use super::{Content, PluginImpl};
 use lib0::any::Any;
 use serde::{Deserialize, Serialize};
+use yrs::Transact;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{atomic::AtomicU32, Arc};
@@ -26,7 +27,7 @@ pub struct IndexingPluginImpl {
     pub(super) index: Rc<Index>,
     pub(super) query_parser: QueryParser,
     // need to keep so it gets dropped with this plugin
-    pub(super) _update_sub: yrs::Subscription<yrs::UpdateEvent>,
+    pub(super) _update_sub: yrs::UpdateSubscription,
 }
 
 impl IndexingPluginImpl {
@@ -76,10 +77,11 @@ impl PluginImpl for IndexingPluginImpl {
         let curr = self.queue_reindex.load(std::sync::atomic::Ordering::SeqCst);
         if curr > 0 {
             let mut re_index_list = HashMap::<String, (Option<String>, Option<String>)>::new();
+            let txn = ws.doc().transact();
             // TODO: reindex
             for block in ws.block_iter() {
-                let title = block.content().get("title").map(ToOwned::to_owned);
-                let body = block.content().get("text").map(ToOwned::to_owned);
+                let title = block.content(&txn).get("title").map(ToOwned::to_owned);
+                let body = block.content(&txn).get("text").map(ToOwned::to_owned);
                 re_index_list.insert(
                     block.id(),
                     (

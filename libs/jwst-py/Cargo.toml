@@ -10,6 +10,6 @@ crate-type = ["cdylib"]
 
 
 [dependencies]
-pyo3 = { version = "0.17.3"}
+pyo3 = { version = "0.17.3" }
 jwst = { path = "../jwst" }
-yrs = { path = "../yrs" }
+yrs = { path = "../../forks/y-crdt/yrs" }

@@ -106,7 +106,7 @@ impl PluginRegister for IndexingPluginRegister {
             index,
             queue_reindex,
             // needs to drop sub with everything else
-            _update_sub: sub,
+            _update_sub: sub.expect("able to add subscription for re-indexing"),
         })
     }
 }

@@ -2,14 +2,12 @@ use crate::{utils::JS_INT_RANGE, workspace::Content};
 
 use super::*;
 use lib0::any::Any;
-use serde::{Serialize, Serializer};
+
 use std::collections::HashMap;
-use std::{collections::HashMap, ops::RangeInclusive};
 use yrs::{
     types::ToJson, Array, ArrayPrelim, ArrayRef, Map, MapPrelim, MapRef, ReadTxn, Transaction,
     TransactionMut,
 };
-use yrs::{Array, Map, PrelimArray, PrelimMap, Transaction};
 
 #[derive(Debug, PartialEq)]
 pub struct Block {
@@ -43,7 +41,7 @@ impl Block {
     {
         let block_id = block_id.as_ref();
         workspace.with_trx(|trx| {
-            if let Some(block) = Self::from(workspace, trx.trx, block_id, operator) {
+            if let Some(block) = Self::from(workspace.content(), trx.trx, block_id, operator) {
                 block
             } else {
                 // init base struct
@@ -101,7 +99,7 @@ impl Block {
         })
     }
 
-    pub fn from<B>(workspace: &Content, trx: T, block_id: B, operator: u64) -> Option<Block>
+    pub fn from<B, T>(workspace: &Content, trx: T, block_id: B, operator: u64) -> Option<Block>
     where
         B: AsRef<str>,
         T: ReadTxn,
@@ -124,12 +122,12 @@ impl Block {
 
     pub fn from_raw_parts(
         id: String,
-        trx: &mut Transaction,
+        txn: &Transaction,
         block: MapRef,
         updated: ArrayRef,
         operator: u64,
     ) -> Block {
-        let children = block.get(trx, "sys:children").unwrap().to_yarray().unwrap();
+        let children = block.get(txn, "sys:children").unwrap().to_yarray().unwrap();
         Self {
             id,
             operator,
@@ -279,11 +277,11 @@ impl Block {
         self.children.iter(trx).map(|v| v.to_string(trx))
     }
 
-    pub fn children_len(&self, trx: &mut Transaction) -> u32 {
+    pub fn children_len(&self, trx: &Transaction) -> u32 {
         self.children.len(trx)
     }
 
-    pub(crate) fn content(&self, trx: &mut Transaction) -> HashMap<String, Any> {
+    pub(crate) fn content(&self, trx: &Transaction) -> HashMap<String, Any> {
         self.block
             .iter(trx)
             .filter_map(|(key, val)| {
