@@ -7,8 +7,8 @@ license = "AGPL-3.0-only"
 
 [features]
 default = ["jwst"]
-jwst = ["api", "schema", "docs", "sqlx/sqlite"]
-mysc = ["api", "schema", "docs", "sqlx/mysql", "dotenvy"]
+jwst = ["api", "schema", "docs", "jwst-storage/sqlite"]
+mysc = ["api", "schema", "docs", "jwst-storage/mysql"]
 api = ["utoipa"]
 docs = ["mdbook"]
 schema = ["utoipa-swagger-ui"]
@@ -72,6 +72,9 @@ path = "../../libs/jwst"
 
 [dependencies.jwst-logger]
 path = "../../libs/jwst-logger"
+
+[dependencies.jwst-storage]
+path = "../../libs/jwst-storage"
 
 [dependencies.sqlx]
 version = "^0.6.2"

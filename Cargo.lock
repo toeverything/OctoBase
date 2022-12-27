@@ -2045,6 +2045,7 @@ dependencies = [
  "http",
  "jwst",
  "jwst-logger",
+ "jwst-storage",
  "lib0",
  "log",
  "mdbook",

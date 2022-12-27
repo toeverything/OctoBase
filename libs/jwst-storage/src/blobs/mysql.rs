@@ -10,12 +10,6 @@ use tokio::io;
 
 type DatabasePool = sqlx::MySqlPool;
 
-#[derive(sqlx::FromRow, Debug, PartialEq)]
-pub struct BlobBinary {
-    pub hash: String,
-    pub blob: Vec<u8>,
-}
-
 pub struct MySQL {
     pool: DatabasePool,
     workspaces: Arc<RwLock<HashSet<String>>>,

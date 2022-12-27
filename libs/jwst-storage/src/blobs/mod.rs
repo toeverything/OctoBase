@@ -19,6 +19,12 @@ const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
         base64::engine::fast_portable::NO_PAD,
     );
 
+#[derive(sqlx::FromRow, Debug, PartialEq)]
+pub struct BlobBinary {
+    pub hash: String,
+    pub blob: Vec<u8>,
+}
+
 #[cfg(feature = "mysql")]
 pub use mysql::MySQL as BlobMySQLStorage;
 #[cfg(feature = "sqlite")]

@@ -10,12 +10,6 @@ use tokio::io;
 
 type DatabasePool = sqlx::SqlitePool;
 
-#[derive(sqlx::FromRow, Debug, PartialEq)]
-pub struct BlobBinary {
-    pub hash: String,
-    pub blob: Vec<u8>,
-}
-
 pub struct SQLite {
     pool: DatabasePool,
     workspaces: Arc<RwLock<HashSet<String>>>,
@@ -43,6 +37,18 @@ impl SQLite {
             .journal_mode(SqliteJournalMode::Wal)
             .create_if_missing(true);
         DatabasePool::connect_with(options).await.map(|pool| Self {
+            pool,
+            workspaces: Arc::default(),
+        })
+    }
+
+    pub async fn init_memory_pool() -> Result<SQLite, Error> {
+        use sqlx::sqlite::SqliteConnectOptions;
+        use std::str::FromStr;
+        let path = format!("sqlite::memory:");
+        let options = SqliteConnectOptions::from_str(&path)?.create_if_missing(true);
+        let pool = DatabasePool::connect_with(options).await?;
+        Ok(SQLite {
             pool,
             workspaces: Arc::default(),
         })
@@ -236,25 +242,11 @@ impl BlobStorage for SQLite {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    async fn init_memory_pool() -> Result<SQLite, Error> {
-        use sqlx::sqlite::SqliteConnectOptions;
-        use std::str::FromStr;
-        let path = format!("sqlite::memory:");
-        let options = SqliteConnectOptions::from_str(&path)?.create_if_missing(true);
-        let pool = DatabasePool::connect_with(options).await?;
-        Ok(SQLite {
-            pool,
-            workspaces: Arc::default(),
-        })
-    }
-
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
         use super::*;
 
-        let pool = init_memory_pool().await?;
+        let pool = BlobSQLiteStorage::init_memory_pool().await?;
         pool.create("basic").await?;
 
         // empty table
