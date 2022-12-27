@@ -9,5 +9,5 @@ use tokio::{
     sync::{Semaphore, SemaphorePermit},
 };
 
-pub use blobs::{FileSystem as BlobFsStorage, SQLite as BlobSQLiteStorage};
+pub use blobs::*;
 pub use doc::FileSystem as DocFsStorage;
