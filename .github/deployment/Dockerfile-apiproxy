@@ -1,6 +1,6 @@
 FROM caddy:latest as apiproxy
 WORKDIR /app
-COPY ./.github/deployment/Caddyfile ./Caddyfile
+COPY ./.github/deployment/Caddyfile-apiproxy ./Caddyfile
 
 EXPOSE 80
 CMD ["caddy", "run"]
