@@ -106,8 +106,18 @@ impl BlobStorage for FileSystem {
         Ok(file)
     }
 
-    async fn get_metadata(&self, workspace: String, id: String) -> io::Result<BlobMetadata> {
-        let meta = fs::metadata(self.path.join(workspace).join(id)).await?;
+    async fn get_metadata(
+        &self,
+        workspace: Option<String>,
+        id: String,
+    ) -> io::Result<BlobMetadata> {
+        let meta = fs::metadata(
+            workspace
+                .map(|workspace| self.path.join(workspace))
+                .unwrap_or_else(|| self.path.to_path_buf())
+                .join(id),
+        )
+        .await?;
 
         let last_modified = meta.modified()?;
         let last_modifier: DateTime<Utc> = last_modified.into();

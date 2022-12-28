@@ -25,7 +25,8 @@ pub trait BlobStorage {
     type Read: Stream + Send;
 
     async fn get_blob(&self, workspace: Option<String>, id: String) -> io::Result<Self::Read>;
-    async fn get_metadata(&self, workspace: String, id: String) -> io::Result<BlobMetadata>;
+    async fn get_metadata(&self, workspace: Option<String>, id: String)
+        -> io::Result<BlobMetadata>;
     async fn put_blob(
         &self,
         workspace: Option<String>,

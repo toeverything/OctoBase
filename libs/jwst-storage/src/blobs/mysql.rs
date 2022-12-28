@@ -170,7 +170,12 @@ impl BlobStorage for MySQL {
 
         Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
     }
-    async fn get_metadata(&self, workspace: String, id: String) -> io::Result<BlobMetadata> {
+    async fn get_metadata(
+        &self,
+        workspace: Option<String>,
+        id: String,
+    ) -> io::Result<BlobMetadata> {
+        let workspace = workspace.unwrap_or("__default__".into());
         if let Ok(metadata) = self.metadata(&workspace, &id).await {
             Ok(metadata)
         } else {

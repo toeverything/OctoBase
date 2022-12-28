@@ -48,7 +48,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/user", get(query_user))
         .route("/user/token", post(make_token))
         .route("/blob", put(upload_blob))
-        .route("/blob/:workspace/:name", get(get_blob))
+        .route("/blob/:name", get(get_blob))
         .route("/invitation/:path", post(accept_invitation))
         .nest(
             "/",
@@ -190,7 +190,7 @@ impl IntoResponse for ContextRequestError {
 impl Context {
     async fn get_blob(
         &self,
-        workspace: String,
+        workspace: Option<String>,
         id: String,
         method: http::Method,
         headers: HeaderMap,
@@ -243,7 +243,7 @@ impl Context {
             return header.into_response();
         };
 
-        let Ok(file) = self.blob.get_blob(Some(workspace),id).await else {
+        let Ok(file) = self.blob.get_blob(workspace, id).await else {
             return StatusCode::NOT_FOUND.into_response()
         };
 
@@ -276,11 +276,11 @@ impl Context {
 
 async fn get_blob(
     Extension(ctx): Extension<Arc<Context>>,
-    Path((workspace, id)): Path<(String, String)>,
+    Path(id): Path<String>,
     method: http::Method,
     headers: HeaderMap,
 ) -> Response {
-    ctx.get_blob(workspace, id, method, headers).await
+    ctx.get_blob(None, id, method, headers).await
 }
 
 async fn upload_blob(
@@ -396,7 +396,7 @@ async fn get_blob_in_workspace(
 
     let workspace = workspace.to_string();
 
-    ctx.get_blob(workspace, id, method, headers).await
+    ctx.get_blob(Some(workspace), id, method, headers).await
 }
 
 async fn get_doc(
