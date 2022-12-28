@@ -1,0 +1,9 @@
+:3001 {
+	encode gzip
+	reverse_proxy https://www.googleapis.com {
+	    header_up Host {http.reverse_proxy.upstream.hostport}
+	}
+    basicauth / {
+        affine JDJhJDE0JGxzMnR5VC9ScmI4bEhmSFlHY3lpNHUxN3dMOUN6LkszVS9TaUVtOXpMTzF3SkwvVWliTkl5
+    }
+}

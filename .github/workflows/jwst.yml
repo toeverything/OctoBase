@@ -36,6 +36,7 @@ concurrency:
 env:
     REGISTRY: ghcr.io
     NAMESPACE: toeverything
+    APIPROXY_IMAGE_NAME: apiproxy
     CLOUD_IMAGE_NAME: cloud
     JWST_IMAGE_NAME: jwst
     MYSC_IMAGE_NAME: mysc
@@ -102,9 +103,7 @@ jobs:
               uses: docker/metadata-action@v4
               with:
                   images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}
-                  tags: |
-                      ${{ env.IMAGE_TAG }}
-                      ${{ env.IMAGE_TAG_LATEST }}
+                  tags: ${{ env.IMAGE_TAG_LATEST }}
 
             - name: Build and push Docker image (jwst)
               uses: docker/build-push-action@v3
@@ -152,6 +151,43 @@ jobs:
                   tags: ${{ steps.meta_mysc.outputs.tags }}
                   labels: ${{ steps.meta_mysc.outputs.labels }}
                   target: mysc
+
+    apiproxy:
+        runs-on: self-hosted
+        environment: development
+        permissions:
+            contents: read
+            packages: write
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+
+            - name: Log in to the Container registry
+              uses: docker/login-action@v2
+              with:
+                  registry: ${{ env.REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
+
+            - name: Extract metadata (tags, labels) for Docker (apiproxy)
+              id: meta_apiproxy
+              uses: docker/metadata-action@v4
+              with:
+                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.APIPROXY_IMAGE_NAME }}
+                  tags: |
+                      ${{ env.IMAGE_TAG }}
+                      ${{ env.IMAGE_TAG_LATEST }}
+
+            - name: Build and push Docker image (apiproxy)
+              uses: docker/build-push-action@v3
+              with:
+                  context: .
+                  file: ./.github/deployment/Dockerfile-apiproxy
+                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
+                  tags: ${{ steps.meta_apiproxy.outputs.tags }}
+                  labels: ${{ steps.meta_apiproxy.outputs.labels }}
+                  target: apiproxy
 
     lint:
         runs-on: ubuntu-latest

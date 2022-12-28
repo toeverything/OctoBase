@@ -15,13 +15,17 @@ job "affine-cloud" {
 
         network {
             port "affine-cloud" {
-                # Specifies the static TCP/UDP port to allocate.
                 static       = 11001
                 to           = 3000
                 host_network = "tailscale"
             }
             port "postgres" {
                 to           = 5432
+            }
+            port "apiproxy" {
+                static       = 11002
+                to           = 3001
+                host_network = "tailscale"
             }
         }
 
@@ -52,6 +56,8 @@ job "affine-cloud" {
                 DOC_STORAGE_PATH = "/docs"
                 BLOB_STORAGE_PATH = "/blobs"
                 FIREBASE_PROJECT_ID = "pathfinder-52392"
+                # GOOGLE_ENDPOINT = "http://100.77.180.48:11002"
+                # GOOGLE_ENDPOINT_PASSWORD = "Dct4pq9E9V"
             }
             config {
                 image       = "ghcr.io/toeverything/cloud:canary-d86de96c8d291f6e0d3365985d52a1b3efa3be02"
@@ -107,6 +113,23 @@ job "affine-cloud" {
                     "io.portainer.accesscontrol.teams" = "development"
                 }
                 volumes     = ["/home/affine/affine-cloud/database:/var/lib/postgresql/data"]
+            }
+            resources {
+                cpu    = 100 # MHz
+                memory = 64  # MB
+            }
+        }
+
+        task "apiproxy" {
+            driver = "docker"
+
+            config {
+                image       = "ghcr.io/toeverything/apiproxy:nightly-latest"
+                force_pull  = true
+                ports       = ["apiproxy"]
+                labels      = {
+                    "io.portainer.accesscontrol.teams" = "development"
+                }
             }
             resources {
                 cpu    = 100 # MHz

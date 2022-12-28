@@ -208,11 +208,24 @@ impl Context {
     }
 
     async fn init_from_firebase(&self) -> RwLockReadGuard<FirebaseContext> {
-        let req = self.http_client.get(
-            "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
-        )
-        .send()
-        .await.unwrap();
+        let client = if let Ok(endpoint) = dotenvy::var("GOOGLE_ENDPOINT") {
+            let endpoint = format!(
+                "{}/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
+                endpoint
+            );
+            self.http_client.get(endpoint).basic_auth(
+                "affine",
+                Some(
+                    dotenvy::var("GOOGLE_ENDPOINT_PASSWORD")
+                        .expect("should provide google endpoint password"),
+                ),
+            )
+        } else {
+            let endpoint = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com";
+            self.http_client.get(endpoint)
+        };
+
+        let req = client.send().await.unwrap();
 
         let now = Utc::now().naive_utc();
         let cache = req.headers().get(CACHE_CONTROL).unwrap().to_str().unwrap();

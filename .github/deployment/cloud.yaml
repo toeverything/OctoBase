@@ -1,0 +1,35 @@
+version: '3'
+
+services:
+    affine-cloud:
+        image: ghcr.io/toeverything/cloud:canary-d86de96c8d291f6e0d3365985d52a1b3efa3be02
+        ports:
+            - 12001:3000
+        environment:
+            - DATABASE_URL = "postgresql://affine:affine@${NOMAD_ADDR_postgres}/affine"
+            - SIGN_KEY = ""
+            - MAIL_ACCOUNT = ""
+            - MAIL_PASSWORD = ""
+            - MAIL_FROM=noreply@toeverything.info
+            - MAIL_PROVIDER=smtp.gmail.com
+            - MAIL_INVITE_TITLE={{inviter_name}} invited you to join {{workspace_name}}
+            - MAIL_INVITE_FILE=/app/invite.html
+            - SITE_URL=https://pathfinder.affine.systems
+            - DOC_STORAGE_PATH= "/docs
+            - BLOB_STORAGE_PATH=/blobs
+            - FIREBASE_PROJECT_ID=pathfinder-52392
+            # - GOOGLE_ENDPOINT=http://100.77.180.48:11002
+            # - GOOGLE_ENDPOINT_PASSWORD=Dct4pq9E9V
+        volumes:
+            - ./docs:/docs
+            - ./blobs:/blobs
+        restart: always
+    postgres:
+        image: postgres
+        environment:
+            - POSTGRES_USER=affine
+            - POSTGRES_PASSWORD=VUGtzvTSbnu4
+            - POSTGRES_DB=affine
+        volumes:
+            - ./database:/var/lib/postgresql/data
+        restart: always
