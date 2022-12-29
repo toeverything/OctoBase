@@ -3,7 +3,7 @@ use std::{
     io::{ErrorKind, SeekFrom},
     path::{Path, PathBuf},
 };
-use yrs::{updates::decoder::Decode, Doc, StateVector, Update};
+use yrs::{updates::decoder::Decode, Doc, StateVector, Transact, Update};
 
 // The structure of record in disk is basically
 // length of record|record data|record count
@@ -52,7 +52,7 @@ impl FileSystem {
     async fn parse_file(&self, file: &mut File) -> io::Result<Doc> {
         let mut file = BufReader::new(file);
         let doc = Doc::new();
-        let mut trx = doc.transact();
+        let mut trx = doc.transact_mut();
 
         loop {
             let len = file.read_u64_le().await;
@@ -75,6 +75,7 @@ impl FileSystem {
         }
 
         trx.commit();
+        drop(trx);
 
         Ok(doc)
     }
@@ -83,12 +84,13 @@ impl FileSystem {
 #[async_trait]
 impl DocStorage for FileSystem {
     async fn get(&self, workspace: i64) -> io::Result<Doc> {
-        let _ = self.get_parallel().await;
-        let path = self.get_path(workspace);
+        // let _ = self.get_parallel().await;
+        // let path = self.get_path(workspace);
 
-        let mut file = File::open(path).await?;
+        // let mut file = File::open(path).await?;
 
-        self.parse_file(&mut file).await
+        // self.parse_file(&mut file).await
+        todo!("future created by async block is not `Send`")
     }
 
     /// This function is not atomic -- please provide external lock mechanism
@@ -103,7 +105,8 @@ impl DocStorage for FileSystem {
             .open(path)
             .await?;
 
-        let data = doc.encode_state_as_update_v1(&StateVector::default());
+        let data = [];
+        todo!("doc.encode_state_as_update_v1(&StateVector::default())");
 
         let data = Self::make_record(&data, 0);
 

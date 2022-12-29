@@ -32,17 +32,17 @@ pub unsafe extern "C" fn block_destroy(block: *mut Block) {
 
 #[no_mangle]
 pub unsafe extern "C" fn block_get_created(block: *const Block) -> u64 {
-    block.as_ref().unwrap().created()
+    block.as_ref().unwrap().created(todo!("get a ReadTxn"))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn block_get_updated(block: *const Block) -> u64 {
-    block.as_ref().unwrap().updated()
+    block.as_ref().unwrap().updated(todo!("get a ReadTxn"))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn block_get_flavor(block: *const Block) -> *mut c_char {
-    CString::new(block.as_ref().unwrap().flavor())
+    CString::new(block.as_ref().unwrap().flavor(todo!("get a ReadTxn")))
         .unwrap()
         .into_raw()
 }
@@ -58,7 +58,7 @@ pub unsafe extern "C" fn block_get_children(block: *const Block) -> *mut BlockCh
     let mut child: Box<[*mut c_char]> = block
         .as_ref()
         .unwrap()
-        .children()
+        .children(todo!("get a ReadTxn"))
         .into_iter()
         .map(|id| CString::new(id).unwrap().into_raw())
         .collect();
@@ -180,10 +180,10 @@ pub unsafe extern "C" fn block_get_content(
     block: *const Block,
     key: *const c_char,
 ) -> *mut BlockContent {
-    let res = block
-        .as_ref()
-        .unwrap()
-        .get(CStr::from_ptr(key).to_str().unwrap());
+    let res = block.as_ref().unwrap().get(
+        todo!("get a ReadTxn"),
+        CStr::from_ptr(key).to_str().unwrap(),
+    );
 
     if let Some(res) = res {
         match res {
@@ -320,12 +320,14 @@ pub unsafe extern "C" fn workspace_exists_block(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn workspace_get_trx(workspace: *mut Workspace) -> *mut Transaction {
-    Box::into_raw(Box::new(workspace.as_mut().unwrap().get_trx().trx))
+pub unsafe extern "C" fn workspace_get_trx(
+    workspace: *mut Workspace,
+) -> *mut TransactionMut<'static> {
+    Box::into_raw(Box::new(workspace.as_mut().unwrap().get_trx().trx_mut))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn trx_commit(trx: *mut Transaction) {
+pub unsafe extern "C" fn trx_commit(trx: *mut TransactionMut<'static>) {
     drop(Box::from_raw(trx))
 }
 
@@ -333,7 +335,7 @@ pub unsafe extern "C" fn trx_commit(trx: *mut Transaction) {
 pub unsafe extern "C" fn workspace_observe(
     workspace: *mut Workspace,
     env: *mut c_void,
-    func: extern "C" fn(*mut c_void, *const Transaction, *const UpdateEvent),
+    func: extern "C" fn(*mut c_void, *const TransactionMut<'static>, *const UpdateEvent),
 ) -> *mut Subscription<UpdateEvent> {
     Box::into_raw(Box::new(
         workspace

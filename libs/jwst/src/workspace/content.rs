@@ -51,7 +51,7 @@ impl Content {
     where
         S: AsRef<str>,
     {
-        Block::from(self, self.doc.transact(), block_id, self.client_id())
+        Block::from(self, &self.doc.transact(), block_id, self.client_id())
     }
 
     pub fn block_count(&self) -> u32 {

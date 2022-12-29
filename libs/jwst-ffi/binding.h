@@ -94,13 +94,13 @@ bool workspace_remove_block(const JWSTWorkspace *workspace, const char *block_id
 
 bool workspace_exists_block(const JWSTWorkspace *workspace, const char *block_id);
 
-YTransaction *workspace_get_trx(JWSTWorkspace *workspace);
+TransactionMut *workspace_get_trx(JWSTWorkspace *workspace);
 
-void trx_commit(YTransaction *trx);
+void trx_commit(TransactionMut *trx);
 
 Subscription<UpdateEvent> *workspace_observe(JWSTWorkspace *workspace,
                                              void *env,
-                                             void (*func)(void*, const YTransaction*, const UpdateEvent*));
+                                             void (*func)(void*, const TransactionMut*, const UpdateEvent*));
 
 void workspace_unobserve(Subscription<UpdateEvent> *subscription);
 

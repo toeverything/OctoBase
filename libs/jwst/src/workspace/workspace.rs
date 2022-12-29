@@ -8,8 +8,7 @@ use y_sync::{
     sync::{Error, Message},
 };
 use yrs::{
-    types::ToJson, Doc, Map, MapRef, Transact, Transaction, TransactionMut, UpdateEvent,
-    UpdateSubscription,
+    types::ToJson, Doc, Map, MapRef, Transact, TransactionMut, UpdateEvent, UpdateSubscription,
 };
 
 use super::PluginMap;
@@ -36,7 +35,7 @@ impl Workspace {
     }
 
     pub fn from_doc<S: AsRef<str>>(doc: Doc, id: S) -> Workspace {
-        let mut trx = doc.transact();
+        // let mut trx = doc.transact();
 
         // TODO: Initial index in Tantivy including:
         //  * Tree visitor collecting all child blocks which are correct flavor for extracted text
@@ -48,7 +47,7 @@ impl Workspace {
         let workspace = Self {
             content: Content {
                 id: id.as_ref().to_string(),
-                awareness: Awareness::new(doc),
+                awareness: Awareness::new(doc.clone()),
                 doc,
                 blocks,
                 updated,
@@ -103,7 +102,6 @@ impl Workspace {
 
     pub fn with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> T {
         let trx = WorkspaceTransaction {
-            trx: self.doc().transact(),
             trx_mut: self.doc().transact_mut(),
             ws: self,
         };
@@ -113,7 +111,6 @@ impl Workspace {
 
     pub fn get_trx(&self) -> WorkspaceTransaction {
         WorkspaceTransaction {
-            trx: self.doc().transact(),
             trx_mut: self.doc().transact_mut(),
             ws: self,
         }
@@ -195,7 +192,6 @@ impl Serialize for Workspace {
 
 pub struct WorkspaceTransaction<'a> {
     pub ws: &'a Workspace,
-    pub trx: Transaction<'a>,
     pub trx_mut: TransactionMut<'a>,
 }
 
@@ -236,18 +232,23 @@ impl WorkspaceTransaction<'_> {
     where
         S: AsRef<str>,
     {
-        Block::from(self.ws.content(), self.trx, block_id, self.ws.client_id())
+        Block::from(
+            self.ws.content(),
+            &self.trx_mut,
+            block_id,
+            self.ws.client_id(),
+        )
     }
 
     pub fn exists(&self, block_id: &str) -> bool {
         self.ws
             .content()
             .blocks()
-            .contains(&self.trx, block_id.as_ref())
+            .contains(&self.trx_mut, block_id.as_ref())
     }
 
     pub fn block_count(&self) -> u32 {
-        self.ws.content().blocks().len(&self.trx)
+        self.ws.content().blocks().len(&self.trx_mut)
     }
 
     pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) {
@@ -329,22 +330,22 @@ mod test {
         let mut trx = workspace.get_trx();
 
         assert_eq!(workspace.id(), "test");
-        assert_eq!(workspace.blocks().len(&mut trx.trx), 0);
-        assert_eq!(workspace.updated().len(&mut trx.trx), 0);
+        assert_eq!(workspace.blocks().len(&trx.trx_mut), 0);
+        assert_eq!(workspace.updated().len(&trx.trx_mut), 0);
 
         let block = trx.create("block", "text");
 
-        assert_eq!(workspace.blocks().len(&mut trx.trx), 1);
-        assert_eq!(workspace.updated().len(&mut trx.trx), 1);
+        assert_eq!(workspace.blocks().len(&trx.trx_mut), 1);
+        assert_eq!(workspace.updated().len(&trx.trx_mut), 1);
         assert_eq!(block.id(), "block");
-        assert_eq!(block.flavor(&mut trx.trx), "text");
+        assert_eq!(block.flavor(&trx.trx_mut), "text");
 
         assert_eq!(trx.get("block").map(|b| b.id()), Some("block".to_owned()));
 
         assert_eq!(trx.exists("block"), true);
         assert_eq!(trx.remove("block"), true);
-        assert_eq!(workspace.blocks().len(&mut trx.trx), 0);
-        assert_eq!(workspace.updated().len(&mut trx.trx), 0);
+        assert_eq!(workspace.blocks().len(&trx.trx_mut), 0);
+        assert_eq!(workspace.updated().len(&trx.trx_mut), 0);
         assert_eq!(trx.get("block"), None);
 
         assert_eq!(trx.exists("block"), false);

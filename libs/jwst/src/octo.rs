@@ -143,7 +143,7 @@ pub struct OctoBlockCreateOptions {
 }
 
 impl OctoBlockCreateOptions {
-    fn new(id: Rc<str>, flavor: String, properties: HashMap<String, lib0::any::Any>) -> Self {
+    pub fn new(id: Rc<str>, flavor: String, properties: HashMap<String, lib0::any::Any>) -> Self {
         Self {
             id,
             flavor,
@@ -152,7 +152,7 @@ impl OctoBlockCreateOptions {
     }
 }
 
-struct OctoTransactionMut<'doc> {
+pub struct OctoTransactionMut<'doc> {
     /// Check to ensure that our Transaction matches the workspace we're operating on.
     workspace_ref: OctoWorkspaceRef,
     yrs_txn_mut: TransactionMut<'doc>,
