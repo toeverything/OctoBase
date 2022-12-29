@@ -8,8 +8,10 @@ use yrs::{
     types::ToJson, Array, ArrayPrelim, ArrayRef, Map, MapPrelim, MapRef, ReadTxn, Transaction,
     TransactionMut,
 };
+mod octo;
 
 #[derive(Debug, PartialEq)]
+#[deprecated]
 pub struct Block {
     // block schema
     // for example: {
@@ -18,9 +20,12 @@ pub struct Block {
     // }
     // default_props: HashMap<String, BlockField>,
     id: String,
+    // Question: What is the point of an operator, here?
+    //  Shouldn't the operator be supplied via the corresponding Workspace? / Transaction?
     operator: u64,
     block: MapRef,
     children: ArrayRef,
+    // This updated is informed by the Workspace updated MapRef on construction
     updated: ArrayRef,
 }
 
@@ -265,7 +270,7 @@ impl Block {
             })
     }
 
-    pub fn children(&self, trx: &mut Transaction) -> Vec<String> {
+    pub fn children(&self, trx: &Transaction) -> Vec<String> {
         self.children.iter(trx).map(|v| v.to_string(trx)).collect()
     }
 

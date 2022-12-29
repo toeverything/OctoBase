@@ -60,10 +60,14 @@ impl Content {
 
     #[inline]
     pub fn block_iter<'a>(&'a self) -> impl Iterator<Item = Block> + 'a {
+        // Create a transcation, so we can read from the current snapshot
         let txn = self.doc.transact();
+        // Question: Why does block_iter care about updated, while block_count doesn't?
         self.blocks
             .iter(&txn)
             .zip(self.updated.iter(&txn))
+            // depends on the list of blocks and the list of updated to be always in sync, always in same order, and always same length...
+            // that kinda smells like needing a special container is necessary.
             .map(|((id, block), (_, updated))| {
                 Block::from_raw_parts(
                     id.to_owned(),

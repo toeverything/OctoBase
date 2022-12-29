@@ -93,13 +93,13 @@ pub fn parse_history_client(doc: &Doc) -> Option<Vec<u64>> {
     let update = Update::decode_v1(&update).ok()?;
 
     Some(
-        update
-            .as_items()
-            .iter()
-            .map(|i| i.id.client)
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>(),
+        todo!(), // update
+                 //     .as_items()
+                 //     .iter()
+                 //     .map(|i| i.id.client)
+                 //     .collect::<HashSet<_>>()
+                 //     .into_iter()
+                 //     .collect::<Vec<_>>(),
     )
 }
 

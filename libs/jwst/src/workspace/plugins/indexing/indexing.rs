@@ -204,7 +204,7 @@ mod test {
             let d = t.create("d", "affine:text");
             let e = t.create("e", "affine:text");
             let f = t.create("f", "affine:text");
-            let trx = &mut t.trx;
+            let mut trx = &mut t.trx;
 
             b.set(trx, "title", "Title B content");
             b.set(trx, "text", "Text B content bbb xxx");
@@ -230,7 +230,7 @@ mod test {
                 block.insert_children_after(trx, &f, "c");
 
                 assert_eq!(
-                    block.children(),
+                    block.children(&trx),
                     vec![
                         "c".to_owned(),
                         "f".to_owned(),
