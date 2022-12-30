@@ -1,6 +1,6 @@
 mod block;
 mod history;
-mod octo;
+pub mod octo;
 mod storage;
 mod utils;
 mod workspace;

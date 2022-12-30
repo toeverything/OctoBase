@@ -1,3 +1,4 @@
+//! Next iteration of the OctoBase design.
 //! Progress 0/10:
 //!
 //! This is a clean rewrite of OctoBase concepts following the upgrade
@@ -9,10 +10,11 @@ use lib0::any::Any;
 use std::{collections::HashMap, rc::Rc};
 use yrs::{ArrayPrelim, Map, MapPrelim, MapRef, TransactionMut};
 
-mod concepts {
+pub mod concepts {
+    //! Linkable shared documentation of different OctoBase concepts.
+    //!
     //! Progress 1/10:
     //!
-    //! Linkable shared documentation of different OctoBase concepts.
     //!  * I like that we can have a single place to define shared concepts
     //!  * This might be bad if people searching the `cargo doc` find these
     //!    pages and fail to find the actual source code of JWST.
@@ -31,7 +33,8 @@ mod concepts {
     /// Also see [YJSBlockHistory].
     pub struct YJSBlockPropMap;
 
-    /// e.g.
+    /// The built-in properties OctoBase manages on the [YJSBlockPropMap]. For example: `"sys:flavor"` ([SysPropFlavor]), `"sys:created"`, `"sys:children"`.
+    ///
     /// ```json
     /// "sys:flavor": "affine:text",
     /// "sys:created": 946684800000,
@@ -49,6 +52,7 @@ mod concepts {
     /// [particle physics]: https://en.wikipedia.org/wiki/Flavour_(particle_physics)
     pub struct SysPropFlavor;
 
+    /// User defined attributes on the [YJSBlockPropMap]. For example: `"prop:xywh"`, `"prop:text"`, etc.
     /// e.g.
     /// ```json
     /// "prop:text": "123"
