@@ -29,7 +29,6 @@ pub struct DBContext {
 }
 
 impl DBContext {
-        let db_env = dotenvy::var("DATABASE_URL").expect("should provide databse URL");
     pub async fn new(db_env: String) -> DBContext {
         let db = DBPool::connect(&db_env)
             .await

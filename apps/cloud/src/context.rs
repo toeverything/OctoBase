@@ -184,8 +184,9 @@ impl Context {
 
         let site_url = dotenvy::var("SITE_URL").expect("should provide site url");
 
+        let db_env = dotenvy::var("DATABASE_URL").expect("should provide databse URL");
         let ctx = Self {
-            db: DBContext::new().await,
+            db: DBContext::new(db_env).await,
             key,
             firebase,
             mail,
