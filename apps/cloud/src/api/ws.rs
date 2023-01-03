@@ -15,6 +15,7 @@ use axum::{
 use dashmap::{mapref::entry::Entry, DashMap};
 use futures::{SinkExt, StreamExt};
 use jwst::DocStorage;
+use jwst_storage::RefreshToken;
 use serde::Deserialize;
 use tokio::sync::{
     mpsc::{channel, Sender},
@@ -23,7 +24,7 @@ use tokio::sync::{
 use y_sync::sync::MessageReader;
 use yrs::updates::{decoder::DecoderV1, encoder::Encode};
 
-use crate::{context::Context, model::RefreshToken, utils::URL_SAFE_ENGINE};
+use crate::{context::Context, utils::URL_SAFE_ENGINE};
 
 pub struct WebSocketContext {
     id: AtomicU64,
@@ -66,7 +67,7 @@ async fn ws_handler(
         .and_then(|data| serde_json::from_slice(&data).ok());
 
     let user = if let Some(user) = user {
-        if let Ok(true) = ctx.verify_refresh_token(&user).await {
+        if let Ok(true) = ctx.db.verify_refresh_token(&user).await {
             Some(user.user_id)
         } else {
             None
@@ -85,7 +86,7 @@ async fn handle_socket(
     mut socket: WebSocket,
 ) {
     let user_id = if let Some(user_id) = user {
-        if let Ok(true) = ctx.can_read_workspace(user_id, workspace_id).await {
+        if let Ok(true) = ctx.db.can_read_workspace(user_id, workspace_id).await {
             Some(user_id)
         } else {
             None
