@@ -19,7 +19,7 @@ http-body = "0.4.5"
 jsonwebtoken = "8.1.1"
 jwst = { path = "../../libs/jwst" }
 jwst-logger = { path = "../../libs/jwst-logger" }
-jwst-storage = { path = "../../libs/jwst-storage" }
+jwst-storage = { path = "../../libs/jwst-storage", features = ["mysql"]}
 lettre = { version = "0.10.1", features = [
     "builder",
     "tokio1",

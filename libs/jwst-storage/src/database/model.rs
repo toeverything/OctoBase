@@ -4,9 +4,10 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Row, Type};
 use yrs::Map;
 
+// TODO: use trait to implement for each db, instead of using condition
 #[cfg(feature = "mysql")]
 type DBRow = sqlx::postgres::PgRow;
-#[cfg(feature = "sqlite")]
+#[cfg(not(feature = "mysql"))]
 type DBRow = sqlx::sqlite::SqliteRow;
 
 #[derive(Debug, Deserialize)]

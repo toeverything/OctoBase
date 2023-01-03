@@ -14,14 +14,15 @@ struct PermissionQuery {
     type_: PermissionType,
 }
 
+// TODO: use trait to implement for each db, instead of using condition
 #[cfg(feature = "mysql")]
 type DBPool = sqlx::PgPool;
-#[cfg(feature = "sqlite")]
+#[cfg(not(feature = "mysql"))]
 type DBPool = sqlx::SqlitePool;
 
 #[cfg(feature = "mysql")]
 type DBType = sqlx::Postgres;
-#[cfg(feature = "sqlite")]
+#[cfg(not(feature = "mysql"))]
 type DBType = sqlx::Sqlite;
 
 pub struct DBContext {
