@@ -1,11 +1,11 @@
-use sqlx::{query, query_as, FromRow, Postgres, Transaction, PgPool};
+use sqlx::{query, query_as, FromRow, Transaction};
 
 pub mod model;
 
 use model::{
-    BigId, Count, CreateUser, Member, Permission, PermissionType, RefreshToken,
-    UpdateWorkspace, User, UserCred, UserInWorkspace, UserLogin, UserWithNonce, Workspace,
-    WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
+    BigId, Count, CreateUser, Member, Permission, PermissionType, RefreshToken, UpdateWorkspace,
+    User, UserCred, UserInWorkspace, UserLogin, UserWithNonce, Workspace, WorkspaceDetail,
+    WorkspaceType, WorkspaceWithPermission,
 };
 
 #[derive(FromRow)]
@@ -14,18 +14,27 @@ struct PermissionQuery {
     type_: PermissionType,
 }
 
+#[cfg(feature = "mysql")]
+type DBPool = sqlx::PgPool;
+#[cfg(feature = "sqlite")]
+type DBPool = sqlx::SqlitePool;
+
+#[cfg(feature = "mysql")]
+type DBType = sqlx::Postgres;
+#[cfg(feature = "sqlite")]
+type DBType = sqlx::Sqlite;
+
 pub struct DBContext {
-    pub db: PgPool,
+    pub db: DBPool,
 }
 
 impl DBContext {
-    pub async fn new() -> DBContext {
         let db_env = dotenvy::var("DATABASE_URL").expect("should provide databse URL");
-        let db = PgPool::connect(&db_env).await.expect("wrong database URL");
-
-        let db_context = Self {
-            db,
-        };
+    pub async fn new(db_env: String) -> DBContext {
+        let db = DBPool::connect(&db_env)
+            .await
+            .expect("wrong database URL");
+        let db_context = Self { db };
         db_context.init_db().await;
         db_context
     }
@@ -150,7 +159,7 @@ impl DBContext {
     }
 
     pub async fn update_cred(
-        trx: &mut Transaction<'static, Postgres>,
+        trx: &mut Transaction<'static, DBType>,
         user_id: i32,
         user_email: &str,
     ) -> sqlx::Result<()> {
@@ -238,7 +247,7 @@ impl DBContext {
     }
 
     pub async fn create_workspace(
-        trx: &mut Transaction<'static, Postgres>,
+        trx: &mut Transaction<'static, DBType>,
         user_id: i32,
         ws_type: WorkspaceType,
     ) -> sqlx::Result<Workspace> {

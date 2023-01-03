@@ -6,7 +6,7 @@ authors = ["DarkSky <darksky2048@gmail.com>"]
 license = "AGPL-3.0-only"
 
 [features]
-default = ["mysql"]
+default = ["sqlite"]
 sqlite = ["sqlx/sqlite"]
 mysql = ["dotenvy", "sqlx/mysql", "sqlx/decimal", "num-traits"]
 
