@@ -10,7 +10,7 @@ use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::{DocStorage, SearchResults, Workspace as JWSTWorkspace};
 use jwst_logger::info;
-use jwst_storage::{BlobFsStorage, DocFsStorage};
+use jwst_storage::{BlobFsStorage, Claims, DocFsStorage, GoogleClaims, DBContext};
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
     Tokio1Executor,
@@ -19,12 +19,10 @@ use moka::future::Cache;
 use rand::{thread_rng, Rng};
 use reqwest::Client;
 use sha2::{Digest, Sha256};
-use sqlx::PgPool;
 use tokio::sync::{RwLock, RwLockReadGuard};
 use x509_parser::prelude::parse_x509_pem;
 
 use crate::api::WebSocketContext;
-use crate::model::{Claims, GoogleClaims};
 use crate::utils::CacheControl;
 
 pub struct KeyContext {
@@ -83,7 +81,7 @@ pub struct Context {
     pub http_client: Client,
     firebase: RwLock<FirebaseContext>,
     pub mail: MailContext,
-    pub db: PgPool,
+    pub db: DBContext,
     pub blob: BlobFsStorage,
     pub doc: DocStore,
     pub ws: WebSocketContext,
@@ -117,10 +115,6 @@ impl From<Box<dyn std::error::Error>> for ContextRequestError {
 
 impl Context {
     pub async fn new() -> Context {
-        let db_env = dotenvy::var("DATABASE_URL").expect("should provide databse URL");
-
-        let db = PgPool::connect(&db_env).await.expect("wrong database URL");
-
         let key = {
             let key_env = dotenvy::var("SIGN_KEY").expect("should provide AES key");
 
@@ -190,8 +184,9 @@ impl Context {
 
         let site_url = dotenvy::var("SITE_URL").expect("should provide site url");
 
+        let db_env = dotenvy::var("DATABASE_URL").expect("should provide databse URL");
         let ctx = Self {
-            db,
+            db: DBContext::new(db_env).await,
             key,
             firebase,
             mail,
@@ -201,8 +196,6 @@ impl Context {
             site_url,
             ws: WebSocketContext::new(),
         };
-
-        ctx.init_db().await;
 
         ctx
     }

@@ -4,9 +4,8 @@ use axum::body::Bytes;
 use http::{Request, Response, StatusCode};
 use http_body::combinators::UnsyncBoxBody;
 use jsonwebtoken::DecodingKey;
+use jwst_storage::Claims;
 use tower_http::auth::{AuthorizeRequest, RequireAuthorizationLayer};
-
-use crate::model::Claims;
 
 #[derive(Clone)]
 pub struct Auth {

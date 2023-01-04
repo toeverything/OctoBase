@@ -1,5 +1,6 @@
 mod blobs;
 mod doc;
+mod database;
 
 use async_trait::async_trait;
 use jwst::{BlobMetadata, BlobStorage, DocStorage};
@@ -11,3 +12,5 @@ use tokio::{
 
 pub use blobs::*;
 pub use doc::FileSystem as DocFsStorage;
+pub use database::DBContext;
+pub use database::model::*;

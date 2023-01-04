@@ -58,6 +58,7 @@ name = "affine-cloud"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
+ "async-trait",
  "axum 0.6.1",
  "base64 0.20.0",
  "chrono",
@@ -1989,6 +1990,9 @@ dependencies = [
  "futures",
  "jwst",
  "num-traits",
+ "serde",
+ "serde_json",
+ "serde_repr",
  "sha2",
  "sqlx",
  "tokio",

@@ -219,7 +219,7 @@ mod tests {
     use super::*;
     use chrono::Utc;
 
-    async fn init_memory_pool() -> Result<MySQL, Error> {
+    async fn init_pool() -> Result<MySQL, Error> {
         use sqlx::mysql::MySqlConnectOptions;
         use std::str::FromStr;
         let path = format!("mysql://root:password@localhost/db");
@@ -231,11 +231,12 @@ mod tests {
         })
     }
 
+    #[ignore = "need mysql server"]
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
         use super::*;
 
-        let pool = init_memory_pool().await?;
+        let pool = init_pool().await?;
 
         pool.create("basic").await?;
 

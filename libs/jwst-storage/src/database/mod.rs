@@ -1,13 +1,11 @@
-use jwst::{DocStorage, Workspace as JWSTWorkspace};
-use sqlx::{query, query_as, FromRow, Postgres, Transaction};
+use sqlx::{query, query_as, FromRow, Transaction};
 
-use crate::{
-    context::Context,
-    model::{
-        BigId, Count, CreateUser, GoogleClaims, Member, Permission, PermissionType, RefreshToken,
-        UpdateWorkspace, User, UserCred, UserInWorkspace, UserLogin, UserWithNonce, Workspace,
-        WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
-    },
+pub mod model;
+
+use model::{
+    BigId, Count, CreateUser, Member, Permission, PermissionType, RefreshToken, UpdateWorkspace,
+    User, UserCred, UserInWorkspace, UserLogin, UserWithNonce, Workspace, WorkspaceDetail,
+    WorkspaceType, WorkspaceWithPermission,
 };
 
 #[derive(FromRow)]
@@ -16,7 +14,31 @@ struct PermissionQuery {
     type_: PermissionType,
 }
 
-impl Context {
+// TODO: use trait to implement for each db, instead of using condition
+#[cfg(feature = "mysql")]
+type DBPool = sqlx::PgPool;
+#[cfg(not(feature = "mysql"))]
+type DBPool = sqlx::SqlitePool;
+
+#[cfg(feature = "mysql")]
+type DBType = sqlx::Postgres;
+#[cfg(not(feature = "mysql"))]
+type DBType = sqlx::Sqlite;
+
+pub struct DBContext {
+    pub db: DBPool,
+}
+
+impl DBContext {
+    pub async fn new(db_env: String) -> DBContext {
+        let db = DBPool::connect(&db_env)
+            .await
+            .expect("wrong database URL");
+        let db_context = Self { db };
+        db_context.init_db().await;
+        db_context
+    }
+
     pub async fn init_db(&self) {
         let stmt = "CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -136,8 +158,8 @@ impl Context {
             .map(|r| r.is_some())
     }
 
-    async fn update_cred(
-        trx: &mut Transaction<'static, Postgres>,
+    pub async fn update_cred(
+        trx: &mut Transaction<'static, DBType>,
         user_id: i32,
         user_email: &str,
     ) -> sqlx::Result<()> {
@@ -182,67 +204,6 @@ impl Context {
         Ok(Some(user))
     }
 
-    pub async fn google_user_login(&self, claims: &GoogleClaims) -> sqlx::Result<UserWithNonce> {
-        let mut trx = self.db.begin().await?;
-        let update_user = "UPDATE users
-        SET
-            name = $1,
-            email = $2,
-            avatar_url = $3
-        FROM google_users
-        WHERE google_users.google_id = $4 AND google_users.user_id = users.id
-        RETURNING users.id, users.name, users.email, users.avatar_url,
-            users.token_nonce, users.created_at";
-
-        if let Some(user) = query_as::<_, UserWithNonce>(update_user)
-            .bind(&claims.name)
-            .bind(&claims.email)
-            .bind(&claims.picture)
-            .bind(&claims.user_id)
-            .fetch_optional(&mut trx)
-            .await?
-        {
-            return Ok(user);
-        }
-
-        let create_user = "INSERT INTO users 
-            (name, email, avatar_url) 
-            VALUES ($1, $2, $3)
-        ON CONFLICT (email) DO NOTHING
-        RETURNING id, name, email, avatar_url, token_nonce, created_at";
-
-        let user = query_as::<_, UserWithNonce>(create_user)
-            .bind(&claims.name)
-            .bind(&claims.email)
-            .bind(&claims.picture)
-            .fetch_one(&mut trx)
-            .await?;
-
-        let create_google_user = "INSERT INTO google_users 
-            (user_id, google_id)
-            VALUES ($1, $2)
-            ON CONFLICT DO NOTHING";
-
-        query(create_google_user)
-            .bind(user.user.id)
-            .bind(&claims.user_id)
-            .execute(&mut trx)
-            .await?;
-
-        let ws = Self::create_workspace(&mut trx, user.user.id, WorkspaceType::Private).await?;
-
-        self.doc
-            .storage
-            .write_doc(ws.id, JWSTWorkspace::new(ws.id.to_string()).doc())
-            .await?;
-
-        Self::update_cred(&mut trx, user.user.id, &user.user.email).await?;
-
-        trx.commit().await?;
-
-        Ok(user)
-    }
-
     pub async fn get_workspace_by_id(
         &self,
         workspace_id: i64,
@@ -285,8 +246,8 @@ impl Context {
         }))
     }
 
-    async fn create_workspace(
-        trx: &mut Transaction<'static, Postgres>,
+    pub async fn create_workspace(
+        trx: &mut Transaction<'static, DBType>,
         user_id: i32,
         ws_type: WorkspaceType,
     ) -> sqlx::Result<Workspace> {

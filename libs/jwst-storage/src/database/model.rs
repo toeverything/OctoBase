@@ -1,8 +1,14 @@
 use chrono::naive::serde::{ts_milliseconds, ts_seconds};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use sqlx::{self, postgres::PgRow, types::chrono::NaiveDateTime, FromRow, Row, Type};
+use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Row, Type};
 use yrs::Map;
+
+// TODO: use trait to implement for each db, instead of using condition
+#[cfg(feature = "mysql")]
+type DBRow = sqlx::postgres::PgRow;
+#[cfg(not(feature = "mysql"))]
+type DBRow = sqlx::sqlite::SqliteRow;
 
 #[derive(Debug, Deserialize)]
 pub struct GoogleClaims {
@@ -208,8 +214,8 @@ pub struct Member {
     pub created_at: NaiveDateTime,
 }
 
-impl FromRow<'_, PgRow> for Member {
-    fn from_row(row: &PgRow) -> sqlx::Result<Self> {
+impl FromRow<'_, DBRow> for Member {
+    fn from_row(row: &DBRow) -> sqlx::Result<Self> {
         let id = row.try_get("id")?;
         let accepted = row.try_get("accepted")?;
         let type_ = row.try_get("type")?;

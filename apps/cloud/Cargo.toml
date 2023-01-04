@@ -4,6 +4,7 @@ edition = "2021"
 version = "0.1.0"
 
 [dependencies]
+async-trait = "0.1.60"
 aes-gcm = "0.10.1"
 axum = { version = "0.6.1", features = ["headers", "ws"] }
 base64 = "0.20.0"
@@ -18,7 +19,7 @@ http-body = "0.4.5"
 jsonwebtoken = "8.1.1"
 jwst = { path = "../../libs/jwst" }
 jwst-logger = { path = "../../libs/jwst-logger" }
-jwst-storage = { path = "../../libs/jwst-storage" }
+jwst-storage = { path = "../../libs/jwst-storage", features = ["mysql"]}
 lettre = { version = "0.10.1", features = [
     "builder",
     "tokio1",
