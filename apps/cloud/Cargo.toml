@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 async-trait = "0.1.60"
+anyhow = "^1.0.68"
 aes-gcm = "0.10.1"
 axum = { version = "0.6.1", features = ["headers", "ws"] }
 base64 = "0.20.0"
@@ -44,6 +45,8 @@ sqlx = { version = "0.6.2", features = [
     "chrono",
     "macros",
     "postgres",
+    "migrate",
+    "sqlite",
     "runtime-tokio-rustls",
 ] }
 tokio = { version = "1.23.0", features = [
@@ -60,3 +63,7 @@ yrs = { path = "../../libs/yrs" }
 [dependencies.tokio-util]
 version = "^0.7.4"
 features = ["io"]
+[dependencies.uuid]
+version = "^1.2.2"
+default-features = false
+features = ["v4"]

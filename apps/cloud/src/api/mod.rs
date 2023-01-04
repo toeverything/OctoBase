@@ -36,7 +36,8 @@ use yrs::StateVector;
 use crate::{
     context::{Context, ContextRequestError},
     layer::make_firebase_auth_layer,
-    utils::URL_SAFE_ENGINE, login::ThirdPartyLogin,
+    login::ThirdPartyLogin,
+    utils::URL_SAFE_ENGINE,
 };
 
 mod ws;
@@ -424,7 +425,8 @@ async fn get_doc(
             .into_response();
     }
 
-    match ctx.doc.storage.get(workspace_id).await {
+    let id = workspace_id.to_string();
+    match ctx.docs.create_doc(&id).await {
         Ok(doc) => doc
             .encode_state_as_update_v1(&StateVector::default())
             .into_response(),
