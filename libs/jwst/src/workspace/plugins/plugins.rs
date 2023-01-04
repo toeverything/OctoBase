@@ -3,7 +3,7 @@
 use super::*;
 use type_map::TypeMap;
 
-/// A configuration from which a [WorkspacePlugin] can be created from.
+/// A configuration from which a [PluginImpl] can be created from.
 pub(crate) trait PluginRegister {
     type Plugin: PluginImpl;
     // Do we need self?
@@ -12,7 +12,7 @@ pub(crate) trait PluginRegister {
     // -> Box<dyn FnMut(&mut Workspace)>;
 }
 
-/// A workspace plugin which comes from a corresponding [WorkspacePluginConfig::setup].
+/// A workspace plugin which comes from a corresponding [PluginRegister::setup].
 /// In that setup call, the plugin will have initial access to the whole [Workspace],
 /// and will be able to add listeners to changes to blocks in the [Workspace].
 pub(crate) trait PluginImpl: 'static {
@@ -20,7 +20,7 @@ pub(crate) trait PluginImpl: 'static {
     /// This update is called sometime between when we know changes have been made to the workspace
     /// and the time when we will get the plugin to query its data (e.g. search())
     fn on_update(&mut self, _ws: &Content) -> Result<(), Box<dyn std::error::Error>> {
-        // Default implementation for a WorkspacePlugin update does nothing.
+        // Default implementation for a PluginImpl update does nothing.
         Ok(())
     }
 }

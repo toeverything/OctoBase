@@ -11,7 +11,7 @@ pub(super) use plugins::{PluginImpl, PluginMap, PluginRegister};
 #[cfg(feature = "workspace-search")]
 pub use indexing::{SearchResult, SearchResults};
 
-/// Setup a [WorkspacePlugin] and insert it into the [Workspace].
+/// Setup a [PluginImpl] and insert it into the [Workspace].
 /// See [plugins].
 fn insert_plugin(
     mut workspace: Workspace,

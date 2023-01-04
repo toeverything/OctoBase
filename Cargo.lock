@@ -1849,6 +1849,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tantivy",
+ "thiserror",
  "tokio",
  "type-map",
  "utoipa",

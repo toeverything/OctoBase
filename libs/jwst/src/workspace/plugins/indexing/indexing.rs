@@ -196,7 +196,7 @@ mod test {
 
         workspace.with_trx(|mut t| {
             let block = t.create("b1", "text");
-            block.set(&mut t.trx, "test", "test");
+            block.set(&mut t.trx_mut, "test", "test");
 
             let block = t.create("a", "affine:text");
             let b = t.create("b", "affine:text");
@@ -204,7 +204,7 @@ mod test {
             let d = t.create("d", "affine:text");
             let e = t.create("e", "affine:text");
             let f = t.create("f", "affine:text");
-            let mut trx = &mut t.trx;
+            let mut trx = &mut t.trx_mut;
 
             b.set(trx, "title", "Title B content");
             b.set(trx, "text", "Text B content bbb xxx");
