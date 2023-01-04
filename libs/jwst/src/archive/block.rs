@@ -1,4 +1,6 @@
-use crate::{utils::JS_INT_RANGE, workspace::Content};
+#![allow(deprecated)]
+use super::workspace::Content;
+use crate::{utils::JS_INT_RANGE, BlockHistory, HistoryOperation};
 
 use super::*;
 use lib0::any::Any;
@@ -10,6 +12,7 @@ use yrs::{
 };
 
 #[derive(Debug, PartialEq)]
+#[deprecated = "Use OctoBlockRef"]
 pub struct Block {
     // block schema
     // for example: {
@@ -156,7 +159,7 @@ impl Block {
             .get(trx, &key)
             .and_then(|v| match v.to_json(trx) {
                 Any::Null | Any::Undefined | Any::Array(_) | Any::Buffer(_) | Any::Map(_) => {
-                    error!("get wrong value at key {}", key);
+                    log::error!("get wrong value at key {}", key);
                     None
                 }
                 v => Some(v),
@@ -503,7 +506,7 @@ mod tests {
             block.insert_children_after(trx, &f, "c");
 
             assert_eq!(
-                block.children(&t.trx_mut),
+                block.children(trx),
                 vec![
                     "c".to_owned(),
                     "f".to_owned(),

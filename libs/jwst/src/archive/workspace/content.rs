@@ -1,4 +1,3 @@
-use super::*;
 use y_sync::{
     awareness::Awareness,
     sync::{DefaultProtocol, Error, Message, MessageReader, Protocol, SyncMessage},
@@ -12,10 +11,14 @@ use yrs::{
     UpdateSubscription,
 };
 
+use crate::archive::block::Block;
+
 static PROTOCOL: DefaultProtocol = DefaultProtocol;
 
 // Is the workspace here supposed to contain a source of truth for the
 // block data?
+
+#[deprecated = "Use OctoWorkspaceRef"]
 pub struct Content {
     pub(super) id: String,
     pub(super) awareness: Awareness,
@@ -123,7 +126,7 @@ impl Content {
                     PROTOCOL.handle_sync_step2(&mut self.awareness, Update::decode_v1(&update)?)
                 }
                 SyncMessage::Update(update) => {
-                    let mut txn = self.awareness.doc().transact();
+                    let mut txn = self.awareness.doc().transact_mut();
                     txn.apply_update(Update::decode_v1(&update)?);
                     txn.commit();
                     let update = txn.encode_update_v1();

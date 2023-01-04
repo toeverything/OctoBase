@@ -7,8 +7,9 @@
 //! At this moment, everything is in one file to create a pressure not to
 //! over-complicate or over-expand the surface area of OctoBase core.
 use lib0::any::Any;
-use std::{borrow::Cow, collections::HashMap, rc::Rc};
+use std::{borrow::Cow, collections::HashMap, fmt::Debug, rc::Rc};
 use thiserror::Error;
+use y_sync::awareness::Awareness;
 use yrs::{ArrayPrelim, Map, MapPrelim, MapRef, ReadTxn, Transaction, TransactionMut};
 
 pub mod concepts {
@@ -97,92 +98,7 @@ pub mod concepts {
     pub struct YJSBlockHistory;
 }
 
-mod plugins {
-    //! Plugins are an internal experimental interface for extending the [OctoWorkspace].
-
-    use super::{OctoReader, OctoWorkspace};
-    use thiserror::Error;
-    use type_map::TypeMap;
-
-    /// A configuration from which a [OctoPlugin] can be created from.
-    pub(crate) trait OctoPluginRegister {
-        type Plugin: OctoPlugin;
-        fn setup(
-            self,
-            workspace: &mut OctoWorkspace,
-        ) -> Result<Self::Plugin, Box<dyn std::error::Error>>;
-        // Do we need a clean-up thing?
-        // -> Box<dyn FnMut(&mut Workspace)>;
-    }
-
-    /// A workspace plugin which comes from a corresponding [OctoPluginRegister::setup].
-    /// In that setup call, the plugin will have initial access to the whole [OctoWorkspace],
-    /// and will be able to add listeners to changes to blocks in the [OctoWorkspace].
-    pub(crate) trait OctoPlugin: 'static {
-        /// IDEA 1/10:
-        /// This update is called sometime between when we know changes have been made to the workspace
-        /// and the time when we will get the plugin to query its data (e.g. search()).
-        fn on_update(&mut self, _reader: &OctoReader) -> Result<(), Box<dyn std::error::Error>> {
-            // Default implementation for a OctoPlugin update does nothing.
-            Ok(())
-        }
-    }
-
-    /// Internal data structure for holding workspace's plugins.
-    #[derive(Default)]
-    pub(crate) struct PluginMap {
-        /// We store plugins into the TypeMap, so that their ownership is tied to [OctoWorkspace].
-        /// This enables us to properly manage lifetimes of observers which will subscribe
-        /// into events that the [OctoWorkspace] experiences, like block updates.
-        map: TypeMap,
-    }
-
-    impl PluginMap {
-        pub(crate) fn insert_plugin<P: OctoPlugin>(
-            &mut self,
-            plugin: P,
-        ) -> Result<&mut Self, OctoPluginInsertError> {
-            if self.get_plugin::<P>().is_some() {
-                return Err(OctoPluginInsertError::PluginConflict);
-            }
-
-            self.map.insert(plugin);
-            Ok(self)
-        }
-
-        pub(crate) fn get_plugin<P: OctoPlugin>(&self) -> Option<&P> {
-            self.map.get::<P>()
-        }
-
-        pub(crate) fn update_plugin<P: OctoPlugin>(
-            &mut self,
-            reader: &OctoReader,
-        ) -> Result<(), OctoPluginUpdateError> {
-            let plugin = self
-                .map
-                .get_mut::<P>()
-                .ok_or(OctoPluginUpdateError::PluginNotFound)?;
-
-            plugin.on_update(reader)?;
-
-            Ok(())
-        }
-    }
-
-    #[derive(Error, Debug)]
-    pub enum OctoPluginUpdateError {
-        #[error("plugin not found")]
-        PluginNotFound,
-        #[error("plugin update() returned error")]
-        UpdateError(#[from] Box<dyn std::error::Error>),
-    }
-
-    #[derive(Error, Debug)]
-    pub enum OctoPluginInsertError {
-        #[error("plugin of type already exists")]
-        PluginConflict,
-    }
-}
+mod plugins;
 
 /// See [OctoWorkspace] and [OctoWorkspaceContent].
 #[derive(Clone, Debug, PartialEq)]
@@ -235,16 +151,38 @@ pub struct OctoTextRef {
     yrs_ref: yrs::TextRef,
 }
 
+// /// Progress 0/10:
+// ///  * Do we actually need this extra "content" thing?
+// ///  * Or can we just do everything through a transaction?
 // pub struct OctoWorkspaceContent {
-//     /// Internal: Do not let anyone have this without requiring mutable access to [OctoWorkspaceContent].
-//     doc: yrs::Doc,
+//     /// Internal: Do not let anyone have this.
+//     /// Only allow interaction with this when with mutable access to [OctoWorkspaceContent].
+//     yrs_doc_ref: yrs::Doc,
+//
+//     /// Workspace block references.
 //     octo_ref: OctoWorkspaceRef,
+//
+//     /// a simple shared state protocol that can be used for non-persistent data like awareness information
+//     /// (cursor, username, status, ..). Each client can update its own local state and listen to state
+//     /// changes of remote clients.
+//     y_sync_awareness: Awareness,
 // }
 
 pub struct OctoWorkspace {
     /// Internal: Do not let anyone have this without requiring mutable access to [OctoWorkspaceContent].
-    doc: yrs::Doc,
+    yrs_doc_ref: yrs::Doc,
+
+    /// Workspace block references.
     octo_ref: OctoWorkspaceRef,
+
+    // Does this need to be wrapped into an "OctoWorkspaceContent" struct?
+    // I guess this question is answered by whether it makes sense for plugins
+    // to interact with awareness?
+    /// A simple shared state protocol that can be used for non-persistent data like awareness information
+    /// (cursor, username, status, ..). Each client can update its own local state and listen to state
+    /// changes of remote clients.
+    y_sync_awareness: Awareness,
+
     // /// Separated data type to be surfaced to workspace plugins.
     // content: OctoWorkspaceContent,
     /// Plugins which extend the workspace through subscriptions such as for text search.
@@ -283,23 +221,37 @@ pub struct OctoWriter<'doc> {
     yrs_txn_mut: TransactionMut<'doc>,
 }
 
+impl<'doc> OctoRead<'doc> for OctoWriter<'doc> {
+    type YRSReadTxn = TransactionMut<'doc>;
+
+    fn yrs_parts(&self) -> (&OctoWorkspaceRef, &Self::YRSReadTxn) {
+        (&self.workspace_ref, &self.yrs_txn_mut)
+    }
+}
+
+impl<'doc> OctoWrite<'doc> for OctoWriter<'doc> {
+    fn yrs_parts_mut(&mut self) -> (&OctoWorkspaceRef, &mut TransactionMut<'doc>) {
+        (&self.workspace_ref, &mut self.yrs_txn_mut)
+    }
+}
+
 pub struct OctoReader<'doc> {
     /// Check to ensure that our Transaction matches the workspace we're operating on.
     workspace_ref: OctoWorkspaceRef,
     yrs_txn: Transaction<'doc>,
 }
 
-// impl<'doc> ReadTxn for OctoReader<'doc> {
-//     fn store(&self) -> &yrs::Store {
-//         self.yrs_txn.store()
-//     }
-// }
+impl<'doc> OctoRead<'doc> for OctoReader<'doc> {
+    type YRSReadTxn = Transaction<'doc>;
 
-// impl<'doc> ReadTxn for OctoWriter<'doc> {
-//     fn store(&self) -> &yrs::Store {
-//         self.yrs_txn_mut.store()
-//     }
-// }
+    fn yrs_parts(&self) -> (&OctoWorkspaceRef, &Self::YRSReadTxn) {
+        (&self.workspace_ref, &self.yrs_txn)
+    }
+}
+
+fn user_prop_key(unprefixed: &str) -> String {
+    format!("prop:{unprefixed}")
+}
 
 pub trait OctoRead<'doc> {
     type YRSReadTxn: ReadTxn;
@@ -353,18 +305,12 @@ pub trait OctoRead<'doc> {
     }
 }
 
-// impl<'doc, W: OctoWrite> OctoRead<'doc> for W {
-//     type YRSReadTxn = TransactionMut<'doc>;
-
-//     fn yrs_parts(&self) -> (&OctoWorkspaceRef, &Self::YRSReadTxn);
-// }
-
 pub trait OctoWrite<'doc>: OctoRead<'doc> {
-    fn yrs_parts_mut(&mut self) -> (&OctoWorkspaceRef, &mut TransactionMut);
+    fn yrs_parts_mut(&mut self) -> (&OctoWorkspaceRef, &mut TransactionMut<'doc>);
 
     /// Create a block, returning an [OctoBlockRef] or erroring with [OctoCreateError].
     fn create_block<T: Into<OctoBlockCreateOptions>>(
-        &mut self,
+        &'doc mut self,
         options: T,
     ) -> Result<OctoBlockRef, OctoCreateError> {
         let OctoBlockCreateOptions {
@@ -420,18 +366,21 @@ pub trait OctoWrite<'doc>: OctoRead<'doc> {
 
         // init default schema
         insert_prop_and_prelim_pairs!(
-            ("sys:flavor", flavor.as_ref()),
-            ("sys:version", ArrayPrelim::from([1, 0])),
+            (SYS_FLAVOR_KEY, flavor.as_ref()),
+            (SYS_VERSION_KEY, ArrayPrelim::from([1, 0])),
             (
-                "sys:children",
+                SYS_CHILDREN_KEY,
                 ArrayPrelim::<Vec<String>, String>::from(vec![])
             ),
-            ("sys:created", chrono::Utc::now().timestamp_millis() as f64)
+            (
+                SYS_CREATED_KEY,
+                chrono::Utc::now().timestamp_millis() as f64
+            )
         );
 
         // insert initial properties from options
         for (key, value) in properties {
-            props_ref.insert(yrs_txn_mut, format!("prop:{key}"), value);
+            props_ref.insert(yrs_txn_mut, user_prop_key(&key), value);
         }
 
         Ok(OctoBlockRef {
@@ -441,7 +390,42 @@ pub trait OctoWrite<'doc>: OctoRead<'doc> {
             yrs_history_ref: history_ref,
         })
     }
+
+    // /// Set user attributes for a block. See [concepts::UserDefinedProp].
+    // ///
+    // /// Internal: In the raw JSON, these properties will come out with a prefix of `"prop:"`.
+    // /// So, if you set
+    // fn set_props<K, P>(&mut self, block_ref: OctoBlockRef, properties: P)
+    // where
+    //     K: AsRef<str>,
+    //     P: IntoIterator<Item = (K, lib0::any::Any)>,
+    // {
+    //     let (_, yrs_txn_mut) = self.yrs_parts_mut();
+    //     // insert initial properties from options
+    //     for (key, value) in properties {
+    //         block_ref
+    //             .yrs_props_ref
+    //             .insert(yrs_txn_mut, format!("prop:{}", key.as_ref()), value);
+    //     }
+    // }
 }
+
+// mod octo_write_tests {
+//     use crate::OctoWrite;
+
+//     use super::OctoBlockCreateOptions;
+
+//     pub fn test_set_props<W: OctoWrite>(writer: W) {
+//         let block_1 = writer
+//             .create_block(OctoBlockCreateOptions {
+//                 id: "abc".into(),
+//                 flavor: "any-flavor-1".to_string(),
+//                 properties: Default::default(),
+//             })
+//             .expect("created block");
+//         block_1.get_flavor(reader)
+//     }
+// }
 
 impl OctoWorkspace {
     pub fn get_ref(&self) -> &OctoWorkspaceRef {
@@ -450,14 +434,20 @@ impl OctoWorkspace {
 
     // /// Progress 0/10:
     // ///  * Do we actually need this extra "content" thing?
-    // ///  * Or can we just do everything through a trasaction?
+    // ///  * Or can we just do everything through a transaction?
     // pub fn get_content<T: Into<OctoBlockCreateOptions>>(&self) -> &OctoWorkspaceContent {
     //     &self.content
     // }
 }
 
-/// Key for [concepts::SysPropFlavor].
-const PROPS_FLAVOR_KEY: &str = "sys:flavor";
+/// [concepts::SysProp] key for [concepts::SysPropFlavor].
+const SYS_FLAVOR_KEY: &str = "sys:flavor";
+/// [concepts::SysProp] key for children.
+const SYS_CHILDREN_KEY: &str = "sys:children";
+/// [concepts::SysProp] key for version.
+const SYS_VERSION_KEY: &str = "sys:version";
+/// [concepts::SysProp] key for created time.
+const SYS_CREATED_KEY: &str = "sys:created";
 
 impl OctoBlockRef {
     /// Question: If "blocka" is created, deleted, and re-created, should the first BlockRef still be valid?
@@ -515,13 +505,13 @@ impl OctoBlockRef {
 
     /// See [concepts::SysPropFlavor].
     pub fn get_flavor<'doc, R: OctoRead<'doc>>(&self, reader: &R) -> Result<String, OctoError> {
-        self.try_yrs_prop_value(reader, PROPS_FLAVOR_KEY, |value, yrs_read_txn| {
+        self.try_yrs_prop_value(reader, SYS_FLAVOR_KEY, |value, yrs_read_txn| {
             use yrs::types::Value;
             match value {
                 Value::Any(lib0::any::Any::String(value)) => Ok(value.to_string()),
                 other => Err(OctoError::BlockPropertyWasUnexpectedType {
                     id: self.id.clone(),
-                    property_key: PROPS_FLAVOR_KEY.into(),
+                    property_key: SYS_FLAVOR_KEY.into(),
                     expected_type: "Any::String",
                     found: other.to_string(yrs_read_txn),
                 }),
@@ -539,25 +529,41 @@ impl OctoBlockRef {
         self.check_exists(workspace_ref, yrs_read_txn)?;
         Ok(self
             .yrs_props_ref
-            .get(yrs_read_txn, PROPS_FLAVOR_KEY)
+            .get(yrs_read_txn, SYS_FLAVOR_KEY)
             .map(|prop| prop.to_string(yrs_read_txn))
             .expect("has sys:flavor prop")
             .into())
     }
 
-    /// Inserts a new `value` under given `key` into current map. Returns a value stored previously
-    /// under the same key (if any existed).
-    pub fn insert(
+    /// Set a `value` under given user defined `key` into current map.
+    /// Returns a value stored previously under the same key (if any existed).
+    /// See [concepts::UserDefinedProp].
+    pub fn set_user_prop(
         &self,
         writer: &mut OctoWriter,
         key: &str,
         value: lib0::any::Any,
-    ) -> Result<Option<yrs::types::Value>, OctoCreateError> {
+    ) -> Result<Option<yrs::types::Value>, OctoEditError> {
         self.check_txn(&*writer)?;
         Ok(self
             .yrs_props_ref
-            .insert(&mut writer.yrs_txn_mut, key, value))
+            .insert(&mut writer.yrs_txn_mut, format!("prop:{key}"), value))
     }
+
+    // Is raw set needed?
+    // /// Inserts a new `value` under given `key` into current map. Returns a value stored previously
+    // /// under the same key (if any existed).
+    // fn set_prop_raw(
+    //     &self,
+    //     writer: &mut OctoWriter,
+    //     key: &str,
+    //     value: lib0::any::Any,
+    // ) -> Result<Option<yrs::types::Value>, OctoEditError> {
+    //     self.check_txn(&*writer)?;
+    //     Ok(self
+    //         .yrs_props_ref
+    //         .insert(&mut writer.yrs_txn_mut, key, value))
+    // }
 
     pub fn id(&self) -> &str {
         self.id.as_ref()
@@ -641,6 +647,20 @@ pub enum OctoCreateError {
 }
 
 impl From<DifferentWorkspaces> for OctoCreateError {
+    fn from(_: DifferentWorkspaces) -> Self {
+        Self::TransactionFromDifferentWorkspace
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum OctoEditError {
+    /// Tried to use a Transaction associated with a different Workspace
+    #[error("transaction was associated with a different workspace than the item")]
+    #[from(DifferentWorkspaces)]
+    TransactionFromDifferentWorkspace,
+}
+
+impl From<DifferentWorkspaces> for OctoEditError {
     fn from(_: DifferentWorkspaces) -> Self {
         Self::TransactionFromDifferentWorkspace
     }

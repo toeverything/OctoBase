@@ -1,3 +1,4 @@
+use crate::archive::block::Block;
 use crate::utils::JS_INT_RANGE;
 
 use super::{plugins::setup_plugin, *};
@@ -11,9 +12,10 @@ use yrs::{
     types::ToJson, Doc, Map, MapRef, Transact, TransactionMut, UpdateEvent, UpdateSubscription,
 };
 
-use super::PluginMap;
+use super::{Content, PluginMap};
 use plugins::PluginImpl;
 
+#[deprecated = "Use OctoWorkspace and OctoWorkspaceRef"]
 pub struct Workspace {
     content: Content,
     /// We store plugins so that their ownership is tied to [Workspace].
@@ -85,7 +87,7 @@ impl Workspace {
         let search_plugin = self
             .get_plugin::<IndexingPluginImpl>()
             .expect("text search was set up by default");
-        search_plugin.search(options)
+        search_plugin.search(options.as_ref())
     }
 
     pub fn blocks(&self) -> &MapRef {
@@ -190,6 +192,7 @@ impl Serialize for Workspace {
     }
 }
 
+#[deprecated = "Use OctoRead or OctoWrite"]
 pub struct WorkspaceTransaction<'a> {
     pub ws: &'a Workspace,
     pub trx_mut: TransactionMut<'a>,
@@ -301,13 +304,15 @@ mod test {
 
         let new_doc = {
             let doc = Doc::default();
-            let mut trx = doc.transact_mut();
-            let update = trx.encode_state_as_update_v1(&StateVector::default());
-            match Update::decode_v1(&update) {
-                Ok(update) => trx.apply_update(update),
-                Err(err) => info!("failed to decode update: {:?}", err),
+            {
+                let mut trx = doc.transact_mut();
+                let update = trx.encode_state_as_update_v1(&StateVector::default());
+                match Update::decode_v1(&update) {
+                    Ok(update) => trx.apply_update(update),
+                    Err(err) => info!("failed to decode update: {:?}", err),
+                }
+                trx.commit();
             }
-            trx.commit();
             doc
         };
 

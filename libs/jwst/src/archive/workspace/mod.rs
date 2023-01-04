@@ -2,7 +2,6 @@ mod content;
 mod plugins;
 mod workspace;
 
-use super::Block;
 use plugins::PluginMap;
 
 pub(crate) use content::Content;
