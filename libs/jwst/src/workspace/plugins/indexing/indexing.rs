@@ -23,33 +23,34 @@ pub struct IndexingPluginImpl {
     // /// `false` if there should only be incremental changes necessary to the blocks.
     // first_index: bool,
     pub(super) queue_reindex: Arc<AtomicU32>,
-    pub(super) schema: Schema,
-    pub(super) index: Rc<Index>,
-    pub(super) query_parser: QueryParser,
+    pub(super) tantivy_schema: Schema,
+    pub(super) tantivy_index: Rc<Index>,
+    pub(super) tantivy_query_parser: QueryParser,
     // need to keep so it gets dropped with this plugin
-    pub(super) _update_sub: yrs::UpdateSubscription,
+    pub(super) _yrs_update_sub: yrs::UpdateSubscription,
 }
 
 impl IndexingPluginImpl {
-    pub fn search<S: AsRef<str>>(
+    /// Search the current text index
+    pub fn search(
         &self,
-        query: S,
+        query: &str,
     ) -> Result<SearchResults, Box<dyn std::error::Error>> {
         let mut items = Vec::new();
 
         let reader = self
-            .index
+            .tantivy_index
             .reader_builder()
             .reload_policy(ReloadPolicy::OnCommit)
             .try_into()?;
         let searcher = reader.searcher();
-        let query = self.query_parser.parse_query(query.as_ref())?;
+        let query = self.tantivy_query_parser.parse_query(query.as_ref())?;
         let top_docs = searcher.search(&query, &TopDocs::with_limit(10))?;
         // The actual documents still need to be retrieved from Tantivy’s store.
         // Since the body field was not configured as stored, the document returned will only contain a title.
 
         if !top_docs.is_empty() {
-            let block_id_field = self.schema.get_field("block_id").unwrap();
+            let block_id_field = self.tantivy_schema.get_field("block_id").unwrap();
 
             for (score, doc_address) in top_docs {
                 let retrieved_doc = searcher.doc(doc_address)?;
@@ -59,7 +60,7 @@ impl IndexingPluginImpl {
                         score,
                     })
                 } else {
-                    let to_json = self.schema.to_json(&retrieved_doc);
+                    let to_json = self.tantivy_schema.to_json(&retrieved_doc);
                     eprintln!(
                         "Unexpected non-block doc in Tantivy result set: {}",
                         to_json
@@ -121,12 +122,12 @@ impl IndexingPluginImpl {
         // TODO: use a structure with better names than tuples?
         BlockIdTitleAndTextIter: IntoIterator<Item = (String, (Option<String>, Option<String>))>,
     {
-        let block_id_field = self.schema.get_field("block_id").unwrap();
-        let title_field = self.schema.get_field("title").unwrap();
-        let body_field = self.schema.get_field("body").unwrap();
+        let block_id_field = self.tantivy_schema.get_field("block_id").unwrap();
+        let title_field = self.tantivy_schema.get_field("title").unwrap();
+        let body_field = self.tantivy_schema.get_field("body").unwrap();
 
         let mut writer = self
-            .index
+            .tantivy_index
             .writer(50_000_000)
             .map_err(|err| format!("Error creating writer: {err:?}"))?;
 
@@ -230,7 +231,7 @@ mod test {
                 block.insert_children_after(trx, &f, "c");
 
                 assert_eq!(
-                    block.children(&trx),
+                    block.children(trx),
                     vec![
                         "c".to_owned(),
                         "f".to_owned(),

@@ -101,12 +101,12 @@ impl PluginRegister for IndexingPluginRegister {
         });
 
         Ok(IndexingPluginImpl {
-            schema,
-            query_parser: QueryParser::for_index(&index, vec![title, body]),
-            index,
+            tantivy_schema: schema,
+            tantivy_query_parser: QueryParser::for_index(&index, vec![title, body]),
+            tantivy_index: index,
             queue_reindex,
             // needs to drop sub with everything else
-            _update_sub: sub.expect("able to add subscription for re-indexing"),
+            _yrs_update_sub: sub.expect("able to add subscription for re-indexing"),
         })
     }
 }
