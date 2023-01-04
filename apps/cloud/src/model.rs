@@ -1,4 +1,5 @@
 use chrono::naive::serde::{ts_milliseconds, ts_seconds};
+use jwst::OctoRead;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use sqlx::{self, postgres::PgRow, types::chrono::NaiveDateTime, FromRow, Row, Type};
@@ -275,9 +276,9 @@ pub struct WorkspaceMetadata {
 }
 
 impl WorkspaceMetadata {
-    pub fn parse(metadata: &Map) -> Option<Self> {
-        let name = metadata.get("name")?.to_string();
-        let avatar = metadata.get("avatar")?.to_string();
+    pub fn parse<'doc, R: OctoRead<'doc>>(reader: R) -> Option<Self> {
+        let name = reader.get_workspace_metadata("name")?.to_string();
+        let avatar = metadata.get_workspace_metadata("avatar")?.to_string();
 
         Some(WorkspaceMetadata { name, avatar })
     }

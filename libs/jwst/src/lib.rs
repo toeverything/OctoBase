@@ -20,15 +20,13 @@ pub use log::{error, info};
 pub use storage::{BlobMetadata, BlobStorage, DocStorage};
 pub use utils::encode_update;
 
-pub use octo::{OctoRead, OctoWorkspace, OctoWorkspaceRef, OctoWrite};
+pub use octo::{
+    OctoRead, OctoReaderForEvent, OctoSubscription, OctoWorkspace, OctoWorkspaceRef, OctoWrite,
+};
 
 pub(crate) mod prelude {
     //! Consider a prelude mnodule for convenience
     pub use crate::octo::OctoBlockRef;
     pub use crate::octo::{OctoRead, OctoWrite};
     pub use crate::octo::{OctoWorkspace, OctoWorkspaceRef};
-
-    // include prelude for internal maintenance
-
-    pub(crate) use yrs::{self, Doc, Map, MapRef, ReadTxn, TransactionMut};
 }

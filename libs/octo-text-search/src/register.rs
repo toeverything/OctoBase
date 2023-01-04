@@ -1,6 +1,5 @@
-use super::*;
+use jwst::octo::OctoPluginRegister;
 use std::{
-    path::PathBuf,
     rc::Rc,
     sync::{atomic::AtomicU32, Arc},
 };
@@ -10,48 +9,30 @@ use tantivy::{
     Index,
 };
 
-#[derive(Debug)]
-enum IndexingStorageKind {
-    /// Store index in memory (default)
-    RAM,
-    /// Store index in a specific directory
-    #[allow(dead_code)]
-    PersistedDirectory(PathBuf),
-}
+use crate::TextSearchPlugin;
 
-impl Default for IndexingStorageKind {
-    fn default() -> Self {
-        Self::RAM
-    }
-}
+mod tokenizer;
 
 #[derive(Default, Debug)]
-pub struct IndexingPluginRegister {
-    storage_kind: IndexingStorageKind,
-}
-
-impl IndexingPluginRegister {
-    #[allow(dead_code)]
+#[non_exhaustive] // Non-exhaustive types cannot be constructed outside of the defining crate
+pub struct TextSearchPluginConfig {}
+impl TextSearchPluginConfig {
     pub fn ram() -> Self {
-        Self {
-            storage_kind: IndexingStorageKind::RAM,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn persisted_directory(path: PathBuf) -> Self {
-        Self {
-            storage_kind: IndexingStorageKind::PersistedDirectory(path),
-        }
+        // already the default...
+        TextSearchPluginConfig {}
     }
 }
 
-impl PluginRegister for IndexingPluginRegister {
-    type Plugin = IndexingPluginImpl;
-    fn setup(self, ws: &mut Workspace) -> Result<IndexingPluginImpl, Box<dyn std::error::Error>> {
+impl OctoPluginRegister for TextSearchPluginConfig {
+    type Plugin = TextSearchPlugin;
+
+    fn setup(
+        self,
+        workspace: &mut jwst::OctoWorkspace,
+    ) -> Result<Self::Plugin, Box<dyn std::error::Error>> {
         let options = TextOptions::default().set_indexing_options(
             TextFieldIndexing::default()
-                .set_tokenizer(LANG_CN)
+                .set_tokenizer(tokenizer::LANG_CN)
                 .set_index_option(IndexRecordOption::WithFreqsAndPositions),
         );
 
@@ -61,16 +42,17 @@ impl PluginRegister for IndexingPluginRegister {
         schema_builder.add_text_field("body", options.clone()); // props:text
         let schema = schema_builder.build();
 
-        let index_dir: Box<dyn tantivy::Directory> = match &self.storage_kind {
-            IndexingStorageKind::RAM => Box::new(tantivy::directory::RamDirectory::create()),
-            IndexingStorageKind::PersistedDirectory(dir) => {
-                Box::new(tantivy::directory::MmapDirectory::open(dir)?)
-            }
-        };
+        // let index_dir: Box<dyn tantivy::Directory> = match &self.storage_kind {
+        //     IndexingStorageKind::RAM => Box::new(tantivy::directory::RamDirectory::create()),
+        //     IndexingStorageKind::PersistedDirectory(dir) => {
+        //         Box::new(tantivy::directory::MmapDirectory::open(dir)?)
+        //     }
+        // };
 
         let index = Rc::new({
-            let index = Index::open_or_create(index_dir, schema.clone())?;
-            tokenizers_register(index.tokenizers());
+            let index =
+                Index::open_or_create(tantivy::directory::RamDirectory::create(), schema.clone())?;
+            tokenizer::tokenizers_register(index.tokenizers());
             index
         });
 
@@ -82,10 +64,10 @@ impl PluginRegister for IndexingPluginRegister {
             1,
         ));
 
-        let sub = ws.observe({
+        let sub = workspace.observe({
             let queue_reindex = queue_reindex.clone();
             move |_txn, _e| {
-                // upd.update
+                // Future: Consider optimizing how we figure out what blocks were changed.
                 // let u = yrs::Update::decode_v1(&e.update).unwrap();
                 // let _items = u
                 //     .as_items()
@@ -96,17 +78,18 @@ impl PluginRegister for IndexingPluginRegister {
                 //     item.id;
                 // }
 
+                // signal to the indexer that an update is needed before the next search.
                 queue_reindex.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             }
         });
 
-        Ok(IndexingPluginImpl {
+        Ok(TextSearchPlugin {
             tantivy_schema: schema,
             tantivy_query_parser: QueryParser::for_index(&index, vec![title, body]),
             tantivy_index: index,
             queue_reindex,
             // needs to drop sub with everything else
-            _yrs_update_sub: sub.expect("able to add subscription for re-indexing"),
+            _octo_update_sub: sub.expect("able to add subscription for re-indexing"),
         })
     }
 }

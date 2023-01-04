@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use y_sync::{
     awareness::Awareness,
     sync::{DefaultProtocol, Error, Message, MessageReader, Protocol, SyncMessage},
@@ -61,50 +62,21 @@ impl Content {
         self.blocks.len(&self.doc.transact())
     }
 
-    #[inline]
-    pub fn block_iter<'a>(&'a self) -> impl Iterator<Item = Block> + 'a {
-        // Create a transcation, so we can read from the current snapshot
-        let txn = self.doc.transact();
-        // Question: Why does block_iter care about updated, while block_count doesn't?
-        self.blocks
-            .iter(&txn)
-            .zip(self.updated.iter(&txn))
-            // depends on the list of blocks and the list of updated to be always in sync, always in same order, and always same length...
-            // that kinda smells like needing a special container is necessary.
-            .map(|((id, block), (_, updated))| {
-                Block::from_raw_parts(
-                    id.to_owned(),
-                    &txn,
-                    block.to_ymap().unwrap(),
-                    updated.to_yarray().unwrap(),
-                    self.client_id(),
-                )
-            })
-            // Originally, this was collected and into_iter to save time during
-            // yrs 0.14 update.
-            //
-            // TODO: consider if we can actually make this an iterator, or
-            // if there is a long term issue with holding a Transaction open
-            // while iterating, because it read locks the document.
-            .collect::<Vec<_>>()
-            .into_iter()
-    }
-
     /// Check if the block exists in this workspace's blocks.
     pub fn exists(&self, block_id: &str) -> bool {
         self.blocks
             .contains(&self.doc.transact(), block_id.as_ref())
     }
 
-    /// Subscribe to update events.
-    pub fn observe(
-        &mut self,
-        f: impl Fn(&TransactionMut, &UpdateEvent) -> () + 'static,
-    ) -> Option<UpdateSubscription> {
-        // TODO: should we be able to expect able to observe?
-        // OR: Should we return a Result...
-        self.awareness.doc_mut().observe_update_v1(f).ok()
-    }
+    // /// Subscribe to update events.
+    // pub fn observe(
+    //     &mut self,
+    //     f: impl Fn(&TransactionMut, &UpdateEvent) -> () + 'static,
+    // ) -> Option<UpdateSubscription> {
+    //     // TODO: should we be able to expect able to observe?
+    //     // OR: Should we return a Result...
+    //     self.awareness.doc_mut().observe_update_v1(f).ok()
+    // }
 
     pub fn sync_migration(&self) -> Vec<u8> {
         self.doc()

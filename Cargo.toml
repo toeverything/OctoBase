@@ -5,12 +5,13 @@ members = [
     "apps/keck",
     "libs/cang-jie",
     "libs/jwst",
-    "libs/jwst-ffi",
-    "libs/jwst-jni",
+    "libs/octo-text-search",
+    # "libs/jwst-ffi",
+    # "libs/jwst-jni",
     "libs/jwst-logger",
-    "libs/jwst-py",
+    # "libs/jwst-py",
     "libs/jwst-storage",
-    "libs/jwst-wasm",
+    # "libs/jwst-wasm",
 ]
 
 exclude = ["forks/y-crdt/yrs", "forks/y-crdt/lib0", "forks/y-sync"]

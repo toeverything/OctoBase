@@ -17,7 +17,7 @@ use http::{
     },
     HeaderMap, HeaderValue, StatusCode,
 };
-use jwst::{BlobStorage, DocStorage, Workspace as JWSTWorkspace};
+use jwst::{BlobStorage, DocStorage, OctoWorkspaceRef};
 use lettre::{
     message::{Attachment, Mailbox, MultiPart, SinglePart},
     AsyncTransport, Message,

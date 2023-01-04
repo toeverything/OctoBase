@@ -5,7 +5,7 @@ use thiserror::Error;
 use type_map::TypeMap;
 
 /// A configuration from which a [OctoPlugin] can be created from.
-pub(crate) trait OctoPluginRegister {
+pub trait OctoPluginRegister {
     type Plugin: OctoPlugin;
     fn setup(
         self,
@@ -18,7 +18,7 @@ pub(crate) trait OctoPluginRegister {
 /// A workspace plugin which comes from a corresponding [OctoPluginRegister::setup].
 /// In that setup call, the plugin will have initial access to the whole [OctoWorkspace],
 /// and will be able to add listeners to changes to blocks in the [OctoWorkspace].
-pub(crate) trait OctoPlugin: 'static {
+pub trait OctoPlugin: 'static {
     /// IDEA 1/10:
     /// This update is called sometime between when we know changes have been made to the workspace
     /// and the time when we will get the plugin to query its data (e.g. search()).
@@ -41,9 +41,9 @@ impl PluginMap {
     pub(crate) fn insert_plugin<P: OctoPlugin>(
         &mut self,
         plugin: P,
-    ) -> Result<&mut Self, OctoPluginInsertError> {
+    ) -> Result<&mut Self, PluginInsertError> {
         if self.get_plugin::<P>().is_some() {
-            return Err(OctoPluginInsertError::PluginConflict);
+            return Err(PluginInsertError::PluginConflict);
         }
 
         self.map.insert(plugin);
@@ -77,8 +77,7 @@ pub enum OctoPluginUpdateError {
     UpdateError(#[from] Box<dyn std::error::Error>),
 }
 
-#[derive(Error, Debug)]
-pub enum OctoPluginInsertError {
-    #[error("plugin of type already exists")]
+#[derive(Debug)]
+pub(crate) enum PluginInsertError {
     PluginConflict,
 }

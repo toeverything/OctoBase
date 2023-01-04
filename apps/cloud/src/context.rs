@@ -8,7 +8,7 @@ use chrono::{NaiveDateTime, Utc};
 use handlebars::Handlebars;
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
-use jwst::{DocStorage, SearchResults, Workspace as JWSTWorkspace};
+use jwst::{DocStorage, OctoWorkspace, OctoWorkspaceRef, SearchResults};
 use jwst_logger::info;
 use jwst_storage::{BlobFsStorage, DocFsStorage};
 use lettre::{
@@ -46,7 +46,7 @@ pub struct MailContext {
 }
 
 pub struct DocStore {
-    cache: Cache<i64, Arc<RwLock<JWSTWorkspace>>>,
+    cache: Cache<i64, Arc<RwLock<OctoWorkspace>>>,
     pub storage: DocFsStorage,
 }
 
@@ -60,19 +60,19 @@ impl DocStore {
         }
     }
 
-    pub async fn get_workspace(&self, id: i64) -> Option<Arc<RwLock<JWSTWorkspace>>> {
+    pub async fn get_workspace(&self, id: i64) -> Option<Arc<RwLock<OctoWorkspace>>> {
         self.cache
             .try_get_with(id, async move {
                 self.storage
                     .get(id)
                     .await
-                    .map(|f| Arc::new(RwLock::new(JWSTWorkspace::from_doc(f, id.to_string()))))
+                    .map(|f| Arc::new(RwLock::new(OctoWorkspace::from_doc(f, id.to_string()))))
             })
             .await
             .ok()
     }
 
-    pub fn try_get_workspace(&self, id: i64) -> Option<Arc<RwLock<JWSTWorkspace>>> {
+    pub fn try_get_workspace(&self, id: i64) -> Option<Arc<RwLock<OctoWorkspace>>> {
         self.cache.get(&id)
     }
 }

@@ -1,7 +1,8 @@
+#![allow(deprecated)]
 use crate::archive::block::Block;
 use crate::utils::JS_INT_RANGE;
 
-use super::{plugins::setup_plugin, *};
+use super::*;
 use lib0::any::Any;
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use y_sync::{
@@ -12,19 +13,18 @@ use yrs::{
     types::ToJson, Doc, Map, MapRef, Transact, TransactionMut, UpdateEvent, UpdateSubscription,
 };
 
-use super::{Content, PluginMap};
-use plugins::PluginImpl;
+use super::Content;
 
 #[deprecated = "Use OctoWorkspace and OctoWorkspaceRef"]
 pub struct Workspace {
     content: Content,
-    /// We store plugins so that their ownership is tied to [Workspace].
-    /// This enables us to properly manage lifetimes of observers which will subscribe
-    /// into events that the [Workspace] experiences, like block updates.
-    ///
-    /// Public just for the crate as we experiment with the plugins interface.
-    /// See [plugins].
-    pub(super) plugins: PluginMap,
+    // /// We store plugins so that their ownership is tied to [Workspace].
+    // /// This enables us to properly manage lifetimes of observers which will subscribe
+    // /// into events that the [Workspace] experiences, like block updates.
+    // ///
+    // /// Public just for the crate as we experiment with the plugins interface.
+    // /// See [plugins].
+    // pub(super) plugins: PluginMap,
 }
 
 unsafe impl Send for Workspace {}
@@ -55,39 +55,10 @@ impl Workspace {
                 updated,
                 metadata,
             },
-            plugins: Default::default(),
         };
 
-        setup_plugin(workspace)
-    }
-
-    /// Allow the plugin to run any necessary updates it could have flagged via observers.
-    /// See [plugins].
-    pub(super) fn update_plugin<P: PluginImpl>(
-        &mut self,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.plugins.update_plugin::<P>(&self.content)
-    }
-
-    /// See [plugins].
-    pub(super) fn get_plugin<P: PluginImpl>(&self) -> Option<&P> {
-        self.plugins.get_plugin::<P>()
-    }
-
-    #[cfg(feature = "workspace-search")]
-    pub fn search<S: AsRef<str>>(
-        &mut self,
-        options: S,
-    ) -> Result<SearchResults, Box<dyn std::error::Error>> {
-        use plugins::IndexingPluginImpl;
-
-        // refresh index if doc has update
-        self.update_plugin::<IndexingPluginImpl>()?;
-
-        let search_plugin = self
-            .get_plugin::<IndexingPluginImpl>()
-            .expect("text search was set up by default");
-        search_plugin.search(options.as_ref())
+        // setup_plugin(workspace)
+        workspace
     }
 
     pub fn blocks(&self) -> &MapRef {
@@ -141,10 +112,10 @@ impl Workspace {
         self.content.block_count()
     }
 
-    #[inline]
-    pub fn block_iter(&self) -> impl Iterator<Item = Block> + '_ {
-        self.content.block_iter()
-    }
+    // #[inline]
+    // pub fn block_iter(&self) -> impl Iterator<Item = Block> + '_ {
+    //     self.content.block_iter()
+    // }
 
     pub fn metadata(&self) -> &MapRef {
         &self.content.metadata
@@ -155,12 +126,12 @@ impl Workspace {
         self.content.exists(block_id)
     }
 
-    pub fn observe(
-        &mut self,
-        f: impl Fn(&TransactionMut, &UpdateEvent) -> () + 'static,
-    ) -> Option<UpdateSubscription> {
-        self.content.observe(f)
-    }
+    // pub fn observe(
+    //     &mut self,
+    //     f: impl Fn(&TransactionMut, &UpdateEvent) -> () + 'static,
+    // ) -> Option<UpdateSubscription> {
+    //     self.content.observe(f)
+    // }
 
     pub fn sync_migration(&self) -> Vec<u8> {
         self.content.sync_migration()

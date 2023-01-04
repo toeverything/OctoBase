@@ -29,6 +29,7 @@ lettre = { version = "0.10.1", features = [
 lib0 = "0.12.0"
 mime = "0.3.16"
 moka = { version = "0.9.6", features = ["future"] }
+octo-text-search = { path = "../../libs/octo-text-search" }
 pem = "1.1.0"
 rand = "0.8.5"
 reqwest = { version = "0.11.13", features = [

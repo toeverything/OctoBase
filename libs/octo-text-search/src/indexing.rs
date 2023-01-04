@@ -1,24 +1,21 @@
-use super::{Content, PluginImpl};
-use lib0::any::Any;
-use serde::{Deserialize, Serialize};
-use yrs::Transact;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{atomic::AtomicU32, Arc};
+use jwst::OctoRead;
+use jwst::octo::OctoPlugin;
 use tantivy::{collector::TopDocs, query::QueryParser, schema::*, Index, ReloadPolicy};
-use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct SearchResult {
+#[derive(Debug)]
+pub struct TextSearchResult {
     pub block_id: String,
     pub score: f32,
 }
 
 /// Returned from [Workspace::search]
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct SearchResults(Vec<SearchResult>);
+#[derive(Debug)]
+pub struct TextSearchResults(Vec<TextSearchResult>);
 
-pub struct IndexingPluginImpl {
+pub struct TextSearchPlugin {
     // /// `true` if the text search has not yet populated the Tantivy index
     // /// `false` if there should only be incremental changes necessary to the blocks.
     // first_index: bool,
@@ -27,15 +24,15 @@ pub struct IndexingPluginImpl {
     pub(super) tantivy_index: Rc<Index>,
     pub(super) tantivy_query_parser: QueryParser,
     // need to keep so it gets dropped with this plugin
-    pub(super) _yrs_update_sub: yrs::UpdateSubscription,
+    pub(super) _octo_update_sub: jwst::OctoSubscription,
 }
 
-impl IndexingPluginImpl {
+impl TextSearchPlugin {
     /// Search the current text index
     pub fn search(
         &self,
         query: &str,
-    ) -> Result<SearchResults, Box<dyn std::error::Error>> {
+    ) -> Result<TextSearchResults, Box<dyn std::error::Error>> {
         let mut items = Vec::new();
 
         let reader = self
@@ -55,7 +52,7 @@ impl IndexingPluginImpl {
             for (score, doc_address) in top_docs {
                 let retrieved_doc = searcher.doc(doc_address)?;
                 if let Some(Value::Str(id)) = retrieved_doc.get_first(block_id_field) {
-                    items.push(SearchResult {
+                    items.push(TextSearchResult {
                         block_id: id.to_string(),
                         score,
                     })
@@ -69,22 +66,20 @@ impl IndexingPluginImpl {
             }
         }
 
-        Ok(SearchResults(items))
+        Ok(TextSearchResults(items))
     }
 }
 
-impl PluginImpl for IndexingPluginImpl {
-    fn on_update(&mut self, ws: &Content) -> Result<(), Box<dyn std::error::Error>> {
-        let curr = self.queue_reindex.load(std::sync::atomic::Ordering::SeqCst);
+impl OctoPlugin for TextSearchPlugin {
+    fn on_update(&mut self, reader: &jwst::octo::OctoReader) -> Result<(), Box<dyn std::error::Error>> {    let curr = self.queue_reindex.load(std::sync::atomic::Ordering::SeqCst);
         if curr > 0 {
             let mut re_index_list = HashMap::<String, (Option<String>, Option<String>)>::new();
-            let txn = ws.doc().transact();
             // TODO: reindex
-            for block in ws.block_iter() {
-                let title = block.content(&txn).get("title").map(ToOwned::to_owned);
-                let body = block.content(&txn).get("text").map(ToOwned::to_owned);
+            for block in reader.block_iter() {
+                let title = block.content(&reader).get("title").map(ToOwned::to_owned);
+                let body = block.content(&reader).get("text").map(ToOwned::to_owned);
                 re_index_list.insert(
-                    block.id(),
+                    block.id().to_string(),
                     (
                         title.and_then(|a| match a {
                             Any::String(str) => Some(str.to_string()),
@@ -113,7 +108,7 @@ impl PluginImpl for IndexingPluginImpl {
     }
 }
 
-impl IndexingPluginImpl {
+impl TextSearchPlugin {
     fn re_index_content<BlockIdTitleAndTextIter>(
         &mut self,
         blocks: BlockIdTitleAndTextIter,
@@ -189,9 +184,9 @@ mod test {
     #[test]
     fn basic_search_test() {
         let mut workspace = {
-            let workspace = Workspace::from_doc(Default::default(), "wk-load");
+            OctoWorkspace::from_doc(Default::default(), "wk-load")
             // even though the plugin is added by default,
-            super::super::super::insert_plugin(workspace, IndexingPluginRegister::ram())
+            .register_plugin(TextSearchPluginConfig::ram())
                 .expect("failed to insert plugin")
         };
 
@@ -250,10 +245,10 @@ mod test {
         println!("Blocks: {:#?}", workspace.blocks()); // shown if there is an issue running the test.
 
         workspace
-            .update_plugin::<IndexingPluginImpl>()
+            .update_plugin::<TextSearchPlugin>()
             .expect("update text search plugin");
 
-        let search_plugin = workspace.get_plugin::<IndexingPluginImpl>().unwrap();
+        let search_plugin = workspace.get_plugin::<TextSearchPlugin>().unwrap();
 
         expect_search_gives_ids!(search_plugin, "content", &["b", "c", "d"]);
         expect_search_gives_ids!(search_plugin, "bbb", &["b"]);

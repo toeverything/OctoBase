@@ -5,10 +5,6 @@ authors = ["DarkSky <darksky2048@gmail.com>"]
 edition = "2021"
 license = "AGPL-3.0-only"
 
-[features]
-workspace-search = ["dep:tantivy"]
-default = ["workspace-search"]
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -20,12 +16,8 @@ log = "0.4.17"
 utoipa = "2.4.2"
 serde_json = "1.0.91"
 type-map = "0.5.0"
-tantivy = { version = "0.19.0", optional = true }
 tokio = "1.23.0"
 thiserror = "1.0.38"
-
-[dependencies.cang-jie]
-path = "../cang-jie"
 
 [dependencies.lib0]
 path = "../../forks/y-crdt/lib0"
