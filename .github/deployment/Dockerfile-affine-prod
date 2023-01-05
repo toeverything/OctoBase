@@ -1,9 +1,10 @@
 
 ARG BASE_IMAGE=localhost:5000/toeverything/relocate:latest
+ARG BASE_STATIC_IMAGE=ghcr.io/toeverything/affine-static:pre-alpha
 
 FROM ${BASE_IMAGE} as builder
 
-FROM --platform=linux/amd64 ghcr.io/toeverything/affine:nightly-keck as static
+FROM --platform=linux/amd64 ${BASE_STATIC_IMAGE} as static
 
 FROM alpine:latest as relocate
 ARG TARGETPLATFORM

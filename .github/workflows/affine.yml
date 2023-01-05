@@ -32,9 +32,8 @@ concurrency:
 env:
     REGISTRY: ghcr.io
     NAMESPACE: toeverything
-    AFFINE_IMAGE_NAME: affine
-    IMAGE_TAG: canary-${{ github.sha }}
-    IMAGE_TAG_LATEST: nightly-server-latest
+    AFFINE_IMAGE_NAME: AFFiNE-static
+    IMAGE_TAG_LATEST: latest
     LOCAL_CACHE: localhost:5000/toeverything/relocate:latest
 
 jobs:
@@ -71,13 +70,6 @@ jobs:
               with:
                   driver-opts: network=host
 
-            - name: Extract metadata (tags, labels) for Docker (affine)
-              id: meta_affine
-              uses: docker/metadata-action@v4
-              with:
-                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.AFFINE_IMAGE_NAME }}
-                  tags: ${{ env.IMAGE_TAG_LATEST }}
-
             - name: Build and push Docker image (affine-baseline)
               uses: docker/build-push-action@v3
               with:
@@ -87,13 +79,46 @@ jobs:
                   tags: ${{ env.LOCAL_CACHE }}
                   target: jwst
 
-            - name: Build and push Docker image (affine)
+            - name: Extract metadata (tags, labels) for Docker (affine-pre-alpha)
+              id: meta_affine_pre_alpha
+              uses: docker/metadata-action@v4
+              with:
+                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.AFFINE_IMAGE_NAME }}
+                  tags: pre-alpha-server
+
+            - name: Build and push Docker image (affine-pre-alpha)
               uses: docker/build-push-action@v3
               with:
                   context: .
                   platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
                   file: ./.github/deployment/Dockerfile-affine-prod
                   push: ${{ github.ref == 'refs/heads/master' && true || false }}
-                  tags: ${{ steps.meta_affine.outputs.tags }}
-                  labels: ${{ steps.meta_affine.outputs.labels }}
+                  tags: ${{ steps.meta_affine_pre_alpha.outputs.tags }}
+                  labels: ${{ steps.meta_affine_pre_alpha.outputs.labels }}
                   target: affine
+                  build-args: |
+                      BASE_IMAGE=${{ env.LOCAL_CACHE }}
+                      BASE_STATIC_IMAGE=ghcr.io/toeverything/affine-static:pre-alpha
+
+            # - name: Extract metadata (tags, labels) for Docker (affine-abbey-wood)
+            #   id: meta_affine_abbey_wood
+            #   uses: docker/metadata-action@v4
+            #   with:
+            #       images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.AFFINE_IMAGE_NAME }}
+            #       tags: |
+            #           abbey-wood-server
+            #           ${{ env.IMAGE_TAG_LATEST }}
+
+            # - name: Build and push Docker image (affine-abbey-wood)
+            #   uses: docker/build-push-action@v3
+            #   with:
+            #       context: .
+            #       platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
+            #       file: ./.github/deployment/Dockerfile-affine-prod
+            #       push: ${{ github.ref == 'refs/heads/master' && true || false }}
+            #       tags: ${{ steps.meta_affine_abbey_wood.outputs.tags }}
+            #       labels: ${{ steps.meta_affine_abbey_wood.outputs.labels }}
+            #       target: affine
+            #       build-args: |
+            #           BASE_IMAGE=${{ env.LOCAL_CACHE }}
+            #           BASE_STATIC_IMAGE=ghcr.io/toeverything/affine-static:abbey-wood
