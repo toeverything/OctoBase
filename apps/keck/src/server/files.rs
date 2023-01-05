@@ -1,6 +1,6 @@
 use super::*;
 use axum::{
-    body::{boxed, Body, BoxBody},
+    body::{boxed, Body, BoxBody, Empty},
     http::{Request, Response, StatusCode, Uri},
 };
 use tower::ServiceExt;
@@ -27,31 +27,29 @@ static GENERAL_INDEX_FILES_ERROR: &'static str = if cfg!(debug_assertions) {
 async fn index_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
     info!("get {:?}", uri);
 
-    if let "/" | "" = uri.path() {
-        return Ok(create_homepage());
-    }
-
     let res = get_static_file(uri.clone(), INDEX_DIST_PATH.to_owned()).await?;
-
-    if res.status() != StatusCode::NOT_FOUND {
-        // asset file found
-        return Ok(res);
-    }
-
-    if let "/index.html" = uri.path() {
-        let index_result =
+    if res.status() == StatusCode::NOT_FOUND {
+        let res =
             get_static_file(Uri::from_static("/index.html"), INDEX_DIST_PATH.to_owned()).await?;
         if res.status() == StatusCode::NOT_FOUND {
-            // index file not found...
-            return Ok(create_404(format!("Failed to find built index for <code>{INDEX_DIST_PATH}/index.html</code>. Make sure you've run <code>pnpm install && pnpm build</code> in <code>apps/frontend</code> to access this page. {GENERAL_INDEX_FILES_ERROR}")));
+            return if cfg!(debug_assertions) {
+                if let "/" | "" = uri.path() {
+                    Ok(create_homepage())
+                } else if let "/index.html" = uri.path() {
+                    Ok(create_404(format!("Failed to find built index for <code>{INDEX_DIST_PATH}/index.html</code>. Make sure you've run <code>pnpm install && pnpm build</code> in <code>apps/frontend</code> to access this page. {GENERAL_INDEX_FILES_ERROR}")))
+                } else {
+                    Ok(create_404(format!("Failed to find index file or asset (<code>.{uri}</code>) at <code>{INDEX_DIST_PATH}</code>. {GENERAL_INDEX_FILES_ERROR}")))
+                }
+            } else {
+                Ok(Response::builder()
+                    .status(404)
+                    .body(boxed(Empty::default()))
+                    .unwrap())
+            };
         }
-
-        return Ok(index_result);
     }
 
-    Ok(create_404(format!(
-        "Failed to find index file or asset (<code>.{uri}</code>) at <code>{INDEX_DIST_PATH}</code>. {GENERAL_INDEX_FILES_ERROR}"
-    )))
+    Ok(res)
 }
 
 async fn docs_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
