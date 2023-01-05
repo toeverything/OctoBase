@@ -1,8 +1,8 @@
+use jwst::octo::OctoPlugin;
+use jwst::{Any, OctoRead};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::{atomic::AtomicU32, Arc};
-use jwst::OctoRead;
-use jwst::octo::OctoPlugin;
 use tantivy::{collector::TopDocs, query::QueryParser, schema::*, Index, ReloadPolicy};
 
 #[derive(Debug)]
@@ -29,10 +29,7 @@ pub struct TextSearchPlugin {
 
 impl TextSearchPlugin {
     /// Search the current text index
-    pub fn search(
-        &self,
-        query: &str,
-    ) -> Result<TextSearchResults, Box<dyn std::error::Error>> {
+    pub fn search(&self, query: &str) -> Result<TextSearchResults, Box<dyn std::error::Error>> {
         let mut items = Vec::new();
 
         let reader = self
@@ -71,13 +68,17 @@ impl TextSearchPlugin {
 }
 
 impl OctoPlugin for TextSearchPlugin {
-    fn on_update(&mut self, reader: &jwst::octo::OctoReader) -> Result<(), Box<dyn std::error::Error>> {    let curr = self.queue_reindex.load(std::sync::atomic::Ordering::SeqCst);
+    fn on_update(
+        &mut self,
+        reader: &jwst::octo::OctoReader,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let curr = self.queue_reindex.load(std::sync::atomic::Ordering::SeqCst);
         if curr > 0 {
             let mut re_index_list = HashMap::<String, (Option<String>, Option<String>)>::new();
             // TODO: reindex
             for block in reader.block_iter() {
-                let title = block.content(&reader).get("title").map(ToOwned::to_owned);
-                let body = block.content(&reader).get("text").map(ToOwned::to_owned);
+                let title = block.get_user_prop(reader, "title").ok().flatten();
+                let body = block.get_user_prop(reader, "text").ok().flatten();
                 re_index_list.insert(
                     block.id().to_string(),
                     (
@@ -148,6 +149,8 @@ impl TextSearchPlugin {
 
 #[cfg(test)]
 mod test {
+    use jwst::OctoWrite;
+
     use super::super::*;
     use super::*;
 
@@ -184,49 +187,51 @@ mod test {
     #[test]
     fn basic_search_test() {
         let mut workspace = {
-            OctoWorkspace::from_doc(Default::default(), "wk-load")
-            // even though the plugin is added by default,
-            .register_plugin(TextSearchPluginConfig::ram())
+            OctoWorkspace::builder("wk-load")
+                .build_empty()
+                // even though the plugin is added by default,
+                .register_plugin(TextSearchPluginConfig::ram())
                 .expect("failed to insert plugin")
         };
 
-        workspace.with_trx(|mut t| {
-            let block = t.create("b1", "text");
-            block.set(&mut t.trx_mut, "test", "test");
+        {
+            let mut writer = workspace.write();
+            let block = writer.create_block(("b1", "text")).unwrap();
+            block.set_user_prop(&mut writer, "test", "test");
 
-            let block = t.create("a", "affine:text");
-            let b = t.create("b", "affine:text");
-            let c = t.create("c", "affine:text");
-            let d = t.create("d", "affine:text");
-            let e = t.create("e", "affine:text");
-            let f = t.create("f", "affine:text");
-            let mut trx = &mut t.trx_mut;
+            let block = writer.create_block(("a", "affine:text")).unwrap();
+            let b = writer.create_block(("b", "affine:text")).unwrap();
+            let c = writer.create_block(("c", "affine:text")).unwrap();
+            let d = writer.create_block(("d", "affine:text")).unwrap();
+            let e = writer.create_block(("e", "affine:text")).unwrap();
+            let f = writer.create_block(("f", "affine:text")).unwrap();
+            let mut w = &mut writer;
 
-            b.set(trx, "title", "Title B content");
-            b.set(trx, "text", "Text B content bbb xxx");
+            b.set_user_prop(w, "title", "Title B content");
+            b.set_user_prop(w, "text", "Text B content bbb xxx");
 
-            c.set(trx, "title", "Title C content");
-            c.set(trx, "text", "Text C content ccc xxx yyy");
+            c.set_user_prop(w, "title", "Title C content");
+            c.set_user_prop(w, "text", "Text C content ccc xxx yyy");
 
-            d.set(trx, "title", "Title D content");
-            d.set(trx, "text", "Text D content ddd yyy");
-      
-            e.set(trx, "title", "人民日报");
-            e.set(trx, "text", "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途");
+            d.set_user_prop(w, "title", "Title D content");
+            d.set_user_prop(w, "text", "Text D content ddd yyy");
 
-            f.set(trx, "title", "美国首次成功在核聚变反应中实现“净能量增益”");
-            f.set(trx, "text", "当地时间13日，美国能源部官员宣布，由美国政府资助的加州劳伦斯·利弗莫尔国家实验室（LLNL），首次成功在核聚变反应中实现“净能量增益”，即聚变反应产生的能量大于促发该反应的镭射能量。");
+            e.set_user_prop(w, "title", "人民日报");
+            e.set_user_prop(w, "text", "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途");
+
+            f.set_user_prop(w, "title", "美国首次成功在核聚变反应中实现“净能量增益”");
+            f.set_user_prop(w, "text", "当地时间13日，美国能源部官员宣布，由美国政府资助的加州劳伦斯·利弗莫尔国家实验室（LLNL），首次成功在核聚变反应中实现“净能量增益”，即聚变反应产生的能量大于促发该反应的镭射能量。");
 
             // pushing blocks in
             {
-                block.push_children(trx, &b);
-                block.insert_children_at(trx, &c, 0);
-                block.insert_children_before(trx, &d, "b");
-                block.insert_children_after(trx, &e, "b");
-                block.insert_children_after(trx, &f, "c");
+                block.push_children(w, &b);
+                block.insert_children_at(w, &c, 0);
+                block.insert_children_before(w, &d, "b");
+                block.insert_children_after(w, &e, "b");
+                block.insert_children_after(w, &f, "c");
 
                 assert_eq!(
-                    block.children(trx),
+                    block.children(w),
                     vec![
                         "c".to_owned(),
                         "f".to_owned(),
@@ -239,8 +244,8 @@ mod test {
 
             // Question: Is this supposed to indicate that since this block is detached, then we should not be indexing it?
             // For example, should we walk up the parent tree to check if each block is actually attached?
-            block.remove_children(trx, &d);
-        });
+            block.remove_children(w, &d);
+        }
 
         println!("Blocks: {:#?}", workspace.blocks()); // shown if there is an issue running the test.
 

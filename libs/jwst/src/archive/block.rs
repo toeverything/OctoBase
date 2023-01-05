@@ -170,6 +170,7 @@ impl Block {
     where
         T: Into<Any>,
     {
+        // moved to try_set_yrs_prop_value
         let key = format!("prop:{}", key);
         match value.into() {
             Any::Bool(bool) => {

@@ -2,7 +2,9 @@ pub use serde_json::Value as JsonValue;
 
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use yrs::{Array, ArrayRef, Transaction};
+use yrs::{Array, ArrayRef};
+
+use crate::{OctoAnyError, OctoOptionHelper, OctoResult, OctoValue, OctoValueError};
 
 #[derive(Serialize, Deserialize, ToSchema, Debug, PartialEq)]
 pub enum HistoryOperation {
@@ -69,24 +71,45 @@ pub struct BlockHistory {
     pub operation: HistoryOperation,
 }
 
-impl From<(ArrayRef, &mut Transaction<'_>, String)> for BlockHistory {
-    fn from(params: (ArrayRef, &mut Transaction, String)) -> Self {
-        let (array, trx, block_id) = params;
-        Self {
+impl BlockHistory {
+    /// Concern: Uses default values for anything that doesn't match the schema
+    #[track_caller]
+    pub(crate) fn try_parse_yrs_array(
+        yrs_array_ref: ArrayRef,
+        read_txn: &impl yrs::ReadTxn,
+        block_id: String,
+    ) -> Result<Self, OctoAnyError> {
+        Ok(Self {
             block_id,
-            client: array
-                .get(trx, 0)
-                .and_then(|i| i.to_string(trx).parse::<u64>().ok())
-                .unwrap_or_default(),
-            timestamp: array
-                .get(trx, 1)
-                .and_then(|i| i.to_string(trx).parse::<u64>().ok())
-                .unwrap_or_default(),
-            operation: array
-                .get(trx, 2)
-                .map(|i| i.to_string(trx))
-                .unwrap_or_default()
-                .into(),
-        }
+            client: yrs_array_ref
+                .get(read_txn, 0)
+                .octo_ok_or_any("expected yarray element")
+                .and_then(|i| {
+                    let st = i.to_string(read_txn);
+                    st.parse::<u64>()
+                        .octo_map_err_any(format!("failed parsing as u64 for value: {st:?}"))
+                })
+                .map_err(|e| e.prefix_message("client id at index 0"))?,
+            timestamp: yrs_array_ref
+                .get(read_txn, 1)
+                .octo_ok_or_any("expected yarray element")
+                .and_then(|i| {
+                    let st = i.to_string(read_txn);
+                    st.parse::<u64>()
+                        .octo_map_err_any(format!("failed parsing as u64 for value: {st:?}"))
+                })
+                .map_err(|e| e.prefix_message("timestamp at index 1"))?,
+            operation: yrs_array_ref
+                .get(read_txn, 2)
+                .octo_ok_or_any("expected yarray element")
+                .and_then(|i| {
+                    let s = OctoValue::from(i)
+                        .try_as_string()
+                        .octo_map_err_any("expected string")?;
+
+                    HistoryOperation::try_from(s).octo_map_err_any("expected type")
+                })
+                .map_err(|e| e.prefix_message("operation at index 2"))?,
+        })
     }
 }
