@@ -1989,6 +1989,7 @@ dependencies = [
  "dotenvy",
  "futures",
  "jwst",
+ "jwst-logger",
  "num-traits",
  "serde",
  "serde_json",
