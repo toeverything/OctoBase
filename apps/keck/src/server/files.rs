@@ -24,7 +24,7 @@ static GENERAL_INDEX_FILES_ERROR: &'static str = if cfg!(debug_assertions) {
     ""
 };
 
-pub async fn index_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
+async fn index_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
     info!("get {:?}", uri);
 
     if let "/" | "" = uri.path() {
@@ -54,7 +54,7 @@ pub async fn index_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, S
     )))
 }
 
-pub async fn docs_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
+async fn docs_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
     info!("get {:?}", uri);
     let res = get_static_file(uri.clone(), DOCS_DIST_PATH.to_owned()).await?;
 
@@ -117,5 +117,18 @@ async fn get_static_file(
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("Something went wrong: {}", err),
         )),
+    }
+}
+
+pub fn static_files(router: Router) -> Router {
+    if cfg!(all(not(debug_assertions), not(feature = "affine"))) {
+        // Redirect to docs in production until we have a proper home page
+        // FIXME: Notice that you can't test this locally because the debug_assertions are used to determine where the built file are too
+        // So, after this redirects you locally, it will still be 404, since the files will be expected at a production path like `/app/book`.
+        router
+            .nest_service("/docs", get(files::docs_handler))
+            .route("/", get(|| async { Redirect::to("/docs/index.html") }))
+    } else {
+        router.fallback_service(get(files::index_handler))
     }
 }

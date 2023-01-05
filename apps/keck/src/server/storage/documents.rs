@@ -1,6 +1,6 @@
 #[cfg(feature = "mysc")]
 pub use jwst_storage::{DocMySQLStorage as DocDatabase, UpdateBinary};
-#[cfg(feature = "jwst")]
+#[cfg(any(feature = "affine", feature = "jwst"))]
 pub use jwst_storage::{DocSQLiteStorage as DocDatabase, UpdateBinary};
 
 #[cfg(test)]
