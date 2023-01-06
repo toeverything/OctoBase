@@ -32,9 +32,7 @@ pub struct DBContext {
 
 impl DBContext {
     pub async fn new(db_env: String) -> DBContext {
-        let db = DBPool::connect(&db_env)
-            .await
-            .expect("wrong database URL");
+        let db = DBPool::connect(&db_env).await.expect("wrong database URL");
         let db_context = Self { db };
         db_context.init_db().await;
         db_context
@@ -216,7 +214,8 @@ impl DBContext {
         &self,
         workspace_id: String,
     ) -> sqlx::Result<Option<WorkspaceDetail>> {
-        let get_workspace = "SELECT uuid, public, type, created_at FROM workspaces WHERE uuid = $1;";
+        let get_workspace =
+            "SELECT uuid, public, type, created_at FROM workspaces WHERE uuid = $1;";
 
         let workspace = query_as::<_, Workspace>(&get_workspace)
             .bind(workspace_id.clone())
@@ -400,7 +399,11 @@ impl DBContext {
             .map(|p| p.map(|p| p.type_))
     }
 
-    pub async fn can_read_workspace(&self, user_id: i32, workspace_id: String) -> sqlx::Result<bool> {
+    pub async fn can_read_workspace(
+        &self,
+        user_id: i32,
+        workspace_id: String,
+    ) -> sqlx::Result<bool> {
         let stmt = "SELECT FROM permissions 
             WHERE user_id = $1
                 AND workspace_id = $2
