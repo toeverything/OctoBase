@@ -40,7 +40,7 @@ impl DBContext {
 
     pub async fn init_db(&self) {
         let stmt = "CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             email TEXT NOT NULL,
             avatar_url TEXT,
@@ -66,7 +66,7 @@ impl DBContext {
             .expect("create table google_users failed");
 
         let stmt = "CREATE TABLE IF NOT EXISTS workspaces (
-            uuid VARCHAR(36) NOT NULL PRIMARY KEY,
+            uuid CHAR(36) PRIMARY KEY,
             public BOOL NOT NULL,
             type SMALLINT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -78,12 +78,14 @@ impl DBContext {
 
         let stmt = "CREATE TABLE IF NOT EXISTS permissions (
             id BIGSERIAL PRIMARY KEY,
-            workspace_id VARCHAR(36) REFERENCES workspaces(uuid) ON DELETE CASCADE,
-            user_id INTEGER REFERENCES users(id),
+            workspace_id CHAR(36),
+            user_id INTEGER,
             user_email TEXT,
             type SMALLINT NOT NULL,
             accepted BOOL DEFAULT False,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(workspace_id) REFERENCES workspaces(uuid),
+            FOREIGN KEY(user_id) REFERENCES users(id),
             UNIQUE (workspace_id, user_id),
             UNIQUE (workspace_id, user_email)
         );";
