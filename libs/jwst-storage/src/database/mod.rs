@@ -573,13 +573,29 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(new_user.id, 0);
+        assert_eq!(new_user.id, 1);
+        let new_user2 = db_context
+            .create_user(CreateUser {
+                avatar_url: Some("xxx".to_string()),
+                email: "xxx2@xxx.xx".to_string(),
+                name: "xxx".to_string(),
+                password: "xxx".to_string(),
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(new_user2.id, 2);
         let new_workspace = db_context
             .create_normal_workspace(new_user.id)
             .await
             .unwrap();
+        let new_workspace2 = db_context
+            .create_normal_workspace(new_user2.id)
+            .await
+            .unwrap();
 
         assert_eq!(new_workspace.id.len(), 36);
+        assert_eq!(new_workspace2.id.len(), 36);
 
         Ok(())
     }
