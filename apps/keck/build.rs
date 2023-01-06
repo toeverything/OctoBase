@@ -1,3 +1,4 @@
+#[cfg(feature = "docs")]
 use std::path::PathBuf;
 
 fn main() {
