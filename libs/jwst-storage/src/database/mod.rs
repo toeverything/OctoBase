@@ -55,7 +55,7 @@ impl DBContext {
             .expect("create table users failed");
 
         let stmt = "CREATE TABLE IF NOT EXISTS google_users (
-            id SERIAL PRIMARY KEY,
+            id SERIAL,
             user_id INTEGER REFERENCES users(id),
             google_id TEXT NOT NULL,
             UNIQUE (google_id)
@@ -66,10 +66,12 @@ impl DBContext {
             .expect("create table google_users failed");
 
         let stmt = "CREATE TABLE IF NOT EXISTS workspaces (
-            uuid CHAR(36) PRIMARY KEY,
+            id SERIAL,
+            uuid CHAR(36),
             public BOOL NOT NULL,
             type SMALLINT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(uuid)
         );";
         query(&stmt)
             .execute(&self.db)
@@ -217,7 +219,7 @@ impl DBContext {
         workspace_id: String,
     ) -> sqlx::Result<Option<WorkspaceDetail>> {
         let get_workspace =
-            "SELECT uuid, public, type, created_at FROM workspaces WHERE uuid = $1;";
+            "SELECT uuid AS id, public, type, created_at FROM workspaces WHERE uuid = $1;";
 
         let workspace = query_as::<_, Workspace>(&get_workspace)
             .bind(workspace_id.clone())
@@ -238,7 +240,7 @@ impl DBContext {
 
         let owner = self.get_workspace_owner(workspace_id.clone()).await?;
 
-        let get_member_count = "SELECT COUNT(permissions.id)
+        let get_member_count = "SELECT COUNT(permissions.id) AS count
             FROM permissions
             WHERE workspace_id = $1 AND accepted = True";
 
@@ -599,6 +601,18 @@ mod tests {
         assert_eq!(new_workspace.id.len(), 36);
         assert_eq!(new_workspace2.id.len(), 36);
 
+        let new_workspace1_clone = db_context
+            .get_workspace_by_id(new_workspace.id.clone())
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(new_user.id, new_workspace1_clone.owner.unwrap().id);
+        assert_eq!(new_workspace.id, new_workspace1_clone.workspace.id);
+        assert_eq!(
+            new_workspace.created_at,
+            new_workspace1_clone.workspace.created_at
+        );
         Ok(())
     }
 }
