@@ -1,14 +1,8 @@
 use chrono::naive::serde::{ts_milliseconds, ts_seconds};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Row, Type};
+use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Row, Type, sqlite::SqliteRow, postgres::PgRow};
 use yrs::Map;
-
-// TODO: use trait to implement for each db, instead of using condition
-#[cfg(feature = "mysql")]
-type DBRow = sqlx::postgres::PgRow;
-#[cfg(not(feature = "mysql"))]
-type DBRow = sqlx::sqlite::SqliteRow;
 
 #[derive(Debug, Deserialize)]
 pub struct GoogleClaims {
@@ -214,8 +208,44 @@ pub struct Member {
     pub created_at: NaiveDateTime,
 }
 
-impl FromRow<'_, DBRow> for Member {
-    fn from_row(row: &DBRow) -> sqlx::Result<Self> {
+#[cfg(feature = "sqlite")]
+impl FromRow<'_, SqliteRow> for Member {
+    fn from_row(row: &SqliteRow) -> sqlx::Result<Self> {
+        let id = row.try_get("id")?;
+        let accepted = row.try_get("accepted")?;
+        let type_ = row.try_get("type")?;
+        let created_at = row.try_get("created_at")?;
+
+        let user = if let Some(email) = row.try_get("user_email")? {
+            UserCred::UnRegistered { email }
+        } else {
+            let id = row.try_get("user_id")?;
+            let name = row.try_get("user_name")?;
+            let email = row.try_get("user_table_email")?;
+            let avatar_url = row.try_get("avatar_url")?;
+            let created_at = row.try_get("user_created_at")?;
+            UserCred::Registered(User {
+                id,
+                name,
+                email,
+                avatar_url,
+                created_at,
+            })
+        };
+
+        Ok(Member {
+            id,
+            accepted,
+            user,
+            type_,
+            created_at,
+        })
+    }
+}
+
+#[cfg(feature = "mysql")]
+impl FromRow<'_, PgRow> for Member {
+    fn from_row(row: &PgRow) -> sqlx::Result<Self> {
         let id = row.try_get("id")?;
         let accepted = row.try_get("accepted")?;
         let type_ = row.try_get("type")?;
