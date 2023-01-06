@@ -197,16 +197,16 @@ impl BlobStorage for MySQL {
             Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
         }
     }
-    async fn delete_blob(&self, workspace: Option<String>, id: String) -> io::Result<()> {
-        let workspace = workspace.unwrap_or("__default__".into());
-        if let Ok(_success) = self.delete(&workspace, &id).await {
+    async fn delete_blob(&self, workspace_id: Option<String>, id: String) -> io::Result<()> {
+        let workspace_id = workspace_id.unwrap_or("__default__".into());
+        if let Ok(_success) = self.delete(&workspace_id, &id).await {
             Ok(())
         } else {
             Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
         }
     }
-    async fn delete_workspace(&self, workspace: String) -> io::Result<()> {
-        if self.drop(&workspace).await.is_ok() {
+    async fn delete_workspace(&self, workspace_id: String) -> io::Result<()> {
+        if self.drop(&workspace_id).await.is_ok() {
             Ok(())
         } else {
             Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))

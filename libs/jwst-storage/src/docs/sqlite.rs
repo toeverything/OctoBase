@@ -143,19 +143,19 @@ impl SQLite {
         }
     }
 
-    pub async fn create_doc(&self, workspace: &str) -> Result<Doc, Error> {
+    pub async fn create_doc(&self, workspace_id: &str) -> Result<Doc, Error> {
         let mut doc = Doc::with_options(Options {
             skip_gc: true,
             ..Default::default()
         });
 
-        self.create(workspace).await?;
+        self.create(workspace_id).await?;
 
-        let all_data = self.all(workspace).await?;
+        let all_data = self.all(workspace_id).await?;
 
         if all_data.is_empty() {
             let update = doc.encode_state_as_update_v1(&StateVector::default());
-            self.insert(workspace, &update).await?;
+            self.insert(workspace_id, &update).await?;
         } else {
             doc = migrate_update(all_data, doc);
         }
@@ -166,32 +166,32 @@ impl SQLite {
 
 #[async_trait]
 impl DocStorage for SQLite {
-    async fn get(&self, workspace: i64) -> io::Result<Doc> {
-        self.create_doc(&workspace.to_string())
+    async fn get(&self, workspace_id: String) -> io::Result<Doc> {
+        self.create_doc(&workspace_id)
             .await
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
 
     /// This function is not atomic -- please provide external lock mechanism
-    async fn write_doc(&self, workspace: i64, doc: &Doc) -> io::Result<()> {
+    async fn write_doc(&self, workspace_id: String, doc: &Doc) -> io::Result<()> {
         let data = doc.encode_state_as_update_v1(&StateVector::default());
 
-        self.full_migrate(&workspace.to_string(), data)
+        self.full_migrate(&workspace_id, data)
             .await
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
 
     /// This function is not atomic -- please provide external lock mechanism
-    async fn write_update(&self, workspace: i64, data: &[u8]) -> io::Result<bool> {
-        self.update(&workspace.to_string(), data.into())
+    async fn write_update(&self, workspace_id: String, data: &[u8]) -> io::Result<bool> {
+        self.update(&workspace_id, data.into())
             .await
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
         Ok(true)
     }
 
-    async fn delete(&self, workspace: i64) -> io::Result<()> {
-        self.drop(&workspace.to_string())
+    async fn delete(&self, workspace_id: String) -> io::Result<()> {
+        self.drop(&workspace_id)
             .await
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }

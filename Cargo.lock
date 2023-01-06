@@ -2000,6 +2000,7 @@ dependencies = [
  "sqlx",
  "tokio",
  "tokio-util",
+ "uuid",
  "yrs",
 ]
 
@@ -4585,6 +4586,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "422ee0de9031b5b948b97a8fc04e3aa35230001a722ddd27943e0be31564ce4c"
 dependencies = [
  "getrandom 0.2.8",
+ "rand 0.8.5",
  "serde",
 ]
 

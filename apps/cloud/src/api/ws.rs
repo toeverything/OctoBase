@@ -77,13 +77,13 @@ fn subscribe_handler(
     std::mem::forget(sub);
 }
 
-async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Context>) {
+async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Context>) {
     let (mut socket_tx, mut socket_rx) = socket.split();
     let (tx, mut rx) = channel(100);
 
     {
         // socket thread
-        let workspace = workspace.clone();
+        let workspace_id = workspace_id.clone();
         tokio::spawn(async move {
             while let Some(msg) = rx.recv().await {
                 if let Err(e) = socket_tx.send(msg).await {
@@ -91,12 +91,12 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
                     break;
                 }
             }
-            info!("socket final: {}", workspace);
+            info!("socket final: {}", workspace_id);
         });
     }
 
     {
-        let workspace_id = workspace.clone();
+        let workspace_id = workspace_id.clone();
         let context = context.clone();
         tokio::spawn(async move {
             use tokio::time::{sleep, Duration};
@@ -118,10 +118,10 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
     let uuid = Uuid::new_v4().to_string();
     context
         .channel
-        .insert((workspace.clone(), uuid.clone()), tx.clone());
+        .insert((workspace_id.clone(), uuid.clone()), tx.clone());
 
     if let Ok(init_data) = {
-        let ws = match init_workspace(&context, &workspace).await {
+        let ws = match init_workspace(&context, &workspace_id).await {
             Ok(doc) => doc,
             Err(e) => {
                 error!("Failed to init doc: {}", e);
@@ -131,17 +131,17 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
 
         let mut ws = ws.lock().await;
 
-        subscribe_handler(context.clone(), &mut ws, uuid.clone(), workspace.clone());
+        subscribe_handler(context.clone(), &mut ws, uuid.clone(), workspace_id.clone());
 
         ws.sync_init_message()
     } {
         if tx.send(Message::Binary(init_data)).await.is_err() {
-            context.channel.remove(&(workspace, uuid));
+            context.channel.remove(&(workspace_id, uuid));
             // client disconnected
             return;
         }
     } else {
-        context.channel.remove(&(workspace, uuid));
+        context.channel.remove(&(workspace_id, uuid));
         // client disconnected
         return;
     }
@@ -149,7 +149,7 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
     while let Some(msg) = socket_rx.next().await {
         if let Ok(Message::Binary(binary)) = msg {
             let payload = {
-                let workspace = context.workspace.get(&workspace).unwrap();
+                let workspace = context.workspace.get(&workspace_id).unwrap();
                 let mut workspace = workspace.value().lock().await;
 
                 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -169,7 +169,7 @@ async fn handle_socket(socket: WebSocket, workspace: String, context: Arc<Contex
         }
     }
 
-    context.channel.remove(&(workspace, uuid));
+    context.channel.remove(&(workspace_id, uuid));
 }
 
 pub async fn init_workspace<'a>(

@@ -48,7 +48,7 @@ pub struct MailContext {
 }
 
 pub struct DocStore {
-    cache: Cache<i64, Arc<RwLock<JWSTWorkspace>>>,
+    cache: Cache<String, Arc<RwLock<JWSTWorkspace>>>,
     pub storage: DocFsStorage,
 }
 
@@ -62,19 +62,21 @@ impl DocStore {
         }
     }
 
-    pub async fn get_workspace(&self, id: i64) -> Option<Arc<RwLock<JWSTWorkspace>>> {
+    pub async fn get_workspace(&self, workspace_id: String) -> Option<Arc<RwLock<JWSTWorkspace>>> {
         self.cache
-            .try_get_with(id, async move {
-                self.storage
-                    .get(id)
-                    .await
-                    .map(|f| Arc::new(RwLock::new(JWSTWorkspace::from_doc(f, id.to_string()))))
+            .try_get_with(workspace_id.clone(), async move {
+                self.storage.get(workspace_id.clone()).await.map(|f| {
+                    Arc::new(RwLock::new(JWSTWorkspace::from_doc(
+                        f,
+                        workspace_id.to_string(),
+                    )))
+                })
             })
             .await
             .ok()
     }
 
-    pub fn try_get_workspace(&self, id: i64) -> Option<Arc<RwLock<JWSTWorkspace>>> {
+    pub fn try_get_workspace(&self, id: String) -> Option<Arc<RwLock<JWSTWorkspace>>> {
         self.cache.get(&id)
     }
 }
@@ -95,7 +97,7 @@ pub struct Context {
 
 pub enum ContextRequestError {
     WorkspaceNotFound {
-        workspace_id: i64,
+        workspace_id: String,
     },
     /// "Bad Request"
     BadUserInput {
@@ -321,17 +323,17 @@ impl Context {
 
     pub async fn search_workspace(
         &self,
-        id: i64,
+        workspace_id: String,
         query_string: &str,
     ) -> Result<SearchResults, ContextRequestError> {
-        let workspace_id = id.to_string();
+        let workspace_id = workspace_id.to_string();
         let workspace_arc_rw = self
             .docs
             .create_doc(&workspace_id)
             .await
-            .map(|f| Arc::new(RwLock::new(JWSTWorkspace::from_doc(f, id.to_string()))))
+            .map(|f| Arc::new(RwLock::new(JWSTWorkspace::from_doc(f, workspace_id.to_string()))))
             .ok()
-            .ok_or_else(|| ContextRequestError::WorkspaceNotFound { workspace_id: id })?;
+            .ok_or_else(|| ContextRequestError::WorkspaceNotFound { workspace_id })?;
 
         let search_results = workspace_arc_rw.write().await.search(&query_string)?;
 

@@ -47,7 +47,7 @@ pub struct UserWithNonce {
 #[derive(Deserialize)]
 pub struct UserQuery {
     pub email: Option<String>,
-    pub workspace_id: Option<i64>,
+    pub workspace_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -103,7 +103,7 @@ pub enum WorkspaceType {
 
 #[derive(FromRow, Serialize)]
 pub struct Workspace {
-    pub id: i64,
+    pub id: String,
     pub public: bool,
     #[serde(rename = "type")]
     #[sqlx(rename = "type")]
@@ -170,7 +170,7 @@ pub struct Permission {
     #[serde(rename = "type")]
     #[sqlx(rename = "type")]
     pub type_: PermissionType,
-    pub workspace_id: i64,
+    pub workspace_id: String,
     pub user_id: Option<i32>,
     pub user_email: Option<String>,
     pub accepted: bool,

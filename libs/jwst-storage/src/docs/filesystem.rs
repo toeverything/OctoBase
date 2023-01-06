@@ -38,8 +38,8 @@ impl FileSystem {
         }
     }
 
-    fn get_path(&self, workspace: i64) -> PathBuf {
-        self.path.join(format!("{}.affine", workspace))
+    fn get_path(&self, workspace_id: String) -> PathBuf {
+        self.path.join(format!("{}.affine", workspace_id))
     }
 
     fn make_record(data: &[u8], count: u64) -> Vec<u8> {
@@ -82,9 +82,9 @@ impl FileSystem {
 
 #[async_trait]
 impl DocStorage for FileSystem {
-    async fn get(&self, workspace: i64) -> io::Result<Doc> {
+    async fn get(&self, workspace_id: String) -> io::Result<Doc> {
         let _ = self.get_parallel().await;
-        let path = self.get_path(workspace);
+        let path = self.get_path(workspace_id);
 
         let mut file = File::open(path).await?;
 
@@ -92,9 +92,9 @@ impl DocStorage for FileSystem {
     }
 
     /// This function is not atomic -- please provide external lock mechanism
-    async fn write_doc(&self, workspace: i64, doc: &Doc) -> io::Result<()> {
+    async fn write_doc(&self, workspace_id: String, doc: &Doc) -> io::Result<()> {
         let _ = self.get_parallel().await;
-        let path = self.get_path(workspace);
+        let path = self.get_path(workspace_id);
 
         let mut file = fs::OpenOptions::new()
             .write(true)
@@ -113,9 +113,9 @@ impl DocStorage for FileSystem {
     }
 
     /// This function is not atomic -- please provide external lock mechanism
-    async fn write_update(&self, workspace: i64, data: &[u8]) -> io::Result<bool> {
+    async fn write_update(&self, workspace_id: String, data: &[u8]) -> io::Result<bool> {
         let _ = self.get_parallel().await;
-        let path = self.get_path(workspace);
+        let path = self.get_path(workspace_id);
 
         let mut file = fs::OpenOptions::new()
             .read(true)
@@ -140,9 +140,9 @@ impl DocStorage for FileSystem {
         Ok(true)
     }
 
-    async fn delete(&self, workspace: i64) -> io::Result<()> {
+    async fn delete(&self, workspace_id: String) -> io::Result<()> {
         let _ = self.get_parallel().await;
-        let path = self.get_path(workspace);
+        let path = self.get_path(workspace_id);
         fs::remove_file(path).await
     }
 }
