@@ -8,97 +8,13 @@
 //! over-complicate or over-expand the surface area of OctoBase core.
 // use crate::prelude::*;
 
-pub mod concepts {
-    //! Linkable shared documentation of different OctoBase concepts.
-    //!
-    //! Progress 1/10:
-    //!
-    //!  * I like that we can have a single place to define shared concepts
-    //!  * This might be bad if people searching the `cargo doc` find these
-    //!    pages and fail to find the actual source code of JWST.
-    //!  * Consider moving concepts to their own `octo_concept`s crate to avoid that issue.
-
-    /// When you have a reference to a YJS block, you are usually going to be
-    /// interacting with a set of [SysProp]s or [UserDefinedProp]s.
-    /// ```json
-    /// { "sys:flavor": "affine:text",
-    ///   "sys:created": 946684800000,
-    ///   "sys:children": ["block1", "block2"],
-    ///   "prop:text": "123",
-    ///   "prop:color": "#ff0000" }
-    /// ```
-    ///
-    /// Also see [YJSBlockHistory].
-    pub struct YJSBlockPropMap;
-
-    /// The built-in properties OctoBase manages on the [YJSBlockPropMap]. For example: `"sys:flavor"` ([SysPropFlavor]), `"sys:created"`, `"sys:children"`.
-    ///
-    /// ```json
-    /// "sys:flavor": "affine:text",
-    /// "sys:created": 946684800000,
-    /// "sys:children": ["block1", "block2"],
-    /// ```
-    pub struct SysProp;
-
-    /// "Flavors" are specified as a [SysProp] named `"sys:flavor"` of our [YJSBlockPropMap].
-    ///
-    /// Flavor is the type of `Block`, which is derived from [particle physics],
-    /// which means that all blocks have the same basic properties, when the flavor of
-    /// `Block` changing, the basic attributes will not change, but the interpretation
-    /// of user-defined attributes will be different.
-    ///
-    /// [particle physics]: https://en.wikipedia.org/wiki/Flavour_(particle_physics)
-    pub struct SysPropFlavor;
-
-    /// User defined attributes on the [YJSBlockPropMap]. For example: `"prop:xywh"`, `"prop:text"`, etc.
-    ///
-    /// ### Common props
-    ///
-    /// These props are understood by the workspace search plugin, for example.
-    ///
-    /// ```json
-    /// "prop:text": "123",
-    /// "prop:title": "123"
-    /// ```
-    ///
-    /// ## AFFiNE examples
-    ///
-    /// Some examples for different AFFiNE [SysPropFlavor]s are as follows:
-    ///
-    /// ### `"sys:flavor": "affine:shape"`
-    /// ```json
-    /// "prop:xywh": "[0,0,720,480]",
-    /// "prop:type": "rectangle",
-    /// "prop:color": "black",
-    /// ```
-    ///
-    /// ### `"sys:flavor": "affine:list"`
-    /// ```json
-    ///  "prop:checked": false,
-    ///  "prop:text": "List item text",
-    ///  "prop:type": "bulleted",
-    /// ```
-    pub struct UserDefinedProp;
-
-    /// Each time an edit or update happens to a Block, an event is inserted into the
-    /// YJS Array this points to.
-    ///
-    /// The values in this array each look like an array of three items: `[operator, utc_timestamp_ms, "action"]`
-    /// ```json
-    /// [ [35, 1672374542865, "add"],
-    ///   [35, 1672374543214, "update"],
-    ///   [35, 1672378928393, "update"] ]
-    /// ```
-    ///
-    /// Also see [YJSBlockPropMap] and [crate::HistoryOperation].
-    pub struct YJSBlockHistory;
-}
-
+pub mod concepts;
 mod plugins;
+pub mod value;
 mod yjs_binary;
 
 pub use plugins::{OctoPlugin, OctoPluginRegister, OctoPluginUpdateError};
-use std::{borrow::Cow, collections::HashMap, fmt::Debug, sync::Arc};
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use thiserror::Error;
 use yrs::{Array, Map, Transact, Transaction, TransactionMut};
 
@@ -111,7 +27,7 @@ pub struct OctoWorkspaceRef {
     // Perhaps we should include a way to
     // identify the operator / client id
     // via the Workspace's Awareness
-    /// Indexed by "block id", the values are the corresponding block's [concepts::YJSBlockPropMap]s.
+    /// Indexed by "block id", the values are the corresponding block's [concepts::YJSBlockAttrMap]s.
     yrs_block_ref: yrs::MapRef,
     /// Indexed by "block id", the values are the corresponding block's [concepts::YJSBlockHistory].
     yrs_updated_ref: yrs::MapRef,
@@ -135,7 +51,7 @@ pub struct OctoBlockRef {
     ///   "prop:text": "123",
     ///   "prop:color": "#ff0000" }
     /// ```
-    /// See [concepts::YJSBlockPropMap].
+    /// See [concepts::YJSBlockAttrMap].
     ///
     /// Internal reference directly to the [yrs::MapRef] in the "Workspace"
     yrs_props_ref: yrs::MapRef,
@@ -374,9 +290,9 @@ pub struct OctoBlockCreateOptions {
     /// ID to use for the creation of this block. On conflicting ID, you might see a
     /// [OctoCreateError::IDConflict] error upon attempted creation.
     pub id: Arc<str>,
-    /// Initial [concepts::SysPropFlavor]s for this block.
+    /// Initial [concepts::SysFlavorAttr]s for this block.
     pub flavor: String,
-    /// Initial [concepts::UserDefinedProp]s for this block.
+    /// Initial [concepts::UserPropAttr]s for this block.
     /// Future: Consider wrapping our own [lib0::any::Any] type.
     /// These names will be prefixed by `prop:${key}` before being inserted, so do not supply your own `prop:` prefix.
     pub properties: HashMap<String, lib0::any::Any>,
@@ -456,121 +372,6 @@ pub struct _WriteParts<'a, T> {
     operator: u64,
     workspace_ref: &'a OctoWorkspaceRef,
     yrs_txn_mut: &'a mut T,
-}
-
-fn user_prop_key(unprefixed: &str) -> String {
-    format!("prop:{unprefixed}")
-}
-fn remove_user_prop_prefix(prefixed: &str) -> Option<&str> {
-    if prefixed.starts_with("prop:") {
-        Some(prefixed.split_at(5).1)
-    } else {
-        None
-    }
-}
-
-#[cfg(test)]
-mod test_user_prop_keys {
-    use super::{remove_user_prop_prefix, user_prop_key};
-    #[track_caller]
-    fn test(input: &str) {
-        let as_prop = user_prop_key(input);
-        assert_eq!(
-            remove_user_prop_prefix(&as_prop),
-            Some(input),
-            "treated {input:?} as an unprefixed prop"
-        );
-    }
-
-    #[test]
-    fn remove_user_props() {
-        assert_eq!(remove_user_prop_prefix("unprefixed"), None);
-        assert_eq!(remove_user_prop_prefix(":prop:"), None);
-        assert_eq!(remove_user_prop_prefix("sys:"), None);
-        assert_eq!(remove_user_prop_prefix("prop:"), Some(""));
-        assert_eq!(remove_user_prop_prefix("prop:abc"), Some("abc"));
-    }
-
-    #[test]
-    fn add_user_props() {
-        assert_eq!(user_prop_key("unprefixed"), "prop:unprefixed");
-        assert_eq!(user_prop_key(":prop:"), "prop::prop:");
-        assert_eq!(user_prop_key("sys:"), "prop:sys:");
-        assert_eq!(user_prop_key("prop:"), "prop:prop:");
-        assert_eq!(user_prop_key("prop:abc"), "prop:prop:abc");
-    }
-
-    #[test]
-    fn adds_and_removes() {
-        test("akjhwd");
-        // can have colons?
-        test("prop:");
-        // can have colons?
-        test(":::");
-        // can be empty?
-        test("");
-    }
-}
-
-pub mod value {
-    use lib0::any::Any;
-    use yrs::types::Value;
-    /// Value assigned to a block or metadata
-    pub struct OctoValue(Value);
-
-    impl OctoValue {
-        pub fn try_as_string(&self) -> Result<String, OctoValueError> {
-            match &self.0 {
-                Value::Any(Any::String(box_str)) => return Ok(box_str.to_string()),
-                _ => Err(OctoValueError::WrongType {
-                    actual: self.actual_type(),
-                    expected: "basic string",
-                    details: None,
-                }),
-            }
-        }
-
-        // this is for constructing error only, not for stabilizing
-        fn actual_type(&self) -> &'static str {
-            match &self.0 {
-                Value::Any(any_value) => match any_value {
-                    Any::Null => "null",
-                    Any::Undefined => "undefined",
-                    Any::Bool(_) => "boolean",
-                    Any::Number(_) => "number",
-                    Any::BigInt(_) => "bigint",
-                    Any::String(_) => "string",
-                    Any::Buffer(_) => "buffer",
-                    Any::Array(_) => "array",
-                    Any::Map(_) => "map",
-                },
-                Value::YText(_) => "YText",
-                Value::YArray(_) => "YArray",
-                Value::YMap(_) => "YMap",
-                Value::YXmlElement(_) => "YXmlElement",
-                Value::YXmlFragment(_) => "YXmlFragment",
-                Value::YXmlText(_) => "YXmlText",
-                Value::YDoc(_) => "YDoc",
-            }
-        }
-    }
-
-    #[derive(Debug, thiserror::Error)]
-    pub enum OctoValueError {
-        // TODO: Can we reveal the underlying error in display (e.g. a parsing error?)
-        #[error("expected value of type `{expected}`, but found `{actual}`")]
-        WrongType {
-            actual: &'static str,
-            expected: &'static str,
-            details: Option<Box<dyn std::error::Error>>,
-        },
-    }
-
-    impl From<Value> for OctoValue {
-        fn from(yrs_value: Value) -> Self {
-            OctoValue(yrs_value)
-        }
-    }
 }
 
 pub trait OctoRead {
@@ -671,10 +472,16 @@ pub trait OctoRead {
 pub trait OctoWrite<'doc>: OctoRead {
     fn _parts_mut(&mut self) -> _WriteParts<'_, TransactionMut<'doc>>;
 
+    #[track_caller]
+    #[cfg(feature = "unwrap")]
+    fn create_block(&mut self, options: impl Into<OctoBlockCreateOptions>) -> OctoBlockRef {
+        self.try_create_block(options).octo_unwrap()
+    }
+
     /// Create a block, returning an [OctoBlockRef] or erroring with [OctoCreateError].
-    fn create_block<T: Into<OctoBlockCreateOptions>>(
+    fn try_create_block(
         &mut self,
-        options: T,
+        options: impl Into<OctoBlockCreateOptions>,
     ) -> Result<OctoBlockRef, errors::OctoCreateError> {
         let OctoBlockCreateOptions {
             id: new_block_id,
@@ -767,7 +574,7 @@ pub trait OctoWrite<'doc>: OctoRead {
         Ok(block_ref)
     }
 
-    // /// Set user attributes for a block. See [concepts::UserDefinedProp].
+    // /// Set user attributes for a block. See [concepts::UserPropAttr].
     // ///
     // /// Internal: In the raw JSON, these properties will come out with a prefix of `"prop:"`.
     // /// So, if you set
@@ -793,7 +600,7 @@ mod octo_playground_tests {
 
     fn test_set_props<'doc, W: OctoWrite<'doc>>(writer: &mut W) {
         let block_1 = writer
-            .create_block(OctoBlockCreateOptions {
+            .try_create_block(OctoBlockCreateOptions {
                 id: "abc".into(),
                 flavor: "any-flavor-1".to_string(),
                 properties: Default::default(),
@@ -823,7 +630,7 @@ mod octo_playground_tests {
         let mut ws = OctoWorkspace::from_doc(doc, "test_default_set_up-ws");
         let mut writer = ws.write();
         writer
-            .create_block(OctoBlockCreateOptions {
+            .try_create_block(OctoBlockCreateOptions {
                 id: "abc".into(),
                 flavor: "any-flavor-1".to_string(),
                 properties: Default::default(),
@@ -855,13 +662,30 @@ impl OctoWorkspace {
     }
 }
 
-/// [concepts::SysProp] key for [concepts::SysPropFlavor].
+/// For [concepts::UserPropAttr], this is the inverse of [remove_user_prop_prefix].
+fn user_prop_key(unprefixed: &str) -> String {
+    format!("prop:{unprefixed}")
+}
+
+/// For [concepts::UserPropAttr], this is the inverse of [user_prop_key].
+fn remove_user_prop_prefix(attr_key: &str) -> Option<&str> {
+    if attr_key.starts_with("prop:") {
+        Some(attr_key.split_at(5).1)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod test_user_prop_keys;
+
+/// [concepts::SysAttr] key for [concepts::SysFlavorAttr].
 const SYS_FLAVOR_KEY: &str = "sys:flavor";
-/// [concepts::SysProp] key for children.
+/// [concepts::SysAttr] key for children.
 const SYS_CHILDREN_KEY: &str = "sys:children";
-/// [concepts::SysProp] key for version.
+/// [concepts::SysAttr] key for version.
 const SYS_VERSION_KEY: &str = "sys:version";
-/// [concepts::SysProp] key for created time.
+/// [concepts::SysAttr] key for created time.
 const SYS_CREATED_KEY: &str = "sys:created";
 
 impl OctoBlockRef {
@@ -899,21 +723,21 @@ impl OctoBlockRef {
     fn try_get_yrs_prop_value_with_type_conversion<R, T, F>(
         &self,
         reader: &R,
-        raw_key: &str,
+        attr_key: &str,
         expected_type: &'static str,
         map_fn: F,
-    ) -> Result<T, errors::OctoReadPropError>
+    ) -> Result<T, errors::OctoReadAttrError>
     where
         R: OctoRead,
         // surfacing the original value ensures that we can print the incorrect value if there is a parsing failure.
         F: FnOnce(yrs::types::Value, &R::YRSReadTxn) -> Result<T, yrs::types::Value>,
     {
-        self.try_get_yrs_prop_value(reader, raw_key, move |value, yrs_txn| {
+        self.try_get_yrs_prop_value(reader, attr_key, move |value, yrs_txn| {
             map_fn(value, yrs_txn).map_err(move |value| {
                 // need value back to make "found" type string.
-                errors::BlockPropertyWasUnexpectedType {
+                errors::BlockAttrWasUnexpectedType {
                     id: self.id.clone(),
-                    property_key: raw_key.into(),
+                    attr_key: attr_key.into(),
                     expected_type,
                     found: value.to_string(yrs_txn),
                 }
@@ -925,23 +749,23 @@ impl OctoBlockRef {
     fn try_get_yrs_prop_value<R, T, F>(
         &self,
         reader: &R,
-        raw_key: &str,
+        attr_key: &str,
         map_fn: F,
-    ) -> Result<T, errors::OctoReadPropError>
+    ) -> Result<T, errors::OctoReadAttrError>
     where
         R: OctoRead,
-        F: FnOnce(yrs::types::Value, &R::YRSReadTxn) -> Result<T, errors::OctoReadPropError>,
+        F: FnOnce(yrs::types::Value, &R::YRSReadTxn) -> Result<T, errors::OctoReadAttrError>,
     {
         let _ReadParts(workspace_ref, yrs_read_txn) = reader._parts();
         self.check_txn(workspace_ref)?;
         // If a block was deleted, should we still return its flavor if we have it?
         self.check_block_exists(yrs_read_txn)?;
         self.yrs_props_ref
-            .get(yrs_read_txn, raw_key)
+            .get(yrs_read_txn, attr_key)
             .ok_or_else(|| {
-                errors::BlockPropertyNotFound {
+                errors::BlockAttrNotFound {
                     id: self.id.clone(),
-                    property_key: raw_key.into(),
+                    attr_key: attr_key.into(),
                 }
                 .into()
             })
@@ -967,7 +791,7 @@ impl OctoBlockRef {
     fn try_set_yrs_prop_value<'doc, W: OctoWrite<'doc>>(
         &self,
         writer: &mut W,
-        raw_key: &str,
+        attr_key: &str,
         value: impl Into<lib0::any::Any>,
     ) -> Result<Option<yrs::types::Value>, errors::OctoUpdateError> {
         let _WriteParts {
@@ -981,29 +805,29 @@ impl OctoBlockRef {
         use lib0::any::Any;
         let (prev_value_opt, action) = match value.into() {
             Any::Bool(bool) => (
-                self.yrs_props_ref.insert(yrs_txn_mut, raw_key, bool),
+                self.yrs_props_ref.insert(yrs_txn_mut, attr_key, bool),
                 HistoryOperation::Update,
             ),
             Any::String(text) => (
                 self.yrs_props_ref
-                    .insert(yrs_txn_mut, raw_key, text.to_string()),
+                    .insert(yrs_txn_mut, attr_key, text.to_string()),
                 HistoryOperation::Update,
             ),
             Any::Number(number) => (
-                self.yrs_props_ref.insert(yrs_txn_mut, raw_key, number),
+                self.yrs_props_ref.insert(yrs_txn_mut, attr_key, number),
                 HistoryOperation::Update,
             ),
             Any::BigInt(number) => (
                 if JS_INT_RANGE.contains(&number) {
                     self.yrs_props_ref
-                        .insert(yrs_txn_mut, raw_key, number as f64)
+                        .insert(yrs_txn_mut, attr_key, number as f64)
                 } else {
-                    self.yrs_props_ref.insert(yrs_txn_mut, raw_key, number)
+                    self.yrs_props_ref.insert(yrs_txn_mut, attr_key, number)
                 },
                 HistoryOperation::Update,
             ),
             Any::Null | Any::Undefined => (
-                self.yrs_props_ref.remove(yrs_txn_mut, raw_key),
+                self.yrs_props_ref.remove(yrs_txn_mut, attr_key),
                 HistoryOperation::Delete,
             ),
             Any::Buffer(_) | Any::Array(_) | Any::Map(_) => {
@@ -1017,25 +841,25 @@ impl OctoBlockRef {
         Ok(prev_value_opt)
     }
 
-    /// See [concepts::SysPropFlavor].
+    /// See [concepts::SysFlavorAttr].
     #[track_caller]
     #[cfg(feature = "unwrap")]
     pub fn flavor<'doc, R: OctoRead>(&self, reader: &R) -> String {
         self.try_flavor(reader).octo_unwrap()
     }
 
-    /// See [concepts::SysPropFlavor].
+    /// See [concepts::SysFlavorAttr].
     pub fn try_flavor<'doc, R: OctoRead>(
         &self,
         reader: &R,
-    ) -> Result<String, errors::OctoReadPropError> {
+    ) -> Result<String, errors::OctoReadAttrError> {
         self.try_get_yrs_prop_value(reader, SYS_FLAVOR_KEY, |value, yrs_read_txn| {
             use yrs::types::Value;
             match value {
                 Value::Any(lib0::any::Any::String(value)) => Ok(value.to_string()),
-                other => Err(errors::BlockPropertyWasUnexpectedType {
+                other => Err(errors::BlockAttrWasUnexpectedType {
                     id: self.id.clone(),
-                    property_key: SYS_FLAVOR_KEY.into(),
+                    attr_key: SYS_FLAVOR_KEY.into(),
                     // TODO: be more consistent with these type names, yet.
                     expected_type: "Any::String",
                     found: other.to_string(yrs_read_txn),
@@ -1100,7 +924,7 @@ impl OctoBlockRef {
 
     /// Set a `value` under given user defined `key` into current map.
     /// Returns a value stored previously under the same key (if any existed).
-    /// See [concepts::UserDefinedProp].
+    /// See [concepts::UserPropAttr].
     pub fn try_set_prop<'doc, W: OctoWrite<'doc>>(
         &self,
         writer: &mut W,
@@ -1123,30 +947,34 @@ impl OctoBlockRef {
 
     /// Set a `value` under given user defined `key` into current map.
     /// Returns a value stored previously under the same key (if any existed).
-    /// See [concepts::UserDefinedProp].
+    /// See [concepts::UserPropAttr].
     pub fn try_all_props(
         &self,
         reader: &impl OctoRead,
-    ) -> Result<HashMap<String, lib0::any::Any>, errors::OctoReadPropError> {
+    ) -> Result<HashMap<String, lib0::any::Any>, errors::OctoReadAttrError> {
         let _ReadParts(workspace_ref, yrs_txn) = reader._parts();
         self.check_txn(workspace_ref)?;
 
-        let map = self.yrs_props_ref.iter(yrs_txn)
-        .filter_map(|(prefixed_key, value)| {
-            match (remove_user_prop_prefix(prefixed_key), value) {
-                (Some(user_key), yrs::types::Value::Any(any_val)) => Some(Ok((user_key.to_string(), any_val))),
-                (Some(user_key), other_type) => Some(Err(errors::BlockPropertyWasUnexpectedType {
-                    id: self.id.clone(),
-                    // Should this be the prefixed key or unprefixed?
-                    property_key: user_key.into(),
-                    expected_type: "basic non Y type",
-                    found: other_type.to_string(yrs_txn),
-                })),
-                _ => None,
-
-            }
-        })
-        .collect::<Result<HashMap<String, lib0::any::Any>, errors::BlockPropertyWasUnexpectedType>>()?;
+        let map = self
+            .yrs_props_ref
+            .iter(yrs_txn)
+            .filter_map(|(attr_key, value)| {
+                match (remove_user_prop_prefix(attr_key), value) {
+                    (Some(user_key), yrs::types::Value::Any(any_val)) => {
+                        Some(Ok((user_key.to_string(), any_val)))
+                    }
+                    (Some(user_key), other_type) => Some(Err(errors::BlockAttrWasUnexpectedType {
+                        id: self.id.clone(),
+                        // Should this be the prefixed key or unprefixed?
+                        attr_key: attr_key.into(),
+                        expected_type: "basic non Y type",
+                        found: other_type.to_string(yrs_txn),
+                    })),
+                    _ => None,
+                }
+            })
+            .collect::<Result<HashMap<String, lib0::any::Any>, errors::BlockAttrWasUnexpectedType>>(
+            )?;
 
         Ok(map)
     }
@@ -1159,23 +987,23 @@ impl OctoBlockRef {
 
     /// Get a `value` under given user defined `key` into current map.
     /// Returns a value stored previously under the same key (if any existed).
-    /// See [concepts::UserDefinedProp].
+    /// See [concepts::UserPropAttr].
     pub fn try_prop(
         &self,
         reader: &impl OctoRead,
         key: &str,
-    ) -> Result<Option<lib0::any::Any>, errors::OctoReadPropError> {
+    ) -> Result<Option<lib0::any::Any>, errors::OctoReadAttrError> {
         let _ReadParts(workspace_ref, yrs_txn) = reader._parts();
         self.check_txn(workspace_ref)?;
-        let prop_key = user_prop_key(key);
-        let curr_val_opt = self.yrs_props_ref.get(yrs_txn, &prop_key);
+        let attr_key = user_prop_key(key);
+        let curr_val_opt = self.yrs_props_ref.get(yrs_txn, &attr_key);
 
         if let Some(curr_val) = curr_val_opt {
             return match curr_val {
                 yrs::types::Value::Any(any_val) => Ok(Some(any_val)),
-                _ => Err(errors::BlockPropertyWasUnexpectedType {
+                _ => Err(errors::BlockAttrWasUnexpectedType {
                     id: self.id.clone(),
-                    property_key: prop_key.into(),
+                    attr_key: attr_key.into(),
                     expected_type: "json",
                     found: "non-json type like YMap, YArray, YText".to_string(),
                 }
@@ -1201,7 +1029,7 @@ impl OctoBlockRef {
     pub fn try_version(
         &self,
         reader: &impl OctoRead,
-    ) -> Result<[usize; 2], errors::OctoReadPropError> {
+    ) -> Result<[usize; 2], errors::OctoReadAttrError> {
         self.try_get_yrs_prop_value_with_type_conversion(
             reader,
             SYS_VERSION_KEY,
@@ -1219,6 +1047,35 @@ impl OctoBlockRef {
                 }
                 // surfacing the original value ensures that we can print the incorrect value if there is a parsing failure.
                 other => Err(other),
+            },
+        )
+    }
+
+    #[track_caller]
+    #[cfg(feature = "unwrap")]
+    pub fn created(&self, reader: &impl OctoRead) -> u64 {
+        self.try_created(reader).octo_unwrap()
+    }
+
+    /// block created timestamp
+    pub fn try_created(&self, reader: &impl OctoRead) -> Result<u64, errors::OctoReadAttrError> {
+        self.try_get_yrs_prop_value_with_type_conversion(
+            reader,
+            SYS_CREATED_KEY,
+            "timestamp positive integer",
+            |value, _yrs_txn| match &value {
+                yrs::types::Value::Any(lib0::any::Any::Number(float_num)) => {
+                    // consider erroring
+                    let as_u64 = (*float_num) as u64;
+                    if as_u64 == 0 {
+                        Err(value)
+                    } else {
+                        // hmm... should we also error if the timestamp was stored with a decimal?
+                        Ok(as_u64)
+                    }
+                }
+                // surfacing the original value ensures that we can print the incorrect value if there is a parsing failure.
+                _ => Err(value),
             },
         )
     }
@@ -1332,15 +1189,15 @@ pub mod errors {
 
     #[derive(Error, Debug)]
     #[error("failed to read block property")]
-    pub enum OctoReadPropError {
+    pub enum OctoReadAttrError {
         #[error("failed to read block property; {0}")]
         TransactionFromDifferentWorkspace(#[from] DifferentWorkspaces),
 
         #[error("expected block property to have a different type; {0}")]
-        BlockPropertyWasUnexpectedType(#[from] BlockPropertyWasUnexpectedType),
+        BlockAttrWasUnexpectedType(#[from] BlockAttrWasUnexpectedType),
 
         #[error("failed to read block property; {0}")]
-        BlockPropertyNotFound(#[from] BlockPropertyNotFound),
+        BlockAttrNotFound(#[from] BlockAttrNotFound),
 
         #[error("failed to read block; {0}")]
         BlockNotFound(#[from] BlockNotFound),
@@ -1361,17 +1218,19 @@ pub mod errors {
     }
 
     #[derive(Debug, Error)]
-    #[error("block `{id:?}` property `{property_key:?}` not found")]
-    pub struct BlockPropertyNotFound {
+    #[error("block `{id:?}` property `{attr_key:?}` not found")]
+    pub struct BlockAttrNotFound {
         pub id: Arc<str>,
-        pub property_key: Arc<str>,
+        /// Prefixed [concepts::YJSBlockAttrMap] key, so this could be `"prop:text"`, `"sys:flavor"`, etc.
+        pub attr_key: Arc<str>,
     }
 
     #[derive(Debug, Error)]
-    #[error("block with id `{id:?}` and property `{property_key}` expects `{expected_type}` but found `{found}`")]
-    pub struct BlockPropertyWasUnexpectedType {
+    #[error("block with id `{id:?}` and attribute `{attr_key}` expects `{expected_type}` but found `{found}`")]
+    pub struct BlockAttrWasUnexpectedType {
         pub id: Arc<str>,
-        pub property_key: Arc<str>,
+        /// Prefixed [concepts::YJSBlockAttrMap] key, so this could be `"prop:text"`, `"sys:flavor"`, etc.
+        pub attr_key: Arc<str>,
         pub expected_type: &'static str,
         pub found: String,
     }

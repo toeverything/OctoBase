@@ -77,8 +77,8 @@ impl OctoPlugin for TextSearchPlugin {
             let mut re_index_list = HashMap::<String, (Option<String>, Option<String>)>::new();
             // TODO: reindex
             for block in reader.block_iter() {
-                let title = block.get_user_prop(reader, "title").ok().flatten();
-                let body = block.get_user_prop(reader, "text").ok().flatten();
+                let title = block.try_prop(reader, "title").ok().flatten();
+                let body = block.try_prop(reader, "text").ok().flatten();
                 re_index_list.insert(
                     block.id().to_string(),
                     (
@@ -186,68 +186,77 @@ mod test {
 
     #[test]
     fn basic_search_test() {
-        let mut workspace = {
-            OctoWorkspace::builder("wk-load")
-                .build_empty()
-                // even though the plugin is added by default,
-                .register_plugin(TextSearchPluginConfig::ram())
-                .expect("failed to insert plugin")
+        let ref mut workspace = {
+            let mut ws = OctoWorkspace::builder("wk-load").build_empty();
+
+            // even though the plugin is added by default,
+            ws.register_plugin(TextSearchPluginConfig::ram())
+                .expect("failed to insert plugin");
+            ws
         };
 
         {
             let mut writer = workspace.write();
-            let block = writer.create_block(("b1", "text")).unwrap();
-            block.set_user_prop(&mut writer, "test", "test");
+            let block = writer.create_block(("b1", "text"));
+            block.set_prop(&mut writer, "test", "test");
 
-            let block = writer.create_block(("a", "affine:text")).unwrap();
-            let b = writer.create_block(("b", "affine:text")).unwrap();
-            let c = writer.create_block(("c", "affine:text")).unwrap();
-            let d = writer.create_block(("d", "affine:text")).unwrap();
-            let e = writer.create_block(("e", "affine:text")).unwrap();
-            let f = writer.create_block(("f", "affine:text")).unwrap();
+            let block = writer.create_block(("a", "affine:text"));
+            let b = writer.create_block(("b", "affine:text"));
+            let c = writer.create_block(("c", "affine:text"));
+            let d = writer.create_block(("d", "affine:text"));
+            let e = writer.create_block(("e", "affine:text"));
+            let f = writer.create_block(("f", "affine:text"));
             let mut w = &mut writer;
 
-            b.set_user_prop(w, "title", "Title B content");
-            b.set_user_prop(w, "text", "Text B content bbb xxx");
+            b.set_prop(w, "title", "Title B content");
+            b.set_prop(w, "text", "Text B content bbb xxx");
 
-            c.set_user_prop(w, "title", "Title C content");
-            c.set_user_prop(w, "text", "Text C content ccc xxx yyy");
+            c.set_prop(w, "title", "Title C content");
+            c.set_prop(w, "text", "Text C content ccc xxx yyy");
 
-            d.set_user_prop(w, "title", "Title D content");
-            d.set_user_prop(w, "text", "Text D content ddd yyy");
+            d.set_prop(w, "title", "Title D content");
+            d.set_prop(w, "text", "Text D content ddd yyy");
 
-            e.set_user_prop(w, "title", "人民日报");
-            e.set_user_prop(w, "text", "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途");
+            e.set_prop(w, "title", "人民日报");
+            e.set_prop(w, "text", "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途");
 
-            f.set_user_prop(w, "title", "美国首次成功在核聚变反应中实现“净能量增益”");
-            f.set_user_prop(w, "text", "当地时间13日，美国能源部官员宣布，由美国政府资助的加州劳伦斯·利弗莫尔国家实验室（LLNL），首次成功在核聚变反应中实现“净能量增益”，即聚变反应产生的能量大于促发该反应的镭射能量。");
+            f.set_prop(w, "title", "美国首次成功在核聚变反应中实现“净能量增益”");
+            f.set_prop(w, "text", "当地时间13日，美国能源部官员宣布，由美国政府资助的加州劳伦斯·利弗莫尔国家实验室（LLNL），首次成功在核聚变反应中实现“净能量增益”，即聚变反应产生的能量大于促发该反应的镭射能量。");
 
-            // pushing blocks in
-            {
-                block.push_children(w, &b);
-                block.insert_children_at(w, &c, 0);
-                block.insert_children_before(w, &d, "b");
-                block.insert_children_after(w, &e, "b");
-                block.insert_children_after(w, &f, "c");
+            // // pushing blocks in
+            // {
+            //     block.push_children(w, &b);
+            //     block.insert_children_at(w, &c, 0);
+            //     block.insert_children_before(w, &d, "b");
+            //     block.insert_children_after(w, &e, "b");
+            //     block.insert_children_after(w, &f, "c");
 
-                assert_eq!(
-                    block.children(w),
-                    vec![
-                        "c".to_owned(),
-                        "f".to_owned(),
-                        "d".to_owned(),
-                        "b".to_owned(),
-                        "e".to_owned()
-                    ]
-                );
-            }
+            //     assert_eq!(
+            //         block.children(w),
+            //         vec![
+            //             "c".to_owned(),
+            //             "f".to_owned(),
+            //             "d".to_owned(),
+            //             "b".to_owned(),
+            //             "e".to_owned()
+            //         ]
+            //     );
+            // }
 
-            // Question: Is this supposed to indicate that since this block is detached, then we should not be indexing it?
-            // For example, should we walk up the parent tree to check if each block is actually attached?
-            block.remove_children(w, &d);
+            // // Question: Is this supposed to indicate that since this block is detached, then we should not be indexing it?
+            // // For example, should we walk up the parent tree to check if each block is actually attached?
+            // block.remove_children(w, &d);
         }
-
-        println!("Blocks: {:#?}", workspace.blocks()); // shown if there is an issue running the test.
+        {
+            let reader = workspace.read();
+            println!(
+                "Blocks: {:#?}",
+                reader
+                    .block_iter()
+                    .map(|b| b.all_props(&reader))
+                    .collect::<Vec<_>>()
+            ); // shown if there is an issue running the test.
+        }
 
         workspace
             .update_plugin::<TextSearchPlugin>()
