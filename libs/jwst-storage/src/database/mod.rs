@@ -68,8 +68,7 @@ impl DBContext {
             .expect("create table google_users failed");
 
         let stmt = "CREATE TABLE IF NOT EXISTS workspaces (
-            id BIGSERIAL PRIMARY KEY,
-            uuid TEXT NOT NULL,
+            uuid VARCHAR(36) NOT NULL PRIMARY KEY,
             public BOOL NOT NULL,
             type SMALLINT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -81,7 +80,7 @@ impl DBContext {
 
         let stmt = "CREATE TABLE IF NOT EXISTS permissions (
             id BIGSERIAL PRIMARY KEY,
-            workspace_id TEXT REFERENCES workspaces(uuid) ON DELETE CASCADE,
+            workspace_id VARCHAR(36) REFERENCES workspaces(uuid) ON DELETE CASCADE,
             user_id INTEGER REFERENCES users(id),
             user_email TEXT,
             type SMALLINT NOT NULL,
