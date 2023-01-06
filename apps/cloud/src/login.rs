@@ -1,6 +1,9 @@
 use async_trait::async_trait;
-use jwst::{DocStorage, Workspace as JWSTWorkspace};
-use jwst_storage::{DBContext, GoogleClaims, UserWithNonce, WorkspaceType};
+#[cfg(feature = "mysql")]
+use jwst_storage::MySqlDBContext;
+#[cfg(feature = "affine")]
+use jwst_storage::SqliteDBContext;
+use jwst_storage::{GoogleClaims, UserWithNonce};
 use sqlx::{query, query_as};
 
 use crate::context::Context;
@@ -59,7 +62,10 @@ impl ThirdPartyLogin for Context {
             .execute(&mut trx)
             .await?;
 
-        DBContext::update_cred(&mut trx, user.user.id, &user.user.email).await?;
+        #[cfg(feature = "mysql")]
+        MySqlDBContext::update_cred(&mut trx, user.user.id, &user.user.email).await?;
+        #[cfg(feature = "affine")]
+        SqliteDBContext::update_cred(&mut trx, user.user.id, &user.user.email).await?;
 
         trx.commit().await?;
 

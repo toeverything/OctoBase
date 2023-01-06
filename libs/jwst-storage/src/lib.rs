@@ -11,5 +11,6 @@ use tokio::{
 };
 
 pub use blobs::*;
-pub use database::{model::*, DBContext};
+pub use database::*;
+pub use database::model::*;
 pub use docs::*;
