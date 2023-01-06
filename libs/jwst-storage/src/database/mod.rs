@@ -180,10 +180,17 @@ impl DBContext {
 
     pub async fn create_user(&self, user: CreateUser) -> sqlx::Result<Option<User>> {
         let mut trx = self.db.begin().await?;
+        #[cfg(feature = "mysql")]
         let create_user = "INSERT INTO users 
-            (name, password, email, avatar_url) 
+            (name, password, email, avatar_url)
             VALUES ($1, $2, $3, $4)
         ON CONFLICT email DO NOTHING
+        RETURNING id, name, email, avatar_url, created_at";
+        // sqlite don't support "ON CONFLICT email DO NOTHING"
+        #[cfg(feature = "sqlite")]
+        let create_user = "INSERT INTO users 
+            (name, password, email, avatar_url)
+            VALUES ($1, $2, $3, $4)
         RETURNING id, name, email, avatar_url, created_at";
 
         let Some(user) = query_as::<_, User>(create_user)
