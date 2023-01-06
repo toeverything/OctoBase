@@ -336,11 +336,11 @@ async fn create_workspace(
         };
         let id = data.id.to_string();
         if let Err(_) = ctx.docs.create_doc(&id).await {
-            StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
         let update = doc.sync_migration();
         if let Err(_) = ctx.docs.full_migrate(&id, update).await {
-            StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
         Json(data).into_response()
     } else {
