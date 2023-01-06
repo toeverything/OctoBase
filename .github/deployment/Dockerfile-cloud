@@ -9,7 +9,7 @@ COPY . .
 COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
 COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config
 RUN --mount=type=cache,target=/home/rust/src/target,rw,id=cloud_amd64 \
-    cargo build --release --no-default-features --package affine-cloud && \
+    cargo build --release --no-default-features --features affine --package affine-cloud && \
     mv /home/rust/src/target/x86_64-unknown-linux-musl/release/affine-cloud /tmp/cloud-amd64 && \
     mv /home/rust/src/apps/cloud/static /tmp/static
 
