@@ -20,7 +20,7 @@ http-body = "0.4.5"
 jsonwebtoken = "8.1.1"
 jwst = { path = "../../libs/jwst" }
 jwst-logger = { path = "../../libs/jwst-logger" }
-jwst-storage = { path = "../../libs/jwst-storage", features = ["mysql"]}
+jwst-storage = { path = "../../libs/jwst-storage" }
 lettre = { version = "0.10.1", features = [
     "builder",
     "tokio1",
@@ -67,3 +67,7 @@ features = ["io"]
 version = "^1.2.2"
 default-features = false
 features = ["v4"]
+
+[features]
+default = ["affine"]
+affine = ["jwst-storage/sqlite"]

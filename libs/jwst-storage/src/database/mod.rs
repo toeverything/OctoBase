@@ -8,4 +8,4 @@ pub mod model;
 #[cfg(feature = "mysql")]
 pub use mysql::DBContext as MySqlDBContext;
 #[cfg(feature = "sqlite")]
-pub use sqlite::DBContext as BlobSQLiteStorage;
+pub use sqlite::DBContext as SqliteDBContext;

@@ -13,7 +13,12 @@ use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::Workspace;
 use jwst::{DocStorage, SearchResults, Workspace as JWSTWorkspace};
 use jwst_logger::info;
-use jwst_storage::{BlobFsStorage, Claims, DBContext, DocFsStorage, GoogleClaims};
+#[cfg(feature = "mysql")]
+use jwst_storage::MySqlDBContext;
+#[cfg(feature = "affine")]
+use jwst_storage::SqliteDBContext;
+use jwst_storage::{BlobFsStorage, Claims, DocFsStorage, GoogleClaims};
+
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
     Tokio1Executor,
@@ -87,7 +92,10 @@ pub struct Context {
     pub http_client: Client,
     firebase: RwLock<FirebaseContext>,
     pub mail: MailContext,
-    pub db: DBContext,
+    #[cfg(feature = "mysql")]
+    pub db: MySqlDBContext,
+    #[cfg(feature = "affine")]
+    pub db: SqliteDBContext,
     pub blob: BlobFsStorage,
     pub doc: DocStore,
     pub workspace: DashMap<String, Mutex<Workspace>>,
@@ -194,7 +202,10 @@ impl Context {
 
         let db_env = dotenvy::var("DATABASE_URL").expect("should provide databse URL");
         let ctx = Self {
-            db: DBContext::new(db_env).await,
+            #[cfg(feature = "mysql")]
+            db: MySqlDBContext::new(db_env).await,
+            #[cfg(feature = "affine")]
+            db: SqliteDBContext::new(db_env).await,
             key,
             firebase,
             mail,
@@ -331,7 +342,12 @@ impl Context {
             .docs
             .create_doc(&workspace_id)
             .await
-            .map(|f| Arc::new(RwLock::new(JWSTWorkspace::from_doc(f, workspace_id.to_string()))))
+            .map(|f| {
+                Arc::new(RwLock::new(JWSTWorkspace::from_doc(
+                    f,
+                    workspace_id.to_string(),
+                )))
+            })
             .ok()
             .ok_or_else(|| ContextRequestError::WorkspaceNotFound { workspace_id })?;
 
