@@ -58,6 +58,7 @@ name = "affine-cloud"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
+ "anyhow",
  "async-trait",
  "axum 0.6.1",
  "base64 0.20.0",
@@ -89,6 +90,7 @@ dependencies = [
  "tokio-util",
  "tower",
  "tower-http",
+ "uuid",
  "x509-parser",
  "y-sync",
  "yrs",

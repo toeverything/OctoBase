@@ -4,13 +4,16 @@ use std::sync::Arc;
 
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
+use axum::extract::ws::Message;
 use chrono::{NaiveDateTime, Utc};
+use dashmap::DashMap;
 use handlebars::Handlebars;
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
+use jwst::Workspace;
 use jwst::{DocStorage, SearchResults, Workspace as JWSTWorkspace};
 use jwst_logger::info;
-use jwst_storage::{BlobFsStorage, Claims, DocFsStorage, GoogleClaims, DBContext};
+use jwst_storage::{BlobFsStorage, Claims, DBContext, DocFsStorage, GoogleClaims};
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
     Tokio1Executor,
@@ -19,10 +22,11 @@ use moka::future::Cache;
 use rand::{thread_rng, Rng};
 use reqwest::Client;
 use sha2::{Digest, Sha256};
+use tokio::sync::{mpsc::Sender, Mutex};
 use tokio::sync::{RwLock, RwLockReadGuard};
 use x509_parser::prelude::parse_x509_pem;
 
-use crate::api::WebSocketContext;
+use crate::storage::DocDatabase;
 use crate::utils::CacheControl;
 
 pub struct KeyContext {
@@ -84,7 +88,9 @@ pub struct Context {
     pub db: DBContext,
     pub blob: BlobFsStorage,
     pub doc: DocStore,
-    pub ws: WebSocketContext,
+    pub workspace: DashMap<String, Mutex<Workspace>>,
+    pub channel: DashMap<(String, String), Sender<Message>>,
+    pub docs: DocDatabase,
 }
 
 pub enum ContextRequestError {
@@ -194,7 +200,11 @@ impl Context {
             doc: DocStore::new().await,
             blob,
             site_url,
-            ws: WebSocketContext::new(),
+            workspace: DashMap::new(),
+            channel: DashMap::new(),
+            docs: DocDatabase::init_pool("jwst")
+                .await
+                .expect("Cannot create database"),
         };
 
         ctx
@@ -314,10 +324,13 @@ impl Context {
         id: i64,
         query_string: &str,
     ) -> Result<SearchResults, ContextRequestError> {
+        let workspace_id = id.to_string();
         let workspace_arc_rw = self
-            .doc
-            .get_workspace(id)
+            .docs
+            .create_doc(&workspace_id)
             .await
+            .map(|f| Arc::new(RwLock::new(JWSTWorkspace::from_doc(f, id.to_string()))))
+            .ok()
             .ok_or_else(|| ContextRequestError::WorkspaceNotFound { workspace_id: id })?;
 
         let search_results = workspace_arc_rw.write().await.search(&query_string)?;

@@ -30,13 +30,15 @@ use lettre::{
 use lib0::any::Any;
 use mime::APPLICATION_OCTET_STREAM;
 use serde::Serialize;
+use tokio::sync::RwLock;
 use tower::ServiceBuilder;
 use yrs::StateVector;
 
 use crate::{
     context::{Context, ContextRequestError},
     layer::make_firebase_auth_layer,
-    utils::URL_SAFE_ENGINE, login::ThirdPartyLogin,
+    login::ThirdPartyLogin,
+    utils::URL_SAFE_ENGINE,
 };
 
 mod ws;
@@ -332,10 +334,14 @@ async fn create_workspace(
             });
             doc
         };
-        if let Err(_) = ctx.doc.storage.write_doc(data.id, doc.doc()).await {
-            StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        };
-
+        let id = data.id.to_string();
+        if let Err(_) = ctx.docs.create_doc(&id).await {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+        let update = doc.sync_migration();
+        if let Err(_) = ctx.docs.full_migrate(&id, update).await {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
         Json(data).into_response()
     } else {
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -424,7 +430,8 @@ async fn get_doc(
             .into_response();
     }
 
-    match ctx.doc.storage.get(workspace_id).await {
+    let id = workspace_id.to_string();
+    match ctx.docs.create_doc(&id).await {
         Ok(doc) => doc
             .encode_state_as_update_v1(&StateVector::default())
             .into_response(),
@@ -498,7 +505,13 @@ async fn make_invite_email(
     invite_code: &str,
 ) -> Option<(String, MultiPart)> {
     let metadata = {
-        let ws = ctx.doc.get_workspace(id).await?;
+        let workspace_id = id.to_string();
+        let ws = ctx
+            .docs
+            .create_doc(&workspace_id)
+            .await
+            .map(|f| Arc::new(RwLock::new(JWSTWorkspace::from_doc(f, id.to_string()))))
+            .ok()?;
 
         let ws = ws.read().await;
 
