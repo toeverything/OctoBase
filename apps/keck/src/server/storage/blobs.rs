@@ -1,6 +1,6 @@
 #[cfg(feature = "mysc")]
 pub use jwst_storage::BlobMySQLStorage as BlobDatabase;
-#[cfg(feature = "jwst")]
+#[cfg(any(feature = "affine", feature = "jwst"))]
 pub use jwst_storage::BlobSQLiteStorage as BlobDatabase;
 
 pub use jwst_storage::BlobBinary;

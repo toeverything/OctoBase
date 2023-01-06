@@ -39,6 +39,9 @@ optional = true
 [dependencies.jwst]
 path = "../jwst"
 
+[dependencies.jwst-logger]
+path = "../jwst-logger"
+
 [dependencies.num-traits]
 version = "0.2.15"
 optional = true
