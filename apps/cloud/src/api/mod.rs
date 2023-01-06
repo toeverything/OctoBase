@@ -30,6 +30,7 @@ use lettre::{
 use lib0::any::Any;
 use mime::APPLICATION_OCTET_STREAM;
 use serde::Serialize;
+use tokio::sync::RwLock;
 use tower::ServiceBuilder;
 use yrs::StateVector;
 
@@ -333,10 +334,14 @@ async fn create_workspace(
             });
             doc
         };
-        if let Err(_) = ctx.doc.storage.write_doc(data.id, doc.doc()).await {
+        let id = data.id.to_string();
+        if let Err(_) = ctx.docs.create_doc(&id).await {
             StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        };
-
+        }
+        let update = doc.sync_migration();
+        if let Err(_) = ctx.docs.full_migrate(&id, update).await {
+            StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
         Json(data).into_response()
     } else {
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -500,7 +505,13 @@ async fn make_invite_email(
     invite_code: &str,
 ) -> Option<(String, MultiPart)> {
     let metadata = {
-        let ws = ctx.doc.get_workspace(id).await?;
+        let workspace_id = id.to_string();
+        let ws = ctx
+            .docs
+            .create_doc(&workspace_id)
+            .await
+            .map(|f| Arc::new(RwLock::new(JWSTWorkspace::from_doc(f, id.to_string()))))
+            .ok()?;
 
         let ws = ws.read().await;
 

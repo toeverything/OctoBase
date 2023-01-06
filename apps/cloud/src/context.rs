@@ -324,10 +324,13 @@ impl Context {
         id: i64,
         query_string: &str,
     ) -> Result<SearchResults, ContextRequestError> {
+        let workspace_id = id.to_string();
         let workspace_arc_rw = self
-            .doc
-            .get_workspace(id)
+            .docs
+            .create_doc(&workspace_id)
             .await
+            .map(|f| Arc::new(RwLock::new(JWSTWorkspace::from_doc(f, id.to_string()))))
+            .ok()
             .ok_or_else(|| ContextRequestError::WorkspaceNotFound { workspace_id: id })?;
 
         let search_results = workspace_arc_rw.write().await.search(&query_string)?;

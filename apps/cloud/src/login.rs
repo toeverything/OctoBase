@@ -62,13 +62,12 @@ impl ThirdPartyLogin for Context {
         let ws =
             DBContext::create_workspace(&mut trx, user.user.id, WorkspaceType::Private).await?;
 
-        self.doc
-            .storage
-            .write_doc(ws.id, JWSTWorkspace::new(ws.id.to_string()).doc())
-            .await?;
+        // self.doc
+        //     .storage
+        //     .write_doc(ws.id, JWSTWorkspace::new(ws.id.to_string()).doc())
+        //     .await?;
 
-        DBContext::update_cred(&mut trx, user.user.id, &user.user.email)
-            .await?;
+        DBContext::update_cred(&mut trx, user.user.id, &user.user.email).await?;
 
         trx.commit().await?;
 
