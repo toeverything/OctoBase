@@ -215,29 +215,29 @@ impl BlobStorage for SQLite {
     }
     async fn put_blob(
         &self,
-        workspace: Option<String>,
+        workspace_id: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
     ) -> io::Result<String> {
-        let workspace = workspace.unwrap_or("__default__".into());
+        let workspace_id = workspace_id.unwrap_or("__default__".into());
 
         let (hash, blob) = get_hash(stream).await;
 
-        if self.insert(&workspace, &hash, &blob).await.is_ok() {
+        if self.insert(&workspace_id, &hash, &blob).await.is_ok() {
             Ok(hash)
         } else {
             Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
         }
     }
-    async fn delete_blob(&self, workspace: Option<String>, id: String) -> io::Result<()> {
-        let workspace = workspace.unwrap_or("__default__".into());
-        if let Ok(_success) = self.delete(&workspace, &id).await {
+    async fn delete_blob(&self, workspace_id: Option<String>, id: String) -> io::Result<()> {
+        let workspace_id = workspace_id.unwrap_or("__default__".into());
+        if let Ok(_success) = self.delete(&workspace_id, &id).await {
             Ok(())
         } else {
             Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
         }
     }
-    async fn delete_workspace(&self, workspace: String) -> io::Result<()> {
-        if self.drop(&workspace).await.is_ok() {
+    async fn delete_workspace(&self, workspace_id: String) -> io::Result<()> {
+        if self.drop(&workspace_id).await.is_ok() {
             Ok(())
         } else {
             Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))

@@ -1,4 +1,5 @@
 use sqlx::{query, query_as, FromRow, Transaction};
+use uuid::Uuid;
 
 pub mod model;
 
@@ -68,6 +69,7 @@ impl DBContext {
 
         let stmt = "CREATE TABLE IF NOT EXISTS workspaces (
             id BIGSERIAL PRIMARY KEY,
+            uuid TEXT NOT NULL,
             public BOOL NOT NULL,
             type SMALLINT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -79,7 +81,7 @@ impl DBContext {
 
         let stmt = "CREATE TABLE IF NOT EXISTS permissions (
             id BIGSERIAL PRIMARY KEY,
-            workspace_id BIGINT REFERENCES workspaces(id) ON DELETE CASCADE,
+            workspace_id TEXT REFERENCES workspaces(uuid) ON DELETE CASCADE,
             user_id INTEGER REFERENCES users(id),
             user_email TEXT,
             type SMALLINT NOT NULL,
@@ -103,7 +105,7 @@ impl DBContext {
             .await
     }
 
-    pub async fn get_workspace_owner(&self, workspace_id: i64) -> sqlx::Result<User> {
+    pub async fn get_workspace_owner(&self, workspace_id: String) -> sqlx::Result<User> {
         let stmt = format!(
             "SELECT
                 users.id, users.name, users.email, users.avatar_url, users.created_at
@@ -206,12 +208,12 @@ impl DBContext {
 
     pub async fn get_workspace_by_id(
         &self,
-        workspace_id: i64,
+        workspace_id: String,
     ) -> sqlx::Result<Option<WorkspaceDetail>> {
-        let get_workspace = "SELECT id, public, type, created_at FROM workspaces WHERE id = $1;";
+        let get_workspace = "SELECT uuid, public, type, created_at FROM workspaces WHERE uuid = $1;";
 
         let workspace = query_as::<_, Workspace>(&get_workspace)
-            .bind(workspace_id)
+            .bind(workspace_id.clone())
             .fetch_optional(&self.db)
             .await?;
 
@@ -227,7 +229,7 @@ impl DBContext {
             None => return Ok(None),
         };
 
-        let owner = self.get_workspace_owner(workspace_id).await?;
+        let owner = self.get_workspace_owner(workspace_id.clone()).await?;
 
         let get_member_count = "SELECT COUNT(permissions.id)
             FROM permissions
@@ -252,12 +254,14 @@ impl DBContext {
         ws_type: WorkspaceType,
     ) -> sqlx::Result<Workspace> {
         let create_workspace = format!(
-            "INSERT INTO workspaces (public, type) VALUES (false, $1) 
-            RETURNING id, public, created_at, type;",
+            "INSERT INTO workspaces (public, type, uuid) VALUES (false, $1, $2) 
+            RETURNING uuid as id, public, created_at, type;",
         );
+        let uuid = Uuid::new_v4();
 
         let workspace = query_as::<_, Workspace>(&create_workspace)
             .bind(ws_type as i16)
+            .bind(uuid.to_string())
             .fetch_one(&mut *trx)
             .await?;
 
@@ -270,7 +274,7 @@ impl DBContext {
 
         query(&create_permission)
             .bind(user_id)
-            .bind(workspace.id)
+            .bind(workspace.id.clone())
             .execute(&mut *trx)
             .await?;
 
@@ -288,14 +292,14 @@ impl DBContext {
 
     pub async fn update_workspace(
         &self,
-        workspace_id: i64,
+        workspace_id: String,
         data: UpdateWorkspace,
     ) -> sqlx::Result<Option<Workspace>> {
         let update_workspace = format!(
             "UPDATE workspaces
                 SET public = $1
-            WHERE id = $2 AND type = {}
-            RETURNING id, public, type, created_at;",
+            WHERE uuid = $2 AND type = {}
+            RETURNING uuid, public, type, created_at;",
             WorkspaceType::Normal as i16
         );
 
@@ -306,10 +310,10 @@ impl DBContext {
             .await
     }
 
-    pub async fn delete_workspace(&self, workspace_id: i64) -> sqlx::Result<bool> {
+    pub async fn delete_workspace(&self, workspace_id: String) -> sqlx::Result<bool> {
         let delete_workspace = format!(
             "DELETE FROM workspaces CASCADE
-            WHERE id = $1 AND type = {}",
+            WHERE uuid = $1 AND type = {}",
             WorkspaceType::Normal as i16
         );
 
@@ -325,11 +329,11 @@ impl DBContext {
         user_id: i32,
     ) -> sqlx::Result<Vec<WorkspaceWithPermission>> {
         let stmt = "SELECT 
-            workspaces.id, workspaces.public, workspaces.created_at, workspaces.type,
+            workspaces.uuid, workspaces.public, workspaces.created_at, workspaces.type,
             permissions.type as permission
         FROM permissions
         INNER JOIN workspaces
-          ON permissions.workspace_id = workspaces.id
+          ON permissions.workspace_id = workspaces.uuid
         WHERE user_id = $1";
 
         query_as::<_, WorkspaceWithPermission>(&stmt)
@@ -338,7 +342,7 @@ impl DBContext {
             .await
     }
 
-    pub async fn get_workspace_members(&self, workspace_id: i64) -> sqlx::Result<Vec<Member>> {
+    pub async fn get_workspace_members(&self, workspace_id: String) -> sqlx::Result<Vec<Member>> {
         let stmt = "SELECT 
             permissions.id, permissions.type, permissions.user_email,
             permissions.accepted, permissions.created_at,
@@ -358,7 +362,7 @@ impl DBContext {
     pub async fn get_permission(
         &self,
         user_id: i32,
-        workspace_id: i64,
+        workspace_id: String,
     ) -> sqlx::Result<Option<PermissionType>> {
         let stmt = "SELECT type FROM permissions WHERE user_id = $1 AND workspace_id = $2";
 
@@ -390,11 +394,11 @@ impl DBContext {
             .map(|p| p.map(|p| p.type_))
     }
 
-    pub async fn can_read_workspace(&self, user_id: i32, workspace_id: i64) -> sqlx::Result<bool> {
+    pub async fn can_read_workspace(&self, user_id: i32, workspace_id: String) -> sqlx::Result<bool> {
         let stmt = "SELECT FROM permissions 
             WHERE user_id = $1
                 AND workspace_id = $2
-                OR (SELECT True FROM workspaces WHERE id = $2 AND public = True)";
+                OR (SELECT True FROM workspaces WHERE uuid = $2 AND public = True)";
 
         query(&stmt)
             .bind(user_id)
@@ -407,7 +411,7 @@ impl DBContext {
     pub async fn create_permission(
         &self,
         email: &str,
-        workspace_id: i64,
+        workspace_id: String,
         permission_type: PermissionType,
     ) -> sqlx::Result<Option<(i64, UserCred)>> {
         let user = self.get_user_by_email(email).await?;
@@ -416,7 +420,7 @@ impl DBContext {
             "INSERT INTO permissions (user_id, user_email, workspace_id, type)
             SELECT $1, $2, $3, $4
             FROM workspaces
-                WHERE workspaces.type = {} AND workspaces.id = $3
+                WHERE workspaces.type = {} AND workspaces.uuid = $3
             ON CONFLICT DO NOTHING
             RETURNING id",
             WorkspaceType::Normal as i16
@@ -475,7 +479,7 @@ impl DBContext {
     pub async fn delete_permission_by_query(
         &self,
         user_id: i32,
-        workspace_id: i64,
+        workspace_id: String,
     ) -> sqlx::Result<bool> {
         let stmt = format!(
             "DELETE FROM permissions
@@ -493,7 +497,7 @@ impl DBContext {
 
     pub async fn get_user_in_workspace_by_email(
         &self,
-        workspace_id: i64,
+        workspace_id: String,
         email: &str,
     ) -> sqlx::Result<UserInWorkspace> {
         let stmt = "SELECT 
@@ -501,7 +505,7 @@ impl DBContext {
         FROM users";
 
         let user = query_as::<_, User>(stmt)
-            .bind(workspace_id)
+            .bind(workspace_id.clone())
             .fetch_optional(&self.db)
             .await?;
 
@@ -523,7 +527,7 @@ impl DBContext {
             let stmt = "SELECT True FROM permissions WHERE workspace_id = $1 AND user_email = $2";
 
             let in_workspace = query_as::<_, User>(stmt)
-                .bind(workspace_id)
+                .bind(workspace_id.clone())
                 .bind(email)
                 .fetch_optional(&self.db)
                 .await?

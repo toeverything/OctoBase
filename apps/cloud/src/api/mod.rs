@@ -253,7 +253,7 @@ impl Context {
         (header, StreamBody::new(file)).into_response()
     }
 
-    async fn upload_blob(&self, stream: BodyStream, workspace: Option<i64>) -> Response {
+    async fn upload_blob(&self, stream: BodyStream, workspace: Option<String>) -> Response {
         // TODO: cancel
         let mut has_error = false;
         let stream = stream
@@ -301,15 +301,15 @@ async fn upload_blob(
 async fn get_workspace_by_id(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i64>,
+    Path(workspace_id): Path<String>,
 ) -> Response {
-    match ctx.db.get_permission(claims.user.id, id).await {
+    match ctx.db.get_permission(claims.user.id, workspace_id.clone()).await {
         Ok(Some(_)) => (),
         Ok(None) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 
-    match ctx.db.get_workspace_by_id(id).await {
+    match ctx.db.get_workspace_by_id(workspace_id).await {
         Ok(Some(data)) => Json(data).into_response(),
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -351,16 +351,16 @@ async fn create_workspace(
 async fn update_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i64>,
+    Path(workspace_id): Path<String>,
     Json(payload): Json<UpdateWorkspace>,
 ) -> Response {
-    match ctx.db.get_permission(claims.user.id, id).await {
+    match ctx.db.get_permission(claims.user.id, workspace_id.clone()).await {
         Ok(Some(p)) if p.can_admin() => (),
         Ok(_) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 
-    match ctx.db.update_workspace(id, payload).await {
+    match ctx.db.update_workspace(workspace_id, payload).await {
         Ok(Some(data)) => Json(data).into_response(),
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -370,17 +370,17 @@ async fn update_workspace(
 async fn delete_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i64>,
+    Path(workspace_id): Path<String>,
 ) -> Response {
-    match ctx.db.get_permission(claims.user.id, id).await {
+    match ctx.db.get_permission(claims.user.id, workspace_id.clone()).await {
         Ok(Some(p)) if p.is_owner() => (),
         Ok(_) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 
-    match ctx.db.delete_workspace(id).await {
+    match ctx.db.delete_workspace(workspace_id.clone()).await {
         Ok(true) => {
-            let _ = ctx.blob.delete_workspace(id.to_string()).await;
+            let _ = ctx.blob.delete_workspace(workspace_id).await;
             StatusCode::OK.into_response()
         }
         Ok(false) => StatusCode::NOT_FOUND.into_response(),
@@ -391,29 +391,27 @@ async fn delete_workspace(
 async fn get_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path((workspace, id)): Path<(i64, String)>,
+    Path((workspace_id, id)): Path<(String, String)>,
     method: http::Method,
     headers: HeaderMap,
 ) -> Response {
-    match ctx.db.can_read_workspace(claims.user.id, workspace).await {
+    match ctx.db.can_read_workspace(claims.user.id, workspace_id.clone()).await {
         Ok(true) => (),
         Ok(false) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 
-    let workspace = workspace.to_string();
-
-    ctx.get_blob(Some(workspace), id, method, headers).await
+    ctx.get_blob(Some(workspace_id), id, method, headers).await
 }
 
 async fn get_doc(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(workspace_id): Path<i64>,
+    Path(workspace_id): Path<String>,
 ) -> Response {
     match ctx
         .db
-        .can_read_workspace(claims.user.id, workspace_id)
+        .can_read_workspace(claims.user.id, workspace_id.clone())
         .await
     {
         Ok(true) => (),
@@ -421,7 +419,7 @@ async fn get_doc(
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 
-    if let Some(doc) = ctx.doc.try_get_workspace(workspace_id) {
+    if let Some(doc) = ctx.doc.try_get_workspace(workspace_id.clone()) {
         return doc
             .read()
             .await
@@ -442,7 +440,7 @@ async fn get_doc(
 async fn upload_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(workspace): Path<i64>,
+    Path(workspace_id): Path<String>,
     TypedHeader(length): TypedHeader<ContentLength>,
     stream: BodyStream,
 ) -> Response {
@@ -450,29 +448,29 @@ async fn upload_blob_in_workspace(
         return StatusCode::PAYLOAD_TOO_LARGE.into_response();
     }
 
-    match ctx.db.can_read_workspace(claims.user.id, workspace).await {
+    match ctx.db.can_read_workspace(claims.user.id, workspace_id.clone()).await {
         Ok(true) => (),
         Ok(false) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 
-    ctx.upload_blob(stream, Some(workspace)).await
+    ctx.upload_blob(stream, Some(workspace_id)).await
 }
 
 /// Resolves to [WorkspaceSearchResults]
 async fn search_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i64>,
+    Path(workspace_id): Path<String>,
     Json(payload): Json<WorkspaceSearchInput>,
 ) -> Response {
-    match ctx.db.can_read_workspace(claims.user.id, id).await {
+    match ctx.db.can_read_workspace(claims.user.id, workspace_id.clone()).await {
         Ok(true) => (),
         Ok(false) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
 
-    let search_results = match ctx.search_workspace(id, &payload.query).await {
+    let search_results = match ctx.search_workspace(workspace_id, &payload.query).await {
         Ok(results) => results,
         Err(err) => return err.into_response(),
     };
@@ -483,15 +481,15 @@ async fn search_workspace(
 async fn get_members(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i64>,
+    Path(workspace_id): Path<String>,
 ) -> Response {
-    match ctx.db.get_permission(claims.user.id, id).await {
+    match ctx.db.get_permission(claims.user.id, workspace_id.clone()).await {
         Ok(Some(p)) if p.can_admin() => (),
         Ok(_) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
 
-    if let Ok(members) = ctx.db.get_workspace_members(id).await {
+    if let Ok(members) = ctx.db.get_workspace_members(workspace_id).await {
         Json(members).into_response()
     } else {
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -500,17 +498,17 @@ async fn get_members(
 
 async fn make_invite_email(
     ctx: &Context,
-    id: i64,
+    workspace_id: String,
     claims: &Claims,
     invite_code: &str,
 ) -> Option<(String, MultiPart)> {
     let metadata = {
-        let workspace_id = id.to_string();
+        let workspace_id = workspace_id.to_string();
         let ws = ctx
             .docs
             .create_doc(&workspace_id)
             .await
-            .map(|f| Arc::new(RwLock::new(JWSTWorkspace::from_doc(f, id.to_string()))))
+            .map(|f| Arc::new(RwLock::new(JWSTWorkspace::from_doc(f, workspace_id.to_string()))))
             .ok()?;
 
         let ws = ws.read().await;
@@ -586,10 +584,10 @@ async fn make_invite_email(
 async fn invite_member(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i64>,
+    Path(workspace_id): Path<String>,
     Json(data): Json<CreatePermission>,
 ) -> Response {
-    match ctx.db.get_permission(claims.user.id, id).await {
+    match ctx.db.get_permission(claims.user.id, workspace_id.clone()).await {
         Ok(Some(p)) if p.can_admin() => (),
         Ok(_) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -601,7 +599,7 @@ async fn invite_member(
 
     let (permission_id, user_cred) = match ctx
         .db
-        .create_permission(&data.email, id, PermissionType::Write)
+        .create_permission(&data.email, workspace_id.clone(), PermissionType::Write)
         .await
     {
         Ok(Some(p)) => p,
@@ -621,7 +619,7 @@ async fn invite_member(
         addr,
     );
 
-    let Some((title, msg_body)) = make_invite_email(&ctx, id, &claims, &invite_code).await else {
+    let Some((title, msg_body)) = make_invite_email(&ctx, workspace_id, &claims, &invite_code).await else {
         let _ = ctx.db.delete_permission(permission_id);
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
@@ -677,7 +675,7 @@ async fn accept_invitation(
 async fn leave_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
 ) -> Response {
     match ctx.db.delete_permission_by_query(claims.user.id, id).await {
         Ok(true) => StatusCode::OK.into_response(),
