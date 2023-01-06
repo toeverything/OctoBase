@@ -551,3 +551,36 @@ impl DBContext {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn database_create_tables() -> anyhow::Result<()> {
+        use super::*;
+        // let check_table_exists =
+        // "IF EXISTS(SELECT 1 FROM sys.Tables WHERE  Name = N'users' AND Type = N'U')
+        //     RETURN True
+        // ELSE
+        //     RETURN False";
+        let db_context = DBContext::new("sqlite::memory:".to_string()).await;
+        let new_user = db_context
+            .create_user(CreateUser {
+                avatar_url: Some("xxx".to_string()),
+                email: "xxx@xxx.xx".to_string(),
+                name: "xxx".to_string(),
+                password: "xxx".to_string(),
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(new_user.id, 0);
+        let new_workspace = db_context
+            .create_normal_workspace(new_user.id)
+            .await
+            .unwrap();
+
+        assert_eq!(new_workspace.id.len(), 36);
+
+        Ok(())
+    }
+}
