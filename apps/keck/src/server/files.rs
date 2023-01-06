@@ -47,6 +47,7 @@ async fn index_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, Strin
                     .unwrap())
             };
         }
+        return Ok(res);
     }
 
     Ok(res)
