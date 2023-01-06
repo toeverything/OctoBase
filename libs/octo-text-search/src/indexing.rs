@@ -173,12 +173,15 @@ mod test {
     }
     macro_rules! expect_search_gives_ids {
         ($search_plugin:ident, $query_text:expr, $id_str_array:expr) => {
+            let q = $query_text;
             let search_result = $search_plugin
-                .search($query_text)
+                .search(&q)
                 .expect("no error searching");
 
             let line = line!();
-            println!("Search results (workspace.rs:{line}): {search_result:#?}"); // will show if there is an issue running the test
+            println!(
+                "Search results for {q:?} (workspace.rs:{line}): {search_result:#?}",
+            ); // will show if there is an issue running the test
 
             expect_result_ids!(search_result, $id_str_array);
         };
@@ -206,7 +209,7 @@ mod test {
             let d = writer.create_block(("d", "affine:text"));
             let e = writer.create_block(("e", "affine:text"));
             let f = writer.create_block(("f", "affine:text"));
-            let mut w = &mut writer;
+            let w = &mut writer;
 
             b.set_prop(w, "title", "Title B content");
             b.set_prop(w, "text", "Text B content bbb xxx");
@@ -253,8 +256,8 @@ mod test {
                 "Blocks: {:#?}",
                 reader
                     .block_iter()
-                    .map(|b| b.all_props(&reader))
-                    .collect::<Vec<_>>()
+                    .map(|b| (b.id().to_string(), b.all_attrs(&reader)))
+                    .collect::<HashMap<_, _>>()
             ); // shown if there is an issue running the test.
         }
 

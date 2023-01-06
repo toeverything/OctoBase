@@ -542,10 +542,17 @@ pub trait OctoWrite<'doc>: OctoRead {
             ($(($id:expr, $val:expr)),+) => { $(props_ref.insert(yrs_txn_mut, $id, $val);)+ }
         }
 
+        let version = [1u16, 0u16];
+        let version_prelim = version
+            .iter()
+            .copied()
+            .map(|a| lib0::any::Any::Number(a as f64))
+            .collect::<Vec<_>>();
+
         // init default schema
         insert_prop_and_prelim_pairs!(
             (SYS_FLAVOR_KEY, flavor.as_ref()),
-            (SYS_VERSION_KEY, yrs::ArrayPrelim::from([1, 0])),
+            (SYS_VERSION_KEY, version_prelim),
             (
                 SYS_CHILDREN_KEY,
                 yrs::ArrayPrelim::<Vec<String>, String>::from(vec![])
@@ -736,7 +743,7 @@ impl OctoBlockRef {
             map_fn(value, yrs_txn).map_err(move |value| {
                 // need value back to make "found" type string.
                 errors::BlockAttrWasUnexpectedType {
-                    id: self.id.clone(),
+                    block_id: self.id.clone(),
                     attr_key: attr_key.into(),
                     expected_type,
                     found: value.to_string(yrs_txn),
@@ -858,7 +865,7 @@ impl OctoBlockRef {
             match value {
                 Value::Any(lib0::any::Any::String(value)) => Ok(value.to_string()),
                 other => Err(errors::BlockAttrWasUnexpectedType {
-                    id: self.id.clone(),
+                    block_id: self.id.clone(),
                     attr_key: SYS_FLAVOR_KEY.into(),
                     // TODO: be more consistent with these type names, yet.
                     expected_type: "Any::String",
@@ -939,19 +946,15 @@ impl OctoBlockRef {
         self.try_set_yrs_prop_value(writer, &user_prop_key(unprefixed), value)
     }
 
-    #[track_caller]
-    #[cfg(feature = "unwrap")]
-    pub fn all_props(&self, reader: &impl OctoRead) -> HashMap<String, lib0::any::Any> {
-        self.try_all_props(reader).octo_unwrap()
-    }
-
-    /// Set a `value` under given user defined `key` into current map.
-    /// Returns a value stored previously under the same key (if any existed).
-    /// See [concepts::UserPropAttr].
-    pub fn try_all_props(
+    // TODO: Support children sys attribute which has a YArray type.
+    fn try_all_attrs_with_filter<F>(
         &self,
         reader: &impl OctoRead,
-    ) -> Result<HashMap<String, lib0::any::Any>, errors::OctoReadAttrError> {
+        filter_map_attr: F,
+    ) -> Result<HashMap<String, lib0::any::Any>, errors::OctoReadAttrError>
+    where
+        F: Fn(&str) -> Option<&str>,
+    {
         let _ReadParts(workspace_ref, yrs_txn) = reader._parts();
         self.check_txn(workspace_ref)?;
 
@@ -959,12 +962,12 @@ impl OctoBlockRef {
             .yrs_props_ref
             .iter(yrs_txn)
             .filter_map(|(attr_key, value)| {
-                match (remove_user_prop_prefix(attr_key), value) {
-                    (Some(user_key), yrs::types::Value::Any(any_val)) => {
-                        Some(Ok((user_key.to_string(), any_val)))
+                match (filter_map_attr(attr_key), value) {
+                    (Some(use_key), yrs::types::Value::Any(any_val)) => {
+                        Some(Ok((use_key.to_string(), any_val)))
                     }
-                    (Some(user_key), other_type) => Some(Err(errors::BlockAttrWasUnexpectedType {
-                        id: self.id.clone(),
+                    (Some(_use_key), other_type) => Some(Err(errors::BlockAttrWasUnexpectedType {
+                        block_id: self.id.clone(),
                         // Should this be the prefixed key or unprefixed?
                         attr_key: attr_key.into(),
                         expected_type: "basic non Y type",
@@ -977,6 +980,44 @@ impl OctoBlockRef {
             )?;
 
         Ok(map)
+    }
+
+    #[track_caller]
+    #[cfg(feature = "unwrap")]
+    pub fn all_props(&self, reader: &impl OctoRead) -> HashMap<String, lib0::any::Any> {
+        self.try_all_props(reader).octo_unwrap()
+    }
+
+    pub fn try_all_props(
+        &self,
+        reader: &impl OctoRead,
+    ) -> Result<HashMap<String, lib0::any::Any>, errors::OctoReadAttrError> {
+        self.try_all_attrs_with_filter(reader, remove_user_prop_prefix)
+    }
+
+    #[track_caller]
+    #[cfg(feature = "unwrap")]
+    pub fn all_attrs(&self, reader: &impl OctoRead) -> HashMap<String, lib0::any::Any> {
+        self.try_all_attrs(reader).octo_unwrap()
+    }
+
+    /// All attributes including []
+    pub fn try_all_attrs(
+        &self,
+        reader: &impl OctoRead,
+    ) -> Result<HashMap<String, lib0::any::Any>, errors::OctoReadAttrError> {
+        self.try_all_attrs_with_filter(
+            reader,
+            // keep all sys and prop attrs
+            |attr| {
+                // TODO: Support logging children?
+                if attr != SYS_CHILDREN_KEY {
+                    Some(attr)
+                } else {
+                    None
+                }
+            },
+        )
     }
 
     #[track_caller]
@@ -1002,7 +1043,7 @@ impl OctoBlockRef {
             return match curr_val {
                 yrs::types::Value::Any(any_val) => Ok(Some(any_val)),
                 _ => Err(errors::BlockAttrWasUnexpectedType {
-                    id: self.id.clone(),
+                    block_id: self.id.clone(),
                     attr_key: attr_key.into(),
                     expected_type: "json",
                     found: "non-json type like YMap, YArray, YText".to_string(),
@@ -1226,12 +1267,14 @@ pub mod errors {
     }
 
     #[derive(Debug, Error)]
-    #[error("block with id `{id:?}` and attribute `{attr_key}` expects `{expected_type}` but found `{found}`")]
+    #[error("block with id `{block_id:?}` and attribute `{attr_key}` expects `{expected_type}` but found `{found}`")]
     pub struct BlockAttrWasUnexpectedType {
-        pub id: Arc<str>,
+        pub block_id: Arc<str>,
         /// Prefixed [concepts::YJSBlockAttrMap] key, so this could be `"prop:text"`, `"sys:flavor"`, etc.
         pub attr_key: Arc<str>,
+        /// TODO: Replace with a [crate::octo::value] value error primitive
         pub expected_type: &'static str,
+        /// TODO: Replace with a [crate::octo::value] value error primitive
         pub found: String,
     }
 }
