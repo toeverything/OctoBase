@@ -202,7 +202,7 @@ jobs:
               with:
                   version: '0.22.0'
                   out-type: 'Html'
-                  args: '--workspace --exclude yrs,jwst-py --no-fail-fast --engine Llvm'
+                  args: '--workspace --exclude yrs,jwst-py --no-fail-fast --engine Llvm --no-default-features --features sqlite'
               env:
                   CARGO_INCREMENTAL: '0'
                   RUSTFLAGS: '-Zprofile -C opt-level=0 -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
