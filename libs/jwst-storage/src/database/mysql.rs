@@ -172,7 +172,7 @@ impl DBContext {
         let create_user = "INSERT INTO users 
             (name, password, email, avatar_url)
             VALUES ($1, $2, $3, $4)
-        ON CONFLICT email DO NOTHING
+        ON CONFLICT (email) DO NOTHING
         RETURNING id, name, email, avatar_url, created_at";
 
         let Some(user) = query_as::<_, User>(create_user)
@@ -546,7 +546,23 @@ mod tests {
         //     RETURN True
         // ELSE
         //     RETURN False";
-        let db_context = DBContext::new("postgresql://affine:affine@localhost:5432/affine".to_string()).await;
+        let db_context =
+            DBContext::new("postgresql://affine:affine@localhost:5432/affine".to_string()).await;
+        // clean db
+        let drop_statement = "
+        DROP TABLE IF EXISTS \"google_users\";
+        DROP TABLE IF EXISTS \"permissions\";
+        DROP TABLE IF EXISTS \"workspaces\";
+        DROP TABLE IF EXISTS \"users\";
+        ";
+        for line in drop_statement.split("\n") {
+            query(&line)
+                .execute(&db_context.db)
+                .await
+                .expect("Drop all table in test failed");
+        }
+        db_context.init_db().await;
+        // start test
         let new_user = db_context
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
