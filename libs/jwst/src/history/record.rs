@@ -1,5 +1,3 @@
-pub use serde_json::Value as JsonValue;
-
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use yrs::Array;

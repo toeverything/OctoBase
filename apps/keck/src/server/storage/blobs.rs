@@ -7,6 +7,7 @@ pub use jwst_storage::BlobBinary;
 
 #[cfg(test)]
 mod tests {
+    #[cfg(any(feature = "jwst", feature = "mysql"))]
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
         use super::*;

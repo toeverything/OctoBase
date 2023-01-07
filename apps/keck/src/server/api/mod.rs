@@ -5,15 +5,16 @@ mod blocks;
 
 use super::storage::{BlobDatabase, DocDatabase};
 use super::*;
+use axum::{extract::ws::Message, Router};
+#[cfg(feature = "api")]
 use axum::{
-    extract::{ws::Message, Json, Path},
+    extract::{Json, Path},
     http::StatusCode,
     response::IntoResponse,
-    Router,
+    routing::{delete, get, head},
 };
 use dashmap::DashMap;
-use jwst::{parse_history, parse_history_client, Workspace};
-use serde_json::Value as JsonValue;
+use jwst::Workspace;
 use tokio::sync::{mpsc::Sender, Mutex};
 
 #[derive(Deserialize)]

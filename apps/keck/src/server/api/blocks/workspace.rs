@@ -4,7 +4,7 @@ use axum::{
     http::header,
     response::Response,
 };
-use jwst::Block;
+use jwst::{parse_history, parse_history_client, Block};
 use utoipa::IntoParams;
 
 /// Get a exists `Workspace` by id
