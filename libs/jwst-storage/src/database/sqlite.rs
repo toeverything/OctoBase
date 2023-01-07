@@ -246,7 +246,7 @@ impl DBContext {
     ) -> sqlx::Result<Workspace> {
         let create_workspace = format!(
             "INSERT INTO workspaces (public, type, uuid) VALUES (false, $1, $2) 
-            RETURNING uuid as id, public, created_at, type;",
+            RETURNING uuid AS id, public, created_at, type;",
         );
         let uuid = Uuid::new_v4();
 
@@ -290,7 +290,7 @@ impl DBContext {
             "UPDATE workspaces
                 SET public = $1
             WHERE uuid = $2 AND type = {}
-            RETURNING uuid, public, type, created_at;",
+            RETURNING uuid AS id, public, type, created_at;",
             WorkspaceType::Normal as i16
         );
 
@@ -320,8 +320,8 @@ impl DBContext {
         user_id: i32,
     ) -> sqlx::Result<Vec<WorkspaceWithPermission>> {
         let stmt = "SELECT 
-            workspaces.uuid as id, workspaces.public, workspaces.created_at, workspaces.type,
-            permissions.type as permission
+            workspaces.uuid AS id, workspaces.public, workspaces.created_at, workspaces.type,
+            permissions.type AS permission
         FROM permissions
         INNER JOIN workspaces
           ON permissions.workspace_id = workspaces.uuid
@@ -571,7 +571,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(new_user2.id, 2);
-        let new_workspace = db_context
+        let mut new_workspace = db_context
             .create_normal_workspace(new_user.id)
             .await
             .unwrap();
@@ -607,6 +607,13 @@ mod tests {
                 .workspace
                 .id
         );
+
+        new_workspace = db_context
+            .update_workspace(new_workspace.id, UpdateWorkspace { public: true })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(new_workspace.public, true);
         Ok(())
     }
 }
