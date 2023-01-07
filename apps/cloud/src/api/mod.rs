@@ -167,6 +167,7 @@ async fn get_workspaces(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
 ) -> Response {
+    // TODO should print error
     if let Ok(data) = ctx.db.get_user_workspaces(claims.user.id).await {
         Json(data).into_response()
     } else {
@@ -303,7 +304,11 @@ async fn get_workspace_by_id(
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
 ) -> Response {
-    match ctx.db.get_permission(claims.user.id, workspace_id.clone()).await {
+    match ctx
+        .db
+        .get_permission(claims.user.id, workspace_id.clone())
+        .await
+    {
         Ok(Some(_)) => (),
         Ok(None) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -354,7 +359,11 @@ async fn update_workspace(
     Path(workspace_id): Path<String>,
     Json(payload): Json<UpdateWorkspace>,
 ) -> Response {
-    match ctx.db.get_permission(claims.user.id, workspace_id.clone()).await {
+    match ctx
+        .db
+        .get_permission(claims.user.id, workspace_id.clone())
+        .await
+    {
         Ok(Some(p)) if p.can_admin() => (),
         Ok(_) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -372,7 +381,11 @@ async fn delete_workspace(
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
 ) -> Response {
-    match ctx.db.get_permission(claims.user.id, workspace_id.clone()).await {
+    match ctx
+        .db
+        .get_permission(claims.user.id, workspace_id.clone())
+        .await
+    {
         Ok(Some(p)) if p.is_owner() => (),
         Ok(_) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -395,7 +408,11 @@ async fn get_blob_in_workspace(
     method: http::Method,
     headers: HeaderMap,
 ) -> Response {
-    match ctx.db.can_read_workspace(claims.user.id, workspace_id.clone()).await {
+    match ctx
+        .db
+        .can_read_workspace(claims.user.id, workspace_id.clone())
+        .await
+    {
         Ok(true) => (),
         Ok(false) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -448,7 +465,11 @@ async fn upload_blob_in_workspace(
         return StatusCode::PAYLOAD_TOO_LARGE.into_response();
     }
 
-    match ctx.db.can_read_workspace(claims.user.id, workspace_id.clone()).await {
+    match ctx
+        .db
+        .can_read_workspace(claims.user.id, workspace_id.clone())
+        .await
+    {
         Ok(true) => (),
         Ok(false) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -464,7 +485,11 @@ async fn search_workspace(
     Path(workspace_id): Path<String>,
     Json(payload): Json<WorkspaceSearchInput>,
 ) -> Response {
-    match ctx.db.can_read_workspace(claims.user.id, workspace_id.clone()).await {
+    match ctx
+        .db
+        .can_read_workspace(claims.user.id, workspace_id.clone())
+        .await
+    {
         Ok(true) => (),
         Ok(false) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -483,7 +508,11 @@ async fn get_members(
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
 ) -> Response {
-    match ctx.db.get_permission(claims.user.id, workspace_id.clone()).await {
+    match ctx
+        .db
+        .get_permission(claims.user.id, workspace_id.clone())
+        .await
+    {
         Ok(Some(p)) if p.can_admin() => (),
         Ok(_) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -508,7 +537,12 @@ async fn make_invite_email(
             .docs
             .create_doc(&workspace_id)
             .await
-            .map(|f| Arc::new(RwLock::new(JWSTWorkspace::from_doc(f, workspace_id.to_string()))))
+            .map(|f| {
+                Arc::new(RwLock::new(JWSTWorkspace::from_doc(
+                    f,
+                    workspace_id.to_string(),
+                )))
+            })
             .ok()?;
 
         let ws = ws.read().await;
@@ -587,7 +621,11 @@ async fn invite_member(
     Path(workspace_id): Path<String>,
     Json(data): Json<CreatePermission>,
 ) -> Response {
-    match ctx.db.get_permission(claims.user.id, workspace_id.clone()).await {
+    match ctx
+        .db
+        .get_permission(claims.user.id, workspace_id.clone())
+        .await
+    {
         Ok(Some(p)) if p.can_admin() => (),
         Ok(_) => return StatusCode::FORBIDDEN.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
