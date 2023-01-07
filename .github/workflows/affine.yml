@@ -4,22 +4,22 @@ on:
     release:
         types: [created]
     workflow_dispatch:
-    push:
-        branches: [master]
-        paths:
-            # - 'apps/keck/**'
-            # - 'libs/**'
-            - '.github/deployment/Dockerfile-affine'
-            - '.github/deployment/Dockerfile-affine-prod'
-            - '.github/workflows/affine.yml'
-    pull_request:
-        branches: [master]
-        paths:
-            # - 'apps/keck/**'
-            # - 'libs/**'
-            - '.github/deployment/Dockerfile-affine'
-            - '.github/deployment/Dockerfile-affine-prod'
-            - '.github/workflows/affine.yml'
+#     push:
+#         branches: [master]
+#         paths:
+#             # - 'apps/keck/**'
+#             # - 'libs/**'
+#             - '.github/deployment/Dockerfile-affine'
+#             - '.github/deployment/Dockerfile-affine-prod'
+#             - '.github/workflows/affine.yml'
+#     pull_request:
+#         branches: [master]
+#         paths:
+#             # - 'apps/keck/**'
+#             # - 'libs/**'
+#             - '.github/deployment/Dockerfile-affine'
+#             - '.github/deployment/Dockerfile-affine-prod'
+#             - '.github/workflows/affine.yml'
 
 # Cancels all previous workflow runs for pull requests that have not completed.
 # See https://docs.github.com/en/actions/using-jobs/using-concurrency
