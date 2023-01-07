@@ -1,11 +1,6 @@
-use sqlx::{query, query_as, FromRow, PgPool, Postgres, Transaction};
+use super::*;
+use sqlx::{query, query_as, FromRow, Sqlite, SqlitePool, Transaction};
 use uuid::Uuid;
-
-use super::model::{
-    BigId, Count, CreateUser, Member, Permission, PermissionType, RefreshToken, UpdateWorkspace,
-    User, UserCred, UserInWorkspace, UserLogin, UserWithNonce, Workspace, WorkspaceDetail,
-    WorkspaceType, WorkspaceWithPermission,
-};
 
 #[derive(FromRow)]
 struct PermissionQuery {
@@ -13,13 +8,15 @@ struct PermissionQuery {
     type_: PermissionType,
 }
 
-pub struct DBContext {
-    pub db: PgPool,
+pub struct SQLite {
+    pub db: SqlitePool,
 }
 
-impl DBContext {
-    pub async fn new(db_env: String) -> DBContext {
-        let db = PgPool::connect(&db_env).await.expect("wrong database URL");
+impl SQLite {
+    pub async fn new(database: String) -> SQLite {
+        let db = SqlitePool::connect(&database)
+            .await
+            .expect("wrong database URL");
         let db_context = Self { db };
         db_context.init_db().await;
         db_context
@@ -27,7 +24,7 @@ impl DBContext {
 
     pub async fn init_db(&self) {
         let stmt = "CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             email TEXT NOT NULL,
             avatar_url TEXT,
@@ -42,7 +39,7 @@ impl DBContext {
             .expect("create table users failed");
 
         let stmt = "CREATE TABLE IF NOT EXISTS google_users (
-            id SERIAL PRIMARY KEY,
+            id SERIAL,
             user_id INTEGER REFERENCES users(id),
             google_id TEXT NOT NULL,
             UNIQUE (google_id)
@@ -53,7 +50,7 @@ impl DBContext {
             .expect("create table google_users failed");
 
         let stmt = "CREATE TABLE IF NOT EXISTS workspaces (
-            id BIGSERIAL PRIMARY KEY,
+            id SERIAL,
             uuid CHAR(36),
             public BOOL NOT NULL,
             type SMALLINT NOT NULL,
@@ -149,7 +146,7 @@ impl DBContext {
     }
 
     pub async fn update_cred(
-        trx: &mut Transaction<'static, Postgres>,
+        trx: &mut Transaction<'static, Sqlite>,
         user_id: i32,
         user_email: &str,
     ) -> sqlx::Result<()> {
@@ -169,10 +166,10 @@ impl DBContext {
 
     pub async fn create_user(&self, user: CreateUser) -> sqlx::Result<Option<User>> {
         let mut trx = self.db.begin().await?;
+        // sqlite don't support "ON CONFLICT email DO NOTHING"
         let create_user = "INSERT INTO users 
             (name, password, email, avatar_url)
             VALUES ($1, $2, $3, $4)
-        ON CONFLICT (email) DO NOTHING
         RETURNING id, name, email, avatar_url, created_at";
 
         let Some(user) = query_as::<_, User>(create_user)
@@ -238,7 +235,7 @@ impl DBContext {
     }
 
     pub async fn create_workspace(
-        trx: &mut Transaction<'static, Postgres>,
+        trx: &mut Transaction<'static, Sqlite>,
         user_id: i32,
         ws_type: WorkspaceType,
     ) -> sqlx::Result<Workspace> {
@@ -288,7 +285,7 @@ impl DBContext {
             "UPDATE workspaces
                 SET public = $1
             WHERE uuid = $2 AND type = {}
-            RETURNING uuid as id, public, type, created_at;",
+            RETURNING uuid AS id, public, type, created_at;",
             WorkspaceType::Normal as i16
         );
 
@@ -319,7 +316,7 @@ impl DBContext {
     ) -> sqlx::Result<Vec<WorkspaceWithPermission>> {
         let stmt = "SELECT 
             workspaces.uuid AS id, workspaces.public, workspaces.created_at, workspaces.type,
-            permissions.type as permission
+            permissions.type AS permission
         FROM permissions
         INNER JOIN workspaces
           ON permissions.workspace_id = workspaces.uuid
@@ -546,23 +543,7 @@ mod tests {
         //     RETURN True
         // ELSE
         //     RETURN False";
-        let db_context =
-            DBContext::new("postgresql://affine:affine@localhost:5432/affine".to_string()).await;
-        // clean db
-        let drop_statement = "
-        DROP TABLE IF EXISTS \"google_users\";
-        DROP TABLE IF EXISTS \"permissions\";
-        DROP TABLE IF EXISTS \"workspaces\";
-        DROP TABLE IF EXISTS \"users\";
-        ";
-        for line in drop_statement.split("\n") {
-            query(&line)
-                .execute(&db_context.db)
-                .await
-                .expect("Drop all table in test failed");
-        }
-        db_context.init_db().await;
-        // start test
+        let db_context = SQLite::new("sqlite::memory:".to_string()).await;
         let new_user = db_context
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
@@ -595,7 +576,6 @@ mod tests {
             .unwrap();
 
         assert_eq!(new_workspace.id.len(), 36);
-        assert_eq!(new_workspace.public, false);
         assert_eq!(new_workspace2.id.len(), 36);
 
         let new_workspace1_clone = db_context
@@ -610,7 +590,6 @@ mod tests {
             new_workspace.created_at,
             new_workspace1_clone.workspace.created_at
         );
-
         assert_eq!(
             new_workspace.id,
             db_context

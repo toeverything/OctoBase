@@ -1,11 +1,11 @@
-#[cfg(feature = "mysql")]
-mod mysql;
+#[cfg(feature = "postgres")]
+mod postgres;
 #[cfg(feature = "sqlite")]
 mod sqlite;
 
 pub mod model;
 
-#[cfg(feature = "mysql")]
-pub use mysql::DBContext as MySqlDBContext;
+#[cfg(feature = "postgres")]
+pub use postgres::PostgreSQL as PostgresDBContext;
 #[cfg(feature = "sqlite")]
-pub use sqlite::DBContext as SqliteDBContext;
+pub use sqlite::SQLite as SqliteDBContext;

@@ -1,4 +1,5 @@
 mod blobs;
+#[cfg(feature = "server")]
 mod database;
 mod docs;
 
@@ -11,6 +12,7 @@ use tokio::{
 };
 
 pub use blobs::*;
-pub use database::*;
-pub use database::model::*;
 pub use docs::*;
+
+#[cfg(feature = "server")]
+pub use database::{model::*, *};

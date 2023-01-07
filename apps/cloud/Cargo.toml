@@ -3,6 +3,12 @@ name = "affine-cloud"
 edition = "2021"
 version = "0.1.0"
 
+
+[features]
+default = ["sqlite"]
+sqlite = ["jwst-storage/server", "jwst-storage/sqlite"]
+postgres = ["jwst-storage/server", "jwst-storage/postgres"]
+
 [dependencies]
 async-trait = "0.1.60"
 anyhow = "^1.0.68"
@@ -63,11 +69,8 @@ yrs = { path = "../../libs/yrs" }
 [dependencies.tokio-util]
 version = "^0.7.4"
 features = ["io"]
+
 [dependencies.uuid]
 version = "^1.2.2"
 default-features = false
 features = ["v4"]
-
-[features]
-default = ["affine"]
-affine = ["jwst-storage/mysql"]
