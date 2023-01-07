@@ -62,9 +62,9 @@ impl ThirdPartyLogin for Context {
             .execute(&mut trx)
             .await?;
 
-        #[cfg(feature = "affine")]
-        MySqlDBContext::update_cred(&mut trx, user.user.id, &user.user.email).await?;
-        #[cfg(feature = "embed")]
+        #[cfg(feature = "postgres")]
+        PostgresDBContext::update_cred(&mut trx, user.user.id, &user.user.email).await?;
+        #[cfg(feature = "sqlite")]
         SqliteDBContext::update_cred(&mut trx, user.user.id, &user.user.email).await?;
 
         trx.commit().await?;
