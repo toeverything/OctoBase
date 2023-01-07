@@ -1,4 +1,4 @@
-use sqlx::{query, query_as, FromRow, Transaction, PgPool, Postgres};
+use sqlx::{query, query_as, FromRow, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use super::model::{
@@ -27,7 +27,7 @@ impl DBContext {
 
     pub async fn init_db(&self) {
         let stmt = "CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             email TEXT NOT NULL,
             avatar_url TEXT,
@@ -42,7 +42,7 @@ impl DBContext {
             .expect("create table users failed");
 
         let stmt = "CREATE TABLE IF NOT EXISTS google_users (
-            id SERIAL,
+            id SERIAL PRIMARY KEY,
             user_id INTEGER REFERENCES users(id),
             google_id TEXT NOT NULL,
             UNIQUE (google_id)
@@ -53,7 +53,7 @@ impl DBContext {
             .expect("create table google_users failed");
 
         let stmt = "CREATE TABLE IF NOT EXISTS workspaces (
-            id SERIAL,
+            id BIGSERIAL PRIMARY KEY,
             uuid CHAR(36),
             public BOOL NOT NULL,
             type SMALLINT NOT NULL,
@@ -546,7 +546,7 @@ mod tests {
         //     RETURN True
         // ELSE
         //     RETURN False";
-        let db_context = DBContext::new("sqlite::memory:".to_string()).await;
+        let db_context = DBContext::new("postgresql://affine:affine@localhost:5432/affine".to_string()).await;
         let new_user = db_context
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),

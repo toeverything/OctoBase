@@ -13,9 +13,9 @@ use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::Workspace;
 use jwst::{DocStorage, SearchResults, Workspace as JWSTWorkspace};
 use jwst_logger::info;
-#[cfg(feature = "mysql")]
-use jwst_storage::MySqlDBContext;
 #[cfg(feature = "affine")]
+use jwst_storage::MySqlDBContext;
+#[cfg(feature = "embed")]
 use jwst_storage::SqliteDBContext;
 use jwst_storage::{BlobFsStorage, Claims, DocFsStorage, GoogleClaims};
 
@@ -92,15 +92,16 @@ pub struct Context {
     pub http_client: Client,
     firebase: RwLock<FirebaseContext>,
     pub mail: MailContext,
-    #[cfg(feature = "mysql")]
-    pub db: MySqlDBContext,
     #[cfg(feature = "affine")]
+    pub db: MySqlDBContext,
+    #[cfg(feature = "embed")]
     pub db: SqliteDBContext,
     pub blob: BlobFsStorage,
     pub doc: DocStore,
     pub workspace: DashMap<String, Mutex<Workspace>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub docs: DocDatabase,
+    pub global_channel: DashMap<(String, String), Sender<Message>>,
 }
 
 pub enum ContextRequestError {
@@ -202,9 +203,9 @@ impl Context {
 
         let db_env = dotenvy::var("DATABASE_URL").expect("should provide databse URL");
         let ctx = Self {
-            #[cfg(feature = "mysql")]
-            db: MySqlDBContext::new(db_env).await,
             #[cfg(feature = "affine")]
+            db: MySqlDBContext::new(db_env).await,
+            #[cfg(feature = "embed")]
             db: SqliteDBContext::new(db_env).await,
             key,
             firebase,
@@ -218,6 +219,7 @@ impl Context {
             docs: DocDatabase::init_pool("jwst")
                 .await
                 .expect("Cannot create database"),
+            global_channel: DashMap::new(),
         };
 
         ctx

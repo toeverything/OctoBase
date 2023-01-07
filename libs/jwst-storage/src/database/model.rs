@@ -1,7 +1,12 @@
 use chrono::naive::serde::{ts_milliseconds, ts_seconds};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Row, Type, sqlite::SqliteRow, postgres::PgRow};
+use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Row, Type};
+#[cfg(feature = "mysql")]
+use sqlx::postgres::PgRow;
+#[cfg(feature = "sqlite")]
+use sqlx::sqlite::SqliteRow;
+
 use yrs::Map;
 
 #[derive(Debug, Deserialize)]

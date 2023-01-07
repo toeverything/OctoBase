@@ -70,4 +70,4 @@ features = ["v4"]
 
 [features]
 default = ["affine"]
-affine = ["jwst-storage/sqlite"]
+affine = ["jwst-storage/mysql"]
