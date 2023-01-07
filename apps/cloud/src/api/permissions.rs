@@ -159,6 +159,17 @@ pub async fn invite_member(
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
 
+    let invite_user = user_cred.clone();
+    let invite_user_id = match invite_user {
+        UserCred::Registered(user) => Some(user.id),
+        UserCred::UnRegistered { .. } => None,
+    };
+    if !invite_user_id.is_none() {
+        ctx.user_channel
+            .add_user_observe(invite_user_id.unwrap(), ctx.clone())
+            .await;
+    }
+
     let encrypted = ctx.encrypt_aes(&permission_id.to_le_bytes()[..]);
 
     let invite_code = base64::encode_engine(encrypted, &URL_SAFE_ENGINE);

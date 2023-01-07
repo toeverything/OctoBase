@@ -31,6 +31,7 @@ use tokio::sync::{mpsc::Sender, Mutex};
 use tokio::sync::{RwLock, RwLockReadGuard};
 use x509_parser::prelude::parse_x509_pem;
 
+use crate::api::UserChannel;
 use crate::utils::CacheControl;
 
 pub struct KeyContext {
@@ -102,7 +103,7 @@ pub struct Context {
     pub workspace: DashMap<String, Mutex<Workspace>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub docs: DocSQLiteStorage,
-    pub global_channel: DashMap<(String, String), Sender<Message>>,
+    pub user_channel: UserChannel,
 }
 
 pub enum ContextRequestError {
@@ -220,7 +221,7 @@ impl Context {
             docs: DocSQLiteStorage::init_pool("jwst")
                 .await
                 .expect("Cannot create database"),
-            global_channel: DashMap::new(),
+            user_channel: UserChannel::new(),
         };
 
         ctx

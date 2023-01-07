@@ -21,7 +21,7 @@ pub struct GoogleClaims {
     pub user_id: String,
 }
 
-#[derive(FromRow, Serialize, Deserialize)]
+#[derive(FromRow, Serialize, Deserialize, Clone)]
 pub struct User {
     pub id: i32,
     pub name: String,
@@ -191,7 +191,7 @@ pub struct CreatePermission {
     pub email: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 #[serde(tag = "type")]
 pub enum UserCred {
     Registered(User),
