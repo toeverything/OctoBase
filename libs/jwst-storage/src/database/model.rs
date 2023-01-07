@@ -93,14 +93,14 @@ pub struct RefreshToken {
     pub token_nonce: i16,
 }
 
-#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Clone, Copy)]
+#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Clone, Copy)]
 #[repr(i16)]
 pub enum WorkspaceType {
     Private = 0,
     Normal = 1,
 }
 
-#[derive(FromRow, Serialize)]
+#[derive(FromRow, Serialize, Debug, Clone)]
 pub struct Workspace {
     pub id: String,
     pub public: bool,
@@ -111,7 +111,7 @@ pub struct Workspace {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(FromRow, Serialize)]
+#[derive(FromRow, Serialize, Debug, Clone)]
 pub struct WorkspaceWithPermission {
     pub permission: PermissionType,
     #[serde(flatten)]
@@ -154,7 +154,7 @@ pub struct UpdateWorkspace {
     pub public: bool,
 }
 
-#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
 #[repr(i16)]
 pub enum PermissionType {
     Read = 0,
