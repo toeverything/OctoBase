@@ -320,7 +320,7 @@ impl DBContext {
         user_id: i32,
     ) -> sqlx::Result<Vec<WorkspaceWithPermission>> {
         let stmt = "SELECT 
-            workspaces.uuid, workspaces.public, workspaces.created_at, workspaces.type,
+            workspaces.uuid as id, workspaces.public, workspaces.created_at, workspaces.type,
             permissions.type as permission
         FROM permissions
         INNER JOIN workspaces
@@ -594,6 +594,18 @@ mod tests {
         assert_eq!(
             new_workspace.created_at,
             new_workspace1_clone.workspace.created_at
+        );
+        assert_eq!(
+            new_workspace.id,
+            db_context
+                .get_user_workspaces(new_user.id)
+                .await
+                .unwrap()
+                // when create user, will auto create a private workspace, our created will be second one
+                .get(1)
+                .unwrap()
+                .workspace
+                .id
         );
         Ok(())
     }
