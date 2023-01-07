@@ -18,21 +18,14 @@ pub struct WebSocketAuthentication {
     protocol: String,
 }
 
-pub fn collaboration_handler(router: Router) -> Router {
-    router.nest_service(
-        "/collaboration/:workspace",
-        post(collaboration::auth_handler).get(collaboration::upgrade_handler),
-    )
-}
-
-async fn auth_handler(Path(workspace_id): Path<String>) -> Json<WebSocketAuthentication> {
+pub async fn auth_handler(Path(workspace_id): Path<String>) -> Json<WebSocketAuthentication> {
     info!("auth: {}", workspace_id);
     Json(WebSocketAuthentication {
         protocol: "AFFiNE".to_owned(),
     })
 }
 
-async fn upgrade_handler(
+pub async fn upgrade_handler(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
     ws: WebSocketUpgrade,

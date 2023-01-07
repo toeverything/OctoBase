@@ -1,12 +1,13 @@
-use crate::context::Context;
+use std::sync::Arc;
+
+use super::*;
 use axum::{
     body::StreamBody,
     extract::{BodyStream, Path},
     headers::ContentLength,
     response::{IntoResponse, Response},
-    Extension, TypedHeader,
+    Json, TypedHeader,
 };
-use chrono::{DateTime, Utc};
 use futures::{future, StreamExt};
 use http::{
     header::{
@@ -16,9 +17,13 @@ use http::{
     HeaderMap, HeaderValue, StatusCode,
 };
 use jwst::BlobStorage;
-use jwst_storage::Claims;
-use mime::APPLICATION_OCTET_STREAM;
-use std::sync::Arc;
+use time::{format_description::well_known::Rfc2822, OffsetDateTime};
+
+#[derive(Serialize)]
+struct BlobStatus {
+    exists: bool,
+    id: String,
+}
 
 impl Context {
     async fn get_blob(
@@ -34,16 +39,16 @@ impl Context {
             }
         }
 
-        let Ok(meta) = self.blob.get_metadata(workspace.clone(), id.clone()).await else {
+        let Ok(meta) = self.blobs.get_metadata(workspace.clone(), id.clone()).await else {
             return StatusCode::NOT_FOUND.into_response()
         };
 
         if let Some(modified_since) = headers
             .get(IF_MODIFIED_SINCE)
             .and_then(|h| h.to_str().ok())
-            .and_then(|s| DateTime::parse_from_rfc2822(s).ok())
+            .and_then(|s| OffsetDateTime::parse(s, &Rfc2822).ok())
         {
-            if meta.last_modified <= modified_since.naive_utc() {
+            if meta.last_modified.timestamp() <= modified_since.unix_timestamp() {
                 return StatusCode::NOT_MODIFIED.into_response();
             }
         }
@@ -52,12 +57,17 @@ impl Context {
         header.insert(ETAG, HeaderValue::from_str(&id).unwrap());
         header.insert(
             CONTENT_TYPE,
-            HeaderValue::from_static(APPLICATION_OCTET_STREAM.essence_str()),
+            HeaderValue::from_static("application/octet-stream"),
         );
         header.insert(
             LAST_MODIFIED,
-            HeaderValue::from_str(&DateTime::<Utc>::from_utc(meta.last_modified, Utc).to_rfc2822())
-                .unwrap(),
+            HeaderValue::from_str(
+                &OffsetDateTime::from_unix_timestamp(meta.last_modified.timestamp())
+                    .unwrap()
+                    .format(&Rfc2822)
+                    .unwrap(),
+            )
+            .unwrap(),
         );
         header.insert(
             CONTENT_LENGTH,
@@ -72,7 +82,7 @@ impl Context {
             return header.into_response();
         };
 
-        let Ok(file) = self.blob.get_blob(workspace, id).await else {
+        let Ok(file) = self.blobs.get_blob(workspace, id).await else {
             return StatusCode::NOT_FOUND.into_response()
         };
 
@@ -90,12 +100,12 @@ impl Context {
             .filter_map(|data| future::ready(data.ok()));
         let workspace = workspace.map(|id| id.to_string());
 
-        if let Ok(id) = self.blob.put_blob(workspace.clone(), stream).await {
+        if let Ok(id) = self.blobs.put_blob(workspace.clone(), stream).await {
             if has_error {
-                let _ = self.blob.delete_blob(workspace, id).await;
+                let _ = self.blobs.delete_blob(workspace, id).await;
                 StatusCode::INTERNAL_SERVER_ERROR.into_response()
             } else {
-                id.into_response()
+                Json(BlobStatus { id, exists: true }).into_response()
             }
         } else {
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -103,66 +113,23 @@ impl Context {
     }
 }
 
-pub async fn get_blob(
-    Extension(ctx): Extension<Arc<Context>>,
-    Path(id): Path<String>,
-    method: http::Method,
-    headers: HeaderMap,
-) -> Response {
-    ctx.get_blob(None, id, method, headers).await
-}
-
-pub async fn upload_blob(
-    Extension(ctx): Extension<Arc<Context>>,
-    TypedHeader(length): TypedHeader<ContentLength>,
-    stream: BodyStream,
-) -> Response {
-    if length.0 > 500 * 1024 {
-        return StatusCode::PAYLOAD_TOO_LARGE.into_response();
-    }
-
-    ctx.upload_blob(stream, None).await
-}
-
 pub async fn get_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
-    Extension(claims): Extension<Arc<Claims>>,
     Path((workspace_id, id)): Path<(String, String)>,
     method: http::Method,
     headers: HeaderMap,
 ) -> Response {
-    match ctx
-        .db
-        .can_read_workspace(claims.user.id, workspace_id.clone())
-        .await
-    {
-        Ok(true) => (),
-        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    }
-
     ctx.get_blob(Some(workspace_id), id, method, headers).await
 }
 
 pub async fn upload_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
-    Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
     TypedHeader(length): TypedHeader<ContentLength>,
     stream: BodyStream,
 ) -> Response {
     if length.0 > 10 * 1024 * 1024 {
         return StatusCode::PAYLOAD_TOO_LARGE.into_response();
-    }
-
-    match ctx
-        .db
-        .can_read_workspace(claims.user.id, workspace_id.clone())
-        .await
-    {
-        Ok(true) => (),
-        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 
     ctx.upload_blob(stream, Some(workspace_id)).await

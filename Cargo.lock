@@ -386,11 +386,11 @@ dependencies = [
 
 [[package]]
 name = "axum-test-helper"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02e4e5afe8156749847100cb1524d7256bc2276068c83a9ab1f2bdf51db61e56"
+checksum = "91d349b3174ceac58442ea1f768233c817e59447c0343be2584fca9f0ed71d3a"
 dependencies = [
- "axum 0.5.17",
+ "axum 0.6.1",
  "bytes",
  "http",
  "http-body",

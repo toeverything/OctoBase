@@ -16,7 +16,7 @@ use tokio_util::io::ReaderStream;
 const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
     base64::engine::fast_portable::FastPortable::from(
         &base64::alphabet::URL_SAFE,
-        base64::engine::fast_portable::NO_PAD,
+        base64::engine::fast_portable::PAD,
     );
 
 #[derive(sqlx::FromRow, Debug, PartialEq)]

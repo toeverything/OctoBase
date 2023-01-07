@@ -1,14 +1,10 @@
 mod api;
-mod collaboration;
 mod files;
 mod storage;
+mod sync;
 mod utils;
 
-use axum::{
-    response::Redirect,
-    routing::{delete, get, head, post},
-    Extension, Router, Server,
-};
+use axum::{response::Redirect, Extension, Router, Server};
 use http::Method;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::signal;
@@ -67,11 +63,9 @@ pub async fn start_server() {
 
     let context = Arc::new(Context::new(None, None).await);
 
-    let mut app = files::static_files(collaboration::collaboration_handler(api::api_handler(
-        Router::new(),
-    )))
-    .layer(cors)
-    .layer(Extension(context.clone()));
+    let app = files::static_files(sync::sync_handler(api::api_handler(Router::new())))
+        .layer(cors)
+        .layer(Extension(context.clone()));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("listening on {}", addr);
@@ -85,6 +79,7 @@ pub async fn start_server() {
     }
 
     context.docs.close().await;
+    context.blobs.close().await;
 
     info!("Server shutdown complete");
 }

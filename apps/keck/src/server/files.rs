@@ -2,6 +2,7 @@ use super::*;
 use axum::{
     body::{boxed, Body, BoxBody, Empty},
     http::{Request, Response, StatusCode, Uri},
+    routing::get,
 };
 use tower::ServiceExt;
 use tower_http::services::ServeDir;
