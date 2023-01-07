@@ -8,7 +8,7 @@ license = "AGPL-3.0-only"
 [features]
 default = ["postgres"]
 server = ["dotenvy"]
-mysql = ["sqlx/mysql", "sqlx/decimal", "num-traits"]
+mysql = ["dotenvy", "sqlx/mysql", "sqlx/decimal", "num-traits"]
 postgres = ["sqlx/postgres"]
 sqlite = ["sqlx/sqlite"]
 
