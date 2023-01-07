@@ -545,7 +545,7 @@ mod tests {
         // ELSE
         //     RETURN False";
         let db_context =
-            DBContext::new("postgresql://jwst:jwst@localhost:5432/jwst".to_string()).await;
+            PostgreSQL::new("postgresql://jwst:jwst@localhost:5432/jwst".to_string()).await;
         // clean db
         let drop_statement = "
         DROP TABLE IF EXISTS \"google_users\";

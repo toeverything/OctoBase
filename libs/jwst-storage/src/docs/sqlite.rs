@@ -1,5 +1,6 @@
 use super::*;
 use jwst_logger::{info, warn};
+use path_ext::PathExt;
 use sqlx::{query, query_as, Error, SqlitePool};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use yrs::{updates::decoder::Decode, Doc, Options, StateVector, Update};
@@ -39,13 +40,17 @@ impl SQLite {
         if !data.exists() {
             create_dir(data)?;
         }
-        let path = format!(
-            "sqlite:{}",
-            std::env::current_dir()
-                .unwrap()
-                .join(format!("./data/{}.db", file.to_string()))
-                .display()
-        );
+        let path = format!("sqlite:{}", {
+            let path = PathBuf::from(file);
+            if path.exists() {
+                path
+            } else {
+                std::env::current_dir()
+                    .unwrap()
+                    .join(format!("./data/{}.db", path.name_str()))
+            }
+            .display()
+        });
         let options = SqliteConnectOptions::from_str(&path)?
             .journal_mode(SqliteJournalMode::Wal)
             .create_if_missing(true);

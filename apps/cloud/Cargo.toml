@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [features]
 default = ["sqlite"]
-affine = ["postgres"]
+affine = ["postgres", "jwst-storage/sqlite"]
 sqlite = ["jwst-storage/server", "jwst-storage/sqlite"]
 postgres = ["jwst-storage/server", "jwst-storage/postgres"]
 
