@@ -6,9 +6,11 @@ authors = ["DarkSky <darksky2048@gmail.com>"]
 license = "AGPL-3.0-only"
 
 [features]
-default = ["sqlite"]
+default = ["postgres"]
+server = ["dotenvy"]
+mysql = ["sqlx/mysql", "sqlx/decimal", "num-traits"]
+postgres = ["sqlx/postgres"]
 sqlite = ["sqlx/sqlite"]
-mysql = ["dotenvy", "sqlx/mysql", "sqlx/decimal", "num-traits"]
 
 [dependencies]
 anyhow = "^1.0.68"
@@ -26,7 +28,6 @@ sha2 = "0.10.6"
 sqlx = { version = "0.6.2", features = [
     "chrono",
     "macros",
-    "postgres",
     "runtime-tokio-rustls",
 ] }
 yrs = { path = "../../libs/yrs" }
@@ -49,6 +50,6 @@ optional = true
 [dependencies.uuid]
 version = "1.2.2"
 features = [
-    "v4",                # Lets you generate random UUIDs
-    "fast-rng",          # Use a faster (but still sufficiently random) RNG
+    "v4",       # Lets you generate random UUIDs
+    "fast-rng", # Use a faster (but still sufficiently random) RNG
 ]

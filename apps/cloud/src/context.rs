@@ -13,9 +13,9 @@ use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::Workspace;
 use jwst::{DocStorage, SearchResults, Workspace as JWSTWorkspace};
 use jwst_logger::info;
-#[cfg(feature = "mysql")]
-use jwst_storage::MySqlDBContext;
-#[cfg(feature = "affine")]
+#[cfg(feature = "postgres")]
+use jwst_storage::PostgresDBContext;
+#[cfg(feature = "sqlite")]
 use jwst_storage::SqliteDBContext;
 use jwst_storage::{BlobFsStorage, Claims, DocFsStorage, GoogleClaims};
 
@@ -92,9 +92,9 @@ pub struct Context {
     pub http_client: Client,
     firebase: RwLock<FirebaseContext>,
     pub mail: MailContext,
-    #[cfg(feature = "mysql")]
-    pub db: MySqlDBContext,
-    #[cfg(feature = "affine")]
+    #[cfg(feature = "postgres")]
+    pub db: PostgresDBContext,
+    #[cfg(feature = "sqlite")]
     pub db: SqliteDBContext,
     pub blob: BlobFsStorage,
     pub doc: DocStore,
@@ -202,9 +202,9 @@ impl Context {
 
         let db_env = dotenvy::var("DATABASE_URL").expect("should provide databse URL");
         let ctx = Self {
-            #[cfg(feature = "mysql")]
-            db: MySqlDBContext::new(db_env).await,
-            #[cfg(feature = "affine")]
+            #[cfg(feature = "postgres")]
+            db: PostgresDBContext::new(db_env).await,
+            #[cfg(feature = "sqlite")]
             db: SqliteDBContext::new(db_env).await,
             key,
             firebase,

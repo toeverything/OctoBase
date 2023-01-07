@@ -1,7 +1,7 @@
 use async_trait::async_trait;
-#[cfg(feature = "mysql")]
-use jwst_storage::MySqlDBContext;
-#[cfg(feature = "affine")]
+#[cfg(feature = "postgres")]
+use jwst_storage::PostgresDBContext;
+#[cfg(feature = "sqlite")]
 use jwst_storage::SqliteDBContext;
 use jwst_storage::{GoogleClaims, UserWithNonce};
 use sqlx::{query, query_as};

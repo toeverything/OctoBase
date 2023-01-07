@@ -1,11 +1,6 @@
-use sqlx::{query, query_as, FromRow, Sqlite, SqlitePool, Transaction};
+use super::*;
+use sqlx::{query, query_as, FromRow, PgPool, Postgres, Transaction};
 use uuid::Uuid;
-
-use super::model::{
-    BigId, Count, CreateUser, Member, Permission, PermissionType, RefreshToken, UpdateWorkspace,
-    User, UserCred, UserInWorkspace, UserLogin, UserWithNonce, Workspace, WorkspaceDetail,
-    WorkspaceType, WorkspaceWithPermission,
-};
 
 #[derive(FromRow)]
 struct PermissionQuery {
@@ -13,13 +8,13 @@ struct PermissionQuery {
     type_: PermissionType,
 }
 
-pub struct DBContext {
-    pub db: SqlitePool,
+pub struct PostgreSQL {
+    pub db: PgPool,
 }
 
-impl DBContext {
-    pub async fn new(db_env: String) -> DBContext {
-        let db = SqlitePool::connect(&db_env)
+impl PostgreSQL {
+    pub async fn new(database: String) -> PostgreSQL {
+        let db = PgPool::connect(&database)
             .await
             .expect("wrong database URL");
         let db_context = Self { db };
@@ -151,7 +146,7 @@ impl DBContext {
     }
 
     pub async fn update_cred(
-        trx: &mut Transaction<'static, Sqlite>,
+        trx: &mut Transaction<'static, Postgres>,
         user_id: i32,
         user_email: &str,
     ) -> sqlx::Result<()> {
@@ -171,10 +166,10 @@ impl DBContext {
 
     pub async fn create_user(&self, user: CreateUser) -> sqlx::Result<Option<User>> {
         let mut trx = self.db.begin().await?;
-        // sqlite don't support "ON CONFLICT email DO NOTHING"
         let create_user = "INSERT INTO users 
             (name, password, email, avatar_url)
             VALUES ($1, $2, $3, $4)
+        ON CONFLICT email DO NOTHING
         RETURNING id, name, email, avatar_url, created_at";
 
         let Some(user) = query_as::<_, User>(create_user)
@@ -240,7 +235,7 @@ impl DBContext {
     }
 
     pub async fn create_workspace(
-        trx: &mut Transaction<'static, Sqlite>,
+        trx: &mut Transaction<'static, Postgres>,
         user_id: i32,
         ws_type: WorkspaceType,
     ) -> sqlx::Result<Workspace> {
@@ -540,6 +535,7 @@ impl DBContext {
 
 #[cfg(test)]
 mod tests {
+    #[ignore = "need postgres instance"]
     #[tokio::test]
     async fn database_create_tables() -> anyhow::Result<()> {
         use super::*;
@@ -548,7 +544,8 @@ mod tests {
         //     RETURN True
         // ELSE
         //     RETURN False";
-        let db_context = DBContext::new("sqlite::memory:".to_string()).await;
+        let db_context =
+            PostgreSQL::new("postgresql://jwst:jwst@localhost:5432/jwst".to_string()).await;
         let new_user = db_context
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),

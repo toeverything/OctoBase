@@ -1,11 +1,6 @@
-use sqlx::{query, query_as, FromRow, Transaction, PgPool, Postgres};
+use super::*;
+use sqlx::{query, query_as, FromRow, Sqlite, SqlitePool, Transaction};
 use uuid::Uuid;
-
-use super::model::{
-    BigId, Count, CreateUser, Member, Permission, PermissionType, RefreshToken, UpdateWorkspace,
-    User, UserCred, UserInWorkspace, UserLogin, UserWithNonce, Workspace, WorkspaceDetail,
-    WorkspaceType, WorkspaceWithPermission,
-};
 
 #[derive(FromRow)]
 struct PermissionQuery {
@@ -13,13 +8,15 @@ struct PermissionQuery {
     type_: PermissionType,
 }
 
-pub struct DBContext {
-    pub db: PgPool,
+pub struct SQLite {
+    pub db: SqlitePool,
 }
 
-impl DBContext {
-    pub async fn new(db_env: String) -> DBContext {
-        let db = PgPool::connect(&db_env).await.expect("wrong database URL");
+impl SQLite {
+    pub async fn new(database: String) -> SQLite {
+        let db = SqlitePool::connect(&database)
+            .await
+            .expect("wrong database URL");
         let db_context = Self { db };
         db_context.init_db().await;
         db_context
@@ -149,7 +146,7 @@ impl DBContext {
     }
 
     pub async fn update_cred(
-        trx: &mut Transaction<'static, Postgres>,
+        trx: &mut Transaction<'static, Sqlite>,
         user_id: i32,
         user_email: &str,
     ) -> sqlx::Result<()> {
@@ -169,10 +166,10 @@ impl DBContext {
 
     pub async fn create_user(&self, user: CreateUser) -> sqlx::Result<Option<User>> {
         let mut trx = self.db.begin().await?;
+        // sqlite don't support "ON CONFLICT email DO NOTHING"
         let create_user = "INSERT INTO users 
             (name, password, email, avatar_url)
             VALUES ($1, $2, $3, $4)
-        ON CONFLICT email DO NOTHING
         RETURNING id, name, email, avatar_url, created_at";
 
         let Some(user) = query_as::<_, User>(create_user)
@@ -238,7 +235,7 @@ impl DBContext {
     }
 
     pub async fn create_workspace(
-        trx: &mut Transaction<'static, Postgres>,
+        trx: &mut Transaction<'static, Sqlite>,
         user_id: i32,
         ws_type: WorkspaceType,
     ) -> sqlx::Result<Workspace> {
@@ -546,7 +543,7 @@ mod tests {
         //     RETURN True
         // ELSE
         //     RETURN False";
-        let db_context = DBContext::new("sqlite::memory:".to_string()).await;
+        let db_context = SQLite::new("sqlite::memory:".to_string()).await;
         let new_user = db_context
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
