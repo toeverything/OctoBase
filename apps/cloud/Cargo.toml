@@ -6,6 +6,7 @@ version = "0.1.0"
 
 [features]
 default = ["sqlite"]
+affine = ["postgres", "jwst-storage/sqlite"]
 sqlite = ["jwst-storage/server", "jwst-storage/sqlite"]
 postgres = ["jwst-storage/server", "jwst-storage/postgres"]
 
@@ -50,9 +51,7 @@ sha2 = "0.10.6"
 sqlx = { version = "0.6.2", features = [
     "chrono",
     "macros",
-    "postgres",
     "migrate",
-    "sqlite",
     "runtime-tokio-rustls",
 ] }
 tokio = { version = "1.23.0", features = [

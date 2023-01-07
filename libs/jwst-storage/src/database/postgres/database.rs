@@ -24,7 +24,7 @@ impl PostgreSQL {
 
     pub async fn init_db(&self) {
         let stmt = "CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             email TEXT NOT NULL,
             avatar_url TEXT,
@@ -39,7 +39,7 @@ impl PostgreSQL {
             .expect("create table users failed");
 
         let stmt = "CREATE TABLE IF NOT EXISTS google_users (
-            id SERIAL,
+            id SERIAL PRIMARY KEY,
             user_id INTEGER REFERENCES users(id),
             google_id TEXT NOT NULL,
             UNIQUE (google_id)
@@ -50,7 +50,7 @@ impl PostgreSQL {
             .expect("create table google_users failed");
 
         let stmt = "CREATE TABLE IF NOT EXISTS workspaces (
-            id SERIAL,
+            id BIGSERIAL PRIMARY KEY,
             uuid CHAR(36),
             public BOOL NOT NULL,
             type SMALLINT NOT NULL,
@@ -169,7 +169,7 @@ impl PostgreSQL {
         let create_user = "INSERT INTO users 
             (name, password, email, avatar_url)
             VALUES ($1, $2, $3, $4)
-        ON CONFLICT email DO NOTHING
+        ON CONFLICT (email) DO NOTHING
         RETURNING id, name, email, avatar_url, created_at";
 
         let Some(user) = query_as::<_, User>(create_user)
@@ -241,7 +241,7 @@ impl PostgreSQL {
     ) -> sqlx::Result<Workspace> {
         let create_workspace = format!(
             "INSERT INTO workspaces (public, type, uuid) VALUES (false, $1, $2) 
-            RETURNING uuid as id, public, created_at, type;",
+            RETURNING uuid AS id, public, created_at, type;",
         );
         let uuid = Uuid::new_v4();
 
@@ -285,7 +285,7 @@ impl PostgreSQL {
             "UPDATE workspaces
                 SET public = $1
             WHERE uuid = $2 AND type = {}
-            RETURNING uuid, public, type, created_at;",
+            RETURNING uuid as id, public, type, created_at;",
             WorkspaceType::Normal as i16
         );
 
@@ -315,7 +315,7 @@ impl PostgreSQL {
         user_id: i32,
     ) -> sqlx::Result<Vec<WorkspaceWithPermission>> {
         let stmt = "SELECT 
-            workspaces.uuid, workspaces.public, workspaces.created_at, workspaces.type,
+            workspaces.uuid AS id, workspaces.public, workspaces.created_at, workspaces.type,
             permissions.type as permission
         FROM permissions
         INNER JOIN workspaces
@@ -546,6 +546,21 @@ mod tests {
         //     RETURN False";
         let db_context =
             PostgreSQL::new("postgresql://jwst:jwst@localhost:5432/jwst".to_string()).await;
+        // clean db
+        let drop_statement = "
+        DROP TABLE IF EXISTS \"google_users\";
+        DROP TABLE IF EXISTS \"permissions\";
+        DROP TABLE IF EXISTS \"workspaces\";
+        DROP TABLE IF EXISTS \"users\";
+        ";
+        for line in drop_statement.split("\n") {
+            query(&line)
+                .execute(&db_context.db)
+                .await
+                .expect("Drop all table in test failed");
+        }
+        db_context.init_db().await;
+        // start test
         let new_user = db_context
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
@@ -568,7 +583,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(new_user2.id, 2);
-        let new_workspace = db_context
+        let mut new_workspace = db_context
             .create_normal_workspace(new_user.id)
             .await
             .unwrap();
@@ -578,6 +593,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(new_workspace.id.len(), 36);
+        assert_eq!(new_workspace.public, false);
         assert_eq!(new_workspace2.id.len(), 36);
 
         let new_workspace1_clone = db_context
@@ -592,6 +608,26 @@ mod tests {
             new_workspace.created_at,
             new_workspace1_clone.workspace.created_at
         );
+
+        assert_eq!(
+            new_workspace.id,
+            db_context
+                .get_user_workspaces(new_user.id)
+                .await
+                .unwrap()
+                // when create user, will auto create a private workspace, our created will be second one
+                .get(1)
+                .unwrap()
+                .workspace
+                .id
+        );
+
+        new_workspace = db_context
+            .update_workspace(new_workspace.id, UpdateWorkspace { public: true })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(new_workspace.public, true);
         Ok(())
     }
 }

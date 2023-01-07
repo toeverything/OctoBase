@@ -157,6 +157,7 @@ async fn get_workspaces(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
 ) -> Response {
+    // TODO should print error
     if let Ok(data) = ctx.db.get_user_workspaces(claims.user.id).await {
         Json(data).into_response()
     } else {

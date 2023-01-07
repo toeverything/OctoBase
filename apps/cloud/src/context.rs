@@ -17,7 +17,7 @@ use jwst_logger::info;
 use jwst_storage::PostgresDBContext;
 #[cfg(feature = "sqlite")]
 use jwst_storage::SqliteDBContext;
-use jwst_storage::{BlobFsStorage, Claims, DocFsStorage, GoogleClaims};
+use jwst_storage::{BlobFsStorage, Claims, DocSQLiteStorage, GoogleClaims};
 
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
@@ -31,7 +31,6 @@ use tokio::sync::{mpsc::Sender, Mutex};
 use tokio::sync::{RwLock, RwLockReadGuard};
 use x509_parser::prelude::parse_x509_pem;
 
-use crate::storage::DocDatabase;
 use crate::utils::CacheControl;
 
 pub struct KeyContext {
@@ -54,7 +53,7 @@ pub struct MailContext {
 
 pub struct DocStore {
     cache: Cache<String, Arc<RwLock<JWSTWorkspace>>>,
-    pub storage: DocFsStorage,
+    pub storage: DocSQLiteStorage,
 }
 
 impl DocStore {
@@ -63,7 +62,9 @@ impl DocStore {
 
         DocStore {
             cache: Cache::new(1000),
-            storage: DocFsStorage::new(Some(16), 500, Path::new(&doc_env).into()).await,
+            storage: DocSQLiteStorage::init_pool(&Path::new(&doc_env).display().to_string())
+                .await
+                .expect("Failed to init doc storage"),
         }
     }
 
@@ -100,7 +101,8 @@ pub struct Context {
     pub doc: DocStore,
     pub workspace: DashMap<String, Mutex<Workspace>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
-    pub docs: DocDatabase,
+    pub docs: DocSQLiteStorage,
+    pub global_channel: DashMap<(String, String), Sender<Message>>,
 }
 
 pub enum ContextRequestError {
@@ -215,9 +217,10 @@ impl Context {
             site_url,
             workspace: DashMap::new(),
             channel: DashMap::new(),
-            docs: DocDatabase::init_pool("jwst")
+            docs: DocSQLiteStorage::init_pool("jwst")
                 .await
                 .expect("Cannot create database"),
+            global_channel: DashMap::new(),
         };
 
         ctx

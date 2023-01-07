@@ -1993,6 +1993,7 @@ dependencies = [
  "jwst",
  "jwst-logger",
  "num-traits",
+ "path-ext",
  "serde",
  "serde_json",
  "serde_repr",
@@ -2610,6 +2611,15 @@ name = "paste"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d01a5bd0424d00070b0098dd17ebca6f961a959dead1dbcbbbc1d1cd8d3deeba"
+
+[[package]]
+name = "path-ext"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8285c3c3c3085f8819bdcebc9c7e783851527f34974d7d283ced36c977ae812"
+dependencies = [
+ "walkdir",
+]
 
 [[package]]
 name = "pem"

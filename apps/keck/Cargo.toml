@@ -27,7 +27,7 @@ time = "^0.3.17"
 
 [dependencies.axum]
 version = "^0.6.1"
-features = ["ws"]
+features = ["headers", "ws"]
 
 [dependencies.log]
 version = "^0.4.17"
