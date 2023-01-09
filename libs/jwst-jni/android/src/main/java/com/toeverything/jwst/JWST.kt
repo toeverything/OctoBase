@@ -1,5 +1,6 @@
 package com.toeverything.jwst
 
+import com.toeverything.jwst.lib.JwstStorage
 import java.util.*
 import com.toeverything.jwst.lib.WorkspaceTransaction as JwstWorkspaceTransaction
 import com.toeverything.jwst.lib.Block as JwstBlock
@@ -90,17 +91,13 @@ class Block constructor(private var block: JwstBlock) {
     fun get(key: String): Optional<Any> {
         return when {
             this.block.isBool(key) -> Optional.of(this.block.getBool(key))
-                .filter(OptionalLong::isPresent)
-                .map(OptionalLong::getAsLong).map { it == 1L }
+                .filter(OptionalLong::isPresent).map(OptionalLong::getAsLong).map { it == 1L }
             this.block.isString(key) -> Optional.of(this.block.getString(key))
-                .filter(Optional<String>::isPresent)
-                .map(Optional<String>::get)
+                .filter(Optional<String>::isPresent).map(Optional<String>::get)
             this.block.isInteger(key) -> Optional.of(this.block.getInteger(key))
-                .filter(OptionalLong::isPresent)
-                .map(OptionalLong::getAsLong)
+                .filter(OptionalLong::isPresent).map(OptionalLong::getAsLong)
             this.block.isFloat(key) -> Optional.of(this.block.getFloat(key))
-                .filter(OptionalDouble::isPresent)
-                .map(OptionalDouble::getAsDouble)
+                .filter(OptionalDouble::isPresent).map(OptionalDouble::getAsDouble)
             else -> Optional.empty();
         }
     }
@@ -152,4 +149,20 @@ class Block constructor(private var block: JwstBlock) {
     fun existsChildren(block_id: String): Int {
         return this.block.existsChildren(block_id)
     }
+}
+
+class Storage constructor(path: String) {
+    companion object {
+        // Used to load the 'jwst' library on application startup.
+        init {
+            System.loadLibrary("jwst")
+        }
+    }
+
+    private var storage = JwstStorage(path)
+
+    val failed get() = this.storage.error().isPresent
+
+    val error get() = this.storage.error()
+
 }

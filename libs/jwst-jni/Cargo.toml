@@ -14,6 +14,7 @@ jwst-storage = { path = "../jwst-storage", features = ["sqlite"] }
 lib0 = "^0.12.1"
 log = "^0.4.17"
 log-panics = "^2.1.0"
+sqlx = "0.6.2"
 rifgen = "^0.1.61"
 yrs = { path = "../yrs" }
 

@@ -22,9 +22,8 @@ fn main() {
 r#"foreign_class!(
     class JwstStorage {
         self_type JwstStorage;
-        private constructor new() -> JwstStorage {
-            unimplemented!()
-        }
+        constructor JwstStorage::new(path: String) -> JwstStorage;
+        fn JwstStorage::error(&self) -> Option<String>; alias error;
     }
 );"#,
 r#"foreign_class!(
