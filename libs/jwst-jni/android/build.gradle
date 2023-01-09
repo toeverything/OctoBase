@@ -100,7 +100,7 @@ publishing {
    repositories {
        maven {
            name = "GitHubPackages"
-           url = uri("https://maven.pkg.github.com/toeverything/JWSTBase")
+           url = uri("https://maven.pkg.github.com/toeverything/OctoBase")
            credentials {
                username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR")
                password = project.findProperty("gpr.token") ?: System.getenv("GITHUB_TOKEN")
@@ -116,8 +116,8 @@ publishing {
     publications {
         release(MavenPublication) {
             groupId = 'com.toeverything'
-            artifactId = 'jwstbase'
-            version = '0.2.0'
+            artifactId = 'octobase'
+            version = '0.1.1'
 
             afterEvaluate {
                 from components.release
