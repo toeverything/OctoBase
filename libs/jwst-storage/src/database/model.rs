@@ -22,13 +22,14 @@ pub struct GoogleClaims {
     pub user_id: String,
 }
 
-#[derive(FromRow, Serialize, Deserialize)]
+#[derive(FromRow, Serialize, Debug, Deserialize, JsonSchema)]
 pub struct User {
     pub id: i32,
     pub name: String,
     pub email: String,
     pub avatar_url: Option<String>,
     #[serde(with = "ts_milliseconds")]
+    #[schemars(with = "i64")]
     pub created_at: NaiveDateTime,
 }
 
@@ -81,9 +82,10 @@ pub struct UserToken {
     pub refresh: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, JsonSchema)]
 pub struct RefreshToken {
     #[serde(with = "ts_milliseconds")]
+    #[schemars(with = "i64")]
     pub expires: NaiveDateTime,
     pub user_id: i32,
     pub token_nonce: i16,
@@ -116,7 +118,7 @@ pub struct WorkspaceWithPermission {
     pub workspace: Workspace,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug, JsonSchema)]
 pub struct WorkspaceDetail {
     // None if it's private
     pub owner: Option<User>,
