@@ -20,6 +20,13 @@ fn main() {
         .chain(["use jni_sys::*;"].iter())
         .chain([
 r#"foreign_class!(
+    class JwstStorage {
+        self_type JwstStorage;
+        constructor JwstStorage::new(path: String) -> JwstStorage;
+        fn JwstStorage::error(&self) -> Option<String>; alias error;
+    }
+);"#,
+r#"foreign_class!(
     class WorkspaceTransaction {
         self_type WorkspaceTransaction;
         private constructor new<'a>() -> WorkspaceTransaction<'a> {
@@ -27,6 +34,7 @@ r#"foreign_class!(
         }
         fn WorkspaceTransaction::remove(& mut self , block_id : String)->bool; alias remove;
         fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavor : String)->Block; alias create;
+        fn WorkspaceTransaction::commit(& mut self); alias commit;
     }
 );"#,
 r#"foreign_callback!(

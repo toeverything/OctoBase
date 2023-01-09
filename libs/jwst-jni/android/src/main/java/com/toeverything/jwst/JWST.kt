@@ -1,5 +1,6 @@
 package com.toeverything.jwst
 
+import com.toeverything.jwst.lib.JwstStorage
 import java.util.*
 import com.toeverything.jwst.lib.WorkspaceTransaction as JwstWorkspaceTransaction
 import com.toeverything.jwst.lib.Block as JwstBlock
@@ -35,7 +36,17 @@ class Workspace(id: String) {
     }
 
     fun withTrx(callback: (trx: WorkspaceTransaction) -> Unit) {
-        this.workspace.withTrx { trx -> callback(WorkspaceTransaction(trx)) }
+        this.workspace.withTrx { trx ->
+            run {
+                val trx = WorkspaceTransaction(trx);
+                callback(trx);
+                trx.commit()
+            }
+        }
+    }
+
+    fun withStorage(storage: JwstStorage) {
+        this.workspace.withStorage(storage)
     }
 }
 
@@ -54,12 +65,15 @@ class WorkspaceTransaction constructor(internal var trx: JwstWorkspaceTransactio
     fun remove(block_id: String): Boolean {
         return this.trx.remove(block_id)
     }
+
+    fun commit() {
+        this.trx.commit()
+    }
 }
 
 
 class Block constructor(private var block: JwstBlock) {
     companion object {
-        // Used to load the 'jwst' library on application startup.
         init {
             System.loadLibrary("jwst")
         }
@@ -67,20 +81,14 @@ class Block constructor(private var block: JwstBlock) {
 
     fun <T> set(trx: WorkspaceTransaction, key: String, value: T?) {
         value?.let {
-            if (it is Boolean) {
-                this.block.setBool(trx.trx, key, it)
-            } else if (it is String) {
-                this.block.setString(trx.trx, key, it)
-            } else if (it is Int) {
-                this.block.setInteger(trx.trx, key, it.toLong())
-            } else if (it is Long) {
-                this.block.setInteger(trx.trx, key, it)
-            } else if (it is Float) {
-                this.block.setFloat(trx.trx, key, it.toDouble())
-            } else if (it is Double) {
-                this.block.setFloat(trx.trx, key, it)
-            } else {
-                throw Exception("Unsupported type");
+            when (it) {
+                is Boolean -> this.block.setBool(trx.trx, key, it)
+                is String -> this.block.setString(trx.trx, key, it)
+                is Int -> this.block.setInteger(trx.trx, key, it.toLong())
+                is Long -> this.block.setInteger(trx.trx, key, it)
+                is Float -> this.block.setFloat(trx.trx, key, it.toDouble())
+                is Double -> this.block.setFloat(trx.trx, key, it)
+                else -> throw Exception("Unsupported type")
             }
         } ?: run {
             this.block.setNull(trx.trx, key)
@@ -90,17 +98,13 @@ class Block constructor(private var block: JwstBlock) {
     fun get(key: String): Optional<Any> {
         return when {
             this.block.isBool(key) -> Optional.of(this.block.getBool(key))
-                .filter(OptionalLong::isPresent)
-                .map(OptionalLong::getAsLong).map { it == 1L }
+                .filter(OptionalLong::isPresent).map(OptionalLong::getAsLong).map { it == 1L }
             this.block.isString(key) -> Optional.of(this.block.getString(key))
-                .filter(Optional<String>::isPresent)
-                .map(Optional<String>::get)
+                .filter(Optional<String>::isPresent).map(Optional<String>::get)
             this.block.isInteger(key) -> Optional.of(this.block.getInteger(key))
-                .filter(OptionalLong::isPresent)
-                .map(OptionalLong::getAsLong)
+                .filter(OptionalLong::isPresent).map(OptionalLong::getAsLong)
             this.block.isFloat(key) -> Optional.of(this.block.getFloat(key))
-                .filter(OptionalDouble::isPresent)
-                .map(OptionalDouble::getAsDouble)
+                .filter(OptionalDouble::isPresent).map(OptionalDouble::getAsDouble)
             else -> Optional.empty();
         }
     }
@@ -151,5 +155,25 @@ class Block constructor(private var block: JwstBlock) {
 
     fun existsChildren(block_id: String): Int {
         return this.block.existsChildren(block_id)
+    }
+}
+
+class Storage constructor(path: String) {
+    companion object {
+        init {
+            System.loadLibrary("jwst")
+        }
+    }
+
+    private var storage = JwstStorage(path)
+
+    val failed get() = this.storage.error().isPresent
+
+    val error get() = this.storage.error()
+
+    fun getWorkspace(id: String): Workspace {
+        val workspace = Workspace(id)
+        workspace.withStorage(this.storage)
+        return workspace
     }
 }

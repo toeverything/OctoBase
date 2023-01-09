@@ -14,4 +14,14 @@ impl WorkspaceTransaction<'_> {
     pub fn create(&mut self, block_id: String, flavor: String) -> Block {
         Block(self.0.create(block_id, flavor))
     }
+
+    pub fn commit(&mut self) {
+        self.0.commit()
+    }
+}
+
+impl Drop for WorkspaceTransaction<'_> {
+    fn drop(&mut self) {
+        self.commit()
+    }
 }

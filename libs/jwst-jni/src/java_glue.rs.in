@@ -3,6 +3,13 @@ use crate::*;
 
 use jni_sys::*;
 foreign_class!(
+    class JwstStorage {
+        self_type JwstStorage;
+        constructor JwstStorage::new(path: String) -> JwstStorage;
+        fn JwstStorage::error(&self) -> Option<String>; alias error;
+    }
+);
+foreign_class!(
     class WorkspaceTransaction {
         self_type WorkspaceTransaction;
         private constructor new<'a>() -> WorkspaceTransaction<'a> {
@@ -10,6 +17,7 @@ foreign_class!(
         }
         fn WorkspaceTransaction::remove(& mut self , block_id : String)->bool; alias remove;
         fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavor : String)->Block; alias create;
+        fn WorkspaceTransaction::commit(& mut self); alias commit;
     }
 );
 foreign_callback!(
@@ -61,5 +69,6 @@ foreign_class!(
 		fn Workspace::get(& self , block_id : String)->Option<Block>; alias get;
 		fn Workspace::exists(& self , block_id : & str)->bool; alias exists;
 		fn Workspace::with_trx(& self , on_trx : Box < dyn OnWorkspaceTransaction >); alias withTrx;
+		fn Workspace::with_storage(& mut self , storage : JwstStorage); alias withStorage;
 	}
 );

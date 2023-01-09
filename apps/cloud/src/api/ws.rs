@@ -1,7 +1,7 @@
 use super::*;
 use axum::{
     extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
+        ws::{close_code, CloseFrame, Message, WebSocket, WebSocketUpgrade},
         Path,
     },
     response::Response,
@@ -38,8 +38,25 @@ async fn ws_handler(
     Query(Param { token }): Query<Param>,
     ws: WebSocketUpgrade,
 ) -> Response {
+    let user: Option<RefreshToken> = base64::decode_engine(token, &URL_SAFE_ENGINE)
+        .ok()
+        .and_then(|byte| ctx.decrypt_aes(byte))
+        .and_then(|data| serde_json::from_slice(&data).ok());
+
+    let user = if let Some(user) = user {
+        if let Ok(true) = ctx.db.verify_refresh_token(&user).await {
+            Some(user.user_id)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     ws.protocols(["AFFiNE"])
-        .on_upgrade(|socket| async move { handle_socket(socket, workspace, ctx.clone()).await })
+        .on_upgrade(move |socket| async move {
+            handle_socket(socket, workspace, ctx.clone(), user).await
+        })
 }
 
 fn subscribe_handler(
@@ -77,7 +94,46 @@ fn subscribe_handler(
     std::mem::forget(sub);
 }
 
-async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Context>) {
+fn subscribe_metadata_handler(context: Arc<Context>, workspace: &mut Workspace, ws_id: String) {
+    let sub_metadata = workspace.observe_metadata(move |_, _e| {
+        context
+            .user_channel
+            .update_workspace(ws_id.clone(), context.clone());
+    });
+    std::mem::forget(sub_metadata);
+}
+
+async fn handle_socket(
+    mut socket: WebSocket,
+    workspace_id: String,
+    context: Arc<Context>,
+    user: Option<i32>,
+) {
+    let user_id = if let Some(user_id) = user {
+        if let Ok(true) = context
+            .db
+            .can_read_workspace(user_id, workspace_id.clone())
+            .await
+        {
+            Some(user_id)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    let user_id = if let Some(user_id) = user_id {
+        user_id
+    } else {
+        let _ = socket
+            .send(ws::Message::Close(Some(CloseFrame {
+                code: close_code::POLICY,
+                reason: "Unauthorized".into(),
+            })))
+            .await;
+        return;
+    };
+
     let (mut socket_tx, mut socket_rx) = socket.split();
     let (tx, mut rx) = channel(100);
 
@@ -132,6 +188,7 @@ async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Con
         let mut ws = ws.lock().await;
 
         subscribe_handler(context.clone(), &mut ws, uuid.clone(), workspace_id.clone());
+        subscribe_metadata_handler(context.clone(), &mut ws, workspace_id.clone());
 
         ws.sync_init_message()
     } {

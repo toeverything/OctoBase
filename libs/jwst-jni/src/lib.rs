@@ -1,5 +1,6 @@
 mod block;
 mod java_glue;
+mod storage;
 mod transaction;
 mod workspace;
 
@@ -11,5 +12,6 @@ use jwst::{
     WorkspaceTransaction as JwstWorkspaceTransaction,
 };
 use rifgen::rifgen_attr::*;
+use storage::JwstStorage;
 use transaction::{OnWorkspaceTransaction, WorkspaceTransaction};
 use workspace::Workspace;
