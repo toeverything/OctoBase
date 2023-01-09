@@ -117,7 +117,7 @@ pub struct WorkspaceWithPermission {
     pub workspace: Workspace,
 }
 
-#[derive(Serialize, Clone, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub struct WorkspaceDetail {
     // None if it's private
     pub owner: Option<User>,
@@ -137,12 +137,12 @@ pub struct WorkspaceSearchInput {
     pub query: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct WorkspaceSearchResults {
     pub items: Vec<WorkspaceSearchResult>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct WorkspaceSearchResult {
     pub block_id: String,
 }
