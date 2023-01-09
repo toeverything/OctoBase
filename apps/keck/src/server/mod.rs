@@ -1,14 +1,10 @@
 mod api;
-mod collaboration;
 mod files;
 mod storage;
+mod sync;
 mod utils;
 
-use axum::{
-    response::Redirect,
-    routing::{delete, get, head, post},
-    Extension, Router, Server,
-};
+use axum::{response::Redirect, Extension, Router, Server};
 use http::Method;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::signal;
@@ -67,20 +63,9 @@ pub async fn start_server() {
 
     let context = Arc::new(Context::new(None, None).await);
 
-    let mut app = collaboration::collaboration_handler(api::api_handler(Router::new()))
+    let app = files::static_files(sync::sync_handler(api::api_handler(Router::new())))
         .layer(cors)
         .layer(Extension(context.clone()));
-
-    if !cfg!(debug_assertions) {
-        // Redirect to docs in production until we have a proper home page
-        // FIXME: Notice that you can't test this locally because the debug_assertions are used to determine where the built file are too
-        // So, after this redirects you locally, it will still be 404, since the files will be expected at a production path like `/app/book`.
-        app = app.route("/", get(|| async { Redirect::to("/docs/index.html") }));
-    }
-
-    app = app
-        .nest_service("/docs", get(files::docs_handler))
-        .fallback_service(get(files::index_handler));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("listening on {}", addr);
@@ -94,6 +79,7 @@ pub async fn start_server() {
     }
 
     context.docs.close().await;
+    context.blobs.close().await;
 
     info!("Server shutdown complete");
 }

@@ -4,9 +4,8 @@ use std::{net::SocketAddr, sync::Arc};
 
 mod api;
 mod context;
-mod database;
 mod layer;
-mod model;
+mod login;
 mod utils;
 
 #[tokio::main]
@@ -33,7 +32,7 @@ async fn main() {
         error!("Server shutdown due to error: {}", e);
     }
 
-    context.db.close().await;
+    context.db.db.close().await;
 
     info!("Server shutdown complete");
 }

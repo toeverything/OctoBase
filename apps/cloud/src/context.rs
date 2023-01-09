@@ -4,13 +4,20 @@ use std::sync::Arc;
 
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
+use axum::extract::ws::Message;
 use chrono::{NaiveDateTime, Utc};
+use dashmap::DashMap;
 use handlebars::Handlebars;
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::{DocStorage, OctoWorkspace, OctoWorkspaceRef, SearchResults};
 use jwst_logger::info;
-use jwst_storage::{BlobFsStorage, DocFsStorage};
+#[cfg(feature = "postgres")]
+use jwst_storage::PostgresDBContext;
+#[cfg(feature = "sqlite")]
+use jwst_storage::SqliteDBContext;
+use jwst_storage::{BlobFsStorage, Claims, DocSQLiteStorage, GoogleClaims};
+
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
     Tokio1Executor,
@@ -19,12 +26,11 @@ use moka::future::Cache;
 use rand::{thread_rng, Rng};
 use reqwest::Client;
 use sha2::{Digest, Sha256};
-use sqlx::PgPool;
+use tokio::sync::{mpsc::Sender, Mutex};
 use tokio::sync::{RwLock, RwLockReadGuard};
 use x509_parser::prelude::parse_x509_pem;
 
-use crate::api::WebSocketContext;
-use crate::model::{Claims, GoogleClaims};
+use crate::api::UserChannel;
 use crate::utils::CacheControl;
 
 pub struct KeyContext {
@@ -46,8 +52,8 @@ pub struct MailContext {
 }
 
 pub struct DocStore {
-    cache: Cache<i64, Arc<RwLock<OctoWorkspace>>>,
-    pub storage: DocFsStorage,
+    cache: Cache<String, Arc<RwLock<OctoWorkspace>>>,
+    pub storage: DocSQLiteStorage,
 }
 
 impl DocStore {
@@ -56,23 +62,27 @@ impl DocStore {
 
         DocStore {
             cache: Cache::new(1000),
-            storage: DocFsStorage::new(Some(16), 500, Path::new(&doc_env).into()).await,
+            storage: DocSQLiteStorage::init_pool(&Path::new(&doc_env).display().to_string())
+                .await
+                .expect("Failed to init doc storage"),
         }
     }
 
-    pub async fn get_workspace(&self, id: i64) -> Option<Arc<RwLock<OctoWorkspace>>> {
+    pub async fn get_workspace(&self, workspace_id: String) -> Option<Arc<RwLock<OctoWorkspace>>> {
         self.cache
-            .try_get_with(id, async move {
-                self.storage
-                    .get(id)
-                    .await
-                    .map(|f| Arc::new(RwLock::new(OctoWorkspace::from_doc(f, id.to_string()))))
+            .try_get_with(workspace_id.clone(), async move {
+                self.storage.get(workspace_id.clone()).await.map(|f| {
+                    Arc::new(RwLock::new(OctoWorkspace::dangerously_from_doc(
+                        f,
+                        workspace_id.to_string(),
+                    )))
+                })
             })
             .await
             .ok()
     }
 
-    pub fn try_get_workspace(&self, id: i64) -> Option<Arc<RwLock<OctoWorkspace>>> {
+    pub fn try_get_workspace(&self, id: String) -> Option<Arc<RwLock<OctoWorkspace>>> {
         self.cache.get(&id)
     }
 }
@@ -83,15 +93,21 @@ pub struct Context {
     pub http_client: Client,
     firebase: RwLock<FirebaseContext>,
     pub mail: MailContext,
-    pub db: PgPool,
+    #[cfg(feature = "postgres")]
+    pub db: PostgresDBContext,
+    #[cfg(feature = "sqlite")]
+    pub db: SqliteDBContext,
     pub blob: BlobFsStorage,
     pub doc: DocStore,
-    pub ws: WebSocketContext,
+    pub workspace: DashMap<String, Mutex<Workspace>>,
+    pub channel: DashMap<(String, String), Sender<Message>>,
+    pub docs: DocSQLiteStorage,
+    pub user_channel: UserChannel,
 }
 
 pub enum ContextRequestError {
     WorkspaceNotFound {
-        workspace_id: i64,
+        workspace_id: String,
     },
     /// "Bad Request"
     BadUserInput {
@@ -117,10 +133,6 @@ impl From<Box<dyn std::error::Error>> for ContextRequestError {
 
 impl Context {
     pub async fn new() -> Context {
-        let db_env = dotenvy::var("DATABASE_URL").expect("should provide databse URL");
-
-        let db = PgPool::connect(&db_env).await.expect("wrong database URL");
-
         let key = {
             let key_env = dotenvy::var("SIGN_KEY").expect("should provide AES key");
 
@@ -190,8 +202,12 @@ impl Context {
 
         let site_url = dotenvy::var("SITE_URL").expect("should provide site url");
 
+        let db_env = dotenvy::var("DATABASE_URL").expect("should provide databse URL");
         let ctx = Self {
-            db,
+            #[cfg(feature = "postgres")]
+            db: PostgresDBContext::new(db_env).await,
+            #[cfg(feature = "sqlite")]
+            db: SqliteDBContext::new(db_env).await,
             key,
             firebase,
             mail,
@@ -199,10 +215,13 @@ impl Context {
             doc: DocStore::new().await,
             blob,
             site_url,
-            ws: WebSocketContext::new(),
+            workspace: DashMap::new(),
+            channel: DashMap::new(),
+            docs: DocSQLiteStorage::init_pool("jwst")
+                .await
+                .expect("Cannot create database"),
+            user_channel: UserChannel::new(),
         };
-
-        ctx.init_db().await;
 
         ctx
     }
@@ -318,14 +337,22 @@ impl Context {
 
     pub async fn search_workspace(
         &self,
-        id: i64,
+        workspace_id: String,
         query_string: &str,
     ) -> Result<SearchResults, ContextRequestError> {
+        let workspace_id = workspace_id.to_string();
         let workspace_arc_rw = self
-            .doc
-            .get_workspace(id)
+            .docs
+            .create_doc(&workspace_id)
             .await
-            .ok_or_else(|| ContextRequestError::WorkspaceNotFound { workspace_id: id })?;
+            .map(|f| {
+                Arc::new(RwLock::new(OctoWorkspace::dangerously_from_doc(
+                    f,
+                    workspace_id.to_string(),
+                )))
+            })
+            .ok()
+            .ok_or_else(|| ContextRequestError::WorkspaceNotFound { workspace_id })?;
 
         let search_results = workspace_arc_rw.write().await.search(&query_string)?;
 

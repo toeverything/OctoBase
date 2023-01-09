@@ -9,8 +9,10 @@ use y_sync::{
     awareness::Awareness,
     sync::{Error, Message},
 };
+
 use yrs::{
-    types::ToJson, Doc, Map, MapRef, Transact, TransactionMut, UpdateEvent, UpdateSubscription,
+    types::map::MapEvent, types::ToJson, Doc, Map, MapRef, Subscription, Transact, TransactionMut,
+    UpdateEvent, UpdateSubscription,
 };
 
 use super::Content;
@@ -119,6 +121,14 @@ impl Workspace {
 
     pub fn metadata(&self) -> &MapRef {
         &self.content.metadata
+    }
+
+    pub fn observe_metadata(
+        &mut self,
+        f: impl Fn(&yrs::Transaction, &MapEvent) -> () + 'static,
+    ) -> y_sync::awareness::Subscription<MapEvent> {
+        // self.content.metadata.observe(f)
+        todo!("self.content.metadata.observe(f)")
     }
 
     /// Check if the block exists in this workspace's blocks.
@@ -253,6 +263,10 @@ impl WorkspaceTransaction<'_> {
             }
             Any::Buffer(_) | Any::Array(_) | Any::Map(_) => {}
         }
+    }
+
+    pub fn commit(&mut self) {
+        self.trx_mut.commit();
     }
 }
 

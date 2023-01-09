@@ -197,16 +197,16 @@ impl BlobStorage for MySQL {
             Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
         }
     }
-    async fn delete_blob(&self, workspace: Option<String>, id: String) -> io::Result<()> {
-        let workspace = workspace.unwrap_or("__default__".into());
-        if let Ok(_success) = self.delete(&workspace, &id).await {
+    async fn delete_blob(&self, workspace_id: Option<String>, id: String) -> io::Result<()> {
+        let workspace_id = workspace_id.unwrap_or("__default__".into());
+        if let Ok(_success) = self.delete(&workspace_id, &id).await {
             Ok(())
         } else {
             Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
         }
     }
-    async fn delete_workspace(&self, workspace: String) -> io::Result<()> {
-        if self.drop(&workspace).await.is_ok() {
+    async fn delete_workspace(&self, workspace_id: String) -> io::Result<()> {
+        if self.drop(&workspace_id).await.is_ok() {
             Ok(())
         } else {
             Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
@@ -219,7 +219,7 @@ mod tests {
     use super::*;
     use chrono::Utc;
 
-    async fn init_memory_pool() -> Result<MySQL, Error> {
+    async fn init_pool() -> Result<MySQL, Error> {
         use sqlx::mysql::MySqlConnectOptions;
         use std::str::FromStr;
         let path = format!("mysql://root:password@localhost/db");
@@ -231,11 +231,12 @@ mod tests {
         })
     }
 
+    #[ignore = "need mysql server"]
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
         use super::*;
 
-        let pool = init_memory_pool().await?;
+        let pool = init_pool().await?;
 
         pool.create("basic").await?;
 

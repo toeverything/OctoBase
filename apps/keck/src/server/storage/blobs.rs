@@ -1,12 +1,13 @@
 #[cfg(feature = "mysc")]
 pub use jwst_storage::BlobMySQLStorage as BlobDatabase;
-#[cfg(feature = "jwst")]
+#[cfg(any(feature = "affine", feature = "jwst"))]
 pub use jwst_storage::BlobSQLiteStorage as BlobDatabase;
 
 pub use jwst_storage::BlobBinary;
 
 #[cfg(test)]
 mod tests {
+    #[cfg(any(feature = "jwst", feature = "mysql"))]
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
         use super::*;

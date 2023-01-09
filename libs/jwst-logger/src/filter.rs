@@ -7,15 +7,16 @@ const EXCLUDE_PREFIX: [&str; 3] = ["hyper::", "rustls::", "mio::"];
 
 impl GeneralFilter {
     fn is_enabled(&self, metadata: &Metadata<'_>) -> bool {
+        let target = metadata.target();
         let is_kernel = EXCLUDE_PREFIX
             .iter()
-            .any(|prefix| metadata.target().starts_with(prefix))
+            .any(|prefix| target.starts_with(prefix))
             && *metadata.level() > Level::INFO;
 
         if cfg!(debug_assertions) {
-            return metadata.target() != "sqlx::query" && !is_kernel;
+            return target != "sqlx::query" && !is_kernel;
         }
-        *metadata.level() <= Level::INFO && !is_kernel
+        *metadata.level() <= Level::INFO && target != "sqlx::query" && !is_kernel
     }
 }
 

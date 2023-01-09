@@ -7,11 +7,11 @@ use yrs::Doc;
 
 #[async_trait]
 pub trait DocStorage {
-    async fn get(&self, workspace_id: i64) -> io::Result<Doc>;
-    async fn write_doc(&self, workspace_id: i64, doc: &Doc) -> io::Result<()>;
+    async fn get(&self, workspace_id: String) -> io::Result<Doc>;
+    async fn write_doc(&self, workspace_id: String, doc: &Doc) -> io::Result<()>;
     /// Return false means update exceeding max update
-    async fn write_update(&self, workspace: i64, data: &[u8]) -> io::Result<bool>;
-    async fn delete(&self, workspace_id: i64) -> io::Result<()>;
+    async fn write_update(&self, workspace_id: String, data: &[u8]) -> io::Result<bool>;
+    async fn delete(&self, workspace_id: String) -> io::Result<()>;
 }
 
 #[derive(Debug)]
@@ -33,5 +33,5 @@ pub trait BlobStorage {
         stream: impl Stream<Item = Bytes> + Send,
     ) -> io::Result<String>;
     async fn delete_blob(&self, workspace: Option<String>, id: String) -> io::Result<()>;
-    async fn delete_workspace(&self, workspace: String) -> io::Result<()>;
+    async fn delete_workspace(&self, workspace_id: String) -> io::Result<()>;
 }

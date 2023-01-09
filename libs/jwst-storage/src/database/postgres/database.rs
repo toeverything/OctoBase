@@ -1,14 +1,6 @@
-use jwst::{DocStorage, Workspace as JWSTWorkspace};
-use sqlx::{query, query_as, FromRow, Postgres, Transaction};
-
-use crate::{
-    context::Context,
-    model::{
-        BigId, Count, CreateUser, GoogleClaims, Member, Permission, PermissionType, RefreshToken,
-        UpdateWorkspace, User, UserCred, UserInWorkspace, UserLogin, UserWithNonce, Workspace,
-        WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
-    },
-};
+use super::*;
+use sqlx::{query, query_as, FromRow, PgPool, Postgres, Transaction};
+use uuid::Uuid;
 
 #[derive(FromRow)]
 struct PermissionQuery {
@@ -16,7 +8,20 @@ struct PermissionQuery {
     type_: PermissionType,
 }
 
-impl Context {
+pub struct PostgreSQL {
+    pub db: PgPool,
+}
+
+impl PostgreSQL {
+    pub async fn new(database: String) -> PostgreSQL {
+        let db = PgPool::connect(&database)
+            .await
+            .expect("wrong database URL");
+        let db_context = Self { db };
+        db_context.init_db().await;
+        db_context
+    }
+
     pub async fn init_db(&self) {
         let stmt = "CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -46,9 +51,11 @@ impl Context {
 
         let stmt = "CREATE TABLE IF NOT EXISTS workspaces (
             id BIGSERIAL PRIMARY KEY,
+            uuid CHAR(36),
             public BOOL NOT NULL,
             type SMALLINT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(uuid)
         );";
         query(&stmt)
             .execute(&self.db)
@@ -57,12 +64,14 @@ impl Context {
 
         let stmt = "CREATE TABLE IF NOT EXISTS permissions (
             id BIGSERIAL PRIMARY KEY,
-            workspace_id BIGINT REFERENCES workspaces(id) ON DELETE CASCADE,
-            user_id INTEGER REFERENCES users(id),
+            workspace_id CHAR(36),
+            user_id INTEGER,
             user_email TEXT,
             type SMALLINT NOT NULL,
             accepted BOOL DEFAULT False,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(workspace_id) REFERENCES workspaces(uuid),
+            FOREIGN KEY(user_id) REFERENCES users(id),
             UNIQUE (workspace_id, user_id),
             UNIQUE (workspace_id, user_email)
         );";
@@ -81,7 +90,7 @@ impl Context {
             .await
     }
 
-    pub async fn get_workspace_owner(&self, workspace_id: i64) -> sqlx::Result<User> {
+    pub async fn get_workspace_owner(&self, workspace_id: String) -> sqlx::Result<User> {
         let stmt = format!(
             "SELECT
                 users.id, users.name, users.email, users.avatar_url, users.created_at
@@ -136,7 +145,7 @@ impl Context {
             .map(|r| r.is_some())
     }
 
-    async fn update_cred(
+    pub async fn update_cred(
         trx: &mut Transaction<'static, Postgres>,
         user_id: i32,
         user_email: &str,
@@ -158,9 +167,9 @@ impl Context {
     pub async fn create_user(&self, user: CreateUser) -> sqlx::Result<Option<User>> {
         let mut trx = self.db.begin().await?;
         let create_user = "INSERT INTO users 
-            (name, password, email, avatar_url) 
+            (name, password, email, avatar_url)
             VALUES ($1, $2, $3, $4)
-        ON CONFLICT email DO NOTHING
+        ON CONFLICT (email) DO NOTHING
         RETURNING id, name, email, avatar_url, created_at";
 
         let Some(user) = query_as::<_, User>(create_user)
@@ -182,75 +191,15 @@ impl Context {
         Ok(Some(user))
     }
 
-    pub async fn google_user_login(&self, claims: &GoogleClaims) -> sqlx::Result<UserWithNonce> {
-        let mut trx = self.db.begin().await?;
-        let update_user = "UPDATE users
-        SET
-            name = $1,
-            email = $2,
-            avatar_url = $3
-        FROM google_users
-        WHERE google_users.google_id = $4 AND google_users.user_id = users.id
-        RETURNING users.id, users.name, users.email, users.avatar_url,
-            users.token_nonce, users.created_at";
-
-        if let Some(user) = query_as::<_, UserWithNonce>(update_user)
-            .bind(&claims.name)
-            .bind(&claims.email)
-            .bind(&claims.picture)
-            .bind(&claims.user_id)
-            .fetch_optional(&mut trx)
-            .await?
-        {
-            return Ok(user);
-        }
-
-        let create_user = "INSERT INTO users 
-            (name, email, avatar_url) 
-            VALUES ($1, $2, $3)
-        ON CONFLICT (email) DO NOTHING
-        RETURNING id, name, email, avatar_url, token_nonce, created_at";
-
-        let user = query_as::<_, UserWithNonce>(create_user)
-            .bind(&claims.name)
-            .bind(&claims.email)
-            .bind(&claims.picture)
-            .fetch_one(&mut trx)
-            .await?;
-
-        let create_google_user = "INSERT INTO google_users 
-            (user_id, google_id)
-            VALUES ($1, $2)
-            ON CONFLICT DO NOTHING";
-
-        query(create_google_user)
-            .bind(user.user.id)
-            .bind(&claims.user_id)
-            .execute(&mut trx)
-            .await?;
-
-        let ws = Self::create_workspace(&mut trx, user.user.id, WorkspaceType::Private).await?;
-
-        self.doc
-            .storage
-            .write_doc(ws.id, JWSTWorkspace::new(ws.id.to_string()).doc())
-            .await?;
-
-        Self::update_cred(&mut trx, user.user.id, &user.user.email).await?;
-
-        trx.commit().await?;
-
-        Ok(user)
-    }
-
     pub async fn get_workspace_by_id(
         &self,
-        workspace_id: i64,
+        workspace_id: String,
     ) -> sqlx::Result<Option<WorkspaceDetail>> {
-        let get_workspace = "SELECT id, public, type, created_at FROM workspaces WHERE id = $1;";
+        let get_workspace =
+            "SELECT uuid AS id, public, type, created_at FROM workspaces WHERE uuid = $1;";
 
         let workspace = query_as::<_, Workspace>(&get_workspace)
-            .bind(workspace_id)
+            .bind(workspace_id.clone())
             .fetch_optional(&self.db)
             .await?;
 
@@ -266,9 +215,9 @@ impl Context {
             None => return Ok(None),
         };
 
-        let owner = self.get_workspace_owner(workspace_id).await?;
+        let owner = self.get_workspace_owner(workspace_id.clone()).await?;
 
-        let get_member_count = "SELECT COUNT(permissions.id)
+        let get_member_count = "SELECT COUNT(permissions.id) AS count
             FROM permissions
             WHERE workspace_id = $1 AND accepted = True";
 
@@ -285,18 +234,21 @@ impl Context {
         }))
     }
 
-    async fn create_workspace(
+    pub async fn create_workspace(
         trx: &mut Transaction<'static, Postgres>,
         user_id: i32,
         ws_type: WorkspaceType,
     ) -> sqlx::Result<Workspace> {
         let create_workspace = format!(
-            "INSERT INTO workspaces (public, type) VALUES (false, $1) 
-            RETURNING id, public, created_at, type;",
+            "INSERT INTO workspaces (public, type, uuid) VALUES (false, $1, $2) 
+            RETURNING uuid AS id, public, created_at, type;",
         );
+        let uuid = Uuid::new_v4();
+        let workspace_id = uuid.to_string().replace("-", "_");
 
         let workspace = query_as::<_, Workspace>(&create_workspace)
             .bind(ws_type as i16)
+            .bind(workspace_id)
             .fetch_one(&mut *trx)
             .await?;
 
@@ -309,7 +261,7 @@ impl Context {
 
         query(&create_permission)
             .bind(user_id)
-            .bind(workspace.id)
+            .bind(workspace.id.clone())
             .execute(&mut *trx)
             .await?;
 
@@ -327,14 +279,14 @@ impl Context {
 
     pub async fn update_workspace(
         &self,
-        workspace_id: i64,
+        workspace_id: String,
         data: UpdateWorkspace,
     ) -> sqlx::Result<Option<Workspace>> {
         let update_workspace = format!(
             "UPDATE workspaces
                 SET public = $1
-            WHERE id = $2 AND type = {}
-            RETURNING id, public, type, created_at;",
+            WHERE uuid = $2 AND type = {}
+            RETURNING uuid as id, public, type, created_at;",
             WorkspaceType::Normal as i16
         );
 
@@ -345,10 +297,10 @@ impl Context {
             .await
     }
 
-    pub async fn delete_workspace(&self, workspace_id: i64) -> sqlx::Result<bool> {
+    pub async fn delete_workspace(&self, workspace_id: String) -> sqlx::Result<bool> {
         let delete_workspace = format!(
             "DELETE FROM workspaces CASCADE
-            WHERE id = $1 AND type = {}",
+            WHERE uuid = $1 AND type = {}",
             WorkspaceType::Normal as i16
         );
 
@@ -364,11 +316,11 @@ impl Context {
         user_id: i32,
     ) -> sqlx::Result<Vec<WorkspaceWithPermission>> {
         let stmt = "SELECT 
-            workspaces.id, workspaces.public, workspaces.created_at, workspaces.type,
+            workspaces.uuid AS id, workspaces.public, workspaces.created_at, workspaces.type,
             permissions.type as permission
         FROM permissions
         INNER JOIN workspaces
-          ON permissions.workspace_id = workspaces.id
+          ON permissions.workspace_id = workspaces.uuid
         WHERE user_id = $1";
 
         query_as::<_, WorkspaceWithPermission>(&stmt)
@@ -377,7 +329,7 @@ impl Context {
             .await
     }
 
-    pub async fn get_workspace_members(&self, workspace_id: i64) -> sqlx::Result<Vec<Member>> {
+    pub async fn get_workspace_members(&self, workspace_id: String) -> sqlx::Result<Vec<Member>> {
         let stmt = "SELECT 
             permissions.id, permissions.type, permissions.user_email,
             permissions.accepted, permissions.created_at,
@@ -397,7 +349,7 @@ impl Context {
     pub async fn get_permission(
         &self,
         user_id: i32,
-        workspace_id: i64,
+        workspace_id: String,
     ) -> sqlx::Result<Option<PermissionType>> {
         let stmt = "SELECT type FROM permissions WHERE user_id = $1 AND workspace_id = $2";
 
@@ -429,11 +381,15 @@ impl Context {
             .map(|p| p.map(|p| p.type_))
     }
 
-    pub async fn can_read_workspace(&self, user_id: i32, workspace_id: i64) -> sqlx::Result<bool> {
+    pub async fn can_read_workspace(
+        &self,
+        user_id: i32,
+        workspace_id: String,
+    ) -> sqlx::Result<bool> {
         let stmt = "SELECT FROM permissions 
             WHERE user_id = $1
                 AND workspace_id = $2
-                OR (SELECT True FROM workspaces WHERE id = $2 AND public = True)";
+                OR (SELECT True FROM workspaces WHERE uuid = $2 AND public = True)";
 
         query(&stmt)
             .bind(user_id)
@@ -446,7 +402,7 @@ impl Context {
     pub async fn create_permission(
         &self,
         email: &str,
-        workspace_id: i64,
+        workspace_id: String,
         permission_type: PermissionType,
     ) -> sqlx::Result<Option<(i64, UserCred)>> {
         let user = self.get_user_by_email(email).await?;
@@ -455,7 +411,7 @@ impl Context {
             "INSERT INTO permissions (user_id, user_email, workspace_id, type)
             SELECT $1, $2, $3, $4
             FROM workspaces
-                WHERE workspaces.type = {} AND workspaces.id = $3
+                WHERE workspaces.type = {} AND workspaces.uuid = $3
             ON CONFLICT DO NOTHING
             RETURNING id",
             WorkspaceType::Normal as i16
@@ -514,7 +470,7 @@ impl Context {
     pub async fn delete_permission_by_query(
         &self,
         user_id: i32,
-        workspace_id: i64,
+        workspace_id: String,
     ) -> sqlx::Result<bool> {
         let stmt = format!(
             "DELETE FROM permissions
@@ -532,7 +488,7 @@ impl Context {
 
     pub async fn get_user_in_workspace_by_email(
         &self,
-        workspace_id: i64,
+        workspace_id: String,
         email: &str,
     ) -> sqlx::Result<UserInWorkspace> {
         let stmt = "SELECT 
@@ -540,7 +496,7 @@ impl Context {
         FROM users";
 
         let user = query_as::<_, User>(stmt)
-            .bind(workspace_id)
+            .bind(workspace_id.clone())
             .fetch_optional(&self.db)
             .await?;
 
@@ -562,7 +518,7 @@ impl Context {
             let stmt = "SELECT True FROM permissions WHERE workspace_id = $1 AND user_email = $2";
 
             let in_workspace = query_as::<_, User>(stmt)
-                .bind(workspace_id)
+                .bind(workspace_id.clone())
                 .bind(email)
                 .fetch_optional(&self.db)
                 .await?
@@ -575,5 +531,104 @@ impl Context {
                 in_workspace,
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[ignore = "need postgres instance"]
+    #[tokio::test]
+    async fn database_create_tables() -> anyhow::Result<()> {
+        use super::*;
+        // let check_table_exists =
+        // "IF EXISTS(SELECT 1 FROM sys.Tables WHERE  Name = N'users' AND Type = N'U')
+        //     RETURN True
+        // ELSE
+        //     RETURN False";
+        let db_context =
+            PostgreSQL::new("postgresql://jwst:jwst@localhost:5432/jwst".to_string()).await;
+        // clean db
+        let drop_statement = "
+        DROP TABLE IF EXISTS \"google_users\";
+        DROP TABLE IF EXISTS \"permissions\";
+        DROP TABLE IF EXISTS \"workspaces\";
+        DROP TABLE IF EXISTS \"users\";
+        ";
+        for line in drop_statement.split("\n") {
+            query(&line)
+                .execute(&db_context.db)
+                .await
+                .expect("Drop all table in test failed");
+        }
+        db_context.init_db().await;
+        // start test
+        let new_user = db_context
+            .create_user(CreateUser {
+                avatar_url: Some("xxx".to_string()),
+                email: "xxx@xxx.xx".to_string(),
+                name: "xxx".to_string(),
+                password: "xxx".to_string(),
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(new_user.id, 1);
+        let new_user2 = db_context
+            .create_user(CreateUser {
+                avatar_url: Some("xxx".to_string()),
+                email: "xxx2@xxx.xx".to_string(),
+                name: "xxx".to_string(),
+                password: "xxx".to_string(),
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(new_user2.id, 2);
+        let mut new_workspace = db_context
+            .create_normal_workspace(new_user.id)
+            .await
+            .unwrap();
+        let new_workspace2 = db_context
+            .create_normal_workspace(new_user2.id)
+            .await
+            .unwrap();
+
+        assert_eq!(new_workspace.id.len(), 36);
+        assert_eq!(new_workspace.public, false);
+        assert_eq!(new_workspace2.id.len(), 36);
+
+        let new_workspace1_clone = db_context
+            .get_workspace_by_id(new_workspace.id.clone())
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(new_user.id, new_workspace1_clone.owner.unwrap().id);
+        assert_eq!(new_workspace.id, new_workspace1_clone.workspace.id);
+        assert_eq!(
+            new_workspace.created_at,
+            new_workspace1_clone.workspace.created_at
+        );
+
+        assert_eq!(
+            new_workspace.id,
+            db_context
+                .get_user_workspaces(new_user.id)
+                .await
+                .unwrap()
+                // when create user, will auto create a private workspace, our created will be second one
+                .get(1)
+                .unwrap()
+                .workspace
+                .id
+        );
+
+        new_workspace = db_context
+            .update_workspace(new_workspace.id, UpdateWorkspace { public: true })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(new_workspace.public, true);
+        Ok(())
     }
 }

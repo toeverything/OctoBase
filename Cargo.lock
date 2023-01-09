@@ -58,6 +58,8 @@ name = "affine-cloud"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
+ "anyhow",
+ "async-trait",
  "axum 0.6.1",
  "base64 0.20.0",
  "chrono",
@@ -89,6 +91,7 @@ dependencies = [
  "tokio-util",
  "tower",
  "tower-http",
+ "uuid",
  "x509-parser",
  "y-sync",
  "yrs",
@@ -366,11 +369,11 @@ dependencies = [
 
 [[package]]
 name = "axum-test-helper"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02e4e5afe8156749847100cb1524d7256bc2276068c83a9ab1f2bdf51db61e56"
+checksum = "91d349b3174ceac58442ea1f768233c817e59447c0343be2584fca9f0ed71d3a"
 dependencies = [
- "axum 0.5.17",
+ "axum 0.6.1",
  "bytes",
  "http",
  "http-body",
@@ -1754,11 +1757,17 @@ dependencies = [
  "dotenvy",
  "futures",
  "jwst",
+ "jwst-logger",
  "num-traits",
+ "path-ext",
+ "serde",
+ "serde_json",
+ "serde_repr",
  "sha2",
  "sqlx",
  "tokio",
  "tokio-util",
+ "uuid",
  "yrs",
 ]
 
@@ -2342,6 +2351,15 @@ name = "paste"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d01a5bd0424d00070b0098dd17ebca6f961a959dead1dbcbbbc1d1cd8d3deeba"
+
+[[package]]
+name = "path-ext"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8285c3c3c3085f8819bdcebc9c7e783851527f34974d7d283ced36c977ae812"
+dependencies = [
+ "walkdir",
+]
 
 [[package]]
 name = "pem"
@@ -3711,9 +3729,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.23.0"
+version = "1.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eab6d665857cc6ca78d6e80303a02cea7a7851e85dfbd77cbdc09bd129f1ef46"
+checksum = "1d9f76183f91ecfb55e1d7d5602bd1d979e38a3a522fe900241cf195624d67ae"
 dependencies = [
  "autocfg",
  "bytes",
@@ -4139,6 +4157,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "422ee0de9031b5b948b97a8fc04e3aa35230001a722ddd27943e0be31564ce4c"
 dependencies = [
  "getrandom 0.2.8",
+ "rand 0.8.5",
  "serde",
 ]
 

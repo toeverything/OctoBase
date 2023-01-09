@@ -153,8 +153,8 @@ impl BlobStorage for FileSystem {
         .await
     }
 
-    async fn delete_workspace(&self, workspace: String) -> io::Result<()> {
+    async fn delete_workspace(&self, workspace_id: String) -> io::Result<()> {
         let _ = self.get_parallel().await;
-        fs::remove_dir_all(self.path.join(workspace)).await
+        fs::remove_dir_all(self.path.join(workspace_id)).await
     }
 }

@@ -2,7 +2,7 @@ use chrono::naive::serde::{ts_milliseconds, ts_seconds};
 use jwst::OctoRead;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use sqlx::{self, postgres::PgRow, types::chrono::NaiveDateTime, FromRow, Row, Type};
+use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Type};
 use yrs::Map;
 
 #[derive(Debug, Deserialize)]
@@ -22,7 +22,7 @@ pub struct GoogleClaims {
     pub user_id: String,
 }
 
-#[derive(FromRow, Serialize, Deserialize)]
+#[derive(FromRow, Serialize, Deserialize, Clone)]
 pub struct User {
     pub id: i32,
     pub name: String,
@@ -42,7 +42,7 @@ pub struct UserWithNonce {
 #[derive(Deserialize)]
 pub struct UserQuery {
     pub email: Option<String>,
-    pub workspace_id: Option<i64>,
+    pub workspace_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -89,16 +89,16 @@ pub struct RefreshToken {
     pub token_nonce: i16,
 }
 
-#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Clone, Copy)]
+#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Clone, Copy)]
 #[repr(i16)]
 pub enum WorkspaceType {
     Private = 0,
     Normal = 1,
 }
 
-#[derive(FromRow, Serialize)]
+#[derive(FromRow, Serialize, Debug, Clone)]
 pub struct Workspace {
-    pub id: i64,
+    pub id: String,
     pub public: bool,
     #[serde(rename = "type")]
     #[sqlx(rename = "type")]
@@ -107,7 +107,7 @@ pub struct Workspace {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(FromRow, Serialize)]
+#[derive(FromRow, Serialize, Debug, Clone)]
 pub struct WorkspaceWithPermission {
     pub permission: PermissionType,
     #[serde(flatten)]
@@ -150,7 +150,7 @@ pub struct UpdateWorkspace {
     pub public: bool,
 }
 
-#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
 #[repr(i16)]
 pub enum PermissionType {
     Read = 0,
@@ -165,7 +165,7 @@ pub struct Permission {
     #[serde(rename = "type")]
     #[sqlx(rename = "type")]
     pub type_: PermissionType,
-    pub workspace_id: i64,
+    pub workspace_id: String,
     pub user_id: Option<i32>,
     pub user_email: Option<String>,
     pub accepted: bool,
@@ -192,7 +192,7 @@ pub struct CreatePermission {
     pub email: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 #[serde(tag = "type")]
 pub enum UserCred {
     Registered(User),
@@ -207,40 +207,6 @@ pub struct Member {
     pub type_: PermissionType,
     #[serde(with = "ts_milliseconds")]
     pub created_at: NaiveDateTime,
-}
-
-impl FromRow<'_, PgRow> for Member {
-    fn from_row(row: &PgRow) -> sqlx::Result<Self> {
-        let id = row.try_get("id")?;
-        let accepted = row.try_get("accepted")?;
-        let type_ = row.try_get("type")?;
-        let created_at = row.try_get("created_at")?;
-
-        let user = if let Some(email) = row.try_get("user_email")? {
-            UserCred::UnRegistered { email }
-        } else {
-            let id = row.try_get("user_id")?;
-            let name = row.try_get("user_name")?;
-            let email = row.try_get("user_table_email")?;
-            let avatar_url = row.try_get("avatar_url")?;
-            let created_at = row.try_get("user_created_at")?;
-            UserCred::Registered(User {
-                id,
-                name,
-                email,
-                avatar_url,
-                created_at,
-            })
-        };
-
-        Ok(Member {
-            id,
-            accepted,
-            user,
-            type_,
-            created_at,
-        })
-    }
 }
 
 #[derive(Serialize)]
@@ -276,9 +242,15 @@ pub struct WorkspaceMetadata {
 }
 
 impl WorkspaceMetadata {
-    pub fn parse<'doc, R: OctoRead<'doc>>(reader: R) -> Option<Self> {
-        let name = reader.get_workspace_metadata("name")?.to_string();
-        let avatar = metadata.get_workspace_metadata("avatar")?.to_string();
+    pub fn parse(reader: &impl OctoRead) -> Option<Self> {
+        let name = reader
+            .get_workspace_metadata("name")?
+            .try_as_string()
+            .ok()?;
+        let avatar = reader
+            .get_workspace_metadata("avatar")?
+            .try_as_string()
+            .ok()?;
 
         Some(WorkspaceMetadata { name, avatar })
     }

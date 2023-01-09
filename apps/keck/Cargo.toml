@@ -7,6 +7,7 @@ license = "AGPL-3.0-only"
 
 [features]
 default = ["jwst"]
+affine = ["jwst-storage/sqlite"]
 jwst = ["api", "schema", "docs", "jwst-storage/sqlite"]
 mysc = ["api", "schema", "docs", "jwst-storage/mysql", "dotenvy"]
 api = ["utoipa"]
@@ -27,7 +28,7 @@ time = "^0.3.17"
 
 [dependencies.axum]
 version = "^0.6.1"
-features = ["ws"]
+features = ["headers", "ws"]
 
 [dependencies.log]
 version = "^0.4.17"
@@ -86,7 +87,7 @@ default-features = false
 optional = true
 
 [dev-dependencies]
-axum-test-helper = "^0.1.1"
+axum-test-helper = "0.2.0"
 
 [build-dependencies.mdbook]
 version = "^0.4.25"

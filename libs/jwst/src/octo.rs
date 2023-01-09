@@ -152,6 +152,11 @@ impl OctoWorkspace {
         }
     }
 
+    #[deprecated = "OctoBase should not accept YRS directly, but should be compatible with YJS binary using underlying YRS"]
+    pub fn dangerously_from_doc<S: AsRef<str>>(doc: yrs::Doc, id: S) -> OctoWorkspace {
+        OctoWorkspace::from_doc(doc, id)
+    }
+
     /// Private, as we should not be enabling our dependents to use [yrs::Doc] directly.
     pub(crate) fn from_doc<S: AsRef<str>>(doc: yrs::Doc, id: S) -> OctoWorkspace {
         // TODO: Initial index in Tantivy including:
