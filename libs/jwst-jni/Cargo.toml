@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 android_logger = "^0.11.3"
-futures = "0.3.25"
 jni-sys = "^0.3.0"
 jwst = { path = "../jwst" }
 jwst-storage = { path = "../jwst-storage", features = ["sqlite"] }
@@ -16,6 +15,7 @@ log = "^0.4.17"
 log-panics = "^2.1.0"
 sqlx = "0.6.2"
 rifgen = "^0.1.61"
+tokio = "1.24.1"
 yrs = { path = "../yrs" }
 
 [build-dependencies]

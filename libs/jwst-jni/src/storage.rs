@@ -1,11 +1,14 @@
-use futures::executor::block_on;
-use jwst::DocStorage;
+use android_logger::Config;
+use jwst::{error, DocStorage};
 use jwst_storage::DocSQLiteStorage;
+use log::Level;
 use sqlx::Error;
 use std::{
     io::Result,
     sync::{Arc, RwLock},
 };
+use tokio::runtime::Runtime;
+use yrs::{updates::decoder::Decode, Doc, Update};
 
 #[derive(Clone)]
 pub struct JwstStorage {
@@ -15,7 +18,15 @@ pub struct JwstStorage {
 
 impl JwstStorage {
     pub fn new(path: String) -> Self {
-        match block_on(DocSQLiteStorage::init_pool(&path)) {
+        android_logger::init_once(
+            Config::default()
+                .with_min_level(Level::Info)
+                .with_tag("jwst"),
+        );
+
+        let rt = Runtime::new().unwrap();
+
+        match rt.block_on(DocSQLiteStorage::init_absolute_pool(&path)) {
             Ok(pool) => Self {
                 storage: Some(Arc::new(RwLock::new(pool))),
                 error: None,
@@ -34,10 +45,39 @@ impl JwstStorage {
         self.error.clone()
     }
 
+    pub fn reload(&self, workspace_id: String, doc: &Doc) {
+        if let Some(storage) = &self.storage {
+            let storage = storage.write().unwrap();
+            let rt = Runtime::new().unwrap();
+            rt.block_on(async {
+                storage
+                    .create(&workspace_id)
+                    .await
+                    .expect("Failed to create workspace");
+                let updates = storage
+                    .all(&workspace_id)
+                    .await
+                    .expect("Failed to get all updates");
+                if updates.len() > 0 {
+                    let mut trx = doc.transact();
+                    for update in updates {
+                        if let Ok(update) = Update::decode_v1(&update.blob) {
+                            trx.apply_update(update);
+                        } else {
+                            error!("Failed to decode update: {}", update.id);
+                        }
+                    }
+                }
+            });
+        }
+    }
+
     pub fn write_update(&self, workspace_id: String, update: &[u8]) -> Result<()> {
-        if let Some(doc) = &self.storage {
-            let storage = doc.write().unwrap();
-            block_on(storage.write_update(workspace_id, update))?;
+        if let Some(storage) = &self.storage {
+            let storage = storage.write().unwrap();
+            let rt = Runtime::new().unwrap();
+            log::info!("update: {:?}", update);
+            rt.block_on(storage.write_update(workspace_id, update))?;
         }
         Ok(())
     }
