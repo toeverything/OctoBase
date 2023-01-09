@@ -22,7 +22,7 @@ pub struct GoogleClaims {
     pub user_id: String,
 }
 
-#[derive(FromRow, Serialize, Debug, Deserialize, JsonSchema)]
+#[derive(FromRow, Serialize, Debug, Clone, Deserialize, JsonSchema)]
 pub struct User {
     pub id: i32,
     pub name: String,
@@ -118,7 +118,7 @@ pub struct WorkspaceWithPermission {
     pub workspace: Workspace,
 }
 
-#[derive(Serialize, Debug, JsonSchema)]
+#[derive(Serialize, Clone, Debug, JsonSchema)]
 pub struct WorkspaceDetail {
     // None if it's private
     pub owner: Option<User>,
