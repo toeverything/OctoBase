@@ -20,6 +20,13 @@ fn main() {
         .chain(["use jni_sys::*;"].iter())
         .chain([
 r#"foreign_class!(
+    class JwstStorage {
+        self_type JwstStorage;
+        constructor JwstStorage::new(path: String) -> JwstStorage;
+        fn JwstStorage::error(&self) -> Option<String>; alias error;
+    }
+);"#,
+r#"foreign_class!(
     class WorkspaceTransaction {
         self_type WorkspaceTransaction;
         private constructor new<'a>() -> WorkspaceTransaction<'a> {

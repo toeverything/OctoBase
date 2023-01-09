@@ -8,7 +8,7 @@ impl Block {
     pub fn new(workspace: &Workspace, block_id: String, flavor: String, operator: u64) -> Block {
         let mut trx = workspace.get_trx().0.trx;
         Self(JwstBlock::new(
-            &workspace.0,
+            &workspace.workspace,
             &mut trx,
             block_id,
             flavor,

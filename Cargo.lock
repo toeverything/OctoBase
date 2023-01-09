@@ -1950,12 +1950,16 @@ version = "0.1.0"
 dependencies = [
  "android_logger",
  "flapigen",
+ "futures",
  "jni-sys",
  "jwst",
+ "jwst-storage",
  "lib0",
  "log",
  "log-panics",
  "rifgen",
+ "sqlx",
+ "yrs",
 ]
 
 [[package]]
