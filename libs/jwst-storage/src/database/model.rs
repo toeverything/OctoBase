@@ -1,5 +1,6 @@
 use chrono::naive::serde::{ts_milliseconds, ts_seconds};
 use serde::{Deserialize, Serialize};
+use schemars::{JsonSchema};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Type};
 use yrs::Map;
@@ -88,14 +89,14 @@ pub struct RefreshToken {
     pub token_nonce: i16,
 }
 
-#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Clone, Copy, JsonSchema)]
 #[repr(i16)]
 pub enum WorkspaceType {
     Private = 0,
     Normal = 1,
 }
 
-#[derive(FromRow, Serialize, Debug, Clone)]
+#[derive(FromRow, Serialize, Debug, Clone, JsonSchema)]
 pub struct Workspace {
     pub id: String,
     pub public: bool,
@@ -103,10 +104,11 @@ pub struct Workspace {
     #[sqlx(rename = "type")]
     pub type_: WorkspaceType,
     #[serde(with = "ts_milliseconds")]
+    #[schemars(with = "i64")]
     pub created_at: NaiveDateTime,
 }
 
-#[derive(FromRow, Serialize, Debug, Clone)]
+#[derive(FromRow, Serialize, Debug, Clone, JsonSchema)]
 pub struct WorkspaceWithPermission {
     pub permission: PermissionType,
     #[serde(flatten)]
@@ -149,7 +151,7 @@ pub struct UpdateWorkspace {
     pub public: bool,
 }
 
-#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
+#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, JsonSchema)]
 #[repr(i16)]
 pub enum PermissionType {
     Read = 0,
