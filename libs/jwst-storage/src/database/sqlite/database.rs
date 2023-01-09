@@ -244,10 +244,11 @@ impl SQLite {
             RETURNING uuid AS id, public, created_at, type;",
         );
         let uuid = Uuid::new_v4();
+        let workspace_id = uuid.to_string().replace("-", "_");
 
         let workspace = query_as::<_, Workspace>(&create_workspace)
             .bind(ws_type as i16)
-            .bind(uuid.to_string())
+            .bind(workspace_id)
             .fetch_one(&mut *trx)
             .await?;
 

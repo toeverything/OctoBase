@@ -29,6 +29,9 @@ use crate::{
 mod ws;
 pub use ws::*;
 
+mod user_channel;
+pub use user_channel::*;
+
 pub fn make_rest_route(ctx: Arc<Context>) -> Router {
     Router::new()
         .route("/healthz", get(health_check))
@@ -37,6 +40,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/blob", put(blobs::upload_blob))
         .route("/blob/:name", get(blobs::get_blob))
         .route("/invitation/:path", post(permissions::accept_invitation))
+        .route("/global/sync", get(global_ws_handler))
         .nest(
             "/",
             Router::new()
@@ -229,6 +233,9 @@ async fn create_workspace(
         if let Err(_) = ctx.docs.full_migrate(&id, update).await {
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
+        ctx.user_channel
+            .add_user_observe(claims.user.id, ctx.clone())
+            .await;
         Json(data).into_response()
     } else {
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -251,8 +258,12 @@ async fn update_workspace(
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 
-    match ctx.db.update_workspace(workspace_id, payload).await {
-        Ok(Some(data)) => Json(data).into_response(),
+    match ctx.db.update_workspace(workspace_id.clone(), payload).await {
+        Ok(Some(data)) => {
+            ctx.user_channel
+                .update_workspace(workspace_id.clone(), ctx.clone());
+            Json(data).into_response()
+        }
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
@@ -275,6 +286,8 @@ async fn delete_workspace(
 
     match ctx.db.delete_workspace(workspace_id.clone()).await {
         Ok(true) => {
+            ctx.user_channel
+                .update_workspace(workspace_id.clone(), ctx.clone());
             let _ = ctx.blob.delete_workspace(workspace_id).await;
             StatusCode::OK.into_response()
         }
