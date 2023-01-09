@@ -38,6 +38,10 @@ class Workspace(id: String) {
     fun withTrx(callback: (trx: WorkspaceTransaction) -> Unit) {
         this.workspace.withTrx { trx -> callback(WorkspaceTransaction(trx)) }
     }
+
+    fun withStorage(storage: JwstStorage) {
+        this.workspace.withStorage(storage)
+    }
 }
 
 class WorkspaceTransaction constructor(internal var trx: JwstWorkspaceTransaction) {
