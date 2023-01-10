@@ -1,10 +1,11 @@
 use chrono::naive::serde::{ts_milliseconds, ts_seconds};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Type};
 use yrs::Map;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct GoogleClaims {
     // name of project
     pub aud: String,
@@ -21,38 +22,40 @@ pub struct GoogleClaims {
     pub user_id: String,
 }
 
-#[derive(FromRow, Serialize, Deserialize, Clone)]
+#[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct User {
     pub id: i32,
     pub name: String,
     pub email: String,
     pub avatar_url: Option<String>,
     #[serde(with = "ts_milliseconds")]
+    #[schemars(with = "i64")]
     pub created_at: NaiveDateTime,
 }
 
-#[derive(FromRow)]
+#[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct UserWithNonce {
     #[sqlx(flatten)]
     pub user: User,
     pub token_nonce: i16,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct UserQuery {
     pub email: Option<String>,
     pub workspace_id: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Claims {
     #[serde(with = "ts_seconds")]
+    #[schemars(with = "i64")]
     pub exp: NaiveDateTime,
     #[serde(flatten)]
     pub user: User,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type")]
 pub enum MakeToken {
     User(UserLogin),
@@ -60,13 +63,13 @@ pub enum MakeToken {
     Google { token: String },
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct UserLogin {
     pub email: String,
     pub password: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CreateUser {
     pub name: String,
     pub avatar_url: Option<String>,
@@ -74,28 +77,29 @@ pub struct CreateUser {
     pub password: String,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct UserToken {
     pub token: String,
     pub refresh: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct RefreshToken {
     #[serde(with = "ts_milliseconds")]
+    #[schemars(with = "i64")]
     pub expires: NaiveDateTime,
     pub user_id: i32,
     pub token_nonce: i16,
 }
 
-#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Clone, Copy, JsonSchema)]
 #[repr(i16)]
 pub enum WorkspaceType {
     Private = 0,
     Normal = 1,
 }
 
-#[derive(FromRow, Serialize, Debug, Clone)]
+#[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Workspace {
     pub id: String,
     pub public: bool,
@@ -103,10 +107,11 @@ pub struct Workspace {
     #[sqlx(rename = "type")]
     pub type_: WorkspaceType,
     #[serde(with = "ts_milliseconds")]
+    #[schemars(with = "i64")]
     pub created_at: NaiveDateTime,
 }
 
-#[derive(FromRow, Serialize, Debug, Clone)]
+#[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkspaceWithPermission {
     pub permission: PermissionType,
     #[serde(flatten)]
@@ -114,7 +119,7 @@ pub struct WorkspaceWithPermission {
     pub workspace: Workspace,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkspaceDetail {
     // None if it's private
     pub owner: Option<User>,
@@ -123,32 +128,32 @@ pub struct WorkspaceDetail {
     pub workspace: Workspace,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CreateWorkspace {
     pub name: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkspaceSearchInput {
     pub query: String,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkspaceSearchResults {
     pub items: Vec<WorkspaceSearchResult>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkspaceSearchResult {
     pub block_id: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct UpdateWorkspace {
     pub public: bool,
 }
 
-#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
+#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, JsonSchema)]
 #[repr(i16)]
 pub enum PermissionType {
     Read = 0,
@@ -157,7 +162,7 @@ pub enum PermissionType {
     Owner = 99,
 }
 
-#[derive(FromRow, Serialize)]
+#[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Permission {
     pub id: i64,
     #[serde(rename = "type")]
@@ -168,6 +173,7 @@ pub struct Permission {
     pub user_email: Option<String>,
     pub accepted: bool,
     #[serde(with = "ts_milliseconds")]
+    #[schemars(with = "i64")]
     pub created_at: NaiveDateTime,
 }
 
@@ -185,55 +191,57 @@ impl PermissionType {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CreatePermission {
     pub email: String,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type")]
 pub enum UserCred {
     Registered(User),
     UnRegistered { email: String },
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Member {
     pub id: i64,
     pub user: UserCred,
     pub accepted: bool,
     pub type_: PermissionType,
     #[serde(with = "ts_milliseconds")]
+    #[schemars(with = "i64")]
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct UserInWorkspace {
     #[serde(flatten)]
     pub user: UserCred,
     pub in_workspace: bool,
 }
 
-#[derive(FromRow)]
+#[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Exist {
     pub exists: bool,
 }
 
-#[derive(FromRow)]
+#[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Id {
     pub id: i32,
 }
 
-#[derive(FromRow)]
+#[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct BigId {
     pub id: i64,
 }
 
-#[derive(FromRow)]
+#[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Count {
     pub count: i64,
 }
 
+#[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkspaceMetadata {
     pub name: String,
     pub avatar: String,
