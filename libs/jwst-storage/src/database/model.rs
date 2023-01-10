@@ -1,5 +1,5 @@
 use chrono::naive::serde::{ts_milliseconds, ts_seconds};
-use schemars::JsonSchema;
+use schemars::{JsonSchema, JsonSchema_repr};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Type};
@@ -92,7 +92,7 @@ pub struct RefreshToken {
     pub token_nonce: i16,
 }
 
-#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Clone, Copy, JsonSchema)]
+#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Clone, Copy, JsonSchema_repr)]
 #[repr(i16)]
 pub enum WorkspaceType {
     Private = 0,
@@ -153,7 +153,7 @@ pub struct UpdateWorkspace {
     pub public: bool,
 }
 
-#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, JsonSchema)]
+#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, JsonSchema_repr)]
 #[repr(i16)]
 pub enum PermissionType {
     Read = 0,
