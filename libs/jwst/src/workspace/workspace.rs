@@ -258,6 +258,10 @@ impl WorkspaceTransaction<'_> {
             Any::Buffer(_) | Any::Array(_) | Any::Map(_) => {}
         }
     }
+
+    pub fn commit(&mut self) {
+        self.trx.commit();
+    }
 }
 
 #[cfg(test)]

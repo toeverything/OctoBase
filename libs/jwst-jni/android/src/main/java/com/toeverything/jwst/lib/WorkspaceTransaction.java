@@ -24,6 +24,11 @@ public final class WorkspaceTransaction {
     }
     private static native long do_create(long self, @NonNull String block_id, @NonNull String flavor);
 
+    public final void commit() {
+        do_commit(mNativeObj);
+    }
+    private static native void do_commit(long self);
+
     public synchronized void delete() {
         if (mNativeObj != 0) {
             do_delete(mNativeObj);

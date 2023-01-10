@@ -54,6 +54,7 @@ impl Workspace {
     pub fn with_storage(&mut self, storage: JwstStorage) {
         let storage = storage.clone();
         let id = self.id();
+        storage.reload(id.clone(), self.workspace.doc());
         self.sub = Some(self.workspace.observe(move |_, e| {
             if let Err(e) = storage.write_update(id.clone(), &e.update) {
                 error!("Failed to write update to storage: {}", e);
