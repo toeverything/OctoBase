@@ -59,6 +59,19 @@ impl SQLite {
             .map(|pool| Self { pool })
     }
 
+    pub async fn init_absolute_pool(file: &str) -> Result<Self, Error> {
+        use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
+        use std::str::FromStr;
+
+        let path = format!("sqlite:{}", file);
+        let options = SqliteConnectOptions::from_str(&path)?
+            .journal_mode(SqliteJournalMode::Wal)
+            .create_if_missing(true);
+        SqlitePool::connect_with(options)
+            .await
+            .map(|pool| Self { pool })
+    }
+
     pub async fn init_memory_pool() -> Result<Self, Error> {
         use sqlx::sqlite::SqliteConnectOptions;
         use std::str::FromStr;
@@ -141,7 +154,7 @@ impl SQLite {
     }
 
     pub async fn full_migrate(&self, table: &str, blob: Vec<u8>) -> Result<(), Error> {
-        if self.count(table).await? > 1 {
+        if self.count(table).await? > 0 {
             self.replace_with(table, blob).await
         } else {
             Ok(())

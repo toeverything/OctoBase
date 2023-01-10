@@ -7,7 +7,7 @@ use y_sync::{
     awareness::Awareness,
     sync::{Error, Message},
 };
-use yrs::{Doc, Map, Subscription, Transaction, UpdateEvent};
+use yrs::{types::map::MapEvent, Doc, Map, Subscription, Transaction, UpdateEvent};
 
 use super::PluginMap;
 use plugins::PluginImpl;
@@ -145,6 +145,13 @@ impl Workspace {
         &self.content.metadata
     }
 
+    pub fn observe_metadata(
+        &mut self,
+        f: impl Fn(&Transaction, &MapEvent) -> () + 'static,
+    ) -> Subscription<MapEvent> {
+        self.content.metadata.observe(f)
+    }
+
     /// Check if the block exists in this workspace's blocks.
     pub fn exists(&self, block_id: &str) -> bool {
         self.content.exists(block_id)
@@ -250,6 +257,10 @@ impl WorkspaceTransaction<'_> {
             }
             Any::Buffer(_) | Any::Array(_) | Any::Map(_) => {}
         }
+    }
+
+    pub fn commit(&mut self) {
+        self.trx.commit();
     }
 }
 

@@ -194,7 +194,7 @@ pub struct CreatePermission {
     pub email: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "type")]
 pub enum UserCred {
     Registered(User),
