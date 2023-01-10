@@ -75,7 +75,7 @@ pub struct CreateUser {
     pub password: String,
 }
 
-#[derive(DeSerialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct UserToken {
     pub token: String,
     pub refresh: String,
