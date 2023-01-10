@@ -54,7 +54,7 @@ impl Context {
                     .expect("Cannot create database"),
             ),
             blobs: blobs.unwrap_or(
-                BlobDatabase::init_pool("blobs")
+                BlobDatabase::init_pool_with_name("blobs")
                     .await
                     .expect("Cannot create database"),
             ),

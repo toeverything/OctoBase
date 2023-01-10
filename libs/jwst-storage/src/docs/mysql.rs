@@ -29,10 +29,13 @@ pub struct MySQL {
 }
 
 impl MySQL {
-    pub async fn init_pool(database: &str) -> Result<Self, Error> {
-        let env = dotenvy::var("DATABASE_URL")
-            .unwrap_or_else(|_| format!("mysql://localhost/{}", database.to_string()));
-        MySqlPool::connect(&env).await.map(|pool| Self { pool })
+    pub async fn init_pool_with_name(database: &str) -> Result<Self, Error> {
+        let connect = format!("mysql://localhost/{}", database.to_string());
+        MySqlPool::connect(&connect).await.map(|pool| Self { pool })
+    }
+
+    pub async fn init_pool_with_full_path(path: &str) -> Result<Self, Error> {
+        MySqlPool::connect(&path).await.map(|pool| Self { pool })
     }
 
     pub async fn close(&self) {

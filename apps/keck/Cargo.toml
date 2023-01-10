@@ -9,7 +9,7 @@ license = "AGPL-3.0-only"
 default = ["jwst"]
 affine = ["jwst-storage/sqlite"]
 jwst = ["api", "schema", "docs", "jwst-storage/sqlite"]
-mysc = ["api", "schema", "docs", "jwst-storage/mysql", "dotenvy"]
+mysc = ["api", "schema", "docs", "jwst-storage/mysql"]
 api = ["utoipa"]
 docs = ["mdbook"]
 schema = ["utoipa-swagger-ui"]
@@ -80,11 +80,6 @@ features = ["chrono", "macros", "migrate", "runtime-tokio-rustls"]
 [dependencies.yrs]
 path = "../../libs/yrs"
 version = "^0.12.0"
-
-[dependencies.dotenvy]
-version = "^0.15.6"
-default-features = false
-optional = true
 
 [dev-dependencies]
 axum-test-helper = "0.2.0"

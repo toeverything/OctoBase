@@ -7,8 +7,8 @@ license = "AGPL-3.0-only"
 
 [features]
 default = ["postgres"]
-server = ["dotenvy"]
-mysql = ["dotenvy", "sqlx/mysql", "sqlx/decimal", "num-traits"]
+server = []
+mysql = ["sqlx/mysql", "sqlx/decimal", "num-traits"]
 postgres = ["sqlx/postgres"]
 sqlite = ["sqlx/sqlite"]
 
@@ -32,11 +32,6 @@ sqlx = { version = "0.6.2", features = [
     "runtime-tokio-rustls",
 ] }
 yrs = { path = "../../libs/yrs" }
-
-[dependencies.dotenvy]
-version = "^0.15.6"
-default-features = false
-optional = true
 
 [dependencies.jwst]
 path = "../jwst"

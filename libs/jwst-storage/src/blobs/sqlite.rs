@@ -1,54 +1,65 @@
 use super::*;
 use chrono::Utc;
-use sqlx::{query, query_as, Error};
+use path_ext::PathExt;
+use sqlx::{query, query_as, Error, SqlitePool};
 use std::{
     collections::HashSet,
     io::Cursor,
+    path::PathBuf,
     sync::{Arc, RwLock},
 };
 use tokio::io;
 
-type DatabasePool = sqlx::SqlitePool;
-
 pub struct SQLite {
-    pool: DatabasePool,
+    pool: SqlitePool,
     workspaces: Arc<RwLock<HashSet<String>>>,
 }
 
 impl SQLite {
-    pub async fn init_pool(file: &str) -> Result<Self, Error> {
+    pub async fn init_pool_with_name(file: &str) -> Result<Self, Error> {
         use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
         use std::fs::create_dir;
-        use std::path::PathBuf;
         use std::str::FromStr;
 
-        let data = PathBuf::from("data");
+        let data = PathBuf::from("./data");
         if !data.exists() {
-            create_dir(data)?;
+            create_dir(&data)?;
         }
         let path = format!(
             "sqlite:{}",
-            std::env::current_dir()
-                .unwrap()
-                .join(format!("./data/{}.db", file.to_string()))
-                .display()
+            data.join(PathBuf::from(file).name_str()).display()
         );
+
         let options = SqliteConnectOptions::from_str(&path)?
             .journal_mode(SqliteJournalMode::Wal)
             .create_if_missing(true);
-        DatabasePool::connect_with(options).await.map(|pool| Self {
+        SqlitePool::connect_with(options).await.map(|pool| Self {
             pool,
             workspaces: Arc::default(),
         })
     }
 
-    pub async fn init_memory_pool() -> Result<SQLite, Error> {
+    pub async fn init_pool_with_full_path(path: PathBuf) -> Result<Self, Error> {
+        use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
+        use std::str::FromStr;
+
+        let path = format!("sqlite:{}", path.display());
+        let options = SqliteConnectOptions::from_str(&path)?
+            .journal_mode(SqliteJournalMode::Wal)
+            .create_if_missing(true);
+        SqlitePool::connect_with(options).await.map(|pool| Self {
+            pool,
+            workspaces: Arc::default(),
+        })
+    }
+
+    pub async fn init_memory_pool() -> Result<Self, Error> {
         use sqlx::sqlite::SqliteConnectOptions;
         use std::str::FromStr;
         let path = format!("sqlite::memory:");
         let options = SqliteConnectOptions::from_str(&path)?.create_if_missing(true);
-        let pool = DatabasePool::connect_with(options).await?;
-        Ok(SQLite {
+        let pool = SqlitePool::connect_with(options).await?;
+        Ok(Self {
             pool,
             workspaces: Arc::default(),
         })

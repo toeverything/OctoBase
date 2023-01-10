@@ -1,6 +1,6 @@
 use super::*;
 use num_traits::cast::ToPrimitive;
-use sqlx::{query, query_as, Error};
+use sqlx::{query, query_as, Error, MySqlPool};
 use std::{
     collections::HashSet,
     io::Cursor,
@@ -8,18 +8,22 @@ use std::{
 };
 use tokio::io;
 
-type DatabasePool = sqlx::MySqlPool;
-
 pub struct MySQL {
-    pool: DatabasePool,
+    pool: MySqlPool,
     workspaces: Arc<RwLock<HashSet<String>>>,
 }
 
 impl MySQL {
-    pub async fn init_pool(database: &str) -> Result<Self, Error> {
-        let env = dotenvy::var("DATABASE_URL")
-            .unwrap_or_else(|_| format!("mysql://localhost/{}", database.to_string()));
-        DatabasePool::connect(&env).await.map(|pool| Self {
+    pub async fn init_pool_with_name(database: &str) -> Result<Self, Error> {
+        let connect = format!("mysql://localhost/{}", database.to_string());
+        MySqlPool::connect(&connect).await.map(|pool| Self {
+            pool,
+            workspaces: Arc::default(),
+        })
+    }
+
+    pub async fn init_pool_with_full_path(path: &str) -> Result<Self, Error> {
+        MySqlPool::connect(&path).await.map(|pool| Self {
             pool,
             workspaces: Arc::default(),
         })
@@ -224,7 +228,7 @@ mod tests {
         use std::str::FromStr;
         let path = format!("mysql://root:password@localhost/db");
         let options = MySqlConnectOptions::from_str(&path)?;
-        let pool = DatabasePool::connect_with(options).await?;
+        let pool = MySqlPool::connect_with(options).await?;
         Ok(MySQL {
             pool,
             workspaces: Arc::default(),
