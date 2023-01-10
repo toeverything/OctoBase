@@ -32,13 +32,6 @@ sqlx = { version = "0.6.2", features = [
     "macros",
     "runtime-tokio-rustls",
 ] }
-yrs = { path = "../../libs/yrs" }
-
-[dependencies.jwst]
-path = "../jwst"
-
-[dependencies.jwst-logger]
-path = "../jwst-logger"
 
 [dependencies.num-traits]
 version = "0.2.15"
@@ -50,3 +43,13 @@ features = [
     "v4",       # Lets you generate random UUIDs
     "fast-rng", # Use a faster (but still sufficiently random) RNG
 ]
+
+[dependencies.jwst]
+path = "../jwst"
+
+[dependencies.jwst-logger]
+path = "../jwst-logger"
+
+[dependencies.yrs]
+path = "../vendors/yrs"
+version = "0.12.0"

@@ -3,16 +3,16 @@
 members = [
     "apps/cloud",
     "apps/keck",
-    "libs/cang-jie",
     "libs/jwst",
-    "libs/jwst-ffi",
-    "libs/jwst-jni",
+    "libs/jwst-binding/jwst-ffi",
+    "libs/jwst-binding/jwst-jni",
+    # "libs/jwst-binding/jwst-py",
+    # "libs/jwst-binding/jwst-wasm",
     "libs/jwst-logger",
-    # "libs/jwst-py",
     "libs/jwst-storage",
-    # "libs/jwst-wasm",
-    "libs/y-sync",
-    "libs/yrs",
+    "libs/vendors/cang-jie",
+    "libs/vendors/y-sync",
+    "libs/vendors/yrs",
 ]
 
 [profile.release]

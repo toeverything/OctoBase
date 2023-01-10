@@ -25,9 +25,6 @@ hmac = "0.12.1"
 http = "0.2.8"
 http-body = "0.4.5"
 jsonwebtoken = "8.1.1"
-jwst = { path = "../../libs/jwst" }
-jwst-logger = { path = "../../libs/jwst-logger" }
-jwst-storage = { path = "../../libs/jwst-storage" }
 lettre = { version = "0.10.1", features = [
     "builder",
     "tokio1",
@@ -62,8 +59,13 @@ tokio = { version = "1.23.0", features = [
 tower = "0.4.13"
 tower-http = { version = "0.3.5", features = ["auth"] }
 x509-parser = "0.14.0"
-y-sync = { path = "../../libs/y-sync" }
-yrs = { path = "../../libs/yrs" }
+
+# ======= workspace dependencies =======
+jwst = { path = "../../libs/jwst" }
+jwst-logger = { path = "../../libs/jwst-logger" }
+jwst-storage = { path = "../../libs/jwst-storage" }
+y-sync = { path = "../../libs/vendors/y-sync" }
+yrs = { path = "../../libs/vendors/yrs" }
 
 [dependencies.tokio-util]
 version = "^0.7.4"
