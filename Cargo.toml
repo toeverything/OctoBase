@@ -8,9 +8,9 @@ members = [
     "libs/jwst-ffi",
     "libs/jwst-jni",
     "libs/jwst-logger",
-    "libs/jwst-py",
+    # "libs/jwst-py",
     "libs/jwst-storage",
-    "libs/jwst-wasm",
+    # "libs/jwst-wasm",
     "libs/y-sync",
     "libs/yrs",
 ]
