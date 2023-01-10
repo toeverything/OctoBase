@@ -26,7 +26,7 @@ impl JwstStorage {
 
         let rt = Runtime::new().unwrap();
 
-        match rt.block_on(DocSQLiteStorage::init_absolute_pool(&path)) {
+        match rt.block_on(DocSQLiteStorage::init_pool_with_full_path(path.into())) {
             Ok(pool) => Self {
                 storage: Some(Arc::new(RwLock::new(pool))),
                 error: None,

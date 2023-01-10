@@ -49,7 +49,7 @@ impl Context {
             workspace: DashMap::new(),
             channel: DashMap::new(),
             docs: docs.unwrap_or(
-                DocDatabase::init_pool("jwst")
+                DocDatabase::init_pool_with_name("jwst")
                     .await
                     .expect("Cannot create database"),
             ),

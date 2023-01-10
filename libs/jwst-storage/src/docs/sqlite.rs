@@ -2,7 +2,10 @@ use super::*;
 use jwst_logger::{info, warn};
 use path_ext::PathExt;
 use sqlx::{query, query_as, Error, SqlitePool};
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::{
+    panic::{catch_unwind, AssertUnwindSafe},
+    path::PathBuf,
+};
 use yrs::{updates::decoder::Decode, Doc, Options, StateVector, Update};
 
 const MAX_TRIM_UPDATE_LIMIT: i64 = 500;
@@ -30,27 +33,20 @@ pub struct SQLite {
 }
 
 impl SQLite {
-    pub async fn init_pool(file: &str) -> Result<Self, Error> {
+    pub async fn init_pool_with_name(file: &str) -> Result<Self, Error> {
         use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
         use std::fs::create_dir;
-        use std::path::PathBuf;
         use std::str::FromStr;
 
-        let data = PathBuf::from("data");
+        let data = PathBuf::from("./data");
         if !data.exists() {
-            create_dir(data)?;
+            create_dir(&data)?;
         }
-        let path = format!("sqlite:{}", {
-            let path = PathBuf::from(file);
-            if path.exists() {
-                path
-            } else {
-                std::env::current_dir()
-                    .unwrap()
-                    .join(format!("./data/{}.db", path.name_str()))
-            }
-            .display()
-        });
+        let path = format!(
+            "sqlite:{}",
+            data.join(PathBuf::from(file).name_str()).display()
+        );
+
         let options = SqliteConnectOptions::from_str(&path)?
             .journal_mode(SqliteJournalMode::Wal)
             .create_if_missing(true);
@@ -59,11 +55,11 @@ impl SQLite {
             .map(|pool| Self { pool })
     }
 
-    pub async fn init_absolute_pool(file: &str) -> Result<Self, Error> {
+    pub async fn init_pool_with_full_path(path: PathBuf) -> Result<Self, Error> {
         use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
         use std::str::FromStr;
 
-        let path = format!("sqlite:{}", file);
+        let path = format!("sqlite:{}", path.display());
         let options = SqliteConnectOptions::from_str(&path)?
             .journal_mode(SqliteJournalMode::Wal)
             .create_if_missing(true);

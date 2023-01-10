@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use aes_gcm::aead::Aead;
@@ -63,9 +63,11 @@ impl DocStore {
 
         DocStore {
             cache: Cache::new(1000),
-            storage: DocSQLiteStorage::init_pool(&Path::new(&doc_env).display().to_string())
-                .await
-                .expect("Failed to init doc storage"),
+            storage: DocSQLiteStorage::init_pool_with_full_path(
+                PathBuf::from(doc_env).join("jwst.db"),
+            )
+            .await
+            .expect("Failed to init doc storage"),
         }
     }
 
@@ -218,7 +220,7 @@ impl Context {
             site_url,
             workspace: DashMap::new(),
             channel: DashMap::new(),
-            docs: DocSQLiteStorage::init_pool("jwst")
+            docs: DocSQLiteStorage::init_pool_with_name("jwst")
                 .await
                 .expect("Cannot create database"),
             user_channel: UserChannel::new(),
