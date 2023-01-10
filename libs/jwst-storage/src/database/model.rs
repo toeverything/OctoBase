@@ -4,7 +4,7 @@ use schemars::{JsonSchema};
 use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Type};
 use yrs::Map;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GoogleClaims {
     // name of project
     pub aud: String,
@@ -39,7 +39,7 @@ pub struct UserWithNonce {
     pub token_nonce: i16,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct UserQuery {
     pub email: Option<String>,
     pub workspace_id: Option<String>,
@@ -53,7 +53,7 @@ pub struct Claims {
     pub user: User,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum MakeToken {
     User(UserLogin),
@@ -61,13 +61,13 @@ pub enum MakeToken {
     Google { token: String },
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct UserLogin {
     pub email: String,
     pub password: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct CreateUser {
     pub name: String,
     pub avatar_url: Option<String>,
@@ -75,7 +75,7 @@ pub struct CreateUser {
     pub password: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Serialize)]
 pub struct UserToken {
     pub token: String,
     pub refresh: String,
@@ -126,13 +126,13 @@ pub struct WorkspaceDetail {
     pub workspace: Workspace,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct CreateWorkspace {
     pub name: String,
     pub avatar: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct WorkspaceSearchInput {
     pub query: String,
 }
@@ -147,7 +147,7 @@ pub struct WorkspaceSearchResult {
     pub block_id: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct UpdateWorkspace {
     pub public: bool,
 }
@@ -161,7 +161,7 @@ pub enum PermissionType {
     Owner = 99,
 }
 
-#[derive(FromRow, Serialize)]
+#[derive(FromRow, Serialize, Deserialize)]
 pub struct Permission {
     pub id: i64,
     #[serde(rename = "type")]
@@ -189,19 +189,19 @@ impl PermissionType {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct CreatePermission {
     pub email: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum UserCred {
     Registered(User),
     UnRegistered { email: String },
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Member {
     pub id: i64,
     pub user: UserCred,
@@ -211,7 +211,7 @@ pub struct Member {
     pub created_at: NaiveDateTime,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct UserInWorkspace {
     #[serde(flatten)]
     pub user: UserCred,
