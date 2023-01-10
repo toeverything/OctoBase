@@ -9,6 +9,7 @@ use std::{
 use yrs::{updates::decoder::Decode, Doc, Options, StateVector, Update};
 
 const MAX_TRIM_UPDATE_LIMIT: i64 = 500;
+static PRE_WORKSPACE: &'static str = "wb_";
 
 fn migrate_update(updates: Vec<UpdateBinary>, doc: Doc) -> Doc {
     let mut trx = doc.transact();
@@ -82,7 +83,7 @@ impl SQLite {
     }
 
     pub async fn all(&self, table: &str) -> Result<Vec<UpdateBinary>, Error> {
-        let stmt = format!("SELECT * FROM {}", table);
+        let stmt = format!("SELECT * FROM {}", PRE_WORKSPACE.to_owned() + table);
         let ret = query_as::<_, UpdateBinary>(&stmt)
             .fetch_all(&self.pool)
             .await?;
@@ -93,7 +94,7 @@ impl SQLite {
         #[derive(sqlx::FromRow)]
         struct Count(i64);
 
-        let stmt = format!("SELECT count(*) FROM {}", table);
+        let stmt = format!("SELECT count(*) FROM {}", PRE_WORKSPACE.to_owned() + table);
         let ret = query_as::<_, Count>(&stmt).fetch_one(&self.pool).await?;
         Ok(ret.0)
     }
@@ -101,14 +102,17 @@ impl SQLite {
     pub async fn create(&self, table: &str) -> Result<(), Error> {
         let stmt = format!(
             "CREATE TABLE IF NOT EXISTS {} (id INTEGER PRIMARY KEY AUTOINCREMENT, blob BLOB);",
-            table
+            PRE_WORKSPACE.to_owned() + table
         );
         query(&stmt).execute(&self.pool).await?;
         Ok(())
     }
 
     pub async fn insert(&self, table: &str, blob: &[u8]) -> Result<(), Error> {
-        let stmt = format!("INSERT INTO {} (`blob`) VALUES (?);", table);
+        let stmt = format!(
+            "INSERT INTO {} (`blob`) VALUES (?);",
+            PRE_WORKSPACE.to_owned() + table
+        );
         query(&stmt).bind(blob).execute(&self.pool).await?;
         Ok(())
     }
@@ -116,10 +120,13 @@ impl SQLite {
     pub async fn replace_with(&self, table: &str, blob: Vec<u8>) -> Result<(), Error> {
         let mut tx = self.pool.begin().await?;
 
-        let stmt = format!("DELETE FROM {}", table);
+        let stmt = format!("DELETE FROM {}", PRE_WORKSPACE.to_owned() + table);
         query(&stmt).execute(&mut tx).await?;
 
-        let stmt = format!("INSERT INTO {} (`blob`) VALUES (?);", table);
+        let stmt = format!(
+            "INSERT INTO {} (`blob`) VALUES (?);",
+            PRE_WORKSPACE.to_owned() + table
+        );
         query(&stmt).bind(blob).execute(&mut tx).await?;
 
         tx.commit().await?;
@@ -128,7 +135,7 @@ impl SQLite {
     }
 
     pub async fn drop(&self, table: &str) -> Result<(), Error> {
-        let stmt = format!("DROP TABLE IF EXISTS {};", table);
+        let stmt = format!("DROP TABLE IF EXISTS {};", PRE_WORKSPACE.to_owned() + table);
         query(&stmt).execute(&self.pool).await?;
         Ok(())
     }
