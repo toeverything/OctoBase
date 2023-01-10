@@ -218,10 +218,6 @@ async fn create_workspace(
 
             doc.with_trx(|mut t| {
                 t.set_metadata("name", Any::String(payload.name.into_boxed_str()));
-                t.set_metadata(
-                    "avatar",
-                    Any::String(payload.avatar.clone().into_boxed_str()),
-                );
             });
             doc
         };

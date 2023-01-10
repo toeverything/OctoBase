@@ -126,7 +126,6 @@ pub struct WorkspaceDetail {
 #[derive(Deserialize)]
 pub struct CreateWorkspace {
     pub name: String,
-    pub avatar: String,
 }
 
 #[derive(Deserialize)]
