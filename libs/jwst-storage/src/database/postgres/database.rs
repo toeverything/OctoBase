@@ -409,6 +409,16 @@ impl PostgreSQL {
             .map(|p| p.is_some())
     }
 
+    pub async fn is_public_workspace(&self, workspace_id: String) -> sqlx::Result<bool> {
+        let stmt = "SELECT True FROM workspaces WHERE uuid = $1 AND public = True";
+
+        query(&stmt)
+            .bind(workspace_id)
+            .fetch_optional(&self.db)
+            .await
+            .map(|p| p.is_some())
+    }
+
     pub async fn create_permission(
         &self,
         email: &str,
