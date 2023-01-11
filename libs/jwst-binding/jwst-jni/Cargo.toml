@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 android_logger = "^0.11.3"
 jni-sys = "^0.3.0"
-lib0 = "^0.12.1"
+lib0 = "^0.12.2"
 log = "^0.4.17"
 log-panics = "^2.1.0"
 sqlx = "0.6.2"
@@ -18,7 +18,7 @@ tokio = "1.24.1"
 # ======= workspace dependencies =======
 jwst = { path = "../../jwst" }
 jwst-storage = { path = "../../jwst-storage", features = ["sqlite"] }
-yrs = { path = "../../vendors/yrs" }
+yrs = { path = "../../vendors/y-crdt/yrs" }
 
 [build-dependencies]
 flapigen = { git = "https://github.com/Dushistov/flapigen-rs", rev = "5ccbdef4557a2f4950078824dad970876b964160" } # 0.6.0-pre13

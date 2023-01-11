@@ -1,0 +1,6 @@
+[submodule "forks/y-sync"]
+	path = libs/vendors/y-sync
+	url = https://github.com/toeverything/y-sync.git
+[submodule "forks/y-crdt"]
+	path = libs/vendors/y-crdt
+	url = https://github.com/toeverything/y-crdt.git
