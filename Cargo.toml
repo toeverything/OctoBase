@@ -12,10 +12,14 @@ members = [
     "libs/jwst-storage",
     "libs/vendors/cang-jie",
     "libs/vendors/y-sync",
-    "libs/vendors/yrs",
+    "libs/vendors/y-crdt/yrs",
 ]
 
 [profile.release]
 lto = true
 opt-level = "z"
 codegen-units = 1
+
+[patch.crates-io]
+yrs = { path = 'libs/vendors/y-crdt/yrs' }
+y-sync = { path = 'libs/vendors/y-sync' }

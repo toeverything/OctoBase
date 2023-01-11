@@ -25,22 +25,22 @@ hmac = "0.12.1"
 http = "0.2.8"
 http-body = "0.4.5"
 jsonwebtoken = "8.1.1"
-lettre = { version = "0.10.1", features = [
+lettre = { version = "0.10.1", default-features = false, features = [
     "builder",
     "tokio1",
     "pool",
     "smtp-transport",
     "tokio1-rustls-tls",
-], default-features = false }
-lib0 = "0.12.0"
+] }
+lib0 = "0.12.2"
 mime = "0.3.16"
 moka = { version = "0.9.6", features = ["future"] }
 pem = "1.1.0"
 rand = "0.8.5"
-reqwest = { version = "0.11.13", features = [
+reqwest = { version = "0.11.13", default-features = false, features = [
     "json",
     "rustls-tls",
-], default-features = false }
+] }
 serde = { version = "1.0.151", features = ["derive"] }
 serde_json = "1.0.91"
 serde_repr = "0.1.10"
@@ -56,8 +56,10 @@ tokio = { version = "1.23.0", features = [
     "rt-multi-thread",
     "signal",
 ] }
+tokio-util = { version = "^0.7.4", features = ["io"] }
 tower = "0.4.13"
 tower-http = { version = "0.3.5", features = ["auth"] }
+uuid = { version = "^1.2.2", default-features = false, features = ["v4"] }
 x509-parser = "0.14.0"
 
 # ======= workspace dependencies =======
@@ -65,13 +67,4 @@ jwst = { path = "../../libs/jwst" }
 jwst-logger = { path = "../../libs/jwst-logger" }
 jwst-storage = { path = "../../libs/jwst-storage" }
 y-sync = { path = "../../libs/vendors/y-sync" }
-yrs = { path = "../../libs/vendors/yrs" }
-
-[dependencies.tokio-util]
-version = "^0.7.4"
-features = ["io"]
-
-[dependencies.uuid]
-version = "^1.2.2"
-default-features = false
-features = ["v4"]
+yrs = { path = "../../libs/vendors/y-crdt/yrs" }

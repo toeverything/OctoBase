@@ -13,20 +13,14 @@ log_panic = ["console_error_panic_hook"]
 
 [dependencies]
 cfg-if = "^1.0.0"
+console_error_panic_hook = { version = "^0.1.7", optional = true }
 js-sys = "^0.3.60"
 wasm-bindgen = "^0.2.83"
+wee_alloc = { version = "^0.4.5", optional = true }
 
 # ======= workspace dependencies =======
 jwst = { path = "../../jwst" }
-yrs = { path = "../../vendors/yrs" }
-
-[dependencies.console_error_panic_hook]
-version = "^0.1.7"
-optional = true
-
-[dependencies.wee_alloc]
-version = "^0.4.5"
-optional = true
+yrs = { path = "../../vendors/y-crdt/yrs" }
 
 [lib]
 crate-type = ["cdylib"]
