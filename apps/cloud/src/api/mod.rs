@@ -41,6 +41,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/blob/:name", get(blobs::get_blob))
         .route("/invitation/:path", post(permissions::accept_invitation))
         .route("/global/sync", get(global_ws_handler))
+        .route("/public/doc/:id", get(get_public_doc))
         .nest(
             "/",
             Router::new()
@@ -307,6 +308,23 @@ async fn get_doc(
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 
+    get_workspace_doc(ctx, workspace_id).await
+}
+
+pub async fn get_public_doc(
+    Extension(ctx): Extension<Arc<Context>>,
+    Path(workspace_id): Path<String>,
+) -> Response {
+    match ctx.db.is_public_workspace(workspace_id.clone()).await {
+        Ok(true) => (),
+        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+
+    get_workspace_doc(ctx, workspace_id).await
+}
+
+async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response {
     if let Some(doc) = ctx.doc.try_get_workspace(workspace_id.clone()) {
         return doc
             .read()

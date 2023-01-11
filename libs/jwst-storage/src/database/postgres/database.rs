@@ -298,14 +298,24 @@ impl PostgreSQL {
     }
 
     pub async fn delete_workspace(&self, workspace_id: String) -> sqlx::Result<bool> {
+        let delete_permissions_workspace = format!(
+            r#"DELETE FROM permissions CASCADE WHERE workspace_id = $1 AND (SELECT True FROM workspaces WHERE uuid = $1 AND type = {})"#,
+            WorkspaceType::Normal as i16
+        );
+
+        query(&delete_permissions_workspace)
+            .bind(workspace_id.clone())
+            .execute(&self.db)
+            .await
+            .expect("delete table permissions failed");
+
         let delete_workspace = format!(
-            "DELETE FROM workspaces CASCADE
-            WHERE uuid = $1 AND type = {}",
+            r#"DELETE FROM workspaces CASCADE WHERE uuid = $1 AND type = {}"#,
             WorkspaceType::Normal as i16
         );
 
         query(&delete_workspace)
-            .bind(workspace_id)
+            .bind(workspace_id.clone())
             .execute(&self.db)
             .await
             .map(|q| q.rows_affected() != 0)
@@ -393,6 +403,16 @@ impl PostgreSQL {
 
         query(&stmt)
             .bind(user_id)
+            .bind(workspace_id)
+            .fetch_optional(&self.db)
+            .await
+            .map(|p| p.is_some())
+    }
+
+    pub async fn is_public_workspace(&self, workspace_id: String) -> sqlx::Result<bool> {
+        let stmt = "SELECT True FROM workspaces WHERE uuid = $1 AND public = True";
+
+        query(&stmt)
             .bind(workspace_id)
             .fetch_optional(&self.db)
             .await

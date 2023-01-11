@@ -92,7 +92,9 @@ pub struct RefreshToken {
     pub token_nonce: i16,
 }
 
-#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Clone, Copy, JsonSchema_repr)]
+#[derive(
+    Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Clone, Copy, JsonSchema_repr,
+)]
 #[repr(i16)]
 pub enum WorkspaceType {
     Private = 0,
@@ -153,7 +155,18 @@ pub struct UpdateWorkspace {
     pub public: bool,
 }
 
-#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, JsonSchema_repr)]
+#[derive(
+    Type,
+    Serialize_repr,
+    Deserialize_repr,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Debug,
+    Clone,
+    JsonSchema_repr,
+)]
 #[repr(i16)]
 pub enum PermissionType {
     Read = 0,
@@ -208,6 +221,7 @@ pub struct Member {
     pub id: i64,
     pub user: UserCred,
     pub accepted: bool,
+    #[serde(rename = "type")]
     pub type_: PermissionType,
     #[serde(with = "ts_milliseconds")]
     #[schemars(with = "i64")]
