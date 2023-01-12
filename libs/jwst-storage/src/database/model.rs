@@ -258,14 +258,12 @@ pub struct Count {
 #[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkspaceMetadata {
     pub name: String,
-    pub avatar: String,
 }
 
 impl WorkspaceMetadata {
     pub fn parse(metadata: &Map) -> Option<Self> {
         let name = metadata.get("name")?.to_string();
-        let avatar = metadata.get("avatar")?.to_string();
 
-        Some(WorkspaceMetadata { name, avatar })
+        Some(WorkspaceMetadata { name })
     }
 }
