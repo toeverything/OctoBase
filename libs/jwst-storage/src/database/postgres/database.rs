@@ -164,7 +164,7 @@ impl PostgreSQL {
         Ok(())
     }
 
-    pub async fn create_user(&self, user: CreateUser) -> sqlx::Result<Option<User>> {
+    pub async fn create_user(&self, user: CreateUser) -> sqlx::Result<Option<(User, Workspace)>> {
         let mut trx = self.db.begin().await?;
         let create_user = "INSERT INTO users 
             (name, password, email, avatar_url)
@@ -182,13 +182,14 @@ impl PostgreSQL {
                 return Ok(None)
         };
 
-        Self::create_workspace(&mut trx, user.id, WorkspaceType::Private).await?;
+        let new_workspace =
+            Self::create_workspace(&mut trx, user.id, WorkspaceType::Private).await?;
 
         Self::update_cred(&mut trx, user.id, &user.email).await?;
 
         trx.commit().await?;
 
-        Ok(Some(user))
+        Ok(Some(user, new_workspace))
     }
 
     pub async fn get_workspace_by_id(
@@ -582,7 +583,7 @@ mod tests {
         }
         db_context.init_db().await;
         // start test
-        let new_user = db_context
+        let (new_user, _) = db_context
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
                 email: "xxx@xxx.xx".to_string(),
@@ -593,7 +594,7 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(new_user.id, 1);
-        let new_user2 = db_context
+        let (new_user2, _) = db_context
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
                 email: "xxx2@xxx.xx".to_string(),
