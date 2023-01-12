@@ -64,14 +64,14 @@ async fn make_invite_email(
         WorkspaceMetadata::parse(ws.metadata())?
     };
 
-    let mut file = ctx.blob.get_blob(None, metadata.avatar).await.ok()?;
+    // let mut file = ctx.blob.get_blob(None, metadata.avatar).await.ok()?;
 
-    let mut file_content = Vec::new();
-    while let Some(chunk) = file.next().await {
-        file_content.extend(chunk.ok()?);
-    }
+    // let mut file_content = Vec::new();
+    // while let Some(chunk) = file.next().await {
+    //     file_content.extend(chunk.ok()?);
+    // }
 
-    let workspace_avatar = lettre::message::Body::new(file_content);
+    // let workspace_avatar = lettre::message::Body::new(file_content);
 
     #[derive(Serialize)]
     struct Title {
@@ -116,14 +116,7 @@ async fn make_invite_email(
         .ok()?;
 
     let msg_body = MultiPart::mixed().multipart(
-        MultiPart::mixed().multipart(
-            MultiPart::related()
-                .singlepart(SinglePart::html(content))
-                .singlepart(
-                    Attachment::new_inline("avatar".to_string())
-                        .body(workspace_avatar, "image/png".parse().unwrap()),
-                ),
-        ),
+        MultiPart::mixed().multipart(MultiPart::related().singlepart(SinglePart::html(content))),
     );
 
     Some((title, msg_body))
