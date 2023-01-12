@@ -189,7 +189,7 @@ impl PostgreSQL {
 
         trx.commit().await?;
 
-        Ok(Some(user, new_workspace))
+        Ok(Some((user, new_workspace)))
     }
 
     pub async fn get_workspace_by_id(
