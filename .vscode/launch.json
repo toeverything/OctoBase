@@ -1,130 +1,141 @@
 {
-	// 使用 IntelliSense 了解相关属性。
-	// 悬停以查看现有属性的描述。
-	// 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
-	"version": "0.2.0",
-	"configurations": [
-		{
-			"type": "lldb",
-			"request": "launch",
-			"name": "Debug executable 'affine-cloud'",
-			"cargo": {
-				"args": ["build", "--bin=affine-cloud", "--package=affine-cloud"],
-				"filter": {
-					"name": "affine-cloud",
-					"kind": "bin"
-				}
-			},
-			"env": {
-				"DATABASE_URL": "postgresql://affine:affine@localhost:5432/affine",
-				"SIGN_KEY": "12345678",
-				"MAIL_ACCOUNT": "example@toeverything.info",
-				"MAIL_PASSWORD": "a",
-				"MAIL_FROM": "noreply@toeverything.info",
-				"MAIL_PROVIDER": "smtp.gmail.com",
-				"MAIL_TITLE": "Send from AFFiNE Cloud",
-				"BLOB_STORAGE_PATH": "/Users/ds/Source/JWST/blobs"
-			},
-			"args": [],
-			"cwd": "${workspaceFolder}"
-		},
-		{
-			"type": "lldb",
-			"request": "launch",
-			"name": "Debug executable 'keck'",
-			"cargo": {
-				"args": ["build", "--bin=keck", "--package=keck"],
-				"filter": {
-					"name": "keck",
-					"kind": "bin"
-				}
-			},
-			"args": [],
-			"cwd": "${workspaceFolder}"
-		},
-		{
-			"type": "lldb",
-			"request": "launch",
-			"name": "Debug unit tests in executable 'keck'",
-			"cargo": {
-				"args": ["test", "--no-run", "--bin=keck", "--package=keck"],
-				"filter": {
-					"name": "keck",
-					"kind": "bin"
-				}
-			},
-			"args": [],
-			"cwd": "${workspaceFolder}"
-		},
-		{
-			"type": "lldb",
-			"request": "launch",
-			"name": "Debug unit tests in library 'lib0'",
-			"cargo": {
-				"args": ["test", "--no-run", "--lib", "--package=lib0"],
-				"filter": {
-					"name": "lib0",
-					"kind": "lib"
-				}
-			},
-			"args": [],
-			"cwd": "${workspaceFolder}"
-		},
-		{
-			"type": "lldb",
-			"request": "launch",
-			"name": "Debug integration test 'encoding_test'",
-			"cargo": {
-				"args": ["test", "--no-run", "--test=encoding_test", "--package=lib0"],
-				"filter": {
-					"name": "encoding_test",
-					"kind": "test"
-				}
-			},
-			"args": [],
-			"cwd": "${workspaceFolder}"
-		},
-		{
-			"type": "lldb",
-			"request": "launch",
-			"name": "Debug integration test 'json_test'",
-			"cargo": {
-				"args": ["test", "--no-run", "--test=json_test", "--package=lib0"],
-				"filter": {
-					"name": "json_test",
-					"kind": "test"
-				}
-			},
-			"args": [],
-			"cwd": "${workspaceFolder}"
-		},
-		{
-			"type": "lldb",
-			"request": "launch",
-			"name": "Debug benchmark 'lib0_benchmarks'",
-			"cargo": {
-				"args": ["test", "--no-run", "--bench=lib0_benchmarks", "--package=lib0"],
-				"filter": {
-					"name": "lib0_benchmarks",
-					"kind": "bench"
-				}
-			},
-			"args": [],
-			"cwd": "${workspaceFolder}"
-		},
-		{
-			"type": "lldb",
-			"request": "launch",
-			"name": "Debug unit tests in library 'yrs'",
-			"cargo": {
-				"args": ["test", "--no-run", "--lib", "--package=yrs"],
-				"filter": {
-					"name": "yrs",
-					"kind": "lib"
-				}
-			},
-			"args": [],
-			"cwd": "${workspaceFolder}"
-		}
-	]
+  // 使用 IntelliSense 了解相关属性。
+  // 悬停以查看现有属性的描述。
+  // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'affine-cloud'",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=affine-cloud",
+          "--package=affine-cloud",
+          "--no-default-features",
+          "--features=affine"
+        ],
+        "filter": {
+          "name": "affine-cloud",
+          "kind": "bin"
+        }
+      },
+      "env": {
+        "DATABASE_URL": "postgresql://affine:affine@localhost:5432/affine",
+        "SIGN_KEY": "12345678",
+        "MAIL_ACCOUNT": "example@toeverything.info",
+        "MAIL_PASSWORD": "a",
+        "MAIL_FROM": "noreply@toeverything.info",
+        "MAIL_PROVIDER": "smtp.gmail.com",
+        "MAIL_TITLE": "Send from AFFiNE Cloud"
+        // "BLOB_STORAGE_PATH": "/Users/ds/Source/JWST/blobs"
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'keck'",
+      "cargo": {
+        "args": ["build", "--bin=keck", "--package=keck"],
+        "filter": {
+          "name": "keck",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in executable 'keck'",
+      "cargo": {
+        "args": ["test", "--no-run", "--bin=keck", "--package=keck"],
+        "filter": {
+          "name": "keck",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in library 'lib0'",
+      "cargo": {
+        "args": ["test", "--no-run", "--lib", "--package=lib0"],
+        "filter": {
+          "name": "lib0",
+          "kind": "lib"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug integration test 'encoding_test'",
+      "cargo": {
+        "args": ["test", "--no-run", "--test=encoding_test", "--package=lib0"],
+        "filter": {
+          "name": "encoding_test",
+          "kind": "test"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug integration test 'json_test'",
+      "cargo": {
+        "args": ["test", "--no-run", "--test=json_test", "--package=lib0"],
+        "filter": {
+          "name": "json_test",
+          "kind": "test"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug benchmark 'lib0_benchmarks'",
+      "cargo": {
+        "args": [
+          "test",
+          "--no-run",
+          "--bench=lib0_benchmarks",
+          "--package=lib0"
+        ],
+        "filter": {
+          "name": "lib0_benchmarks",
+          "kind": "bench"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in library 'yrs'",
+      "cargo": {
+        "args": ["test", "--no-run", "--lib", "--package=yrs"],
+        "filter": {
+          "name": "yrs",
+          "kind": "lib"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
 }

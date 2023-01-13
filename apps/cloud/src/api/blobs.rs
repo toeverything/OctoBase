@@ -4,7 +4,7 @@ use axum::{
     extract::{BodyStream, Path},
     headers::ContentLength,
     response::{IntoResponse, Response},
-    Extension, TypedHeader,
+    Extension, Json, TypedHeader,
 };
 use chrono::{DateTime, Utc};
 use futures::{future, StreamExt};
@@ -101,6 +101,33 @@ impl Context {
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
+
+    async fn upload_workspace(&self, stream: BodyStream) -> Vec<u8> {
+        let mut has_error = false;
+        let stream = stream
+            .take_while(|x| {
+                has_error = x.is_err();
+                future::ready(x.is_ok())
+            })
+            .filter_map(|data| future::ready(data.ok()));
+        let mut stream = Box::pin(stream);
+        stream.next().await.unwrap().to_vec()
+
+        // self.upload_workspace1(stream).await
+    }
+
+    // async fn upload_workspace1(&self, stream: impl Stream<Item = Bytes> + Send) -> Vec<u8> {
+    // let mut stream = Box::pin(stream);
+    // stream.next().await.unwrap().to_vec()
+
+    // while let Some(c) = stream.next().await {
+    //     let css = c.to_vec();
+
+    // file.write_all(&c).await?;
+    // hasher.update(&c);
+    // }
+    // StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    // }
 }
 
 pub async fn get_blob(
@@ -166,4 +193,32 @@ pub async fn upload_blob_in_workspace(
     }
 
     ctx.upload_blob(stream, Some(workspace_id)).await
+}
+
+pub async fn create_workspace(
+    Extension(ctx): Extension<Arc<Context>>,
+    Extension(claims): Extension<Arc<Claims>>,
+    TypedHeader(length): TypedHeader<ContentLength>,
+    stream: BodyStream,
+) -> Response {
+    if length.0 > 500 * 1024 {
+        return StatusCode::PAYLOAD_TOO_LARGE.into_response();
+    }
+
+    if let Ok(data) = ctx.db.create_normal_workspace(claims.user.id).await {
+        let id = data.id.to_string();
+        let update = ctx.upload_workspace(stream).await;
+        if let Err(_) = ctx.docs.create_doc(&id).await {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+        if let Err(_) = ctx.docs.full_migrate(&id, update).await {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+        ctx.user_channel
+            .add_user_observe(claims.user.id, ctx.clone())
+            .await;
+        Json(data).into_response()
+    } else {
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
 }
