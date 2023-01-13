@@ -15,6 +15,23 @@ dependencies = [
 [[package]]
 name = "OctoBase"
 version = "0.1.0"
+dependencies = [
+ "assert-json-diff",
+ "async-trait",
+ "bytes",
+ "chrono",
+ "futures",
+ "lib0 0.14.1",
+ "log",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "type-map",
+ "utoipa",
+ "y-sync 0.1.0-1",
+ "yrs 0.14.1",
+]
 
 [[package]]
 name = "adler"
@@ -97,7 +114,7 @@ dependencies = [
  "tower-http",
  "uuid",
  "x509-parser",
- "y-sync",
+ "y-sync 0.1.0",
  "yrs 0.12.0",
 ]
 
@@ -2011,7 +2028,7 @@ dependencies = [
  "tokio",
  "type-map",
  "utoipa",
- "y-sync",
+ "y-sync 0.1.0",
  "yrs 0.12.0",
 ]
 
@@ -5291,6 +5308,15 @@ dependencies = [
  "rusticata-macros",
  "thiserror",
  "time 0.3.17",
+]
+
+[[package]]
+name = "y-sync"
+version = "0.1.0-1"
+dependencies = [
+ "lib0 0.14.1",
+ "thiserror",
+ "yrs 0.14.1",
 ]
 
 [[package]]

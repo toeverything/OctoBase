@@ -13,18 +13,18 @@ members = [
     "libs/jwst-storage/src/docs/migration",
     "libs/OctoBase",
     "libs/vendors/cang-jie",
-    "libs/vendors/y-sync",
+    "libs/vendors/y-sync-0.14",
     "libs/vendors/y-crdt-0.14/yrs",
     "libs/vendors/y-crdt-0.14/lib0",
 ]
 
-exclude = ["libs/vendors/y-crdt/yrs"]
+exclude = [
+    "libs/vendors/y-crdt/yrs",
+    "libs/vendors/y-crdt/lib0",
+    "libs/vendors/y-sync",
+]
 
 [profile.release]
 lto = true
 opt-level = "z"
 codegen-units = 1
-
-[patch.crates-io]
-yrs = { path = 'libs/vendors/y-crdt/yrs' }
-y-sync = { path = 'libs/vendors/y-sync' }
