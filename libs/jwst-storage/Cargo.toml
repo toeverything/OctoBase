@@ -6,11 +6,11 @@ authors = ["DarkSky <darksky2048@gmail.com>"]
 license = "AGPL-3.0-only"
 
 [features]
-default = ["postgres"]
+default = ["sqlite"]
 server = []
-mysql = ["sqlx/mysql", "sqlx/decimal", "num-traits"]
-postgres = ["sqlx/postgres"]
-sqlite = ["sqlx/sqlite"]
+mysql = ["sqlx/mysql", "sqlx/decimal", "num-traits", "sea-orm/sqlx-mysql"]
+postgres = ["sqlx/postgres", "sea-orm/sqlx-postgres"]
+sqlite = ["sqlx/sqlite", "sea-orm/sqlx-sqlite"]
 
 [dependencies]
 anyhow = "^1.0.68"
@@ -31,6 +31,8 @@ sqlx = { version = "0.6.2", features = [
     "macros",
     "runtime-tokio-rustls",
 ] }
+sea-orm = { version = "0.10.6", features = ["runtime-tokio-rustls", "macros"] }
+sea-orm-migration = "0.10.6"
 tokio = { version = "1.23.0", features = ["fs", "macros", "sync"] }
 tokio-util = { version = "0.7.4", features = ["io"] }
 uuid = { version = "1.2.2", features = [
@@ -40,5 +42,6 @@ uuid = { version = "1.2.2", features = [
 
 # ======= workspace dependencies =======
 jwst = { path = "../jwst" }
+jwst-doc-migration = { path = "./src/docs/migration" }
 jwst-logger = { path = "../jwst-logger" }
 yrs = { path = "../vendors/y-crdt/yrs" }

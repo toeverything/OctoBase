@@ -1,15 +1,17 @@
-use super::*;
+use super::{entities::prelude::*, *};
+use chrono::Utc;
+use jwst_doc_migration::{Migrator, MigratorTrait};
 use jwst_logger::{info, warn};
-use sqlx::{query, query_as, Error, MySqlPool};
+use sea_orm::{prelude::*, Database, Set, TransactionTrait};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use yrs::{updates::decoder::Decode, Doc, Options, StateVector, Update};
 
-const MAX_TRIM_UPDATE_LIMIT: i64 = 500;
+const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
 
-fn migrate_update(updates: Vec<UpdateBinary>, doc: Doc) -> Doc {
+fn migrate_update(updates: Vec<<UpdateBinary as EntityTrait>::Model>, doc: Doc) -> Doc {
     let mut trx = doc.transact();
     for update in updates {
-        let id = update.id;
+        let id = update.timestamp;
         match Update::decode_v1(&update.blob) {
             Ok(update) => {
                 if let Err(e) = catch_unwind(AssertUnwindSafe(|| trx.apply_update(update))) {
@@ -24,83 +26,76 @@ fn migrate_update(updates: Vec<UpdateBinary>, doc: Doc) -> Doc {
     doc
 }
 
-#[derive(sqlx::FromRow, Debug, PartialEq)]
-pub struct UpdateBinary {
-    pub id: i64,
-    pub blob: Vec<u8>,
+type UpdateBinaryModel = <UpdateBinary as EntityTrait>::Model;
+type UpdateBinaryActiveModel = super::entities::update_binary::ActiveModel;
+type UpdateBinaryColumn = <UpdateBinary as EntityTrait>::Column;
+
+pub struct ORM {
+    pool: DatabaseConnection,
 }
 
-pub struct MySQL {
-    pool: MySqlPool,
-}
-
-impl MySQL {
-    pub async fn init_pool_with_name(database: &str) -> Result<Self, Error> {
-        let connect = format!("mysql://localhost/{}", database.to_string());
-        MySqlPool::connect(&connect).await.map(|pool| Self { pool })
+impl ORM {
+    pub async fn init_pool(database: &str) -> Result<Self, DbErr> {
+        let pool = Database::connect(database).await?;
+        Migrator::up(&pool, None).await?;
+        Ok(Self { pool })
     }
 
-    pub async fn init_pool_with_full_path(path: &str) -> Result<Self, Error> {
-        MySqlPool::connect(&path).await.map(|pool| Self { pool })
+    pub async fn all(&self, table: &str) -> Result<Vec<UpdateBinaryModel>, DbErr> {
+        UpdateBinary::find()
+            .filter(UpdateBinaryColumn::Workspace.eq(table))
+            .all(&self.pool)
+            .await
     }
 
-    pub async fn close(&self) {
-        self.pool.close().await;
+    pub async fn count(&self, table: &str) -> Result<u64, DbErr> {
+        UpdateBinary::find()
+            .filter(UpdateBinaryColumn::Workspace.eq(table))
+            .count(&self.pool)
+            .await
     }
 
-    pub async fn all(&self, table: &str) -> Result<Vec<UpdateBinary>, Error> {
-        let stmt = format!("SELECT * FROM {}", table);
-        let ret = query_as::<_, UpdateBinary>(&stmt)
-            .fetch_all(&self.pool)
-            .await?;
-        Ok(ret)
-    }
-
-    pub async fn count(&self, table: &str) -> Result<i64, Error> {
-        #[derive(sqlx::FromRow)]
-        struct Count(i64);
-
-        let stmt = format!("SELECT count(*) FROM {}", table);
-        let ret = query_as::<_, Count>(&stmt).fetch_one(&self.pool).await?;
-        Ok(ret.0)
-    }
-
-    pub async fn create(&self, table: &str) -> Result<(), Error> {
-        let stmt = format!(
-            "CREATE TABLE IF NOT EXISTS {} (`id` INTEGER AUTO_INCREMENT, `blob` BLOB, PRIMARY KEY (id));",
-            table
-        );
-        query(&stmt).execute(&self.pool).await?;
+    pub async fn insert(&self, table: &str, blob: &[u8]) -> Result<(), DbErr> {
+        UpdateBinary::insert(UpdateBinaryActiveModel {
+            workspace: Set(table.into()),
+            timestamp: Set(Utc::now()),
+            blob: Set(blob.into()),
+        })
+        .exec(&self.pool)
+        .await?;
         Ok(())
     }
 
-    pub async fn insert(&self, table: &str, blob: &[u8]) -> Result<(), Error> {
-        let stmt = format!("INSERT INTO {} (`blob`) VALUES (?);", table);
-        query(&stmt).bind(blob).execute(&self.pool).await?;
-        Ok(())
-    }
-
-    pub async fn replace_with(&self, table: &str, blob: Vec<u8>) -> Result<(), Error> {
+    pub async fn replace_with(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
         let mut tx = self.pool.begin().await?;
 
-        let stmt = format!("DELETE FROM {}", table);
-        query(&stmt).execute(&mut tx).await?;
+        UpdateBinary::delete_many()
+            .filter(UpdateBinaryColumn::Workspace.eq(table))
+            .exec(&mut tx)
+            .await?;
 
-        let stmt = format!("INSERT INTO {} (`blob`) VALUES (?);", table);
-        query(&stmt).bind(blob).execute(&mut tx).await?;
+        UpdateBinary::insert(UpdateBinaryActiveModel {
+            workspace: Set(table.into()),
+            timestamp: Set(Utc::now()),
+            blob: Set(blob.into()),
+        })
+        .exec(&mut tx)
+        .await?;
 
         tx.commit().await?;
 
         Ok(())
     }
 
-    pub async fn drop(&self, table: &str) -> Result<(), Error> {
-        let stmt = format!("DROP TABLE IF EXISTS {};", table);
-        query(&stmt).execute(&self.pool).await?;
+    pub async fn drop(&self, table: &str) -> Result<(), DbErr> {
+        UpdateBinary::delete_many()
+            .filter(UpdateBinaryColumn::Workspace.eq(table))
+            .exec(&self.pool)
+            .await?;
         Ok(())
     }
 
-    pub async fn update(&self, table: &str, blob: Vec<u8>) -> Result<(), Error> {
+    pub async fn update(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
         if self.count(table).await? > MAX_TRIM_UPDATE_LIMIT - 1 {
             let data = self.all(table).await?;
 
@@ -116,7 +111,7 @@ impl MySQL {
         Ok(())
     }
 
-    pub async fn full_migrate(&self, table: &str, blob: Vec<u8>) -> Result<(), Error> {
+    pub async fn full_migrate(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
         if self.count(table).await? > 1 {
             self.replace_with(table, blob).await
         } else {
@@ -124,13 +119,11 @@ impl MySQL {
         }
     }
 
-    pub async fn create_doc(&self, workspace: &str) -> Result<Doc, Error> {
+    pub async fn create_doc(&self, workspace: &str) -> Result<Doc, DbErr> {
         let mut doc = Doc::with_options(Options {
             skip_gc: true,
             ..Default::default()
         });
-
-        self.create(workspace).await?;
 
         let all_data = self.all(workspace).await?;
 
@@ -146,7 +139,7 @@ impl MySQL {
 }
 
 #[async_trait]
-impl DocStorage for MySQL {
+impl DocStorage for ORM {
     async fn get(&self, workspace_id: String) -> io::Result<Doc> {
         self.create_doc(&workspace_id)
             .await
@@ -181,13 +174,11 @@ impl DocStorage for MySQL {
 #[cfg(test)]
 mod tests {
 
-    #[ignore = "need mysql server"]
     #[tokio::test]
     async fn basic_storage_test() -> anyhow::Result<()> {
         use super::*;
 
-        let pool = MySQL::init_pool("jwst").await?;
-        pool.create("basic").await?;
+        let pool = ORM::init_pool("sqlite::memory:").await?;
 
         // empty table
         assert_eq!(pool.count("basic").await?, 0);
@@ -199,22 +190,27 @@ mod tests {
         // second insert
         pool.replace_with("basic", vec![2, 2, 3, 4]).await?;
 
+        let all = pool.all("basic").await?;
         assert_eq!(
-            pool.all("basic").await?,
-            vec![UpdateBinary {
-                id: 2,
+            all,
+            vec![UpdateBinaryModel {
+                workspace: "basic".into(),
+                timestamp: all.get(0).unwrap().timestamp,
                 blob: vec![2, 2, 3, 4]
             }]
         );
         assert_eq!(pool.count("basic").await?, 1);
 
         pool.drop("basic").await?;
-        pool.create("basic").await?;
+
         pool.insert("basic", &[1, 2, 3, 4]).await?;
+
+        let all = pool.all("basic").await?;
         assert_eq!(
-            pool.all("basic").await?,
-            vec![UpdateBinary {
-                id: 1,
+            all,
+            vec![UpdateBinaryModel {
+                workspace: "basic".into(),
+                timestamp: all.get(0).unwrap().timestamp,
                 blob: vec![1, 2, 3, 4]
             }]
         );

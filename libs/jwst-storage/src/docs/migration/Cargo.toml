@@ -1,0 +1,16 @@
+[package]
+name = "jwst-doc-migration"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "jwst_doc_migration"
+path = "src/lib.rs"
+
+[dependencies]
+tokio = "^1"
+
+[dependencies.sea-orm-migration]
+version = "^0.10.0"
+features = ["runtime-tokio-rustls", "sqlx-sqlite"]

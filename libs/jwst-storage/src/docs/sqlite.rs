@@ -29,6 +29,12 @@ fn migrate_update(updates: Vec<UpdateBinary>, doc: Doc) -> Doc {
     doc
 }
 
+#[derive(sqlx::FromRow, Debug, PartialEq)]
+pub struct UpdateBinary {
+    pub id: i64,
+    pub blob: Vec<u8>,
+}
+
 pub struct SQLite {
     pool: SqlitePool,
 }
