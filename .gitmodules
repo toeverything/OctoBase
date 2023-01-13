@@ -4,3 +4,6 @@
 [submodule "forks/y-crdt"]
 	path = libs/vendors/y-crdt
 	url = https://github.com/toeverything/y-crdt.git
+[submodule "libs/vendors/y-crdt-0.14"]
+	path = libs/vendors/y-crdt-0.14
+	url = https://github.com/toeverything/y-crdt.git
