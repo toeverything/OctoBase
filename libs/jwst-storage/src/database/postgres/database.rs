@@ -332,7 +332,7 @@ impl PostgreSQL {
         FROM permissions
         INNER JOIN workspaces
           ON permissions.workspace_id = workspaces.uuid
-        WHERE user_id = $1";
+        WHERE user_id = $1 AND accepted = True";
 
         query_as::<_, WorkspaceWithPermission>(&stmt)
             .bind(user_id)
@@ -399,7 +399,7 @@ impl PostgreSQL {
     ) -> sqlx::Result<bool> {
         let stmt = "SELECT FROM permissions 
             WHERE user_id = $1
-                AND workspace_id = $2
+                AND workspace_id = $2 AND accepted = True
                 OR (SELECT True FROM workspaces WHERE uuid = $2 AND public = True)";
 
         query(&stmt)
