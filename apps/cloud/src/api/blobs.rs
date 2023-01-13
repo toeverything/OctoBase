@@ -111,7 +111,12 @@ impl Context {
             })
             .filter_map(|data| future::ready(data.ok()));
         let mut stream = Box::pin(stream);
-        stream.next().await.unwrap().to_vec()
+        let mut res = vec![];
+        while let Some(b) = stream.next().await {
+            let mut chunk = b.to_vec();
+            res.append(&mut chunk);
+        }
+        res
     }
 }
 
