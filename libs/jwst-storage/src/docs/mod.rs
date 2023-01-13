@@ -1,5 +1,11 @@
 mod entities;
 mod filesystem;
+
+#[cfg(all(feature = "sqlite", feature = "mysql"))]
+compile_error!(
+    "Both features \"sqlite\" and \"mysql\" may not be enabled at the same time for this crate."
+);
+
 #[cfg(feature = "mysql")]
 mod mysql;
 mod orm;
