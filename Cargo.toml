@@ -10,10 +10,14 @@ members = [
     # "libs/jwst-binding/jwst-wasm",
     "libs/jwst-logger",
     "libs/jwst-storage",
+    "libs/OctoBase",
     "libs/vendors/cang-jie",
     "libs/vendors/y-sync",
-    "libs/vendors/y-crdt/yrs",
+    "libs/vendors/y-crdt-0.14/yrs",
+    "libs/vendors/y-crdt-0.14/lib0",
 ]
+
+exclude = ["libs/vendors/y-crdt/yrs"]
 
 [profile.release]
 lto = true
