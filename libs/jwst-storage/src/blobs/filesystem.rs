@@ -78,7 +78,7 @@ impl FileSystem {
             create_dir_all(path).await?;
         }
 
-        let hash = base64::encode_engine(hasher.finalize(), &URL_SAFE_ENGINE);
+        let hash = URL_SAFE_ENGINE.encode(hasher.finalize());
         let path = path.join(&hash);
 
         fs::rename(buf, path).await?;

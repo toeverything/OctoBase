@@ -1,7 +1,7 @@
 #[cfg(feature = "mysc")]
-pub use jwst_storage::{DocMySQLStorage as DocDatabase, UpdateBinary};
+pub use jwst_storage::{DocMySQLStorage as DocDatabase, DocUpdateBinary};
 #[cfg(any(feature = "affine", feature = "jwst"))]
-pub use jwst_storage::{DocSQLiteStorage as DocDatabase, UpdateBinary};
+pub use jwst_storage::{DocSQLiteStorage as DocDatabase, DocUpdateBinary};
 
 #[cfg(test)]
 mod tests {
@@ -28,7 +28,7 @@ mod tests {
 
         assert_eq!(
             pool.all("basic").await?,
-            vec![UpdateBinary {
+            vec![DocUpdateBinary {
                 id: 2,
                 blob: vec![2, 2, 3, 4]
             }]
@@ -40,7 +40,7 @@ mod tests {
         pool.insert("basic", &[1, 2, 3, 4]).await?;
         assert_eq!(
             pool.all("basic").await?,
-            vec![UpdateBinary {
+            vec![DocUpdateBinary {
                 id: 1,
                 blob: vec![1, 2, 3, 4]
             }]

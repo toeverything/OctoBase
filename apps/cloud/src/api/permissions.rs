@@ -4,7 +4,10 @@ use axum::{
     Extension, Json,
 };
 
-use crate::{context::Context, utils::URL_SAFE_ENGINE};
+use crate::{
+    context::Context,
+    utils::{Engine, URL_SAFE_ENGINE},
+};
 use futures::StreamExt;
 use http::StatusCode;
 use jwst::{BlobStorage, Workspace as JWSTWorkspace};
@@ -165,7 +168,7 @@ pub async fn invite_member(
 
     let encrypted = ctx.encrypt_aes(&permission_id.to_le_bytes()[..]);
 
-    let invite_code = base64::encode_engine(encrypted, &URL_SAFE_ENGINE);
+    let invite_code = URL_SAFE_ENGINE.encode(encrypted);
 
     let mailbox = Mailbox::new(
         match user_cred {
@@ -209,7 +212,7 @@ pub async fn accept_invitation(
     Extension(ctx): Extension<Arc<Context>>,
     Path(url): Path<String>,
 ) -> Response {
-    let Ok(input) = base64::decode_engine(url, &URL_SAFE_ENGINE) else {
+    let Ok(input) = URL_SAFE_ENGINE.decode(url) else {
         return StatusCode::BAD_REQUEST.into_response();
     };
 

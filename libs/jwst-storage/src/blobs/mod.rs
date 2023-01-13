@@ -5,6 +5,11 @@ mod mysql;
 mod sqlite;
 
 use super::*;
+use base64::{
+    alphabet::URL_SAFE,
+    engine::{general_purpose::PAD, GeneralPurpose},
+    Engine,
+};
 use bytes::Bytes;
 use futures::{
     stream::{iter, StreamExt},
@@ -13,11 +18,7 @@ use futures::{
 use sha2::{Digest, Sha256};
 use tokio_util::io::ReaderStream;
 
-const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
-    base64::engine::fast_portable::FastPortable::from(
-        &base64::alphabet::URL_SAFE,
-        base64::engine::fast_portable::PAD,
-    );
+const URL_SAFE_ENGINE: GeneralPurpose = GeneralPurpose::new(&URL_SAFE, PAD);
 
 #[derive(sqlx::FromRow, Debug, PartialEq)]
 pub struct BlobBinary {
@@ -43,6 +44,6 @@ async fn get_hash(stream: impl Stream<Item = Bytes> + Send) -> (String, Vec<u8>)
         .collect()
         .await;
 
-    let hash = base64::encode_engine(hasher.finalize(), &URL_SAFE_ENGINE);
+    let hash = URL_SAFE_ENGINE.encode(hasher.finalize());
     (hash, buffer)
 }

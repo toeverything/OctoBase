@@ -1,6 +1,12 @@
+use base64::{
+    alphabet::URL_SAFE,
+    engine::{general_purpose::NO_PAD, GeneralPurpose},
+};
 use chrono::Duration;
 use jwst_logger::info;
 use tokio::signal;
+
+pub use base64::Engine;
 
 pub async fn shutdown_signal() {
     let ctrl_c = async {
@@ -112,8 +118,4 @@ impl CacheControl {
     }
 }
 
-pub const URL_SAFE_ENGINE: base64::engine::fast_portable::FastPortable =
-    base64::engine::fast_portable::FastPortable::from(
-        &base64::alphabet::URL_SAFE,
-        base64::engine::fast_portable::NO_PAD,
-    );
+pub const URL_SAFE_ENGINE: GeneralPurpose = GeneralPurpose::new(&URL_SAFE, NO_PAD);
