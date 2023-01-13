@@ -9,10 +9,10 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use http::StatusCode;
-use jwst::{BlobStorage, Workspace as JWSTWorkspace};
+use jwst::BlobStorage;
 use jwst_storage::{
-    Claims, CreateWorkspace, MakeToken, RefreshToken, UpdateWorkspace, UserQuery, UserToken,
-    UserWithNonce, WorkspaceSearchInput,
+    Claims, MakeToken, RefreshToken, UpdateWorkspace, UserQuery, UserToken, UserWithNonce,
+    WorkspaceSearchInput,
 };
 use lib0::any::Any;
 use std::sync::Arc;
@@ -45,7 +45,10 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .nest(
             "/",
             Router::new()
-                .route("/workspace", get(get_workspaces).post(create_workspace))
+                .route(
+                    "/workspace",
+                    get(get_workspaces).post(blobs::create_workspace),
+                )
                 .route(
                     "/workspace/:id",
                     get(get_workspace_by_id)
@@ -205,37 +208,6 @@ async fn get_workspace_by_id(
         Ok(Some(data)) => Json(data).into_response(),
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    }
-}
-
-async fn create_workspace(
-    Extension(ctx): Extension<Arc<Context>>,
-    Extension(claims): Extension<Arc<Claims>>,
-    Json(payload): Json<CreateWorkspace>,
-) -> Response {
-    if let Ok(data) = ctx.db.create_normal_workspace(claims.user.id).await {
-        let doc = {
-            let doc = JWSTWorkspace::new(data.id.to_string());
-
-            doc.with_trx(|mut t| {
-                t.set_metadata("name", Any::String(payload.name.into_boxed_str()));
-            });
-            doc
-        };
-        let id = data.id.to_string();
-        if let Err(_) = ctx.docs.create_doc(&id).await {
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        }
-        let update = doc.sync_migration();
-        if let Err(_) = ctx.docs.full_migrate(&id, update).await {
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        }
-        ctx.user_channel
-            .add_user_observe(claims.user.id, ctx.clone())
-            .await;
-        Json(data).into_response()
-    } else {
-        StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
 }
 
