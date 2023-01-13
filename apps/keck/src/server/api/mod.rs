@@ -3,7 +3,7 @@ mod blobs;
 #[cfg(feature = "api")]
 mod blocks;
 
-use super::storage::{BlobDatabase, DocDatabase};
+use super::storage::BlobDatabase;
 use super::*;
 use axum::{extract::ws::Message, Router};
 #[cfg(feature = "api")]
@@ -15,6 +15,7 @@ use axum::{
 };
 use dashmap::DashMap;
 use jwst::Workspace;
+use jwst_storage::DocAutoStorage;
 use tokio::sync::{mpsc::Sender, Mutex};
 
 #[derive(Deserialize)]
@@ -39,17 +40,17 @@ pub struct PageData<T> {
 pub struct Context {
     pub workspace: DashMap<String, Mutex<Workspace>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
-    pub docs: DocDatabase,
+    pub docs: DocAutoStorage,
     pub blobs: BlobDatabase,
 }
 
 impl Context {
-    pub async fn new(docs: Option<DocDatabase>, blobs: Option<BlobDatabase>) -> Self {
+    pub async fn new(docs: Option<DocAutoStorage>, blobs: Option<BlobDatabase>) -> Self {
         Context {
             workspace: DashMap::new(),
             channel: DashMap::new(),
             docs: docs.unwrap_or(
-                DocDatabase::init_pool_with_name("jwst")
+                DocAutoStorage::init_sqlite_pool_with_name("jwst")
                     .await
                     .expect("Cannot create database"),
             ),
