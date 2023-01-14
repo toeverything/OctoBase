@@ -27,7 +27,9 @@ impl SQLite {
         }
         let path = format!(
             "sqlite:{}",
-            data.join(PathBuf::from(file).name_str()).display()
+            data.join(PathBuf::from(file).name_str())
+                .with_extension("db")
+                .display()
         );
 
         let options = SqliteConnectOptions::from_str(&path)?

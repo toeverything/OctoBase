@@ -78,7 +78,7 @@ pub async fn start_server() {
         error!("Server shutdown due to error: {}", e);
     }
 
-    context.docs.close().await;
+    // context.docs.close().await;
     context.blobs.close().await;
 
     info!("Server shutdown complete");

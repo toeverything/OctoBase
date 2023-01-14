@@ -1,9 +1,13 @@
-use super::{entities::prelude::*, *};
+use super::{async_trait, entities::prelude::*, io, DocStorage};
 use chrono::Utc;
 use jwst_doc_migration::{Migrator, MigratorTrait};
 use jwst_logger::{info, warn};
+use path_ext::PathExt;
 use sea_orm::{prelude::*, Database, Set, TransactionTrait};
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::{
+    panic::{catch_unwind, AssertUnwindSafe},
+    path::PathBuf,
+};
 use yrs::{updates::decoder::Decode, Doc, Options, StateVector, Update};
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
@@ -23,6 +27,11 @@ fn migrate_update(updates: Vec<<UpdateBinary as EntityTrait>::Model>, doc: Doc) 
     }
     trx.commit();
 
+    println!(
+        "migrate_update: {:?}",
+        doc.encode_state_as_update_v1(&StateVector::default())
+    );
+
     doc
 }
 
@@ -41,21 +50,42 @@ impl ORM {
         Ok(Self { pool })
     }
 
-    pub async fn all(&self, table: &str) -> Result<Vec<UpdateBinaryModel>, DbErr> {
+    pub async fn init_sqlite_pool_with_name(file: &str) -> Result<Self, DbErr> {
+        use std::fs::create_dir;
+
+        let data = PathBuf::from("./data");
+        if !data.exists() {
+            create_dir(&data).map_err(|e| DbErr::Custom(e.to_string()))?;
+        }
+
+        Self::init_pool(&format!(
+            "sqlite:{}?mode=rwc",
+            data.join(PathBuf::from(file).name_str())
+                .with_extension("db")
+                .display()
+        ))
+        .await
+    }
+
+    pub async fn init_sqlite_pool_with_full_path(path: PathBuf) -> Result<Self, DbErr> {
+        Self::init_pool(&format!("sqlite:{}?mode=rwc", path.display())).await
+    }
+
+    async fn all(&self, table: &str) -> Result<Vec<UpdateBinaryModel>, DbErr> {
         UpdateBinary::find()
             .filter(UpdateBinaryColumn::Workspace.eq(table))
             .all(&self.pool)
             .await
     }
 
-    pub async fn count(&self, table: &str) -> Result<u64, DbErr> {
+    async fn count(&self, table: &str) -> Result<u64, DbErr> {
         UpdateBinary::find()
             .filter(UpdateBinaryColumn::Workspace.eq(table))
             .count(&self.pool)
             .await
     }
 
-    pub async fn insert(&self, table: &str, blob: &[u8]) -> Result<(), DbErr> {
+    async fn insert(&self, table: &str, blob: &[u8]) -> Result<(), DbErr> {
         UpdateBinary::insert(UpdateBinaryActiveModel {
             workspace: Set(table.into()),
             timestamp: Set(Utc::now()),
@@ -66,7 +96,7 @@ impl ORM {
         Ok(())
     }
 
-    pub async fn replace_with(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
+    async fn replace_with(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
         let mut tx = self.pool.begin().await?;
 
         UpdateBinary::delete_many()
@@ -112,7 +142,7 @@ impl ORM {
     }
 
     pub async fn full_migrate(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
-        if self.count(table).await? > 1 {
+        if self.count(table).await? > 0 {
             self.replace_with(table, blob).await
         } else {
             Ok(())
@@ -149,6 +179,7 @@ impl DocStorage for ORM {
     /// This function is not atomic -- please provide external lock mechanism
     async fn write_doc(&self, workspace_id: String, doc: &Doc) -> io::Result<()> {
         let data = doc.encode_state_as_update_v1(&StateVector::default());
+        println!("write_doc");
 
         self.full_migrate(&workspace_id, data)
             .await
@@ -157,6 +188,7 @@ impl DocStorage for ORM {
 
     /// This function is not atomic -- please provide external lock mechanism
     async fn write_update(&self, workspace_id: String, data: &[u8]) -> io::Result<bool> {
+        println!("write_update");
         self.update(&workspace_id, data.into())
             .await
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
@@ -185,10 +217,11 @@ mod tests {
 
         // first insert
         pool.insert("basic", &[1, 2, 3, 4]).await?;
-        assert_eq!(pool.count("basic").await?, 1);
+        pool.insert("basic", &[2, 2, 3, 4]).await?;
+        assert_eq!(pool.count("basic").await?, 2);
 
         // second insert
-        pool.replace_with("basic", vec![2, 2, 3, 4]).await?;
+        pool.replace_with("basic", vec![3, 2, 3, 4]).await?;
 
         let all = pool.all("basic").await?;
         assert_eq!(
@@ -196,7 +229,7 @@ mod tests {
             vec![UpdateBinaryModel {
                 workspace: "basic".into(),
                 timestamp: all.get(0).unwrap().timestamp,
-                blob: vec![2, 2, 3, 4]
+                blob: vec![3, 2, 3, 4]
             }]
         );
         assert_eq!(pool.count("basic").await?, 1);
