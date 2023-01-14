@@ -142,7 +142,7 @@ impl ORM {
     }
 
     pub async fn full_migrate(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
-        if self.count(table).await? > 1 {
+        if self.count(table).await? > 0 {
             self.replace_with(table, blob).await
         } else {
             Ok(())
