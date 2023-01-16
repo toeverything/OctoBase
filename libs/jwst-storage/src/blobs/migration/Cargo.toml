@@ -1,11 +1,11 @@
 [package]
-name = "jwst-doc-migration"
+name = "jwst-blob-migration"
 version = "0.1.0"
 edition = "2021"
 publish = false
 
 [lib]
-name = "jwst_doc_migration"
+name = "jwst_blob_migration"
 path = "src/lib.rs"
 
 [dependencies]

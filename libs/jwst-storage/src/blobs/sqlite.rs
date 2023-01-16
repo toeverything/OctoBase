@@ -10,6 +10,12 @@ use std::{
 };
 use tokio::io;
 
+#[derive(sqlx::FromRow, Debug, PartialEq)]
+pub struct BlobBinary {
+    pub hash: String,
+    pub blob: Vec<u8>,
+}
+
 pub struct SQLite {
     pool: SqlitePool,
     workspaces: Arc<RwLock<HashSet<String>>>,

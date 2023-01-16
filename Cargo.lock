@@ -2016,6 +2016,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "jwst-blob-migration"
+version = "0.1.0"
+dependencies = [
+ "sea-orm-migration",
+ "tokio",
+]
+
+[[package]]
 name = "jwst-doc-migration"
 version = "0.1.0"
 dependencies = [
@@ -2074,6 +2082,7 @@ dependencies = [
  "chrono",
  "futures",
  "jwst",
+ "jwst-blob-migration",
  "jwst-doc-migration",
  "jwst-logger",
  "num-traits",

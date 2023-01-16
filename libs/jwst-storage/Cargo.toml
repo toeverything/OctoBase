@@ -42,6 +42,7 @@ uuid = { version = "1.2.2", features = [
 
 # ======= workspace dependencies =======
 jwst = { path = "../jwst" }
+jwst-blob-migration = { path = "./src/blobs/migration" }
 jwst-doc-migration = { path = "./src/docs/migration" }
 jwst-logger = { path = "../jwst-logger" }
 yrs = { path = "../vendors/y-crdt/yrs" }
