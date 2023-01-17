@@ -1,10 +1,11 @@
-use super::{async_trait, entities::prelude::*, io, DocStorage};
+use super::{async_trait, entities::prelude::*, DocStorage};
 use chrono::Utc;
 use jwst_doc_migration::{Migrator, MigratorTrait};
 use jwst_logger::{info, warn};
 use path_ext::PathExt;
 use sea_orm::{prelude::*, Database, Set, TransactionTrait};
 use std::{
+    io,
     panic::{catch_unwind, AssertUnwindSafe},
     path::PathBuf,
 };
@@ -71,7 +72,7 @@ impl ORM {
         Self::init_pool(&format!("sqlite:{}?mode=rwc", path.display())).await
     }
 
-    async fn all(&self, table: &str) -> Result<Vec<UpdateBinaryModel>, DbErr> {
+    pub async fn all(&self, table: &str) -> Result<Vec<UpdateBinaryModel>, DbErr> {
         UpdateBinary::find()
             .filter(UpdateBinaryColumn::Workspace.eq(table))
             .all(&self.pool)

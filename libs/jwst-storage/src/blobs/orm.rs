@@ -1,12 +1,15 @@
 use super::{
-    async_trait, entities::prelude::*, get_hash, io, BlobMetadata, BlobStorage, Bytes,
-    ReaderStream, Stream,
+    async_trait, entities::prelude::*, get_hash, BlobMetadata, BlobStorage, Bytes, ReaderStream,
+    Stream,
 };
 use chrono::{NaiveDateTime, Utc};
 use jwst_blob_migration::{Migrator, MigratorTrait};
 use path_ext::PathExt;
 use sea_orm::{prelude::*, Database, FromQueryResult, QuerySelect, Set};
-use std::{io::Cursor, path::PathBuf};
+use std::{
+    io::{self, Cursor},
+    path::PathBuf,
+};
 
 type BlobModel = <Blobs as EntityTrait>::Model;
 type BlobActiveModel = super::entities::blobs::ActiveModel;

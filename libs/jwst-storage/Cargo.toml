@@ -8,7 +8,7 @@ license = "AGPL-3.0-only"
 [features]
 default = ["sqlite"]
 server = []
-mysql = ["sqlx/mysql", "sqlx/decimal", "num-traits", "sea-orm/sqlx-mysql"]
+mysql = ["sqlx/mysql", "sea-orm/sqlx-mysql"]
 postgres = ["sqlx/postgres", "sea-orm/sqlx-postgres"]
 sqlite = ["sqlx/sqlite", "sea-orm/sqlx-sqlite"]
 

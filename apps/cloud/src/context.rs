@@ -17,7 +17,7 @@ use jwst_logger::info;
 use jwst_storage::PostgresDBContext;
 #[cfg(feature = "sqlite")]
 use jwst_storage::SqliteDBContext;
-use jwst_storage::{BlobFsStorage, Claims, DocSQLiteStorage, GoogleClaims};
+use jwst_storage::{BlobAutoStorage, Claims, DocAutoStorage, GoogleClaims};
 
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
@@ -54,7 +54,7 @@ pub struct MailContext {
 
 pub struct DocStore {
     cache: Cache<String, Arc<RwLock<JWSTWorkspace>>>,
-    pub storage: DocSQLiteStorage,
+    pub storage: DocAutoStorage,
 }
 
 impl DocStore {
@@ -63,9 +63,10 @@ impl DocStore {
 
         DocStore {
             cache: Cache::new(1000),
-            storage: DocSQLiteStorage::init_pool_with_full_path(
-                PathBuf::from(doc_env).join("jwst.db"),
-            )
+            storage: DocAutoStorage::init_pool(&format!(
+                "sqlite://{}?mode=rwc",
+                PathBuf::from(doc_env).join("jwst.db").display(),
+            ))
             .await
             .expect("Failed to init doc storage"),
         }
@@ -100,11 +101,10 @@ pub struct Context {
     pub db: PostgresDBContext,
     #[cfg(feature = "sqlite")]
     pub db: SqliteDBContext,
-    pub blob: BlobFsStorage,
+    pub blob: BlobAutoStorage,
     pub doc: DocStore,
     pub workspace: DashMap<String, Mutex<Workspace>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
-    pub docs: DocSQLiteStorage,
     pub user_channel: UserChannel,
 }
 
@@ -201,7 +201,12 @@ impl Context {
 
         let blob_env = dotenvy::var("BLOB_STORAGE_PATH").expect("should provide blob storage path");
 
-        let blob = BlobFsStorage::new(Some(16), Path::new(&blob_env).into()).await;
+        let blob = BlobAutoStorage::init_pool(&format!(
+            "sqlite://{}?mode=rwc",
+            PathBuf::from(blob_env).join("blob.db").display(),
+        ))
+        .await
+        .expect("Cannot create database");
 
         let site_url = dotenvy::var("SITE_URL").expect("should provide site url");
 
@@ -220,9 +225,6 @@ impl Context {
             site_url,
             workspace: DashMap::new(),
             channel: DashMap::new(),
-            docs: DocSQLiteStorage::init_pool_with_name("jwst")
-                .await
-                .expect("Cannot create database"),
             user_channel: UserChannel::new(),
         };
 
@@ -345,16 +347,9 @@ impl Context {
     ) -> Result<SearchResults, ContextRequestError> {
         let workspace_id = workspace_id.to_string();
         let workspace_arc_rw = self
-            .docs
-            .create_doc(&workspace_id)
+            .doc
+            .get_workspace(workspace_id.clone())
             .await
-            .map(|f| {
-                Arc::new(RwLock::new(JWSTWorkspace::from_doc(
-                    f,
-                    workspace_id.to_string(),
-                )))
-            })
-            .ok()
             .ok_or_else(|| ContextRequestError::WorkspaceNotFound { workspace_id })?;
 
         let search_results = workspace_arc_rw.write().await.search(&query_string)?;

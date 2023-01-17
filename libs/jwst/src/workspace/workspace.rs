@@ -217,18 +217,12 @@ impl WorkspaceTransaction<'_> {
 
     // create a block with specified flavor
     // if block exists, return the exists block
-    pub fn create<B, F>(&mut self, block_id: B, flavor: F) -> Block
+    pub fn create<B, F>(&self, block_id: B, flavor: F) -> Block
     where
         B: AsRef<str>,
         F: AsRef<str>,
     {
-        Block::new(
-            self.ws,
-            &mut self.trx,
-            block_id,
-            flavor,
-            self.ws.client_id(),
-        )
+        Block::new(&self.ws, block_id, flavor, self.ws.client_id())
     }
 
     pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) {

@@ -1,6 +1,5 @@
 mod api;
 mod files;
-mod storage;
 mod sync;
 mod utils;
 
@@ -79,7 +78,7 @@ pub async fn start_server() {
     }
 
     // context.docs.close().await;
-    context.blobs.close().await;
+    // context.blobs.close().await;
 
     info!("Server shutdown complete");
 }

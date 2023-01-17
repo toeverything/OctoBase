@@ -25,13 +25,7 @@ unsafe impl Send for Block {}
 
 impl Block {
     // Create a new block, skip create if block is already created.
-    pub fn new<B, F>(
-        workspace: &Workspace,
-        trx: &mut Transaction,
-        block_id: B,
-        flavor: F,
-        operator: u64,
-    ) -> Block
+    pub fn new<B, F>(workspace: &Workspace, block_id: B, flavor: F, operator: u64) -> Block
     where
         B: AsRef<str>,
         F: AsRef<str>,
@@ -40,6 +34,8 @@ impl Block {
         if let Some(block) = Self::from(workspace.content(), block_id, operator) {
             block
         } else {
+            let trx = &mut workspace.get_trx().trx;
+
             // init base struct
             workspace
                 .blocks()
