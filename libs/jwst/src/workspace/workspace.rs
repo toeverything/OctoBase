@@ -1,7 +1,4 @@
-use crate::utils::JS_INT_RANGE;
-
 use super::{plugins::setup_plugin, *};
-use lib0::any::Any;
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use y_sync::{
     awareness::Awareness,
@@ -13,7 +10,7 @@ use super::PluginMap;
 use plugins::PluginImpl;
 
 pub struct Workspace {
-    content: Content,
+    pub(super) content: Content,
     /// We store plugins so that their ownership is tied to [Workspace].
     /// This enables us to properly manage lifetimes of observers which will subscribe
     /// into events that the [Workspace] experiences, like block updates.
@@ -98,12 +95,6 @@ impl Workspace {
         f(trx)
     }
 
-    pub fn get_trx(&self) -> WorkspaceTransaction {
-        WorkspaceTransaction {
-            trx: self.content.awareness.doc().transact(),
-            ws: self,
-        }
-    }
     pub fn id(&self) -> String {
         self.content.id()
     }
@@ -194,70 +185,6 @@ impl Serialize for Workspace {
     }
 }
 
-pub struct WorkspaceTransaction<'a> {
-    pub ws: &'a Workspace,
-    pub trx: Transaction,
-}
-
-unsafe impl Send for WorkspaceTransaction<'_> {}
-
-impl WorkspaceTransaction<'_> {
-    pub fn remove<S: AsRef<str>>(&mut self, block_id: S) -> bool {
-        self.ws
-            .content
-            .blocks
-            .remove(&mut self.trx, block_id.as_ref())
-            .is_some()
-            && self
-                .ws
-                .updated()
-                .remove(&mut self.trx, block_id.as_ref())
-                .is_some()
-    }
-
-    // create a block with specified flavor
-    // if block exists, return the exists block
-    pub fn create<B, F>(&self, block_id: B, flavor: F) -> Block
-    where
-        B: AsRef<str>,
-        F: AsRef<str>,
-    {
-        Block::new(&self.ws, block_id, flavor, self.ws.client_id())
-    }
-
-    pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) {
-        let key = key.to_string();
-        match value.into() {
-            Any::Bool(bool) => {
-                self.ws.metadata().insert(&mut self.trx, key, bool);
-            }
-            Any::String(text) => {
-                self.ws
-                    .metadata()
-                    .insert(&mut self.trx, key, text.to_string());
-            }
-            Any::Number(number) => {
-                self.ws.metadata().insert(&mut self.trx, key, number);
-            }
-            Any::BigInt(number) => {
-                if JS_INT_RANGE.contains(&number) {
-                    self.ws.metadata().insert(&mut self.trx, key, number as f64);
-                } else {
-                    self.ws.metadata().insert(&mut self.trx, key, number);
-                }
-            }
-            Any::Null | Any::Undefined => {
-                self.ws.metadata().remove(&mut self.trx, &key);
-            }
-            Any::Buffer(_) | Any::Array(_) | Any::Map(_) => {}
-        }
-    }
-
-    pub fn commit(&mut self) {
-        self.trx.commit();
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -306,7 +233,7 @@ mod test {
         assert_eq!(workspace.blocks().len(), 0);
         assert_eq!(workspace.updated().len(), 0);
 
-        let block = workspace.get_trx().create("block", "text");
+        let block = workspace.with_trx(|t| t.create("block", "text"));
         assert_eq!(workspace.blocks().len(), 1);
         assert_eq!(workspace.updated().len(), 1);
         assert_eq!(block.id(), "block");
@@ -318,7 +245,7 @@ mod test {
         );
 
         assert_eq!(workspace.exists("block"), true);
-        assert_eq!(workspace.get_trx().remove("block"), true);
+        assert_eq!(workspace.with_trx(|mut t| t.remove("block")), true);
         assert_eq!(workspace.blocks().len(), 0);
         assert_eq!(workspace.updated().len(), 0);
         assert_eq!(workspace.get("block"), None);

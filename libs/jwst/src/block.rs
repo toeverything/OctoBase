@@ -34,37 +34,37 @@ impl Block {
         if let Some(block) = Self::from(workspace.content(), block_id, operator) {
             block
         } else {
-            let trx = &mut workspace.get_trx().trx;
+            let block = workspace.with_trx(|mut t| {
+                // init base struct
+                workspace
+                    .blocks()
+                    .insert(&mut t.trx, block_id, PrelimMap::<Any>::new());
+                let block = workspace
+                    .blocks()
+                    .get(block_id)
+                    .and_then(|b| b.to_ymap())
+                    .unwrap();
 
-            // init base struct
-            workspace
-                .blocks()
-                .insert(trx, block_id, PrelimMap::<Any>::new());
-            let block = workspace
-                .blocks()
-                .get(block_id)
-                .and_then(|b| b.to_ymap())
-                .unwrap();
+                // init default schema
+                block.insert(&mut t.trx, "sys:flavor", flavor.as_ref());
+                block.insert(&mut t.trx, "sys:version", PrelimArray::from([1, 0]));
+                block.insert(
+                    &mut t.trx,
+                    "sys:children",
+                    PrelimArray::<Vec<String>, String>::from(vec![]),
+                );
+                block.insert(
+                    &mut t.trx,
+                    "sys:created",
+                    chrono::Utc::now().timestamp_millis() as f64,
+                );
 
-            // init default schema
-            block.insert(trx, "sys:flavor", flavor.as_ref());
-            block.insert(trx, "sys:version", PrelimArray::from([1, 0]));
-            block.insert(
-                trx,
-                "sys:children",
-                PrelimArray::<Vec<String>, String>::from(vec![]),
-            );
-            block.insert(
-                trx,
-                "sys:created",
-                chrono::Utc::now().timestamp_millis() as f64,
-            );
+                workspace
+                    .updated()
+                    .insert(&mut t.trx, block_id, PrelimArray::<_, Any>::from([]));
 
-            workspace
-                .updated()
-                .insert(trx, block_id, PrelimArray::<_, Any>::from([]));
-
-            trx.commit();
+                block
+            });
 
             let children = block
                 .get("sys:children")
@@ -84,7 +84,9 @@ impl Block {
                 updated,
             };
 
-            block.log_update(trx, HistoryOperation::Add);
+            workspace.with_trx(|mut t| {
+                block.log_update(&mut t.trx, HistoryOperation::Add);
+            });
 
             block
         }
@@ -363,7 +365,7 @@ mod tests {
         let workspace = Workspace::new("test");
 
         // new block
-        let block = workspace.get_trx().create("test", "affine:text");
+        let block = workspace.with_trx(|t| t.create("test", "affine:text"));
         assert_eq!(block.id(), "test");
         assert_eq!(block.flavor(), "affine:text");
         assert_eq!(block.version(), [1, 0]);

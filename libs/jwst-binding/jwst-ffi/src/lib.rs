@@ -289,8 +289,7 @@ pub unsafe extern "C" fn workspace_create_block(
     let block = workspace
         .as_ref()
         .unwrap()
-        .get_trx()
-        .create(block_id, flavor);
+        .with_trx(|t| t.create(block_id, flavor));
 
     Box::into_raw(Box::new(block))
 }
@@ -303,8 +302,7 @@ pub unsafe extern "C" fn workspace_remove_block(
     workspace
         .as_ref()
         .unwrap()
-        .get_trx()
-        .remove(CStr::from_ptr(block_id).to_str().unwrap())
+        .with_trx(|mut t| t.remove(CStr::from_ptr(block_id).to_str().unwrap()))
 }
 #[no_mangle]
 pub unsafe extern "C" fn workspace_exists_block(
@@ -315,11 +313,6 @@ pub unsafe extern "C" fn workspace_exists_block(
         .as_ref()
         .unwrap()
         .exists(CStr::from_ptr(block_id).to_str().unwrap())
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn workspace_get_trx(workspace: *mut Workspace) -> *mut Transaction {
-    Box::into_raw(Box::new(workspace.as_mut().unwrap().get_trx().trx))
 }
 
 #[no_mangle]
