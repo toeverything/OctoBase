@@ -14,7 +14,7 @@ use jwst_logger::info;
 use serde::Deserialize;
 use serde::Serialize;
 use std::sync::Arc;
-use tokio::sync::{mpsc::channel, RwLock};
+use tokio::sync::mpsc::channel;
 use uuid::Uuid;
 
 #[derive(Serialize)]
@@ -159,7 +159,7 @@ async fn handle_socket(
             loop {
                 sleep(Duration::from_secs(10)).await;
 
-                context.doc.full_migrate(workspace_id.clone()).await;
+                context.doc.full_migrate(workspace_id.clone(), None).await;
             }
         });
     }

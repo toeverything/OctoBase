@@ -13,7 +13,7 @@ use jwst_storage::PostgresDBContext;
 #[cfg(feature = "sqlite")]
 use jwst_storage::SqliteDBContext;
 use jwst_storage::{BlobAutoStorage, Claims, DocAutoStorage, GoogleClaims};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, io, path::PathBuf, sync::Arc};
 
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
@@ -68,6 +68,18 @@ impl DocStore {
         }
     }
 
+    pub async fn create_workspace(&self, workspace_id: String) -> io::Result<()> {
+        if let Ok(doc) = self.storage.get(workspace_id.clone()).await {
+            self.cache
+                .insert(
+                    workspace_id.clone(),
+                    Arc::new(RwLock::new(Workspace::from_doc(doc, workspace_id.clone()))),
+                )
+                .await;
+        }
+        Ok(())
+    }
+
     pub async fn get_workspace(&self, workspace_id: String) -> Arc<RwLock<Workspace>> {
         self.cache
             .try_get_with(workspace_id.clone(), async move {
@@ -82,18 +94,17 @@ impl DocStore {
             .expect("Failed to get workspace")
     }
 
-    pub async fn full_migrate(&self, workspace_id: String) {
+    pub async fn full_migrate(&self, workspace_id: String, update: Option<Vec<u8>>) -> bool {
         if let Ok(doc) = self.storage.get(workspace_id.clone()).await {
-            let workspace = Workspace::from_doc(doc, workspace_id.to_string());
-            let update = workspace.sync_migration();
+            let update = update
+                .unwrap_or_else(|| Workspace::from_doc(doc, workspace_id.clone()).sync_migration());
             if let Err(e) = self.storage.full_migrate(&workspace_id, update).await {
                 error!("db write error: {}", e.to_string());
+                return false;
             }
+            return true;
         }
-    }
-
-    pub fn try_get_workspace(&self, id: String) -> Option<Arc<RwLock<Workspace>>> {
-        self.cache.get(&id)
+        false
     }
 }
 

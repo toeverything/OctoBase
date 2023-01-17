@@ -7,6 +7,7 @@ use axum::{
     routing::{delete, get, post, put, Router},
     Extension, Json,
 };
+use base64::Engine;
 use chrono::{Duration, Utc};
 use http::StatusCode;
 use jwst::BlobStorage;
@@ -114,7 +115,7 @@ async fn make_token(
             None,
         ),
         MakeToken::Refresh { token } => {
-            let Ok(input) = base64::decode_engine(token.clone(), &URL_SAFE_ENGINE) else {
+            let Ok(input) = URL_SAFE_ENGINE.decode(token.clone()) else {
                 return StatusCode::BAD_REQUEST.into_response();
             };
             let Some(data) = ctx.decrypt_aes(input) else {
@@ -297,22 +298,13 @@ pub async fn get_public_doc(
 }
 
 async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response {
-    if let Some(doc) = ctx.doc.try_get_workspace(workspace_id.clone()) {
-        return doc
-            .read()
-            .await
-            .doc()
-            .encode_state_as_update_v1(&StateVector::default())
-            .into_response();
-    }
-
-    let id = workspace_id.to_string();
-    match ctx.docs.create_doc(&id).await {
-        Ok(doc) => doc
-            .encode_state_as_update_v1(&StateVector::default())
-            .into_response(),
-        Err(_) => StatusCode::NOT_FOUND.into_response(),
-    }
+    ctx.doc
+        .get_workspace(workspace_id)
+        .await
+        .read()
+        .await
+        .sync_migration()
+        .into_response()
 }
 
 /// Resolves to [WorkspaceSearchResults]
