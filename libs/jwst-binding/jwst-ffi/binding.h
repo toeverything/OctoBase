@@ -37,7 +37,6 @@ typedef struct BlockContent {
 } BlockContent;
 
 JWSTBlock *block_new(const JWSTWorkspace *workspace,
-                     YTransaction *trx,
                      const char *block_id,
                      const char *flavor,
                      uint64_t operator_);

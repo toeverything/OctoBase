@@ -16,5 +16,5 @@ rootProject.name = "JWST-Demo"
 include ':app'
 include ':jwst'
 
-project(':jwst').projectDir = new File(rootDir, '../../libs/jwst-jni/android/')
+project(':jwst').projectDir = new File(rootDir, '../../libs/jwst-binding/jwst-jni/android/')
 

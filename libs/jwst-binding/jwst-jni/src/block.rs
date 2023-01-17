@@ -6,10 +6,8 @@ pub struct Block(pub(crate) JwstBlock);
 impl Block {
     #[generate_interface(constructor)]
     pub fn new(workspace: &Workspace, block_id: String, flavor: String, operator: u64) -> Block {
-        let trx = &mut workspace.get_trx().0.trx;
         Self(JwstBlock::new(
             &workspace.workspace,
-            trx,
             block_id,
             flavor,
             operator,

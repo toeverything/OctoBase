@@ -61,7 +61,7 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.0'
 }
 
-def rustBasePath = "../.."
+def rustBasePath = "../../.."
 def archTriplets = [
         'armeabi-v7a': 'armv7-linux-androideabi',
         'arm64-v8a'  : 'aarch64-linux-android',

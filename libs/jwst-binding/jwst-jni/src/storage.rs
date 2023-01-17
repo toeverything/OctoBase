@@ -1,8 +1,7 @@
 use android_logger::Config;
 use jwst::{error, DocStorage};
-use jwst_storage::DocSQLiteStorage;
+use jwst_storage::DocAutoStorage;
 use log::Level;
-use sqlx::Error;
 use std::{
     io::Result,
     sync::{Arc, RwLock},
@@ -12,7 +11,7 @@ use yrs::{updates::decoder::Decode, Doc, Update};
 
 #[derive(Clone)]
 pub struct JwstStorage {
-    storage: Option<Arc<RwLock<DocSQLiteStorage>>>,
+    storage: Option<Arc<RwLock<DocAutoStorage>>>,
     error: Option<String>,
 }
 
@@ -26,17 +25,17 @@ impl JwstStorage {
 
         let rt = Runtime::new().unwrap();
 
-        match rt.block_on(DocSQLiteStorage::init_pool_with_full_path(path.into())) {
+        match rt.block_on(DocAutoStorage::init_pool(&format!(
+            "sqlite:{}?mode=rwc",
+            path
+        ))) {
             Ok(pool) => Self {
                 storage: Some(Arc::new(RwLock::new(pool))),
                 error: None,
             },
             Err(e) => Self {
                 storage: None,
-                error: Some(match e {
-                    Error::Io(e) => e.to_string(),
-                    _ => e.to_string(),
-                }),
+                error: Some(e.to_string()),
             },
         }
     }
@@ -50,10 +49,6 @@ impl JwstStorage {
             let storage = storage.write().unwrap();
             let rt = Runtime::new().unwrap();
             rt.block_on(async {
-                storage
-                    .create(&workspace_id)
-                    .await
-                    .expect("Failed to create workspace");
                 let updates = storage
                     .all(&workspace_id)
                     .await
@@ -64,7 +59,7 @@ impl JwstStorage {
                         if let Ok(update) = Update::decode_v1(&update.blob) {
                             trx.apply_update(update);
                         } else {
-                            error!("Failed to decode update: {}", update.id);
+                            error!("Failed to decode update: {}", update.timestamp);
                         }
                     }
                 }

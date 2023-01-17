@@ -23,14 +23,6 @@ public final class Workspace {
     }
     private static native long do_clientId(long self);
 
-    public final @NonNull WorkspaceTransaction getTrx() {
-        long ret = do_getTrx(mNativeObj);
-        WorkspaceTransaction convRet = new WorkspaceTransaction(InternalPointerMarker.RAW_PTR, ret);
-
-        return convRet;
-    }
-    private static native long do_getTrx(long self);
-
     public final @NonNull java.util.Optional<Block> get(@NonNull String block_id) {
         long ret = do_get(mNativeObj, block_id);
         java.util.Optional<Block> convRet;

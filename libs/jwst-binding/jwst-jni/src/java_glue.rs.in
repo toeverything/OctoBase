@@ -65,7 +65,6 @@ foreign_class!(
 		constructor Workspace::new(id : String)->Workspace;
 		fn Workspace::id(& self)->String; alias id;
 		fn Workspace::client_id(& self)->u64; alias clientId;
-		fn Workspace::get_trx(& self)->WorkspaceTransaction; alias getTrx;
 		fn Workspace::get(& self , block_id : String)->Option<Block>; alias get;
 		fn Workspace::exists(& self , block_id : & str)->bool; alias exists;
 		fn Workspace::with_trx(& self , on_trx : Box < dyn OnWorkspaceTransaction >); alias withTrx;

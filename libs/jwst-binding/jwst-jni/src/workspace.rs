@@ -30,11 +30,6 @@ impl Workspace {
     }
 
     #[generate_interface]
-    pub fn get_trx(&self) -> WorkspaceTransaction {
-        WorkspaceTransaction(self.workspace.get_trx())
-    }
-
-    #[generate_interface]
     pub fn get(&self, block_id: String) -> Option<Block> {
         self.workspace.get(block_id).map(Block)
     }
