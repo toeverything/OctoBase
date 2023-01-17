@@ -8,17 +8,14 @@ use crate::{
     context::Context,
     utils::{Engine, URL_SAFE_ENGINE},
 };
-use futures::StreamExt;
 use http::StatusCode;
-use jwst::{BlobStorage, Workspace as JWSTWorkspace};
 use jwst_storage::{Claims, CreatePermission, PermissionType, UserCred, WorkspaceMetadata};
 use lettre::{
-    message::{Attachment, Mailbox, MultiPart, SinglePart},
+    message::{Mailbox, MultiPart, SinglePart},
     AsyncTransport, Message,
 };
 use serde::Serialize;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 pub async fn get_members(
     Extension(ctx): Extension<Arc<Context>>,
@@ -49,18 +46,7 @@ async fn make_invite_email(
     invite_code: &str,
 ) -> Option<(String, MultiPart)> {
     let metadata = {
-        let workspace_id = workspace_id.to_string();
-        let ws = ctx
-            .docs
-            .create_doc(&workspace_id)
-            .await
-            .map(|f| {
-                Arc::new(RwLock::new(JWSTWorkspace::from_doc(
-                    f,
-                    workspace_id.to_string(),
-                )))
-            })
-            .ok()?;
+        let ws = ctx.doc.get_workspace(workspace_id).await;
 
         let ws = ws.read().await;
 

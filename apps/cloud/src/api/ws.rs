@@ -6,7 +6,7 @@ use axum::{
     },
     response::Response,
 };
-use dashmap::mapref::{entry::Entry, one::RefMut};
+use base64::Engine;
 use futures::{sink::SinkExt, stream::StreamExt};
 use jwst::{encode_update, Workspace};
 use jwst_logger::error;
@@ -14,8 +14,7 @@ use jwst_logger::info;
 use serde::Deserialize;
 use serde::Serialize;
 use std::sync::Arc;
-use tokio::sync::mpsc::channel;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc::channel, RwLock};
 use uuid::Uuid;
 
 #[derive(Serialize)]
@@ -38,7 +37,8 @@ async fn ws_handler(
     Query(Param { token }): Query<Param>,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let user: Option<RefreshToken> = base64::decode_engine(token, &URL_SAFE_ENGINE)
+    let user: Option<RefreshToken> = URL_SAFE_ENGINE
+        .decode(token)
         .ok()
         .and_then(|byte| ctx.decrypt_aes(byte))
         .and_then(|data| serde_json::from_slice(&data).ok());
@@ -159,14 +159,7 @@ async fn handle_socket(
             loop {
                 sleep(Duration::from_secs(10)).await;
 
-                if let Some(workspace) = context.workspace.get(&workspace_id) {
-                    let update = workspace.lock().await.sync_migration();
-                    if let Err(e) = context.docs.full_migrate(&workspace_id, update).await {
-                        error!("db write error: {}", e.to_string());
-                    }
-                } else {
-                    break;
-                }
+                context.doc.full_migrate(workspace_id.clone()).await;
             }
         });
     }
@@ -177,15 +170,9 @@ async fn handle_socket(
         .insert((workspace_id.clone(), uuid.clone()), tx.clone());
 
     if let Ok(init_data) = {
-        let ws = match init_workspace(&context, &workspace_id).await {
-            Ok(doc) => doc,
-            Err(e) => {
-                error!("Failed to init doc: {}", e);
-                return;
-            }
-        };
+        let ws = context.doc.get_workspace(workspace_id.clone()).await;
 
-        let mut ws = ws.lock().await;
+        let mut ws = ws.write().await;
 
         subscribe_handler(context.clone(), &mut ws, uuid.clone(), workspace_id.clone());
         subscribe_metadata_handler(context.clone(), &mut ws, workspace_id.clone());
@@ -206,8 +193,8 @@ async fn handle_socket(
     while let Some(msg) = socket_rx.next().await {
         if let Ok(Message::Binary(binary)) = msg {
             let payload = {
-                let workspace = context.workspace.get(&workspace_id).unwrap();
-                let mut workspace = workspace.value().lock().await;
+                let workspace = context.doc.get_workspace(workspace_id.clone()).await;
+                let mut workspace = workspace.write().await;
 
                 use std::panic::{catch_unwind, AssertUnwindSafe};
                 catch_unwind(AssertUnwindSafe(|| workspace.sync_decode_message(&binary)))
@@ -227,18 +214,4 @@ async fn handle_socket(
     }
 
     context.channel.remove(&(workspace_id, uuid));
-}
-
-pub async fn init_workspace<'a>(
-    context: &'a Context,
-    workspace: &str,
-) -> Result<RefMut<'a, String, Mutex<Workspace>>, anyhow::Error> {
-    match context.workspace.entry(workspace.to_owned()) {
-        Entry::Vacant(entry) => {
-            let doc = context.docs.create_doc(workspace).await?;
-
-            Ok(entry.insert(Mutex::new(Workspace::from_doc(doc, workspace))))
-        }
-        Entry::Occupied(o) => Ok(o.into_ref()),
-    }
 }

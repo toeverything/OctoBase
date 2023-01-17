@@ -1,7 +1,3 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use axum::extract::ws::Message;
@@ -10,14 +6,14 @@ use dashmap::DashMap;
 use handlebars::Handlebars;
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
-use jwst::Workspace;
-use jwst::{DocStorage, SearchResults, Workspace as JWSTWorkspace};
-use jwst_logger::info;
+use jwst::{DocStorage, SearchResults, Workspace};
+use jwst_logger::{error, info};
 #[cfg(feature = "postgres")]
 use jwst_storage::PostgresDBContext;
 #[cfg(feature = "sqlite")]
 use jwst_storage::SqliteDBContext;
 use jwst_storage::{BlobAutoStorage, Claims, DocAutoStorage, GoogleClaims};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
@@ -27,7 +23,7 @@ use moka::future::Cache;
 use rand::{thread_rng, Rng};
 use reqwest::Client;
 use sha2::{Digest, Sha256};
-use tokio::sync::{mpsc::Sender, Mutex};
+use tokio::sync::mpsc::Sender;
 use tokio::sync::{RwLock, RwLockReadGuard};
 use x509_parser::prelude::parse_x509_pem;
 
@@ -53,15 +49,15 @@ pub struct MailContext {
 }
 
 pub struct DocStore {
-    cache: Cache<String, Arc<RwLock<JWSTWorkspace>>>,
+    cache: Cache<String, Arc<RwLock<Workspace>>>,
     pub storage: DocAutoStorage,
 }
 
 impl DocStore {
-    async fn new() -> DocStore {
+    async fn new() -> Self {
         let doc_env = dotenvy::var("DOC_STORAGE_PATH").expect("should provide doc storage path");
 
-        DocStore {
+        Self {
             cache: Cache::new(1000),
             storage: DocAutoStorage::init_pool(&format!(
                 "sqlite://{}?mode=rwc",
@@ -72,21 +68,31 @@ impl DocStore {
         }
     }
 
-    pub async fn get_workspace(&self, workspace_id: String) -> Option<Arc<RwLock<JWSTWorkspace>>> {
+    pub async fn get_workspace(&self, workspace_id: String) -> Arc<RwLock<Workspace>> {
         self.cache
             .try_get_with(workspace_id.clone(), async move {
                 self.storage.get(workspace_id.clone()).await.map(|f| {
-                    Arc::new(RwLock::new(JWSTWorkspace::from_doc(
+                    Arc::new(RwLock::new(Workspace::from_doc(
                         f,
                         workspace_id.to_string(),
                     )))
                 })
             })
             .await
-            .ok()
+            .expect("Failed to get workspace")
     }
 
-    pub fn try_get_workspace(&self, id: String) -> Option<Arc<RwLock<JWSTWorkspace>>> {
+    pub async fn full_migrate(&self, workspace_id: String) {
+        if let Ok(doc) = self.storage.get(workspace_id.clone()).await {
+            let workspace = Workspace::from_doc(doc, workspace_id.to_string());
+            let update = workspace.sync_migration();
+            if let Err(e) = self.storage.full_migrate(&workspace_id, update).await {
+                error!("db write error: {}", e.to_string());
+            }
+        }
+    }
+
+    pub fn try_get_workspace(&self, id: String) -> Option<Arc<RwLock<Workspace>>> {
         self.cache.get(&id)
     }
 }
@@ -103,7 +109,6 @@ pub struct Context {
     pub db: SqliteDBContext,
     pub blob: BlobAutoStorage,
     pub doc: DocStore,
-    pub workspace: DashMap<String, Mutex<Workspace>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub user_channel: UserChannel,
 }
@@ -169,20 +174,20 @@ impl Context {
                 .build();
 
             let mail_from = dotenvy::var("MAIL_FROM").expect("should provide email from");
-            let mail_box = mail_from.parse().expect("shoud provide valid mail from");
+            let mail_box = mail_from.parse().expect("should provide valid mail from");
             let mut template = Handlebars::new();
             let invite_title =
                 dotenvy::var("MAIL_INVITE_TITLE").expect("should provide email title");
             template
                 .register_template_string("MAIL_INVITE_TITLE", invite_title)
-                .expect("should privide valid email title");
+                .expect("should provide valid email title");
 
             let invite_file =
                 dotenvy::var("MAIL_INVITE_FILE").expect("should provide email content");
 
             template
                 .register_template_file("MAIL_INVITE_CONTENT", &invite_file)
-                .expect("should privide valid email file");
+                .expect("should provide valid email file");
 
             MailContext {
                 client,
@@ -210,7 +215,7 @@ impl Context {
 
         let site_url = dotenvy::var("SITE_URL").expect("should provide site url");
 
-        let db_env = dotenvy::var("DATABASE_URL").expect("should provide databse URL");
+        let db_env = dotenvy::var("DATABASE_URL").expect("should provide database URL");
         let ctx = Self {
             #[cfg(feature = "postgres")]
             db: PostgresDBContext::new(db_env).await,
@@ -223,7 +228,6 @@ impl Context {
             doc: DocStore::new().await,
             blob,
             site_url,
-            workspace: DashMap::new(),
             channel: DashMap::new(),
             user_channel: UserChannel::new(),
         };
@@ -346,11 +350,7 @@ impl Context {
         query_string: &str,
     ) -> Result<SearchResults, ContextRequestError> {
         let workspace_id = workspace_id.to_string();
-        let workspace_arc_rw = self
-            .doc
-            .get_workspace(workspace_id.clone())
-            .await
-            .ok_or_else(|| ContextRequestError::WorkspaceNotFound { workspace_id })?;
+        let workspace_arc_rw = self.doc.get_workspace(workspace_id.clone()).await;
 
         let search_results = workspace_arc_rw.write().await.search(&query_string)?;
 

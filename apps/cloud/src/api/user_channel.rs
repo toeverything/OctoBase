@@ -3,6 +3,7 @@ use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     response::Response,
 };
+use base64::Engine;
 use dashmap::DashMap;
 use dashmap::DashSet;
 use futures::{sink::SinkExt, stream::StreamExt};
@@ -142,12 +143,10 @@ impl UserChannel {
                 .await
                 .unwrap();
             workspace_detail_list.insert(item.workspace.id.to_string(), workspace_detail);
-            let workspace = init_workspace(&context, &item.workspace.id.to_string())
-                .await
-                .unwrap();
+            let workspace = context.doc.get_workspace(item.workspace.id.clone()).await;
             workspace_metadata_list.insert(
                 item.workspace.id.to_string(),
-                workspace.lock().await.metadata().to_json(),
+                workspace.read().await.metadata().to_json(),
             );
         }
         AllWorkspaceInfo {
@@ -163,7 +162,8 @@ pub async fn global_ws_handler(
     Query(Param { token }): Query<Param>,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let user: Option<RefreshToken> = base64::decode_engine(token, &URL_SAFE_ENGINE)
+    let user: Option<RefreshToken> = URL_SAFE_ENGINE
+        .decode(token)
         .ok()
         .and_then(|byte| ctx.decrypt_aes(byte))
         .and_then(|data| serde_json::from_slice(&data).ok());
