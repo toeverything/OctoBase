@@ -39,7 +39,7 @@ uuid = { version = "1.2.2", features = [
 ] }
 
 # ======= workspace dependencies =======
-affine-cloud-migration = { path = "./src/migration" }
+affine-cloud-migration = { path = "./migration" }
 jwst = { path = "../jwst" }
 jwst-logger = { path = "../jwst-logger" }
 yrs = { path = "../vendors/y-crdt/yrs" }
