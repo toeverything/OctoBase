@@ -146,7 +146,7 @@ impl ORM {
         if self.count(table).await? > 0 {
             self.replace_with(table, blob).await
         } else {
-            Ok(())
+            self.insert(table, &blob).await
         }
     }
 

@@ -16,14 +16,18 @@
 				}
 			},
 			"env": {
-				"DATABASE_URL": "postgresql://affine:affine@localhost:5432/affine",
+				"DATABASE_URL": "sqlite:data.db?mode=rwc",
 				"SIGN_KEY": "12345678",
 				"MAIL_ACCOUNT": "example@toeverything.info",
 				"MAIL_PASSWORD": "a",
 				"MAIL_FROM": "noreply@toeverything.info",
 				"MAIL_PROVIDER": "smtp.gmail.com",
-				"MAIL_TITLE": "Send from AFFiNE Cloud",
-				"BLOB_STORAGE_PATH": "/Users/ds/Source/JWST/blobs"
+				"MAIL_INVITE_TITLE": "{inviter_name} invited you to join {workspace_name}",
+				"MAIL_INVITE_FILE": "/Users/ds/Source/JWST/apps/cloud/static/invite.html",
+				"DOC_STORAGE_PATH": "/Users/ds/Source/JWST/data",
+				"BLOB_STORAGE_PATH": "/Users/ds/Source/JWST/data",
+				"FIREBASE_PROJECT_ID": "pathfinder-52392",
+				"SITE_URL": "https://pathfinder.affine.systems"
 			},
 			"args": [],
 			"cwd": "${workspaceFolder}"
