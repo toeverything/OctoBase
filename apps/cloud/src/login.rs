@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 #[cfg(feature = "postgres")]
-use jwst_storage::PostgresDBContext;
+use cloud_database::PostgresDBContext;
 #[cfg(feature = "sqlite")]
-use jwst_storage::SqliteDBContext;
-use jwst_storage::{GoogleClaims, UserWithNonce};
+use cloud_database::SqliteDBContext;
+use cloud_database::{GoogleClaims, UserWithNonce};
 use sqlx::{query, query_as};
 
 use crate::context::Context;

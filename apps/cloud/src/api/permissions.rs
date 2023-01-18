@@ -8,8 +8,8 @@ use crate::{
     context::Context,
     utils::{Engine, URL_SAFE_ENGINE},
 };
+use cloud_database::{Claims, CreatePermission, PermissionType, UserCred, WorkspaceMetadata};
 use http::StatusCode;
-use jwst_storage::{Claims, CreatePermission, PermissionType, UserCred, WorkspaceMetadata};
 use lettre::{
     message::{Mailbox, MultiPart, SinglePart},
     AsyncTransport, Message,

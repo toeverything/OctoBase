@@ -2,17 +2,18 @@ use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use axum::extract::ws::Message;
 use chrono::{NaiveDateTime, Utc};
+#[cfg(feature = "postgres")]
+use cloud_database::PostgresDBContext;
+#[cfg(feature = "sqlite")]
+use cloud_database::SqliteDBContext;
+use cloud_database::{Claims, GoogleClaims};
 use dashmap::DashMap;
 use handlebars::Handlebars;
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::{DocStorage, SearchResults, Workspace};
 use jwst_logger::{error, info};
-#[cfg(feature = "postgres")]
-use jwst_storage::PostgresDBContext;
-#[cfg(feature = "sqlite")]
-use jwst_storage::SqliteDBContext;
-use jwst_storage::{BlobAutoStorage, Claims, DocAutoStorage, GoogleClaims};
+use jwst_storage::{BlobAutoStorage, DocAutoStorage};
 use std::{collections::HashMap, io, path::PathBuf, sync::Arc};
 
 use lettre::{
