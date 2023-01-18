@@ -40,7 +40,7 @@ impl MigrationTrait for Migration {
 }
 
 #[derive(Iden)]
-enum Workspaces {
+pub enum Workspaces {
     Table,
     Id,        // BIGSERIAL PRIMARY KEY,
     Uuid,      // CHAR(36) UNIQUE(uuid),

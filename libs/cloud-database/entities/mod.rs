@@ -2,4 +2,6 @@
 
 pub mod prelude;
 
+pub mod google_users;
 pub mod users;
+pub mod workspaces;

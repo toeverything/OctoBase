@@ -46,6 +46,13 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
+            .drop_foreign_key(
+                ForeignKey::drop()
+                    .name("google_users_user_id_fkey")
+                    .to_owned(),
+            )
+            .await?;
+        manager
             .drop_table(Table::drop().table(GoogleUsers::Table).to_owned())
             .await
     }
