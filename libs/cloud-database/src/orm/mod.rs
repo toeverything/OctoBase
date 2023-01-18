@@ -1,6 +1,5 @@
 mod database;
+mod entities;
 mod model;
 
-pub use database::PostgreSQL;
-
-use super::model::*;
+pub use database::ORM;

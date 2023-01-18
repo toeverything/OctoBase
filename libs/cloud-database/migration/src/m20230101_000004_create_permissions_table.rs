@@ -39,30 +39,18 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("permission_workspace_id_fkey")
-                            .from(Workspaces::Table, Workspaces::Uuid)
-                            .to(Permission::Table, Permission::WorkspaceId)
+                            .from(Permission::Table, Permission::WorkspaceId)
+                            .to(Workspaces::Table, Workspaces::Uuid)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("permission_user_id_fkey")
-                            .from(Users::Table, Users::Id)
-                            .to(Permission::Table, Permission::UserId)
+                            .from(Permission::Table, Permission::UserId)
+                            .to(Users::Table, Users::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
-                    )
-                    .index(
-                        Index::create()
-                            .name("permission_workspace_id_user_id_unique")
-                            .col(Permission::WorkspaceId)
-                            .col(Permission::UserId),
-                    )
-                    .index(
-                        Index::create()
-                            .name("permission_workspace_id_user_email_unique")
-                            .col(Permission::WorkspaceId)
-                            .col(Permission::UserEmail),
                     )
                     .to_owned(),
             )

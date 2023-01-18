@@ -3,5 +3,6 @@
 pub mod prelude;
 
 pub mod google_users;
+pub mod permission;
 pub mod users;
 pub mod workspaces;
