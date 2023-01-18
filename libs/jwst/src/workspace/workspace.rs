@@ -1,7 +1,7 @@
 use super::{plugins::setup_plugin, *};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use y_sync::{
-    awareness::Awareness,
+    awareness::{Awareness, Event, Subscription as AwarenessSubscription},
     sync::{Error, Message},
 };
 use yrs::{types::map::MapEvent, Doc, Map, Subscription, Transaction, UpdateEvent};
@@ -141,6 +141,13 @@ impl Workspace {
         f: impl Fn(&Transaction, &MapEvent) -> () + 'static,
     ) -> Subscription<MapEvent> {
         self.content.metadata.observe(f)
+    }
+
+    pub fn on_awareness_update(
+        &mut self,
+        f: impl Fn(&Awareness, &Event) -> () + 'static,
+    ) -> AwarenessSubscription<Event> {
+        self.content.awareness.on_update(f)
     }
 
     /// Check if the block exists in this workspace's blocks.

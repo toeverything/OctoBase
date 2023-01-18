@@ -16,6 +16,12 @@ use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::mpsc::channel;
 use uuid::Uuid;
+use y_sync::{
+    awareness::{Awareness, AwarenessUpdate, Event},
+    sync::{Error, Message as YMessage},
+};
+use yrs::updates::encoder::Encoder;
+use yrs::updates::encoder::{Encode, EncoderV1};
 
 #[derive(Serialize)]
 pub struct WebSocketAuthentication {
@@ -103,6 +109,47 @@ fn subscribe_metadata_handler(context: Arc<Context>, workspace: &mut Workspace, 
     std::mem::forget(sub_metadata);
 }
 
+fn subscribe_awareness_handler(
+    context: Arc<Context>,
+    workspace: &mut Workspace,
+    uuid: String,
+    ws_id: String,
+) {
+    let awareness_sub = workspace.on_awareness_update(move |awareness, e| {
+        let update_result = awareness
+            .clone()
+            .update_with_clients([e.added(), e.updated(), e.removed()].concat());
+        if let Ok(aw_update) = update_result {
+            let mut encoder = EncoderV1::new();
+            YMessage::Awareness(aw_update).encode(&mut encoder);
+            let update = encoder.to_vec();
+            let context = context.clone();
+            let uuid = uuid.clone();
+            let ws_id = ws_id.clone();
+            tokio::spawn(async move {
+                let mut closed = vec![];
+
+                for item in context.channel.iter() {
+                    let ((ws, id), tx) = item.pair();
+                    if &ws_id == ws && id != &uuid {
+                        if tx.is_closed() {
+                            closed.push(id.clone());
+                        } else if let Err(e) = tx.send(Message::Binary(update.clone())).await {
+                            if !tx.is_closed() {
+                                error!("on awareness_update error: {}", e);
+                            }
+                        }
+                    }
+                }
+                for id in closed {
+                    context.channel.remove(&(ws_id.clone(), id));
+                }
+            });
+        }
+    });
+    std::mem::forget(awareness_sub);
+}
+
 async fn handle_socket(
     mut socket: WebSocket,
     workspace_id: String,
@@ -176,6 +223,7 @@ async fn handle_socket(
 
         subscribe_handler(context.clone(), &mut ws, uuid.clone(), workspace_id.clone());
         subscribe_metadata_handler(context.clone(), &mut ws, workspace_id.clone());
+        subscribe_awareness_handler(context.clone(), &mut ws, uuid.clone(), workspace_id.clone());
 
         ws.sync_init_message()
     } {
