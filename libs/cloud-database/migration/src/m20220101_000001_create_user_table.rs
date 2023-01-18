@@ -6,34 +6,6 @@ pub struct Migration;
 #[async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        println!(
-            "{}",
-            manager.get_database_backend().build(
-                &Table::create()
-                    .table(Users::Table)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(Users::Id)
-                            .integer()
-                            .auto_increment()
-                            .not_null()
-                            .primary_key(),
-                    )
-                    .col(ColumnDef::new(Users::Name).string().not_null())
-                    .col(
-                        ColumnDef::new(Users::Email)
-                            .string()
-                            .not_null()
-                            .unique_key(),
-                    )
-                    .col(ColumnDef::new(Users::AvatarUrl).string())
-                    .col(ColumnDef::new(Users::TokenNonce).small_integer().default(0))
-                    .col(ColumnDef::new(Users::Password).string())
-                    .col(ColumnDef::new(Users::CreatedAt).timestamp().not_null())
-                    .to_owned(),
-            )
-        );
-
         manager
             .create_table(
                 Table::create()
