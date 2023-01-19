@@ -69,18 +69,6 @@ impl DocStore {
         }
     }
 
-    pub async fn create_workspace(&self, workspace_id: String) -> io::Result<()> {
-        if let Ok(doc) = self.storage.get(workspace_id.clone()).await {
-            self.cache
-                .insert(
-                    workspace_id.clone(),
-                    Arc::new(RwLock::new(Workspace::from_doc(doc, workspace_id.clone()))),
-                )
-                .await;
-        }
-        Ok(())
-    }
-
     pub async fn get_workspace(&self, workspace_id: String) -> Arc<RwLock<Workspace>> {
         self.cache
             .try_get_with(workspace_id.clone(), async move {

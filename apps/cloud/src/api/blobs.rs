@@ -16,7 +16,7 @@ use http::{
     },
     HeaderMap, HeaderValue, StatusCode,
 };
-use jwst::BlobStorage;
+use jwst::{BlobStorage, DocStorage};
 use mime::APPLICATION_OCTET_STREAM;
 use std::sync::Arc;
 
@@ -194,7 +194,7 @@ pub async fn create_workspace(
     if let Ok(data) = ctx.db.create_normal_workspace(claims.user.id).await {
         let id = data.id.to_string();
         let update = ctx.upload_workspace(stream).await;
-        if let Err(_) = ctx.doc.create_workspace(id.clone()).await {
+        if let Err(_) = ctx.doc.storage.get(id.clone()).await {
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
         if !ctx.doc.full_migrate(id, Some(update)).await {
