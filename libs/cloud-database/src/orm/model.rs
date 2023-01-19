@@ -1,9 +1,11 @@
 // use super::*;
 // use sqlx::{postgres::PgRow, FromRow, Result, Row};
 
+use affine_cloud_migration::DbErr;
 use chrono::naive::serde::{ts_milliseconds, ts_seconds};
 use jwst_logger::error;
 use schemars::{JsonSchema, JsonSchema_repr};
+use sea_orm::{FromQueryResult, TryGetable};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Type};
@@ -152,24 +154,40 @@ impl From<i32> for WorkspaceType {
     }
 }
 
-#[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+impl TryGetable for WorkspaceType {
+    fn try_get(
+        res: &sea_orm::QueryResult,
+        pre: &str,
+        col: &str,
+    ) -> Result<Self, sea_orm::TryGetError> {
+        let i: i32 = res
+            .try_get(pre, col)
+            .map_err(|e| sea_orm::TryGetError::DbErr(e))?;
+        Ok(WorkspaceType::from(i))
+    }
+}
+
+#[derive(FromQueryResult, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Workspace {
     pub id: String,
     pub public: bool,
     #[serde(rename = "type")]
-    #[sqlx(rename = "type")]
     pub r#type: WorkspaceType,
     #[serde(with = "ts_milliseconds")]
     #[schemars(with = "i64")]
     pub created_at: NaiveDateTime,
 }
 
-#[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(FromQueryResult, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkspaceWithPermission {
+    pub id: String,
+    pub public: bool,
+    #[serde(rename = "type")]
+    pub r#type: WorkspaceType,
+    #[serde(with = "ts_milliseconds")]
+    #[schemars(with = "i64")]
+    pub created_at: NaiveDateTime,
     pub permission: PermissionType,
-    #[serde(flatten)]
-    #[sqlx(flatten)]
-    pub workspace: Workspace,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -218,7 +236,7 @@ pub struct UpdateWorkspace {
     Clone,
     JsonSchema_repr,
 )]
-#[repr(i16)]
+#[repr(i32)]
 pub enum PermissionType {
     Read = 0,
     Write = 1,
@@ -273,10 +291,58 @@ pub struct Member {
     pub user: UserCred,
     pub accepted: bool,
     #[serde(rename = "type")]
-    pub type_: PermissionType,
+    pub r#type: PermissionType,
     #[serde(with = "ts_milliseconds")]
     #[schemars(with = "i64")]
     pub created_at: NaiveDateTime,
+}
+
+#[derive(FromQueryResult)]
+pub struct MemberResult {
+    // .column_as(PermissionColumn::Id, "id")
+    // .column_as(PermissionColumn::Type, "type")
+    // .column_as(PermissionColumn::UserEmail, "user_email")
+    // .column_as(PermissionColumn::Accepted, "accepted")
+    // .column_as(PermissionColumn::CreatedAt, "created_at")
+    // .column_as(UsersColumn::Id, "user_id")
+    // .column_as(UsersColumn::Name, "user_name")
+    // .column_as(UsersColumn::Email, "user_table_email")
+    // .column_as(UsersColumn::AvatarUrl, "avatar_url")
+    // .column_as(UsersColumn::CreatedAt, "user_created_at")
+    pub id: i64,
+    pub r#type: PermissionType,
+    pub accepted: bool,
+    pub created_at: NaiveDateTime,
+    pub user_id: Option<i32>,
+    pub user_name: Option<String>,
+    pub user_email: Option<String>,
+    pub user_avatar_url: Option<String>,
+    pub user_created_at: Option<NaiveDateTime>,
+}
+
+impl From<&MemberResult> for Member {
+    fn from(r: &MemberResult) -> Self {
+        let user = if let Some(id) = r.user_id {
+            UserCred::Registered(User {
+                id,
+                name: r.user_name.clone().unwrap(),
+                email: r.user_email.clone().unwrap(),
+                avatar_url: r.user_avatar_url.clone(),
+                created_at: r.user_created_at.clone().unwrap(),
+            })
+        } else {
+            UserCred::UnRegistered {
+                email: r.user_email.clone().unwrap(),
+            }
+        };
+        Member {
+            id: r.id,
+            user,
+            accepted: r.accepted,
+            r#type: r.r#type,
+            created_at: r.created_at,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

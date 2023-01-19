@@ -1,25 +1,15 @@
 use super::{
-    model::{CreateUser, RefreshToken, User, UserLogin, Workspace, WorkspaceDetail, WorkspaceType},
+    model::{
+        CreateUser, Member, MemberResult, PermissionType, RefreshToken, UpdateWorkspace, User,
+        UserCred, UserLogin, Workspace, WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
+    },
     *,
 };
-use affine_cloud_migration::{JoinType, Migrator, MigratorTrait};
-use chrono::{NaiveDateTime, Utc};
-use path_ext::PathExt;
+use affine_cloud_migration::{Expr, JoinType, Migrator, MigratorTrait, Query};
 use sea_orm::{
     prelude::*, ConnectionTrait, Database, DatabaseTransaction, QuerySelect, Set, TransactionTrait,
 };
-use std::{
-    io::{self, Cursor},
-    path::PathBuf,
-};
 use uuid::Uuid;
-
-pub enum PermissionType {
-    Read = 0,
-    Write = 1,
-    Admin = 10,
-    Owner = 99,
-}
 
 // #[derive(FromRow)]
 // struct PermissionQuery {
@@ -101,7 +91,7 @@ impl ORM {
         user_email: &str,
     ) -> Result<(), DbErr> {
         Permission::update(PermissionActiveModel {
-            user_id: Set(user_id),
+            user_id: Set(Some(user_id)),
             user_email: Set(None),
             ..Default::default()
         })
@@ -218,7 +208,7 @@ impl ORM {
         .await?;
 
         Permission::insert(PermissionActiveModel {
-            user_id: Set(user_id),
+            user_id: Set(Some(user_id)),
             workspace_id: Set(workspace.uuid.clone()),
             r#type: Set(PermissionType::Owner as i32),
             accepted: Set(true),
@@ -230,214 +220,233 @@ impl ORM {
         Ok(workspace)
     }
 
-    // pub async fn create_normal_workspace(&self, user_id: i32) -> sqlx::Result<Workspace> {
-    //     let mut trx = self.db.begin().await?;
-    //     let workspace = Self::create_workspace(&mut trx, user_id, WorkspaceType::Normal).await?;
+    pub async fn create_normal_workspace(&self, user_id: i32) -> Result<WorkspacesModel, DbErr> {
+        let mut trx = self.pool.begin().await?;
+        let workspace = self
+            .create_workspace(&mut trx, user_id, WorkspaceType::Normal)
+            .await?;
 
-    //     trx.commit().await?;
+        trx.commit().await?;
 
-    //     Ok(workspace)
-    // }
+        Ok(workspace)
+    }
 
-    // pub async fn update_workspace(
-    //     &self,
-    //     workspace_id: String,
-    //     data: UpdateWorkspace,
-    // ) -> sqlx::Result<Option<Workspace>> {
-    //     let update_workspace = format!(
-    //         "UPDATE workspaces
-    //             SET public = $1
-    //         WHERE uuid = $2 AND type = {}
-    //         RETURNING uuid as id, public, type, created_at;",
-    //         WorkspaceType::Normal as i16
-    //     );
+    pub async fn update_workspace(
+        &self,
+        workspace_id: String,
+        data: UpdateWorkspace,
+    ) -> Result<Workspace, DbErr> {
+        Workspaces::update(WorkspacesActiveModel {
+            public: Set(data.public),
+            ..Default::default()
+        })
+        .filter(WorkspacesColumn::Uuid.eq(workspace_id.clone()))
+        .filter(WorkspacesColumn::Type.eq(WorkspaceType::Normal as i32))
+        .exec(&self.pool)
+        .await
+        .map(|ws| Workspace {
+            id: ws.uuid,
+            public: ws.public,
+            r#type: ws.r#type.into(),
+            created_at: ws.created_at.naive_local(),
+        })
+    }
 
-    //     query_as::<_, Workspace>(&update_workspace)
-    //         .bind(data.public)
-    //         .bind(workspace_id)
-    //         .fetch_optional(&self.db)
-    //         .await
-    // }
+    pub async fn delete_workspace(&self, workspace_id: String) -> Result<bool, DbErr> {
+        let trx = self.pool.begin().await?;
 
-    // pub async fn delete_workspace(&self, workspace_id: String) -> sqlx::Result<bool> {
-    //     let delete_permissions_workspace = format!(
-    //         r#"DELETE FROM permissions CASCADE WHERE workspace_id = $1 AND (SELECT True FROM workspaces WHERE uuid = $1 AND type = {})"#,
-    //         WorkspaceType::Normal as i16
-    //     );
+        Permission::delete_many()
+            .filter(PermissionColumn::WorkspaceId.eq(workspace_id.clone()))
+            .filter(Expr::exists(
+                Query::select()
+                    .from(Workspaces)
+                    .and_where(
+                        Expr::tbl(Workspaces, WorkspacesColumn::Uuid).eq(workspace_id.clone()),
+                    )
+                    .and_where(
+                        Expr::tbl(Workspaces, WorkspacesColumn::Type)
+                            .eq(WorkspaceType::Normal as i32),
+                    )
+                    .take(),
+            ))
+            .exec(&trx)
+            .await?;
 
-    //     query(&delete_permissions_workspace)
-    //         .bind(workspace_id.clone())
-    //         .execute(&self.db)
-    //         .await
-    //         .expect("delete table permissions failed");
+        Workspaces::delete_many()
+            .filter(WorkspacesColumn::Uuid.eq(workspace_id.clone()))
+            .filter(WorkspacesColumn::Type.eq(WorkspaceType::Normal as i32))
+            .exec(&trx)
+            .await
+            .map(|r| r.rows_affected > 0)
+    }
 
-    //     let delete_workspace = format!(
-    //         r#"DELETE FROM workspaces CASCADE WHERE uuid = $1 AND type = {}"#,
-    //         WorkspaceType::Normal as i16
-    //     );
+    pub async fn get_user_workspaces(
+        &self,
+        user_id: i32,
+    ) -> Result<Vec<WorkspaceWithPermission>, DbErr> {
+        Permission::find()
+            .column_as(WorkspacesColumn::Uuid, "id")
+            .column_as(WorkspacesColumn::Public, "public")
+            .column_as(WorkspacesColumn::CreatedAt, "created_at")
+            .column_as(WorkspacesColumn::Type, "type")
+            .column_as(PermissionColumn::Type, "permission")
+            .join_rev(
+                JoinType::InnerJoin,
+                Workspaces::belongs_to(Permission)
+                    .from(WorkspacesColumn::Uuid)
+                    .to(PermissionColumn::WorkspaceId)
+                    .into(),
+            )
+            .filter(PermissionColumn::UserId.eq(user_id))
+            .filter(PermissionColumn::Accepted.eq(true))
+            .into_model::<WorkspaceWithPermission>()
+            .all(&self.pool)
+            .await
+    }
 
-    //     query(&delete_workspace)
-    //         .bind(workspace_id.clone())
-    //         .execute(&self.db)
-    //         .await
-    //         .map(|q| q.rows_affected() != 0)
-    // }
+    pub async fn get_workspace_members(&self, workspace_id: String) -> Result<Vec<Member>, DbErr> {
+        Permission::find()
+            .column_as(PermissionColumn::Id, "id")
+            .column_as(PermissionColumn::Type, "type")
+            .column_as(PermissionColumn::Accepted, "accepted")
+            .column_as(PermissionColumn::CreatedAt, "created_at")
+            .column_as(UsersColumn::Id, "user_id")
+            .column_as(UsersColumn::Name, "user_name")
+            .column_as(UsersColumn::Email, "user_email")
+            .column_as(UsersColumn::AvatarUrl, "user_avatar_url")
+            .column_as(UsersColumn::CreatedAt, "user_created_at")
+            .join_rev(
+                JoinType::LeftJoin,
+                Users::belongs_to(Permission)
+                    .from(UsersColumn::Id)
+                    .to(PermissionColumn::UserId)
+                    .into(),
+            )
+            .filter(PermissionColumn::WorkspaceId.eq(workspace_id.clone()))
+            .into_model::<MemberResult>()
+            .all(&self.pool)
+            .await
+            .map(|m| m.iter().map(|m| m.into()).collect())
+    }
 
-    // pub async fn get_user_workspaces(
-    //     &self,
-    //     user_id: i32,
-    // ) -> sqlx::Result<Vec<WorkspaceWithPermission>> {
-    //     let stmt = "SELECT
-    //         workspaces.uuid AS id, workspaces.public, workspaces.created_at, workspaces.type,
-    //         permissions.type as permission
-    //     FROM permissions
-    //     INNER JOIN workspaces
-    //       ON permissions.workspace_id = workspaces.uuid
-    //     WHERE user_id = $1 AND accepted = True";
+    pub async fn get_permission(
+        &self,
+        user_id: i32,
+        workspace_id: String,
+    ) -> Result<Option<PermissionType>, DbErr> {
+        Permission::find()
+            .filter(PermissionColumn::UserId.eq(user_id))
+            .filter(PermissionColumn::WorkspaceId.eq(workspace_id))
+            .one(&self.pool)
+            .await
+            .map(|p| p.map(|p| p.r#type.into()))
+    }
 
-    //     query_as::<_, WorkspaceWithPermission>(&stmt)
-    //         .bind(user_id)
-    //         .fetch_all(&self.db)
-    //         .await
-    // }
+    pub async fn get_permission_by_permission_id(
+        &self,
+        user_id: i32,
+        permission_id: i64,
+    ) -> Result<Option<PermissionType>, DbErr> {
+        Permission::find()
+            .filter(PermissionColumn::UserId.eq(user_id))
+            .filter(
+                PermissionColumn::WorkspaceId.in_subquery(
+                    Query::select()
+                        .from(Permission)
+                        .column(PermissionColumn::WorkspaceId)
+                        .and_where(Expr::tbl(Permission, PermissionColumn::Id).eq(permission_id))
+                        .take(),
+                ),
+            )
+            .one(&self.pool)
+            .await
+            .map(|p| p.map(|p| p.r#type.into()))
+    }
 
-    // pub async fn get_workspace_members(&self, workspace_id: String) -> sqlx::Result<Vec<Member>> {
-    //     let stmt = "SELECT
-    //         permissions.id, permissions.type, permissions.user_email,
-    //         permissions.accepted, permissions.created_at,
-    //         users.id as user_id, users.name as user_name, users.email as user_table_email, users.avatar_url,
-    //         users.created_at as user_created_at
-    //     FROM permissions
-    //     LEFT JOIN users
-    //         ON users.id = permissions.user_id
-    //     WHERE workspace_id = $1";
+    pub async fn can_read_workspace(
+        &self,
+        user_id: i32,
+        workspace_id: String,
+    ) -> Result<bool, DbErr> {
+        Permission::find()
+            .filter(
+                PermissionColumn::UserId
+                    .eq(user_id)
+                    .and(PermissionColumn::WorkspaceId.eq(workspace_id.clone()))
+                    .and(PermissionColumn::Accepted.eq(true))
+                    .or(Expr::exists(
+                        Query::select()
+                            .from(Workspaces)
+                            .and_where(
+                                Expr::tbl(Workspaces, WorkspacesColumn::Uuid)
+                                    .eq(workspace_id.clone()),
+                            )
+                            .and_where(
+                                Expr::tbl(Workspaces, WorkspacesColumn::Type)
+                                    .eq(WorkspaceType::Normal as i32),
+                            )
+                            .take(),
+                    )),
+            )
+            .one(&self.pool)
+            .await
+            .map(|p| p.is_some())
+    }
 
-    //     query_as::<_, Member>(stmt)
-    //         .bind(workspace_id)
-    //         .fetch_all(&self.db)
-    //         .await
-    // }
+    pub async fn is_public_workspace(&self, workspace_id: String) -> Result<bool, DbErr> {
+        Workspaces::find()
+            .filter(WorkspacesColumn::Uuid.eq(workspace_id.clone()))
+            .filter(WorkspacesColumn::Public.eq(true))
+            .one(&self.pool)
+            .await
+            .map(|p| p.is_some())
+    }
 
-    // pub async fn get_permission(
-    //     &self,
-    //     user_id: i32,
-    //     workspace_id: String,
-    // ) -> sqlx::Result<Option<PermissionType>> {
-    //     let stmt = "SELECT type FROM permissions WHERE user_id = $1 AND workspace_id = $2";
+    pub async fn create_permission(
+        &self,
+        email: &str,
+        workspace_id: String,
+        permission_type: PermissionType,
+    ) -> Result<(i32, UserCred), DbErr> {
+        let user = self.get_user_by_email(email).await?;
 
-    //     query_as::<_, PermissionQuery>(&stmt)
-    //         .bind(user_id)
-    //         .bind(workspace_id)
-    //         .fetch_optional(&self.db)
-    //         .await
-    //         .map(|p| p.map(|p| p.type_))
-    // }
+        Permission::insert(PermissionActiveModel {
+            user_id: Set(user.clone().map(|u| u.id)),
+            user_email: Set(user.clone().and_then(|_| None).or(Some(email.to_string()))),
+            workspace_id: Set(workspace_id),
+            r#type: Set(permission_type as i32),
+            ..Default::default()
+        })
+        .exec_with_returning(&self.pool)
+        .await
+        .map(|p| {
+            (
+                p.id,
+                match user {
+                    Some(user) => UserCred::Registered(User {
+                        id: user.id,
+                        name: user.name,
+                        email: user.email,
+                        avatar_url: user.avatar_url,
+                        created_at: user.created_at.unwrap_or_default().naive_local(),
+                    }),
+                    None => UserCred::UnRegistered {
+                        email: email.to_owned(),
+                    },
+                },
+            )
+        })
+    }
 
-    // pub async fn get_permission_by_permission_id(
-    //     &self,
-    //     user_id: i32,
-    //     permission_id: i64,
-    // ) -> sqlx::Result<Option<PermissionType>> {
-    //     let stmt = "SELECT type FROM permissions
-    //     WHERE
-    //         user_id = $1
-    //     AND
-    //         workspace_id = (SELECT workspace_id FROM permissions WHERE permissions.id = $2)
-    //     ";
-
-    //     query_as::<_, PermissionQuery>(&stmt)
-    //         .bind(user_id)
-    //         .bind(permission_id)
-    //         .fetch_optional(&self.db)
-    //         .await
-    //         .map(|p| p.map(|p| p.type_))
-    // }
-
-    // pub async fn can_read_workspace(
-    //     &self,
-    //     user_id: i32,
-    //     workspace_id: String,
-    // ) -> sqlx::Result<bool> {
-    //     let stmt = "SELECT FROM permissions
-    //         WHERE user_id = $1
-    //             AND workspace_id = $2 AND accepted = True
-    //             OR (SELECT True FROM workspaces WHERE uuid = $2 AND public = True)";
-
-    //     query(&stmt)
-    //         .bind(user_id)
-    //         .bind(workspace_id)
-    //         .fetch_optional(&self.db)
-    //         .await
-    //         .map(|p| p.is_some())
-    // }
-
-    // pub async fn is_public_workspace(&self, workspace_id: String) -> sqlx::Result<bool> {
-    //     let stmt = "SELECT True FROM workspaces WHERE uuid = $1 AND public = True";
-
-    //     query(&stmt)
-    //         .bind(workspace_id)
-    //         .fetch_optional(&self.db)
-    //         .await
-    //         .map(|p| p.is_some())
-    // }
-
-    // pub async fn create_permission(
-    //     &self,
-    //     email: &str,
-    //     workspace_id: String,
-    //     permission_type: PermissionType,
-    // ) -> sqlx::Result<Option<(i64, UserCred)>> {
-    //     let user = self.get_user_by_email(email).await?;
-
-    //     let stmt = format!(
-    //         "INSERT INTO permissions (user_id, user_email, workspace_id, type)
-    //         SELECT $1, $2, $3, $4
-    //         FROM workspaces
-    //             WHERE workspaces.type = {} AND workspaces.uuid = $3
-    //         ON CONFLICT DO NOTHING
-    //         RETURNING id",
-    //         WorkspaceType::Normal as i16
-    //     );
-
-    //     let query = query_as::<_, BigId>(&stmt);
-
-    //     let (query, user) = match user {
-    //         Some(user) => (
-    //             query.bind(user.id).bind::<Option<String>>(None),
-    //             UserCred::Registered(user),
-    //         ),
-    //         None => (
-    //             query.bind::<Option<i32>>(None).bind(email),
-    //             UserCred::UnRegistered {
-    //                 email: email.to_owned(),
-    //             },
-    //         ),
-    //     };
-
-    //     let id = query
-    //         .bind(workspace_id)
-    //         .bind(permission_type as i16)
-    //         .fetch_optional(&self.db)
-    //         .await?;
-
-    //     Ok(if let Some(id) = id {
-    //         Some((id.id, user))
-    //     } else {
-    //         None
-    //     })
-    // }
-
-    // pub async fn accept_permission(&self, permission_id: i64) -> sqlx::Result<Option<Permission>> {
-    //     let stmt = "UPDATE permissions
-    //             SET accepted = True
-    //         WHERE id = $1
-    //         RETURNING id, user_id, user_email, workspace_id, type, accepted, created_at";
-
-    //     query_as::<_, Permission>(&stmt)
-    //         .bind(permission_id)
-    //         .fetch_optional(&self.db)
-    //         .await
-    // }
+    pub async fn accept_permission(&self, permission_id: i64) -> Result<PermissionModel, DbErr> {
+        Permission::update(PermissionActiveModel {
+            accepted: Set(true),
+            ..Default::default()
+        })
+        .filter(PermissionColumn::Id.eq(permission_id))
+        .exec(&self.pool)
+        .await
+    }
 
     // pub async fn delete_permission(&self, permission_id: i64) -> sqlx::Result<bool> {
     //     let stmt = "DELETE FROM permissions WHERE id = $1";
