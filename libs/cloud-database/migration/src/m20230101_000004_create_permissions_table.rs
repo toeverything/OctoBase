@@ -27,7 +27,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(Permission::UserId).integer().not_null())
-                    .col(ColumnDef::new(Permission::UserEmail).text().not_null())
+                    .col(ColumnDef::new(Permission::UserEmail).text())
                     .col(ColumnDef::new(Permission::Type).small_integer().not_null())
                     .col(
                         ColumnDef::new(Permission::Accepted)

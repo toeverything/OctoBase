@@ -1,22 +1,18 @@
-use crate::User;
-
-use super::entities::prelude::*;
+use super::{
+    model::{CreateUser, RefreshToken, User, UserLogin, Workspace, WorkspaceDetail, WorkspaceType},
+    *,
+};
 use affine_cloud_migration::{JoinType, Migrator, MigratorTrait};
 use chrono::{NaiveDateTime, Utc};
 use path_ext::PathExt;
-use sea_orm::{prelude::*, Database, FromQueryResult, QuerySelect, Set};
+use sea_orm::{
+    prelude::*, ConnectionTrait, Database, DatabaseTransaction, QuerySelect, Set, TransactionTrait,
+};
 use std::{
     io::{self, Cursor},
     path::PathBuf,
 };
 use uuid::Uuid;
-
-type UsersModel = <Users as EntityTrait>::Model;
-type UsersActiveModel = super::entities::users::ActiveModel;
-type UsersColumn = <Users as EntityTrait>::Column;
-type PermissionModel = <Permission as EntityTrait>::Model;
-type PermissionActiveModel = super::entities::permission::ActiveModel;
-type PermissionColumn = <Permission as EntityTrait>::Column;
 
 pub enum PermissionType {
     Read = 0,
@@ -73,168 +69,166 @@ impl ORM {
             .await
     }
 
-    // pub async fn user_login(&self, login: UserLogin) -> sqlx::Result<Option<UserWithNonce>> {
-    //     let stmt = "SELECT
-    //         id, name, email, avatar_url, token_nonce, created_at
-    //     FROM users
-    //     WHERE email = $1 AND password = $2";
+    pub async fn user_login(&self, login: UserLogin) -> Result<Option<UsersModel>, DbErr> {
+        Users::find()
+            .filter(UsersColumn::Email.eq(login.email))
+            .filter(UsersColumn::Password.eq(login.password))
+            .one(&self.pool)
+            .await
+    }
 
-    //     query_as::<_, UserWithNonce>(stmt)
-    //         .bind(login.email)
-    //         .bind(login.password)
-    //         .fetch_optional(&self.db)
-    //         .await
-    // }
+    pub async fn refresh_token(&self, token: RefreshToken) -> Result<Option<UsersModel>, DbErr> {
+        Users::find()
+            .filter(UsersColumn::Id.eq(token.user_id))
+            .filter(UsersColumn::TokenNonce.eq(token.token_nonce))
+            .one(&self.pool)
+            .await
+    }
 
-    // pub async fn refresh_token(&self, token: RefreshToken) -> sqlx::Result<Option<UserWithNonce>> {
-    //     let stmt = "SELECT
-    //         id, name, email, avatar_url, token_nonce, created_at
-    //     FROM users
-    //     WHERE id = $1 AND token_nonce = $2";
+    pub async fn verify_refresh_token(&self, token: &RefreshToken) -> Result<bool, DbErr> {
+        Users::find()
+            .column(UsersColumn::Id)
+            .filter(UsersColumn::Id.eq(token.user_id))
+            .filter(UsersColumn::TokenNonce.eq(token.token_nonce))
+            .one(&self.pool)
+            .await
+            .map(|r| r.is_some())
+    }
 
-    //     query_as::<_, UserWithNonce>(stmt)
-    //         .bind(token.user_id)
-    //         .bind(token.token_nonce)
-    //         .fetch_optional(&self.db)
-    //         .await
-    // }
+    pub async fn update_cred(
+        trx: &DatabaseTransaction,
+        user_id: i32,
+        user_email: &str,
+    ) -> Result<(), DbErr> {
+        Permission::update(PermissionActiveModel {
+            user_id: Set(user_id),
+            user_email: Set(None),
+            ..Default::default()
+        })
+        .filter(PermissionColumn::UserEmail.eq(user_email))
+        .exec(trx)
+        .await
+        .map(|_| ())
+    }
 
-    // pub async fn verify_refresh_token(&self, token: &RefreshToken) -> sqlx::Result<bool> {
-    //     let stmt = "SELECT True
-    //     FROM users
-    //     WHERE id = $1 AND token_nonce = $2";
+    pub async fn create_user(
+        &self,
+        user: CreateUser,
+    ) -> Result<Option<(UsersModel, WorkspacesModel)>, DbErr> {
+        let mut trx = self.pool.begin().await?;
 
-    //     query(stmt)
-    //         .bind(token.user_id)
-    //         .bind(token.token_nonce)
-    //         .fetch_optional(&self.db)
-    //         .await
-    //         .map(|r| r.is_some())
-    // }
+        let Ok(user) = Users::insert(UsersActiveModel {
+            name: Set(user.name),
+            password: Set(Some(user.password)),
+            email: Set(user.email),
+            avatar_url: Set(user.avatar_url),
+            ..Default::default()
+        })
+        .exec_with_returning(&trx)
+        .await else {
+            return Ok(None);
+        };
 
-    // pub async fn update_cred(
-    //     trx: &mut Transaction<'static, Postgres>,
-    //     user_id: i32,
-    //     user_email: &str,
-    // ) -> sqlx::Result<()> {
-    //     let update_cred = "UPDATE permissions
-    //     SET user_id = $1,
-    //         user_email = NULL
-    //     WHERE user_email = $2";
+        let new_workspace = self
+            .create_workspace(&trx, user.id, WorkspaceType::Private)
+            .await?;
 
-    //     query(update_cred)
-    //         .bind(user_id)
-    //         .bind(user_email)
-    //         .execute(&mut *trx)
-    //         .await?;
+        Self::update_cred(&mut trx, user.id, &user.email).await?;
 
-    //     Ok(())
-    // }
+        trx.commit().await?;
 
-    // pub async fn create_user(&self, user: CreateUser) -> sqlx::Result<Option<(User, Workspace)>> {
-    //     let mut trx = self.db.begin().await?;
-    //     let create_user = "INSERT INTO users
-    //         (name, password, email, avatar_url)
-    //         VALUES ($1, $2, $3, $4)
-    //     ON CONFLICT (email) DO NOTHING
-    //     RETURNING id, name, email, avatar_url, created_at";
+        Ok(Some((user, new_workspace)))
+    }
 
-    //     let Some(user) = query_as::<_, User>(create_user)
-    //         .bind(user.name)
-    //         .bind(user.password)
-    //         .bind(user.email)
-    //         .bind(user.avatar_url)
-    //         .fetch_optional(&mut trx)
-    //         .await? else {
-    //             return Ok(None)
-    //     };
+    pub async fn get_workspace_by_id(
+        &self,
+        workspace_id: String,
+    ) -> Result<Option<WorkspaceDetail>, DbErr> {
+        let workspace = Workspaces::find()
+            .filter(WorkspacesColumn::Uuid.eq(workspace_id.clone()))
+            .one(&self.pool)
+            .await?;
 
-    //     let new_workspace =
-    //         Self::create_workspace(&mut trx, user.id, WorkspaceType::Private).await?;
+        let workspace = match workspace {
+            Some(workspace) if workspace.r#type == WorkspaceType::Private as i32 => {
+                return Ok(Some(WorkspaceDetail {
+                    owner: None,
+                    member_count: 0,
+                    workspace: Workspace {
+                        id: workspace.uuid.clone(),
+                        public: workspace.public,
+                        r#type: workspace.r#type.into(),
+                        created_at: workspace.created_at.naive_local(),
+                    },
+                }))
+            }
+            Some(ws) => ws,
+            None => return Ok(None),
+        };
 
-    //     Self::update_cred(&mut trx, user.id, &user.email).await?;
+        let owner = self
+            .get_workspace_owner(workspace_id.clone())
+            .await?
+            .expect("owner not found");
 
-    //     trx.commit().await?;
+        let get_member_count = "SELECT COUNT(permissions.id) AS count
+            FROM permissions
+            WHERE workspace_id = $1 AND accepted = True";
 
-    //     Ok(Some((user, new_workspace)))
-    // }
+        let member_count = Permission::find()
+            .filter(PermissionColumn::WorkspaceId.eq(workspace_id))
+            .filter(PermissionColumn::Accepted.eq(true))
+            .count(&self.pool)
+            .await?;
 
-    // pub async fn get_workspace_by_id(
-    //     &self,
-    //     workspace_id: String,
-    // ) -> sqlx::Result<Option<WorkspaceDetail>> {
-    //     let get_workspace =
-    //         "SELECT uuid AS id, public, type, created_at FROM workspaces WHERE uuid = $1;";
+        Ok(Some(WorkspaceDetail {
+            owner: Some(User {
+                id: owner.id,
+                name: owner.name,
+                email: owner.email,
+                avatar_url: owner.avatar_url,
+                created_at: owner.created_at.unwrap_or_default().naive_local(),
+            }),
+            member_count,
+            workspace: Workspace {
+                id: workspace.uuid.clone(),
+                public: workspace.public,
+                r#type: workspace.r#type.into(),
+                created_at: workspace.created_at.naive_local(),
+            },
+        }))
+    }
 
-    //     let workspace = query_as::<_, Workspace>(&get_workspace)
-    //         .bind(workspace_id.clone())
-    //         .fetch_optional(&self.db)
-    //         .await?;
+    pub async fn create_workspace<C: ConnectionTrait>(
+        &self,
+        trx: &C,
+        user_id: i32,
+        ws_type: WorkspaceType,
+    ) -> Result<WorkspacesModel, DbErr> {
+        let uuid = Uuid::new_v4();
+        let workspace_id = uuid.to_string().replace("-", "_");
 
-    //     let workspace = match workspace {
-    //         Some(workspace) if workspace.type_ == WorkspaceType::Private => {
-    //             return Ok(Some(WorkspaceDetail {
-    //                 owner: None,
-    //                 member_count: 0,
-    //                 workspace,
-    //             }))
-    //         }
-    //         Some(ws) => ws,
-    //         None => return Ok(None),
-    //     };
+        let workspace = Workspaces::insert(WorkspacesActiveModel {
+            public: Set(false),
+            r#type: Set(ws_type as i32),
+            uuid: Set(workspace_id),
+            ..Default::default()
+        })
+        .exec_with_returning(trx)
+        .await?;
 
-    //     let owner = self.get_workspace_owner(workspace_id.clone()).await?;
+        Permission::insert(PermissionActiveModel {
+            user_id: Set(user_id),
+            workspace_id: Set(workspace.uuid.clone()),
+            r#type: Set(PermissionType::Owner as i32),
+            accepted: Set(true),
+            ..Default::default()
+        })
+        .exec(trx)
+        .await?;
 
-    //     let get_member_count = "SELECT COUNT(permissions.id) AS count
-    //         FROM permissions
-    //         WHERE workspace_id = $1 AND accepted = True";
-
-    //     let member_count = query_as::<_, Count>(get_member_count)
-    //         .bind(workspace_id)
-    //         .fetch_one(&self.db)
-    //         .await?
-    //         .count;
-
-    //     Ok(Some(WorkspaceDetail {
-    //         owner: Some(owner),
-    //         member_count,
-    //         workspace,
-    //     }))
-    // }
-
-    // pub async fn create_workspace(
-    //     trx: &mut Transaction<'static, Postgres>,
-    //     user_id: i32,
-    //     ws_type: WorkspaceType,
-    // ) -> sqlx::Result<Workspace> {
-    //     let create_workspace = format!(
-    //         "INSERT INTO workspaces (public, type, uuid) VALUES (false, $1, $2)
-    //         RETURNING uuid AS id, public, created_at, type;",
-    //     );
-    //     let uuid = Uuid::new_v4();
-    //     let workspace_id = uuid.to_string().replace("-", "_");
-
-    //     let workspace = query_as::<_, Workspace>(&create_workspace)
-    //         .bind(ws_type as i16)
-    //         .bind(workspace_id)
-    //         .fetch_one(&mut *trx)
-    //         .await?;
-
-    //     let create_permission = format!(
-    //         "INSERT INTO permissions
-    //             (user_id, workspace_id, type, accepted)
-    //         VALUES ($1, $2, {}, True);",
-    //         PermissionType::Owner as i16
-    //     );
-
-    //     query(&create_permission)
-    //         .bind(user_id)
-    //         .bind(workspace.id.clone())
-    //         .execute(&mut *trx)
-    //         .await?;
-
-    //     Ok(workspace)
-    // }
+        Ok(workspace)
+    }
 
     // pub async fn create_normal_workspace(&self, user_id: i32) -> sqlx::Result<Workspace> {
     //     let mut trx = self.db.begin().await?;
