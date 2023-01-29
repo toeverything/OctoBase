@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use axum::body::Bytes;
+use cloud_database::Claims;
 use http::{Request, Response, StatusCode};
 use http_body::combinators::UnsyncBoxBody;
 use jsonwebtoken::DecodingKey;
-use jwst_storage::Claims;
 use tower_http::auth::{AuthorizeRequest, RequireAuthorizationLayer};
 
 #[derive(Clone)]

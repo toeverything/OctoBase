@@ -4,11 +4,11 @@ use axum::{
     response::Response,
 };
 use base64::Engine;
+use cloud_database::{WorkspaceDetail, WorkspaceWithPermission};
 use dashmap::DashMap;
 use dashmap::DashSet;
 use futures::{sink::SinkExt, stream::StreamExt};
 use jwst_logger::error;
-use jwst_storage::{WorkspaceDetail, WorkspaceWithPermission};
 use serde::Deserialize;
 use serde::Serialize;
 use std::{collections::HashMap, sync::Arc};

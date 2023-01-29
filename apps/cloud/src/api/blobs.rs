@@ -7,6 +7,7 @@ use axum::{
     Extension, Json, TypedHeader,
 };
 use chrono::{DateTime, Utc};
+use cloud_database::Claims;
 use futures::{future, StreamExt};
 use http::{
     header::{
@@ -16,7 +17,6 @@ use http::{
     HeaderMap, HeaderValue, StatusCode,
 };
 use jwst::{BlobStorage, DocStorage};
-use jwst_storage::Claims;
 use mime::APPLICATION_OCTET_STREAM;
 use std::sync::Arc;
 

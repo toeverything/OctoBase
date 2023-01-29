@@ -9,12 +9,12 @@ use axum::{
 };
 use base64::Engine;
 use chrono::{Duration, Utc};
-use http::StatusCode;
-use jwst::BlobStorage;
-use jwst_storage::{
+use cloud_database::{
     Claims, MakeToken, RefreshToken, UpdateWorkspace, UserQuery, UserToken, UserWithNonce,
     WorkspaceSearchInput,
 };
+use http::StatusCode;
+use jwst::BlobStorage;
 use lib0::any::Any;
 use std::sync::Arc;
 use tower::ServiceBuilder;

@@ -16,12 +16,8 @@ use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::mpsc::channel;
 use uuid::Uuid;
-use y_sync::{
-    awareness::{Awareness, AwarenessUpdate, Event},
-    sync::{Error, Message as YMessage},
-};
-use yrs::updates::encoder::Encoder;
-use yrs::updates::encoder::{Encode, EncoderV1};
+use y_sync::sync::Message as YMessage;
+use yrs::updates::encoder::{Encode, Encoder, EncoderV1};
 
 #[derive(Serialize)]
 pub struct WebSocketAuthentication {

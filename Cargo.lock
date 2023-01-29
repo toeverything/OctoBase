@@ -68,6 +68,7 @@ dependencies = [
  "base64 0.21.0",
  "bytes",
  "chrono",
+ "cloud-database",
  "dashmap",
  "dotenvy",
  "futures",
@@ -99,6 +100,14 @@ dependencies = [
  "x509-parser",
  "y-sync",
  "yrs 0.12.0",
+]
+
+[[package]]
+name = "affine-cloud-migration"
+version = "0.1.0"
+dependencies = [
+ "sea-orm-migration",
+ "tokio",
 ]
 
 [[package]]
@@ -806,6 +815,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d4198f73e42b4936b35b5bb248d81d2b595ecb170da0bac7655c54eedfa8da8"
 dependencies = [
  "os_str_bytes",
+]
+
+[[package]]
+name = "cloud-database"
+version = "0.1.0"
+dependencies = [
+ "affine-cloud-migration",
+ "anyhow",
+ "async-trait",
+ "base64 0.21.0",
+ "bytes",
+ "chrono",
+ "futures",
+ "jwst",
+ "jwst-logger",
+ "num-traits",
+ "path-ext",
+ "schemars",
+ "sea-orm",
+ "sea-orm-migration",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "sha2",
+ "sqlx",
+ "tokio",
+ "tokio-util",
+ "uuid",
+ "yrs 0.12.0",
 ]
 
 [[package]]
@@ -2085,19 +2123,12 @@ dependencies = [
  "jwst-blob-migration",
  "jwst-doc-migration",
  "jwst-logger",
- "num-traits",
  "path-ext",
- "schemars",
  "sea-orm",
  "sea-orm-migration",
- "serde",
- "serde_json",
- "serde_repr",
  "sha2",
- "sqlx",
  "tokio",
  "tokio-util",
- "uuid",
  "yrs 0.12.0",
 ]
 

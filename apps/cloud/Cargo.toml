@@ -3,12 +3,11 @@ name = "affine-cloud"
 edition = "2021"
 version = "0.1.0"
 
-
 [features]
 default = ["sqlite"]
 affine = ["postgres", "jwst-storage/sqlite"]
-sqlite = ["jwst-storage/server", "jwst-storage/sqlite"]
-postgres = ["jwst-storage/server", "jwst-storage/postgres"]
+sqlite = ["cloud-database/sqlite", "jwst-storage/sqlite"]
+postgres = ["cloud-database/postgres", "jwst-storage/postgres"]
 
 [dependencies]
 async-trait = "0.1.60"
@@ -64,6 +63,7 @@ uuid = { version = "^1.2.2", default-features = false, features = ["v4"] }
 x509-parser = "0.14.0"
 
 # ======= workspace dependencies =======
+cloud-database = { path = "../../libs/cloud-database" }
 jwst = { path = "../../libs/jwst" }
 jwst-logger = { path = "../../libs/jwst-logger" }
 jwst-storage = { path = "../../libs/jwst-storage" }
