@@ -6,8 +6,8 @@ version = "0.1.0"
 [features]
 default = ["sqlite"]
 affine = ["postgres", "jwst-storage/sqlite"]
-sqlite = ["jwst-storage/sqlite"]
-postgres = ["jwst-storage/postgres"]
+sqlite = ["cloud-database/sqlite", "jwst-storage/sqlite"]
+postgres = ["cloud-database/postgres", "jwst-storage/postgres"]
 
 [dependencies]
 async-trait = "0.1.60"

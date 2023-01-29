@@ -244,6 +244,34 @@ pub enum PermissionType {
     Owner = 99,
 }
 
+impl From<i32> for PermissionType {
+    fn from(i: i32) -> Self {
+        match i {
+            0 => PermissionType::Read,
+            1 => PermissionType::Write,
+            10 => PermissionType::Admin,
+            99 => PermissionType::Owner,
+            _ => {
+                error!("invalid permission type: {}", i);
+                PermissionType::Read
+            }
+        }
+    }
+}
+
+impl TryGetable for PermissionType {
+    fn try_get(
+        res: &sea_orm::QueryResult,
+        pre: &str,
+        col: &str,
+    ) -> Result<Self, sea_orm::TryGetError> {
+        let i: i32 = res
+            .try_get(pre, col)
+            .map_err(|e| sea_orm::TryGetError::DbErr(e))?;
+        Ok(PermissionType::from(i))
+    }
+}
+
 #[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Permission {
     pub id: i64,
@@ -339,7 +367,7 @@ impl From<&MemberResult> for Member {
             id: r.id,
             user,
             accepted: r.accepted,
-            r#type: r.r#type,
+            r#type: r.r#type.clone(),
             created_at: r.created_at,
         }
     }

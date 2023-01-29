@@ -14,7 +14,7 @@ use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::{DocStorage, SearchResults, Workspace};
 use jwst_logger::{error, info};
 use jwst_storage::{BlobAutoStorage, DocAutoStorage};
-use std::{collections::HashMap, io, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
