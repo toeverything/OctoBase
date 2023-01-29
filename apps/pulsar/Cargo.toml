@@ -1,0 +1,24 @@
+[package]
+name = "pulsar"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+futures = "0.3.25"
+libp2p = { version = "0.50.0", features = [
+    "dns",
+    "ecdsa",
+    "gossipsub",
+    "macros",
+    "mdns",
+    "mplex",
+    "noise",
+    "rsa",
+    "tcp",
+    "tokio",
+    "websocket",
+    "yamux",
+] }
+tokio = { version = "1.24.2", features = ["full"] }
