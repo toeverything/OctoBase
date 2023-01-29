@@ -29,7 +29,7 @@ By providing native offline collaboration, full-text indexing, and binary storag
 
 OctoBase can be used either as a stand-alone server database, or directly included in your application as an embedded database and remain fully functional.
 
-Open [RoadMap](https://github.com/toeverything/OctoBase/issues/9), know to the future of OctoBase
+Open [RoadMap](https://t.me/blocksuite), know to the future of OctoBase
 
 Open [Document](https://crdts.cloud/docs/index.html), know how to use OctoBase
 
