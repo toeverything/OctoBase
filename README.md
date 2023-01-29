@@ -30,7 +30,7 @@ OctoBase can be used either as a stand-alone server database, or directly includ
 
 ## Project status
 
-**The OctoBase project is currently under heavy development, and none of the components are available for production. Major changes may occur at any time before the version reaches 1.0.**
+**The OctoBase project is currently under heavy development, most components are not yet production ready. Major changes may occur at any time before the version reaches 1.0.**
 
 ## Contributions
 
@@ -69,8 +69,8 @@ on all common platforms. In order to achieve this goal, we will strive to do the
 
 In the process of project development, there are many software development concepts that have influenced us. Thank you very much for these excellent software:
 
--   [Fossil](https://www2.fossil-scm.org/home/doc/trunk/www/index.wiki) -- Source code management tool made with CRDTs which inspired our design on block data structure.
--   [SQLite](https://sqlite.org/index.html) -- "Small. Fast. Reliable. Choose any three." We like this idea very much.
+-   [Fossil] -- Source code management tool made with CRDTs which inspired our design on block data structure.
+-   [SQLite] -- "Small. Fast. Reliable. Choose any three." We like this idea very much.
 
 ## License
 
@@ -81,3 +81,5 @@ Currently, this repository is under **active development** and most components a
 [mpl 2.0]: https://www.mozilla.org/en-US/MPL/2.0/
 [document]: https://crdts.cloud/docs/index.html
 [roadmap]: https://github.com/toeverything/OctoBase/issues/9
+[fossil]: https://www2.fossil-scm.org/home/doc/trunk/www/index.wiki
+[sqlite]: https://sqlite.org/index.html
