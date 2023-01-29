@@ -159,7 +159,7 @@ jobs:
                   target: mysc
 
     apiproxy:
-        runs-on: self-hosted
+        runs-on: ubuntu-latest
         environment: development
         permissions:
             contents: read
@@ -197,7 +197,7 @@ jobs:
                   labels: ${{ steps.meta_apiproxy.outputs.labels }}
                   target: apiproxy
 
-    lint:
+    test:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v1
@@ -207,17 +207,32 @@ jobs:
               with:
                   toolchain: nightly
                   override: true
-            - name: Run cargo-tarpaulin
-              uses: actions-rs/tarpaulin@v0.1
+            - uses: actions-rs/cargo@v1
               with:
-                  version: '0.22.0'
-                  out-type: 'Html'
-                  args: '-p affine-cloud,keck,jwst,jwst-storage --no-fail-fast --engine Llvm'
-              env:
-                  CARGO_INCREMENTAL: '0'
-                  RUSTFLAGS: '-Zprofile -C opt-level=0 -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-                  RUSTDOCFLAGS: '-Zprofile-C opt-level=0 -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-            - uses: actions/upload-artifact@v2
-              with:
-                  name: tarpaulin-report
-                  path: apps/keck/tarpaulin-report.html
+                  command: test
+                  args: -p affine-cloud -p keck -p jwst -p jwst-storage --no-fail-fast
+
+#     lint:
+#         runs-on: ubuntu-latest
+#         steps:
+#             - uses: actions/checkout@v1
+#               with:
+#                   submodules: true
+#             - uses: actions-rs/toolchain@v1
+#               with:
+#                   toolchain: nightly
+#                   override: true
+#             - name: Run cargo-tarpaulin
+#               uses: actions-rs/tarpaulin@v0.1
+#               with:
+#                   version: '0.22.0'
+#                   out-type: 'Html'
+#                   args: '-p affine-cloud,keck,jwst,jwst-storage --no-fail-fast --engine Llvm'
+#               env:
+#                   CARGO_INCREMENTAL: '0'
+#                   RUSTFLAGS: '-Zprofile -C opt-level=0 -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+#                   RUSTDOCFLAGS: '-Zprofile-C opt-level=0 -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+#             - uses: actions/upload-artifact@v2
+#               with:
+#                   name: tarpaulin-report
+#                   path: apps/keck/tarpaulin-report.html
