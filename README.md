@@ -1,8 +1,8 @@
 # OctoBase
 
-<a href="https://join.slack.com/t/blocksuitedev/shared_invite/zt-1h0zz3b8z-nFpWSu6a6~yId7PxiMcBHA">
-  <img src="https://img.shields.io/badge/-Slack-grey?logo=slack">
-</a>
+
+[![Issues Closed](https://img.shields.io/github/issues-closed/toeverything/OctoBase?color=6880ff)](https://github.com/toeverything/blocksuite/issues?q=is%3Aissue+is%3Aclosed)
+[![Join Telegram](https://img.shields.io/badge/join-telegram-blue)](https://t.me/blocksuite)
 <a href="https://twitter.com/BlockSuiteDev">
   <img src="https://img.shields.io/badge/-Twitter-grey?logo=twitter">
 </a>
