@@ -1,10 +1,9 @@
 # OctoBase
 
-
-[![Issues Closed](https://img.shields.io/github/issues-closed/toeverything/OctoBase?color=6880ff)](https://github.com/toeverything/blocksuite/issues?q=is%3Aissue+is%3Aclosed)
-[![Join Telegram](https://img.shields.io/badge/join-telegram-blue)](https://t.me/blocksuite)
-<a href="https://twitter.com/BlockSuiteDev">
-  <img src="https://img.shields.io/badge/-Twitter-grey?logo=twitter">
+[![Issues Closed](https://img.shields.io/github/issues-closed/toeverything/OctoBase?color=6880ff)](https://github.com/toeverything/OctoBase/issues?q=is%3Aissue+is%3Aclosed)
+[![Join Telegram](https://img.shields.io/badge/join-telegram-blue)](https://t.me/affineworkos)
+<a href="https://twitter.com/AffineOfficial">
+<img src="https://img.shields.io/badge/-Twitter-grey?logo=twitter">
 </a>
 
 [![stars](https://img.shields.io/github/stars/toeverything/OctoBase.svg?style=flat&logo=github&colorB=red&label=stars)](https://github.com/toeverything/OctoBase)
