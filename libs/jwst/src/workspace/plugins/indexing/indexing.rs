@@ -56,13 +56,10 @@ impl IndexingPluginImpl {
                     items.push(SearchResult {
                         block_id: id.to_string(),
                         score,
-                    })
+                    });
                 } else {
                     let to_json = self.schema.to_json(&retrieved_doc);
-                    eprintln!(
-                        "Unexpected non-block doc in Tantivy result set: {}",
-                        to_json
-                    )
+                    eprintln!("Unexpected non-block doc in Tantivy result set: {to_json}");
                 }
             }
         }

@@ -34,7 +34,7 @@ impl WorkspaceTransaction<'_> {
         F: AsRef<str>,
     {
         info!("create block: {}", block_id.as_ref());
-        Block::new(&self.ws, block_id, flavor, self.ws.client_id())
+        Block::new(self.ws, block_id, flavor, self.ws.client_id())
     }
 
     pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) {

@@ -15,25 +15,16 @@ impl ParentMap {
     fn parse_parent(name_map: &HashMap<ID, String>, parent: TypePtr) -> Option<String> {
         match parent {
             TypePtr::Unknown => Some("unknown".to_owned()),
-            TypePtr::Branch(ptr) => {
-                if let Some(name) = ptr.item_id().and_then(|item_id| name_map.get(&item_id)) {
-                    Some(name.clone())
-                } else {
-                    None
-                }
-            }
+            TypePtr::Branch(ptr) => ptr
+                .item_id()
+                .and_then(|item_id| name_map.get(&item_id))
+                .cloned(),
             TypePtr::Named(name) => Some(name.to_string()),
-            TypePtr::ID(ptr_id) => {
-                if let Some(name) = name_map.get(&ptr_id) {
-                    Some(name.clone())
-                } else {
-                    None
-                }
-            }
+            TypePtr::ID(ptr_id) => name_map.get(&ptr_id).cloned(),
         }
     }
 
-    fn from(items: &Vec<&Item>) -> Self {
+    fn from(items: &[&Item]) -> Self {
         let mut name_map: HashMap<ID, String> = HashMap::new();
         // println!("{:?}", items);
         let mut padding_ptr: VecDeque<(&Item, usize)> =
@@ -65,7 +56,7 @@ impl ParentMap {
             };
 
             let parent = if let Some(parent_sub) = parent_sub {
-                format!("{}.{}", parent, parent_sub)
+                format!("{parent}.{parent_sub}")
             } else {
                 parent
             };
@@ -106,10 +97,10 @@ pub fn parse_history_client(doc: &Doc) -> Option<Vec<u64>> {
 pub fn parse_history(doc: &Doc, client: u64) -> Option<Vec<RawHistory>> {
     let update = doc.encode_state_as_update_v1(&StateVector::default());
     let update = Update::decode_v1(&update).ok()?;
-    let mut items = update.as_items();
+    let items = update.as_items();
 
     let mut histories = vec![];
-    let parent_map = ParentMap::from(&mut items);
+    let parent_map = ParentMap::from(&items);
 
     for item in items {
         if let ItemContent::Deleted(_) = item.content {
@@ -155,7 +146,7 @@ mod tests {
     #[test]
     fn parse_history_test() {
         let workspace = Workspace::new("test");
-        workspace.with_trx(|mut t| {
+        workspace.with_trx(|t| {
             t.create("test", "text");
         });
         let doc = workspace.doc();

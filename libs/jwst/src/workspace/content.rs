@@ -79,7 +79,7 @@ impl Content {
     /// Subscribe to update events.
     pub fn observe(
         &mut self,
-        f: impl Fn(&Transaction, &UpdateEvent) -> () + 'static,
+        f: impl Fn(&Transaction, &UpdateEvent) + 'static,
     ) -> Subscription<UpdateEvent> {
         self.awareness.doc_mut().observe_update_v1(f)
     }

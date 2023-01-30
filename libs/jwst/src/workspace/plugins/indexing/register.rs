@@ -13,7 +13,7 @@ use tantivy::{
 #[derive(Debug)]
 enum IndexingStorageKind {
     /// Store index in memory (default)
-    RAM,
+    Ram,
     /// Store index in a specific directory
     #[allow(dead_code)]
     PersistedDirectory(PathBuf),
@@ -21,7 +21,7 @@ enum IndexingStorageKind {
 
 impl Default for IndexingStorageKind {
     fn default() -> Self {
-        Self::RAM
+        Self::Ram
     }
 }
 
@@ -34,7 +34,7 @@ impl IndexingPluginRegister {
     #[allow(dead_code)]
     pub fn ram() -> Self {
         Self {
-            storage_kind: IndexingStorageKind::RAM,
+            storage_kind: IndexingStorageKind::Ram,
         }
     }
 
@@ -58,11 +58,11 @@ impl PluginRegister for IndexingPluginRegister {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("block_id", STRING | STORED);
         schema_builder.add_text_field("title", options.clone()); // props:title
-        schema_builder.add_text_field("body", options.clone()); // props:text
+        schema_builder.add_text_field("body", options); // props:text
         let schema = schema_builder.build();
 
         let index_dir: Box<dyn tantivy::Directory> = match &self.storage_kind {
-            IndexingStorageKind::RAM => Box::new(tantivy::directory::RamDirectory::create()),
+            IndexingStorageKind::Ram => Box::new(tantivy::directory::RamDirectory::create()),
             IndexingStorageKind::PersistedDirectory(dir) => {
                 Box::new(tantivy::directory::MmapDirectory::open(dir)?)
             }

@@ -138,14 +138,14 @@ impl Workspace {
 
     pub fn observe_metadata(
         &mut self,
-        f: impl Fn(&Transaction, &MapEvent) -> () + 'static,
+        f: impl Fn(&Transaction, &MapEvent) + 'static,
     ) -> Subscription<MapEvent> {
         self.content.metadata.observe(f)
     }
 
     pub fn on_awareness_update(
         &mut self,
-        f: impl Fn(&Awareness, &Event) -> () + 'static,
+        f: impl Fn(&Awareness, &Event) + 'static,
     ) -> AwarenessSubscription<Event> {
         self.content.awareness.on_update(f)
     }
@@ -158,7 +158,7 @@ impl Workspace {
     /// Subscribe to update events.
     pub fn observe(
         &mut self,
-        f: impl Fn(&Transaction, &UpdateEvent) -> () + 'static,
+        f: impl Fn(&Transaction, &UpdateEvent) + 'static,
     ) -> Subscription<UpdateEvent> {
         self.content.observe(f)
     }

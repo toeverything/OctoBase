@@ -131,7 +131,7 @@ impl Block {
     }
 
     pub fn get(&self, key: &str) -> Option<Any> {
-        let key = format!("prop:{}", key);
+        let key = format!("prop:{key}");
         self.block.get(&key).and_then(|v| match v.to_json() {
             Any::Null | Any::Undefined | Any::Array(_) | Any::Buffer(_) | Any::Map(_) => {
                 error!("get wrong value at key {}", key);
@@ -145,7 +145,7 @@ impl Block {
     where
         T: Into<Any>,
     {
-        let key = format!("prop:{}", key);
+        let key = format!("prop:{key}");
         match value.into() {
             Any::Bool(bool) => {
                 self.block.insert(trx, key, bool);
@@ -260,11 +260,8 @@ impl Block {
         self.block
             .iter()
             .filter_map(|(key, val)| {
-                if key.starts_with("prop:") {
-                    Some((key[5..].to_owned(), val.to_json()))
-                } else {
-                    None
-                }
+                key.strip_prefix("prop:")
+                    .map(|stripped| (stripped.to_owned(), val.to_json()))
             })
             .collect()
     }
