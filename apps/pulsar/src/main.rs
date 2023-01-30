@@ -8,8 +8,8 @@ use tokio::io::{self, AsyncBufReadExt};
 async fn main() -> Result<(), Box<dyn Error>> {
     let mut broadcast = UpdateBroadcast::new()?;
     broadcast.subscribe("workspace/general")?;
-    // broadcast.listen("/ip4/0.0.0.0/tcp/1281/ws".parse()?)?;
-    broadcast.connect("/ip4/127.0.0.1/tcp/1281/ws".parse()?)?;
+    broadcast.listen("/ip4/0.0.0.0/tcp/0/ws".parse()?)?;
+    // broadcast.connect("/ip4/127.0.0.1/tcp/1281/ws".parse()?)?;
 
     let mut stdin = io::BufReader::new(io::stdin()).lines();
     println!("Enter messages via STDIN and they will be sent to connected peers using Gossipsub");
@@ -22,14 +22,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     println!("Publish error: {e:?}");
                 }
             },
-            event = broadcast.next() => match event {
+            Some(event) = broadcast.next() => match event {
                 UpdateBroadcastEvent::Message {
                     peer_id, message, ..
                 } => {
                     println!("{peer_id}: '{}'", String::from_utf8_lossy(&message.data));
                 }
                 UpdateBroadcastEvent::Other(other) => {
-                    // println!("{other}");
+                    println!("{other}");
                 }
             }
         }

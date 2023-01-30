@@ -1,4 +1,4 @@
-use futures::prelude::*;
+use futures::{future::Either, prelude::*};
 use libp2p::{
     core, dns,
     gossipsub::{
@@ -6,9 +6,9 @@ use libp2p::{
         Gossipsub, GossipsubConfigBuilder, GossipsubEvent, GossipsubMessage, IdentTopic as Topic,
         MessageAuthenticity, MessageId, ValidationMode,
     },
-    identity, mplex, noise,
+    identity, mdns, mplex, noise,
     swarm::{DialError, NetworkBehaviour, SwarmEvent},
-    tcp, websocket, Multiaddr, PeerId, Swarm, Transport, TransportError,
+    tcp, websocket, yamux, Multiaddr, PeerId, Swarm, Transport, TransportError,
 };
 use std::{
     collections::hash_map::DefaultHasher,
@@ -27,7 +27,10 @@ fn ws_transport(
     Ok(transport
         .upgrade(core::upgrade::Version::V1)
         .authenticate(noise::NoiseAuthenticated::xx(&keypair).unwrap())
-        .multiplex(mplex::MplexConfig::default())
+        .multiplex(core::upgrade::SelectUpgrade::new(
+            yamux::YamuxConfig::default(),
+            mplex::MplexConfig::default(),
+        ))
         .timeout(std::time::Duration::from_secs(20))
         .boxed())
 }
@@ -35,6 +38,7 @@ fn ws_transport(
 #[derive(NetworkBehaviour)]
 struct WebSocketBehaviour {
     gossipsub: Gossipsub,
+    mdns: mdns::tokio::Behaviour,
 }
 
 pub struct UpdateBroadcast {
@@ -51,27 +55,27 @@ impl UpdateBroadcast {
         // Set up an encrypted DNS-enabled TCP Transport over the Mplex protocol.
         let transport = ws_transport(local_key.clone())?;
 
-        // Set a custom gossipsub configuration
-        let gossipsub_config = GossipsubConfigBuilder::default()
-            .heartbeat_interval(Duration::from_secs(10)) // This is set to aid debugging by not cluttering the log space
-            .validation_mode(ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
-            .message_id_fn(|message: &GossipsubMessage| {
-                let mut s = DefaultHasher::new();
-                message.data.hash(&mut s);
-                MessageId::from(s.finish().to_string())
-            }) // content-address messages. No two messages of the same content will be propagated.
-            .build()
-            .expect("Valid config");
+        let gossipsub = {
+            // Set a custom gossipsub configuration
+            let gossipsub_config = GossipsubConfigBuilder::default()
+                .heartbeat_interval(Duration::from_secs(10)) // This is set to aid debugging by not cluttering the log space
+                .validation_mode(ValidationMode::Strict) // This sets the kind of message validation. The default is Strict (enforce message signing)
+                .message_id_fn(|message: &GossipsubMessage| {
+                    let mut s = DefaultHasher::new();
+                    message.data.hash(&mut s);
+                    MessageId::from(s.finish().to_string())
+                }) // content-address messages. No two messages of the same content will be propagated.
+                .build()
+                .expect("Valid config");
 
-        // build a gossipsub network behaviour
-        let mut gossipsub =
             Gossipsub::new(MessageAuthenticity::Signed(local_key), gossipsub_config)
-                .expect("Correct configuration");
+                .expect("Correct configuration")
+        };
 
         // Create a Swarm to manage peers and events
         let swarm = {
-            // let mdns = mdns::tokio::Behaviour::new(mdns::Config::default())?;
-            let behaviour = WebSocketBehaviour { gossipsub };
+            let mdns = mdns::tokio::Behaviour::new(mdns::Config::default())?;
+            let behaviour = WebSocketBehaviour { gossipsub, mdns };
             Swarm::with_tokio_executor(transport, behaviour, local_peer_id)
         };
 
@@ -108,38 +112,49 @@ impl UpdateBroadcast {
         Ok(())
     }
 
-    pub async fn next(&mut self) -> UpdateBroadcastEvent {
-        self.swarm
+    pub async fn next(&mut self) -> Option<UpdateBroadcastEvent> {
+        match self
+            .swarm
             .select_next_some()
-            .map(|event| {
-                match event {
-                    // SwarmEvent::Behaviour(WebSocketBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
-                    //     for (peer_id, _multiaddr) in list {
-                    //         println!("mDNS discovered a new peer: {peer_id}");
-                    //         swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
-                    //     }
-                    // },
-                    // SwarmEvent::Behaviour(WebSocketBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
-                    //     for (peer_id, _multiaddr) in list {
-                    //         println!("mDNS discover peer has expired: {peer_id}");
-                    //         swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
-                    //     }
-                    // },
-                    SwarmEvent::Behaviour(WebSocketBehaviourEvent::Gossipsub(
-                        GossipsubEvent::Message {
-                            propagation_source: peer_id,
-                            message_id: id,
-                            message,
-                        },
-                    )) => UpdateBroadcastEvent::Message {
-                        peer_id,
-                        id,
+            .map(|event| match event {
+                SwarmEvent::Behaviour(WebSocketBehaviourEvent::Mdns(event)) => Either::Left(event),
+                SwarmEvent::Behaviour(WebSocketBehaviourEvent::Gossipsub(
+                    GossipsubEvent::Message {
+                        propagation_source: peer_id,
+                        message_id: id,
                         message,
                     },
-                    other => UpdateBroadcastEvent::Other(format!("{other:?}").into()),
-                }
+                )) => Either::Right(UpdateBroadcastEvent::Message {
+                    peer_id,
+                    id,
+                    message,
+                }),
+                other => Either::Right(UpdateBroadcastEvent::Other(format!("{other:?}").into())),
             })
             .await
+        {
+            Either::Left(event) => {
+                let pubsub = &mut self.swarm.behaviour_mut().gossipsub;
+
+                match event {
+                    mdns::Event::Discovered(list) => {
+                        for (peer_id, _multiaddr) in list {
+                            println!("mDNS discovered a new peer: {peer_id}");
+                            pubsub.add_explicit_peer(&peer_id);
+                        }
+                    }
+                    mdns::Event::Expired(list) => {
+                        for (peer_id, _multiaddr) in list {
+                            println!("mDNS discover peer has expired: {peer_id}");
+                            pubsub.remove_explicit_peer(&peer_id);
+                        }
+                    }
+                }
+
+                None
+            }
+            Either::Right(event) => Some(event),
+        }
     }
 }
 
