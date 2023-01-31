@@ -20,9 +20,15 @@ use tokio::io;
 fn ws_transport(
     keypair: identity::Keypair,
 ) -> std::io::Result<core::transport::Boxed<(PeerId, core::muxing::StreamMuxerBox)>> {
-    let transport = websocket::WsConfig::new(dns::TokioDnsConfig::system(
-        tcp::tokio::Transport::new(tcp::Config::new().nodelay(true)),
-    )?);
+    let transport = {
+        let dns_tcp = dns::TokioDnsConfig::system(tcp::tokio::Transport::new(
+            tcp::Config::new().nodelay(true),
+        ))?;
+        let ws_dns_tcp = websocket::WsConfig::new(dns::TokioDnsConfig::system(
+            tcp::tokio::Transport::new(tcp::Config::new().nodelay(true)),
+        )?);
+        ws_dns_tcp.or_transport(dns_tcp)
+    };
 
     Ok(transport
         .upgrade(core::upgrade::Version::V1)
@@ -112,9 +118,8 @@ impl UpdateBroadcast {
         Ok(())
     }
 
-    pub async fn next(&mut self) -> Option<UpdateBroadcastEvent> {
-        match self
-            .swarm
+    async fn next_behaviour(&mut self) -> Either<mdns::Event, UpdateBroadcastEvent> {
+        self.swarm
             .select_next_some()
             .map(|event| match event {
                 SwarmEvent::Behaviour(WebSocketBehaviourEvent::Mdns(event)) => Either::Left(event),
@@ -132,28 +137,33 @@ impl UpdateBroadcast {
                 other => Either::Right(UpdateBroadcastEvent::Other(format!("{other:?}").into())),
             })
             .await
-        {
-            Either::Left(event) => {
-                let pubsub = &mut self.swarm.behaviour_mut().gossipsub;
+    }
 
-                match event {
-                    mdns::Event::Discovered(list) => {
-                        for (peer_id, _multiaddr) in list {
-                            println!("mDNS discovered a new peer: {peer_id}");
-                            pubsub.add_explicit_peer(&peer_id);
+    pub async fn next(&mut self) -> Option<UpdateBroadcastEvent> {
+        loop {
+            match self.next_behaviour().await {
+                Either::Left(event) => {
+                    let pubsub = &mut self.swarm.behaviour_mut().gossipsub;
+
+                    match event {
+                        mdns::Event::Discovered(list) => {
+                            for (peer_id, _multiaddr) in list {
+                                println!("mDNS discovered a new peer: {peer_id}");
+                                pubsub.add_explicit_peer(&peer_id);
+                            }
                         }
-                    }
-                    mdns::Event::Expired(list) => {
-                        for (peer_id, _multiaddr) in list {
-                            println!("mDNS discover peer has expired: {peer_id}");
-                            pubsub.remove_explicit_peer(&peer_id);
+                        mdns::Event::Expired(list) => {
+                            for (peer_id, _multiaddr) in list {
+                                println!("mDNS discover peer has expired: {peer_id}");
+                                pubsub.remove_explicit_peer(&peer_id);
+                            }
                         }
                     }
                 }
-
-                None
+                Either::Right(event) => {
+                    return Some(event);
+                }
             }
-            Either::Right(event) => Some(event),
         }
     }
 }
