@@ -178,6 +178,10 @@ impl Workspace {
     pub fn sync_handle_message(&mut self, msg: Message) -> Result<Option<Message>, Error> {
         self.content.sync_handle_message(msg)
     }
+
+    pub fn sync_apply_update(&mut self, updates: &[u8]) -> Result<Vec<u8>, Error> {
+        self.content.sync_apply_update(updates)
+    }
 }
 
 impl Serialize for Workspace {

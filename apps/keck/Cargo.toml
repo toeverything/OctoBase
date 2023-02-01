@@ -22,6 +22,20 @@ dashmap = "^5.4.0"
 futures = "^0.3.25"
 http = "^0.2.8"
 lib0 = { version = "0.12.2", features = ["lib0-serde"] }
+libp2p = { version = "0.50.0", features = [
+  "dns",
+  "ecdsa",
+  "gossipsub",
+  "macros",
+  "mdns",
+  "mplex",
+  "noise",
+  "rsa",
+  "tcp",
+  "tokio",
+  "websocket",
+  "yamux",
+] }
 log = { version = "^0.4.17", features = [
   "max_level_trace",
   "release_max_level_info",

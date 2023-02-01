@@ -21,4 +21,8 @@ libp2p = { version = "0.50.0", features = [
     "websocket",
     "yamux",
 ] }
+log = { version = "^0.4.17", features = [
+    "max_level_trace",
+    "release_max_level_info",
+] }
 tokio = { version = "1.24.2", features = ["full"] }

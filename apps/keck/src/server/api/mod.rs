@@ -3,7 +3,7 @@ mod blobs;
 #[cfg(feature = "api")]
 mod blocks;
 
-use super::*;
+use super::{sync::CollaborationServer, *};
 use axum::{extract::ws::Message, Router};
 #[cfg(feature = "api")]
 use axum::{
@@ -41,10 +41,15 @@ pub struct Context {
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub docs: DocAutoStorage,
     pub blobs: BlobAutoStorage,
+    pub server: CollaborationServer,
 }
 
 impl Context {
-    pub async fn new(docs: Option<DocAutoStorage>, blobs: Option<BlobAutoStorage>) -> Self {
+    pub async fn new(
+        docs: Option<DocAutoStorage>,
+        blobs: Option<BlobAutoStorage>,
+        port: usize,
+    ) -> Self {
         Context {
             workspace: DashMap::new(),
             channel: DashMap::new(),
@@ -58,6 +63,13 @@ impl Context {
                     .await
                     .expect("Cannot create database"),
             ),
+            server: {
+                let server = CollaborationServer::new().expect("Cannot init collaboration server");
+                server
+                    .listen(port)
+                    .expect(&format!("Cannot listen on port {port}"));
+                server
+            },
         }
     }
 }

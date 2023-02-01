@@ -1,3 +1,4 @@
+use super::{debug, info};
 use futures::{future::Either, prelude::*};
 use libp2p::{
     core, dns,
@@ -57,7 +58,7 @@ impl UpdateBroadcast {
         // Create a random PeerId
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = PeerId::from(local_key.public());
-        println!("Local peer id: {local_peer_id}");
+        info!("Local peer id: {local_peer_id}");
 
         // Set up an encrypted DNS-enabled TCP Transport over the Mplex protocol.
         let transport = ws_transport(local_key.clone())?;
@@ -94,10 +95,13 @@ impl UpdateBroadcast {
 
     pub fn subscribe<S: Into<String>>(&mut self, topic: S) -> Result<(), SubscriptionError> {
         let topic_name = topic.into();
-        let topic = Topic::new(&format!("/pulsar/{}", &topic_name));
+        let full_topic_name = format!("/pulsar/{}", &topic_name);
+        let topic = Topic::new(&full_topic_name);
 
         self.swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
         self.topic_map.insert(topic.hash(), topic_name);
+
+        info!("subscribed to topic: {}", full_topic_name);
         Ok(())
     }
 
@@ -107,6 +111,8 @@ impl UpdateBroadcast {
 
         self.swarm.behaviour_mut().gossipsub.unsubscribe(&topic)?;
         self.topic_map.remove(&topic.hash());
+
+        info!("unsubscribed from topic: {}", topic_name);
         Ok(())
     }
 
@@ -125,7 +131,7 @@ impl UpdateBroadcast {
     }
 
     pub fn listen(&mut self, addr: Multiaddr) -> Result<(), TransportError<io::Error>> {
-        println!("sync service listening: {}", addr);
+        info!("sync service listening: {}", addr);
         self.swarm.listen_on(addr)?;
         Ok(())
     }
@@ -166,13 +172,13 @@ impl UpdateBroadcast {
                     match event {
                         mdns::Event::Discovered(list) => {
                             for (peer_id, _multiaddr) in list {
-                                println!("mDNS discovered a new peer: {peer_id}");
+                                debug!("mDNS discovered a new peer: {peer_id}");
                                 pubsub.add_explicit_peer(&peer_id);
                             }
                         }
                         mdns::Event::Expired(list) => {
                             for (peer_id, _multiaddr) in list {
-                                println!("mDNS discover peer has expired: {peer_id}");
+                                debug!("mDNS discover peer has expired: {peer_id}");
                                 pubsub.remove_explicit_peer(&peer_id);
                             }
                         }

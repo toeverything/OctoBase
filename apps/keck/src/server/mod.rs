@@ -5,7 +5,10 @@ mod utils;
 
 use axum::{response::Redirect, Extension, Router, Server};
 use http::Method;
-use std::{net::SocketAddr, sync::Arc};
+use std::{
+    net::SocketAddr,
+    sync::{Arc, Mutex},
+};
 use tokio::signal;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -60,7 +63,7 @@ pub async fn start_server() {
         .allow_origin(origins)
         .allow_headers(Any);
 
-    let context = Arc::new(Context::new(None, None).await);
+    let context = Arc::new(Context::new(None, None, 1280).await);
 
     let app = files::static_files(sync::sync_handler(api::api_handler(Router::new())))
         .layer(cors)
@@ -69,13 +72,24 @@ pub async fn start_server() {
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("listening on {}", addr);
 
-    if let Err(e) = Server::bind(&addr)
-        .serve(app.into_make_service())
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-    {
-        error!("Server shutdown due to error: {}", e);
-    }
+    context
+        .server
+        .add_workspace(Arc::new(Mutex::new(jwst::Workspace::new("test"))))
+        .unwrap();
+
+    tokio::select! {
+        Err(e) = Server::bind(&addr)
+            .serve(app.into_make_service())
+            .with_graceful_shutdown(shutdown_signal()) => {
+            error!("Server shutdown due to error: {}", e);
+        }
+        Err(e) = context.server.serve() => {
+            error!("Collaboration server shutdown due to error: {}", e);
+        }
+        else => {
+            info!("Server shutdown complete");
+        }
+    };
 
     // context.docs.close().await;
     // context.blobs.close().await;

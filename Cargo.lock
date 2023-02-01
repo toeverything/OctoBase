@@ -2883,6 +2883,7 @@ dependencies = [
  "jwst-logger",
  "jwst-storage",
  "lib0 0.12.2",
+ "libp2p",
  "log",
  "mdbook",
  "serde",
@@ -4604,6 +4605,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "libp2p",
+ "log",
  "tokio",
 ]
 

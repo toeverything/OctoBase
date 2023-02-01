@@ -1,4 +1,5 @@
 mod blobs;
+mod broadcast;
 mod collaboration;
 
 use super::*;
@@ -23,3 +24,5 @@ pub fn sync_handler(router: Router) -> Router {
         post(collaboration::auth_handler).get(collaboration::upgrade_handler),
     )
 }
+
+pub use collaboration::{CollaborationResult, CollaborationServer};

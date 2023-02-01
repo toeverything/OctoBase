@@ -127,4 +127,12 @@ impl Content {
             .map(|reply| reply.encode_v1())
             .collect()
     }
+
+    pub fn sync_apply_update(&mut self, binary: &[u8]) -> Result<Vec<u8>, Error> {
+        let mut txn = self.awareness.doc().transact();
+        txn.apply_update(Update::decode_v1(&binary)?);
+        txn.commit();
+        let update = txn.encode_update_v1();
+        Ok(update)
+    }
 }
