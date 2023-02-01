@@ -13,7 +13,7 @@ RUN --mount=type=cache,target=/home/rust/src/target,rw,id=cloud_amd64 \
     mv /home/rust/src/target/x86_64-unknown-linux-musl/release/affine-cloud /tmp/cloud-amd64 && \
     mv /home/rust/src/apps/cloud/static /tmp/static
 
-FROM ghcr.io/toeverything/affine:nightly-keck as relocate
+FROM ghcr.io/toeverything/affine-pathfinder:nightly-latest as relocate
 WORKDIR /app
 COPY --from=builder-amd64 /tmp/cloud-amd64 ./cloud
 COPY --from=builder-amd64 /tmp/static ./
