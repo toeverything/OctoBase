@@ -5,6 +5,7 @@ use std::{net::SocketAddr, sync::Arc};
 mod api;
 mod context;
 mod error_info;
+mod files;
 mod layer;
 mod login;
 mod utils;
@@ -15,12 +16,14 @@ async fn main() {
 
     let context = Arc::new(context::Context::new().await);
 
-    let app = Router::new()
-        .nest(
-            "/api",
-            api::make_rest_route(context.clone()).nest("/sync", api::make_ws_route()),
-        )
-        .layer(Extension(context.clone()));
+    let app = files::static_files(
+        Router::new()
+            .nest(
+                "/api",
+                api::make_rest_route(context.clone()).nest("/sync", api::make_ws_route()),
+            )
+            .layer(Extension(context.clone())),
+    );
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("listening on {}", addr);
