@@ -1,7 +1,7 @@
 use super::{async_trait, entities::prelude::*, DocStorage};
 use chrono::Utc;
 use jwst_doc_migration::{Migrator, MigratorTrait};
-use jwst_logger::{info, warn};
+use jwst_logger::{debug, info, warn};
 use path_ext::PathExt;
 use sea_orm::{prelude::*, Database, Set, TransactionTrait};
 use std::{
@@ -28,7 +28,7 @@ fn migrate_update(updates: Vec<<UpdateBinary as EntityTrait>::Model>, doc: Doc) 
     }
     trx.commit();
 
-    println!(
+    debug!(
         "migrate_update: {:?}",
         doc.encode_state_as_update_v1(&StateVector::default())
     );
