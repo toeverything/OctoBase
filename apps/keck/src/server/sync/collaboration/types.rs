@@ -1,5 +1,5 @@
 use super::*;
-use libp2p::{gossipsub::error::SubscriptionError, TransportError};
+use libp2p::{gossipsub::error::SubscriptionError, swarm::DialError, TransportError};
 use std::io;
 use thiserror::Error;
 
@@ -11,6 +11,8 @@ pub enum CollaborationError {
     SubscribeError(#[from] SubscriptionError),
     #[error("failed to listen: {0}")]
     ListenError(#[from] TransportError<io::Error>),
+    #[error("failed to dial: {0}")]
+    DialError(#[from] DialError),
 }
 
 pub type CollaborationResult<T> = Result<T, CollaborationError>;

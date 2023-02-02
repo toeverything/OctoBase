@@ -37,22 +37,19 @@ pub struct PageData<T> {
 }
 
 pub struct Context {
-    pub workspace: DashMap<String, Mutex<Workspace>>,
+    pub workspace: DashMap<String, Arc<Mutex<Workspace>>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
+    pub collaboration: CollaborationServer,
     pub docs: DocAutoStorage,
     pub blobs: BlobAutoStorage,
-    pub server: CollaborationServer,
 }
 
 impl Context {
-    pub async fn new(
-        docs: Option<DocAutoStorage>,
-        blobs: Option<BlobAutoStorage>,
-        port: usize,
-    ) -> Self {
+    pub async fn new(docs: Option<DocAutoStorage>, blobs: Option<BlobAutoStorage>) -> Self {
         Context {
             workspace: DashMap::new(),
             channel: DashMap::new(),
+            collaboration: CollaborationServer::new().expect("Cannot init collaboration server"),
             docs: docs.unwrap_or(
                 DocAutoStorage::init_sqlite_pool_with_name("jwst")
                     .await
@@ -63,13 +60,6 @@ impl Context {
                     .await
                     .expect("Cannot create database"),
             ),
-            server: {
-                let server = CollaborationServer::new().expect("Cannot init collaboration server");
-                server
-                    .listen(port)
-                    .expect(&format!("Cannot listen on port {port}"));
-                server
-            },
         }
     }
 }

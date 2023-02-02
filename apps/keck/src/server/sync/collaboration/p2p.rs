@@ -1,57 +1,121 @@
 use super::{broadcast::*, *};
 use dashmap::DashMap;
+use futures::executor::block_on;
 use jwst::Workspace;
 use libp2p::PeerId;
-use std::{convert::TryInto, sync::Mutex};
+use std::convert::TryInto;
+use tokio::sync::Mutex;
 use yrs::{
     updates::{decoder::Decode, encoder::Encode},
     StateVector,
 };
 
 pub struct CollaborationServer {
-    broadcast: Mutex<UpdateBroadcast>,
-    workspaces: DashMap<String, Arc<Mutex<Workspace>>>,
+    broadcast: Arc<Mutex<UpdateBroadcast>>,
+    publish: Arc<Mutex<UpdateBroadcast>>,
     state_vectors: DashMap<PeerId, StateVector>,
+    workspaces: DashMap<String, Arc<Mutex<Workspace>>>,
 }
+
+unsafe impl Send for CollaborationServer {}
 
 impl CollaborationServer {
     pub fn new() -> CollaborationResult<Self> {
         let broadcast = UpdateBroadcast::new()?;
+        let publish = UpdateBroadcast::new()?;
         Ok(Self {
-            broadcast: Mutex::new(broadcast),
-            workspaces: DashMap::new(),
+            broadcast: Arc::new(Mutex::new(broadcast)),
+            publish: Arc::new(Mutex::new(publish)),
             state_vectors: DashMap::new(),
+            workspaces: DashMap::new(),
         })
     }
 
-    pub fn listen(&self, port: usize) -> CollaborationResult<()> {
-        self.broadcast.lock().unwrap().listen(
-            format!("/ip4/0.0.0.0/tcp/{port}/ws")
+    pub async fn connect(&self, port: usize) -> CollaborationResult<()> {
+        self.broadcast.lock().await.connect(
+            format!("/ip4/127.0.0.1/tcp/{port}/ws")
+                .parse()
+                .expect("Failed to parse listen addr"),
+        )?;
+        self.publish.lock().await.connect(
+            format!("/ip4/127.0.0.1/tcp/{port}/ws")
                 .parse()
                 .expect("Failed to parse listen addr"),
         )?;
         Ok(())
     }
 
-    fn subscribe_topic<S>(&self, workspace: S) -> CollaborationResult<()>
-    where
-        S: ToString,
-    {
-        let mut broadcast = self.broadcast.lock().unwrap();
-        broadcast.subscribe(SubscribeTopic::OnFullUpdate(workspace.to_string()).to_string())?;
-        broadcast.subscribe(SubscribeTopic::OnStateVector(workspace.to_string()).to_string())?;
-        broadcast.subscribe(SubscribeTopic::OnUpdate(workspace.to_string()).to_string())?;
-        broadcast
-            .subscribe(SubscribeTopic::OnAwarenessUpdate(workspace.to_string()).to_string())?;
+    pub async fn listen(&self, port: usize) -> CollaborationResult<()> {
+        self.broadcast.lock().await.listen(
+            format!("/ip4/0.0.0.0/tcp/{port}/ws")
+                .parse()
+                .expect("Failed to parse listen addr"),
+        )?;
+        self.publish.lock().await.connect(
+            format!("/ip4/127.0.0.1/tcp/{port}/ws")
+                .parse()
+                .expect("Failed to parse listen addr"),
+        )?;
         Ok(())
     }
 
-    pub fn add_workspace(&self, workspace: Arc<Mutex<Workspace>>) -> CollaborationResult<()> {
-        let id = workspace.lock().unwrap().id();
+    async fn subscribe_topic<S>(
+        &self,
+        id: S,
+        workspace: Arc<Mutex<Workspace>>,
+    ) -> CollaborationResult<()>
+    where
+        S: ToString,
+    {
+        let on_sv_update = SubscribeTopic::OnStateVector(id.to_string()).to_string();
+        let on_update = SubscribeTopic::OnUpdate(id.to_string()).to_string();
 
-        self.workspaces.insert(id.clone(), workspace);
-        self.subscribe_topic(id)?;
+        let mut broadcast = self.broadcast.lock().await;
+        broadcast.subscribe(SubscribeTopic::OnFullUpdate(id.to_string()).to_string())?;
+        broadcast.subscribe(&on_sv_update)?;
+        broadcast.subscribe(&on_update)?;
+        broadcast.subscribe(SubscribeTopic::OnAwarenessUpdate(id.to_string()).to_string())?;
+
+        let publish = self.publish.clone();
+        let mut ws = workspace.lock().await;
+        let workspace = workspace.clone();
+        let observe = ws.observe(move |_, event| {
+            let update = event.update.clone();
+            debug!("update: {update:?}");
+            let (mut publish, workspace) = block_on(async {
+                let publish = publish.lock().await;
+                let workspace = workspace.lock().await;
+
+                (publish, workspace)
+            });
+
+            if let Err(e) = publish.publish(&on_sv_update, workspace.state_vector().encode_v1()) {
+                log::error!("Failed to publish state vector: {}", e);
+            }
+            if let Err(e) = publish.publish(&on_update, update) {
+                log::error!("Failed to publish update: {}", e);
+            }
+        });
+        // FIXME: Subscription is not designed to be able to access safely across threads. We need to fix this problem after upgrading yrs0.14.
+        std::mem::forget(observe);
         Ok(())
+    }
+
+    pub async fn add_workspace(&self, workspace: Arc<Mutex<Workspace>>) -> CollaborationResult<()> {
+        let id = workspace.lock().await.id();
+
+        self.workspaces.insert(id.clone(), workspace.clone());
+        self.subscribe_topic(id, workspace).await?;
+        Ok(())
+    }
+
+    pub async fn publish_update<S: ToString>(&self, id: S, update: Vec<u8>) {
+        let mut publish = self.publish.lock().await;
+        if let Err(e) =
+            publish.publish(SubscribeTopic::OnUpdate(id.to_string()).to_string(), update)
+        {
+            log::error!("Failed to publish update: {}", e);
+        }
     }
 
     fn apply_state_vector(
@@ -101,7 +165,7 @@ impl CollaborationServer {
 
     pub async fn serve(&self) -> CollaborationResult<()> {
         loop {
-            let mut broadcast = self.broadcast.lock().unwrap();
+            let mut broadcast = self.broadcast.lock().await;
 
             tokio::select! {
                 event = broadcast.next() => {
@@ -114,7 +178,7 @@ impl CollaborationServer {
                                     Ok(SubscribeTopic::OnFullUpdate(workspace)) => {
                                         debug!("{} OnFullUpdate: {:?}", peer_id, message.data);
                                         if let Some(workspace) = self.workspaces.get(&workspace) {
-                                            let mut workspace = workspace.lock().unwrap();
+                                            let mut workspace = workspace.lock().await;
                                             self.apply_update(
                                                 &message.data,
                                                 &mut workspace,
@@ -125,18 +189,18 @@ impl CollaborationServer {
                                     Ok(SubscribeTopic::OnStateVector(workspace)) => {
                                         debug!("{workspace} OnStateVector from {peer_id}: {:?}", message.data);
                                         if let Some(workspace) = self.workspaces.get(&workspace) {
-                                            let workspace = workspace.lock().unwrap();
-                                           if let Some(update) = self.apply_state_vector(peer_id, &message.data, &workspace) {
+                                            let workspace = workspace.lock().await;
+                                            if let Some(update) = self.apply_state_vector(peer_id, &message.data, &workspace) {
                                                 if let Err(e) = broadcast.publish(SubscribeTopic::OnUpdate(workspace.id()).to_string(), update) {
                                                     warn!("Failed to publish update: {}", e);
                                                 }
-                                           }
+                                            }
                                         }
                                     }
                                     Ok(SubscribeTopic::OnUpdate(workspace)) => {
                                         debug!("{} OnUpdate: {:?}", peer_id, message.data);
                                         if let Some(workspace) = self.workspaces.get(&workspace) {
-                                            let mut workspace = workspace.lock().unwrap();
+                                            let mut workspace = workspace.lock().await;
                                             self.apply_update(
                                                 &message.data,
                                                 &mut workspace,

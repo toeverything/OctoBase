@@ -3,16 +3,12 @@ mod files;
 mod sync;
 mod utils;
 
+use api::Context;
 use axum::{response::Redirect, Extension, Router, Server};
 use http::Method;
-use std::{
-    net::SocketAddr,
-    sync::{Arc, Mutex},
-};
-use tokio::signal;
+use std::{net::SocketAddr, sync::Arc};
+use tokio::{signal, sync::Mutex};
 use tower_http::cors::{Any, CorsLayer};
-
-use api::Context;
 use utils::*;
 
 async fn shutdown_signal() {
@@ -63,19 +59,60 @@ pub async fn start_server() {
         .allow_origin(origins)
         .allow_headers(Any);
 
-    let context = Arc::new(Context::new(None, None, 1280).await);
+    let context = Arc::new(Context::new(None, None).await);
 
     let app = files::static_files(sync::sync_handler(api::api_handler(Router::new())))
         .layer(cors)
         .layer(Extension(context.clone()));
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    let port = 1280;
+
+    if let Ok(lock) = named_lock::NamedLock::create("keck") {
+        if let Ok(_lock) = lock.try_lock() {
+            let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+            info!("listening on {}", addr);
+
+            context
+                .collaboration
+                .listen(port)
+                .await
+                .expect(&format!("Cannot listen on port {port}"));
+            context
+                .collaboration
+                .add_workspace(Arc::new(Mutex::new(jwst::Workspace::new("test"))))
+                .await
+                .unwrap();
+
+            tokio::select! {
+                Err(e) = Server::bind(&addr)
+                    .serve(app.into_make_service())
+                    .with_graceful_shutdown(shutdown_signal()) => {
+                    error!("Server shutdown due to error: {}", e);
+                }
+                Err(e) = context.collaboration.serve() => {
+                    error!("Collaboration server shutdown due to error: {}", e);
+                }
+                else => {
+                    info!("Server shutdown complete");
+                }
+            };
+
+            // context.docs.close().await;
+            // context.blobs.close().await;
+
+            info!("Server shutdown complete");
+            return;
+        }
+    }
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
     info!("listening on {}", addr);
 
     context
-        .server
-        .add_workspace(Arc::new(Mutex::new(jwst::Workspace::new("test"))))
-        .unwrap();
+        .collaboration
+        .connect(port)
+        .await
+        .expect(&format!("Cannot listen on port {port}"));
 
     tokio::select! {
         Err(e) = Server::bind(&addr)
@@ -83,7 +120,7 @@ pub async fn start_server() {
             .with_graceful_shutdown(shutdown_signal()) => {
             error!("Server shutdown due to error: {}", e);
         }
-        Err(e) = context.server.serve() => {
+        Err(e) = context.collaboration.serve() => {
             error!("Collaboration server shutdown due to error: {}", e);
         }
         else => {
@@ -95,4 +132,5 @@ pub async fn start_server() {
     // context.blobs.close().await;
 
     info!("Server shutdown complete");
+    return;
 }

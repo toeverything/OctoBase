@@ -163,53 +163,60 @@ impl UpdateBroadcast {
     async fn next_behaviour(&mut self) -> NextBehaviour {
         self.swarm
             .select_next_some()
-            .map(|event| match event {
-                #[cfg(features = "discover")]
-                SwarmEvent::Behaviour(WebSocketBehaviourEvent::Mdns(event)) => Either::Left(event),
-                SwarmEvent::Behaviour(WebSocketBehaviourEvent::Gossipsub(
-                    GossipsubEvent::Message {
-                        propagation_source: peer_id,
-                        message_id: id,
+            .map(|event| {
+                debug!("{event:?}");
+                match event {
+                    #[cfg(features = "discover")]
+                    SwarmEvent::Behaviour(WebSocketBehaviourEvent::Mdns(event)) => {
+                        Either::Left(event)
+                    }
+                    SwarmEvent::Behaviour(WebSocketBehaviourEvent::Gossipsub(
+                        GossipsubEvent::Message {
+                            propagation_source: peer_id,
+                            message_id: id,
+                            message,
+                        },
+                    )) => Either::Right(UpdateBroadcastEvent::Message {
+                        peer_id,
+                        id,
                         message,
-                    },
-                )) => Either::Right(UpdateBroadcastEvent::Message {
-                    peer_id,
-                    id,
-                    message,
-                }),
-                SwarmEvent::Behaviour(WebSocketBehaviourEvent::Gossipsub(
-                    GossipsubEvent::Subscribed { peer_id, topic },
-                )) => Either::Right(UpdateBroadcastEvent::Subscribed { peer_id, topic }),
-                SwarmEvent::Behaviour(WebSocketBehaviourEvent::Gossipsub(
-                    GossipsubEvent::Unsubscribed { peer_id, topic },
-                )) => Either::Right(UpdateBroadcastEvent::Unsubscribed { peer_id, topic }),
-                SwarmEvent::ConnectionEstablished {
-                    peer_id,
-                    endpoint,
-                    num_established,
-                    concurrent_dial_errors,
-                } => Either::Right(UpdateBroadcastEvent::ConnectionEstablished {
-                    peer_id,
-                    endpoint,
-                    num_established: num_established.into(),
-                    concurrent_dial_errors: concurrent_dial_errors
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(|(addr, error)| format!("{error}: {addr}"))
-                        .collect(),
-                }),
-                SwarmEvent::ConnectionClosed {
-                    peer_id,
-                    endpoint,
-                    num_established,
-                    cause,
-                } => Either::Right(UpdateBroadcastEvent::ConnectionClosed {
-                    peer_id,
-                    endpoint,
-                    num_established,
-                    cause: cause.map(|e| e.to_string()),
-                }),
-                other => Either::Right(UpdateBroadcastEvent::Other(format!("{other:?}").into())),
+                    }),
+                    SwarmEvent::Behaviour(WebSocketBehaviourEvent::Gossipsub(
+                        GossipsubEvent::Subscribed { peer_id, topic },
+                    )) => Either::Right(UpdateBroadcastEvent::Subscribed { peer_id, topic }),
+                    SwarmEvent::Behaviour(WebSocketBehaviourEvent::Gossipsub(
+                        GossipsubEvent::Unsubscribed { peer_id, topic },
+                    )) => Either::Right(UpdateBroadcastEvent::Unsubscribed { peer_id, topic }),
+                    SwarmEvent::ConnectionEstablished {
+                        peer_id,
+                        endpoint,
+                        num_established,
+                        concurrent_dial_errors,
+                    } => Either::Right(UpdateBroadcastEvent::ConnectionEstablished {
+                        peer_id,
+                        endpoint,
+                        num_established: num_established.into(),
+                        concurrent_dial_errors: concurrent_dial_errors
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(|(addr, error)| format!("{error}: {addr}"))
+                            .collect(),
+                    }),
+                    SwarmEvent::ConnectionClosed {
+                        peer_id,
+                        endpoint,
+                        num_established,
+                        cause,
+                    } => Either::Right(UpdateBroadcastEvent::ConnectionClosed {
+                        peer_id,
+                        endpoint,
+                        num_established,
+                        cause: cause.map(|e| e.to_string()),
+                    }),
+                    other => {
+                        Either::Right(UpdateBroadcastEvent::Other(format!("{other:?}").into()))
+                    }
+                }
             })
             .await
     }
