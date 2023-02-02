@@ -1,11 +1,14 @@
 use super::{broadcast::*, *};
 use dashmap::DashMap;
 use jwst::Workspace;
+use libp2p::PeerId;
 use std::{convert::TryInto, sync::Mutex};
+use yrs::{updates::decoder::Decode, StateVector};
 
 pub struct CollaborationServer {
     broadcast: Mutex<UpdateBroadcast>,
     workspaces: DashMap<String, Arc<Mutex<Workspace>>>,
+    state_vectors: DashMap<PeerId, StateVector>,
 }
 
 impl CollaborationServer {
@@ -14,6 +17,7 @@ impl CollaborationServer {
         Ok(Self {
             broadcast: Mutex::new(broadcast),
             workspaces: DashMap::new(),
+            state_vectors: DashMap::new(),
         })
     }
 
@@ -47,6 +51,31 @@ impl CollaborationServer {
         Ok(())
     }
 
+    fn apply_state_vector(&self, peer_id: PeerId, state_vector: StateVector) {
+        self.state_vectors.insert(peer_id, state_vector);
+    }
+
+    fn apply_update(
+        &self,
+        update: &[u8],
+        workspace: &mut Workspace,
+        broadcast: &mut UpdateBroadcast,
+    ) {
+        match workspace.sync_apply_update(update) {
+            Ok(data) => {
+                self.apply_state_vector(broadcast.peer_id(), workspace.state_vector());
+                if let Err(e) =
+                    broadcast.publish(SubscribeTopic::OnUpdate(workspace.id()).to_string(), data)
+                {
+                    warn!("Failed to publish update: {}", e);
+                }
+            }
+            Err(err) => {
+                warn!("Failed to apply update: {}", err);
+            }
+        }
+    }
+
     pub async fn serve(&self) -> CollaborationResult<()> {
         loop {
             let mut broadcast = self.broadcast.lock().unwrap();
@@ -54,29 +83,34 @@ impl CollaborationServer {
             tokio::select! {
                 event = broadcast.next() => {
                     match event {
-                        UpdateBroadcastEvent::Message { peer_id, message, .. } => {
+                        UpdateBroadcastEvent::Message {
+                            peer_id, message, ..
+                        } => {
                             if let Some(topic) = broadcast.find_topic(&message.topic) {
                                 match topic.as_str().try_into() {
-                                    Ok(SubscribeTopic::StateVector(workspace)) => {}
+                                    Ok(SubscribeTopic::StateVector(workspace)) => {
+                                        debug!("{workspace} StateVector from {peer_id}: {:?}", message.data);
+                                        if let Some(workspace) = self.workspaces.get(&workspace) {
+                                            match StateVector::decode_v1(& message.data) {
+                                                Ok(sv) => {
+                                                    self.apply_state_vector(peer_id, sv);
+                                                }
+                                                Err(err) => {
+                                                    warn!("Failed to decode state vector from {peer_id}: {}", err);
+                                                }
+                                            }
+                                        }
+                                    }
                                     Ok(SubscribeTopic::UpdateWithSV(workspace)) => {}
                                     Ok(SubscribeTopic::OnUpdate(workspace)) => {
                                         debug!("{} OnUpdate: {:?}", peer_id, message.data);
                                         if let Some(workspace) = self.workspaces.get(&workspace) {
                                             let mut workspace = workspace.lock().unwrap();
-                                            match workspace.sync_apply_update(&message.data) {
-                                                Ok(data) => {
-                                                    if let Err(e) = broadcast.publish(
-                                                        SubscribeTopic::OnUpdate(workspace.id())
-                                                            .to_string(),
-                                                        data,
-                                                    ) {
-                                                        warn!("Failed to publish update: {}", e);
-                                                    }
-                                                }
-                                                Err(err) => {
-                                                    warn!("Failed to apply update: {}", err);
-                                                }
-                                            }
+                                            self.apply_update(
+                                                &message.data,
+                                                &mut workspace,
+                                                &mut broadcast,
+                                            );
                                         }
                                     }
                                     Ok(SubscribeTopic::OnAwarenessUpdate(workspace)) => {}
@@ -86,19 +120,26 @@ impl CollaborationServer {
                                 warn!("Unknown topic: {:?}", message.topic);
                             }
                         }
-                        UpdateBroadcastEvent::Subscribed { peer_id, topic } =>{
+                        UpdateBroadcastEvent::Subscribed { peer_id, topic } => {
                             debug!("{} Subscribed to {}", peer_id, topic);
-                        },
-                        UpdateBroadcastEvent::Unsubscribed { peer_id, topic } =>{
+                        }
+                        UpdateBroadcastEvent::Unsubscribed { peer_id, topic } => {
                             debug!("{} Unsubscribed from {}", peer_id, topic);
-                        },
-                        UpdateBroadcastEvent::ConnectionEstablished { peer_id, concurrent_dial_errors, .. } =>{
-                            debug!("{peer_id} ConnectionEstablished: {}", if concurrent_dial_errors.len() > 0 {
-                                concurrent_dial_errors.join(",")
-                            } else {
-                                "success".to_string()
-                            });
-                        },
+                        }
+                        UpdateBroadcastEvent::ConnectionEstablished {
+                            peer_id,
+                            concurrent_dial_errors,
+                            ..
+                        } => {
+                            debug!(
+                                "{peer_id} ConnectionEstablished: {}",
+                                if concurrent_dial_errors.len() > 0 {
+                                    concurrent_dial_errors.join(",")
+                                } else {
+                                    "success".to_string()
+                                }
+                            );
+                        }
                         UpdateBroadcastEvent::ConnectionClosed { peer_id, cause, .. } => {
                             if let Some(cause) = cause {
                                 warn!("{} ConnectionClosed: {}", peer_id, cause);

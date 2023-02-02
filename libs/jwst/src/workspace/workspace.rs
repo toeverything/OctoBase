@@ -4,7 +4,7 @@ use y_sync::{
     awareness::{Awareness, Event, Subscription as AwarenessSubscription},
     sync::{Error, Message},
 };
-use yrs::{types::map::MapEvent, Doc, Map, Subscription, Transaction, UpdateEvent};
+use yrs::{types::map::MapEvent, Doc, Map, StateVector, Subscription, Transaction, UpdateEvent};
 
 use super::PluginMap;
 use plugins::PluginImpl;
@@ -179,6 +179,11 @@ impl Workspace {
         self.content.sync_handle_message(msg)
     }
 
+    pub fn state_vector(&self) -> StateVector {
+        self.content.awareness.doc().transact().state_vector()
+    }
+
+    // The returned update is the difference between before apply and after apply.
     pub fn sync_apply_update(&mut self, updates: &[u8]) -> Result<Vec<u8>, Error> {
         self.content.sync_apply_update(updates)
     }

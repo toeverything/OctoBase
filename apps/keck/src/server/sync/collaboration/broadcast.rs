@@ -56,6 +56,7 @@ type NextBehaviour = Either<libp2p::mdns::Event, UpdateBroadcastEvent>;
 type NextBehaviour = Either<(), UpdateBroadcastEvent>;
 
 pub struct UpdateBroadcast {
+    peer_id: PeerId,
     swarm: Swarm<WebSocketBehaviour>,
     topic_map: HashMap<TopicHash, String>,
 }
@@ -100,9 +101,14 @@ impl UpdateBroadcast {
         };
 
         Ok(Self {
+            peer_id: local_peer_id,
             swarm,
             topic_map: HashMap::new(),
         })
+    }
+
+    pub fn peer_id(&self) -> PeerId {
+        self.peer_id
     }
 
     pub fn subscribe<S: Into<String>>(&mut self, topic: S) -> Result<(), SubscriptionError> {
