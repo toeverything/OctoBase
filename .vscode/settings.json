@@ -68,6 +68,7 @@
 		"utoipa",
 		"uuidv",
 		"webm",
+		"yamux",
 		"yarray",
 		"ymap"
 	],

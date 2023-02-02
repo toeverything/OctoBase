@@ -1,7 +1,8 @@
 use super::{debug, info};
 use futures::{future::Either, prelude::*};
 use libp2p::{
-    core, dns,
+    core::{muxing, transport, upgrade, ConnectedPoint},
+    dns,
     gossipsub::{
         error::{PublishError, SubscriptionError},
         Gossipsub, GossipsubConfigBuilder, GossipsubEvent, GossipsubMessage, IdentTopic as Topic,
@@ -20,7 +21,7 @@ use tokio::io;
 
 fn ws_transport(
     keypair: identity::Keypair,
-) -> std::io::Result<core::transport::Boxed<(PeerId, core::muxing::StreamMuxerBox)>> {
+) -> std::io::Result<transport::Boxed<(PeerId, muxing::StreamMuxerBox)>> {
     let transport = {
         let dns_tcp = dns::TokioDnsConfig::system(tcp::tokio::Transport::new(
             tcp::Config::new().nodelay(true),
@@ -32,9 +33,9 @@ fn ws_transport(
     };
 
     Ok(transport
-        .upgrade(core::upgrade::Version::V1)
+        .upgrade(upgrade::Version::V1)
         .authenticate(noise::NoiseAuthenticated::xx(&keypair).unwrap())
-        .multiplex(core::upgrade::SelectUpgrade::new(
+        .multiplex(upgrade::SelectUpgrade::new(
             yamux::YamuxConfig::default(),
             mplex::MplexConfig::default(),
         ))
@@ -170,6 +171,38 @@ impl UpdateBroadcast {
                     id,
                     message,
                 }),
+                SwarmEvent::Behaviour(WebSocketBehaviourEvent::Gossipsub(
+                    GossipsubEvent::Subscribed { peer_id, topic },
+                )) => Either::Right(UpdateBroadcastEvent::Subscribed { peer_id, topic }),
+                SwarmEvent::Behaviour(WebSocketBehaviourEvent::Gossipsub(
+                    GossipsubEvent::Unsubscribed { peer_id, topic },
+                )) => Either::Right(UpdateBroadcastEvent::Unsubscribed { peer_id, topic }),
+                SwarmEvent::ConnectionEstablished {
+                    peer_id,
+                    endpoint,
+                    num_established,
+                    concurrent_dial_errors,
+                } => Either::Right(UpdateBroadcastEvent::ConnectionEstablished {
+                    peer_id,
+                    endpoint,
+                    num_established: num_established.into(),
+                    concurrent_dial_errors: concurrent_dial_errors
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|(addr, error)| format!("{error}: {addr}"))
+                        .collect(),
+                }),
+                SwarmEvent::ConnectionClosed {
+                    peer_id,
+                    endpoint,
+                    num_established,
+                    cause,
+                } => Either::Right(UpdateBroadcastEvent::ConnectionClosed {
+                    peer_id,
+                    endpoint,
+                    num_established,
+                    cause: cause.map(|e| e.to_string()),
+                }),
                 other => Either::Right(UpdateBroadcastEvent::Other(format!("{other:?}").into())),
             })
             .await
@@ -217,6 +250,26 @@ pub enum UpdateBroadcastEvent {
         id: MessageId,
         /// The decompressed message itself.
         message: GossipsubMessage,
+    },
+    Subscribed {
+        peer_id: PeerId,
+        topic: TopicHash,
+    },
+    Unsubscribed {
+        peer_id: PeerId,
+        topic: TopicHash,
+    },
+    ConnectionEstablished {
+        peer_id: PeerId,
+        endpoint: ConnectedPoint,
+        num_established: u32,
+        concurrent_dial_errors: Vec<String>,
+    },
+    ConnectionClosed {
+        peer_id: PeerId,
+        endpoint: ConnectedPoint,
+        num_established: u32,
+        cause: Option<String>,
     },
     Other(String),
 }

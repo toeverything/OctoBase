@@ -54,11 +54,7 @@ impl CollaborationServer {
             tokio::select! {
                 event = broadcast.next() => {
                     match event {
-                        UpdateBroadcastEvent::Message {
-                            peer_id,
-                            id,
-                            message,
-                        } => {
+                        UpdateBroadcastEvent::Message { peer_id, message, .. } => {
                             if let Some(topic) = broadcast.find_topic(&message.topic) {
                                 match topic.as_str().try_into() {
                                     Ok(SubscribeTopic::StateVector(workspace)) => {}
@@ -88,6 +84,26 @@ impl CollaborationServer {
                                 }
                             } else {
                                 warn!("Unknown topic: {:?}", message.topic);
+                            }
+                        }
+                        UpdateBroadcastEvent::Subscribed { peer_id, topic } =>{
+                            debug!("{} Subscribed to {}", peer_id, topic);
+                        },
+                        UpdateBroadcastEvent::Unsubscribed { peer_id, topic } =>{
+                            debug!("{} Unsubscribed from {}", peer_id, topic);
+                        },
+                        UpdateBroadcastEvent::ConnectionEstablished { peer_id, concurrent_dial_errors, .. } =>{
+                            debug!("{peer_id} ConnectionEstablished: {}", if concurrent_dial_errors.len() > 0 {
+                                concurrent_dial_errors.join(",")
+                            } else {
+                                "success".to_string()
+                            });
+                        },
+                        UpdateBroadcastEvent::ConnectionClosed { peer_id, cause, .. } => {
+                            if let Some(cause) = cause {
+                                warn!("{} ConnectionClosed: {}", peer_id, cause);
+                            } else {
+                                debug!("{} ConnectionClosed", peer_id);
                             }
                         }
                         UpdateBroadcastEvent::Other(other) => {
