@@ -1,10 +1,4 @@
-use crate::{
-    context::Context,
-    error_info::{
-        forbidden_error, internal_server_error, not_found_error, not_modify_error,
-        payload_too_large_error,
-    },
-};
+use crate::{context::Context, error_status::ErrorStatus};
 use axum::{
     body::StreamBody,
     extract::{BodyStream, Path},
@@ -36,12 +30,12 @@ impl Context {
     ) -> Response {
         if let Some(etag) = headers.get(IF_NONE_MATCH).and_then(|h| h.to_str().ok()) {
             if etag == id {
-                return not_modify_error();
+                return ErrorStatus::NotModify.into_response();
             }
         }
 
         let Ok(meta) = self.blob.get_metadata(workspace.clone(), id.clone()).await else {
-            return not_found_error();
+            return ErrorStatus::NotFound.into_response();
         };
 
         if let Some(modified_since) = headers
@@ -50,7 +44,7 @@ impl Context {
             .and_then(|s| DateTime::parse_from_rfc2822(s).ok())
         {
             if meta.last_modified <= modified_since.naive_utc() {
-                return not_modify_error();
+                return ErrorStatus::NotModify.into_response();
             }
         }
 
@@ -79,7 +73,7 @@ impl Context {
         };
 
         let Ok(file) = self.blob.get_blob(workspace, id).await else {
-            return not_found_error();
+            return ErrorStatus::NotFound.into_response();
         };
 
         (header, StreamBody::new(file)).into_response()
@@ -99,12 +93,12 @@ impl Context {
         if let Ok(id) = self.blob.put_blob(workspace.clone(), stream).await {
             if has_error {
                 let _ = self.blob.delete_blob(workspace, id).await;
-                internal_server_error()
+                ErrorStatus::InternalServerError.into_response()
             } else {
                 id.into_response()
             }
         } else {
-            internal_server_error()
+            ErrorStatus::InternalServerError.into_response()
         }
     }
 
@@ -141,7 +135,7 @@ pub async fn upload_blob(
     stream: BodyStream,
 ) -> Response {
     if length.0 > 10 * 1024 * 1024 {
-        return payload_too_large_error();
+        return ErrorStatus::PayloadTooLarge.into_response();
     }
 
     ctx.upload_blob(stream, None).await
@@ -160,8 +154,8 @@ pub async fn get_blob_in_workspace(
         .await
     {
         Ok(true) => (),
-        Ok(false) => return forbidden_error(),
-        Err(_) => return internal_server_error(),
+        Ok(false) => return ErrorStatus::Forbidden.into_response(),
+        Err(_) => return ErrorStatus::InternalServerError.into_response(),
     }
 
     ctx.get_blob(Some(workspace_id), id, method, headers).await
@@ -175,7 +169,7 @@ pub async fn upload_blob_in_workspace(
     stream: BodyStream,
 ) -> Response {
     if length.0 > 10 * 1024 * 1024 {
-        return payload_too_large_error();
+        return ErrorStatus::PayloadTooLarge.into_response();
     }
 
     match ctx
@@ -184,8 +178,8 @@ pub async fn upload_blob_in_workspace(
         .await
     {
         Ok(true) => (),
-        Ok(false) => return forbidden_error(),
-        Err(_) => return internal_server_error(),
+        Ok(false) => return ErrorStatus::Forbidden.into_response(),
+        Err(_) => return ErrorStatus::InternalServerError.into_response(),
     }
 
     ctx.upload_blob(stream, Some(workspace_id)).await
@@ -201,16 +195,16 @@ pub async fn create_workspace(
         let id = data.id.to_string();
         let update = ctx.upload_workspace(stream).await;
         if let Err(_) = ctx.doc.storage.get(id.clone()).await {
-            return internal_server_error();
+            return ErrorStatus::InternalServerError.into_response();
         }
         if !ctx.doc.full_migrate(id, Some(update)).await {
-            return internal_server_error();
+            return ErrorStatus::InternalServerError.into_response();
         }
         ctx.user_channel
             .add_user_observe(claims.user.id, ctx.clone())
             .await;
         Json(data).into_response()
     } else {
-        internal_server_error()
+        ErrorStatus::InternalServerError.into_response()
     }
 }

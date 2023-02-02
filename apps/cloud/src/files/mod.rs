@@ -1,4 +1,7 @@
+use crate::error_status::ErrorStatus;
+
 use super::*;
+use axum::response::IntoResponse;
 use axum::{
     body::{boxed, Body, BoxBody, Empty},
     http::{Request, Response, StatusCode, Uri},
@@ -13,7 +16,7 @@ const INDEX_DIST_PATH: &str = if cfg!(debug_assertions) {
     "/app/dist"
 };
 
-async fn index_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, String)> {
+async fn index_handler(uri: Uri) -> Result<Response<BoxBody>, Response<BoxBody>> {
     info!("get {:?}", uri);
 
     let res = get_static_file(uri.clone(), INDEX_DIST_PATH.to_owned()).await?;
@@ -21,10 +24,7 @@ async fn index_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, Strin
         let res =
             get_static_file(Uri::from_static("/index.html"), INDEX_DIST_PATH.to_owned()).await?;
         if res.status() == StatusCode::NOT_FOUND {
-            return Ok(Response::builder()
-                .status(404)
-                .body(boxed(Empty::default()))
-                .unwrap());
+            return Ok(ErrorStatus::NotFound.into_response());
         }
         return Ok(res);
     }
@@ -33,19 +33,13 @@ async fn index_handler(uri: Uri) -> Result<Response<BoxBody>, (StatusCode, Strin
 }
 
 // Reference from https://benw.is/posts/serving-static-files-with-axum
-async fn get_static_file(
-    uri: Uri,
-    dist: String,
-) -> Result<Response<BoxBody>, (StatusCode, String)> {
+async fn get_static_file(uri: Uri, dist: String) -> Result<Response<BoxBody>, Response<BoxBody>> {
     let req = Request::builder().uri(uri).body(Body::empty()).unwrap();
     let res = ServeDir::new(dist).oneshot(req);
 
     match res.await {
         Ok(res) => Ok(res.map(boxed)),
-        Err(err) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Something went wrong: {}", err),
-        )),
+        Err(err) => Err(ErrorStatus::InternalServerFileError(err).into_response()),
     }
 }
 

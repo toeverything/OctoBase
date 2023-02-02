@@ -2,10 +2,13 @@ use std::sync::Arc;
 
 use axum::body::Bytes;
 use cloud_database::Claims;
-use http::{Request, Response, StatusCode};
+use http::{Request, Response};
 use http_body::combinators::UnsyncBoxBody;
 use jsonwebtoken::DecodingKey;
 use tower_http::auth::{AuthorizeRequest, RequireAuthorizationLayer};
+
+use crate::error_status::ErrorStatus;
+use axum::response::IntoResponse;
 
 #[derive(Clone)]
 pub struct Auth {
@@ -32,12 +35,7 @@ impl<B> AuthorizeRequest<B> for Auth {
 
             Ok(())
         } else {
-            let unauthorized_response = Response::builder()
-                .status(StatusCode::UNAUTHORIZED)
-                .body(UnsyncBoxBody::default())
-                .unwrap();
-
-            Err(unauthorized_response)
+            Err(ErrorStatus::Unauthorized.into_response())
         }
     }
 }
