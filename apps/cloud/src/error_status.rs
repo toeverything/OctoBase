@@ -4,6 +4,7 @@ use axum::{
 };
 use http::StatusCode;
 use serde::Serialize;
+use std::io::Error;
 
 pub enum ErrorStatus {
     NotModify,
@@ -11,6 +12,7 @@ pub enum ErrorStatus {
     NotFoundWorkspace(String),
     NotFoundInvitation,
     InternalServerError,
+    InternalServerFileError(Error),
     PayloadTooLarge,
     BadRequest,
     Forbidden,
@@ -53,6 +55,10 @@ impl IntoResponse for ErrorStatus {
             ErrorStatus::InternalServerError => error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Server error, please try again later.",
+            ),
+            ErrorStatus::InternalServerFileError(err) => error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &format!("Something went wrong: {}", err),
             ),
             ErrorStatus::PayloadTooLarge => error_response(
                 StatusCode::PAYLOAD_TOO_LARGE,
