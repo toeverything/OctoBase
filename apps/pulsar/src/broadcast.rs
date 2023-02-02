@@ -6,7 +6,7 @@ use libp2p::{
         Gossipsub, GossipsubConfigBuilder, GossipsubEvent, GossipsubMessage, IdentTopic as Topic,
         MessageAuthenticity, MessageId, TopicHash, ValidationMode,
     },
-    identity, mdns, mplex, noise,
+    identity, mplex, noise,
     swarm::{DialError, NetworkBehaviour, SwarmEvent},
     tcp, websocket, yamux, Multiaddr, PeerId, Swarm, Transport, TransportError,
 };
@@ -44,8 +44,14 @@ fn ws_transport(
 #[derive(NetworkBehaviour)]
 struct WebSocketBehaviour {
     gossipsub: Gossipsub,
-    mdns: mdns::tokio::Behaviour,
+    #[cfg(features = "discover")]
+    mdns: libp2p::mdns::tokio::Behaviour,
 }
+
+#[cfg(features = "discover")]
+type NextBehaviour = Either<libp2p::mdns::Event, UpdateBroadcastEvent>;
+#[cfg(not(features = "discover"))]
+type NextBehaviour = Either<(), UpdateBroadcastEvent>;
 
 pub struct UpdateBroadcast {
     swarm: Swarm<WebSocketBehaviour>,
@@ -81,8 +87,13 @@ impl UpdateBroadcast {
 
         // Create a Swarm to manage peers and events
         let swarm = {
-            let mdns = mdns::tokio::Behaviour::new(mdns::Config::default())?;
-            let behaviour = WebSocketBehaviour { gossipsub, mdns };
+            #[cfg(features = "discover")]
+            let mdns = libp2p::mdns::tokio::Behaviour::new(libp2p::mdns::Config::default())?;
+            let behaviour = WebSocketBehaviour {
+                gossipsub,
+                #[cfg(features = "discover")]
+                mdns,
+            };
             Swarm::with_tokio_executor(transport, behaviour, local_peer_id)
         };
 
@@ -94,10 +105,13 @@ impl UpdateBroadcast {
 
     pub fn subscribe<S: Into<String>>(&mut self, topic: S) -> Result<(), SubscriptionError> {
         let topic_name = topic.into();
-        let topic = Topic::new(&format!("/pulsar/{}", &topic_name));
+        let full_topic_name = format!("/pulsar/{}", &topic_name);
+        let topic = Topic::new(&full_topic_name);
 
         self.swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
         self.topic_map.insert(topic.hash(), topic_name);
+
+        println!("subscribed to topic: {}", full_topic_name);
         Ok(())
     }
 
@@ -107,6 +121,8 @@ impl UpdateBroadcast {
 
         self.swarm.behaviour_mut().gossipsub.unsubscribe(&topic)?;
         self.topic_map.remove(&topic.hash());
+
+        println!("unsubscribed from topic: {}", topic_name);
         Ok(())
     }
 
@@ -136,10 +152,11 @@ impl UpdateBroadcast {
         Ok(())
     }
 
-    async fn next_behaviour(&mut self) -> Either<mdns::Event, UpdateBroadcastEvent> {
+    async fn next_behaviour(&mut self) -> NextBehaviour {
         self.swarm
             .select_next_some()
             .map(|event| match event {
+                #[cfg(features = "discover")]
                 SwarmEvent::Behaviour(WebSocketBehaviourEvent::Mdns(event)) => Either::Left(event),
                 SwarmEvent::Behaviour(WebSocketBehaviourEvent::Gossipsub(
                     GossipsubEvent::Message {
@@ -160,26 +177,30 @@ impl UpdateBroadcast {
     pub async fn next(&mut self) -> UpdateBroadcastEvent {
         loop {
             match self.next_behaviour().await {
+                #[allow(unused_variables)]
                 Either::Left(event) => {
-                    let pubsub = &mut self.swarm.behaviour_mut().gossipsub;
+                    #[cfg(features = "discover")]
+                    {
+                        let pubsub = &mut self.swarm.behaviour_mut().gossipsub;
 
-                    match event {
-                        mdns::Event::Discovered(list) => {
-                            for (peer_id, _multiaddr) in list {
-                                println!("mDNS discovered a new peer: {peer_id}");
-                                pubsub.add_explicit_peer(&peer_id);
+                        match event {
+                            libp2p::mdns::Event::Discovered(list) => {
+                                for (peer_id, _multiaddr) in list {
+                                    println!("mDNS discovered a new peer: {peer_id}");
+                                    pubsub.add_explicit_peer(&peer_id);
+                                }
                             }
-                        }
-                        mdns::Event::Expired(list) => {
-                            for (peer_id, _multiaddr) in list {
-                                println!("mDNS discover peer has expired: {peer_id}");
-                                pubsub.remove_explicit_peer(&peer_id);
+                            libp2p::mdns::Event::Expired(list) => {
+                                for (peer_id, _multiaddr) in list {
+                                    println!("mDNS discover peer has expired: {peer_id}");
+                                    pubsub.remove_explicit_peer(&peer_id);
+                                }
                             }
                         }
                     }
                 }
                 Either::Right(event) => {
-                    return event;
+                    break event;
                 }
             }
         }

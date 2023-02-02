@@ -1,5 +1,4 @@
 mod blobs;
-mod broadcast;
 mod collaboration;
 
 use super::*;
@@ -25,4 +24,4 @@ pub fn sync_handler(router: Router) -> Router {
     )
 }
 
-pub use collaboration::{CollaborationResult, CollaborationServer};
+pub use collaboration::CollaborationServer;
