@@ -4,6 +4,7 @@ use std::{net::SocketAddr, sync::Arc};
 
 mod api;
 mod context;
+mod error_info;
 mod files;
 mod layer;
 mod login;

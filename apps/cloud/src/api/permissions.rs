@@ -6,6 +6,10 @@ use axum::{
 
 use crate::{
     context::Context,
+    error_info::{
+        bad_request_error, conflict_invitation_error, forbidden_error, internal_server_error,
+        not_found_invitation_error,
+    },
     utils::{Engine, URL_SAFE_ENGINE},
 };
 use cloud_database::{Claims, CreatePermission, PermissionType, UserCred, WorkspaceMetadata};
@@ -28,14 +32,14 @@ pub async fn get_members(
         .await
     {
         Ok(Some(p)) if p.can_admin() => (),
-        Ok(_) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(_) => return forbidden_error(),
+        Err(_) => return internal_server_error(),
     };
 
     if let Ok(members) = ctx.db.get_workspace_members(workspace_id).await {
         Json(members).into_response()
     } else {
-        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        internal_server_error()
     }
 }
 
@@ -123,12 +127,12 @@ pub async fn invite_member(
         .await
     {
         Ok(Some(p)) if p.can_admin() => (),
-        Ok(_) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(_) => return forbidden_error(),
+        Err(_) => return internal_server_error(),
     };
 
     let Ok(addr) = data.email.clone().parse() else {
-        return StatusCode::BAD_REQUEST.into_response()
+        return bad_request_error()
     };
 
     let (permission_id, user_cred) = match ctx
@@ -137,8 +141,8 @@ pub async fn invite_member(
         .await
     {
         Ok(Some(p)) => p,
-        Ok(None) => return StatusCode::CONFLICT.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(None) => return conflict_invitation_error(),
+        Err(_) => return internal_server_error(),
     };
 
     let invite_user = user_cred.clone();
@@ -166,7 +170,7 @@ pub async fn invite_member(
 
     let Some((title, msg_body)) = make_invite_email(&ctx, workspace_id, &claims, &invite_code).await else {
         let _ = ctx.db.delete_permission(permission_id);
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        return internal_server_error();
     };
 
     let email = Message::builder()
@@ -182,12 +186,12 @@ pub async fn invite_member(
         Err(e) if e.is_response() => {
             if let Err(_) = ctx.mail.client.send(email).await {
                 let _ = ctx.db.delete_permission(permission_id);
-                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                return internal_server_error();
             }
         }
         Err(_) => {
             let _ = ctx.db.delete_permission(permission_id).await;
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            return internal_server_error();
         }
     };
 
@@ -199,21 +203,21 @@ pub async fn accept_invitation(
     Path(url): Path<String>,
 ) -> Response {
     let Ok(input) = URL_SAFE_ENGINE.decode(url) else {
-        return StatusCode::BAD_REQUEST.into_response();
+        return bad_request_error();
     };
 
     let Some(data) = ctx.decrypt_aes(input) else {
-        return StatusCode::BAD_REQUEST.into_response();
+        return bad_request_error();
     };
 
     let Ok(data) = TryInto::<[u8; 8]>::try_into(data) else {
-        return StatusCode::BAD_REQUEST.into_response();
+        return bad_request_error();
     };
 
     match ctx.db.accept_permission(i64::from_le_bytes(data)).await {
         Ok(Some(p)) => Json(p).into_response(),
-        Ok(None) => StatusCode::NOT_FOUND.into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(None) => not_found_invitation_error(),
+        Err(_) => internal_server_error(),
     }
 }
 
@@ -224,8 +228,8 @@ pub async fn leave_workspace(
 ) -> Response {
     match ctx.db.delete_permission_by_query(claims.user.id, id).await {
         Ok(true) => StatusCode::OK.into_response(),
-        Ok(false) => StatusCode::NOT_FOUND.into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(false) => StatusCode::OK.into_response(),
+        Err(_) => internal_server_error(),
     }
 }
 
@@ -240,13 +244,13 @@ pub async fn remove_user(
         .await
     {
         Ok(Some(p)) if p.can_admin() => (),
-        Ok(_) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(_) => return forbidden_error(),
+        Err(_) => return internal_server_error(),
     }
 
     match ctx.db.delete_permission(id).await {
         Ok(true) => StatusCode::OK.into_response(),
-        Ok(false) => StatusCode::NOT_FOUND.into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(false) => StatusCode::OK.into_response(),
+        Err(_) => internal_server_error(),
     }
 }

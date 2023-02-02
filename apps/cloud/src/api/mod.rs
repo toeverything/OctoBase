@@ -18,10 +18,13 @@ use jwst::BlobStorage;
 use lib0::any::Any;
 use std::sync::Arc;
 use tower::ServiceBuilder;
-use yrs::StateVector;
 
 use crate::{
     context::{Context, ContextRequestError},
+    error_info::{
+        bad_request_error, forbidden_error, internal_server_error, not_found_workspace_error,
+        unauthorized_error,
+    },
     layer::make_firebase_auth_layer,
     login::ThirdPartyLogin,
     utils::URL_SAFE_ENGINE,
@@ -93,10 +96,10 @@ async fn query_user(
         {
             Json(vec![user]).into_response()
         } else {
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            internal_server_error()
         }
     } else {
-        StatusCode::BAD_REQUEST.into_response()
+        bad_request_error()
     }
 }
 
@@ -116,17 +119,17 @@ async fn make_token(
         ),
         MakeToken::Refresh { token } => {
             let Ok(input) = URL_SAFE_ENGINE.decode(token.clone()) else {
-                return StatusCode::BAD_REQUEST.into_response();
+                return bad_request_error();
             };
             let Some(data) = ctx.decrypt_aes(input) else {
-                return StatusCode::BAD_REQUEST.into_response();
+                return bad_request_error();
             };
             let Ok(data) = serde_json::from_slice::<RefreshToken>(&data) else {
-                return StatusCode::BAD_REQUEST.into_response();
+                return bad_request_error();
             };
 
             if data.expires < Utc::now().naive_utc() {
-                return StatusCode::GONE.into_response();
+                return unauthorized_error();
             }
 
             (ctx.db.refresh_token(data).await, Some(token))
@@ -157,8 +160,8 @@ async fn make_token(
 
             Json(UserToken { token, refresh }).into_response()
         }
-        Ok(None) => StatusCode::UNAUTHORIZED.into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(None) => unauthorized_error(),
+        Err(_) => internal_server_error(),
     }
 }
 
@@ -170,7 +173,7 @@ async fn get_workspaces(
     if let Ok(data) = ctx.db.get_user_workspaces(claims.user.id).await {
         Json(data).into_response()
     } else {
-        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        internal_server_error()
     }
 }
 
@@ -185,7 +188,7 @@ impl IntoResponse for ContextRequestError {
                 format!("Workspace({workspace_id:?}) not found."),
             )
                 .into_response(),
-            ContextRequestError::Other(err) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            ContextRequestError::Other(err) => internal_server_error(),
         }
     }
 }
@@ -201,14 +204,14 @@ async fn get_workspace_by_id(
         .await
     {
         Ok(Some(_)) => (),
-        Ok(None) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(None) => return forbidden_error(),
+        Err(_) => return internal_server_error(),
     }
 
-    match ctx.db.get_workspace_by_id(workspace_id).await {
+    match ctx.db.get_workspace_by_id(workspace_id.clone()).await {
         Ok(Some(data)) => Json(data).into_response(),
-        Ok(None) => StatusCode::NOT_FOUND.into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(None) => not_found_workspace_error(workspace_id),
+        Err(_) => internal_server_error(),
     }
 }
 
@@ -224,8 +227,8 @@ async fn update_workspace(
         .await
     {
         Ok(Some(p)) if p.can_admin() => (),
-        Ok(_) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(_) => return forbidden_error(),
+        Err(_) => return internal_server_error(),
     }
 
     match ctx.db.update_workspace(workspace_id.clone(), payload).await {
@@ -234,8 +237,8 @@ async fn update_workspace(
                 .update_workspace(workspace_id.clone(), ctx.clone());
             Json(data).into_response()
         }
-        Ok(None) => StatusCode::NOT_FOUND.into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(None) => not_found_workspace_error(workspace_id),
+        Err(_) => internal_server_error(),
     }
 }
 
@@ -250,8 +253,8 @@ async fn delete_workspace(
         .await
     {
         Ok(Some(p)) if p.is_owner() => (),
-        Ok(_) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(_) => return forbidden_error(),
+        Err(_) => return internal_server_error(),
     }
 
     match ctx.db.delete_workspace(workspace_id.clone()).await {
@@ -261,8 +264,8 @@ async fn delete_workspace(
             let _ = ctx.blob.delete_workspace(workspace_id).await;
             StatusCode::OK.into_response()
         }
-        Ok(false) => StatusCode::NOT_FOUND.into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(false) => not_found_workspace_error(workspace_id),
+        Err(_) => internal_server_error(),
     }
 }
 
@@ -277,8 +280,8 @@ async fn get_doc(
         .await
     {
         Ok(true) => (),
-        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(false) => return forbidden_error(),
+        Err(_) => return internal_server_error(),
     }
 
     get_workspace_doc(ctx, workspace_id).await
@@ -290,8 +293,8 @@ pub async fn get_public_doc(
 ) -> Response {
     match ctx.db.is_public_workspace(workspace_id.clone()).await {
         Ok(true) => (),
-        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(false) => return forbidden_error(),
+        Err(_) => return internal_server_error(),
     }
 
     get_workspace_doc(ctx, workspace_id).await
@@ -320,8 +323,8 @@ async fn search_workspace(
         .await
     {
         Ok(true) => (),
-        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(false) => return forbidden_error(),
+        Err(_) => return internal_server_error(),
     };
 
     let search_results = match ctx.search_workspace(workspace_id, &payload.query).await {

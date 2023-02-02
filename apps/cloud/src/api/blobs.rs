@@ -1,4 +1,10 @@
-use crate::context::Context;
+use crate::{
+    context::Context,
+    error_info::{
+        forbidden_error, internal_server_error, not_found_error, not_modify_error,
+        payload_too_large_error,
+    },
+};
 use axum::{
     body::StreamBody,
     extract::{BodyStream, Path},
@@ -14,7 +20,7 @@ use http::{
         CACHE_CONTROL, CONTENT_LENGTH, CONTENT_TYPE, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH,
         LAST_MODIFIED,
     },
-    HeaderMap, HeaderValue, StatusCode,
+    HeaderMap, HeaderValue,
 };
 use jwst::{BlobStorage, DocStorage};
 use mime::APPLICATION_OCTET_STREAM;
@@ -30,12 +36,12 @@ impl Context {
     ) -> Response {
         if let Some(etag) = headers.get(IF_NONE_MATCH).and_then(|h| h.to_str().ok()) {
             if etag == id {
-                return StatusCode::NOT_MODIFIED.into_response();
+                return not_modify_error();
             }
         }
 
         let Ok(meta) = self.blob.get_metadata(workspace.clone(), id.clone()).await else {
-            return StatusCode::NOT_FOUND.into_response()
+            return not_found_error();
         };
 
         if let Some(modified_since) = headers
@@ -44,7 +50,7 @@ impl Context {
             .and_then(|s| DateTime::parse_from_rfc2822(s).ok())
         {
             if meta.last_modified <= modified_since.naive_utc() {
-                return StatusCode::NOT_MODIFIED.into_response();
+                return not_modify_error();
             }
         }
 
@@ -73,7 +79,7 @@ impl Context {
         };
 
         let Ok(file) = self.blob.get_blob(workspace, id).await else {
-            return StatusCode::NOT_FOUND.into_response()
+            return not_found_error();
         };
 
         (header, StreamBody::new(file)).into_response()
@@ -93,12 +99,12 @@ impl Context {
         if let Ok(id) = self.blob.put_blob(workspace.clone(), stream).await {
             if has_error {
                 let _ = self.blob.delete_blob(workspace, id).await;
-                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+                internal_server_error()
             } else {
                 id.into_response()
             }
         } else {
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            internal_server_error()
         }
     }
 
@@ -134,8 +140,8 @@ pub async fn upload_blob(
     TypedHeader(length): TypedHeader<ContentLength>,
     stream: BodyStream,
 ) -> Response {
-    if length.0 > 500 * 1024 {
-        return StatusCode::PAYLOAD_TOO_LARGE.into_response();
+    if length.0 > 10 * 1024 * 1024 {
+        return payload_too_large_error();
     }
 
     ctx.upload_blob(stream, None).await
@@ -154,8 +160,8 @@ pub async fn get_blob_in_workspace(
         .await
     {
         Ok(true) => (),
-        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(false) => return forbidden_error(),
+        Err(_) => return internal_server_error(),
     }
 
     ctx.get_blob(Some(workspace_id), id, method, headers).await
@@ -169,7 +175,7 @@ pub async fn upload_blob_in_workspace(
     stream: BodyStream,
 ) -> Response {
     if length.0 > 10 * 1024 * 1024 {
-        return StatusCode::PAYLOAD_TOO_LARGE.into_response();
+        return payload_too_large_error();
     }
 
     match ctx
@@ -178,8 +184,8 @@ pub async fn upload_blob_in_workspace(
         .await
     {
         Ok(true) => (),
-        Ok(false) => return StatusCode::FORBIDDEN.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(false) => return forbidden_error(),
+        Err(_) => return internal_server_error(),
     }
 
     ctx.upload_blob(stream, Some(workspace_id)).await
@@ -195,16 +201,16 @@ pub async fn create_workspace(
         let id = data.id.to_string();
         let update = ctx.upload_workspace(stream).await;
         if let Err(_) = ctx.doc.storage.get(id.clone()).await {
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            return internal_server_error();
         }
         if !ctx.doc.full_migrate(id, Some(update)).await {
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            return internal_server_error();
         }
         ctx.user_channel
             .add_user_observe(claims.user.id, ctx.clone())
             .await;
         Json(data).into_response()
     } else {
-        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        internal_server_error()
     }
 }
