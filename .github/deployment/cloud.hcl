@@ -14,6 +14,13 @@ job "affine-cloud-stage" {
   group "affine-cloud-stage" {
     count = 1
 
+    restart {
+      attempts = 3
+      delay    = "10s"
+      interval = "1m"
+      mode     = "fail"
+    }
+
     network {
       port "affine-cloud" {
         to           = 3000
@@ -39,6 +46,10 @@ job "affine-cloud-stage" {
         path     = "/api/healthz"
         interval = "10s"
         timeout  = "2s"
+        check_restart {
+          limit = 3
+          grace = "90s"
+        }
       }
     }
 
@@ -62,7 +73,7 @@ job "affine-cloud-stage" {
         # GOOGLE_ENDPOINT_PASSWORD = "Dct4pq9E9V"
       }
       config {
-        image      = "ghcr.io/toeverything/cloud:canary-a885e6f8a0c65e064c319991c1ad8ff37ba0d403"
+        image      = "ghcr.io/toeverything/cloud:canary-6639ddb4e5bce6c1e79d59e6ae28d39c07252914"
         force_pull = true
         ports      = ["affine-cloud"]
         volumes = [
