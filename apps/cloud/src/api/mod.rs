@@ -21,10 +21,7 @@ use tower::ServiceBuilder;
 
 use crate::{
     context::{Context, ContextRequestError},
-    error_info::{
-        bad_request_error, forbidden_error, internal_server_error, not_found_workspace_error,
-        unauthorized_error,
-    },
+    error_status::ErrorStatus,
     layer::make_firebase_auth_layer,
     login::ThirdPartyLogin,
     utils::URL_SAFE_ENGINE,
@@ -96,10 +93,10 @@ async fn query_user(
         {
             Json(vec![user]).into_response()
         } else {
-            internal_server_error()
+            ErrorStatus::InternalServerError.into_response()
         }
     } else {
-        bad_request_error()
+        ErrorStatus::BadRequest.into_response()
     }
 }
 
@@ -119,17 +116,17 @@ async fn make_token(
         ),
         MakeToken::Refresh { token } => {
             let Ok(input) = URL_SAFE_ENGINE.decode(token.clone()) else {
-                return bad_request_error();
+                return ErrorStatus::BadRequest.into_response();
             };
             let Some(data) = ctx.decrypt_aes(input) else {
-                return bad_request_error();
+                return ErrorStatus::BadRequest.into_response();
             };
             let Ok(data) = serde_json::from_slice::<RefreshToken>(&data) else {
-                return bad_request_error();
+                return ErrorStatus::BadRequest.into_response();
             };
 
             if data.expires < Utc::now().naive_utc() {
-                return unauthorized_error();
+                return ErrorStatus::Unauthorized.into_response();
             }
 
             (ctx.db.refresh_token(data).await, Some(token))
@@ -160,8 +157,8 @@ async fn make_token(
 
             Json(UserToken { token, refresh }).into_response()
         }
-        Ok(None) => unauthorized_error(),
-        Err(_) => internal_server_error(),
+        Ok(None) => ErrorStatus::Unauthorized.into_response(),
+        Err(_) => ErrorStatus::InternalServerError.into_response(),
     }
 }
 
@@ -173,7 +170,7 @@ async fn get_workspaces(
     if let Ok(data) = ctx.db.get_user_workspaces(claims.user.id).await {
         Json(data).into_response()
     } else {
-        internal_server_error()
+        ErrorStatus::InternalServerError.into_response()
     }
 }
 
@@ -181,14 +178,12 @@ impl IntoResponse for ContextRequestError {
     fn into_response(self) -> Response {
         match self {
             ContextRequestError::BadUserInput { user_message } => {
-                (StatusCode::BAD_REQUEST, user_message).into_response()
+                ErrorStatus::BadRequest.into_response()
             }
-            ContextRequestError::WorkspaceNotFound { workspace_id } => (
-                StatusCode::NOT_FOUND,
-                format!("Workspace({workspace_id:?}) not found."),
-            )
-                .into_response(),
-            ContextRequestError::Other(err) => internal_server_error(),
+            ContextRequestError::WorkspaceNotFound { workspace_id } => {
+                ErrorStatus::NotFoundWorkspace(workspace_id).into_response()
+            }
+            ContextRequestError::Other(err) => ErrorStatus::InternalServerError.into_response(),
         }
     }
 }
@@ -204,14 +199,14 @@ async fn get_workspace_by_id(
         .await
     {
         Ok(Some(_)) => (),
-        Ok(None) => return forbidden_error(),
-        Err(_) => return internal_server_error(),
+        Ok(None) => return ErrorStatus::Forbidden.into_response(),
+        Err(_) => return ErrorStatus::InternalServerError.into_response(),
     }
 
     match ctx.db.get_workspace_by_id(workspace_id.clone()).await {
         Ok(Some(data)) => Json(data).into_response(),
-        Ok(None) => not_found_workspace_error(workspace_id),
-        Err(_) => internal_server_error(),
+        Ok(None) => ErrorStatus::NotFoundWorkspace(workspace_id).into_response(),
+        Err(_) => ErrorStatus::InternalServerError.into_response(),
     }
 }
 
@@ -227,8 +222,8 @@ async fn update_workspace(
         .await
     {
         Ok(Some(p)) if p.can_admin() => (),
-        Ok(_) => return forbidden_error(),
-        Err(_) => return internal_server_error(),
+        Ok(_) => return ErrorStatus::Forbidden.into_response(),
+        Err(_) => return ErrorStatus::InternalServerError.into_response(),
     }
 
     match ctx.db.update_workspace(workspace_id.clone(), payload).await {
@@ -237,8 +232,8 @@ async fn update_workspace(
                 .update_workspace(workspace_id.clone(), ctx.clone());
             Json(data).into_response()
         }
-        Ok(None) => not_found_workspace_error(workspace_id),
-        Err(_) => internal_server_error(),
+        Ok(None) => ErrorStatus::NotFoundWorkspace(workspace_id).into_response(),
+        Err(_) => ErrorStatus::InternalServerError.into_response(),
     }
 }
 
@@ -253,8 +248,8 @@ async fn delete_workspace(
         .await
     {
         Ok(Some(p)) if p.is_owner() => (),
-        Ok(_) => return forbidden_error(),
-        Err(_) => return internal_server_error(),
+        Ok(_) => return ErrorStatus::Forbidden.into_response(),
+        Err(_) => return ErrorStatus::InternalServerError.into_response(),
     }
 
     match ctx.db.delete_workspace(workspace_id.clone()).await {
@@ -264,8 +259,8 @@ async fn delete_workspace(
             let _ = ctx.blob.delete_workspace(workspace_id).await;
             StatusCode::OK.into_response()
         }
-        Ok(false) => not_found_workspace_error(workspace_id),
-        Err(_) => internal_server_error(),
+        Ok(false) => ErrorStatus::NotFoundWorkspace(workspace_id).into_response(),
+        Err(_) => ErrorStatus::InternalServerError.into_response(),
     }
 }
 
@@ -280,8 +275,8 @@ async fn get_doc(
         .await
     {
         Ok(true) => (),
-        Ok(false) => return forbidden_error(),
-        Err(_) => return internal_server_error(),
+        Ok(false) => return ErrorStatus::Forbidden.into_response(),
+        Err(_) => return ErrorStatus::InternalServerError.into_response(),
     }
 
     get_workspace_doc(ctx, workspace_id).await
@@ -293,8 +288,8 @@ pub async fn get_public_doc(
 ) -> Response {
     match ctx.db.is_public_workspace(workspace_id.clone()).await {
         Ok(true) => (),
-        Ok(false) => return forbidden_error(),
-        Err(_) => return internal_server_error(),
+        Ok(false) => return ErrorStatus::Forbidden.into_response(),
+        Err(_) => return ErrorStatus::InternalServerError.into_response(),
     }
 
     get_workspace_doc(ctx, workspace_id).await
@@ -323,8 +318,8 @@ async fn search_workspace(
         .await
     {
         Ok(true) => (),
-        Ok(false) => return forbidden_error(),
-        Err(_) => return internal_server_error(),
+        Ok(false) => return ErrorStatus::Forbidden.into_response(),
+        Err(_) => return ErrorStatus::InternalServerError.into_response(),
     };
 
     let search_results = match ctx.search_workspace(workspace_id, &payload.query).await {
