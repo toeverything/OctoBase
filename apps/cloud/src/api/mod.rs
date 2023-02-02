@@ -44,7 +44,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/blob", put(blobs::upload_blob))
         .route("/blob/:name", get(blobs::get_blob))
         .route("/invitation/:path", post(permissions::accept_invitation))
-        .route("/global/sync", get(global_ws_handler))
+        .nest_service("/global/sync", get(global_ws_handler))
         .route("/public/doc/:id", get(get_public_doc))
         .nest(
             "/",
