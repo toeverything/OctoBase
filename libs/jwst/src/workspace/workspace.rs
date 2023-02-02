@@ -183,6 +183,10 @@ impl Workspace {
         self.content.awareness.doc().transact().state_vector()
     }
 
+    pub fn encode_state_as_update(&self, sv: &StateVector) -> Vec<u8> {
+        self.content.awareness.doc().encode_state_as_update_v1(sv)
+    }
+
     // The returned update is the difference between before apply and after apply.
     pub fn sync_apply_update(&mut self, updates: &[u8]) -> Result<Vec<u8>, Error> {
         self.content.sync_apply_update(updates)

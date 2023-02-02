@@ -3,7 +3,10 @@ use dashmap::DashMap;
 use jwst::Workspace;
 use libp2p::PeerId;
 use std::{convert::TryInto, sync::Mutex};
-use yrs::{updates::decoder::Decode, StateVector};
+use yrs::{
+    updates::{decoder::Decode, encoder::Encode},
+    StateVector,
+};
 
 pub struct CollaborationServer {
     broadcast: Mutex<UpdateBroadcast>,
@@ -35,8 +38,8 @@ impl CollaborationServer {
         S: ToString,
     {
         let mut broadcast = self.broadcast.lock().unwrap();
-        broadcast.subscribe(SubscribeTopic::StateVector(workspace.to_string()).to_string())?;
-        broadcast.subscribe(SubscribeTopic::UpdateWithSV(workspace.to_string()).to_string())?;
+        broadcast.subscribe(SubscribeTopic::OnFullUpdate(workspace.to_string()).to_string())?;
+        broadcast.subscribe(SubscribeTopic::OnStateVector(workspace.to_string()).to_string())?;
         broadcast.subscribe(SubscribeTopic::OnUpdate(workspace.to_string()).to_string())?;
         broadcast
             .subscribe(SubscribeTopic::OnAwarenessUpdate(workspace.to_string()).to_string())?;
@@ -51,8 +54,24 @@ impl CollaborationServer {
         Ok(())
     }
 
-    fn apply_state_vector(&self, peer_id: PeerId, state_vector: StateVector) {
-        self.state_vectors.insert(peer_id, state_vector);
+    fn apply_state_vector(
+        &self,
+        peer_id: PeerId,
+        update: &[u8],
+        workspace: &Workspace,
+    ) -> Option<Vec<u8>> {
+        match StateVector::decode_v1(update) {
+            Ok(sv) => {
+                self.state_vectors.insert(peer_id, sv.clone());
+                if sv != workspace.state_vector() {
+                    return Some(workspace.encode_state_as_update(&sv));
+                }
+            }
+            Err(err) => {
+                warn!("Failed to decode state vector from {peer_id}: {}", err);
+            }
+        }
+        return None;
     }
 
     fn apply_update(
@@ -63,7 +82,11 @@ impl CollaborationServer {
     ) {
         match workspace.sync_apply_update(update) {
             Ok(data) => {
-                self.apply_state_vector(broadcast.peer_id(), workspace.state_vector());
+                self.apply_state_vector(
+                    broadcast.peer_id(),
+                    &workspace.state_vector().encode_v1(),
+                    &workspace,
+                );
                 if let Err(e) =
                     broadcast.publish(SubscribeTopic::OnUpdate(workspace.id()).to_string(), data)
                 {
@@ -88,20 +111,28 @@ impl CollaborationServer {
                         } => {
                             if let Some(topic) = broadcast.find_topic(&message.topic) {
                                 match topic.as_str().try_into() {
-                                    Ok(SubscribeTopic::StateVector(workspace)) => {
-                                        debug!("{workspace} StateVector from {peer_id}: {:?}", message.data);
+                                    Ok(SubscribeTopic::OnFullUpdate(workspace)) => {
+                                        debug!("{} OnFullUpdate: {:?}", peer_id, message.data);
                                         if let Some(workspace) = self.workspaces.get(&workspace) {
-                                            match StateVector::decode_v1(& message.data) {
-                                                Ok(sv) => {
-                                                    self.apply_state_vector(peer_id, sv);
-                                                }
-                                                Err(err) => {
-                                                    warn!("Failed to decode state vector from {peer_id}: {}", err);
-                                                }
-                                            }
+                                            let mut workspace = workspace.lock().unwrap();
+                                            self.apply_update(
+                                                &message.data,
+                                                &mut workspace,
+                                                &mut broadcast,
+                                            );
                                         }
                                     }
-                                    Ok(SubscribeTopic::UpdateWithSV(workspace)) => {}
+                                    Ok(SubscribeTopic::OnStateVector(workspace)) => {
+                                        debug!("{workspace} OnStateVector from {peer_id}: {:?}", message.data);
+                                        if let Some(workspace) = self.workspaces.get(&workspace) {
+                                            let workspace = workspace.lock().unwrap();
+                                           if let Some(update) = self.apply_state_vector(peer_id, &message.data, &workspace) {
+                                                if let Err(e) = broadcast.publish(SubscribeTopic::OnUpdate(workspace.id()).to_string(), update) {
+                                                    warn!("Failed to publish update: {}", e);
+                                                }
+                                           }
+                                        }
+                                    }
                                     Ok(SubscribeTopic::OnUpdate(workspace)) => {
                                         debug!("{} OnUpdate: {:?}", peer_id, message.data);
                                         if let Some(workspace) = self.workspaces.get(&workspace) {
@@ -121,10 +152,10 @@ impl CollaborationServer {
                             }
                         }
                         UpdateBroadcastEvent::Subscribed { peer_id, topic } => {
-                            debug!("{} Subscribed to {}", peer_id, topic);
+                            debug!("{} Subscribed {}", peer_id, topic);
                         }
                         UpdateBroadcastEvent::Unsubscribed { peer_id, topic } => {
-                            debug!("{} Unsubscribed from {}", peer_id, topic);
+                            debug!("{} Unsubscribed {}", peer_id, topic);
                         }
                         UpdateBroadcastEvent::ConnectionEstablished {
                             peer_id,
