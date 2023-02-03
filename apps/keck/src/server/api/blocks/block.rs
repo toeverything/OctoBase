@@ -27,7 +27,7 @@ pub async fn get_block(
     let (workspace, block) = params;
     info!("get_block: {}, {}", workspace, block);
     if let Some(workspace) = context.workspace.get(&workspace) {
-        let workspace = workspace.value().lock().await;
+        let workspace = workspace.value().read().await;
         if let Some(block) = workspace.get(block) {
             Json(block).into_response()
         } else {
@@ -69,7 +69,7 @@ pub async fn set_block(
     info!("set_block: {}, {}", ws_id, block);
     if let Some(workspace) = context.workspace.get(&ws_id) {
         // init block instance
-        let workspace = workspace.lock().await;
+        let workspace = workspace.read().await;
 
         let mut update = None;
 
@@ -132,7 +132,7 @@ pub async fn get_block_history(
     info!("get_block_history: {}, {}", workspace, block);
     if let Some(workspace) = context.workspace.get(&workspace) {
         // init block instance
-        let workspace = workspace.value().lock().await;
+        let workspace = workspace.value().read().await;
         if let Some(block) = workspace.get(block) {
             Json(&block.history()).into_response()
         } else {
@@ -167,7 +167,7 @@ pub async fn delete_block(
     let (ws_id, block) = params;
     info!("delete_block: {}, {}", ws_id, block);
     if let Some(workspace) = context.workspace.get(&ws_id) {
-        let workspace = workspace.value().lock().await;
+        let workspace = workspace.value().read().await;
 
         if let Some(update) = workspace.with_trx(|mut t| {
             if t.remove(&block) {
@@ -212,7 +212,7 @@ pub async fn get_block_children(
     let Pagination { offset, limit } = pagination;
     info!("get_block_children: {}, {}", workspace, block);
     if let Some(workspace) = context.workspace.get(&workspace) {
-        let workspace = workspace.value().lock().await;
+        let workspace = workspace.value().read().await;
         if let Some(block) = workspace.get(&block) {
             let data: Vec<String> = block.children_iter().skip(offset).take(limit).collect();
 
@@ -270,7 +270,7 @@ pub async fn insert_block_children(
     info!("insert_block: {}, {}", ws_id, block);
     if let Some(workspace) = context.workspace.get(&ws_id) {
         // init block instance
-        let workspace = workspace.value().lock().await;
+        let workspace = workspace.value().read().await;
         let mut update = None;
 
         if let Some(block) = workspace.get(block) {
@@ -351,7 +351,7 @@ pub async fn remove_block_children(
     info!("insert_block: {}, {}", ws_id, block);
     if let Some(workspace) = context.workspace.get(&ws_id) {
         // init block instance
-        let workspace = workspace.value().lock().await;
+        let workspace = workspace.value().read().await;
         if let Some(block) = workspace.get(&block) {
             if let Some(child) = workspace.get(&child_id) {
                 let update = workspace.with_trx(|mut t| {

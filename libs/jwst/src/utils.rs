@@ -10,7 +10,7 @@ fn write_sync<E: Encoder>(encoder: &mut E) {
     encoder.write_var(MSG_SYNC);
 }
 
-pub fn encode_update(update: &[u8]) -> Vec<u8> {
+pub fn sync_encode_update(update: &[u8]) -> Vec<u8> {
     let mut encoder = EncoderV1::new();
 
     write_sync(&mut encoder);

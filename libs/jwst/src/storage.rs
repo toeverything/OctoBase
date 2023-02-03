@@ -1,17 +1,24 @@
+use super::Workspace;
 use async_trait::async_trait;
 use bytes::Bytes;
 use chrono::NaiveDateTime;
 use futures::Stream;
-use tokio::io;
+use std::sync::Arc;
+use tokio::{io, sync::RwLock};
 use yrs::Doc;
 
 #[async_trait]
 pub trait DocStorage {
-    async fn get(&self, workspace_id: String) -> io::Result<Doc>;
+    async fn get(&self, workspace_id: String) -> io::Result<Arc<RwLock<Workspace>>>;
     async fn write_doc(&self, workspace_id: String, doc: &Doc) -> io::Result<()>;
     /// Return false means update exceeding max update
     async fn write_update(&self, workspace_id: String, data: &[u8]) -> io::Result<bool>;
     async fn delete(&self, workspace_id: String) -> io::Result<()>;
+}
+
+#[async_trait]
+pub trait DocSync {
+    async fn sync(&self, id: String, remote: String) -> io::Result<()>;
 }
 
 #[derive(Debug)]

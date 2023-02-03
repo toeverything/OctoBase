@@ -15,7 +15,7 @@ use axum::{
 use dashmap::DashMap;
 use jwst::Workspace;
 use jwst_storage::{BlobAutoStorage, DocAutoStorage};
-use tokio::sync::{mpsc::Sender, Mutex};
+use tokio::sync::{mpsc::Sender, RwLock};
 
 #[derive(Deserialize)]
 #[cfg_attr(feature = "api", derive(utoipa::IntoParams))]
@@ -37,7 +37,7 @@ pub struct PageData<T> {
 }
 
 pub struct Context {
-    pub workspace: DashMap<String, Mutex<Workspace>>,
+    pub workspace: DashMap<String, Arc<RwLock<Workspace>>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub docs: DocAutoStorage,
     pub blobs: BlobAutoStorage,

@@ -29,7 +29,7 @@ pub async fn get_workspace(
 ) -> Response {
     info!("get_workspace: {}", workspace);
     if let Some(workspace) = context.workspace.get(&workspace) {
-        let workspace = workspace.lock().await;
+        let workspace = workspace.read().await;
         Json(&*workspace).into_response()
     } else {
         (
@@ -64,7 +64,7 @@ pub async fn set_workspace(
 
     match init_workspace(&context, &workspace).await {
         Ok(workspace) => {
-            let workspace = workspace.lock().await;
+            let workspace = workspace.read().await;
             Json(&*workspace).into_response()
         }
         Err(e) => {
@@ -135,7 +135,7 @@ pub async fn workspace_client(
     Path(workspace): Path<String>,
 ) -> Response {
     if let Some(workspace) = context.workspace.get(&workspace) {
-        let workspace = workspace.lock().await;
+        let workspace = workspace.read().await;
         Json(workspace.client_id()).into_response()
     } else {
         (
@@ -179,7 +179,7 @@ pub async fn workspace_search(
     let workspace_id = &workspace;
     info!("workspace_search: {workspace_id:?} query = {query_text:?}");
     if let Some(workspace) = context.workspace.get(&workspace) {
-        let mut workspace = workspace.lock().await;
+        let mut workspace = workspace.write().await;
 
         match workspace.search(query_text) {
             Ok(list) => {
@@ -225,7 +225,7 @@ pub async fn get_workspace_block(
     let Pagination { offset, limit } = pagination;
     info!("get_workspace_block: {workspace:?}");
     if let Some(workspace) = context.workspace.get(&workspace) {
-        let workspace = workspace.value().lock().await;
+        let workspace = workspace.value().read().await;
         let total = workspace.block_count() as usize;
         let data: Vec<Block> = workspace.block_iter().skip(offset).take(limit).collect();
 
@@ -274,7 +274,7 @@ pub async fn history_workspace_clients(
     Path(workspace): Path<String>,
 ) -> Response {
     if let Some(workspace) = context.workspace.get(&workspace) {
-        let workspace = workspace.lock().await;
+        let workspace = workspace.read().await;
         if let Some(history) = parse_history_client(workspace.doc()) {
             Json(history).into_response()
         } else {
@@ -313,7 +313,7 @@ pub async fn history_workspace(
 ) -> Response {
     let (workspace, client) = params;
     if let Some(workspace) = context.workspace.get(&workspace) {
-        let workspace = workspace.lock().await;
+        let workspace = workspace.read().await;
         if let Ok(client) = client.parse::<u64>() {
             if let Some(json) = parse_history(workspace.doc(), client)
                 .and_then(|history| serde_json::to_string(&history).ok())
