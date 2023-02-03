@@ -38,7 +38,7 @@ job "affine-cloud-stage" {
     }
 
     service {
-      tags = ["urlprefix-stage.affine.live/"]
+      tags = ["urlprefix-stage.affine.live/", "urlprefix-stage.affine.pro/"]
       port = "affine-cloud"
       check {
         name     = "Affine Cloud Stage Check"
@@ -73,7 +73,7 @@ job "affine-cloud-stage" {
         # GOOGLE_ENDPOINT_PASSWORD = "Dct4pq9E9V"
       }
       config {
-        image      = "ghcr.io/toeverything/cloud:canary-6639ddb4e5bce6c1e79d59e6ae28d39c07252914"
+        image      = "ghcr.io/toeverything/cloud:canary-7f1e6fd6f0296f366fef81698c696821d9bd0631"
         force_pull = true
         ports      = ["affine-cloud"]
         volumes = [
