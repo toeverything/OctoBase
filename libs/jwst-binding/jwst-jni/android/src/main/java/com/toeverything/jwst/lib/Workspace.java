@@ -48,15 +48,15 @@ public final class Workspace {
     }
     private static native void do_withTrx(long self, OnWorkspaceTransaction on_trx);
 
-    public final void withStorage(@NonNull JwstStorage storage) {
+    public final void withStorage(@NonNull JwstStorage storage, @NonNull String remote) {
         long a0 = storage.mNativeObj;
         storage.mNativeObj = 0;
 
-        do_withStorage(mNativeObj, a0);
+        do_withStorage(mNativeObj, a0, remote);
 
         JNIReachabilityFence.reachabilityFence1(storage);
     }
-    private static native void do_withStorage(long self, long storage);
+    private static native void do_withStorage(long self, long storage, @NonNull String remote);
 
     public synchronized void delete() {
         if (mNativeObj != 0) {

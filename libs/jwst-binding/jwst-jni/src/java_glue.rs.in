@@ -68,6 +68,6 @@ foreign_class!(
 		fn Workspace::get(& self , block_id : String)->Option<Block>; alias get;
 		fn Workspace::exists(& self , block_id : & str)->bool; alias exists;
 		fn Workspace::with_trx(& self , on_trx : Box < dyn OnWorkspaceTransaction >); alias withTrx;
-		fn Workspace::with_storage(& mut self , storage : JwstStorage); alias withStorage;
+		fn Workspace::with_storage(& mut self , storage : JwstStorage , remote : String); alias withStorage;
 	}
 );

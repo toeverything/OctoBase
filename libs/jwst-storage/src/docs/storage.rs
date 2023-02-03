@@ -11,12 +11,13 @@ use std::{
     panic::{catch_unwind, AssertUnwindSafe},
     path::PathBuf,
     sync::Arc,
+    thread::spawn,
 };
 use tokio::sync::{
     mpsc::{channel, error::TryRecvError, Sender},
     RwLock,
 };
-use tungstenite::{connect, Message};
+use tungstenite::{client::IntoClientRequest, connect, http::HeaderValue, Message};
 use url::Url;
 use yrs::{updates::decoder::Decode, Doc, Options, StateVector, Update};
 
@@ -215,7 +216,7 @@ impl DocStorage for DocAutoStorage {
     /// This function is not atomic -- please provide external lock mechanism
     async fn write_doc(&self, workspace_id: String, doc: &Doc) -> io::Result<()> {
         let data = doc.encode_state_as_update_v1(&StateVector::default());
-        println!("write_doc");
+        info!("write_doc");
 
         self.full_migrate(&workspace_id, data)
             .await
@@ -224,7 +225,7 @@ impl DocStorage for DocAutoStorage {
 
     /// This function is not atomic -- please provide external lock mechanism
     async fn write_update(&self, workspace_id: String, data: &[u8]) -> io::Result<bool> {
-        println!("write_update");
+        info!("write_update");
         self.update(&workspace_id, data.into())
             .await
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
@@ -243,10 +244,15 @@ impl DocStorage for DocAutoStorage {
 impl DocSync for DocAutoStorage {
     async fn sync(&self, id: String, remote: String) -> io::Result<()> {
         if let Entry::Vacant(entry) = self.remote.entry(id.clone()) {
-            let url =
-                Url::parse(&remote).map_err(|e| io::Error::new(io::ErrorKind::Unsupported, e))?;
+            let mut req = Url::parse(&remote)
+                .map_err(|e| io::Error::new(io::ErrorKind::Unsupported, e))?
+                .into_client_request()
+                .map_err(|e| io::Error::new(io::ErrorKind::Unsupported, e))?;
+            req.headers_mut()
+                .append("Sec-WebSocket-Protocol", HeaderValue::from_static("AFFiNE"));
+
             let (mut socket, _response) =
-                connect(url).map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))?;
+                connect(req).map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))?;
 
             let workspace = self.get(id).await.map_err(|e| {
                 io::Error::new(
@@ -273,42 +279,44 @@ impl DocSync for DocAutoStorage {
 
             let (tx, mut rx) = channel(100);
 
-            let rt = tokio::runtime::Handle::current();
-            rt.spawn(async move {
-                loop {
-                    if let Ok(msg) = socket.read_message() {
-                        if let Message::Binary(msg) = msg {
-                            let buffer = workspace.write().await.sync_decode_message(&msg);
-                            for update in buffer {
-                                // skip empty updates
-                                if update == [0, 0] {
-                                    continue;
-                                }
-                                if let Err(e) = socket.write_message(Message::binary(update)) {
-                                    warn!("send update to remote failed: {:?}", e);
-                                    socket.close(None).expect("close failed");
-                                    break;
-                                }
-                            }
-                        }
-                    } else {
-                        break;
-                    }
-
+            spawn(|| {
+                let rt = tokio::runtime::Handle::current();
+                rt.block_on(async move {
                     loop {
-                        match rx.try_recv() {
-                            Ok(msg) => {
-                                if let Err(e) = socket.write_message(msg) {
-                                    warn!("send update to remote failed: {:?}", e);
-                                    socket.close(None).expect("close failed");
-                                    break;
+                        if let Ok(msg) = socket.read_message() {
+                            if let Message::Binary(msg) = msg {
+                                let buffer = workspace.write().await.sync_decode_message(&msg);
+                                for update in buffer {
+                                    // skip empty updates
+                                    if update == [0, 0] {
+                                        continue;
+                                    }
+                                    if let Err(e) = socket.write_message(Message::binary(update)) {
+                                        warn!("send update to remote failed: {:?}", e);
+                                        socket.close(None).expect("close failed");
+                                        break;
+                                    }
                                 }
                             }
-                            Err(TryRecvError::Empty) => break,
-                            Err(TryRecvError::Disconnected) => return,
+                        } else {
+                            break;
+                        }
+
+                        loop {
+                            match rx.try_recv() {
+                                Ok(msg) => {
+                                    if let Err(e) = socket.write_message(msg) {
+                                        warn!("send update to remote failed: {:?}", e);
+                                        socket.close(None).expect("close failed");
+                                        break;
+                                    }
+                                }
+                                Err(TryRecvError::Empty) => break,
+                                Err(TryRecvError::Disconnected) => return,
+                            }
                         }
                     }
-                }
+                });
             });
 
             entry.insert(tx);
