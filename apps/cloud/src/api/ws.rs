@@ -8,7 +8,7 @@ use axum::{
 };
 use base64::Engine;
 use futures::{sink::SinkExt, stream::StreamExt};
-use jwst::{encode_update, Workspace};
+use jwst::{sync_encode_update, Workspace};
 use jwst_logger::error;
 use jwst_logger::info;
 use serde::Deserialize;
@@ -68,7 +68,7 @@ fn subscribe_handler(
     ws_id: String,
 ) {
     let sub = workspace.observe(move |_, e| {
-        let update = encode_update(&e.update);
+        let update = sync_encode_update(&e.update);
 
         let context = context.clone();
         let uuid = uuid.clone();

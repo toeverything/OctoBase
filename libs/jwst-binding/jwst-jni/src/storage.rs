@@ -1,7 +1,7 @@
 use android_logger::Config;
-use jwst::{error, DocStorage};
+use jwst::{error, DocStorage, DocSync};
 use jwst_storage::DocAutoStorage;
-use log::Level;
+use log::LevelFilter;
 use std::{
     io::Result,
     sync::{Arc, RwLock},
@@ -19,7 +19,7 @@ impl JwstStorage {
     pub fn new(path: String) -> Self {
         android_logger::init_once(
             Config::default()
-                .with_min_level(Level::Info)
+                .with_max_level(LevelFilter::Debug)
                 .with_tag("jwst"),
         );
 
@@ -42,6 +42,20 @@ impl JwstStorage {
 
     pub fn error(&self) -> Option<String> {
         self.error.clone()
+    }
+
+    pub fn connect(&self, workspace_id: String, remote: String) -> Result<()> {
+        if let Some(storage) = &self.storage {
+            let storage = storage.read().unwrap();
+            let rt = Runtime::new().unwrap();
+            rt.block_on(storage.sync(workspace_id, remote))?;
+            Ok(())
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Storage not initialized",
+            ))
+        }
     }
 
     pub fn reload(&self, workspace_id: String, doc: &Doc) {

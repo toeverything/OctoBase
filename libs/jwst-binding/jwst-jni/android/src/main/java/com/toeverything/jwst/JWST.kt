@@ -2,6 +2,7 @@ package com.toeverything.jwst
 
 import com.toeverything.jwst.lib.JwstStorage
 import java.util.*
+import java.util.Optional
 import com.toeverything.jwst.lib.WorkspaceTransaction as JwstWorkspaceTransaction
 import com.toeverything.jwst.lib.Block as JwstBlock
 import com.toeverything.jwst.lib.Workspace as JwstWorkspace
@@ -45,8 +46,8 @@ class Workspace(id: String) {
         }
     }
 
-    fun withStorage(storage: JwstStorage) {
-        this.workspace.withStorage(storage)
+    fun withStorage(storage: JwstStorage, remote: String) {
+        this.workspace.withStorage(storage, remote)
     }
 }
 
@@ -158,7 +159,7 @@ class Block constructor(private var block: JwstBlock) {
     }
 }
 
-class Storage constructor(path: String) {
+class Storage constructor(path: String, remote: String = "") {
     companion object {
         init {
             System.loadLibrary("jwst")
@@ -166,6 +167,7 @@ class Storage constructor(path: String) {
     }
 
     private var storage = JwstStorage(path)
+    private var remote = remote
 
     val failed get() = this.storage.error().isPresent
 
@@ -173,7 +175,7 @@ class Storage constructor(path: String) {
 
     fun getWorkspace(id: String): Workspace {
         val workspace = Workspace(id)
-        workspace.withStorage(this.storage)
+        workspace.withStorage(this.storage, this.remote)
         return workspace
     }
 }

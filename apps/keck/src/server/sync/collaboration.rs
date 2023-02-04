@@ -8,7 +8,7 @@ use axum::{
     Json,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
-use jwst::{encode_update, Workspace};
+use jwst::{sync_encode_update, Workspace};
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::mpsc::channel;
@@ -41,7 +41,7 @@ fn subscribe_handler(
     ws_id: String,
 ) {
     let sub = workspace.observe(move |_, e| {
-        let update = encode_update(&e.update);
+        let update = sync_encode_update(&e.update);
 
         let context = context.clone();
         let uuid = uuid.clone();
@@ -98,7 +98,7 @@ async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Con
                 sleep(Duration::from_secs(10)).await;
 
                 if let Some(workspace) = context.workspace.get(&workspace_id) {
-                    let update = workspace.lock().await.sync_migration();
+                    let update = workspace.read().await.sync_migration();
                     if let Err(e) = context.docs.full_migrate(&workspace_id, update).await {
                         error!("db write error: {}", e.to_string());
                     }
@@ -123,7 +123,7 @@ async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Con
             }
         };
 
-        let mut ws = ws.lock().await;
+        let mut ws = ws.write().await;
 
         subscribe_handler(context.clone(), &mut ws, uuid.clone(), workspace_id.clone());
 
@@ -144,7 +144,7 @@ async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Con
         if let Ok(Message::Binary(binary)) = msg {
             let payload = {
                 let workspace = context.workspace.get(&workspace_id).unwrap();
-                let mut workspace = workspace.value().lock().await;
+                let mut workspace = workspace.value().write().await;
 
                 use std::panic::{catch_unwind, AssertUnwindSafe};
                 catch_unwind(AssertUnwindSafe(|| workspace.sync_decode_message(&binary)))

@@ -72,21 +72,19 @@ impl DocStore {
     pub async fn get_workspace(&self, workspace_id: String) -> Arc<RwLock<Workspace>> {
         self.cache
             .try_get_with(workspace_id.clone(), async move {
-                self.storage.get(workspace_id.clone()).await.map(|f| {
-                    Arc::new(RwLock::new(Workspace::from_doc(
-                        f,
-                        workspace_id.to_string(),
-                    )))
-                })
+                self.storage.get(workspace_id.clone()).await
             })
             .await
             .expect("Failed to get workspace")
     }
 
     pub async fn full_migrate(&self, workspace_id: String, update: Option<Vec<u8>>) -> bool {
-        if let Ok(doc) = self.storage.get(workspace_id.clone()).await {
-            let update = update
-                .unwrap_or_else(|| Workspace::from_doc(doc, workspace_id.clone()).sync_migration());
+        if let Ok(workspace) = self.storage.get(workspace_id.clone()).await {
+            let update = if let Some(update) = update {
+                update
+            } else {
+                workspace.read().await.sync_migration()
+            };
             if let Err(e) = self.storage.full_migrate(&workspace_id, update).await {
                 error!("db write error: {}", e.to_string());
                 return false;

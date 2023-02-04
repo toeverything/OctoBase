@@ -16,7 +16,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         val database = File(filesDir, "jwst.db");
-        val storage = Storage(database.absolutePath);
+        val storage = Storage(database.absolutePath, "ws://10.0.2.2:3000/collaboration/test");
         val workspace = storage.getWorkspace("test")
 
         workspace.get("a").ifPresentOrElse(
@@ -25,6 +25,10 @@ class MainActivity : AppCompatActivity() {
                 val content = block.get("a key").get();
                 this.title = (content as String) + " exists";
                 Log.i("jwst", workspace.get("root").get().children().joinToString { it });
+                workspace.withTrx { trx ->
+                    Thread.sleep(5000);
+                    trx.create("child11", "child");
+                };
             },
             {
                 // create a new block on the first startup program.

@@ -57,8 +57,8 @@ android {
 dependencies {
     implementation 'androidx.core:core-ktx:1.9.0'
     testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.4'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 }
 
 def rustBasePath = "../../.."
@@ -76,7 +76,7 @@ archTriplets.each { arch, target ->
     }
     // Copy build libs into this app's libs directory
     tasks.create(name: "rust-deploy-${arch}", type: Copy, dependsOn: "cargo-build-${arch}", description: "Copy rust libs for (${arch}) to jniLibs") {
-        from "../${project.ext.cargo_target_directory}/${target}/release"
+        from "../${project.ext.cargo_target_directory}/${target}/release"// /debug"
         include "*.so"
         into "src/main/libs/${arch}"
     }
@@ -89,7 +89,7 @@ archTriplets.each { arch, target ->
 
     // Hook up clean tasks
     tasks.create(name: "clean-${arch}", type: Delete, description: "Deleting built libs for ${arch}", dependsOn: "cargo-output-dir-${arch}") {
-        delete fileTree("${project.ext.cargo_target_directory}/${target}/release") {
+        delete fileTree("${project.ext.cargo_target_directory}/${target}/release") {// /debug") {
             include '*.so'
         }
     }

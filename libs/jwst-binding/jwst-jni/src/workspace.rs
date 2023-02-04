@@ -2,7 +2,7 @@ use super::{
     generate_interface, Block, JwstStorage, JwstWorkspace, OnWorkspaceTransaction,
     WorkspaceTransaction,
 };
-use jwst::error;
+use jwst::{error, info};
 use yrs::{Subscription, UpdateEvent};
 
 pub struct Workspace {
@@ -46,10 +46,16 @@ impl Workspace {
     }
 
     #[generate_interface]
-    pub fn with_storage(&mut self, storage: JwstStorage) {
+    pub fn with_storage(&mut self, storage: JwstStorage, remote: String) {
         let storage = storage.clone();
         let id = self.id();
         storage.reload(id.clone(), self.workspace.doc());
+        info!("remote: {}", remote);
+        if remote.len() > 0 {
+            if let Err(e) = storage.connect(id.clone(), remote) {
+                error!("Failed to connect to remote: {}", e);
+            }
+        }
         self.sub = Some(self.workspace.observe(move |_, e| {
             if let Err(e) = storage.write_update(id.clone(), &e.update) {
                 error!("Failed to write update to storage: {}", e);
