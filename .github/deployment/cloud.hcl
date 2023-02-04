@@ -105,11 +105,27 @@ job "affine-cloud-stage" {
         POSTGRES_PASSWORD = "affine"
         POSTGRES_DB       = "affine"
       }
+
+      template {
+        change_mode = "noop"
+        destination = "local/init.sql"
+        data        = <<EOH
+CREATE DATABASE affine_blobs;
+CREATE DATABASE affine_docs;
+GRANT ALL PRIVILEGES ON DATABASE affine_blobs TO affine;
+GRANT ALL PRIVILEGES ON DATABASE affine_docs TO affine;
+EOH
+      }
+
       config {
         image      = "postgres"
         force_pull = true
         ports      = ["postgres"]
-        volumes    = ["/home/affine/affine-cloud-stage/database:/var/lib/postgresql/data"]
+        volumes = [
+          "/home/affine/affine-cloud-stage/database:/var/lib/postgresql/data",
+          "local/init.sql:/docker-entrypoint-initdb.d/init.sql"
+        ]
+
       }
       resources {
         cpu    = 100 # MHz
