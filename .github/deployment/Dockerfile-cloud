@@ -18,7 +18,6 @@ RUN --mount=type=cache,target=/home/rust/src/target,rw,id=cloud_amd64 \
 FROM alpine:latest as relocate
 WORKDIR /app
 COPY --from=builder-amd64 /tmp/cloud-amd64 ./cloud
-COPY --from=builder-amd64 /tmp/static ./
 
 FROM alpine:latest as cloud
 WORKDIR /app
