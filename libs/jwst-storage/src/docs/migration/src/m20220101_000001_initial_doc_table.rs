@@ -26,7 +26,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(UpdateBinary::Workspace).string().not_null())
                     .col(
                         ColumnDef::new(UpdateBinary::Timestamp)
-                            .timestamp()
+                            .timestamp_with_time_zone()
                             .not_null(),
                     )
                     .col(ColumnDef::new(UpdateBinary::Blob).binary().not_null())

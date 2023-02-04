@@ -11,8 +11,6 @@ services:
             - MAIL_ACCOUNT = ""
             - MAIL_PASSWORD = ""
             - SITE_URL=https://pathfinder.affine.systems
-            - DOC_STORAGE_PATH=/docs
-            - BLOB_STORAGE_PATH=/blobs
             - FIREBASE_PROJECT_ID=pathfinder-52392
             - GOOGLE_ENDPOINT=http://100.77.180.48:11002
             - GOOGLE_ENDPOINT_PASSWORD=Dct4pq9E9V

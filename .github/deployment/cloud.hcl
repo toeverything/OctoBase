@@ -62,8 +62,6 @@ job "affine-cloud-stage" {
         MAIL_ACCOUNT        = ""
         MAIL_PASSWORD       = ""
         SITE_URL            = "https://stage.affine.live"
-        DOC_STORAGE_PATH    = "/docs"
-        BLOB_STORAGE_PATH   = "/blobs"
         FIREBASE_PROJECT_ID = "pathfinder-52392"
         # GOOGLE_ENDPOINT = "http://100.77.180.48:11002"
         # GOOGLE_ENDPOINT_PASSWORD = "Dct4pq9E9V"
@@ -72,10 +70,6 @@ job "affine-cloud-stage" {
         image      = "ghcr.io/toeverything/cloud:canary-7f1e6fd6f0296f366fef81698c696821d9bd0631"
         force_pull = true
         ports      = ["affine-cloud"]
-        volumes = [
-          "/home/affineos2022/affine-cloud-stage/docs:/docs",
-          "/home/affineos2022/affine-cloud-stage/blobs:/blobs"
-        ]
       }
       resources {
         cpu    = 100 # MHz

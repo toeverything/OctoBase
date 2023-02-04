@@ -16,12 +16,10 @@
 				}
 			},
 			"env": {
-				"DATABASE_URL": "sqlite:data.db?mode=rwc",
+				"DATABASE_URL": "postgresql://postgres:affine@localhost:5432/postgres",
 				"SIGN_KEY": "12345678",
 				"MAIL_ACCOUNT": "example@toeverything.info",
 				"MAIL_PASSWORD": "a",
-				"DOC_STORAGE_PATH": "/Users/ds/Source/JWST/data",
-				"BLOB_STORAGE_PATH": "/Users/ds/Source/JWST/data",
 				"FIREBASE_PROJECT_ID": "pathfinder-52392",
 				"SITE_URL": "https://pathfinder.affine.systems"
 			},

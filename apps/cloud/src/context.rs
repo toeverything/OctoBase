@@ -3,10 +3,7 @@ use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use axum::extract::ws::Message;
 use chrono::{NaiveDateTime, Utc};
-#[cfg(feature = "postgres")]
 use cloud_database::PostgresDBContext;
-#[cfg(feature = "sqlite")]
-use cloud_database::SqliteDBContext;
 use cloud_database::{Claims, GoogleClaims};
 use dashmap::DashMap;
 use handlebars::Handlebars;
@@ -56,16 +53,13 @@ pub struct DocStore {
 
 impl DocStore {
     async fn new() -> Self {
-        let doc_env = dotenvy::var("DOC_STORAGE_PATH").expect("should provide doc storage path");
+        let database_url = dotenvy::var("DATABASE_URL").expect("should provide doc storage path");
 
         Self {
             cache: Cache::new(1000),
-            storage: DocAutoStorage::init_pool(&format!(
-                "sqlite://{}?mode=rwc",
-                PathBuf::from(doc_env).join("jwst.db").display(),
-            ))
-            .await
-            .expect("Failed to init doc storage"),
+            storage: DocAutoStorage::init_pool(&format!("{database_url}_docs"))
+                .await
+                .expect("Failed to init doc storage"),
         }
     }
 
@@ -101,10 +95,7 @@ pub struct Context {
     pub http_client: Client,
     firebase: RwLock<FirebaseContext>,
     pub mail: MailContext,
-    #[cfg(feature = "postgres")]
     pub db: PostgresDBContext,
-    #[cfg(feature = "sqlite")]
-    pub db: SqliteDBContext,
     pub blob: BlobAutoStorage,
     pub doc: DocStore,
     pub channel: DashMap<(String, String), Sender<Message>>,
@@ -199,23 +190,15 @@ impl Context {
             pub_key: HashMap::new(),
         });
 
-        let blob_env = dotenvy::var("BLOB_STORAGE_PATH").expect("should provide blob storage path");
+        let db_env = dotenvy::var("DATABASE_URL").expect("should provide database URL");
 
-        let blob = BlobAutoStorage::init_pool(&format!(
-            "sqlite://{}?mode=rwc",
-            PathBuf::from(blob_env).join("blob.db").display(),
-        ))
-        .await
-        .expect("Cannot create database");
+        let blob = BlobAutoStorage::init_pool(&format!("{db_env}_blobs"))
+            .await
+            .expect("Cannot create database");
 
         let site_url = dotenvy::var("SITE_URL").expect("should provide site url");
-
-        let db_env = dotenvy::var("DATABASE_URL").expect("should provide database URL");
         let ctx = Self {
-            #[cfg(feature = "postgres")]
             db: PostgresDBContext::new(db_env).await,
-            #[cfg(feature = "sqlite")]
-            db: SqliteDBContext::new(db_env).await,
             key,
             firebase,
             mail,

@@ -1,8 +1,5 @@
 use async_trait::async_trait;
-#[cfg(feature = "postgres")]
 use cloud_database::PostgresDBContext;
-#[cfg(feature = "sqlite")]
-use cloud_database::SqliteDBContext;
 use cloud_database::{GoogleClaims, UserWithNonce};
 use sqlx::{query, query_as};
 
@@ -62,10 +59,7 @@ impl ThirdPartyLogin for Context {
             .execute(&mut trx)
             .await?;
 
-        #[cfg(feature = "postgres")]
         PostgresDBContext::update_cred(&mut trx, user.user.id, &user.user.email).await?;
-        #[cfg(feature = "sqlite")]
-        SqliteDBContext::update_cred(&mut trx, user.user.id, &user.user.email).await?;
 
         trx.commit().await?;
 

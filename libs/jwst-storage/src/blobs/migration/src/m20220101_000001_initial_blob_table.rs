@@ -18,10 +18,14 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Blobs::Table)
                     .col(ColumnDef::new(Blobs::Workspace).string().not_null())
-                    .col(ColumnDef::new(Blobs::Hash).string_len(32).not_null())
+                    .col(ColumnDef::new(Blobs::Hash).string().not_null())
                     .col(ColumnDef::new(Blobs::Blob).binary().not_null())
                     .col(ColumnDef::new(Blobs::Length).big_integer().not_null())
-                    .col(ColumnDef::new(Blobs::Timestamp).timestamp().not_null())
+                    .col(
+                        ColumnDef::new(Blobs::Timestamp)
+                            .timestamp_with_time_zone()
+                            .not_null(),
+                    )
                     .primary_key(Index::create().col(Blobs::Workspace).col(Blobs::Hash))
                     .to_owned(),
             )
