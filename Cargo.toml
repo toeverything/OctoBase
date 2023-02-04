@@ -30,5 +30,6 @@ opt-level = "z"
 codegen-units = 1
 
 [patch.crates-io]
+rust-embed = { git = "https://github.com/pyrossh/rust-embed", rev = "7c0fc42" }
 yrs = { path = 'libs/vendors/y-crdt/yrs' }
 y-sync = { path = 'libs/vendors/y-sync' }

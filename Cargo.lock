@@ -2185,7 +2185,7 @@ name = "jwst-static"
 version = "0.1.0"
 dependencies = [
  "axum 0.6.4",
- "rust-embed 6.4.2 (git+https://github.com/pyrossh/rust-embed?rev=7c0fc42)",
+ "rust-embed",
  "url-escape",
 ]
 
@@ -3572,36 +3572,11 @@ dependencies = [
 [[package]]
 name = "rust-embed"
 version = "6.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "283ffe2f866869428c92e0d61c2f35dfb4355293cdfdc48f49e895c15f1333d1"
-dependencies = [
- "rust-embed-impl 6.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "rust-embed-utils 7.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "walkdir",
-]
-
-[[package]]
-name = "rust-embed"
-version = "6.4.2"
 source = "git+https://github.com/pyrossh/rust-embed?rev=7c0fc42#7c0fc42f2dbecba295d956b3273b9b117ccbdc45"
 dependencies = [
  "include-flate",
- "rust-embed-impl 6.3.1 (git+https://github.com/pyrossh/rust-embed?rev=7c0fc42)",
- "rust-embed-utils 7.3.0 (git+https://github.com/pyrossh/rust-embed?rev=7c0fc42)",
- "walkdir",
-]
-
-[[package]]
-name = "rust-embed-impl"
-version = "6.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31ab23d42d71fb9be1b643fe6765d292c5e14d46912d13f3ae2815ca048ea04d"
-dependencies = [
- "proc-macro2 1.0.49",
- "quote 1.0.23",
- "rust-embed-utils 7.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "shellexpand",
- "syn 1.0.107",
+ "rust-embed-impl",
+ "rust-embed-utils",
  "walkdir",
 ]
 
@@ -3612,18 +3587,9 @@ source = "git+https://github.com/pyrossh/rust-embed?rev=7c0fc42#7c0fc42f2dbecba2
 dependencies = [
  "proc-macro2 1.0.49",
  "quote 1.0.23",
- "rust-embed-utils 7.3.0 (git+https://github.com/pyrossh/rust-embed?rev=7c0fc42)",
+ "rust-embed-utils",
+ "shellexpand",
  "syn 1.0.107",
- "walkdir",
-]
-
-[[package]]
-name = "rust-embed-utils"
-version = "7.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1669d81dfabd1b5f8e2856b8bbe146c6192b0ba22162edc738ac0a5de18f054"
-dependencies = [
- "sha2",
  "walkdir",
 ]
 
@@ -5101,7 +5067,7 @@ dependencies = [
  "axum 0.5.17",
  "mime_guess",
  "regex",
- "rust-embed 6.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rust-embed",
  "serde",
  "serde_json",
  "utoipa",
