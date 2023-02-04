@@ -20,7 +20,7 @@ use moka::future::Cache;
 use rand::{thread_rng, Rng};
 use reqwest::Client;
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{RwLock, RwLockReadGuard};
 use x509_parser::prelude::parse_x509_pem;
@@ -100,32 +100,6 @@ pub struct Context {
     pub doc: DocStore,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub user_channel: UserChannel,
-}
-
-pub enum ContextRequestError {
-    WorkspaceNotFound {
-        workspace_id: String,
-    },
-    /// "Bad Request"
-    BadUserInput {
-        /// Something potentially helpful to the caller about what was wrong
-        user_message: String,
-    },
-    /// "Internal Server Error" type of thing.
-    /// It should probably not be surfaced to the user.
-    Other(Box<dyn std::error::Error>),
-}
-
-impl ContextRequestError {
-    fn other<E: std::error::Error + 'static>(value: E) -> Self {
-        Self::Other(Box::new(value))
-    }
-}
-
-impl From<Box<dyn std::error::Error>> for ContextRequestError {
-    fn from(value: Box<dyn std::error::Error>) -> Self {
-        Self::Other(value)
-    }
 }
 
 impl Context {
@@ -326,7 +300,7 @@ impl Context {
         &self,
         workspace_id: String,
         query_string: &str,
-    ) -> Result<SearchResults, ContextRequestError> {
+    ) -> Result<SearchResults, Box<dyn std::error::Error>> {
         let workspace_id = workspace_id.to_string();
         let workspace_arc_rw = self.doc.get_workspace(workspace_id.clone()).await;
 

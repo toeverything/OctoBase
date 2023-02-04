@@ -20,11 +20,8 @@ use std::sync::Arc;
 use tower::ServiceBuilder;
 
 use crate::{
-    context::{Context, ContextRequestError},
-    error_status::ErrorStatus,
-    layer::make_firebase_auth_layer,
-    login::ThirdPartyLogin,
-    utils::URL_SAFE_ENGINE,
+    context::Context, error_status::ErrorStatus, layer::make_firebase_auth_layer,
+    login::ThirdPartyLogin, utils::URL_SAFE_ENGINE,
 };
 
 mod ws;
@@ -146,7 +143,7 @@ async fn make_token(
 
                 let data = ctx.encrypt_aes(json.as_bytes());
 
-                base64::encode_engine(data, &URL_SAFE_ENGINE)
+                URL_SAFE_ENGINE.encode(data)
             });
 
             let claims = Claims {
@@ -171,20 +168,6 @@ async fn get_workspaces(
         Json(data).into_response()
     } else {
         ErrorStatus::InternalServerError.into_response()
-    }
-}
-
-impl IntoResponse for ContextRequestError {
-    fn into_response(self) -> Response {
-        match self {
-            ContextRequestError::BadUserInput { user_message } => {
-                ErrorStatus::BadRequest.into_response()
-            }
-            ContextRequestError::WorkspaceNotFound { workspace_id } => {
-                ErrorStatus::NotFoundWorkspace(workspace_id).into_response()
-            }
-            ContextRequestError::Other(err) => ErrorStatus::InternalServerError.into_response(),
-        }
     }
 }
 
@@ -324,7 +307,7 @@ async fn search_workspace(
 
     let search_results = match ctx.search_workspace(workspace_id, &payload.query).await {
         Ok(results) => results,
-        Err(err) => return err.into_response(),
+        Err(err) => return err.to_string().into_response(),
     };
 
     Json(search_results).into_response()
