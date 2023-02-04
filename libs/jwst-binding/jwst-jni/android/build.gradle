@@ -72,11 +72,11 @@ archTriplets.each { arch, target ->
     // Build with cargo
     tasks.create(name: "cargo-build-${arch}", type: Exec, description: "Building core for ${arch}") {
         workingDir rustBasePath + "/.."
-        commandLine 'cargo', 'ndk', "-t", arch, 'build', "--package=jwst-jni"// , '--release'
+        commandLine 'cargo', 'ndk', "-t", arch, 'build', "--package=jwst-jni", '--release'
     }
     // Copy build libs into this app's libs directory
     tasks.create(name: "rust-deploy-${arch}", type: Copy, dependsOn: "cargo-build-${arch}", description: "Copy rust libs for (${arch}) to jniLibs") {
-        from "../${project.ext.cargo_target_directory}/${target}/debug"// /release"
+        from "../${project.ext.cargo_target_directory}/${target}/release"// /debug"
         include "*.so"
         into "src/main/libs/${arch}"
     }
@@ -89,7 +89,7 @@ archTriplets.each { arch, target ->
 
     // Hook up clean tasks
     tasks.create(name: "clean-${arch}", type: Delete, description: "Deleting built libs for ${arch}", dependsOn: "cargo-output-dir-${arch}") {
-        delete fileTree("${project.ext.cargo_target_directory}/${target}/debug") {// /release") {
+        delete fileTree("${project.ext.cargo_target_directory}/${target}/release") {// /debug") {
             include '*.so'
         }
     }
