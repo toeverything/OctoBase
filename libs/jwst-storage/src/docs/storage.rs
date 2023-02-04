@@ -1,9 +1,10 @@
 use super::{async_trait, entities::prelude::*, DocStorage, DocSync};
 use chrono::Utc;
 use dashmap::{mapref::entry::Entry, DashMap};
+use futures::{SinkExt, StreamExt};
 use jwst::{sync_encode_update, Workspace};
 use jwst_doc_migration::{Migrator, MigratorTrait};
-use jwst_logger::{debug, info, warn};
+use jwst_logger::{debug, error, info, trace, warn};
 use path_ext::PathExt;
 use sea_orm::{prelude::*, Database, Set, TransactionTrait};
 use std::{
@@ -11,13 +12,15 @@ use std::{
     panic::{catch_unwind, AssertUnwindSafe},
     path::PathBuf,
     sync::Arc,
-    thread::spawn,
 };
 use tokio::sync::{
-    mpsc::{channel, error::TryRecvError, Sender},
+    mpsc::{channel, Sender},
     RwLock,
 };
-use tungstenite::{client::IntoClientRequest, connect, http::HeaderValue, Message};
+use tokio_tungstenite::{
+    connect_async,
+    tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
+};
 use url::Url;
 use yrs::{updates::decoder::Decode, Doc, Options, StateVector, Update};
 
@@ -33,12 +36,12 @@ fn migrate_update(updates: Vec<<UpdateBinary as EntityTrait>::Model>, doc: Doc) 
                     warn!("update {} merge failed, skip it: {:?}", id, e);
                 }
             }
-            Err(err) => info!("failed to decode update: {:?}", err),
+            Err(err) => warn!("failed to decode update: {:?}", err),
         }
     }
     trx.commit();
 
-    debug!(
+    trace!(
         "migrate_update: {:?}",
         doc.encode_state_as_update_v1(&StateVector::default())
     );
@@ -155,8 +158,10 @@ impl DocAutoStorage {
             self.insert(table, &blob).await?;
         }
 
+        debug!("update {}bytes to {}", blob.len(), table);
         if let Entry::Occupied(remote) = self.remote.entry(table.into()) {
             let socket = &remote.get();
+            debug!("send update to channel");
             if let Err(e) = socket
                 .send(Message::binary(sync_encode_update(&blob)))
                 .await
@@ -164,6 +169,7 @@ impl DocAutoStorage {
                 warn!("send update to remote failed: {:?}", e);
                 socket.closed().await;
             }
+            debug!("send update to channel end");
         }
 
         Ok(())
@@ -216,7 +222,7 @@ impl DocStorage for DocAutoStorage {
     /// This function is not atomic -- please provide external lock mechanism
     async fn write_doc(&self, workspace_id: String, doc: &Doc) -> io::Result<()> {
         let data = doc.encode_state_as_update_v1(&StateVector::default());
-        info!("write_doc");
+        trace!("write_doc: {:?}", data);
 
         self.full_migrate(&workspace_id, data)
             .await
@@ -225,7 +231,7 @@ impl DocStorage for DocAutoStorage {
 
     /// This function is not atomic -- please provide external lock mechanism
     async fn write_update(&self, workspace_id: String, data: &[u8]) -> io::Result<bool> {
-        info!("write_update");
+        trace!("write_update: {:?}", data);
         self.update(&workspace_id, data.into())
             .await
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
@@ -244,16 +250,6 @@ impl DocStorage for DocAutoStorage {
 impl DocSync for DocAutoStorage {
     async fn sync(&self, id: String, remote: String) -> io::Result<()> {
         if let Entry::Vacant(entry) = self.remote.entry(id.clone()) {
-            let mut req = Url::parse(&remote)
-                .map_err(|e| io::Error::new(io::ErrorKind::Unsupported, e))?
-                .into_client_request()
-                .map_err(|e| io::Error::new(io::ErrorKind::Unsupported, e))?;
-            req.headers_mut()
-                .append("Sec-WebSocket-Protocol", HeaderValue::from_static("AFFiNE"));
-
-            let (mut socket, _response) =
-                connect(req).map_err(|e| io::Error::new(io::ErrorKind::BrokenPipe, e))?;
-
             let workspace = self.get(id).await.map_err(|e| {
                 io::Error::new(
                     io::ErrorKind::BrokenPipe,
@@ -261,61 +257,81 @@ impl DocSync for DocAutoStorage {
                 )
             })?;
 
-            let init_data = workspace.read().await.sync_init_message().map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::BrokenPipe,
-                    format!("Failed to create sync init message: {}", e),
-                )
-            })?;
-
-            socket
-                .write_message(Message::Binary(init_data))
-                .map_err(|e| {
-                    io::Error::new(
-                        io::ErrorKind::BrokenPipe,
-                        format!("Failed to send sync init message: {}", e),
-                    )
-                })?;
-
             let (tx, mut rx) = channel(100);
 
-            spawn(|| {
-                let rt = tokio::runtime::Handle::current();
+            debug!("spawn sync thread");
+            std::thread::spawn(move || {
+                let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
                 rt.block_on(async move {
+                    debug!("generate remote config");
+                    let mut req = Url::parse(&remote)
+                        .expect( "Failed to parse remote url")
+                        .into_client_request()
+                        .expect("Failed to create client request");
+                    req.headers_mut()
+                        .append("Sec-WebSocket-Protocol", HeaderValue::from_static("AFFiNE"));
+
+                    debug!("connect to remote: {}", req.uri());
+                    let (socket, _) = connect_async(req)
+                        .await.expect("Failed to connect to remote");
+                    let (mut socket_tx, mut socket_rx) = socket.split();
+
+                    debug!("sync init message");
+                    match workspace.read().await.sync_init_message() {
+                        Ok(init_data) => {
+                            debug!("send init message");
+                            if let Err(e) = socket_tx.send(Message::Binary(init_data)).await {
+                                error!("Failed to send init message: {}", e);
+                                return;
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed to create init message: {}", e);
+                            return;
+                        }
+                    }
+
+                    let id = workspace.read().await.id();
+                    debug!("start sync thread {id}");
                     loop {
-                        if let Ok(msg) = socket.read_message() {
-                            if let Message::Binary(msg) = msg {
-                                let buffer = workspace.write().await.sync_decode_message(&msg);
-                                for update in buffer {
-                                    // skip empty updates
-                                    if update == [0, 0] {
-                                        continue;
-                                    }
-                                    if let Err(e) = socket.write_message(Message::binary(update)) {
-                                        warn!("send update to remote failed: {:?}", e);
-                                        socket.close(None).expect("close failed");
+                        tokio::select! {
+                            Some(msg) = socket_rx.next() => {
+                                match msg {
+                                    Ok(msg) => {
+                                        if let Message::Binary(msg) = msg {
+                                            trace!("get update from remote: {:?}", msg);
+                                            let buffer = workspace.write().await.sync_decode_message(&msg);
+                                            for update in buffer {
+                                                // skip empty updates
+                                                if update == [0, 2, 2, 0, 0] {
+                                                    continue;
+                                                }
+                                                trace!("send differential update to remote: {:?}", update);
+                                                if let Err(e) = socket_tx.send(Message::binary(update)).await {
+                                                    warn!("send update to remote failed: {:?}", e);
+                                                    socket_tx.close().await.expect("close failed");
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    },
+                                    Err(e) => {
+                                        error!("remote closed: {e}");
                                         break;
-                                    }
+                                    },
                                 }
                             }
-                        } else {
-                            break;
-                        }
-
-                        loop {
-                            match rx.try_recv() {
-                                Ok(msg) => {
-                                    if let Err(e) = socket.write_message(msg) {
-                                        warn!("send update to remote failed: {:?}", e);
-                                        socket.close(None).expect("close failed");
-                                        break;
-                                    }
+                            Some(msg) = rx.recv() => {
+                                trace!("send update to remote: {:?}", msg);
+                                if let Err(e) = socket_tx.send(msg).await {
+                                    warn!("send update to remote failed: {:?}", e);
+                                    socket_tx.close().await.expect("close failed");
+                                    break;
                                 }
-                                Err(TryRecvError::Empty) => break,
-                                Err(TryRecvError::Disconnected) => return,
                             }
                         }
                     }
+                    debug!("end sync thread");
                 });
             });
 

@@ -25,6 +25,10 @@ class MainActivity : AppCompatActivity() {
                 val content = block.get("a key").get();
                 this.title = (content as String) + " exists";
                 Log.i("jwst", workspace.get("root").get().children().joinToString { it });
+                workspace.withTrx { trx ->
+                    Thread.sleep(5000);
+                    trx.create("child11", "child");
+                };
             },
             {
                 // create a new block on the first startup program.

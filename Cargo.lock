@@ -2136,8 +2136,8 @@ dependencies = [
  "sea-orm-migration",
  "sha2",
  "tokio",
+ "tokio-tungstenite",
  "tokio-util",
- "tungstenite",
  "url",
  "yrs 0.12.0",
 ]
