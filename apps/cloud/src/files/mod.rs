@@ -1,9 +1,8 @@
-use crate::error_status::ErrorStatus;
-
 use super::*;
+use crate::error_status::ErrorStatus;
 use axum::response::IntoResponse;
 use axum::{
-    body::{boxed, Body, BoxBody, Empty},
+    body::{boxed, Body, BoxBody},
     http::{Request, Response, StatusCode, Uri},
     routing::get,
 };
