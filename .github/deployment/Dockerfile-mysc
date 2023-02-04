@@ -1,3 +1,12 @@
+FROM node:16-alpine as frontend
+WORKDIR /app
+RUN apk add git && npm i -g pnpm@7
+COPY ./apps/frontend .
+RUN --mount=type=cache,target=/app/node_modules,rw,sharing=private \
+    pnpm i --frozen-lockfile --store=node_modules/.pnpm-store && \
+    pnpm build --skip-nx-cache
+RUN rm -rf /app/dist/apps/jwst/*.txt
+
 FROM messense/rust-musl-cross:x86_64-musl AS builder-dependencies
 ENV CARGO_TERM_COLOR="always"
 COPY . .
@@ -8,22 +17,13 @@ ENV CARGO_TERM_COLOR="always" CARGO_BUILD_JOBS=2
 COPY . .
 COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
 COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config
+COPY --from=frontend /app/dist/apps/jwst ./dist
 RUN --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_amd64 \
     cargo build --release --no-default-features --features mysc --package keck && \
-    mv /home/rust/src/target/x86_64-unknown-linux-musl/release/keck /tmp/jwst-amd64 && \
-    mv /home/rust/src/apps/handbook/book /tmp/book-amd64
-
-FROM node:16-alpine as frontend
-WORKDIR /app
-RUN apk add git && npm i -g pnpm@7
-COPY ./apps/frontend .
-RUN --mount=type=cache,target=/app/node_modules,rw,sharing=private pnpm i --frozen-lockfile --store=node_modules/.pnpm-store && pnpm build --skip-nx-cache
-RUN rm -rf /app/dist/apps/jwst/*.txt
+    mv /home/rust/src/target/x86_64-unknown-linux-musl/release/keck /tmp/jwst-amd64
 
 FROM alpine:latest as relocate
 WORKDIR /app
-COPY --from=frontend /app/dist/apps/jwst ./dist
-COPY --from=builder-amd64 /tmp/book-amd64 ./book
 COPY --from=builder-amd64 /tmp/jwst-amd64 ./mysc
 
 FROM alpine:latest as mysc

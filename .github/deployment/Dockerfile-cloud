@@ -1,3 +1,5 @@
+FROM ghcr.io/toeverything/affine-pathfinder:nightly-latest as frontend
+
 FROM messense/rust-musl-cross:x86_64-musl AS builder-dependencies
 ENV CARGO_TERM_COLOR="always"
 COPY . .
@@ -8,12 +10,12 @@ ENV CARGO_TERM_COLOR="always" CARGO_BUILD_JOBS=2
 COPY . .
 COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
 COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config
+COPY --from=frontend /app/dist ./dist
 RUN --mount=type=cache,target=/home/rust/src/target,rw,id=cloud_amd64 \
     cargo build --release --no-default-features --features affine --package affine-cloud && \
-    mv /home/rust/src/target/x86_64-unknown-linux-musl/release/affine-cloud /tmp/cloud-amd64 && \
-    mv /home/rust/src/apps/cloud/static /tmp/static
+    mv /home/rust/src/target/x86_64-unknown-linux-musl/release/affine-cloud /tmp/cloud-amd64
 
-FROM ghcr.io/toeverything/affine-pathfinder:nightly-latest as relocate
+FROM alpine:latest as relocate
 WORKDIR /app
 COPY --from=builder-amd64 /tmp/cloud-amd64 ./cloud
 COPY --from=builder-amd64 /tmp/static ./

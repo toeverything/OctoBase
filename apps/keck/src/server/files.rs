@@ -7,8 +7,20 @@ use axum::{
 };
 use jwst_static::{fetch_static_response, rust_embed, RustEmbed};
 
+#[cfg(debug_assertions)]
 #[derive(RustEmbed)]
-#[folder = "../../../AFFiNE/packages/app/out/"]
+// need point to frontend, for the convenience of development, we point it to handbook.
+#[folder = "../handbook/book"]
+// #[folder = "../frontend/dist/apps/jwst"]
+// #[folder = "../../../AFFiNE/packages/app/out/"]
+#[include = "*"]
+#[exclude = "*.txt"]
+#[exclude = "*.map"]
+struct Frontend;
+
+#[cfg(not(debug_assertions))]
+#[derive(RustEmbed)]
+#[folder = "../../dist/"]
 #[include = "*"]
 #[exclude = "*.txt"]
 #[exclude = "*.map"]
@@ -21,12 +33,12 @@ async fn frontend_handler(uri: Uri) -> Response<BoxBody> {
         .into_response()
 }
 
-// #[cfg(all(not(debug_assertions), not(feature = "affine")))]
+#[cfg(any(debug_assertions, all(not(debug_assertions), feature = "docs")))]
 #[derive(RustEmbed)]
 #[folder = "../handbook/book"]
 #[include = "*"]
 #[exclude = "*.txt"]
-// #[exclude = "*.map"]
+#[exclude = "*.map"]
 struct Docs;
 
 async fn docs_handler(uri: Uri) -> Response<BoxBody> {

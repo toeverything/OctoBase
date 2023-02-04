@@ -1,3 +1,4 @@
+use super::constants;
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use axum::extract::ws::Message;
@@ -14,8 +15,6 @@ use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::{DocStorage, SearchResults, Workspace};
 use jwst_logger::{error, info};
 use jwst_storage::{BlobAutoStorage, DocAutoStorage};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
-
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
     Tokio1Executor,
@@ -24,6 +23,7 @@ use moka::future::Cache;
 use rand::{thread_rng, Rng};
 use reqwest::Client;
 use sha2::{Digest, Sha256};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{RwLock, RwLockReadGuard};
 use x509_parser::prelude::parse_x509_pem;
@@ -162,29 +162,26 @@ impl Context {
 
         let creds = Credentials::new(mail_name, mail_password);
 
-        let mail_provider = dotenvy::var("MAIL_PROVIDER").expect("should provide email provider");
-
         // Open a remote connection to gmail
         let mail = {
-            let client = AsyncSmtpTransport::<Tokio1Executor>::relay(&mail_provider)
+            let client = AsyncSmtpTransport::<Tokio1Executor>::relay(constants::MAIL_PROVIDER)
                 .unwrap()
                 .credentials(creds)
                 .build();
 
-            let mail_from = dotenvy::var("MAIL_FROM").expect("should provide email from");
-            let mail_box = mail_from.parse().expect("should provide valid mail from");
+            let mail_box = constants::MAIL_FROM
+                .parse()
+                .expect("should provide valid mail from");
+
             let mut template = Handlebars::new();
-            let invite_title =
-                dotenvy::var("MAIL_INVITE_TITLE").expect("should provide email title");
             template
-                .register_template_string("MAIL_INVITE_TITLE", invite_title)
+                .register_template_string("MAIL_INVITE_TITLE", constants::MAIL_INVITE_TITLE)
                 .expect("should provide valid email title");
 
-            let invite_file =
-                dotenvy::var("MAIL_INVITE_FILE").expect("should provide email content");
-
+            let invite_file = constants::StaticFiles::get("invite.html").unwrap();
+            let invite_file = String::from_utf8_lossy(&invite_file.data);
             template
-                .register_template_file("MAIL_INVITE_CONTENT", &invite_file)
+                .register_template_string("MAIL_INVITE_CONTENT", &invite_file)
                 .expect("should provide valid email file");
 
             MailContext {

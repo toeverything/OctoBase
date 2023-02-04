@@ -3,23 +3,23 @@ name: Build AFFiNE
 on:
     release:
         types: [created]
-    workflow_dispatch:
-#     push:
-#         branches: [master]
-#         paths:
-#             # - 'apps/keck/**'
-#             # - 'libs/**'
-#             - '.github/deployment/Dockerfile-affine'
-#             - '.github/deployment/Dockerfile-affine-prod'
-#             - '.github/workflows/affine.yml'
-#     pull_request:
-#         branches: [master]
-#         paths:
-#             # - 'apps/keck/**'
-#             # - 'libs/**'
-#             - '.github/deployment/Dockerfile-affine'
-#             - '.github/deployment/Dockerfile-affine-prod'
-#             - '.github/workflows/affine.yml'
+    # workflow_dispatch:
+    # push:
+    #     branches: [master]
+    #     paths:
+    #         # - 'apps/keck/**'
+    #         # - 'libs/**'
+    #         - '.github/deployment/Dockerfile-affine'
+    #         - '.github/deployment/Dockerfile-affine-prod'
+    #         - '.github/workflows/affine.yml'
+    # pull_request:
+    #     branches: [master]
+    #     paths:
+    #         # - 'apps/keck/**'
+    #         # - 'libs/**'
+    #         - '.github/deployment/Dockerfile-affine'
+    #         - '.github/deployment/Dockerfile-affine-prod'
+    #         - '.github/workflows/affine.yml'
 
 # Cancels all previous workflow runs for pull requests that have not completed.
 # See https://docs.github.com/en/actions/using-jobs/using-concurrency
@@ -81,46 +81,69 @@ jobs:
                   tags: ${{ env.LOCAL_CACHE }}
                   target: jwst
 
-            - name: Extract metadata (tags, labels) for Docker (affine-pre-alpha)
-              id: meta_affine_pre_alpha
-              uses: docker/metadata-action@v4
-              with:
-                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.AFFINE_IMAGE_NAME }}
-                  tags: pre-alpha
+            # - name: Extract metadata (tags, labels) for Docker (affine-pre-alpha)
+            #   id: meta_affine_pre_alpha
+            #   uses: docker/metadata-action@v4
+            #   with:
+            #       images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.AFFINE_IMAGE_NAME }}
+            #       tags: pre-alpha
 
-            - name: Build and push Docker image (affine-pre-alpha)
-              uses: docker/build-push-action@v3
-              with:
-                  context: .
-                  platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
-                  file: ./.github/deployment/Dockerfile-affine-prod
-                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
-                  tags: ${{ steps.meta_affine_pre_alpha.outputs.tags }}
-                  labels: ${{ steps.meta_affine_pre_alpha.outputs.labels }}
-                  target: affine
-                  build-args: |
-                      BASE_IMAGE=${{ env.LOCAL_CACHE }}
-                      BASE_STATIC_IMAGE=ghcr.io/toeverything/affine-static:pre-alpha
+            # - name: Build and push Docker image (affine-pre-alpha)
+            #   uses: docker/build-push-action@v3
+            #   with:
+            #       context: .
+            #       platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
+            #       file: ./.github/deployment/Dockerfile-affine-prod
+            #       push: ${{ github.ref == 'refs/heads/master' && true || false }}
+            #       tags: ${{ steps.meta_affine_pre_alpha.outputs.tags }}
+            #       labels: ${{ steps.meta_affine_pre_alpha.outputs.labels }}
+            #       target: affine
+            #       build-args: |
+            #           BASE_IMAGE=${{ env.LOCAL_CACHE }}
+            #           BASE_STATIC_IMAGE=ghcr.io/toeverything/affine-static:pre-alpha
 
-            - name: Extract metadata (tags, labels) for Docker (affine-abbey-wood)
-              id: meta_affine_abbey_wood
+            # - name: Extract metadata (tags, labels) for Docker (affine-abbey-wood)
+            #   id: meta_affine_abbey_wood
+            #   uses: docker/metadata-action@v4
+            #   with:
+            #       images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.AFFINE_IMAGE_NAME }}
+            #       tags: |
+            #           alpha-abbey-wood
+            #           ${{ env.IMAGE_TAG_LATEST }}
+
+            # - name: Build and push Docker image (affine-abbey-wood)
+            #   uses: docker/build-push-action@v3
+            #   with:
+            #       context: .
+            #       platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
+            #       file: ./.github/deployment/Dockerfile-affine-prod
+            #       push: ${{ github.ref == 'refs/heads/master' && true || false }}
+            #       tags: ${{ steps.meta_affine_abbey_wood.outputs.tags }}
+            #       labels: ${{ steps.meta_affine_abbey_wood.outputs.labels }}
+            #       target: affine
+            #       build-args: |
+            #           BASE_IMAGE=${{ env.LOCAL_CACHE }}
+            #           BASE_STATIC_IMAGE=ghcr.io/toeverything/affine-static:abbey-wood
+
+            - name: Extract metadata (tags, labels) for Docker (affine-downhills)
+              id: meta_affine_downhills
               uses: docker/metadata-action@v4
               with:
                   images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.AFFINE_IMAGE_NAME }}
                   tags: |
-                      alpha-abbey-wood
+                      alpha-downhills
                       ${{ env.IMAGE_TAG_LATEST }}
 
-            - name: Build and push Docker image (affine-abbey-wood)
+            - name: Build and push Docker image (affine-downhills)
               uses: docker/build-push-action@v3
               with:
                   context: .
                   platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
                   file: ./.github/deployment/Dockerfile-affine-prod
                   push: ${{ github.ref == 'refs/heads/master' && true || false }}
-                  tags: ${{ steps.meta_affine_abbey_wood.outputs.tags }}
-                  labels: ${{ steps.meta_affine_abbey_wood.outputs.labels }}
+                  tags: ${{ steps.meta_affine_downhills.outputs.tags }}
+                  labels: ${{ steps.meta_affine_downhills.outputs.labels }}
                   target: affine
                   build-args: |
                       BASE_IMAGE=${{ env.LOCAL_CACHE }}
-                      BASE_STATIC_IMAGE=ghcr.io/toeverything/affine-static:abbey-wood
+                      BASE_STATIC_IMAGE=ghcr.io/toeverything/affine-static:downhills
