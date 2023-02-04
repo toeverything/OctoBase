@@ -4,7 +4,7 @@ use dashmap::{mapref::entry::Entry, DashMap};
 use futures::{SinkExt, StreamExt};
 use jwst::{sync_encode_update, Workspace};
 use jwst_doc_migration::{Migrator, MigratorTrait};
-use jwst_logger::{debug, error, info, trace, warn};
+use jwst_logger::{debug, error, trace, warn};
 use path_ext::PathExt;
 use sea_orm::{prelude::*, Database, Set, TransactionTrait};
 use std::{

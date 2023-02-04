@@ -35,7 +35,7 @@ sqlx = { version = "^0.6.2", features = [
   "runtime-tokio-rustls",
 ] }
 tower = "^0.4.13"
-tower-http = { version = "^0.3.5", features = ["cors", "fs"] }
+tower-http = { version = "^0.3.5", features = ["cors"] }
 thiserror = "^1.0.38"
 time = "^0.3.17"
 tokio = { version = "^1.23.0", features = [
@@ -51,6 +51,7 @@ uuid = { version = "^1.2.2", default-features = false, features = ["v4"] }
 
 jwst = { path = "../../libs/jwst" }
 jwst-logger = { path = "../../libs/jwst-logger" }
+jwst-static = { path = "../../libs/jwst-static" }
 jwst-storage = { path = "../../libs/jwst-storage" }
 yrs = { path = "../../libs/vendors/y-crdt/yrs" }
 
