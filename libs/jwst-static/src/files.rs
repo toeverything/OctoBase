@@ -16,10 +16,9 @@ pub async fn fetch_static_response(
     match fetcher.and_then(|fetcher| fetcher(path).or_else(|| fetcher(&decode(path)))) {
         Some(content) => {
             let body = boxed(Full::from(content.data));
-            let mime = mime_guess::from_path(path).first_or_octet_stream();
 
             Response::builder()
-                .header(CONTENT_TYPE, mime.as_ref())
+                .header(CONTENT_TYPE, content.metadata.mimetype())
                 .body(body)
                 .unwrap()
         }

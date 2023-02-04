@@ -23,6 +23,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
+name = "adler32"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
+
+[[package]]
 name = "aead"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1937,6 +1943,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "include-flate"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dfdcb449c721557c1cf89bbd3412bf33fa963289e26e9badbd824a960912e148"
+dependencies = [
+ "include-flate-codegen-exports",
+ "lazy_static",
+ "libflate",
+]
+
+[[package]]
+name = "include-flate-codegen"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a7d6e1419fa3129eb0802b4c99603c0d425c79fb5d76191d5a20d0ab0d664e8"
+dependencies = [
+ "libflate",
+ "proc-macro-hack",
+ "proc-macro2 1.0.49",
+ "quote 1.0.23",
+ "syn 1.0.107",
+]
+
+[[package]]
+name = "include-flate-codegen-exports"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75657043ffe3d8280f1cb8aef0f505532b392ed7758e0baeac22edadcee31a03"
+dependencies = [
+ "include-flate-codegen",
+ "proc-macro-hack",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2145,8 +2185,7 @@ name = "jwst-static"
 version = "0.1.0"
 dependencies = [
  "axum 0.6.4",
- "mime_guess",
- "rust-embed",
+ "rust-embed 6.4.2 (git+https://github.com/pyrossh/rust-embed?rev=7c0fc42)",
  "url-escape",
 ]
 
@@ -2278,6 +2317,26 @@ name = "libc"
 version = "0.2.138"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db6d7e329c562c5dfab7a46a2afabc8b987ab9a4834c9d1ca04dc54c1546cef8"
+
+[[package]]
+name = "libflate"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05605ab2bce11bcfc0e9c635ff29ef8b2ea83f29be257ee7d730cac3ee373093"
+dependencies = [
+ "adler32",
+ "crc32fast",
+ "libflate_lz77",
+]
+
+[[package]]
+name = "libflate_lz77"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39a734c0493409afcd49deee13c006a04e3586b9761a03543c6272c9c51f2f5a"
+dependencies = [
+ "rle-decode-fast",
+]
 
 [[package]]
 name = "libm"
@@ -3069,6 +3128,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "proc-macro-hack"
+version = "0.5.20+deprecated"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
+
+[[package]]
 name = "proc-macro2"
 version = "0.4.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3479,6 +3544,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rle-decode-fast"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3582f63211428f83597b51b2ddb88e2a91a9d52d12831f9d08f5e624e8977422"
+
+[[package]]
 name = "rsa"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3504,8 +3575,19 @@ version = "6.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "283ffe2f866869428c92e0d61c2f35dfb4355293cdfdc48f49e895c15f1333d1"
 dependencies = [
- "rust-embed-impl",
- "rust-embed-utils",
+ "rust-embed-impl 6.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rust-embed-utils 7.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "walkdir",
+]
+
+[[package]]
+name = "rust-embed"
+version = "6.4.2"
+source = "git+https://github.com/pyrossh/rust-embed?rev=7c0fc42#7c0fc42f2dbecba295d956b3273b9b117ccbdc45"
+dependencies = [
+ "include-flate",
+ "rust-embed-impl 6.3.1 (git+https://github.com/pyrossh/rust-embed?rev=7c0fc42)",
+ "rust-embed-utils 7.3.0 (git+https://github.com/pyrossh/rust-embed?rev=7c0fc42)",
  "walkdir",
 ]
 
@@ -3517,8 +3599,20 @@ checksum = "31ab23d42d71fb9be1b643fe6765d292c5e14d46912d13f3ae2815ca048ea04d"
 dependencies = [
  "proc-macro2 1.0.49",
  "quote 1.0.23",
- "rust-embed-utils",
+ "rust-embed-utils 7.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "shellexpand",
+ "syn 1.0.107",
+ "walkdir",
+]
+
+[[package]]
+name = "rust-embed-impl"
+version = "6.3.1"
+source = "git+https://github.com/pyrossh/rust-embed?rev=7c0fc42#7c0fc42f2dbecba295d956b3273b9b117ccbdc45"
+dependencies = [
+ "proc-macro2 1.0.49",
+ "quote 1.0.23",
+ "rust-embed-utils 7.3.0 (git+https://github.com/pyrossh/rust-embed?rev=7c0fc42)",
  "syn 1.0.107",
  "walkdir",
 ]
@@ -3529,7 +3623,17 @@ version = "7.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1669d81dfabd1b5f8e2856b8bbe146c6192b0ba22162edc738ac0a5de18f054"
 dependencies = [
+ "sha2",
+ "walkdir",
+]
+
+[[package]]
+name = "rust-embed-utils"
+version = "7.3.0"
+source = "git+https://github.com/pyrossh/rust-embed?rev=7c0fc42#7c0fc42f2dbecba295d956b3273b9b117ccbdc45"
+dependencies = [
  "globset",
+ "mime_guess",
  "sha2",
  "walkdir",
 ]
@@ -4997,7 +5101,7 @@ dependencies = [
  "axum 0.5.17",
  "mime_guess",
  "regex",
- "rust-embed",
+ "rust-embed 6.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "utoipa",

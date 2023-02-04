@@ -7,6 +7,9 @@ edition = "2021"
 
 [dependencies]
 axum = "0.6.4"
-mime_guess = "2.0.4"
-rust-embed = { version = "6.4.2", features = ["include-exclude"] }
+rust-embed = { git = "https://github.com/pyrossh/rust-embed", rev = "7c0fc42", features = [
+    "compression",
+    "include-exclude",
+    "mime-guess",
+] }
 url-escape = "0.1.1"
