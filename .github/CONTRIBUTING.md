@@ -13,9 +13,11 @@ At present, we welcome any contribution to the binding implementation of OctoBas
     ├── jwst-binding/jwst-wasm ## OctoBase binding for WASM
 ```
 
+Non-listed language bindings and scaffolding project Pull Request are also welcome.
+
 Since OctoBase is currently under heavy development, the code repository is currently using AGPL3.0 License.
 
-Submitting pr means that you will accept:
+Submitting Pull Request means that you will accept:
 
 -   You understand and agree with our [Contributor License Agreement](./CLA.md)
 
@@ -25,6 +27,6 @@ Submitting pr means that you will accept:
 
 ## Tips
 
-If your pull request has not progressed for a long time (close or merge), please send the relevant information to contact@toeverything.info.
+If your Pull Request has not progressed for a long time (close or merge), please send the relevant information to developer@toeverything.info.
 
 Remember: you need to include the issue number in the content of your email.
