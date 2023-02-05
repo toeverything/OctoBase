@@ -33,7 +33,7 @@ OctoBase can be used either as a stand-alone server database, or directly includ
 
 A very good place to ask questions and discuss development work is our [Telegram Group].
 
-We gladly accept contributions via GitHub pull requests.
+We gladly accept contributions via GitHub pull requests, you can go to [contributing] to see more information
 
 ## Goals
 
@@ -74,6 +74,7 @@ In the process of project development, there are many software development conce
 Currently, this repository is under **active development** and most components are not yet production ready, so all code is under [AGPL-3.0]. We will switch to [MPL 2.0] or a more looser license release after the corresponding components are ready for production.
 
 [agpl-3.0]: /LICENSE
+[contributing]: .github/CONTRIBUTING.md
 [telegram group]: https://t.me/affineworkos
 [mpl 2.0]: https://www.mozilla.org/en-US/MPL/2.0/
 [document]: https://crdts.cloud/docs/index.html
