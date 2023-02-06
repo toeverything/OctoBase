@@ -67,13 +67,13 @@ job "affine-cloud-stage" {
         # GOOGLE_ENDPOINT_PASSWORD = "Dct4pq9E9V"
       }
       config {
-        image      = "ghcr.io/toeverything/cloud:canary-7f1e6fd6f0296f366fef81698c696821d9bd0631"
+        image      = "ghcr.io/toeverything/cloud:canary-fa47954ac9a0247d5de407ffce86908b13213722"
         force_pull = true
         ports      = ["affine-cloud"]
       }
       resources {
-        cpu    = 100 # MHz
-        memory = 64  # MB
+        cpu    = 400 # MHz
+        memory = 512  # MB
       }
     }
 
@@ -122,14 +122,14 @@ EOH
         force_pull = true
         ports      = ["postgres"]
         volumes = [
-          "/home/affine/affine-cloud-stage/database:/var/lib/postgresql/data",
+          "/home/affineos2022/affine-cloud-stage/database:/var/lib/postgresql/data",
           "local/init.sql:/docker-entrypoint-initdb.d/init.sql"
         ]
 
       }
       resources {
-        cpu    = 100 # MHz
-        memory = 64  # MB
+        cpu    = 200 # MHz
+        memory = 128  # MB
       }
     }
   }

@@ -1,0 +1,4 @@
+CREATE DATABASE affine_blobs;
+CREATE DATABASE affine_docs;
+GRANT ALL PRIVILEGES ON DATABASE affine_blobs TO affine;
+GRANT ALL PRIVILEGES ON DATABASE affine_docs TO affine;
