@@ -57,15 +57,24 @@ job "affine-cloud-stage" {
       driver = "docker"
 
       env {
-        DATABASE_URL        = "postgresql://affine:affine@${NOMAD_ADDR_postgres}/affine"
-        SIGN_KEY            = ""
-        MAIL_ACCOUNT        = ""
-        MAIL_PASSWORD       = ""
+
+      }
+      template {
+        data = <<EOH
+DATABASE_URL        = "postgresql://affine:{{ key "service/stage/affine-cloud/database_password" }}@{{ env "NOMAD_ADDR_postgres" }}/affine"
+SIGN_KEY            = "{{ key "service/stage/affine-cloud/sign_key" }}"
+MAIL_ACCOUNT        = "{{ key "service/stage/affine-cloud/mail_account" }}"
+MAIL_PASSWORD       = "{{ key "service/stage/affine-cloud/mail_password" }}"
         SITE_URL            = "https://stage.affine.live"
         FIREBASE_PROJECT_ID = "pathfinder-52392"
         # GOOGLE_ENDPOINT = "http://100.77.180.48:11002"
         # GOOGLE_ENDPOINT_PASSWORD = "Dct4pq9E9V"
+EOH
+
+        destination = "secrets/.env"
+        env         = true
       }
+
       config {
         image      = "ghcr.io/toeverything/cloud:canary-fa47954ac9a0247d5de407ffce86908b13213722"
         force_pull = true
@@ -73,7 +82,7 @@ job "affine-cloud-stage" {
       }
       resources {
         cpu    = 400 # MHz
-        memory = 512  # MB
+        memory = 512 # MB
       }
     }
 
@@ -100,10 +109,15 @@ job "affine-cloud-stage" {
         hook    = "prestart"
         sidecar = true
       }
-      env {
+
+      template {
+        data = <<EOH
         POSTGRES_USER     = "affine"
-        POSTGRES_PASSWORD = "affine"
-        POSTGRES_DB       = "affine"
+POSTGRES_PASSWORD = "{{ key "service/stage/affine-cloud/database_password" }}"
+EOH
+
+        destination = "secrets/.env"
+        env         = true
       }
 
       template {
@@ -129,7 +143,7 @@ EOH
       }
       resources {
         cpu    = 200 # MHz
-        memory = 128  # MB
+        memory = 128 # MB
       }
     }
   }
