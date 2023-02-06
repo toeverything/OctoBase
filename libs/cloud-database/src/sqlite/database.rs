@@ -85,7 +85,8 @@ impl SQLite {
     }
 
     pub async fn get_user_by_email(&self, email: &str) -> sqlx::Result<Option<User>> {
-        let stmt = "SELECT id, name, email, avatar_url, created_at FROM users WHERE email = $1";
+        let stmt =
+            "SELECT uuid as id, name, email, avatar_url, created_at FROM users WHERE email = $1";
 
         query_as::<_, User>(stmt)
             .bind(email)
@@ -96,10 +97,10 @@ impl SQLite {
     pub async fn get_workspace_owner(&self, workspace_id: String) -> sqlx::Result<User> {
         let stmt = format!(
             "SELECT
-                users.id, users.name, users.email, users.avatar_url, users.created_at
+                users.uuid as id, users.name, users.email, users.avatar_url, users.created_at
             FROM permissions
             INNER JOIN users
-                ON permissions.user_id = users.id
+                ON permissions.user_id = users.uuid
             WHERE workspace_id = $1 AND type = {}",
             PermissionType::Owner as i16
         );
@@ -111,7 +112,7 @@ impl SQLite {
 
     pub async fn user_login(&self, login: UserLogin) -> sqlx::Result<Option<UserWithNonce>> {
         let stmt = "SELECT 
-            id, name, email, avatar_url, token_nonce, created_at
+        uuid as id, name, email, avatar_url, token_nonce, created_at
         FROM users
         WHERE email = $1 AND password = $2";
 
@@ -124,9 +125,9 @@ impl SQLite {
 
     pub async fn refresh_token(&self, token: RefreshToken) -> sqlx::Result<Option<UserWithNonce>> {
         let stmt = "SELECT 
-            id, name, email, avatar_url, token_nonce, created_at
+        uuid as id, name, email, avatar_url, token_nonce, created_at
         FROM users
-        WHERE id = $1 AND token_nonce = $2";
+        WHERE uuid = $1 AND token_nonce = $2";
 
         query_as::<_, UserWithNonce>(stmt)
             .bind(token.user_id)
@@ -172,8 +173,8 @@ impl SQLite {
         // sqlite don't support "ON CONFLICT email DO NOTHING"
         let create_user = "INSERT INTO users 
             (uuid, name, password, email, avatar_url)
-            VALUES ($1, $2, $3, $4)
-        RETURNING id, name, email, avatar_url, created_at";
+            VALUES ($1, $2, $3, $4, $5)
+        RETURNING uuid as id, name, email, avatar_url, created_at";
 
         let uuid = Uuid::new_v4().to_string();
         let Some(user) = query_as::<_, User>(create_user)
@@ -349,11 +350,11 @@ impl SQLite {
         let stmt = "SELECT 
             permissions.id, permissions.type, permissions.user_email,
             permissions.accepted, permissions.created_at,
-            users.id as user_id, users.name as user_name, users.email as user_table_email, users.avatar_url,
+            users.uuid as user_id, users.name as user_name, users.email as user_table_email, users.avatar_url,
             users.created_at as user_created_at
         FROM permissions
         LEFT JOIN users
-            ON users.id = permissions.user_id
+            ON users.uuid = permissions.user_id
         WHERE workspace_id = $1";
 
         query_as::<_, Member>(stmt)
@@ -518,7 +519,7 @@ impl SQLite {
         email: &str,
     ) -> sqlx::Result<UserInWorkspace> {
         let stmt = "SELECT 
-            id, name, email, avatar_url, token_nonce, created_at
+        uuid as id, name, email, avatar_url, token_nonce, created_at
         FROM users";
 
         let user = query_as::<_, User>(stmt)
