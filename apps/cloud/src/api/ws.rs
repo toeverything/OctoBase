@@ -150,12 +150,12 @@ async fn handle_socket(
     mut socket: WebSocket,
     workspace_id: String,
     context: Arc<Context>,
-    user: Option<i32>,
+    user: Option<String>,
 ) {
     let user_id = if let Some(user_id) = user {
         if let Ok(true) = context
             .db
-            .can_read_workspace(user_id, workspace_id.clone())
+            .can_read_workspace(user_id.clone(), workspace_id.clone())
             .await
         {
             Some(user_id)

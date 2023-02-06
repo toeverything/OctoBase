@@ -54,12 +54,12 @@ impl ThirdPartyLogin for Context {
         ON CONFLICT DO NOTHING";
 
         query(create_google_user)
-            .bind(user.user.id)
+            .bind(user.user.id.clone())
             .bind(&claims.user_id)
             .execute(&mut trx)
             .await?;
 
-        PostgresDBContext::update_cred(&mut trx, user.user.id, &user.user.email).await?;
+        PostgresDBContext::update_cred(&mut trx, &user.user.id, &user.user.email).await?;
 
         trx.commit().await?;
 

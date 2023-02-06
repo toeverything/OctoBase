@@ -25,13 +25,15 @@ impl SQLite {
     pub async fn init_db(&self) {
         let stmt = "CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uuid CHAR(36),
             name TEXT NOT NULL,
             email TEXT NOT NULL,
             avatar_url TEXT,
             token_nonce SMALLINT DEFAULT 0,
             password TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE (email)
+            UNIQUE (email),
+            UNIQUE (uuid)
         );";
         query(&stmt)
             .execute(&self.db)
@@ -40,8 +42,9 @@ impl SQLite {
 
         let stmt = "CREATE TABLE IF NOT EXISTS google_users (
             id SERIAL,
-            user_id INTEGER REFERENCES users(id),
+            user_id CHAR(36),
             google_id TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(uuid),
             UNIQUE (google_id)
         );";
         query(&stmt)
@@ -65,13 +68,13 @@ impl SQLite {
         let stmt = "CREATE TABLE IF NOT EXISTS permissions (
             id BIGSERIAL PRIMARY KEY,
             workspace_id CHAR(36),
-            user_id INTEGER,
+            user_id CHAR(36),
             user_email TEXT,
             type SMALLINT NOT NULL,
             accepted BOOL DEFAULT False,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(workspace_id) REFERENCES workspaces(uuid),
-            FOREIGN KEY(user_id) REFERENCES users(id),
+            FOREIGN KEY(user_id) REFERENCES users(uuid),
             UNIQUE (workspace_id, user_id),
             UNIQUE (workspace_id, user_email)
         );";
@@ -135,10 +138,10 @@ impl SQLite {
     pub async fn verify_refresh_token(&self, token: &RefreshToken) -> sqlx::Result<bool> {
         let stmt = "SELECT True
         FROM users
-        WHERE id = $1 AND token_nonce = $2";
+        WHERE uuid = $1 AND token_nonce = $2";
 
         query(stmt)
-            .bind(token.user_id)
+            .bind(token.user_id.clone())
             .bind(token.token_nonce)
             .fetch_optional(&self.db)
             .await
@@ -147,7 +150,7 @@ impl SQLite {
 
     pub async fn update_cred(
         trx: &mut Transaction<'static, Sqlite>,
-        user_id: i32,
+        user_id: &str,
         user_email: &str,
     ) -> sqlx::Result<()> {
         let update_cred = "UPDATE permissions
@@ -168,11 +171,13 @@ impl SQLite {
         let mut trx = self.db.begin().await?;
         // sqlite don't support "ON CONFLICT email DO NOTHING"
         let create_user = "INSERT INTO users 
-            (name, password, email, avatar_url)
+            (uuid, name, password, email, avatar_url)
             VALUES ($1, $2, $3, $4)
         RETURNING id, name, email, avatar_url, created_at";
 
+        let uuid = Uuid::new_v4().to_string();
         let Some(user) = query_as::<_, User>(create_user)
+            .bind(uuid)
             .bind(user.name)
             .bind(user.password)
             .bind(user.email)
@@ -183,9 +188,9 @@ impl SQLite {
         };
 
         let new_workspace =
-            Self::create_workspace(&mut trx, user.id, WorkspaceType::Private).await?;
+            Self::create_workspace(&mut trx, user.id.clone(), WorkspaceType::Private).await?;
 
-        Self::update_cred(&mut trx, user.id, &user.email).await?;
+        Self::update_cred(&mut trx, &user.id, &user.email).await?;
 
         trx.commit().await?;
 
@@ -237,7 +242,7 @@ impl SQLite {
 
     pub async fn create_workspace(
         trx: &mut Transaction<'static, Sqlite>,
-        user_id: i32,
+        user_id: String,
         ws_type: WorkspaceType,
     ) -> sqlx::Result<Workspace> {
         let create_workspace = format!(
@@ -269,7 +274,7 @@ impl SQLite {
         Ok(workspace)
     }
 
-    pub async fn create_normal_workspace(&self, user_id: i32) -> sqlx::Result<Workspace> {
+    pub async fn create_normal_workspace(&self, user_id: String) -> sqlx::Result<Workspace> {
         let mut trx = self.db.begin().await?;
         let workspace = Self::create_workspace(&mut trx, user_id, WorkspaceType::Normal).await?;
 
@@ -324,7 +329,7 @@ impl SQLite {
 
     pub async fn get_user_workspaces(
         &self,
-        user_id: i32,
+        user_id: String,
     ) -> sqlx::Result<Vec<WorkspaceWithPermission>> {
         let stmt = "SELECT 
             workspaces.uuid AS id, workspaces.public, workspaces.created_at, workspaces.type,
@@ -359,7 +364,7 @@ impl SQLite {
 
     pub async fn get_permission(
         &self,
-        user_id: i32,
+        user_id: String,
         workspace_id: String,
     ) -> sqlx::Result<Option<PermissionType>> {
         let stmt = "SELECT type FROM permissions WHERE user_id = $1 AND workspace_id = $2";
@@ -374,7 +379,7 @@ impl SQLite {
 
     pub async fn get_permission_by_permission_id(
         &self,
-        user_id: i32,
+        user_id: String,
         permission_id: i64,
     ) -> sqlx::Result<Option<PermissionType>> {
         let stmt = "SELECT type FROM permissions
@@ -394,7 +399,7 @@ impl SQLite {
 
     pub async fn can_read_workspace(
         &self,
-        user_id: i32,
+        user_id: String,
         workspace_id: String,
     ) -> sqlx::Result<bool> {
         let stmt = "SELECT FROM permissions 
@@ -442,7 +447,7 @@ impl SQLite {
 
         let (query, user) = match user {
             Some(user) => (
-                query.bind(user.id).bind::<Option<String>>(None),
+                query.bind(user.id.clone()).bind::<Option<String>>(None),
                 UserCred::Registered(user),
             ),
             None => (
@@ -490,7 +495,7 @@ impl SQLite {
 
     pub async fn delete_permission_by_query(
         &self,
-        user_id: i32,
+        user_id: String,
         workspace_id: String,
     ) -> sqlx::Result<bool> {
         let stmt = format!(
@@ -526,7 +531,7 @@ impl SQLite {
 
             let in_workspace = query(stmt)
                 .bind(workspace_id)
-                .bind(user.id)
+                .bind(user.id.clone())
                 .fetch_optional(&self.db)
                 .await?
                 .is_some();

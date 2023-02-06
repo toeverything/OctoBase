@@ -25,7 +25,7 @@ pub async fn get_members(
 ) -> Response {
     match ctx
         .db
-        .get_permission(claims.user.id, workspace_id.clone())
+        .get_permission(claims.user.id.clone(), workspace_id.clone())
         .await
     {
         Ok(Some(p)) if p.can_admin() => (),
@@ -120,7 +120,7 @@ pub async fn invite_member(
 ) -> Response {
     match ctx
         .db
-        .get_permission(claims.user.id, workspace_id.clone())
+        .get_permission(claims.user.id.clone(), workspace_id.clone())
         .await
     {
         Ok(Some(p)) if p.can_admin() => (),
@@ -223,7 +223,11 @@ pub async fn leave_workspace(
     Extension(claims): Extension<Arc<Claims>>,
     Path(id): Path<String>,
 ) -> Response {
-    match ctx.db.delete_permission_by_query(claims.user.id, id).await {
+    match ctx
+        .db
+        .delete_permission_by_query(claims.user.id.clone(), id)
+        .await
+    {
         Ok(true) => StatusCode::OK.into_response(),
         Ok(false) => StatusCode::OK.into_response(),
         Err(_) => ErrorStatus::InternalServerError.into_response(),
@@ -237,7 +241,7 @@ pub async fn remove_user(
 ) -> Response {
     match ctx
         .db
-        .get_permission_by_permission_id(claims.user.id, id)
+        .get_permission_by_permission_id(claims.user.id.clone(), id)
         .await
     {
         Ok(Some(p)) if p.can_admin() => (),
