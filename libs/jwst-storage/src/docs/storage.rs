@@ -240,6 +240,7 @@ impl DocStorage for DocAutoStorage {
     }
 
     async fn delete(&self, workspace_id: String) -> io::Result<()> {
+        self.workspaces.remove(&workspace_id);
         self.drop(&workspace_id)
             .await
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))

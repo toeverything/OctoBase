@@ -47,7 +47,6 @@ pub struct MailContext {
 }
 
 pub struct DocStore {
-    cache: Cache<String, Arc<RwLock<Workspace>>>,
     pub storage: DocAutoStorage,
 }
 
@@ -56,7 +55,6 @@ impl DocStore {
         let database_url = dotenvy::var("DATABASE_URL").expect("should provide doc storage path");
 
         Self {
-            cache: Cache::new(1000),
             storage: DocAutoStorage::init_pool(&format!("{database_url}_docs"))
                 .await
                 .expect("Failed to init doc storage"),
@@ -64,10 +62,8 @@ impl DocStore {
     }
 
     pub async fn get_workspace(&self, workspace_id: String) -> Arc<RwLock<Workspace>> {
-        self.cache
-            .try_get_with(workspace_id.clone(), async move {
-                self.storage.get(workspace_id.clone()).await
-            })
+        self.storage
+            .get(workspace_id.clone())
             .await
             .expect("Failed to get workspace")
     }
@@ -75,6 +71,9 @@ impl DocStore {
     pub async fn full_migrate(&self, workspace_id: String, update: Option<Vec<u8>>) -> bool {
         if let Ok(workspace) = self.storage.get(workspace_id.clone()).await {
             let update = if let Some(update) = update {
+                if let Err(_) = self.storage.delete(workspace_id.clone()).await {
+                    return false;
+                };
                 update
             } else {
                 workspace.read().await.sync_migration()
