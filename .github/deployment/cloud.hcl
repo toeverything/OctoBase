@@ -65,9 +65,9 @@ DATABASE_URL        = "postgresql://affine:{{ key "service/stage/affine-cloud/da
 SIGN_KEY            = "{{ key "service/stage/affine-cloud/sign_key" }}"
 MAIL_ACCOUNT        = "{{ key "service/stage/affine-cloud/mail_account" }}"
 MAIL_PASSWORD       = "{{ key "service/stage/affine-cloud/mail_password" }}"
-        SITE_URL            = "https://stage.affine.live"
+        SITE_URL            = "https://stage.affine.pro"
         FIREBASE_PROJECT_ID = "pathfinder-52392"
-        # GOOGLE_ENDPOINT = "http://100.77.180.48:11002"
+# GOOGLE_ENDPOINT   = "http://100.77.180.48:11002"
         # GOOGLE_ENDPOINT_PASSWORD = "Dct4pq9E9V"
 EOH
 
@@ -76,7 +76,7 @@ EOH
       }
 
       config {
-        image      = "ghcr.io/toeverything/cloud:canary-fa47954ac9a0247d5de407ffce86908b13213722"
+        image      = "ghcr.io/toeverything/cloud:canary-35fc29ccd7ec77d158cb7b4f0df50820f6b1ab3f"
         force_pull = true
         ports      = ["affine-cloud"]
       }

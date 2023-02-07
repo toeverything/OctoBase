@@ -205,7 +205,7 @@ jobs:
                   submodules: true
             - uses: actions-rs/toolchain@v1
               with:
-                  toolchain: nightly
+                  toolchain: nightly-2023-01-09
                   override: true
             - uses: actions-rs/cargo@v1
               with:
@@ -219,7 +219,7 @@ jobs:
 #                   submodules: true
 #             - uses: actions-rs/toolchain@v1
 #               with:
-#                   toolchain: nightly
+#                   toolchain: nightly-2023-01-09
 #                   override: true
 #             - name: Run cargo-tarpaulin
 #               uses: actions-rs/tarpaulin@v0.1
