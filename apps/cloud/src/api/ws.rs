@@ -42,7 +42,10 @@ async fn ws_handler(
     let user: Option<RefreshToken> = URL_SAFE_ENGINE
         .decode(token)
         .ok()
-        .and_then(|byte| ctx.decrypt_aes(byte))
+        .and_then(|byte| match ctx.decrypt_aes(byte) {
+            Ok(data) => data,
+            Err(_) => None,
+        })
         .and_then(|data| serde_json::from_slice(&data).ok());
 
     let user = if let Some(user) = user {

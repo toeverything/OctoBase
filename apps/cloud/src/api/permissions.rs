@@ -203,7 +203,12 @@ pub async fn accept_invitation(
         return ErrorStatus::BadRequest.into_response();
     };
 
-    let Some(data) = ctx.decrypt_aes(input) else {
+    let data = match ctx.decrypt_aes(input.clone()) {
+        Ok(data) => data,
+        Err(_) => return ErrorStatus::BadRequest.into_response(),
+    };
+
+    let Some(data) = data else {
         return ErrorStatus::BadRequest.into_response();
     };
 

@@ -582,7 +582,6 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(new_user.id, 1);
         let (new_user2, _) = db_context
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
@@ -593,13 +592,12 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(new_user2.id, 2);
         let mut new_workspace = db_context
-            .create_normal_workspace(new_user.id)
+            .create_normal_workspace(new_user.id.clone())
             .await
             .unwrap();
         let new_workspace2 = db_context
-            .create_normal_workspace(new_user2.id)
+            .create_normal_workspace(new_user2.id.clone())
             .await
             .unwrap();
 
@@ -612,7 +610,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        assert_eq!(new_user.id, new_workspace1_clone.owner.unwrap().id);
+        assert_eq!(new_user.id.clone(), new_workspace1_clone.owner.unwrap().id);
         assert_eq!(new_workspace.id, new_workspace1_clone.workspace.id);
         assert_eq!(
             new_workspace.created_at,
@@ -621,7 +619,7 @@ mod tests {
         assert_eq!(
             new_workspace.id,
             db_context
-                .get_user_workspaces(new_user.id)
+                .get_user_workspaces(new_user.id.clone())
                 .await
                 .unwrap()
                 // when create user, will auto create a private workspace, our created will be second one

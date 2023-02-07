@@ -115,7 +115,12 @@ async fn make_token(
             let Ok(input) = URL_SAFE_ENGINE.decode(token.clone()) else {
                 return ErrorStatus::BadRequest.into_response();
             };
-            let Some(data) = ctx.decrypt_aes(input) else {
+            let data = match ctx.decrypt_aes(input.clone()) {
+                Ok(data) => data,
+                Err(_) => return ErrorStatus::BadRequest.into_response(),
+            };
+
+            let Some(data) = data else {
                 return ErrorStatus::BadRequest.into_response();
             };
             let Ok(data) = serde_json::from_slice::<RefreshToken>(&data) else {
