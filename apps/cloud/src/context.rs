@@ -75,6 +75,9 @@ impl DocStore {
     pub async fn full_migrate(&self, workspace_id: String, update: Option<Vec<u8>>) -> bool {
         if let Ok(workspace) = self.storage.get(workspace_id.clone()).await {
             let update = if let Some(update) = update {
+                if let Err(_) = self.storage.delete(workspace_id.clone()).await {
+                    return false;
+                };
                 update
             } else {
                 workspace.read().await.sync_migration()

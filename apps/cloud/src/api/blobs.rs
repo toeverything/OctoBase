@@ -194,9 +194,6 @@ pub async fn create_workspace(
     if let Ok(data) = ctx.db.create_normal_workspace(claims.user.id.clone()).await {
         let id = data.id.to_string();
         let update = ctx.upload_workspace(stream).await;
-        if let Err(_) = ctx.doc.storage.get(id.clone()).await {
-            return ErrorStatus::InternalServerError.into_response();
-        }
         if !ctx.doc.full_migrate(id, Some(update)).await {
             return ErrorStatus::InternalServerError.into_response();
         }
