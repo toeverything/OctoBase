@@ -320,16 +320,15 @@ export class JwtStore implements IJwtStore {
     ): AbstractBlock | undefined {
         const uuid = genUuid(name);
         if (this.has([uuid])) {
-            return this.get(uuid, {
-                [namedUUID]: true,
-            });
+            return this.get(uuid);
         }
-        return this._create(uuid, {
-            flavor: options?.workspace
-                ? BlockFlavors.workspace
-                : BlockFlavors.page,
-            [namedUUID]: true,
-        });
+        return this._create(
+            uuid,
+            options?.workspace ? BlockFlavors.workspace : BlockFlavors.page,
+            {
+                [namedUUID]: true,
+            }
+        );
     }
 
     /**
@@ -484,7 +483,10 @@ export class JwtStore implements IJwtStore {
     }
 
     private _initialBlock(block: YBlock, isNamedUuid?: boolean) {
-        const root = isNamedUuid ? undefined : this.getWorkspace();
+        const root =
+            isNamedUuid || block.flavor === BlockFlavors.workspace
+                ? undefined
+                : this.getWorkspace();
 
         for (const child of block.children) {
             this._setParent(block.id, child);
@@ -516,18 +518,18 @@ export class JwtStore implements IJwtStore {
      * @returns block instance
      */
     private _create(
+        blockId?: string,
         blockFlavor?: string,
         options?: {
-            flavor: BlockItem['flavor'];
             [namedUUID]?: boolean;
         }
     ) {
         JWT_DEV && logger(`create: ${blockFlavor}`);
-        const { [namedUUID]: isNamedUuid, flavor } = options || {};
+        const { [namedUUID]: isNamedUuid } = options || {};
 
         const block = this._manager.createBlock({
-            uuid: isNamedUuid ? blockFlavor : undefined,
-            flavor: flavor || blockFlavor || 'text',
+            uuid: blockId,
+            flavor: blockFlavor || 'text',
         });
         return this._initialBlock(block, isNamedUuid);
     }
@@ -584,7 +586,7 @@ export class JwtStore implements IJwtStore {
     public dispatchOperation(op: Operation): unknown {
         switch (op.type) {
             case 'InsertBlockOperation': {
-                const block = this._create(op.content.flavor);
+                const block = this._create(op.content.id, op.content.flavor);
                 this._updateBlock(block.id, op.content);
                 return block;
             }
