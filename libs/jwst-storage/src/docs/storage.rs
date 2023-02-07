@@ -261,19 +261,24 @@ impl DocSync for DocAutoStorage {
 
             debug!("spawn sync thread");
             std::thread::spawn(move || {
-                let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
+                let Ok(rt) = tokio::runtime::Runtime::new() else {
+                    return error!("Failed to create runtime");
+                };
                 rt.block_on(async move {
                     debug!("generate remote config");
-                    let mut req = Url::parse(&remote)
-                        .expect( "Failed to parse remote url")
-                        .into_client_request()
-                        .expect("Failed to create client request");
+                    let Ok(uri) = Url::parse(&remote) else {
+                        return error!("Failed to parse remote url");
+                    };
+                    let Ok(mut req) = uri.into_client_request() else {
+                        return error!("Failed to create client request");
+                    };
                     req.headers_mut()
                         .append("Sec-WebSocket-Protocol", HeaderValue::from_static("AFFiNE"));
 
                     debug!("connect to remote: {}", req.uri());
-                    let (socket, _) = connect_async(req)
-                        .await.expect("Failed to connect to remote");
+                    let Ok((socket, _)) = connect_async(req).await else {
+                        return error!("Failed to connect to remote");
+                    };
                     let (mut socket_tx, mut socket_rx) = socket.split();
 
                     debug!("sync init message");
@@ -309,7 +314,9 @@ impl DocSync for DocAutoStorage {
                                                 trace!("send differential update to remote: {:?}", update);
                                                 if let Err(e) = socket_tx.send(Message::binary(update)).await {
                                                     warn!("send update to remote failed: {:?}", e);
-                                                    socket_tx.close().await.expect("close failed");
+                                                    if let Err(e) = socket_tx.close().await {
+                                                        error!("close failed: {}", e);
+                                                    };
                                                     break;
                                                 }
                                             }
@@ -325,7 +332,9 @@ impl DocSync for DocAutoStorage {
                                 trace!("send update to remote: {:?}", msg);
                                 if let Err(e) = socket_tx.send(msg).await {
                                     warn!("send update to remote failed: {:?}", e);
-                                    socket_tx.close().await.expect("close failed");
+                                    if let Err(e) = socket_tx.close().await{
+                                        error!("close failed: {}", e);
+                                    }
                                     break;
                                 }
                             }
