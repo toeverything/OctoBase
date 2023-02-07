@@ -1,4 +1,5 @@
 export type BlockContent = {
+    id?: string;
     flavor: string;
     parentId: string;
     properties: {
