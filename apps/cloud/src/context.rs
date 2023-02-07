@@ -288,12 +288,17 @@ impl Context {
         encrypted
     }
 
-    pub fn decrypt_aes(&self, input: Vec<u8>) -> Option<Vec<u8>> {
+    pub fn decrypt_aes(&self, input: Vec<u8>) -> Result<Option<Vec<u8>>, &'static str> {
+        if input.len() < 12 {
+            return Err("an unexpected value");
+        }
         let (content, nonce) = input.split_at(input.len() - 12);
 
-        let nonce = nonce.try_into().ok()?;
+        let Some(nonce) = nonce.try_into().ok() else {
+            return Err("an unexpected value");
+        };
 
-        self.key.aes.decrypt(nonce, content).ok()
+        Ok(self.key.aes.decrypt(nonce, content).ok())
     }
 
     pub async fn search_workspace(

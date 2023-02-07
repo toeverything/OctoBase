@@ -150,7 +150,7 @@ pub async fn get_blob_in_workspace(
 ) -> Response {
     match ctx
         .db
-        .can_read_workspace(claims.user.id, workspace_id.clone())
+        .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
         .await
     {
         Ok(true) => (),
@@ -174,7 +174,7 @@ pub async fn upload_blob_in_workspace(
 
     match ctx
         .db
-        .can_read_workspace(claims.user.id, workspace_id.clone())
+        .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
         .await
     {
         Ok(true) => (),
@@ -191,7 +191,7 @@ pub async fn create_workspace(
     TypedHeader(length): TypedHeader<ContentLength>,
     stream: BodyStream,
 ) -> Response {
-    if let Ok(data) = ctx.db.create_normal_workspace(claims.user.id).await {
+    if let Ok(data) = ctx.db.create_normal_workspace(claims.user.id.clone()).await {
         let id = data.id.to_string();
         let update = ctx.upload_workspace(stream).await;
         if let Err(_) = ctx.doc.storage.get(id.clone()).await {
@@ -201,7 +201,7 @@ pub async fn create_workspace(
             return ErrorStatus::InternalServerError.into_response();
         }
         ctx.user_channel
-            .add_user_observe(claims.user.id, ctx.clone())
+            .add_user_observe(claims.user.id.clone(), ctx.clone())
             .await;
         Json(data).into_response()
     } else {

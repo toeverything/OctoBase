@@ -42,7 +42,10 @@ async fn ws_handler(
     let user: Option<RefreshToken> = URL_SAFE_ENGINE
         .decode(token)
         .ok()
-        .and_then(|byte| ctx.decrypt_aes(byte))
+        .and_then(|byte| match ctx.decrypt_aes(byte) {
+            Ok(data) => data,
+            Err(_) => None,
+        })
         .and_then(|data| serde_json::from_slice(&data).ok());
 
     let user = if let Some(user) = user {
@@ -150,12 +153,12 @@ async fn handle_socket(
     mut socket: WebSocket,
     workspace_id: String,
     context: Arc<Context>,
-    user: Option<i32>,
+    user: Option<String>,
 ) {
     let user_id = if let Some(user_id) = user {
         if let Ok(true) = context
             .db
-            .can_read_workspace(user_id, workspace_id.clone())
+            .can_read_workspace(user_id.clone(), workspace_id.clone())
             .await
         {
             Some(user_id)

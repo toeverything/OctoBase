@@ -20,8 +20,8 @@ impl ThirdPartyLogin for Context {
         email = $2,
         avatar_url = $3
     FROM google_users
-    WHERE google_users.google_id = $4 AND google_users.user_id = users.id
-    RETURNING users.id, users.name, users.email, users.avatar_url,
+    WHERE google_users.google_id = $4 AND google_users.user_id = users.uuid
+    RETURNING users.uuid as id, users.name, users.email, users.avatar_url,
         users.token_nonce, users.created_at";
 
         if let Some(user) = query_as::<_, UserWithNonce>(update_user)
@@ -36,12 +36,14 @@ impl ThirdPartyLogin for Context {
         }
 
         let create_user = "INSERT INTO users 
-        (name, email, avatar_url) 
-        VALUES ($1, $2, $3)
+        (uuid, name, email, avatar_url) 
+        VALUES ($1, $2, $3, $4)
     ON CONFLICT (email) DO NOTHING
-    RETURNING id, name, email, avatar_url, token_nonce, created_at";
+    RETURNING uuid as id, name, email, avatar_url, token_nonce, created_at";
 
+        let uuid = uuid::Uuid::new_v4();
         let user = query_as::<_, UserWithNonce>(create_user)
+            .bind(uuid)
             .bind(&claims.name)
             .bind(&claims.email)
             .bind(&claims.picture)
@@ -54,12 +56,12 @@ impl ThirdPartyLogin for Context {
         ON CONFLICT DO NOTHING";
 
         query(create_google_user)
-            .bind(user.user.id)
+            .bind(user.user.id.clone())
             .bind(&claims.user_id)
             .execute(&mut trx)
             .await?;
 
-        PostgresDBContext::update_cred(&mut trx, user.user.id, &user.user.email).await?;
+        PostgresDBContext::update_cred(&mut trx, &user.user.id, &user.user.email).await?;
 
         trx.commit().await?;
 

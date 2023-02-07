@@ -25,13 +25,15 @@ impl SQLite {
     pub async fn init_db(&self) {
         let stmt = "CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uuid CHAR(36),
             name TEXT NOT NULL,
             email TEXT NOT NULL,
             avatar_url TEXT,
             token_nonce SMALLINT DEFAULT 0,
             password TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE (email)
+            UNIQUE (email),
+            UNIQUE (uuid)
         );";
         query(&stmt)
             .execute(&self.db)
@@ -40,8 +42,9 @@ impl SQLite {
 
         let stmt = "CREATE TABLE IF NOT EXISTS google_users (
             id SERIAL,
-            user_id INTEGER REFERENCES users(id),
+            user_id CHAR(36),
             google_id TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(uuid),
             UNIQUE (google_id)
         );";
         query(&stmt)
@@ -65,13 +68,13 @@ impl SQLite {
         let stmt = "CREATE TABLE IF NOT EXISTS permissions (
             id BIGSERIAL PRIMARY KEY,
             workspace_id CHAR(36),
-            user_id INTEGER,
+            user_id CHAR(36),
             user_email TEXT,
             type SMALLINT NOT NULL,
             accepted BOOL DEFAULT False,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(workspace_id) REFERENCES workspaces(uuid),
-            FOREIGN KEY(user_id) REFERENCES users(id),
+            FOREIGN KEY(user_id) REFERENCES users(uuid),
             UNIQUE (workspace_id, user_id),
             UNIQUE (workspace_id, user_email)
         );";
@@ -82,7 +85,8 @@ impl SQLite {
     }
 
     pub async fn get_user_by_email(&self, email: &str) -> sqlx::Result<Option<User>> {
-        let stmt = "SELECT id, name, email, avatar_url, created_at FROM users WHERE email = $1";
+        let stmt =
+            "SELECT uuid as id, name, email, avatar_url, created_at FROM users WHERE email = $1";
 
         query_as::<_, User>(stmt)
             .bind(email)
@@ -93,10 +97,10 @@ impl SQLite {
     pub async fn get_workspace_owner(&self, workspace_id: String) -> sqlx::Result<User> {
         let stmt = format!(
             "SELECT
-                users.id, users.name, users.email, users.avatar_url, users.created_at
+                users.uuid as id, users.name, users.email, users.avatar_url, users.created_at
             FROM permissions
             INNER JOIN users
-                ON permissions.user_id = users.id
+                ON permissions.user_id = users.uuid
             WHERE workspace_id = $1 AND type = {}",
             PermissionType::Owner as i16
         );
@@ -108,7 +112,7 @@ impl SQLite {
 
     pub async fn user_login(&self, login: UserLogin) -> sqlx::Result<Option<UserWithNonce>> {
         let stmt = "SELECT 
-            id, name, email, avatar_url, token_nonce, created_at
+        uuid as id, name, email, avatar_url, token_nonce, created_at
         FROM users
         WHERE email = $1 AND password = $2";
 
@@ -121,9 +125,9 @@ impl SQLite {
 
     pub async fn refresh_token(&self, token: RefreshToken) -> sqlx::Result<Option<UserWithNonce>> {
         let stmt = "SELECT 
-            id, name, email, avatar_url, token_nonce, created_at
+        uuid as id, name, email, avatar_url, token_nonce, created_at
         FROM users
-        WHERE id = $1 AND token_nonce = $2";
+        WHERE uuid = $1 AND token_nonce = $2";
 
         query_as::<_, UserWithNonce>(stmt)
             .bind(token.user_id)
@@ -135,10 +139,10 @@ impl SQLite {
     pub async fn verify_refresh_token(&self, token: &RefreshToken) -> sqlx::Result<bool> {
         let stmt = "SELECT True
         FROM users
-        WHERE id = $1 AND token_nonce = $2";
+        WHERE uuid = $1 AND token_nonce = $2";
 
         query(stmt)
-            .bind(token.user_id)
+            .bind(token.user_id.clone())
             .bind(token.token_nonce)
             .fetch_optional(&self.db)
             .await
@@ -147,7 +151,7 @@ impl SQLite {
 
     pub async fn update_cred(
         trx: &mut Transaction<'static, Sqlite>,
-        user_id: i32,
+        user_id: &str,
         user_email: &str,
     ) -> sqlx::Result<()> {
         let update_cred = "UPDATE permissions
@@ -168,11 +172,13 @@ impl SQLite {
         let mut trx = self.db.begin().await?;
         // sqlite don't support "ON CONFLICT email DO NOTHING"
         let create_user = "INSERT INTO users 
-            (name, password, email, avatar_url)
-            VALUES ($1, $2, $3, $4)
-        RETURNING id, name, email, avatar_url, created_at";
+            (uuid, name, password, email, avatar_url)
+            VALUES ($1, $2, $3, $4, $5)
+        RETURNING uuid as id, name, email, avatar_url, created_at";
 
+        let uuid = Uuid::new_v4().to_string();
         let Some(user) = query_as::<_, User>(create_user)
+            .bind(uuid)
             .bind(user.name)
             .bind(user.password)
             .bind(user.email)
@@ -183,9 +189,9 @@ impl SQLite {
         };
 
         let new_workspace =
-            Self::create_workspace(&mut trx, user.id, WorkspaceType::Private).await?;
+            Self::create_workspace(&mut trx, user.id.clone(), WorkspaceType::Private).await?;
 
-        Self::update_cred(&mut trx, user.id, &user.email).await?;
+        Self::update_cred(&mut trx, &user.id, &user.email).await?;
 
         trx.commit().await?;
 
@@ -237,7 +243,7 @@ impl SQLite {
 
     pub async fn create_workspace(
         trx: &mut Transaction<'static, Sqlite>,
-        user_id: i32,
+        user_id: String,
         ws_type: WorkspaceType,
     ) -> sqlx::Result<Workspace> {
         let create_workspace = format!(
@@ -269,7 +275,7 @@ impl SQLite {
         Ok(workspace)
     }
 
-    pub async fn create_normal_workspace(&self, user_id: i32) -> sqlx::Result<Workspace> {
+    pub async fn create_normal_workspace(&self, user_id: String) -> sqlx::Result<Workspace> {
         let mut trx = self.db.begin().await?;
         let workspace = Self::create_workspace(&mut trx, user_id, WorkspaceType::Normal).await?;
 
@@ -324,7 +330,7 @@ impl SQLite {
 
     pub async fn get_user_workspaces(
         &self,
-        user_id: i32,
+        user_id: String,
     ) -> sqlx::Result<Vec<WorkspaceWithPermission>> {
         let stmt = "SELECT 
             workspaces.uuid AS id, workspaces.public, workspaces.created_at, workspaces.type,
@@ -344,11 +350,11 @@ impl SQLite {
         let stmt = "SELECT 
             permissions.id, permissions.type, permissions.user_email,
             permissions.accepted, permissions.created_at,
-            users.id as user_id, users.name as user_name, users.email as user_table_email, users.avatar_url,
+            users.uuid as user_id, users.name as user_name, users.email as user_table_email, users.avatar_url,
             users.created_at as user_created_at
         FROM permissions
         LEFT JOIN users
-            ON users.id = permissions.user_id
+            ON users.uuid = permissions.user_id
         WHERE workspace_id = $1";
 
         query_as::<_, Member>(stmt)
@@ -359,7 +365,7 @@ impl SQLite {
 
     pub async fn get_permission(
         &self,
-        user_id: i32,
+        user_id: String,
         workspace_id: String,
     ) -> sqlx::Result<Option<PermissionType>> {
         let stmt = "SELECT type FROM permissions WHERE user_id = $1 AND workspace_id = $2";
@@ -374,7 +380,7 @@ impl SQLite {
 
     pub async fn get_permission_by_permission_id(
         &self,
-        user_id: i32,
+        user_id: String,
         permission_id: i64,
     ) -> sqlx::Result<Option<PermissionType>> {
         let stmt = "SELECT type FROM permissions
@@ -394,7 +400,7 @@ impl SQLite {
 
     pub async fn can_read_workspace(
         &self,
-        user_id: i32,
+        user_id: String,
         workspace_id: String,
     ) -> sqlx::Result<bool> {
         let stmt = "SELECT FROM permissions 
@@ -442,7 +448,7 @@ impl SQLite {
 
         let (query, user) = match user {
             Some(user) => (
-                query.bind(user.id).bind::<Option<String>>(None),
+                query.bind(user.id.clone()).bind::<Option<String>>(None),
                 UserCred::Registered(user),
             ),
             None => (
@@ -490,7 +496,7 @@ impl SQLite {
 
     pub async fn delete_permission_by_query(
         &self,
-        user_id: i32,
+        user_id: String,
         workspace_id: String,
     ) -> sqlx::Result<bool> {
         let stmt = format!(
@@ -513,7 +519,7 @@ impl SQLite {
         email: &str,
     ) -> sqlx::Result<UserInWorkspace> {
         let stmt = "SELECT 
-            id, name, email, avatar_url, token_nonce, created_at
+        uuid as id, name, email, avatar_url, token_nonce, created_at
         FROM users";
 
         let user = query_as::<_, User>(stmt)
@@ -526,7 +532,7 @@ impl SQLite {
 
             let in_workspace = query(stmt)
                 .bind(workspace_id)
-                .bind(user.id)
+                .bind(user.id.clone())
                 .fetch_optional(&self.db)
                 .await?
                 .is_some();
@@ -576,7 +582,6 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(new_user.id, 1);
         let (new_user2, _) = db_context
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
@@ -587,13 +592,12 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(new_user2.id, 2);
         let mut new_workspace = db_context
-            .create_normal_workspace(new_user.id)
+            .create_normal_workspace(new_user.id.clone())
             .await
             .unwrap();
         let new_workspace2 = db_context
-            .create_normal_workspace(new_user2.id)
+            .create_normal_workspace(new_user2.id.clone())
             .await
             .unwrap();
 
@@ -606,7 +610,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        assert_eq!(new_user.id, new_workspace1_clone.owner.unwrap().id);
+        assert_eq!(new_user.id.clone(), new_workspace1_clone.owner.unwrap().id);
         assert_eq!(new_workspace.id, new_workspace1_clone.workspace.id);
         assert_eq!(
             new_workspace.created_at,
@@ -615,7 +619,7 @@ mod tests {
         assert_eq!(
             new_workspace.id,
             db_context
-                .get_user_workspaces(new_user.id)
+                .get_user_workspaces(new_user.id.clone())
                 .await
                 .unwrap()
                 // when create user, will auto create a private workspace, our created will be second one

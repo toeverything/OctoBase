@@ -115,7 +115,12 @@ async fn make_token(
             let Ok(input) = URL_SAFE_ENGINE.decode(token.clone()) else {
                 return ErrorStatus::BadRequest.into_response();
             };
-            let Some(data) = ctx.decrypt_aes(input) else {
+            let data = match ctx.decrypt_aes(input.clone()) {
+                Ok(data) => data,
+                Err(_) => return ErrorStatus::BadRequest.into_response(),
+            };
+
+            let Some(data) = data else {
                 return ErrorStatus::BadRequest.into_response();
             };
             let Ok(data) = serde_json::from_slice::<RefreshToken>(&data) else {
@@ -135,7 +140,7 @@ async fn make_token(
             let refresh = refresh.unwrap_or_else(|| {
                 let refresh = RefreshToken {
                     expires: Utc::now().naive_utc() + Duration::days(180),
-                    user_id: user.id,
+                    user_id: user.id.clone(),
                     token_nonce,
                 };
 
@@ -164,7 +169,7 @@ async fn get_workspaces(
     Extension(claims): Extension<Arc<Claims>>,
 ) -> Response {
     // TODO should print error
-    if let Ok(data) = ctx.db.get_user_workspaces(claims.user.id).await {
+    if let Ok(data) = ctx.db.get_user_workspaces(claims.user.id.clone()).await {
         Json(data).into_response()
     } else {
         ErrorStatus::InternalServerError.into_response()
@@ -178,7 +183,7 @@ async fn get_workspace_by_id(
 ) -> Response {
     match ctx
         .db
-        .get_permission(claims.user.id, workspace_id.clone())
+        .get_permission(claims.user.id.clone(), workspace_id.clone())
         .await
     {
         Ok(Some(_)) => (),
@@ -201,7 +206,7 @@ async fn update_workspace(
 ) -> Response {
     match ctx
         .db
-        .get_permission(claims.user.id, workspace_id.clone())
+        .get_permission(claims.user.id.clone(), workspace_id.clone())
         .await
     {
         Ok(Some(p)) if p.can_admin() => (),
@@ -227,7 +232,7 @@ async fn delete_workspace(
 ) -> Response {
     match ctx
         .db
-        .get_permission(claims.user.id, workspace_id.clone())
+        .get_permission(claims.user.id.clone(), workspace_id.clone())
         .await
     {
         Ok(Some(p)) if p.is_owner() => (),
@@ -254,7 +259,7 @@ async fn get_doc(
 ) -> Response {
     match ctx
         .db
-        .can_read_workspace(claims.user.id, workspace_id.clone())
+        .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
         .await
     {
         Ok(true) => (),
@@ -297,7 +302,7 @@ async fn search_workspace(
 ) -> Response {
     match ctx
         .db
-        .can_read_workspace(claims.user.id, workspace_id.clone())
+        .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
         .await
     {
         Ok(true) => (),

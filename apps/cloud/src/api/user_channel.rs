@@ -40,9 +40,9 @@ pub struct AllWorkspaceInfo {
 // }
 
 pub struct UserChannel {
-    workspace_map: DashMap<String, DashSet<i32>>,
-    user_map: DashMap<i32, DashSet<String>>,
-    channel: DashMap<(i32, String), Sender<Message>>,
+    workspace_map: DashMap<String, DashSet<String>>,
+    user_map: DashMap<String, DashSet<String>>,
+    channel: DashMap<(String, String), Sender<Message>>,
 }
 
 impl UserChannel {
@@ -71,7 +71,7 @@ impl UserChannel {
         });
     }
 
-    pub fn update_user(&self, user_id: i32, context: Arc<Context>) {
+    pub fn update_user(&self, user_id: String, context: Arc<Context>) {
         tokio::spawn(async move {
             let _ = context
                 .user_channel
@@ -80,9 +80,9 @@ impl UserChannel {
         });
     }
 
-    pub async fn add_user_observe(&self, user_id: i32, context: Arc<Context>) {
-        self.remove_user_observe(user_id);
-        if let Ok(data) = context.db.get_user_workspaces(user_id).await {
+    pub async fn add_user_observe(&self, user_id: String, context: Arc<Context>) {
+        self.remove_user_observe(user_id.clone());
+        if let Ok(data) = context.db.get_user_workspaces(user_id.clone()).await {
             data.iter().for_each(|item| {
                 let mut user_option_set = self.workspace_map.get(&item.workspace.id.to_string());
                 if user_option_set.is_none() {
@@ -91,26 +91,26 @@ impl UserChannel {
                     user_option_set = self.workspace_map.get(&item.workspace.id.to_string());
                 }
                 let user_set = user_option_set.unwrap();
-                user_set.insert(user_id);
+                user_set.insert(user_id.clone());
             });
             let _ = self.update(user_id.clone(), context.clone()).await;
         }
     }
 
-    pub fn remove_user_observe(&self, user_id: i32) {
-        let workspace_set = self.user_map.get(&user_id);
+    pub fn remove_user_observe(&self, user_id: String) {
+        let workspace_set = self.user_map.get(&user_id.clone());
         if workspace_set.is_none() {
             return;
         }
         for item in workspace_set.unwrap().iter() {
             let user_option_set = self.workspace_map.get(&item.clone());
-            user_option_set.unwrap().remove(&user_id);
+            user_option_set.unwrap().remove(&user_id.clone());
         }
         self.user_map.remove(&user_id);
     }
 
-    async fn update(&self, user_id: i32, context: Arc<Context>) {
-        let all_workspace_info = self.get_workspace_list(user_id, context).await;
+    async fn update(&self, user_id: String, context: Arc<Context>) {
+        let all_workspace_info = self.get_workspace_list(user_id.clone(), context).await;
         let message_text = serde_json::to_string(&all_workspace_info).unwrap();
 
         let channel = self.channel.clone();
@@ -132,7 +132,7 @@ impl UserChannel {
         }
     }
 
-    async fn get_workspace_list(&self, user_id: i32, context: Arc<Context>) -> AllWorkspaceInfo {
+    async fn get_workspace_list(&self, user_id: String, context: Arc<Context>) -> AllWorkspaceInfo {
         let workspace_list = context.db.get_user_workspaces(user_id).await.unwrap();
         let mut workspace_detail_list: HashMap<String, Option<WorkspaceDetail>> = HashMap::new();
         let mut workspace_metadata_list: HashMap<String, Any> = HashMap::new();
@@ -165,12 +165,15 @@ pub async fn global_ws_handler(
     let user: Option<RefreshToken> = URL_SAFE_ENGINE
         .decode(token)
         .ok()
-        .and_then(|byte| ctx.decrypt_aes(byte))
+        .and_then(|byte| match ctx.decrypt_aes(byte) {
+            Ok(data) => data,
+            Err(_) => None,
+        })
         .and_then(|data| serde_json::from_slice(&data).ok());
 
     let user = if let Some(user) = user {
         if let Ok(true) = ctx.db.verify_refresh_token(&user).await {
-            Some(user.user_id)
+            Some(user.user_id.clone())
         } else {
             None
         }
@@ -181,9 +184,9 @@ pub async fn global_ws_handler(
         .on_upgrade(move |socket| async move { handle_socket(socket, user, ctx.clone()).await })
 }
 
-async fn handle_socket(socket: WebSocket, user: Option<i32>, context: Arc<Context>) {
+async fn handle_socket(socket: WebSocket, user: Option<String>, context: Arc<Context>) {
     // TODO check user
-    let user_id = user.unwrap_or(0);
+    let user_id = user.unwrap_or('0'.to_string());
     let (mut socket_tx, mut socket_rx) = socket.split();
     let (tx, mut rx) = channel(100);
 
@@ -206,7 +209,7 @@ async fn handle_socket(socket: WebSocket, user: Option<i32>, context: Arc<Contex
         .insert((user_id.clone(), uuid.clone()), tx.clone());
     context
         .user_channel
-        .add_user_observe(user.unwrap(), context.clone())
+        .add_user_observe(user_id.clone(), context.clone())
         .await;
 
     while let Some(msg) = socket_rx.next().await {

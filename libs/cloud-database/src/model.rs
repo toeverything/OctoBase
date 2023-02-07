@@ -24,7 +24,7 @@ pub struct GoogleClaims {
 
 #[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct User {
-    pub id: i32,
+    pub id: String,
     pub name: String,
     pub email: String,
     pub avatar_url: Option<String>,
@@ -88,7 +88,7 @@ pub struct RefreshToken {
     #[serde(with = "ts_milliseconds")]
     #[schemars(with = "i64")]
     pub expires: NaiveDateTime,
-    pub user_id: i32,
+    pub user_id: String,
     pub token_nonce: i16,
 }
 
