@@ -1,7 +1,7 @@
-job "affine-cloud-stage" {
+job "affine-cloud-dev" {
   region      = "global"
-  datacenters = ["production"]
-  namespace   = "production"
+  datacenters = ["development"]
+  namespace   = "development"
 
   type = "service"
 
@@ -11,7 +11,7 @@ job "affine-cloud-stage" {
   }
 
   # Defines a series of tasks that should be co-located on the same Nomad client.
-  group "affine-cloud-stage" {
+  group "affine-cloud-dev" {
     count = 1
 
     restart {
@@ -38,10 +38,10 @@ job "affine-cloud-stage" {
     }
 
     service {
-      tags = ["urlprefix-stage.affine.live/", "urlprefix-stage.affine.pro/"]
+      tags = ["urlprefix-dev.affine.live/"]
       port = "affine-cloud"
       check {
-        name     = "Affine Cloud Stage Check"
+        name     = "Affine Cloud Dev Check"
         type     = "http"
         path     = "/api/healthz"
         interval = "10s"
@@ -61,11 +61,11 @@ job "affine-cloud-stage" {
       }
       template {
         data = <<EOH
-DATABASE_URL        = "postgresql://affine:{{ key "service/stage/affine-cloud/database_password" }}@{{ env "NOMAD_ADDR_postgres" }}/affine"
-SIGN_KEY            = "{{ key "service/stage/affine-cloud/sign_key" }}"
-MAIL_ACCOUNT        = "{{ key "service/stage/affine-cloud/mail_account" }}"
-MAIL_PASSWORD       = "{{ key "service/stage/affine-cloud/mail_password" }}"
-SITE_URL            = "https://stage.affine.pro"
+DATABASE_URL        = "postgresql://affine:{{ key "service/development/affine-cloud/database_password" }}@{{ env "NOMAD_ADDR_postgres" }}/affine"
+SIGN_KEY            = "{{ key "service/development/affine-cloud/sign_key" }}"
+MAIL_ACCOUNT        = "{{ key "service/development/affine-cloud/mail_account" }}"
+MAIL_PASSWORD       = "{{ key "service/development/affine-cloud/mail_password" }}"
+SITE_URL            = "https://dev.affine.live"
 FIREBASE_PROJECT_ID = "pathfinder-52392"
 # GOOGLE_ENDPOINT   = "http://100.77.180.48:11002"
 # GOOGLE_ENDPOINT_PASSWORD = "Dct4pq9E9V"
@@ -113,7 +113,7 @@ EOH
       template {
         data = <<EOH
 POSTGRES_USER     = "affine"
-POSTGRES_PASSWORD = "{{ key "service/stage/affine-cloud/database_password" }}"
+POSTGRES_PASSWORD = "{{ key "service/development/affine-cloud/database_password" }}"
 EOH
 
         destination = "secrets/.env"
@@ -136,7 +136,7 @@ EOH
         force_pull = true
         ports      = ["postgres"]
         volumes = [
-          "/home/affineos2022/affine-cloud-stage/database:/var/lib/postgresql/data",
+          "/home/affine/affine-cloud-development:/var/lib/postgresql/data",
           "local/init.sql:/docker-entrypoint-initdb.d/init.sql"
         ]
 
