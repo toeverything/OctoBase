@@ -105,7 +105,7 @@ impl DocAutoStorage {
             .await
     }
 
-    async fn insert(&self, table: &str, blob: &[u8]) -> Result<(), DbErr> {
+    pub async fn insert(&self, table: &str, blob: &[u8]) -> Result<(), DbErr> {
         UpdateBinary::insert(UpdateBinaryActiveModel {
             workspace: Set(table.into()),
             timestamp: Set(Utc::now()),
@@ -116,7 +116,7 @@ impl DocAutoStorage {
         Ok(())
     }
 
-    async fn replace_with(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
+    pub async fn replace_with(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
         let mut tx = self.pool.begin().await?;
 
         UpdateBinary::delete_many()
