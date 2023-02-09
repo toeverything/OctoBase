@@ -30,11 +30,11 @@ job "affine-cloud-dev" {
         to           = 5432
         host_network = "tailscale"
       }
-      //   port "apiproxy" {
-      //     static       = 11002
-      //     to           = 3001
-      //     host_network = "tailscale"
-      //   }
+      port "apiproxy" {
+        static       = 11002
+        to           = 3001
+        host_network = "tailscale"
+      }
     }
 
     service {
@@ -76,7 +76,7 @@ EOH
       }
 
       config {
-        image      = "ghcr.io/toeverything/cloud:canary-8facb5587a77b79e5f1614538e1ca861053be431"
+        image      = "ghcr.io/toeverything/cloud:canary-515061eb0f7f21134b711298cc13971a225177e7"
         force_pull = true
         ports      = ["affine-cloud"]
       }
@@ -144,6 +144,20 @@ EOH
       resources {
         cpu    = 200 # MHz
         memory = 128 # MB
+      }
+    }
+
+    task "apiproxy" {
+      driver = "docker"
+
+      config {
+        image      = "ghcr.io/toeverything/apiproxy:nightly-latest"
+        force_pull = true
+        ports      = ["apiproxy"]
+      }
+      resources {
+        cpu    = 100 # MHz
+        memory = 64  # MB
       }
     }
   }

@@ -76,7 +76,7 @@ EOH
       }
 
       config {
-        image      = "ghcr.io/toeverything/cloud:canary-8facb5587a77b79e5f1614538e1ca861053be431"
+        image      = "ghcr.io/toeverything/cloud:canary-515061eb0f7f21134b711298cc13971a225177e7"
         force_pull = true
         ports      = ["affine-cloud"]
       }
