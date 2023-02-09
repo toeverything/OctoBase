@@ -33,7 +33,9 @@ OctoBase can be used either as a stand-alone server database, or directly includ
 
 A very good place to ask questions and discuss development work is our [Telegram Group].
 
-We gladly accept contributions via GitHub pull requests, you can go to [contributing] to see more information
+We gladly accept contributions via GitHub pull requests, you can go to [contributing] to see more information.
+
+**Before you start contributing, please make sure you have read and accepted our [Contributor License Agreement]. To indicate your agreement, simply edit this file and submit a pull request.**
 
 ## Goals
 
@@ -81,3 +83,4 @@ Currently, this repository is under **active development** and most components a
 [roadmap]: https://github.com/toeverything/OctoBase/issues/9
 [fossil]: https://www2.fossil-scm.org/home/doc/trunk/www/index.wiki
 [sqlite]: https://sqlite.org/index.html
+[contributor license agreement]: https://github.com/toeverything/octobase/edit/master/.github/CLA.md
