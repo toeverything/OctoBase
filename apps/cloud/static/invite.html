@@ -7,104 +7,15 @@
     <title>Document</title>
   </head>
 
-  <body>
-    <style>
-      p {
-        margin: 0;
-        padding: 0;
-        margin-top: 16px;
-      }
-      a {
-        text-decoration: none;
-      }
-      h1,
-      h2,
-      h3,
-      h4,
-      h5,
-      h6 {
-        margin: 0;
-        padding: 0;
-      }
+  <body style="margin: 0;">
 
-      .affine-email {
-        width: 600px;
-        margin: auto;
-        font-family: "Inter";
-        color: #4c6275;
-        background-color: #fff;
-      }
-
-      .affine-header {
-        padding-left: 25px;
-      }
-
-      .affine-content {
-        margin-top: 40px;
-        padding-left: 48px;
-      }
-
-      .affine-content .title {
-        font-family: "Inter";
-        font-style: normal;
-        font-weight: 700;
-        font-size: 28px;
-      }
-
-      .user-invite span {
-        font-weight: 500;
-        font-size: 18px;
-      }
-
-      .user-invite img {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        vertical-align: middle;
-        margin-right: 12px;
-        box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
-          -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
-          4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);
-      }
-
-      .btn {
-        padding: 10px 28px;
-        display: inline-block;
-        text-decoration: none;
-        background: #6880ff;
-        border-radius: 60px;
-        color: #fff;
-      }
-
-      .footer {
-        padding: 28px 48px;
-        margin-top: 40px;
-        font-size: 14px;
-        color: #4c6275;
-        background: #f8f9ff;
-      }
-
-      .open-source {
-        text-decoration: none;
-        color: #4c6275;
-      }
-
-      .open-source:hover {
-        color: #6880ff;
-      }
-
-      .footer-info {
-        text-align: center;
-        margin-top: 40px;
-      }
-      .footer-info a {
-        display: inline-block;
-        margin-left: 16px;
-      }
-    </style>
     <div style="width: 100%; height: 100%; background: #eef0f4">
-      <div class="affine-email">
-        <header class="affine-header">
+      <div style=" width: 600px;
+      margin: auto;
+      font-family: 'Inter';
+      color: #4c6275;
+      background-color: #fff;">
+        <header style="padding-left: 25px;">
           <svg
             width="100"
             height="42"
@@ -150,35 +61,68 @@
             />
           </svg>
         </header>
-        <div class="affine-content">
-          <h2 class="title">You are invited!</h2>
-          <p class="user-invite">
-            <img src="{{avatar_url}}" alt="" />
-            <span>{{inviter_name}}</span> invited you to join
-            <img style="margin-left: 6px" src="cid:avatar" alt="" />
-            <span>{{workspace_name}}</span>
-          </p>
-          <p>Click here to join this workspace</p>
-          <p class="">
-            <a class="btn" href="{{site_url}}/invite/{{invite_code}}"
+        <div style="  margin-top: 40px;
+        padding-left: 48px;">
+          <div style=" font-family: 'Inter';
+          font-style: normal;
+          font-weight: 700;
+          font-size: 28px;">You are invited!</div>
+          <div style="font-weight: 500;
+          font-size: 18px;" class="user-invite">
+            <img style=" width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            vertical-align: middle;
+            margin-right: 12px;
+            box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
+              -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
+              4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);" src="{{avatar_url}}" alt="" />
+            <span style=" font-weight: 500;
+            font-size: 18px;">{{inviter_name}}</span> invited you to join
+            <img style="margin-left: 6px; width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            vertical-align: middle;
+            margin-right: 12px;
+            box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
+              -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
+              4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);" src="cid:avatar" alt="" />
+            <span style=" font-weight: 500;
+            font-size: 18px;">{{workspace_name}}</span>
+          </div>
+          <div style="margin: 10px 0;">Click here to join this workspace</div>
+          <div style=" margin: 10px 0;">
+            <a style=" padding: 10px 28px;
+            display: inline-block;
+           
+            text-decoration: none;
+            background: #6880ff;
+            border-radius: 60px;
+            color: #fff;" href="{{site_url}}/invite/{{invite_code}}"
               >Accept & Join</a
             >
-          </p>
-          <p>or copy and paste this url</p>
-          <p>{{site_url}}/invite/{{invite_code}}</p>
+          </div>
+          <div>or copy and paste this url</div>
+          <div>{{site_url}}/invite/{{invite_code}}</div>
         </div>
-        <footer class="footer">
+        <footer style=" padding: 28px 48px;
+        margin-top: 40px;
+        font-size: 14px;
+        color: #4c6275;
+        background: #f8f9ff;" >
           <div>
             <img width="100%" src="./bg.jpeg" alt="" />
           </div>
 
-          <a class="open-source" href="affine.pro">Open Source,Privacy First</a>
-          <p>
+          <a style=" font-size: 19px;text-decoration: none;
+          color: #4c6275;font-weight: 700;" href="affine.pro">Open Source,Privacy First</a>
+          <div style="margin: 10px 0;">
             Affine is the next-generation collaborative knowledge base for
             professionals.
-          </p>
+          </div>
 
-          <div class="footer-info">
+          <div style="text-align: center;
+          margin-top: 40px;">
             <svg
               width="100"
               height="42"
@@ -226,7 +170,8 @@
 
             <p>Copyright © 2022 Toeverything</p>
             <p class="footer-contact">
-              <a href="https://www.reddit.com/r/Affine/"
+              <a style="display: inline-block;
+              margin-left: 16px;" href="https://www.reddit.com/r/Affine/"
                 ><svg
                   width="22"
                   height="21"
@@ -240,7 +185,8 @@
                   />
                 </svg>
               </a>
-              <a href="https://twitter.com/AffineOfficial">
+              <a style="display: inline-block;
+              margin-left: 16px;" href="https://twitter.com/AffineOfficial">
                 <svg
                   width="22"
                   height="22"
@@ -254,7 +200,8 @@
                   />
                 </svg>
               </a>
-              <a href="https://github.com/toeverything/AFFiNE/"
+              <a style="display: inline-block;
+              margin-left: 16px;" href="https://github.com/toeverything/AFFiNE/"
                 ><svg
                   width="22"
                   height="22"
@@ -277,7 +224,8 @@
                   </defs>
                 </svg>
               </a>
-              <a href="https://t.me/affineworkos"
+              <a style="display: inline-block;
+              margin-left: 16px;" href="https://t.me/affineworkos"
                 ><svg
                   width="22"
                   height="22"
@@ -291,7 +239,8 @@
                   />
                 </svg>
               </a>
-              <a href="https://discord.gg/yz6tGVsf5p">
+              <a style="display: inline-block;
+              margin-left: 16px;" href="https://discord.gg/yz6tGVsf5p">
                 <svg
                   width="22"
                   height="22"
