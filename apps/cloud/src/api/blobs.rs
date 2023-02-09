@@ -16,7 +16,7 @@ use http::{
     },
     HeaderMap, HeaderValue,
 };
-use jwst::{BlobStorage, DocStorage};
+use jwst::{error, BlobStorage};
 use mime::APPLICATION_OCTET_STREAM;
 use std::sync::Arc;
 
@@ -179,7 +179,10 @@ pub async fn upload_blob_in_workspace(
     {
         Ok(true) => (),
         Ok(false) => return ErrorStatus::Forbidden.into_response(),
-        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to check read workspace: {}", e);
+            return ErrorStatus::InternalServerError.into_response();
+        }
     }
 
     ctx.upload_blob(stream, Some(workspace_id)).await
@@ -191,17 +194,21 @@ pub async fn create_workspace(
     TypedHeader(length): TypedHeader<ContentLength>,
     stream: BodyStream,
 ) -> Response {
-    if let Ok(data) = ctx.db.create_normal_workspace(claims.user.id.clone()).await {
-        let id = data.id.to_string();
-        let update = ctx.upload_workspace(stream).await;
-        if !ctx.doc.full_migrate(id, Some(update)).await {
-            return ErrorStatus::InternalServerError.into_response();
+    match ctx.db.create_normal_workspace(claims.user.id.clone()).await {
+        Ok(data) => {
+            let id = data.id.to_string();
+            let update = ctx.upload_workspace(stream).await;
+            if !ctx.doc.full_migrate(id, Some(update)).await {
+                return ErrorStatus::InternalServerError.into_response();
+            }
+            ctx.user_channel
+                .add_user_observe(claims.user.id.clone(), ctx.clone())
+                .await;
+            Json(data).into_response()
         }
-        ctx.user_channel
-            .add_user_observe(claims.user.id.clone(), ctx.clone())
-            .await;
-        Json(data).into_response()
-    } else {
-        ErrorStatus::InternalServerError.into_response()
+        Err(e) => {
+            error!("Failed to create workspace: {}", e);
+            ErrorStatus::InternalServerError.into_response()
+        }
     }
 }

@@ -14,7 +14,7 @@ use cloud_database::{
     WorkspaceSearchInput,
 };
 use http::StatusCode;
-use jwst::BlobStorage;
+use jwst::{error, BlobStorage};
 use lib0::any::Any;
 use std::sync::Arc;
 use tower::ServiceBuilder;
@@ -160,7 +160,10 @@ async fn make_token(
             Json(UserToken { token, refresh }).into_response()
         }
         Ok(None) => ErrorStatus::Unauthorized.into_response(),
-        Err(_) => ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to make token: {:?}", e);
+            ErrorStatus::InternalServerError.into_response()
+        }
     }
 }
 
@@ -169,10 +172,12 @@ async fn get_workspaces(
     Extension(claims): Extension<Arc<Claims>>,
 ) -> Response {
     // TODO should print error
-    if let Ok(data) = ctx.db.get_user_workspaces(claims.user.id.clone()).await {
-        Json(data).into_response()
-    } else {
-        ErrorStatus::InternalServerError.into_response()
+    match ctx.db.get_user_workspaces(claims.user.id.clone()).await {
+        Ok(data) => Json(data).into_response(),
+        Err(e) => {
+            error!("Failed to get workspaces: {:?}", e);
+            ErrorStatus::InternalServerError.into_response()
+        }
     }
 }
 
@@ -188,13 +193,19 @@ async fn get_workspace_by_id(
     {
         Ok(Some(_)) => (),
         Ok(None) => return ErrorStatus::Forbidden.into_response(),
-        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to get permission: {:?}", e);
+            return ErrorStatus::InternalServerError.into_response();
+        }
     }
 
     match ctx.db.get_workspace_by_id(workspace_id.clone()).await {
         Ok(Some(data)) => Json(data).into_response(),
         Ok(None) => ErrorStatus::NotFoundWorkspace(workspace_id).into_response(),
-        Err(_) => ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to get workspace: {:?}", e);
+            ErrorStatus::InternalServerError.into_response()
+        }
     }
 }
 
@@ -211,7 +222,10 @@ async fn update_workspace(
     {
         Ok(Some(p)) if p.can_admin() => (),
         Ok(_) => return ErrorStatus::Forbidden.into_response(),
-        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to get permission: {:?}", e);
+            return ErrorStatus::InternalServerError.into_response();
+        }
     }
 
     match ctx.db.update_workspace(workspace_id.clone(), payload).await {
@@ -221,7 +235,10 @@ async fn update_workspace(
             Json(data).into_response()
         }
         Ok(None) => ErrorStatus::NotFoundWorkspace(workspace_id).into_response(),
-        Err(_) => ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to update workspace: {:?}", e);
+            ErrorStatus::InternalServerError.into_response()
+        }
     }
 }
 
@@ -237,7 +254,10 @@ async fn delete_workspace(
     {
         Ok(Some(p)) if p.is_owner() => (),
         Ok(_) => return ErrorStatus::Forbidden.into_response(),
-        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to get permission: {:?}", e);
+            return ErrorStatus::InternalServerError.into_response();
+        }
     }
 
     match ctx.db.delete_workspace(workspace_id.clone()).await {
@@ -248,7 +268,10 @@ async fn delete_workspace(
             StatusCode::OK.into_response()
         }
         Ok(false) => ErrorStatus::NotFoundWorkspace(workspace_id).into_response(),
-        Err(_) => ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to delete workspace: {:?}", e);
+            ErrorStatus::InternalServerError.into_response()
+        }
     }
 }
 
@@ -264,7 +287,10 @@ async fn get_doc(
     {
         Ok(true) => (),
         Ok(false) => return ErrorStatus::Forbidden.into_response(),
-        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to get permission: {:?}", e);
+            return ErrorStatus::InternalServerError.into_response();
+        }
     }
 
     get_workspace_doc(ctx, workspace_id).await
@@ -277,7 +303,10 @@ pub async fn get_public_doc(
     match ctx.db.is_public_workspace(workspace_id.clone()).await {
         Ok(true) => (),
         Ok(false) => return ErrorStatus::Forbidden.into_response(),
-        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to get permission: {:?}", e);
+            return ErrorStatus::InternalServerError.into_response();
+        }
     }
 
     get_workspace_doc(ctx, workspace_id).await
@@ -307,7 +336,10 @@ async fn search_workspace(
     {
         Ok(true) => (),
         Ok(false) => return ErrorStatus::Forbidden.into_response(),
-        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to get permission: {:?}", e);
+            return ErrorStatus::InternalServerError.into_response();
+        }
     };
 
     let search_results = match ctx.search_workspace(workspace_id, &payload.query).await {

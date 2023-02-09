@@ -1,16 +1,16 @@
-use axum::{
-    extract::Path,
-    response::{IntoResponse, Response},
-    Extension, Json,
-};
-
 use crate::{
     context::Context,
     error_status::ErrorStatus,
     utils::{Engine, URL_SAFE_ENGINE},
 };
+use axum::{
+    extract::Path,
+    response::{IntoResponse, Response},
+    Extension, Json,
+};
 use cloud_database::{Claims, CreatePermission, PermissionType, UserCred, WorkspaceMetadata};
 use http::StatusCode;
+use jwst::error;
 use lettre::{
     message::{Mailbox, MultiPart, SinglePart},
     AsyncTransport, Message,
@@ -30,13 +30,18 @@ pub async fn get_members(
     {
         Ok(Some(p)) if p.can_admin() => (),
         Ok(_) => return ErrorStatus::Forbidden.into_response(),
-        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to get permission: {}", e);
+            return ErrorStatus::InternalServerError.into_response();
+        }
     };
 
-    if let Ok(members) = ctx.db.get_workspace_members(workspace_id).await {
-        Json(members).into_response()
-    } else {
-        ErrorStatus::InternalServerError.into_response()
+    match ctx.db.get_workspace_members(workspace_id).await {
+        Ok(members) => Json(members).into_response(),
+        Err(e) => {
+            error!("Failed to get workspace members: {}", e);
+            ErrorStatus::InternalServerError.into_response()
+        }
     }
 }
 
@@ -125,7 +130,10 @@ pub async fn invite_member(
     {
         Ok(Some(p)) if p.can_admin() => (),
         Ok(_) => return ErrorStatus::Forbidden.into_response(),
-        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to get permission: {}", e);
+            return ErrorStatus::InternalServerError.into_response();
+        }
     };
 
     let Ok(addr) = data.email.clone().parse() else {
@@ -139,7 +147,10 @@ pub async fn invite_member(
     {
         Ok(Some(p)) => p,
         Ok(None) => return ErrorStatus::ConflictInvitation.into_response(),
-        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to create permission: {}", e);
+            return ErrorStatus::InternalServerError.into_response();
+        }
     };
 
     let invite_user = user_cred.clone();
@@ -219,7 +230,10 @@ pub async fn accept_invitation(
     match ctx.db.accept_permission(i64::from_le_bytes(data)).await {
         Ok(Some(p)) => Json(p).into_response(),
         Ok(None) => ErrorStatus::NotFoundInvitation.into_response(),
-        Err(_) => ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to accept invitation: {}", e);
+            ErrorStatus::InternalServerError.into_response()
+        }
     }
 }
 
@@ -235,7 +249,10 @@ pub async fn leave_workspace(
     {
         Ok(true) => StatusCode::OK.into_response(),
         Ok(false) => StatusCode::OK.into_response(),
-        Err(_) => ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to leave workspace: {}", e);
+            ErrorStatus::InternalServerError.into_response()
+        }
     }
 }
 
@@ -251,12 +268,18 @@ pub async fn remove_user(
     {
         Ok(Some(p)) if p.can_admin() => (),
         Ok(_) => return ErrorStatus::Forbidden.into_response(),
-        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to get permission: {}", e);
+            return ErrorStatus::InternalServerError.into_response();
+        }
     }
 
     match ctx.db.delete_permission(id).await {
         Ok(true) => StatusCode::OK.into_response(),
         Ok(false) => StatusCode::OK.into_response(),
-        Err(_) => ErrorStatus::InternalServerError.into_response(),
+        Err(e) => {
+            error!("Failed to remove user: {}", e);
+            ErrorStatus::InternalServerError.into_response()
+        }
     }
 }

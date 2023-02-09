@@ -13,6 +13,7 @@ jwst = { path = "../../jwst" }
 yrs = { path = "../../vendors/y-crdt/yrs" }
 
 [lib]
+name = "octobase"
 crate-type = ["staticlib"]
 
 [build-dependencies]
