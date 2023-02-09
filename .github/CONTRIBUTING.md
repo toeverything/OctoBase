@@ -21,10 +21,6 @@ Submitting Pull Request means that you will accept:
 
 -   You understand and agree with our [Contributor License Agreement](./CLA.md)
 
--   You understand and agree that your code will be under the AGPL3.0 License until the OctoBase version reaches 1.0.
-
--   You understand and agree that OctoBase may be adjusted to other open source license after version 1.0.
-
 ## Tips
 
 If your Pull Request has not progressed for a long time (close or merge), please send the relevant information to developer@toeverything.info.
