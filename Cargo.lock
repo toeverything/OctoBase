@@ -2147,6 +2147,8 @@ dependencies = [
  "cbindgen",
  "jwst",
  "lib0 0.12.2",
+ "swift-bridge",
+ "swift-bridge-build",
  "yrs 0.12.0",
 ]
 
@@ -4365,6 +4367,51 @@ name = "subtle"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
+
+[[package]]
+name = "swift-bridge"
+version = "0.1.48"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42e201747e3ddaed7ed27d8f7d6d331cae7b2f249e10a069b4c5766dae279ae8"
+dependencies = [
+ "swift-bridge-build",
+ "swift-bridge-macro",
+]
+
+[[package]]
+name = "swift-bridge-build"
+version = "0.1.48"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6a6b9fc053fb282e370bf771ca4ca27b5b75e0e460f7bee9e0ae841d62a0ab8"
+dependencies = [
+ "proc-macro2 1.0.49",
+ "swift-bridge-ir",
+ "syn 1.0.107",
+ "tempfile",
+]
+
+[[package]]
+name = "swift-bridge-ir"
+version = "0.1.48"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4617f6ac8adf523a766b33fe9c9dfdc1c5caccad9bf02d8870e18d49e63e1fab"
+dependencies = [
+ "proc-macro2 1.0.49",
+ "quote 1.0.23",
+ "syn 1.0.107",
+]
+
+[[package]]
+name = "swift-bridge-macro"
+version = "0.1.48"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd19026297632faaf4f47cb41a8f030e06b4404becb4d881713e7868451d2a8a"
+dependencies = [
+ "proc-macro2 1.0.49",
+ "quote 1.0.23",
+ "swift-bridge-ir",
+ "syn 1.0.107",
+]
 
 [[package]]
 name = "syn"

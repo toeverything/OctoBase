@@ -1,5 +1,7 @@
 use std::{collections::HashMap, env, path::PathBuf};
 
+const XCODE_CONFIGURATION_ENV: &'static str = "CONFIGURATION";
+
 fn main() {
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let output = PathBuf::from(
@@ -44,4 +46,15 @@ typedef struct YTransaction {} YTransaction;
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(output);
+
+    let out_dir = "../../../apps/swift/octobase/Generated";
+
+    let bridges = vec!["src/lib.rs"];
+    for path in &bridges {
+        println!("cargo:rerun-if-changed={}", path);
+    }
+    println!("cargo:rerun-if-env-changed={}", XCODE_CONFIGURATION_ENV);
+
+    swift_bridge_build::parse_bridges(bridges)
+        .write_all_concatenated(out_dir, env!("CARGO_PKG_NAME"));
 }

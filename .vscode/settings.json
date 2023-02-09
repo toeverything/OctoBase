@@ -77,5 +77,8 @@
 	},
 	"[hcl]": {
 		"editor.defaultFormatter": "fredwangwang.vscode-hcl-format"
+	},
+	"[md]": {
+		"editor.defaultFormatter": "vscode.markdown-language-features"
 	}
 }

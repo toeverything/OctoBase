@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 lib0 = "0.12.2"
+swift-bridge = "0.1.48"
 
 # ======= workspace dependencies =======
 jwst = { path = "../../jwst" }
@@ -18,3 +19,4 @@ crate-type = ["staticlib"]
 
 [build-dependencies]
 cbindgen = "^0.24.3"
+swift-bridge-build = "0.1.48"
