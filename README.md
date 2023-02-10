@@ -54,7 +54,7 @@ on all common platforms. In order to achieve this goal, we will strive to do the
 # install rust toolchain
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 # clone the repo
-git clone --recurse-submodules https://github.com/toeverything/octobase/
+git clone https://github.com/toeverything/octobase/
 # start sync server
 cargo run --bin keck
 ```
