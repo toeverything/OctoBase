@@ -64,7 +64,7 @@ pub struct GoogleClaims {
 
 #[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct User {
-    pub id: i32,
+    pub id: String,
     pub name: String,
     pub email: String,
     pub avatar_url: Option<String>,
@@ -341,7 +341,7 @@ pub struct MemberResult {
     pub r#type: PermissionType,
     pub accepted: bool,
     pub created_at: NaiveDateTime,
-    pub user_id: Option<i32>,
+    pub user_id: Option<String>,
     pub user_name: Option<String>,
     pub user_email: Option<String>,
     pub user_avatar_url: Option<String>,
@@ -350,9 +350,9 @@ pub struct MemberResult {
 
 impl From<&MemberResult> for Member {
     fn from(r: &MemberResult) -> Self {
-        let user = if let Some(id) = r.user_id {
+        let user = if let Some(id) = r.user_id.clone() {
             UserCred::Registered(User {
-                id,
+                id: id.clone(),
                 name: r.user_name.clone().unwrap(),
                 email: r.user_email.clone().unwrap(),
                 avatar_url: r.user_avatar_url.clone(),
