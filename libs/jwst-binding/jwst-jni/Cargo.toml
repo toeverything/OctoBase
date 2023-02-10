@@ -18,7 +18,7 @@ tokio = "1.24.2"
 # ======= workspace dependencies =======
 jwst = { path = "../../jwst" }
 jwst-storage = { path = "../../jwst-storage", features = ["sqlite"] }
-yrs = { path = "../../vendors/y-crdt/yrs" }
+yrs = "=0.12.0"
 
 [build-dependencies]
 flapigen = { git = "https://github.com/Dushistov/flapigen-rs", rev = "5ccbdef4557a2f4950078824dad970876b964160" } # 0.6.0-pre13

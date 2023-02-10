@@ -1,7 +1,6 @@
 // use super::*;
 // use sqlx::{postgres::PgRow, FromRow, Result, Row};
 
-use affine_cloud_migration::DbErr;
 use chrono::naive::serde::{ts_milliseconds, ts_seconds};
 use jwst_logger::error;
 use schemars::{JsonSchema, JsonSchema_repr};

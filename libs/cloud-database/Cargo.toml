@@ -42,4 +42,4 @@ uuid = { version = "1.2.2", features = [
 affine-cloud-migration = { path = "./migration" }
 jwst = { path = "../jwst" }
 jwst-logger = { path = "../jwst-logger" }
-yrs = { path = "../vendors/y-crdt/yrs" }
+yrs = "=0.12.0"

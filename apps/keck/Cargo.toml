@@ -53,7 +53,7 @@ jwst = { path = "../../libs/jwst" }
 jwst-logger = { path = "../../libs/jwst-logger" }
 jwst-static = { path = "../../libs/jwst-static" }
 jwst-storage = { path = "../../libs/jwst-storage" }
-yrs = { path = "../../libs/vendors/y-crdt/yrs" }
+yrs = "=0.12.0"
 
 [dev-dependencies]
 axum-test-helper = "0.2.0"

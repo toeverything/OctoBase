@@ -67,5 +67,5 @@ jwst = { path = "../../libs/jwst" }
 jwst-logger = { path = "../../libs/jwst-logger" }
 jwst-static = { path = "../../libs/jwst-static" }
 jwst-storage = { path = "../../libs/jwst-storage" }
-y-sync = { path = "../../libs/vendors/y-sync" }
-yrs = { path = "../../libs/vendors/y-crdt/yrs" }
+y-sync = "0.1.0"
+yrs = "=0.12.0"
