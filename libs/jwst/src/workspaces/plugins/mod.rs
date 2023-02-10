@@ -1,12 +1,12 @@
 #[cfg(feature = "workspace-search")]
 mod indexing;
-mod plugins;
+mod plugin;
 
 use super::*;
 
 #[cfg(feature = "workspace-search")]
 pub(super) use indexing::IndexingPluginImpl;
-pub(super) use plugins::{PluginImpl, PluginMap, PluginRegister};
+pub(super) use plugin::{PluginImpl, PluginMap, PluginRegister};
 
 #[cfg(feature = "workspace-search")]
 pub use indexing::{SearchResult, SearchResults};

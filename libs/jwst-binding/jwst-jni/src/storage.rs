@@ -2,11 +2,8 @@ use android_logger::Config;
 use jwst::{error, DocStorage, DocSync};
 use jwst_storage::DocAutoStorage;
 use log::LevelFilter;
-use std::{
-    io::Result,
-    sync::{Arc, RwLock},
-};
-use tokio::runtime::Runtime;
+use std::{io::Result, sync::Arc};
+use tokio::{runtime::Runtime, sync::RwLock};
 use yrs::{updates::decoder::Decode, Doc, Update};
 
 #[derive(Clone)]
@@ -45,9 +42,11 @@ impl JwstStorage {
 
     pub fn connect(&self, workspace_id: String, remote: String) -> Result<()> {
         if let Some(storage) = &self.storage {
-            let storage = storage.read().unwrap();
             let rt = Runtime::new().unwrap();
-            rt.block_on(storage.sync(workspace_id, remote))?;
+            rt.block_on(async move {
+                let storage = storage.read().await;
+                storage.sync(workspace_id, remote).await
+            })?;
             Ok(())
         } else {
             Err(std::io::Error::new(
@@ -59,9 +58,9 @@ impl JwstStorage {
 
     pub fn reload(&self, workspace_id: String, doc: &Doc) {
         if let Some(storage) = &self.storage {
-            let storage = storage.write().unwrap();
             let rt = Runtime::new().unwrap();
-            rt.block_on(async {
+            rt.block_on(async move {
+                let storage = storage.write().await;
                 let updates = storage
                     .all(&workspace_id)
                     .await
@@ -82,10 +81,12 @@ impl JwstStorage {
 
     pub fn write_update(&self, workspace_id: String, update: &[u8]) -> Result<()> {
         if let Some(storage) = &self.storage {
-            let storage = storage.write().unwrap();
             let rt = Runtime::new().unwrap();
             log::info!("update: {:?}", update);
-            rt.block_on(storage.write_update(workspace_id, update))?;
+            rt.block_on(async move {
+                let storage = storage.write().await;
+                storage.write_update(workspace_id, update).await
+            })?;
         }
         Ok(())
     }

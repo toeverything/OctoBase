@@ -18,11 +18,11 @@ use uuid::Uuid;
 //     type_: PermissionType,
 // }
 
-pub struct ORM {
+pub struct CloudDatabase {
     pub pool: DatabaseConnection,
 }
 
-impl ORM {
+impl CloudDatabase {
     pub async fn init_pool(database: &str) -> Result<Self, DbErr> {
         let pool = Database::connect(database).await?;
         Migrator::up(&pool, None).await?;
@@ -129,7 +129,7 @@ impl ORM {
             .create_workspace(&trx, uuid.clone(), WorkspaceType::Private)
             .await?;
 
-        Self::update_cred(&mut trx, uuid, &user.email).await?;
+        Self::update_cred(&trx, uuid, &user.email).await?;
 
         trx.commit().await?;
 
@@ -199,7 +199,7 @@ impl ORM {
         ws_type: WorkspaceType,
     ) -> Result<WorkspacesModel, DbErr> {
         let uuid = Uuid::new_v4();
-        let workspace_id = uuid.to_string().replace("-", "_");
+        let workspace_id = uuid.to_string().replace('-', "_");
 
         let workspace = Workspaces::insert(WorkspacesActiveModel {
             public: Set(false),
@@ -224,9 +224,9 @@ impl ORM {
     }
 
     pub async fn create_normal_workspace(&self, user_id: String) -> Result<WorkspacesModel, DbErr> {
-        let mut trx = self.pool.begin().await?;
+        let trx = self.pool.begin().await?;
         let workspace = self
-            .create_workspace(&mut trx, user_id, WorkspaceType::Normal)
+            .create_workspace(&trx, user_id, WorkspaceType::Normal)
             .await?;
 
         trx.commit().await?;
@@ -413,7 +413,7 @@ impl ORM {
         Permissions::insert(PermissionActiveModel {
             // todo: fix this
             // user_id: Set(user.clone().and_then(|u| u.id)),
-            user_email: Set(user.clone().and_then(|_| None).or(Some(email.to_string()))),
+            user_email: Set(user.clone().and(None).or(Some(email.to_string()))),
             workspace_id: Set(workspace_id),
             r#type: Set(permission_type as i32),
             ..Default::default()
@@ -456,7 +456,7 @@ impl ORM {
         let trx = self.pool.begin().await?;
 
         Permissions::delete_many()
-            .filter(PermissionColumn::Id.eq(permission_id.clone()))
+            .filter(PermissionColumn::Id.eq(permission_id))
             .exec(&trx)
             .await
             .map(|q| q.rows_affected > 0)
@@ -489,7 +489,7 @@ impl ORM {
 
         Ok(if let Some(user) = user {
             let in_workspace = Permissions::find()
-                .filter(PermissionColumn::UserId.eq(user.id.clone()))
+                .filter(PermissionColumn::UserId.eq(user.id))
                 .filter(PermissionColumn::WorkspaceId.eq(workspace_id))
                 .one(&self.pool)
                 .await
