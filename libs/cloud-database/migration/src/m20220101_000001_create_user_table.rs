@@ -18,6 +18,12 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
+                    .col(
+                        ColumnDef::new(Users::Uuid)
+                            .char_len(36)
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(ColumnDef::new(Users::Name).string().not_null())
                     .col(
                         ColumnDef::new(Users::Email)
@@ -49,6 +55,7 @@ impl MigrationTrait for Migration {
 pub enum Users {
     Table,
     Id,         // SERIAL PRIMARY KEY,
+    Uuid,       // CHAR(36),
     Name,       // TEXT NOT NULL,
     Email,      // TEXT NOT NULL Unique,
     AvatarUrl,  // TEXT,
