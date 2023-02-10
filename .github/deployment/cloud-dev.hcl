@@ -23,6 +23,7 @@ job "affine-cloud-dev" {
 
     network {
       port "affine-cloud" {
+        static       = 11001
         to           = 3000
         host_network = "tailscale"
       }
@@ -76,7 +77,7 @@ EOH
       }
 
       config {
-        image      = "ghcr.io/toeverything/cloud:canary-515061eb0f7f21134b711298cc13971a225177e7"
+        image      = "ghcr.io/toeverything/cloud:canary-1888f2c6271e99b8c318911c436c6a98f7f9faab"
         force_pull = true
         ports      = ["affine-cloud"]
       }
