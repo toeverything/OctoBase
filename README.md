@@ -75,6 +75,11 @@ In the process of project development, there are many software development conce
 
 Some amazing companies including OctoBase are looking for developers! Are you interested in helping build with OctoBase and/or its partners? Check out some of the latest [jobs available](https://github.com/toeverything/AFFiNE/blob/master/docs/jobs/summary.md).
 
+
+## Building
+
+See [BUILDING.md](./docs/BUILDING.md) for instructions on how to build OctoBase from source code.
+
 ## License
 
 Currently, this repository is under **active development** and most components are not yet production ready, so all code is under [AGPL-3.0]. We will switch to [MPL 2.0] or a more looser license release after the corresponding components are ready for production.
