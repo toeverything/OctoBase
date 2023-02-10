@@ -105,7 +105,7 @@ async fn make_token(
         MakeToken::User(user) => (ctx.db.user_login(user).await, None),
         MakeToken::Google { token } => (
             if let Some(claims) = ctx.decode_google_token(token).await {
-                ctx.google_user_login(&claims).await.map(|user| Some(user))
+                ctx.google_user_login(&claims).await.map(Some)
             } else {
                 Ok(None)
             },

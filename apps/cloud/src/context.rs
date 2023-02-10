@@ -71,7 +71,8 @@ impl DocStore {
     pub async fn full_migrate(&self, workspace_id: String, update: Option<Vec<u8>>) -> bool {
         if let Ok(workspace) = self.storage.get(workspace_id.clone()).await {
             let update = if let Some(update) = update {
-                if let Err(_) = self.storage.delete(workspace_id.clone()).await {
+                if let Err(e) = self.storage.delete(workspace_id.clone()).await {
+                    error!("full_migrate write error: {}", e.to_string());
                     return false;
                 };
                 update
@@ -170,7 +171,8 @@ impl Context {
             .expect("Cannot create database");
 
         let site_url = dotenvy::var("SITE_URL").expect("should provide site url");
-        let ctx = Self {
+
+        Self {
             db: PostgresDBContext::new(db_env).await,
             key,
             firebase,
@@ -181,17 +183,13 @@ impl Context {
             site_url,
             channel: DashMap::new(),
             user_channel: UserChannel::new(),
-        };
-
-        ctx
+        }
     }
 
     async fn init_from_firebase(&self) -> RwLockReadGuard<FirebaseContext> {
         let client = if let Ok(endpoint) = dotenvy::var("GOOGLE_ENDPOINT") {
-            let endpoint = format!(
-                "{}/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
-                endpoint
-            );
+            let endpoint =
+                format!("{endpoint}/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com");
             self.http_client.get(endpoint).basic_auth(
                 "affine",
                 Some(
@@ -308,7 +306,7 @@ impl Context {
         let workspace_id = workspace_id.to_string();
         let workspace_arc_rw = self.doc.get_workspace(workspace_id.clone()).await;
 
-        let search_results = workspace_arc_rw.write().await.search(&query_string)?;
+        let search_results = workspace_arc_rw.write().await.search(query_string)?;
 
         Ok(search_results)
     }

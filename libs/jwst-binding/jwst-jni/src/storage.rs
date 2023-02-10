@@ -26,8 +26,7 @@ impl JwstStorage {
         let rt = Runtime::new().unwrap();
 
         match rt.block_on(DocAutoStorage::init_pool(&format!(
-            "sqlite:{}?mode=rwc",
-            path
+            "sqlite:{path}?mode=rwc"
         ))) {
             Ok(pool) => Self {
                 storage: Some(Arc::new(RwLock::new(pool))),
@@ -67,7 +66,7 @@ impl JwstStorage {
                     .all(&workspace_id)
                     .await
                     .expect("Failed to get all updates");
-                if updates.len() > 0 {
+                if !updates.is_empty() {
                     let mut trx = doc.transact();
                     for update in updates {
                         if let Ok(update) = Update::decode_v1(&update.blob) {
