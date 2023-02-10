@@ -75,10 +75,20 @@ In the process of project development, there are many software development conce
 
 Some amazing companies including OctoBase are looking for developers! Are you interested in helping build with OctoBase and/or its partners? Check out some of the latest [jobs available](https://github.com/toeverything/AFFiNE/blob/master/docs/jobs/summary.md).
 
-
 ## Building
 
-See [BUILDING.md](./docs/BUILDING.md) for instructions on how to build OctoBase from source code.
+```bash
+# install rust toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# clone the repo
+git clone --recurse-submodules https://github.com/toeverything/octobase/
+# start sync server
+cargo run --bin keck
+```
+
+Now you can access http://localhost:3000/api/docs/ through the browser.
+
+This is a simple http interface binding, which allows you to modify the data in octobase with the http interface; you can also statically link octobase to your program, modify the data through native api, and synchronize with other clients.
 
 ## License
 
@@ -93,3 +103,5 @@ Currently, this repository is under **active development** and most components a
 [fossil]: https://www2.fossil-scm.org/home/doc/trunk/www/index.wiki
 [sqlite]: https://sqlite.org/index.html
 [contributor license agreement]: https://github.com/toeverything/octobase/edit/master/.github/CLA.md
+[jobs available]: https://github.com/toeverything/AFFiNE/blob/master/docs/jobs/summary.md
+[building.md]: docs/BUILDING.md
