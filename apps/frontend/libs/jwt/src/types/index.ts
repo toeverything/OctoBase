@@ -13,8 +13,8 @@ function getLocation() {
 
 function getCollaborationPoint() {
     const { protocol, host } = getLocation();
-    const ws = protocol.startsWith('https') ? 'wss' : 'ws';
-    const isOnline = host.endsWith('affine.pro');
+    const isOnline = protocol.startsWith('https');
+    const ws = isOnline ? 'wss' : 'ws';
     const site = isOnline ? host : 'localhost:3000';
     return `${ws}://${site}/collaboration/`;
 }

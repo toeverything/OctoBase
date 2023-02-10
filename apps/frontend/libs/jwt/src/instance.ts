@@ -37,6 +37,7 @@ type BlockExporters<R> = Map<
     [BlockMatcher, ReadableContentExporter<R>]
 >;
 export type JwtOptions = {
+    backend?: string;
     content?: BlockExporters<string>;
     metadata?: BlockExporters<Array<[string, number | string | string[]]>>;
     tagger?: BlockExporters<string[]>;
@@ -85,7 +86,7 @@ export class JwtStore implements IJwtStore {
             eventBus: JwtEventBus.get(workspace),
             providers: getYProviders({
                 enabled: [],
-                backend: BucketBackend.YWebSocketAffine,
+                backend: options?.backend || BucketBackend.YWebSocketAffine,
                 importData,
                 exportData,
                 hasExporter,
