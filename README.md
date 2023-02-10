@@ -48,6 +48,21 @@ on all common platforms. In order to achieve this goal, we will strive to do the
 -   Self-contained library distribution.
 -   Minimize external dependencies.
 
+## Building
+
+```bash
+# install rust toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# clone the repo
+git clone --recurse-submodules https://github.com/toeverything/octobase/
+# start sync server
+cargo run --bin keck
+```
+
+Now you can access http://localhost:3000/api/docs/ through the browser.
+
+This is a simple http interface binding, which allows you to modify the data in octobase with the http interface; you can also statically link octobase to your program, modify the data through native api, and synchronize with other clients.
+
 ## Project Overview
 
 ```shell
@@ -74,21 +89,6 @@ In the process of project development, there are many software development conce
 ## Hiring
 
 Some amazing companies including OctoBase are looking for developers! Are you interested in helping build with OctoBase and/or its partners? Check out some of the latest [jobs available](https://github.com/toeverything/AFFiNE/blob/master/docs/jobs/summary.md).
-
-## Building
-
-```bash
-# install rust toolchain
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-# clone the repo
-git clone --recurse-submodules https://github.com/toeverything/octobase/
-# start sync server
-cargo run --bin keck
-```
-
-Now you can access http://localhost:3000/api/docs/ through the browser.
-
-This is a simple http interface binding, which allows you to modify the data in octobase with the http interface; you can also statically link octobase to your program, modify the data through native api, and synchronize with other clients.
 
 ## License
 
