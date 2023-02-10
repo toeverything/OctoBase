@@ -116,7 +116,7 @@ impl Block {
     #[generate_interface]
     pub fn version(&self) -> String {
         let [major, minor] = self.0.version();
-        format!("{}.{}", major, minor)
+        format!("{major}.{minor}")
     }
 
     #[generate_interface]

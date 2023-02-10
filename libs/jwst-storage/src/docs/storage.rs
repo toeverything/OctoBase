@@ -117,19 +117,19 @@ impl DocAutoStorage {
     }
 
     pub async fn replace_with(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
-        let mut tx = self.pool.begin().await?;
+        let tx = self.pool.begin().await?;
 
         UpdateBinary::delete_many()
             .filter(UpdateBinaryColumn::Workspace.eq(table))
-            .exec(&mut tx)
+            .exec(&tx)
             .await?;
 
         UpdateBinary::insert(UpdateBinaryActiveModel {
             workspace: Set(table.into()),
             timestamp: Set(Utc::now()),
-            blob: Set(blob.into()),
+            blob: Set(blob),
         })
-        .exec(&mut tx)
+        .exec(&tx)
         .await?;
 
         tx.commit().await?;
@@ -254,7 +254,7 @@ impl DocSync for DocAutoStorage {
             let workspace = self.get(id).await.map_err(|e| {
                 io::Error::new(
                     io::ErrorKind::BrokenPipe,
-                    format!("Failed to get doc: {}", e),
+                    format!("Failed to get doc: {e}"),
                 )
             })?;
 

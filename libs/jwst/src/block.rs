@@ -1,4 +1,4 @@
-use crate::{utils::JS_INT_RANGE, workspace::Content};
+use crate::{utils::JS_INT_RANGE, workspaces::Content};
 
 use super::*;
 use lib0::any::Any;

@@ -102,12 +102,7 @@ pub async fn set_blob(
     let (workspace, hash) = params;
     info!("set_blob: {}, {}", workspace, hash);
 
-    if context
-        .blobs
-        .insert(&workspace, &hash, &body.to_vec())
-        .await
-        .is_ok()
-    {
+    if context.blobs.insert(&workspace, &hash, &body).await.is_ok() {
         Json(BlobStatus { exists: true }).into_response()
     } else {
         (StatusCode::NOT_FOUND, Json(BlobStatus { exists: false })).into_response()

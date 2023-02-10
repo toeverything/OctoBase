@@ -278,25 +278,25 @@ pub async fn insert_block_children(
                 let mut changed = false;
                 match payload {
                     InsertChildren::Push(block_id) => {
-                        if let Some(child) = workspace.get(&block_id) {
+                        if let Some(child) = workspace.get(block_id) {
                             changed = true;
                             block.push_children(&mut t.trx, &child)
                         }
                     }
                     InsertChildren::InsertBefore { id, before } => {
-                        if let Some(child) = workspace.get(&id) {
+                        if let Some(child) = workspace.get(id) {
                             changed = true;
                             block.insert_children_before(&mut t.trx, &child, &before)
                         }
                     }
                     InsertChildren::InsertAfter { id, after } => {
-                        if let Some(child) = workspace.get(&id) {
+                        if let Some(child) = workspace.get(id) {
                             changed = true;
                             block.insert_children_after(&mut t.trx, &child, &after)
                         }
                     }
                     InsertChildren::InsertAt { id, pos } => {
-                        if let Some(child) = workspace.get(&id) {
+                        if let Some(child) = workspace.get(id) {
                             changed = true;
                             block.insert_children_at(&mut t.trx, &child, pos)
                         }

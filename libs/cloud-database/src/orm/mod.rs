@@ -2,7 +2,7 @@ mod database;
 mod entities;
 mod model;
 
-pub use database::ORM;
+pub use database::CloudDatabase;
 
 use entities::prelude::*;
 use sea_orm::EntityTrait;

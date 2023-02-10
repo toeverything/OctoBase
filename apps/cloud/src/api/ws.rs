@@ -115,9 +115,8 @@ fn subscribe_awareness_handler(
     ws_id: String,
 ) {
     let awareness_sub = workspace.on_awareness_update(move |awareness, e| {
-        let update_result = awareness
-            .clone()
-            .update_with_clients([e.added(), e.updated(), e.removed()].concat());
+        let update_result =
+            awareness.update_with_clients([e.added(), e.updated(), e.removed()].concat());
         if let Ok(aw_update) = update_result {
             let mut encoder = EncoderV1::new();
             YMessage::Awareness(aw_update).encode(&mut encoder);

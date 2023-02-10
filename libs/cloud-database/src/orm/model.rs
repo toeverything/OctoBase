@@ -159,9 +159,7 @@ impl TryGetable for WorkspaceType {
         pre: &str,
         col: &str,
     ) -> Result<Self, sea_orm::TryGetError> {
-        let i: i32 = res
-            .try_get(pre, col)
-            .map_err(|e| sea_orm::TryGetError::DbErr(e))?;
+        let i: i32 = res.try_get(pre, col).map_err(sea_orm::TryGetError::DbErr)?;
         Ok(WorkspaceType::from(i))
     }
 }
@@ -264,9 +262,7 @@ impl TryGetable for PermissionType {
         pre: &str,
         col: &str,
     ) -> Result<Self, sea_orm::TryGetError> {
-        let i: i32 = res
-            .try_get(pre, col)
-            .map_err(|e| sea_orm::TryGetError::DbErr(e))?;
+        let i: i32 = res.try_get(pre, col).map_err(sea_orm::TryGetError::DbErr)?;
         Ok(PermissionType::from(i))
     }
 }
@@ -351,11 +347,11 @@ impl From<&MemberResult> for Member {
     fn from(r: &MemberResult) -> Self {
         let user = if let Some(id) = r.user_id.clone() {
             UserCred::Registered(User {
-                id: id.clone(),
+                id,
                 name: r.user_name.clone().unwrap(),
                 email: r.user_email.clone().unwrap(),
                 avatar_url: r.user_avatar_url.clone(),
-                created_at: r.user_created_at.clone().unwrap(),
+                created_at: r.user_created_at.unwrap(),
             })
         } else {
             UserCred::UnRegistered {
