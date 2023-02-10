@@ -71,6 +71,10 @@ In the process of project development, there are many software development conce
 -   [Fossil] -- Source code management tool made with CRDTs which inspired our design on block data structure.
 -   [SQLite] -- "Small. Fast. Reliable. Choose any three." We like this idea very much.
 
+## Hiring
+
+Some amazing companies including OctoBase are looking for developers! Are you interested in helping build with OctoBase and/or its partners? Check out some of the latest [jobs available](https://github.com/toeverything/AFFiNE/blob/master/docs/jobs/summary.md).
+
 ## License
 
 Currently, this repository is under **active development** and most components are not yet production ready, so all code is under [AGPL-3.0]. We will switch to [MPL 2.0] or a more looser license release after the corresponding components are ready for production.
