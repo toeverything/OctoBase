@@ -8,12 +8,25 @@
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject var workspace:JwstWorkspace
     var body: some View {
         VStack {
             Image(systemName: "globe")
                 .imageScale(.large)
                 .foregroundColor(.accentColor)
             Text("Hello, world!")
+            Button(
+                action: {
+                    let block = workspace.create(block_id: "test", flavor: "test")
+                    print(block.to_string().toString())
+                    
+                },
+                label: { Text("Click Me") }
+            )
+            .foregroundColor(Color.white)
+            .padding()
+            .background(Color.blue)
+            .cornerRadius(5)
         }
         .padding()
     }

@@ -13,15 +13,24 @@ struct octobase_demoApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView().environmentObject(
-                JwstWorkspace(workspace: Workspace("test")))
+                JwstWorkspace(workspace: "test"))
+            
         }
     }
 }
 
 class JwstWorkspace: ObservableObject {
     var workspace: Workspace
-
-    init (workspace: Workspace) {
-        self.workspace = workspace
+    
+    init (workspace: String) {
+        self.workspace = Workspace(workspace)
+    }
+    
+    func create(block_id:String, flavor:String) -> Block {
+        return self.workspace.create(block_id, flavor)
+    }
+    
+    func get() -> Optional<Block> {
+        return self.workspace.get("a")
     }
 }
