@@ -61,6 +61,7 @@ job "affine-cloud-stage" {
       }
       template {
         data = <<EOH
+DOCKER_TAG          = "{{ key "service/stage/affine-cloud/tag" }}"
 DATABASE_URL        = "postgresql://affine:{{ key "service/stage/affine-cloud/database_password" }}@{{ env "NOMAD_ADDR_postgres" }}/affine"
 SIGN_KEY            = "{{ key "service/stage/affine-cloud/sign_key" }}"
 MAIL_ACCOUNT        = "{{ key "service/stage/affine-cloud/mail_account" }}"
@@ -76,7 +77,7 @@ EOH
       }
 
       config {
-        image      = "ghcr.io/toeverything/cloud:canary-515061eb0f7f21134b711298cc13971a225177e7"
+        image      = "ghcr.io/toeverything/cloud:${DOCKER_TAG}"
         force_pull = true
         ports      = ["affine-cloud"]
       }

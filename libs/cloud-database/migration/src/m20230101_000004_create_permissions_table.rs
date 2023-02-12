@@ -26,7 +26,7 @@ impl MigrationTrait for Migration {
                             .char_len(36)
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Permission::UserId).integer().not_null())
+                    .col(ColumnDef::new(Permission::UserId).char_len(36).not_null())
                     .col(ColumnDef::new(Permission::UserEmail).text())
                     .col(ColumnDef::new(Permission::Type).small_integer().not_null())
                     .col(
@@ -48,7 +48,7 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("permission_user_id_fkey")
                             .from(Permission::Table, Permission::UserId)
-                            .to(Users::Table, Users::Id)
+                            .to(Users::Table, Users::Uuid)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
@@ -104,7 +104,7 @@ enum Permission {
     Accepted,    // BOOL DEFAULT False,
     CreatedAt,   // TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                  // FOREIGN KEY(workspace_id) REFERENCES workspaces(uuid),
-                 // FOREIGN KEY(user_id) REFERENCES users(id),
+                 // FOREIGN KEY(user_id) REFERENCES users(uuid),
                  // UNIQUE (workspace_id, user_id),
                  // UNIQUE (workspace_id, user_email)
 }

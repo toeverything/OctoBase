@@ -1,11 +1,5 @@
 use jwst::{Block, Workspace};
 use lib0::any::Any;
-use std::{
-    ffi::{c_void, CStr, CString},
-    mem::forget,
-    os::raw::c_char,
-    ptr,
-};
 use yrs::{Subscription, Transaction, UpdateEvent};
 
 #[swift_bridge::bridge]

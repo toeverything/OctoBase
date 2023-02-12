@@ -47,11 +47,10 @@ impl Workspace {
 
     #[generate_interface]
     pub fn with_storage(&mut self, storage: JwstStorage, remote: String) {
-        let storage = storage.clone();
         let id = self.id();
         storage.reload(id.clone(), self.workspace.doc());
         info!("remote: {}", remote);
-        if remote.len() > 0 {
+        if !remote.is_empty() {
             if let Err(e) = storage.connect(id.clone(), remote) {
                 error!("Failed to connect to remote: {}", e);
             }

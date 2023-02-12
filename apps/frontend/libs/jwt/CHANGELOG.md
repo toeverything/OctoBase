@@ -2,6 +2,20 @@
 
 This file was generated using [@jscutlery/semver](https://github.com/jscutlery/semver).
 
+## [0.4.0](https://github.com/toeverything/OctoBase/compare/libs-jwt-0.3.0...libs-jwt-0.4.0) (2023-02-10)
+
+
+### Features
+
+* add host options for jwt ([e43ac78](https://github.com/toeverything/OctoBase/commit/e43ac78e7fefc2a8c88dc338fcda89630f297c27))
+
+## [0.3.0](https://github.com/toeverything/OctoBase/compare/libs-jwt-0.2.0...libs-jwt-0.3.0) (2023-02-07)
+
+
+### Features
+
+* create block with custom id ([df2beda](https://github.com/toeverything/OctoBase/commit/df2beda8eb762a6f6d623d4719c468c395b3ac57))
+
 ## [0.2.0](https://github.com/toeverything/OctoBase/compare/libs-jwt-0.1.0...libs-jwt-0.2.0) (2022-12-19)
 
 

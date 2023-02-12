@@ -12,7 +12,7 @@ pub struct Workspace {
 #[derive(Deserialize, PartialEq, Debug, ToSchema)]
 #[schema(example = json!({
     "sys:flavor": "affine:text",
-    "sys:created": 946684800000 as u64,
+    "sys:created": 946684800000_u64,
     "sys:children": ["block1", "block2"],
     "prop:text": "123",
     "prop:color": "#ff0000",
@@ -27,7 +27,7 @@ pub struct Block {
 }
 
 #[derive(Deserialize, PartialEq, Debug, ToSchema)]
-#[schema(example = json!([12345, 946684800000 as u64, "add"]))]
+#[schema(example = json!([12345, 946684800000_u64, "add"]))]
 pub struct BlockRawHistory(u64, u64, String);
 
 #[derive(Deserialize, ToSchema)]

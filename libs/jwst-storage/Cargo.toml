@@ -33,4 +33,4 @@ jwst = { path = "../jwst" }
 jwst-blob-migration = { path = "./src/blobs/migration" }
 jwst-doc-migration = { path = "./src/docs/migration" }
 jwst-logger = { path = "../jwst-logger" }
-yrs = { path = "../vendors/y-crdt/yrs" }
+yrs = "=0.12.0"

@@ -46,10 +46,9 @@ impl IntoResponse for ErrorStatus {
                 StatusCode::NOT_FOUND,
                 &format!("Workspace({workspace_id:?}) not found."),
             ),
-            ErrorStatus::NotFoundInvitation => error_response(
-                StatusCode::NOT_FOUND,
-                &format!("Invitation link has expired."),
-            ),
+            ErrorStatus::NotFoundInvitation => {
+                error_response(StatusCode::NOT_FOUND, "Invitation link has expired.")
+            }
             ErrorStatus::InternalServerError => error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Server error, please try again later.",

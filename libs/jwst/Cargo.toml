@@ -27,8 +27,8 @@ tantivy = { version = "0.19.0", optional = true }
 tokio = { version = "1.23.0", features = ["sync"] }
 
 cang-jie = { path = "../vendors/cang-jie" }
-y-sync = { path = "../vendors/y-sync" }
-yrs = { path = "../vendors/y-crdt/yrs" }
+y-sync = "0.1.0"
+yrs = "=0.12.0"
 
 [dev-dependencies]
 assert-json-diff = "2.0.2"

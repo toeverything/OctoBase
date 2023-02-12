@@ -14,4 +14,4 @@ pyo3 = { version = "0.17.3" }
 
 # ======= workspace dependencies =======
 jwst = { path = "../../jwst" }
-yrs = { path = "../../vendors/y-crdt/yrs" }
+yrs = "=0.12.0"

@@ -27,8 +27,12 @@ impl ParentMap {
     fn from(items: &[&Item]) -> Self {
         let mut name_map: HashMap<ID, String> = HashMap::new();
         // println!("{:?}", items);
-        let mut padding_ptr: VecDeque<(&Item, usize)> =
-            VecDeque::from(items.iter().map(|i| (i.clone(), 0)).collect::<Vec<_>>());
+        let mut padding_ptr: VecDeque<(&Item, usize)> = VecDeque::from(
+            items
+                .iter()
+                .map(|i| (<&Item>::clone(i), 0))
+                .collect::<Vec<_>>(),
+        );
 
         while let Some((item, retry)) = padding_ptr.pop_back() {
             if retry > 5 {

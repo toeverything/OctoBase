@@ -60,10 +60,9 @@ impl UserChannel {
             return;
         }
         let users_clone = users.unwrap().clone();
-        let context = context.clone();
         tokio::spawn(async move {
             for user in users_clone.iter() {
-                let _ = context
+                context
                     .user_channel
                     .update(user.clone(), context.clone())
                     .await;
@@ -73,7 +72,7 @@ impl UserChannel {
 
     pub fn update_user(&self, user_id: String, context: Arc<Context>) {
         tokio::spawn(async move {
-            let _ = context
+            context
                 .user_channel
                 .update(user_id.clone(), context.clone())
                 .await;
@@ -93,12 +92,12 @@ impl UserChannel {
                 let user_set = user_option_set.unwrap();
                 user_set.insert(user_id.clone());
             });
-            let _ = self.update(user_id.clone(), context.clone()).await;
+            self.update(user_id.clone(), context.clone()).await;
         }
     }
 
     pub fn remove_user_observe(&self, user_id: String) {
-        let workspace_set = self.user_map.get(&user_id.clone());
+        let workspace_set = self.user_map.get(&user_id);
         if workspace_set.is_none() {
             return;
         }

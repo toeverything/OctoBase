@@ -10,7 +10,7 @@ lib0 = "0.12.2"
 
 # ======= workspace dependencies =======
 jwst = { path = "../../jwst" }
-yrs = { path = "../../vendors/y-crdt/yrs" }
+yrs = "=0.12.0"
 
 [lib]
 name = "octobase"

@@ -48,6 +48,21 @@ on all common platforms. In order to achieve this goal, we will strive to do the
 -   Self-contained library distribution.
 -   Minimize external dependencies.
 
+## Building
+
+```bash
+# install rust toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# clone the repo
+git clone https://github.com/toeverything/octobase/
+# start sync server
+cargo run --bin keck
+```
+
+Now you can access http://localhost:3000/api/docs/ through the browser.
+
+This is a simple http interface binding, which allows you to modify the data in octobase with the http interface; you can also statically link octobase to your program, modify the data through native api, and synchronize with other clients.
+
 ## Project Overview
 
 ```shell
@@ -71,6 +86,10 @@ In the process of project development, there are many software development conce
 -   [Fossil] -- Source code management tool made with CRDTs which inspired our design on block data structure.
 -   [SQLite] -- "Small. Fast. Reliable. Choose any three." We like this idea very much.
 
+## Hiring
+
+Some amazing companies including OctoBase are looking for developers! Are you interested in helping build with OctoBase and/or its partners? Check out some of the latest [jobs available](https://github.com/toeverything/AFFiNE/blob/master/docs/jobs/summary.md).
+
 ## License
 
 Currently, this repository is under **active development** and most components are not yet production ready, so all code is under [AGPL-3.0]. We will switch to [MPL 2.0] or a more looser license release after the corresponding components are ready for production.
@@ -84,3 +103,5 @@ Currently, this repository is under **active development** and most components a
 [fossil]: https://www2.fossil-scm.org/home/doc/trunk/www/index.wiki
 [sqlite]: https://sqlite.org/index.html
 [contributor license agreement]: https://github.com/toeverything/octobase/edit/master/.github/CLA.md
+[jobs available]: https://github.com/toeverything/AFFiNE/blob/master/docs/jobs/summary.md
+[building.md]: docs/BUILDING.md

@@ -2,7 +2,7 @@ mod block;
 mod history;
 mod storage;
 mod utils;
-mod workspace;
+mod workspaces;
 
 pub use block::Block;
 pub use history::{
@@ -12,5 +12,5 @@ pub use log::{error, info};
 pub use storage::{BlobMetadata, BlobStorage, DocStorage, DocSync};
 pub use utils::sync_encode_update;
 #[cfg(feature = "workspace-search")]
-pub use workspace::{SearchResult, SearchResults};
-pub use workspace::{Workspace, WorkspaceTransaction};
+pub use workspaces::{SearchResult, SearchResults};
+pub use workspaces::{Workspace, WorkspaceTransaction};

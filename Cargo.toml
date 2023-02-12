@@ -18,12 +18,10 @@ members = [
     "libs/jwst-storage/src/docs/migration",
     "libs/OctoBase",
     "libs/vendors/cang-jie",
-    "libs/vendors/y-sync",
-    "libs/vendors/y-crdt-0.14/yrs",
-    "libs/vendors/y-crdt-0.14/lib0",
+    # "libs/vendors/y-crdt-0.14/yrs",
+    # "libs/vendors/y-crdt-0.14/lib0",
 ]
 
-exclude = ["libs/vendors/y-crdt/yrs"]
 
 [profile.release]
 lto = true
@@ -32,5 +30,5 @@ codegen-units = 1
 
 [patch.crates-io]
 rust-embed = { git = "https://github.com/pyrossh/rust-embed", rev = "7c0fc42" }
-yrs = { path = 'libs/vendors/y-crdt/yrs' }
-y-sync = { path = 'libs/vendors/y-sync' }
+yrs = { git = "https://github.com/toeverything/y-crdt", rev = "a1034b4" }
+y-sync = { git = "https://github.com/toeverything/y-sync", rev = "e061fa3" }

@@ -1,7 +1,6 @@
 // use super::*;
 // use sqlx::{postgres::PgRow, FromRow, Result, Row};
 
-use affine_cloud_migration::DbErr;
 use chrono::naive::serde::{ts_milliseconds, ts_seconds};
 use jwst_logger::error;
 use schemars::{JsonSchema, JsonSchema_repr};
@@ -64,7 +63,7 @@ pub struct GoogleClaims {
 
 #[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct User {
-    pub id: i32,
+    pub id: String,
     pub name: String,
     pub email: String,
     pub avatar_url: Option<String>,
@@ -160,9 +159,7 @@ impl TryGetable for WorkspaceType {
         pre: &str,
         col: &str,
     ) -> Result<Self, sea_orm::TryGetError> {
-        let i: i32 = res
-            .try_get(pre, col)
-            .map_err(|e| sea_orm::TryGetError::DbErr(e))?;
+        let i: i32 = res.try_get(pre, col).map_err(sea_orm::TryGetError::DbErr)?;
         Ok(WorkspaceType::from(i))
     }
 }
@@ -265,9 +262,7 @@ impl TryGetable for PermissionType {
         pre: &str,
         col: &str,
     ) -> Result<Self, sea_orm::TryGetError> {
-        let i: i32 = res
-            .try_get(pre, col)
-            .map_err(|e| sea_orm::TryGetError::DbErr(e))?;
+        let i: i32 = res.try_get(pre, col).map_err(sea_orm::TryGetError::DbErr)?;
         Ok(PermissionType::from(i))
     }
 }
@@ -341,7 +336,7 @@ pub struct MemberResult {
     pub r#type: PermissionType,
     pub accepted: bool,
     pub created_at: NaiveDateTime,
-    pub user_id: Option<i32>,
+    pub user_id: Option<String>,
     pub user_name: Option<String>,
     pub user_email: Option<String>,
     pub user_avatar_url: Option<String>,
@@ -350,13 +345,13 @@ pub struct MemberResult {
 
 impl From<&MemberResult> for Member {
     fn from(r: &MemberResult) -> Self {
-        let user = if let Some(id) = r.user_id {
+        let user = if let Some(id) = r.user_id.clone() {
             UserCred::Registered(User {
                 id,
                 name: r.user_name.clone().unwrap(),
                 email: r.user_email.clone().unwrap(),
                 avatar_url: r.user_avatar_url.clone(),
-                created_at: r.user_created_at.clone().unwrap(),
+                created_at: r.user_created_at.unwrap(),
             })
         } else {
             UserCred::UnRegistered {

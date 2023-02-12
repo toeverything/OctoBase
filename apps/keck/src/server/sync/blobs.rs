@@ -98,7 +98,6 @@ impl Context {
                 future::ready(x.is_ok())
             })
             .filter_map(|data| future::ready(data.ok()));
-        let workspace = workspace.map(|id| id.to_string());
 
         if let Ok(id) = self.blobs.put_blob(workspace.clone(), stream).await {
             if has_error {

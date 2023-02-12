@@ -158,7 +158,7 @@ pub async fn invite_member(
         UserCred::Registered(user) => Some(user.id),
         UserCred::UnRegistered { .. } => None,
     };
-    if !invite_user_id.is_none() {
+    if invite_user_id.is_some() {
         ctx.user_channel
             .add_user_observe(invite_user_id.unwrap(), ctx.clone())
             .await;
@@ -192,13 +192,19 @@ pub async fn invite_member(
         Ok(_) => {}
         // TODO: https://github.com/lettre/lettre/issues/743
         Err(e) if e.is_response() => {
-            if let Err(_) = ctx.mail.client.send(email).await {
-                let _ = ctx.db.delete_permission(permission_id);
+            if let Err(e) = ctx.mail.client.send(email).await {
+                if let Err(e) = ctx.db.delete_permission(permission_id).await {
+                    error!("Failed to withdraw permissions: {}", e);
+                }
+                error!("Failed to send email: {}", e);
                 return ErrorStatus::InternalServerError.into_response();
             }
         }
-        Err(_) => {
-            let _ = ctx.db.delete_permission(permission_id).await;
+        Err(e) => {
+            if let Err(e) = ctx.db.delete_permission(permission_id).await {
+                error!("Failed to withdraw permissions: {}", e);
+            }
+            error!("Failed to send email: {}", e);
             return ErrorStatus::InternalServerError.into_response();
         }
     };
