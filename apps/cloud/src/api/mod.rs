@@ -10,7 +10,7 @@ use axum::{
 use base64::Engine;
 use chrono::{Duration, Utc};
 use cloud_database::{
-    Claims, MakeToken, RefreshToken, UpdateWorkspace, UserQuery, UserToken, UserWithNonce,
+    Claims, MakeToken, RefreshToken, UpdateWorkspace, User, UserQuery, UserToken, UserWithNonce,
     WorkspaceSearchInput,
 };
 use http::StatusCode;
@@ -21,7 +21,7 @@ use tower::ServiceBuilder;
 
 use crate::{
     context::Context, error_status::ErrorStatus, layer::make_firebase_auth_layer,
-    login::ThirdPartyLogin, utils::URL_SAFE_ENGINE,
+    utils::URL_SAFE_ENGINE,
 };
 
 mod ws;
@@ -105,7 +105,7 @@ async fn make_token(
         MakeToken::User(user) => (ctx.db.user_login(user).await, None),
         MakeToken::Google { token } => (
             if let Some(claims) = ctx.decode_google_token(token).await {
-                ctx.google_user_login(&claims).await.map(Some)
+                ctx.db.google_user_login(&claims).await.map(Some)
             } else {
                 Ok(None)
             },
@@ -136,12 +136,12 @@ async fn make_token(
     };
 
     match user {
-        Ok(Some(UserWithNonce { user, token_nonce })) => {
+        Ok(Some(user)) => {
             let refresh = refresh.unwrap_or_else(|| {
                 let refresh = RefreshToken {
                     expires: Utc::now().naive_utc() + Duration::days(180),
-                    user_id: user.id.clone(),
-                    token_nonce,
+                    user_id: user.uuid.clone(),
+                    token_nonce: user.token_nonce.unwrap(),
                 };
 
                 let json = serde_json::to_string(&refresh).unwrap();
@@ -153,7 +153,13 @@ async fn make_token(
 
             let claims = Claims {
                 exp: Utc::now().naive_utc() + Duration::minutes(10),
-                user,
+                user: User {
+                    id: user.uuid,
+                    name: user.name,
+                    email: user.email,
+                    avatar_url: user.avatar_url,
+                    created_at: user.created_at.unwrap_or_default().naive_local(),
+                },
             };
             let token = ctx.sign_jwt(&claims);
 

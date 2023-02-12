@@ -1,8 +1,8 @@
 use super::{
     model::{
-        CreateUser, Member, MemberResult, PermissionType, RefreshToken, UpdateWorkspace, User,
-        UserCred, UserInWorkspace, UserLogin, Workspace, WorkspaceDetail, WorkspaceType,
-        WorkspaceWithPermission,
+        CreateUser, GoogleClaims, Member, MemberResult, PermissionType, RefreshToken,
+        UpdateWorkspace, User, UserCred, UserInWorkspace, UserLogin, UserWithNonce, Workspace,
+        WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
     },
     *,
 };
@@ -82,7 +82,7 @@ impl CloudDatabase {
     pub async fn verify_refresh_token(&self, token: &RefreshToken) -> Result<bool, DbErr> {
         Users::find()
             .column(UsersColumn::Id)
-            .filter(UsersColumn::Uuid.eq(token.user_id))
+            .filter(UsersColumn::Uuid.eq(token.user_id.clone()))
             .filter(UsersColumn::TokenNonce.eq(token.token_nonce))
             .one(&self.pool)
             .await
@@ -95,7 +95,7 @@ impl CloudDatabase {
         user_email: &str,
     ) -> Result<(), DbErr> {
         Permissions::update(PermissionActiveModel {
-            user_id: Set(user_id),
+            user_id: Set(Some(user_id)),
             user_email: Set(None),
             ..Default::default()
         })
@@ -108,8 +108,8 @@ impl CloudDatabase {
     pub async fn create_user(
         &self,
         user: CreateUser,
-    ) -> Result<Option<(UsersModel, WorkspacesModel)>, DbErr> {
-        let mut trx = self.pool.begin().await?;
+    ) -> Result<Option<(UsersModel, Workspace)>, DbErr> {
+        let trx = self.pool.begin().await?;
 
         let uuid = Uuid::new_v4().to_string();
         let Ok(user) = Users::insert(UsersActiveModel {
@@ -191,13 +191,12 @@ impl CloudDatabase {
         }))
     }
 
-    // todo uuid
     pub async fn create_workspace<C: ConnectionTrait>(
         &self,
         trx: &C,
         user_id: String,
         ws_type: WorkspaceType,
-    ) -> Result<WorkspacesModel, DbErr> {
+    ) -> Result<Workspace, DbErr> {
         let uuid = Uuid::new_v4();
         let workspace_id = uuid.to_string().replace('-', "_");
 
@@ -208,11 +207,17 @@ impl CloudDatabase {
             ..Default::default()
         })
         .exec_with_returning(trx)
-        .await?;
+        .await
+        .map(|ws| Workspace {
+            id: ws.uuid,
+            public: ws.public,
+            r#type: ws.r#type.into(),
+            created_at: ws.created_at.naive_local(),
+        })?;
 
         Permissions::insert(PermissionActiveModel {
-            user_id: Set(user_id),
-            workspace_id: Set(workspace.uuid.clone()),
+            user_id: Set(Some(user_id)),
+            workspace_id: Set(workspace.id.clone()),
             r#type: Set(PermissionType::Owner as i32),
             accepted: Set(true),
             ..Default::default()
@@ -223,7 +228,7 @@ impl CloudDatabase {
         Ok(workspace)
     }
 
-    pub async fn create_normal_workspace(&self, user_id: String) -> Result<WorkspacesModel, DbErr> {
+    pub async fn create_normal_workspace(&self, user_id: String) -> Result<Workspace, DbErr> {
         let trx = self.pool.begin().await?;
         let workspace = self
             .create_workspace(&trx, user_id, WorkspaceType::Normal)
@@ -238,8 +243,17 @@ impl CloudDatabase {
         &self,
         workspace_id: String,
         data: UpdateWorkspace,
-    ) -> Result<Workspace, DbErr> {
-        Workspaces::update(WorkspacesActiveModel {
+    ) -> Result<Option<Workspace>, DbErr> {
+        let model = Workspaces::find()
+            .filter(WorkspacesColumn::Uuid.eq(workspace_id.clone()))
+            .filter(WorkspacesColumn::Type.eq(WorkspaceType::Normal as i32))
+            .one(&self.pool)
+            .await?;
+        if model.is_none() {
+            return Ok(None);
+        }
+
+        let workspace = Workspaces::update(WorkspacesActiveModel {
             public: Set(data.public),
             ..Default::default()
         })
@@ -252,7 +266,8 @@ impl CloudDatabase {
             public: ws.public,
             r#type: ws.r#type.into(),
             created_at: ws.created_at.naive_local(),
-        })
+        })?;
+        Ok(Some(workspace))
     }
 
     pub async fn delete_workspace(&self, workspace_id: String) -> Result<bool, DbErr> {
@@ -285,7 +300,7 @@ impl CloudDatabase {
 
     pub async fn get_user_workspaces(
         &self,
-        user_id: i32,
+        user_id: String,
     ) -> Result<Vec<WorkspaceWithPermission>, DbErr> {
         Permissions::find()
             .column_as(WorkspacesColumn::Uuid, "id")
@@ -334,7 +349,7 @@ impl CloudDatabase {
 
     pub async fn get_permission(
         &self,
-        user_id: i32,
+        user_id: String,
         workspace_id: String,
     ) -> Result<Option<PermissionType>, DbErr> {
         Permissions::find()
@@ -347,8 +362,8 @@ impl CloudDatabase {
 
     pub async fn get_permission_by_permission_id(
         &self,
-        user_id: i32,
-        permission_id: i64,
+        user_id: String,
+        permission_id: i32,
     ) -> Result<Option<PermissionType>, DbErr> {
         Permissions::find()
             .filter(PermissionColumn::UserId.eq(user_id))
@@ -368,7 +383,7 @@ impl CloudDatabase {
 
     pub async fn can_read_workspace(
         &self,
-        user_id: i32,
+        user_id: String,
         workspace_id: String,
     ) -> Result<bool, DbErr> {
         Permissions::find()
@@ -407,12 +422,20 @@ impl CloudDatabase {
         email: &str,
         workspace_id: String,
         permission_type: PermissionType,
-    ) -> Result<(i32, UserCred), DbErr> {
-        let user = self.get_user_by_email(email).await?;
+    ) -> Result<Option<(i32, UserCred)>, DbErr> {
+        let workspace = Workspaces::find()
+            .filter(WorkspacesColumn::Uuid.eq(workspace_id.clone()))
+            // todo: check if this is correct
+            .filter(WorkspacesColumn::Type.eq(WorkspaceType::Normal as i32))
+            .one(&self.pool)
+            .await?;
+        if workspace.is_none() {
+            return Ok(None);
+        }
 
-        Permissions::insert(PermissionActiveModel {
-            // todo: fix this
-            // user_id: Set(user.clone().and_then(|u| u.id)),
+        let user = self.get_user_by_email(email).await?;
+        let id = Permissions::insert(PermissionActiveModel {
+            user_id: Set(user.clone().and_then(|u| Some(u.uuid))),
             user_email: Set(user.clone().and(None).or(Some(email.to_string()))),
             workspace_id: Set(workspace_id),
             r#type: Set(permission_type as i32),
@@ -420,39 +443,55 @@ impl CloudDatabase {
         })
         .exec_with_returning(&self.pool)
         .await
-        .map(|p| {
-            (
-                p.id,
-                match user {
-                    Some(user) => UserCred::Registered(User {
-                        id: user.uuid,
-                        name: user.name,
-                        email: user.email,
-                        avatar_url: user.avatar_url,
-                        created_at: user.created_at.unwrap_or_default().naive_local(),
-                    }),
-                    None => UserCred::UnRegistered {
-                        email: email.to_owned(),
-                    },
-                },
-            )
-        })
+        .map(|p| p.id)?;
+
+        let user = match user {
+            Some(user) => UserCred::Registered(User {
+                id: user.uuid,
+                name: user.name,
+                email: user.email,
+                avatar_url: user.avatar_url,
+                created_at: user.created_at.unwrap_or_default().naive_local(),
+            }),
+            None => UserCred::UnRegistered {
+                email: email.to_owned(),
+            },
+        };
+
+        Ok(Some((id, user)))
     }
 
-    pub async fn accept_permission(&self, permission_id: i64) -> Result<PermissionModel, DbErr> {
-        Permissions::update(PermissionActiveModel {
-            accepted: Set(true),
-            ..Default::default()
-        })
-        .filter(PermissionColumn::Id.eq(permission_id))
-        .exec(&self.pool)
-        .await
+    pub async fn accept_permission(&self, permission_id: i64) -> Result<Option<Permission>, DbErr> {
+        let p = Permissions::find()
+            .filter(PermissionColumn::Id.eq(permission_id))
+            .one(&self.pool)
+            .await?;
+
+        if p.is_none() {
+            return Ok(None);
+        }
+
+        Ok(Some(
+            Permissions::update(PermissionActiveModel {
+                accepted: Set(true),
+                ..Default::default()
+            })
+            .filter(PermissionColumn::Id.eq(permission_id))
+            .exec(&self.pool)
+            .await
+            .map(|op| Permission {
+                id: op.id,
+                type_: op.r#type.into(),
+                workspace_id: op.workspace_id,
+                user_id: op.user_id,
+                user_email: op.user_email,
+                accepted: op.accepted,
+                created_at: op.created_at.naive_local(),
+            })?,
+        ))
     }
 
-    pub async fn delete_permission(
-        &self,
-        permission_id: i64,
-    ) -> Result<bool, affine_cloud_migration::DbErr> {
+    pub async fn delete_permission(&self, permission_id: i32) -> Result<bool, DbErr> {
         let trx = self.pool.begin().await?;
 
         Permissions::delete_many()
@@ -466,7 +505,7 @@ impl CloudDatabase {
         &self,
         user_id: String,
         workspace_id: String,
-    ) -> Result<bool, affine_cloud_migration::DbErr> {
+    ) -> Result<bool, DbErr> {
         let trx = self.pool.begin().await?;
 
         Permissions::delete_many()
@@ -481,7 +520,7 @@ impl CloudDatabase {
         &self,
         workspace_id: String,
         email: &str,
-    ) -> Result<UserInWorkspace, affine_cloud_migration::DbErr> {
+    ) -> Result<UserInWorkspace, DbErr> {
         let user: Option<UsersModel> = Users::find()
             .filter(UsersColumn::Email.eq(email))
             .one(&self.pool)
@@ -520,6 +559,66 @@ impl CloudDatabase {
                 in_workspace,
             }
         })
+    }
+
+    pub async fn google_user_login(&self, claims: &GoogleClaims) -> Result<UsersModel, DbErr> {
+        let google_user: Option<GoogleUsersModel> = GoogleUsers::find()
+            .filter(GoogleUsersColumn::UserId.eq(claims.user_id.clone()))
+            .one(&self.pool)
+            .await?;
+        if let Some(google_user) = google_user {
+            let user = Users::update(UsersActiveModel {
+                name: Set(claims.name.clone()),
+                email: Set(claims.email.clone()),
+                avatar_url: Set(Some(claims.picture.clone())),
+                ..Default::default()
+            })
+            .filter(UsersColumn::Uuid.eq(google_user.user_id))
+            .exec(&self.pool)
+            .await?;
+            // let user_with_nonce = UserWithNonce {
+            //     user: User {
+            //         id: user.uuid,
+            //         name: user.name,
+            //         email: user.email,
+            //         avatar_url: user.avatar_url,
+            //         created_at: user.created_at.unwrap_or_default().naive_local(),
+            //     },
+            //     token_nonce: user.token_nonce.unwrap_or_default(),
+            // };
+            // Ok(user_with_nonce)
+            Ok(user)
+        } else {
+            let uuid = uuid::Uuid::new_v4().to_string();
+            let user = Users::insert(UsersActiveModel {
+                uuid: Set(uuid),
+                name: Set(claims.name.clone()),
+                email: Set(claims.email.clone()),
+                avatar_url: Set(Some(claims.picture.clone())),
+                ..Default::default()
+            })
+            .exec_with_returning(&self.pool)
+            .await?;
+            GoogleUsers::insert(GoogleUsersActiveModel {
+                user_id: Set(user.uuid.clone()),
+                google_id: Set(claims.user_id.clone()),
+                ..Default::default()
+            })
+            .exec_with_returning(&self.pool)
+            .await?;
+            // let user_with_nonce = UserWithNonce {
+            //     user: User {
+            //         id: user.uuid,
+            //         name: user.name,
+            //         email: user.email,
+            //         avatar_url: user.avatar_url,
+            //         created_at: user.created_at.unwrap_or_default().naive_local(),
+            //     },
+            //     token_nonce: user.token_nonce.unwrap_or_default(),
+            // };
+            // Ok(user_with_nonce)
+            Ok(user)
+        }
     }
 }
 

@@ -37,7 +37,7 @@ async fn main() {
         error!("Server shutdown due to error: {}", e);
     }
 
-    context.db.db.close().await;
+    // context.db.db.close().await;
 
     info!("Server shutdown complete");
 }

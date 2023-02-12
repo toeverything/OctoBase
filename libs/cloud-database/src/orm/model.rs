@@ -74,7 +74,6 @@ pub struct User {
 
 #[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct UserWithNonce {
-    #[sqlx(flatten)]
     pub user: User,
     pub token_nonce: i16,
 }
@@ -127,7 +126,7 @@ pub struct RefreshToken {
     #[serde(with = "ts_milliseconds")]
     #[schemars(with = "i64")]
     pub expires: NaiveDateTime,
-    pub user_id: i32,
+    pub user_id: String,
     pub token_nonce: i16,
 }
 
@@ -177,6 +176,9 @@ pub struct Workspace {
 
 #[derive(FromQueryResult, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkspaceWithPermission {
+    pub permission: PermissionType,
+    // #[serde(flatten)]
+    // pub workspace: Workspace,
     pub id: String,
     pub public: bool,
     #[serde(rename = "type")]
@@ -184,7 +186,6 @@ pub struct WorkspaceWithPermission {
     #[serde(with = "ts_milliseconds")]
     #[schemars(with = "i64")]
     pub created_at: NaiveDateTime,
-    pub permission: PermissionType,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -269,12 +270,12 @@ impl TryGetable for PermissionType {
 
 #[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Permission {
-    pub id: i64,
+    pub id: i32,
     #[serde(rename = "type")]
     #[sqlx(rename = "type")]
     pub type_: PermissionType,
     pub workspace_id: String,
-    pub user_id: Option<i32>,
+    pub user_id: Option<String>,
     pub user_email: Option<String>,
     pub accepted: bool,
     #[serde(with = "ts_milliseconds")]

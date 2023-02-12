@@ -265,7 +265,7 @@ pub async fn leave_workspace(
 pub async fn remove_user(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i64>,
+    Path(id): Path<i32>,
 ) -> Response {
     match ctx
         .db

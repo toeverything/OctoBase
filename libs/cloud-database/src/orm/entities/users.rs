@@ -13,7 +13,7 @@ pub struct Model {
     pub name: String,
     pub email: String,
     pub avatar_url: Option<String>,
-    pub token_nonce: Option<i32>,
+    pub token_nonce: Option<i16>,
     pub password: Option<String>,
     pub created_at: Option<DateTime<Utc>>,
 }

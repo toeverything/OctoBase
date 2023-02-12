@@ -9,7 +9,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub workspace_id: String,
-    pub user_id: String,
+    pub user_id: Option<String>,
     pub user_email: Option<String>,
     pub r#type: i32,
     pub accepted: bool,

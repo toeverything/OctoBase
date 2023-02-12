@@ -3,6 +3,7 @@ mod entities;
 mod model;
 
 pub use database::CloudDatabase;
+pub use model::*;
 
 use entities::prelude::*;
 use sea_orm::EntityTrait;
@@ -16,3 +17,6 @@ type WorkspacesColumn = <Workspaces as EntityTrait>::Column;
 type PermissionModel = <Permissions as EntityTrait>::Model;
 type PermissionActiveModel = entities::permissions::ActiveModel;
 type PermissionColumn = <Permissions as EntityTrait>::Column;
+type GoogleUsersModel = <GoogleUsers as EntityTrait>::Model;
+type GoogleUsersActiveModel = entities::google_users::ActiveModel;
+type GoogleUsersColumn = <GoogleUsers as EntityTrait>::Column;
