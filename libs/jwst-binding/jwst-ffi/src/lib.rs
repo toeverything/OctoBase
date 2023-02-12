@@ -338,17 +338,3 @@ pub unsafe extern "C" fn workspace_observe(
 pub unsafe extern "C" fn workspace_unobserve(subscription: *mut Subscription<UpdateEvent>) {
     drop(Box::from_raw(subscription))
 }
-
-#[swift_bridge::bridge]
-mod ffi {
-    extern "Rust" {
-        type Workspace;
-        type Block;
-
-        #[swift_bridge(init)]
-        fn new(id: String) -> Workspace;
-
-        #[swift_bridge(associated_to = Workspace)]
-        fn get(self: &Workspace, block_id: String) -> Option<Block>;
-    }
-}
