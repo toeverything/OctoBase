@@ -322,7 +322,9 @@ async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response 
         .into_response()
 }
 
-/// Resolves to [WorkspaceSearchResults]
+/// Resolves to [`SearchResults`]
+///
+/// [`SearchResults`]: jwst::SearchResults
 async fn search_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
