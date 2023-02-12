@@ -1,0 +1,5 @@
+module RustXcframework {
+    header "SwiftBridgeCore.h"
+    header "jwst-swift.h"
+    export *
+}

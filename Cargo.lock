@@ -2118,6 +2118,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "jwst-swift-integrate"
+version = "0.1.0"
+dependencies = [
+ "swift-bridge-build",
+]
+
+[[package]]
 name = "keck"
 version = "0.1.0"
 dependencies = [
