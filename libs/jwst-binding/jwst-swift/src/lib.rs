@@ -1,62 +1,61 @@
-use jwst::{Block as JwstBlock, Workspace as JwstWorkspace, WorkspaceTransaction};
-use lib0::any::Any;
-use yrs::{Subscription, Transaction, UpdateEvent};
+mod block;
+mod dynamic_value;
+mod workspace;
+
+pub use block::Block;
+pub use dynamic_value::{DynamicValue, DynamicValueMap};
+pub use workspace::Workspace;
 
 #[swift_bridge::bridge]
 mod ffi {
     extern "Rust" {
         type Block;
+
+        #[swift_bridge(associated_to = Block)]
+        fn get(self: &Block, block_id: String) -> Option<DynamicValue>;
+    }
+
+    extern "Rust" {
+        type DynamicValue;
+        type DynamicValueMap;
+
+        #[swift_bridge(associated_to = DynamicValue)]
+        fn as_bool(self: &DynamicValue) -> Option<bool>;
+
+        #[swift_bridge(associated_to = DynamicValue)]
+        fn as_number(self: &DynamicValue) -> Option<f64>;
+
+        #[swift_bridge(associated_to = DynamicValue)]
+        fn as_int(self: &DynamicValue) -> Option<i64>;
+
+        #[swift_bridge(associated_to = DynamicValue)]
+        fn as_string(self: &DynamicValue) -> Option<String>;
+
+        #[swift_bridge(associated_to = DynamicValue)]
+        fn as_map(self: &DynamicValue) -> Option<DynamicValueMap>;
+
+        #[swift_bridge(associated_to = DynamicValue)]
+        fn as_array(self: &DynamicValue) -> Option<Vec<DynamicValue>>;
+
+        #[swift_bridge(associated_to = DynamicValue)]
+        fn as_buffer(self: &DynamicValue) -> Option<Vec<u8>>;
+    }
+
+    extern "Rust" {
         type Workspace;
 
         #[swift_bridge(init)]
         fn new(id: String) -> Workspace;
 
         #[swift_bridge(associated_to = Workspace)]
+        fn id(self: &Workspace) -> String;
+
+        fn client_id(self: &Workspace) -> u64;
+
+        #[swift_bridge(associated_to = Workspace)]
         fn get(self: &Workspace, block_id: String) -> Option<Block>;
 
         #[swift_bridge(associated_to = Workspace)]
         fn create(self: &Workspace, block_id: String, flavor: String) -> Block;
-
-        #[swift_bridge(associated_to = Block)]
-        fn to_string(self: &Block) -> String;
-    }
-}
-
-pub struct Workspace {
-    workspace: JwstWorkspace,
-}
-
-impl Workspace {
-    fn new(id: String) -> Self {
-        Self {
-            workspace: JwstWorkspace::new(id),
-        }
-    }
-
-    fn get(&self, block_id: String) -> Option<Block> {
-        self.workspace.get(&block_id).map(Block::new)
-    }
-
-    fn create(&self, block_id: String, flavor: String) -> Block {
-        self.workspace
-            .with_trx(|trx| Block::new(trx.create(block_id, flavor)))
-    }
-}
-
-pub struct Block {
-    block: JwstBlock,
-}
-
-impl Block {
-    fn new(block: JwstBlock) -> Self {
-        Self { block }
-    }
-
-    // fn get(&self, key: String) -> Option<String> {
-    //     self.block.get(&key)
-    // }
-
-    fn to_string(&self) -> String {
-        format!("{:?}", self.block)
     }
 }

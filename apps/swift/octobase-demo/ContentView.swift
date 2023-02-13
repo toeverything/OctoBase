@@ -18,7 +18,10 @@ struct ContentView: View {
             Button(
                 action: {
                     let block = workspace.create(block_id: "test", flavor: "test")
-                    print(block.to_string().toString())
+                    
+                    print(block.get("test").map({
+                        $0.as_array()
+                    }) as Any)
                     
                 },
                 label: { Text("Click Me") }
