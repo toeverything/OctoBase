@@ -34,11 +34,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Users::AvatarUrl).string())
                     .col(ColumnDef::new(Users::TokenNonce).small_integer().default(0))
                     .col(ColumnDef::new(Users::Password).string())
-                    .col(
-                        ColumnDef::new(Users::CreatedAt)
-                            .timestamp()
-                            .default("CURRENT_TIMESTAMP"),
-                    )
+                    .col(ColumnDef::new(Users::CreatedAt).timestamp())
                     .to_owned(),
             )
             .await

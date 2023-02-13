@@ -34,8 +34,8 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("google_users_user_id_fkey")
-                            .from(Users::Table, Users::Uuid)
-                            .to(GoogleUsers::Table, GoogleUsers::UserId)
+                            .from(GoogleUsers::Table, GoogleUsers::UserId)
+                            .to(Users::Table, Users::Uuid)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
