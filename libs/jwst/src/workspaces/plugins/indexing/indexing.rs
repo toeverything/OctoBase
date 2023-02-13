@@ -13,7 +13,9 @@ pub struct SearchResult {
     pub score: f32,
 }
 
-/// Returned from [Workspace::search]
+/// Returned from [`Workspace::search`]
+///
+/// [`Workspace::search`]: crate::Workspace::search
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SearchResults(Vec<SearchResult>);
 

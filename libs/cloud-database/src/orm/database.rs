@@ -109,7 +109,7 @@ impl CloudDatabase {
         &self,
         user: CreateUser,
     ) -> Result<Option<(UsersModel, WorkspacesModel)>, DbErr> {
-        let mut trx = self.pool.begin().await?;
+        let trx = self.pool.begin().await?;
 
         let uuid = Uuid::new_v4().to_string();
         let Ok(user) = Users::insert(UsersActiveModel {
