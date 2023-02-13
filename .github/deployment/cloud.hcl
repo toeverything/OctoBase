@@ -67,7 +67,7 @@ SIGN_KEY            = "{{ key "service/stage/affine-cloud/sign_key" }}"
 MAIL_ACCOUNT        = "{{ key "service/stage/affine-cloud/mail_account" }}"
 MAIL_PASSWORD       = "{{ key "service/stage/affine-cloud/mail_password" }}"
 SITE_URL            = "https://stage.affine.pro"
-FIREBASE_PROJECT_ID = "pathfinder-52392"
+FIREBASE_PROJECT_ID = "quiet-sanctuary-370417"
 # GOOGLE_ENDPOINT   = "http://100.77.180.48:11002"
 # GOOGLE_ENDPOINT_PASSWORD = "Dct4pq9E9V"
 EOH
