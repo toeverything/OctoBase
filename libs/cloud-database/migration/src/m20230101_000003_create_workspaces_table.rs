@@ -18,15 +18,14 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(Workspaces::Uuid)
-                            .string_len(36)
-                            .not_null()
-                            .unique_key(),
-                    )
+                    .col(ColumnDef::new(Workspaces::Uuid).char_len(36).unique_key())
                     .col(ColumnDef::new(Workspaces::Public).boolean().not_null())
                     .col(ColumnDef::new(Workspaces::Type).small_integer().not_null())
-                    .col(ColumnDef::new(Workspaces::CreatedAt).timestamp().not_null())
+                    .col(
+                        ColumnDef::new(Workspaces::CreatedAt)
+                            .timestamp()
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await

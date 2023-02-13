@@ -18,23 +18,17 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(Users::Uuid)
-                            .char_len(36)
-                            .not_null()
-                            .unique_key(),
-                    )
-                    .col(ColumnDef::new(Users::Name).string().not_null())
-                    .col(
-                        ColumnDef::new(Users::Email)
-                            .string()
-                            .not_null()
-                            .unique_key(),
-                    )
-                    .col(ColumnDef::new(Users::AvatarUrl).string())
+                    .col(ColumnDef::new(Users::Uuid).char_len(36).unique_key())
+                    .col(ColumnDef::new(Users::Name).text().not_null())
+                    .col(ColumnDef::new(Users::Email).text().not_null().unique_key())
+                    .col(ColumnDef::new(Users::AvatarUrl).text())
                     .col(ColumnDef::new(Users::TokenNonce).small_integer().default(0))
-                    .col(ColumnDef::new(Users::Password).string())
-                    .col(ColumnDef::new(Users::CreatedAt).timestamp())
+                    .col(ColumnDef::new(Users::Password).text())
+                    .col(
+                        ColumnDef::new(Users::CreatedAt)
+                            .timestamp()
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await
