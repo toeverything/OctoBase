@@ -9,22 +9,22 @@ affine = ["postgres"]
 postgres = ["cloud-database/postgres", "jwst-storage/postgres"]
 
 [dependencies]
-async-trait = "0.1.60"
-anyhow = "^1.0.68"
+async-trait = "0.1.64"
+anyhow = "1.0.69"
 aes-gcm = "0.10.1"
-bytes = "1.3.0"
-axum = { version = "0.6.4", features = ["headers", "ws"] }
+bytes = "1.4.0"
+axum = { version = "0.6.6", features = ["headers", "ws"] }
 base64 = "0.21.0"
 chrono = { version = "0.4.23", features = ["serde"] }
 dashmap = "5.4.0"
 dotenvy = "0.15.6"
-futures = "0.3.25"
+futures = "0.3.26"
 handlebars = "4.3.6"
 hmac = "0.12.1"
 http = "0.2.8"
 http-body = "0.4.5"
-jsonwebtoken = "8.1.1"
-lettre = { version = "0.10.1", default-features = false, features = [
+jsonwebtoken = "8.2.0"
+lettre = { version = "0.10.2", default-features = false, features = [
     "builder",
     "tokio1",
     "pool",
@@ -36,12 +36,12 @@ mime = "0.3.16"
 moka = { version = "0.9.6", features = ["future"] }
 pem = "1.1.0"
 rand = "0.8.5"
-reqwest = { version = "0.11.13", default-features = false, features = [
+reqwest = { version = "0.11.14", default-features = false, features = [
     "json",
     "rustls-tls",
 ] }
-serde = { version = "1.0.151", features = ["derive"] }
-serde_json = "1.0.91"
+serde = { version = "1.0.152", features = ["derive"] }
+serde_json = "1.0.93"
 serde_repr = "0.1.10"
 sha2 = "0.10.6"
 sqlx = { version = "0.6.2", features = [
@@ -50,15 +50,15 @@ sqlx = { version = "0.6.2", features = [
     "migrate",
     "runtime-tokio-rustls",
 ] }
-tokio = { version = "1.23.0", features = [
+tokio = { version = "1.25.0", features = [
     "macros",
     "rt-multi-thread",
     "signal",
 ] }
-tokio-util = { version = "^0.7.4", features = ["io"] }
+tokio-util = { version = "0.7.7", features = ["io"] }
 tower = "0.4.13"
 tower-http = { version = "0.3.5", features = ["auth", "cors"] }
-uuid = { version = "^1.2.2", default-features = false, features = ["v4"] }
+uuid = { version = "1.3.0", default-features = false, features = ["v4"] }
 x509-parser = "0.14.0"
 
 # ======= workspace dependencies =======

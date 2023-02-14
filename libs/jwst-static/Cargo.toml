@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-axum = "0.6.4"
-rust-embed = { git = "https://github.com/pyrossh/rust-embed", rev = "7c0fc42", features = [
+axum = "0.6.6"
+rust-embed = { version = "6.4.2", features = [
     "compression",
     "include-exclude",
     "mime-guess",
