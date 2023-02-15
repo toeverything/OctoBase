@@ -1,5 +1,5 @@
+mod blobs;
 mod entities;
-mod orm;
 
 use super::*;
 use base64::{
@@ -15,8 +15,8 @@ use futures::{
 use sha2::{Digest, Sha256};
 use tokio_util::io::ReaderStream;
 
+pub use blobs::BlobsAutoStorage as BlobAutoStorage;
 pub use entities::blobs::Model as BlobBinary;
-pub use orm::ORM as BlobAutoStorage;
 
 const URL_SAFE_ENGINE: GeneralPurpose = GeneralPurpose::new(&URL_SAFE, PAD);
 

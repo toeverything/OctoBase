@@ -15,11 +15,11 @@ type BlobModel = <Blobs as EntityTrait>::Model;
 type BlobActiveModel = super::entities::blobs::ActiveModel;
 type BlobColumn = <Blobs as EntityTrait>::Column;
 
-pub struct ORM {
+pub struct BlobsAutoStorage {
     pool: DatabaseConnection,
 }
 
-impl ORM {
+impl BlobsAutoStorage {
     pub async fn init_pool(database: &str) -> Result<Self, DbErr> {
         let pool = Database::connect(database).await?;
         Migrator::up(&pool, None).await?;
@@ -127,7 +127,7 @@ impl ORM {
 }
 
 #[async_trait]
-impl BlobStorage for ORM {
+impl BlobStorage for BlobsAutoStorage {
     type Read = ReaderStream<Cursor<Vec<u8>>>;
 
     async fn get_blob(&self, workspace: Option<String>, id: String) -> io::Result<Self::Read> {
@@ -184,13 +184,9 @@ impl BlobStorage for ORM {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
-    #[tokio::test]
-    async fn basic_storage_test() -> anyhow::Result<()> {
-        use super::*;
-
-        let pool = ORM::init_pool("sqlite::memory:").await?;
-
+    async fn blobs_storage_test(pool: BlobsAutoStorage) -> anyhow::Result<()> {
         // empty table
         assert_eq!(pool.count("basic").await?, 0);
 
@@ -235,6 +231,26 @@ mod tests {
 
         pool.drop("basic").await?;
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn sqlite_storage_test() -> anyhow::Result<()> {
+        let pool = BlobsAutoStorage::init_pool("sqlite::memory:").await?;
+
+        blobs_storage_test(pool).await?;
+
+        Ok(())
+    }
+
+    #[cfg(feature = "postgres")]
+    #[tokio::test]
+    async fn postgres_storage_test() -> anyhow::Result<()> {
+        let pool =
+            BlobsAutoStorage::init_pool("postgresql://affine:affine@localhost:5432/affine_blobs")
+                .await?;
+
+        blobs_storage_test(pool).await?;
         Ok(())
     }
 }

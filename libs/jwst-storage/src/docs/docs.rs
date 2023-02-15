@@ -363,7 +363,7 @@ impl DocSync for DocAutoStorage {
 mod tests {
     use super::*;
 
-    async fn storage_test(pool: DocAutoStorage) -> anyhow::Result<()> {
+    async fn docs_storage_test(pool: DocAutoStorage) -> anyhow::Result<()> {
         pool.drop("basic").await?;
 
         // empty table
@@ -412,7 +412,7 @@ mod tests {
     async fn sqlite_storage_test() -> anyhow::Result<()> {
         let pool = DocAutoStorage::init_pool("sqlite::memory:").await?;
 
-        storage_test(pool).await?;
+        docs_storage_test(pool).await?;
         Ok(())
     }
 
@@ -420,9 +420,10 @@ mod tests {
     #[tokio::test]
     async fn postgres_storage_test() -> anyhow::Result<()> {
         let pool =
-            DocAutoStorage::init_pool("postgresql://affine:affine@localhost:5432/affine").await?;
+            DocAutoStorage::init_pool("postgresql://affine:affine@localhost:5432/affine_docs")
+                .await?;
 
-        storage_test(pool).await?;
+        docs_storage_test(pool).await?;
         Ok(())
     }
 }
