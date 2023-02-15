@@ -3,7 +3,7 @@ use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use axum::extract::ws::Message;
 use chrono::{NaiveDateTime, Utc};
-use cloud_database::PostgresDBContext;
+use cloud_database::CloudDatabase;
 use cloud_database::{Claims, GoogleClaims};
 use dashmap::DashMap;
 use handlebars::Handlebars;
@@ -94,7 +94,7 @@ pub struct Context {
     pub http_client: Client,
     firebase: RwLock<FirebaseContext>,
     pub mail: MailContext,
-    pub db: PostgresDBContext,
+    pub db: CloudDatabase,
     pub blob: BlobAutoStorage,
     pub doc: DocStore,
     pub channel: DashMap<(String, String), Sender<Message>>,
@@ -171,8 +171,11 @@ impl Context {
 
         let site_url = dotenvy::var("SITE_URL").expect("should provide site url");
 
+        let cloud_db = CloudDatabase::init_pool(&db_env)
+            .await
+            .expect("Cannot create cloud database");
         Self {
-            db: PostgresDBContext::new(db_env).await,
+            db: cloud_db,
             key,
             firebase,
             mail,
