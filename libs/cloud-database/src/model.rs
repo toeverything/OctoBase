@@ -120,6 +120,14 @@ impl From<i16> for WorkspaceType {
 }
 
 impl TryGetable for WorkspaceType {
+    fn try_get_by<I: sea_orm::ColIdx>(
+        res: &sea_orm::QueryResult,
+        index: I,
+    ) -> Result<Self, sea_orm::TryGetError> {
+        let i: i16 = res.try_get_by(index).map_err(sea_orm::TryGetError::DbErr)?;
+        Ok(WorkspaceType::from(i))
+    }
+
     fn try_get(
         res: &sea_orm::QueryResult,
         pre: &str,
@@ -225,6 +233,14 @@ impl From<i16> for PermissionType {
 }
 
 impl TryGetable for PermissionType {
+    fn try_get_by<I: sea_orm::ColIdx>(
+        res: &sea_orm::QueryResult,
+        index: I,
+    ) -> Result<Self, sea_orm::TryGetError> {
+        let i: i16 = res.try_get_by(index).map_err(sea_orm::TryGetError::DbErr)?;
+        Ok(PermissionType::from(i))
+    }
+
     fn try_get(
         res: &sea_orm::QueryResult,
         pre: &str,

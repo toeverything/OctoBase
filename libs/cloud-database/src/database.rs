@@ -118,7 +118,7 @@ impl CloudDatabase {
     pub async fn create_user(
         &self,
         user: CreateUser,
-    ) -> Result<Option<(UsersModel, WorkspacesModel)>, DbErr> {
+    ) -> Result<Option<(UsersModel, Workspace)>, DbErr> {
         let trx = self.pool.begin().await?;
 
         let uuid = Uuid::new_v4().to_string();
