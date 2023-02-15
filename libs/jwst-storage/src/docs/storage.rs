@@ -108,8 +108,9 @@ impl DocAutoStorage {
     pub async fn insert(&self, table: &str, blob: &[u8]) -> Result<(), DbErr> {
         UpdateBinary::insert(UpdateBinaryActiveModel {
             workspace: Set(table.into()),
-            timestamp: Set(Utc::now()),
+            timestamp: Set(Utc::now().into()),
             blob: Set(blob.into()),
+            ..Default::default()
         })
         .exec(&self.pool)
         .await?;
@@ -126,8 +127,9 @@ impl DocAutoStorage {
 
         UpdateBinary::insert(UpdateBinaryActiveModel {
             workspace: Set(table.into()),
-            timestamp: Set(Utc::now()),
+            timestamp: Set(Utc::now().into()),
             blob: Set(blob),
+            ..Default::default()
         })
         .exec(&tx)
         .await?;
@@ -252,10 +254,7 @@ impl DocSync for DocAutoStorage {
     async fn sync(&self, id: String, remote: String) -> io::Result<()> {
         if let Entry::Vacant(entry) = self.remote.entry(id.clone()) {
             let workspace = self.get(id).await.map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::BrokenPipe,
-                    format!("Failed to get doc: {e}"),
-                )
+                io::Error::new(io::ErrorKind::BrokenPipe, format!("Failed to get doc: {e}"))
             })?;
 
             let (tx, mut rx) = channel(100);
@@ -289,7 +288,7 @@ impl DocSync for DocAutoStorage {
                             return error!("Failed to connect to remote: {}", e);
                         }
                     };
-           
+
                     debug!("sync init message");
                     match workspace.read().await.sync_init_message() {
                         Ok(init_data) => {
@@ -362,11 +361,10 @@ impl DocSync for DocAutoStorage {
 
 #[cfg(test)]
 mod tests {
-    #[tokio::test]
-    async fn basic_storage_test() -> anyhow::Result<()> {
-        use super::*;
+    use super::*;
 
-        let pool = DocAutoStorage::init_pool("sqlite::memory:").await?;
+    async fn storage_test(pool: DocAutoStorage) -> anyhow::Result<()> {
+        pool.drop("basic").await?;
 
         // empty table
         assert_eq!(pool.count("basic").await?, 0);
@@ -383,6 +381,7 @@ mod tests {
         assert_eq!(
             all,
             vec![UpdateBinaryModel {
+                id: all.get(0).unwrap().id,
                 workspace: "basic".into(),
                 timestamp: all.get(0).unwrap().timestamp,
                 blob: vec![3, 2, 3, 4]
@@ -398,6 +397,7 @@ mod tests {
         assert_eq!(
             all,
             vec![UpdateBinaryModel {
+                id: all.get(0).unwrap().id,
                 workspace: "basic".into(),
                 timestamp: all.get(0).unwrap().timestamp,
                 blob: vec![1, 2, 3, 4]
@@ -405,6 +405,24 @@ mod tests {
         );
         assert_eq!(pool.count("basic").await?, 1);
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn sqlite_storage_test() -> anyhow::Result<()> {
+        let pool = DocAutoStorage::init_pool("sqlite::memory:").await?;
+
+        storage_test(pool).await?;
+        Ok(())
+    }
+
+    #[cfg(feature = "postgres")]
+    #[tokio::test]
+    async fn postgres_storage_test() -> anyhow::Result<()> {
+        let pool =
+            DocAutoStorage::init_pool("postgresql://affine:affine@localhost:5432/affine").await?;
+
+        storage_test(pool).await?;
         Ok(())
     }
 }
