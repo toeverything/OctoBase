@@ -1,9 +1,8 @@
 /* eslint-disable max-lines */
-import { nanoid } from 'nanoid';
 import type { BlockItem } from '../types';
 import { BlockFlavors } from '../types';
 import type { TopicEventBus } from '../utils';
-import { getLogger } from '../utils';
+import { getLogger, nanoid } from '../utils';
 import type { HistoryManager, YBlock } from '../yjs';
 import type {
     BlockListener,

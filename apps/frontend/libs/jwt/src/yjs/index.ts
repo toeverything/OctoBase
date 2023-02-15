@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-import { nanoid } from 'nanoid';
 import { debounce } from 'ts-debounce';
 import { Awareness } from 'y-protocols/awareness.js';
 import { Array as YArray, Doc, Map as YMap, transact } from 'yjs';
+import { nanoid } from '../utils';
 
 import type { BlockItem } from '../types';
 import type { BlockEventBus } from '../utils';
