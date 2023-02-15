@@ -1,4 +1,4 @@
-FROM ghcr.io/toeverything/affine:nightly-keck as frontend
+FROM FROM ghcr.io/toeverything/affine-self-hosted:latest as frontend
 
 FROM messense/rust-musl-cross:x86_64-musl AS builder-dependencies
 ENV CARGO_TERM_COLOR="always"
