@@ -136,6 +136,13 @@ impl TryGetable for WorkspaceType {
         let i: i16 = res.try_get(pre, col).map_err(sea_orm::TryGetError::DbErr)?;
         Ok(WorkspaceType::from(i))
     }
+
+    fn try_get_by_index(
+        res: &sea_orm::QueryResult,
+        index: usize,
+    ) -> Result<Self, sea_orm::TryGetError> {
+        Self::try_get_by(res, index)
+    }
 }
 
 #[derive(FromQueryResult, Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -248,6 +255,13 @@ impl TryGetable for PermissionType {
     ) -> Result<Self, sea_orm::TryGetError> {
         let i: i16 = res.try_get(pre, col).map_err(sea_orm::TryGetError::DbErr)?;
         Ok(PermissionType::from(i))
+    }
+
+    fn try_get_by_index(
+        res: &sea_orm::QueryResult,
+        index: usize,
+    ) -> Result<Self, sea_orm::TryGetError> {
+        Self::try_get_by(res, index)
     }
 }
 
