@@ -1,4 +1,5 @@
-FROM ghcr.io/toeverything/affine-pathfinder:nightly-latest as frontend
+ARG BASE_STATIC_IMAGE=ghcr.io/toeverything/affine-pathfinder:nightly-latest
+FROM ${BASE_STATIC_IMAGE} as frontend
 
 FROM messense/rust-musl-cross:x86_64-musl AS builder-amd64
 ENV CARGO_TERM_COLOR="always"

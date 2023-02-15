@@ -98,12 +98,25 @@ jobs:
                       ${{ env.IMAGE_TAG }}
                       ${{ env.IMAGE_TAG_LATEST }}
 
-            - name: Build and push Docker image (cloud)
+            - name: Build Docker image (pull request)
               uses: docker/build-push-action@v3
+              if: github.ref != 'refs/heads/master'
               with:
                   context: .
                   file: ./.github/deployment/Dockerfile-cloud
-                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
+                  tags: ${{ steps.meta_cloud.outputs.tags }}
+                  labels: ${{ steps.meta_cloud.outputs.labels }}
+                  target: cloud
+                  build-args: |
+                      BASE_STATIC_IMAGE=ghcr.io/toeverything/affine-self-hosted:latest
+
+            - name: Build and push Docker image (cloud)
+              uses: docker/build-push-action@v3
+              if: github.ref == 'refs/heads/master'
+              with:
+                  context: .
+                  file: ./.github/deployment/Dockerfile-cloud
+                  push: true
                   tags: ${{ steps.meta_cloud.outputs.tags }}
                   labels: ${{ steps.meta_cloud.outputs.labels }}
                   target: cloud
