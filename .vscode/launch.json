@@ -16,7 +16,7 @@
 				}
 			},
 			"env": {
-				"DATABASE_URL": "postgresql://postgres:affine@localhost:5432/postgres",
+				"DATABASE_URL": "postgresql://affine:affine@localhost:5432/affine",
 				"SIGN_KEY": "12345678",
 				"MAIL_ACCOUNT": "example@toeverything.info",
 				"MAIL_PASSWORD": "a",
