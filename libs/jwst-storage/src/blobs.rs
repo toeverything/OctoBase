@@ -4,15 +4,21 @@ use jwst::{BlobMetadata, BlobStorage};
 use jwst_storage_migration::{Migrator, MigratorTrait};
 use tokio_util::io::ReaderStream;
 
-type BlobModel = <Blobs as EntityTrait>::Model;
+pub(super) type BlobModel = <Blobs as EntityTrait>::Model;
 type BlobActiveModel = super::entities::blobs::ActiveModel;
 type BlobColumn = <Blobs as EntityTrait>::Column;
 
+#[derive(Clone)]
 pub struct BlobsAutoStorage {
     pool: DatabaseConnection,
 }
 
 impl BlobsAutoStorage {
+    pub async fn init_with_pool(pool: DatabaseConnection) -> Result<Self, DbErr> {
+        Migrator::up(&pool, None).await?;
+        Ok(Self { pool })
+    }
+
     pub async fn init_pool(database: &str) -> Result<Self, DbErr> {
         let pool = Database::connect(database).await?;
         Migrator::up(&pool, None).await?;
@@ -172,78 +178,5 @@ impl BlobStorage for BlobsAutoStorage {
         } else {
             Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    async fn blobs_storage_test(pool: BlobsAutoStorage) -> anyhow::Result<()> {
-        // empty table
-        assert_eq!(pool.count("basic").await?, 0);
-
-        // first insert
-        pool.insert("basic", "test", &[1, 2, 3, 4]).await?;
-        assert_eq!(pool.count("basic").await?, 1);
-
-        let all = pool.all("basic").await?;
-        assert_eq!(
-            all,
-            vec![BlobModel {
-                workspace: "basic".into(),
-                hash: "test".into(),
-                blob: vec![1, 2, 3, 4],
-                length: 4,
-                timestamp: all.get(0).unwrap().timestamp
-            }]
-        );
-        assert_eq!(pool.count("basic").await?, 1);
-
-        pool.drop("basic").await?;
-
-        pool.insert("basic", "test1", &[1, 2, 3, 4]).await?;
-
-        let all = pool.all("basic").await?;
-        assert_eq!(
-            all,
-            vec![BlobModel {
-                workspace: "basic".into(),
-                hash: "test1".into(),
-                blob: vec![1, 2, 3, 4],
-                length: 4,
-                timestamp: all.get(0).unwrap().timestamp
-            }]
-        );
-        assert_eq!(pool.count("basic").await?, 1);
-
-        let metadata = pool.metadata("basic", "test1").await?;
-
-        assert_eq!(metadata.size, 4);
-        assert!((metadata.last_modified.timestamp() - Utc::now().timestamp()).abs() < 2);
-
-        pool.drop("basic").await?;
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn sqlite_storage_test() -> anyhow::Result<()> {
-        let pool = BlobsAutoStorage::init_pool("sqlite::memory:").await?;
-
-        blobs_storage_test(pool).await?;
-
-        Ok(())
-    }
-
-    #[cfg(feature = "postgres")]
-    #[tokio::test]
-    async fn postgres_storage_test() -> anyhow::Result<()> {
-        let pool =
-            BlobsAutoStorage::init_pool("postgresql://affine:affine@localhost:5432/affine_blobs")
-                .await?;
-
-        blobs_storage_test(pool).await?;
-        Ok(())
     }
 }

@@ -44,10 +44,11 @@ fn migrate_update(updates: Vec<<Docs as EntityTrait>::Model>, doc: Doc) -> Doc {
     doc
 }
 
-type DocsModel = <Docs as EntityTrait>::Model;
+pub(super) type DocsModel = <Docs as EntityTrait>::Model;
 type DocsActiveModel = super::entities::docs::ActiveModel;
 type DocsColumn = <Docs as EntityTrait>::Column;
 
+#[derive(Clone)]
 pub struct DocAutoStorage {
     pool: DatabaseConnection,
     workspaces: DashMap<String, Arc<RwLock<Workspace>>>,
@@ -55,6 +56,15 @@ pub struct DocAutoStorage {
 }
 
 impl DocAutoStorage {
+    pub async fn init_with_pool(pool: DatabaseConnection) -> Result<Self, DbErr> {
+        Migrator::up(&pool, None).await?;
+        Ok(Self {
+            pool,
+            workspaces: DashMap::new(),
+            remote: DashMap::new(),
+        })
+    }
+
     pub async fn init_pool(database: &str) -> Result<Self, DbErr> {
         let pool = Database::connect(database).await?;
         Migrator::up(&pool, None).await?;
@@ -93,7 +103,7 @@ impl DocAutoStorage {
             .await
     }
 
-    async fn count(&self, table: &str) -> Result<u64, DbErr> {
+    pub(super) async fn count(&self, table: &str) -> Result<u64, DbErr> {
         Docs::find()
             .filter(DocsColumn::Workspace.eq(table))
             .count(&self.pool)
@@ -350,75 +360,6 @@ impl DocSync for DocAutoStorage {
             entry.insert(tx);
         }
 
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    async fn docs_storage_test(pool: DocAutoStorage) -> anyhow::Result<()> {
-        pool.drop("basic").await?;
-
-        // empty table
-        assert_eq!(pool.count("basic").await?, 0);
-
-        // first insert
-        pool.insert("basic", &[1, 2, 3, 4]).await?;
-        pool.insert("basic", &[2, 2, 3, 4]).await?;
-        assert_eq!(pool.count("basic").await?, 2);
-
-        // second insert
-        pool.replace_with("basic", vec![3, 2, 3, 4]).await?;
-
-        let all = pool.all("basic").await?;
-        assert_eq!(
-            all,
-            vec![DocsModel {
-                id: all.get(0).unwrap().id,
-                workspace: "basic".into(),
-                timestamp: all.get(0).unwrap().timestamp,
-                blob: vec![3, 2, 3, 4]
-            }]
-        );
-        assert_eq!(pool.count("basic").await?, 1);
-
-        pool.drop("basic").await?;
-
-        pool.insert("basic", &[1, 2, 3, 4]).await?;
-
-        let all = pool.all("basic").await?;
-        assert_eq!(
-            all,
-            vec![DocsModel {
-                id: all.get(0).unwrap().id,
-                workspace: "basic".into(),
-                timestamp: all.get(0).unwrap().timestamp,
-                blob: vec![1, 2, 3, 4]
-            }]
-        );
-        assert_eq!(pool.count("basic").await?, 1);
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn sqlite_storage_test() -> anyhow::Result<()> {
-        let pool = DocAutoStorage::init_pool("sqlite::memory:").await?;
-
-        docs_storage_test(pool).await?;
-        Ok(())
-    }
-
-    #[cfg(feature = "postgres")]
-    #[tokio::test]
-    async fn postgres_storage_test() -> anyhow::Result<()> {
-        let pool =
-            DocAutoStorage::init_pool("postgresql://affine:affine@localhost:5432/affine_docs")
-                .await?;
-
-        docs_storage_test(pool).await?;
         Ok(())
     }
 }
