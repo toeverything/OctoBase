@@ -126,9 +126,10 @@ impl Context {
         let cloud_db = CloudDatabase::init_pool(&db_env)
             .await
             .expect("Cannot create cloud database");
-        let storage = JwstStorage::new(
-            &dotenvy::var("DATABASE_URL").expect("should provide doc storage path"),
-        )
+        let storage = JwstStorage::new(&format!(
+            "{}_binary",
+            dotenvy::var("DATABASE_URL").expect("should provide doc storage path")
+        ))
         .await
         .expect("Cannot create storage");
 
