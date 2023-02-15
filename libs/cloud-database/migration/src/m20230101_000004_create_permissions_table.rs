@@ -26,7 +26,7 @@ impl MigrationTrait for Migration {
                             .char_len(36)
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Permissions::UserId).char_len(36).not_null())
+                    .col(ColumnDef::new(Permissions::UserId).char_len(36))
                     .col(ColumnDef::new(Permissions::UserEmail).text())
                     .col(ColumnDef::new(Permissions::Type).small_integer().not_null())
                     .col(

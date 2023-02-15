@@ -13,7 +13,7 @@ pub async fn init_workspace<'a>(
 ) -> Result<Arc<RwLock<Workspace>>, anyhow::Error> {
     match context.workspace.entry(workspace.to_owned()) {
         Entry::Vacant(entry) => {
-            let workspace = context.docs.get(workspace.into()).await?;
+            let workspace = context.storage.docs().get(workspace.into()).await?;
 
             Ok(entry.insert(workspace).clone())
         }

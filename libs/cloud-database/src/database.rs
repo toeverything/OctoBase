@@ -164,7 +164,7 @@ impl CloudDatabase {
                         id: workspace.uuid.clone(),
                         public: workspace.public,
                         r#type: workspace.r#type.into(),
-                        created_at: workspace.created_at.naive_local(),
+                        created_at: workspace.created_at.unwrap_or_default().naive_local(),
                     },
                 }))
             }
@@ -196,7 +196,7 @@ impl CloudDatabase {
                 id: workspace.uuid.clone(),
                 public: workspace.public,
                 r#type: workspace.r#type.into(),
-                created_at: workspace.created_at.naive_local(),
+                created_at: workspace.created_at.unwrap_or_default().naive_local(),
             },
         }))
     }
@@ -222,7 +222,7 @@ impl CloudDatabase {
             id: ws.uuid,
             public: ws.public,
             r#type: ws.r#type.into(),
-            created_at: ws.created_at.naive_local(),
+            created_at: ws.created_at.unwrap_or_default().naive_local(),
         })?;
 
         Permissions::insert(PermissionActiveModel {
@@ -276,7 +276,7 @@ impl CloudDatabase {
             id: ws.uuid,
             public: ws.public,
             r#type: ws.r#type.into(),
-            created_at: ws.created_at.naive_local(),
+            created_at: ws.created_at.unwrap_or_default().naive_local(),
         })?;
         Ok(Some(workspace))
     }

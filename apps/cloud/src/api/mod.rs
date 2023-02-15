@@ -271,7 +271,7 @@ async fn delete_workspace(
         Ok(true) => {
             ctx.user_channel
                 .update_workspace(workspace_id.clone(), ctx.clone());
-            let _ = ctx.blob.delete_workspace(workspace_id).await;
+            let _ = ctx.storage.blobs().delete_workspace(workspace_id).await;
             StatusCode::OK.into_response()
         }
         Ok(false) => ErrorStatus::NotFoundWorkspace(workspace_id).into_response(),
@@ -320,7 +320,7 @@ pub async fn get_public_doc(
 }
 
 async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response {
-    ctx.doc
+    ctx.storage
         .get_workspace(workspace_id)
         .await
         .read()

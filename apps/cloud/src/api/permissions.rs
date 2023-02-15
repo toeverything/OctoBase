@@ -52,7 +52,7 @@ async fn make_invite_email(
     invite_code: &str,
 ) -> Option<(String, MultiPart)> {
     let metadata = {
-        let ws = ctx.doc.get_workspace(workspace_id).await;
+        let ws = ctx.storage.get_workspace(workspace_id).await;
 
         let ws = ws.read().await;
 

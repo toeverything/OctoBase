@@ -19,7 +19,7 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(GoogleUsers::UserId).char_len(36))
+                    .col(ColumnDef::new(GoogleUsers::UserId).char_len(36).not_null())
                     .col(
                         ColumnDef::new(GoogleUsers::GoogleId)
                             .string()

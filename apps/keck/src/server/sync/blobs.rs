@@ -39,7 +39,7 @@ impl Context {
             }
         }
 
-        let Ok(meta) = self.blobs.get_metadata(workspace.clone(), id.clone()).await else {
+        let Ok(meta) = self.storage.blobs().get_metadata(workspace.clone(), id.clone()).await else {
             return StatusCode::NOT_FOUND.into_response()
         };
 
@@ -82,7 +82,7 @@ impl Context {
             return header.into_response();
         };
 
-        let Ok(file) = self.blobs.get_blob(workspace, id).await else {
+        let Ok(file) = self.storage.blobs().get_blob(workspace, id).await else {
             return StatusCode::NOT_FOUND.into_response()
         };
 
@@ -99,9 +99,14 @@ impl Context {
             })
             .filter_map(|data| future::ready(data.ok()));
 
-        if let Ok(id) = self.blobs.put_blob(workspace.clone(), stream).await {
+        if let Ok(id) = self
+            .storage
+            .blobs()
+            .put_blob(workspace.clone(), stream)
+            .await
+        {
             if has_error {
-                let _ = self.blobs.delete_blob(workspace, id).await;
+                let _ = self.storage.blobs().delete_blob(workspace, id).await;
                 StatusCode::INTERNAL_SERVER_ERROR.into_response()
             } else {
                 Json(BlobStatus { id, exists: true }).into_response()

@@ -104,7 +104,7 @@ pub async fn delete_workspace(
         )
             .into_response();
     }
-    if context.docs.drop(&workspace).await.is_err() {
+    if context.storage.docs().drop(&workspace).await.is_err() {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
 

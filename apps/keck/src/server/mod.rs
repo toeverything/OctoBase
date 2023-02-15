@@ -60,7 +60,7 @@ pub async fn start_server() {
         .allow_origin(origins)
         .allow_headers(Any);
 
-    let context = Arc::new(Context::new(None, None).await);
+    let context = Arc::new(Context::new(None).await);
 
     let app = files::static_files(sync::sync_handler(api::api_handler(Router::new())))
         .layer(cors)
