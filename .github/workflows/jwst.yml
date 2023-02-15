@@ -45,7 +45,6 @@ env:
 
 jobs:
     cloud:
-        if: github.ref == 'refs/heads/master'
         runs-on: self-hosted
         environment: development
         permissions:
@@ -60,6 +59,7 @@ jobs:
 
             - name: Log in to the Container registry
               uses: docker/login-action@v2
+              if: github.ref == 'refs/heads/master'
               with:
                   registry: ${{ env.REGISTRY }}
                   username: ${{ github.actor }}
