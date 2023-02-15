@@ -270,7 +270,7 @@ pub struct Permission {
     pub id: i64,
     #[serde(rename = "type")]
     #[sqlx(rename = "type")]
-    pub type_: PermissionType,
+    pub r#type: PermissionType,
     pub workspace_id: String,
     pub user_id: Option<String>,
     pub user_email: Option<String>,

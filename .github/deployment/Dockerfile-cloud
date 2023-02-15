@@ -6,7 +6,7 @@ COPY . .
 RUN cargo vendor > .cargo/config
 
 FROM messense/rust-musl-cross:x86_64-musl AS builder-amd64
-ENV CARGO_TERM_COLOR="always" CARGO_BUILD_JOBS=2
+ENV CARGO_TERM_COLOR="always"
 COPY . .
 COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
 COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config

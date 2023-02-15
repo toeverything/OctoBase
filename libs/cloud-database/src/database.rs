@@ -493,7 +493,7 @@ impl CloudDatabase {
             .await
             .map(|op| Permission {
                 id: op.id,
-                type_: op.r#type.into(),
+                r#type: op.r#type.into(),
                 workspace_id: op.workspace_id,
                 user_id: op.user_id,
                 user_email: op.user_email,

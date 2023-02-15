@@ -60,6 +60,3 @@ axum-test-helper = "0.2.0"
 
 [build-dependencies]
 mdbook = { version = "0.4.27", default-features = false, optional = true }
-
-[profile.dev.package.sqlx-macros]
-opt-level = 3
