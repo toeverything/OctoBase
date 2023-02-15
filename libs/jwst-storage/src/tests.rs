@@ -1,11 +1,15 @@
 #[cfg(test)]
-use super::*;
+use super::{
+    blobs::{BlobAutoStorage, BlobModel},
+    docs::{DocAutoStorage, DocsModel},
+    *,
+};
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    async fn blobs_storage_test(pool: &BlobsAutoStorage) -> anyhow::Result<()> {
+    async fn blobs_storage_test(pool: &BlobAutoStorage) -> anyhow::Result<()> {
         // empty table
         assert_eq!(pool.count("basic").await?, 0);
 

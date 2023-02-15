@@ -32,7 +32,7 @@ pub async fn check_blob(
 ) -> Response {
     let (workspace, hash) = params;
     info!("check_blob: {}, {}", workspace, hash);
-    if let Ok(exists) = context.blobs.exists(&workspace, &hash).await {
+    if let Ok(exists) = context.storage.blobs().exists(&workspace, &hash).await {
         if exists {
             StatusCode::OK
         } else {
@@ -67,7 +67,7 @@ pub async fn get_blob(
 ) -> Response {
     let (workspace, hash) = params;
     info!("get_blob: {}, {}", workspace, hash);
-    if let Ok(blob) = context.blobs.get(&workspace, &hash).await {
+    if let Ok(blob) = context.storage.blobs().get(&workspace, &hash).await {
         blob.blob.into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
@@ -102,7 +102,13 @@ pub async fn set_blob(
     let (workspace, hash) = params;
     info!("set_blob: {}, {}", workspace, hash);
 
-    if context.blobs.insert(&workspace, &hash, &body).await.is_ok() {
+    if context
+        .storage
+        .blobs()
+        .insert(&workspace, &hash, &body)
+        .await
+        .is_ok()
+    {
         Json(BlobStatus { exists: true }).into_response()
     } else {
         (StatusCode::NOT_FOUND, Json(BlobStatus { exists: false })).into_response()
@@ -133,7 +139,7 @@ pub async fn delete_blob(
     let (workspace, hash) = params;
     info!("delete_blob: {}, {}", workspace, hash);
 
-    if let Ok(success) = context.blobs.delete(&workspace, &hash).await {
+    if let Ok(success) = context.storage.blobs().delete(&workspace, &hash).await {
         if success {
             StatusCode::NO_CONTENT
         } else {

@@ -1,6 +1,6 @@
 use android_logger::Config;
 use jwst::{error, DocStorage, DocSync};
-use jwst_storage::DocAutoStorage;
+use jwst_storage::JwstStorage as AutoStorage;
 use log::LevelFilter;
 use std::{io::Result, sync::Arc};
 use tokio::{runtime::Runtime, sync::RwLock};
@@ -8,7 +8,7 @@ use yrs::{updates::decoder::Decode, Doc, Update};
 
 #[derive(Clone)]
 pub struct JwstStorage {
-    storage: Option<Arc<RwLock<DocAutoStorage>>>,
+    storage: Option<Arc<RwLock<AutoStorage>>>,
     error: Option<String>,
 }
 
@@ -22,9 +22,7 @@ impl JwstStorage {
 
         let rt = Runtime::new().unwrap();
 
-        match rt.block_on(DocAutoStorage::init_pool(&format!(
-            "sqlite:{path}?mode=rwc"
-        ))) {
+        match rt.block_on(AutoStorage::new(&format!("sqlite:{path}?mode=rwc"))) {
             Ok(pool) => Self {
                 storage: Some(Arc::new(RwLock::new(pool))),
                 error: None,
@@ -45,7 +43,7 @@ impl JwstStorage {
             let rt = Runtime::new().unwrap();
             rt.block_on(async move {
                 let storage = storage.read().await;
-                storage.sync(workspace_id, remote).await
+                storage.docs().sync(workspace_id, remote).await
             })?;
             Ok(())
         } else {
@@ -62,6 +60,7 @@ impl JwstStorage {
             rt.block_on(async move {
                 let storage = storage.write().await;
                 let updates = storage
+                    .docs()
                     .all(&workspace_id)
                     .await
                     .expect("Failed to get all updates");
@@ -85,7 +84,7 @@ impl JwstStorage {
             log::info!("update: {:?}", update);
             rt.block_on(async move {
                 let storage = storage.write().await;
-                storage.write_update(workspace_id, update).await
+                storage.docs().write_update(workspace_id, update).await
             })?;
         }
         Ok(())

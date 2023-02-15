@@ -9,11 +9,11 @@ type BlobActiveModel = super::entities::blobs::ActiveModel;
 type BlobColumn = <Blobs as EntityTrait>::Column;
 
 #[derive(Clone)]
-pub struct BlobsAutoStorage {
+pub struct BlobAutoStorage {
     pool: DatabaseConnection,
 }
 
-impl BlobsAutoStorage {
+impl BlobAutoStorage {
     pub async fn init_with_pool(pool: DatabaseConnection) -> Result<Self, DbErr> {
         Migrator::up(&pool, None).await?;
         Ok(Self { pool })
@@ -126,7 +126,7 @@ impl BlobsAutoStorage {
 }
 
 #[async_trait]
-impl BlobStorage for BlobsAutoStorage {
+impl BlobStorage for BlobAutoStorage {
     type Read = ReaderStream<Cursor<Vec<u8>>>;
 
     async fn get_blob(&self, workspace: Option<String>, id: String) -> io::Result<Self::Read> {

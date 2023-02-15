@@ -204,7 +204,10 @@ async fn handle_socket(
             loop {
                 sleep(Duration::from_secs(10)).await;
 
-                context.doc.full_migrate(workspace_id.clone(), None).await;
+                context
+                    .storage
+                    .full_migrate(workspace_id.clone(), None)
+                    .await;
             }
         });
     }
@@ -215,7 +218,7 @@ async fn handle_socket(
         .insert((workspace_id.clone(), uuid.clone()), tx.clone());
 
     if let Ok(init_data) = {
-        let ws = context.doc.get_workspace(workspace_id.clone()).await;
+        let ws = context.storage.get_workspace(workspace_id.clone()).await;
 
         let mut ws = ws.write().await;
 
@@ -239,7 +242,7 @@ async fn handle_socket(
     while let Some(msg) = socket_rx.next().await {
         if let Ok(Message::Binary(binary)) = msg {
             let payload = {
-                let workspace = context.doc.get_workspace(workspace_id.clone()).await;
+                let workspace = context.storage.get_workspace(workspace_id.clone()).await;
                 let mut workspace = workspace.write().await;
 
                 use std::panic::{catch_unwind, AssertUnwindSafe};
