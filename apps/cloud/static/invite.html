@@ -4,22 +4,39 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
+    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+    <title>AFFiNE--Workspace invitation</title>
+    <style>
+      .hover_color {
+        color: #4c6275;
+        transition: all 0.15s;
+      }
+      .hover_color:hover {
+        color: #6880ff;
+      }
+      .hover_color:visited > svg {
+        color: #6880ff;
+      }
+    </style>
   </head>
 
-  <body style="margin: 0;">
-
+  <body style="margin: 0">
     <div style="width: 100%; height: 100%; background: #eef0f4">
-      <div style=" width: 600px;
-      margin: auto;
-      font-family: 'Inter';
-      color: #4c6275;
-      background-color: #fff;">
-        <header style="padding-left: 25px;">
+      <div
+        style="
+          width: 600px;
+          margin: auto;
+          font-family: 'Inter';
+          color: #4c6275;
+          background-color: #fff;
+          line-height: 1.5rem;
+        "
+      >
+        <header style="padding: 16px">
           <svg
             width="100"
-            height="42"
-            viewBox="0 0 100 42"
+            height="38"
+            viewBox="0 0 100 38"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
@@ -61,68 +78,166 @@
             />
           </svg>
         </header>
-        <div style="  margin-top: 40px;
-        padding-left: 48px;">
-          <div style=" font-family: 'Inter';
-          font-style: normal;
-          font-weight: 700;
-          font-size: 28px;">You are invited!</div>
-          <div style="font-weight: 500;
-          font-size: 18px;" class="user-invite">
-            <img style=" width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            vertical-align: middle;
-            margin-right: 12px;
-            box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
-              -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
-              4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);" src="{{avatar_url}}" alt="" />
-            <span style=" font-weight: 500;
-            font-size: 18px;">{{inviter_name}}</span> invited you to join
-            <img style="margin-left: 6px; width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            vertical-align: middle;
-            margin-right: 12px;
-            box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
-              -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
-              4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);" src="cid:avatar" alt="" />
-            <span style=" font-weight: 500;
-            font-size: 18px;">{{workspace_name}}</span>
+        <div style="margin-top: 40px; padding-left: 48px">
+          <div
+            style="
+              font-family: 'Inter';
+              font-style: normal;
+              font-weight: 700;
+              font-size: 28px;
+              color: #3a4c5c;
+              line-height: 1.14em;
+            "
+          >
+            You are invited!
           </div>
-          <div style="margin: 10px 0;">Click here to join this workspace</div>
-          <div style=" margin: 10px 0;">
-            <a style=" padding: 10px 28px;
-            display: inline-block;
-           
-            text-decoration: none;
-            background: #6880ff;
-            border-radius: 60px;
-            color: #fff;" href="{{site_url}}/invite/{{invite_code}}"
+          <div
+            style="
+              padding-right: 48px;
+              font-weight: 500;
+              font-size: 18px;
+              overflow-wrap: break-word;
+            "
+            class="user-invite"
+          >
+            <img
+              style="
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                vertical-align: middle;
+                margin-right: 12px;
+                box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
+                  -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
+                  4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);
+              "
+              src="{{avatar_url}}"
+              alt=""
+            />
+            <span style="line-height: 26px">{{inviter_name}}</span>
+            <span style="font-weight: 400; font-size: 16px; line-height: 1.5em"
+              >invited you to join</span
+            >
+            <img
+              style="
+                margin-left: 6px;
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                vertical-align: middle;
+                margin-right: 12px;
+                box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
+                  -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
+                  4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);
+              "
+              src="cid:avatar"
+              alt=""
+            />
+            <span style="line-height: 26px">{{workspace_name}}</span>
+          </div>
+          <div
+            style="
+              margin: 8px 0;
+              font-weight: 400;
+              font-size: 16px;
+              line-height: 1.5rem;
+            "
+          >
+            Click here to join this workspace
+          </div>
+          <div style="margin: 20px 0 8px 0">
+            <a
+              style="
+                display: inline-block;
+                justify-content: center;
+                align-items: center;
+                padding: 12px 22px;
+                gap: 8px;
+                text-decoration: none;
+                background: #6880ff;
+                border-radius: 60px;
+                color: #fff;
+              "
+              href="{{site_url}}/invite/{{invite_code}}"
               >Accept & Join</a
             >
           </div>
-          <div>or copy and paste this url</div>
-          <div>{{site_url}}/invite/{{invite_code}}</div>
+          <div style="margin: 8px 0; font-weight: 400; font-size: 16px">
+            or copy and paste this url
+          </div>
+          <div style="margin: 8px 0; font-weight: 400; font-size: 16px">
+            {{site_url}}/invite/{{invite_code}}
+          </div>
         </div>
-        <footer style=" padding: 28px 48px;
-        margin-top: 40px;
-        font-size: 14px;
-        color: #4c6275;
-        background: #f8f9ff;" >
+        <footer
+          style="
+            padding: 28px 48px;
+            margin-top: 40px;
+            font-size: 14px;
+            color: #4c6275;
+            background: #f8f9ff;
+          "
+        >
           <div>
-            <img width="100%" src="./bg.jpeg" alt="" />
+            <img
+              width="100%"
+              src="https://cdn.affine.pro/a9687c5df68c67704a5c740e2dace7f3623101b4da8c218145531f71.jpg"
+              alt=""
+            />
           </div>
 
-          <a style=" font-size: 19px;text-decoration: none;
-          color: #4c6275;font-weight: 700;" href="affine.pro">Open Source,Privacy First</a>
-          <div style="margin: 10px 0;">
+          <a
+            class="hover_color"
+            style="
+              font-size: 19px;
+              text-decoration: none;
+              font-weight: 700;
+              line-height: 23px;
+            "
+            href="https://affine.pro/"
+            alt="Affine"
+            target="_blank"
+            >Open Source, Privacy First
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <mask
+                id="mask0_10210_18952"
+                style="mask-type: alpha"
+                maskUnits="userSpaceOnUse"
+                x="0"
+                y="0"
+                width="16"
+                height="17"
+              >
+                <rect y="0.5" width="16" height="16" fill="currentColor" />
+              </mask>
+              <g mask="url(#mask0_10210_18952)">
+                <path
+                  d="M3.60234 14.1663C3.2466 14.1663 2.9466 14.0442 2.70234 13.7999C2.45807 13.5556 2.33594 13.2556 2.33594 12.8999V4.0999C2.33594 3.74416 2.45807 3.44416 2.70234 3.1999C2.9466 2.95563 3.2466 2.8335 3.60234 2.8335H7.28554C7.41887 2.8335 7.541 2.8863 7.65194 2.9919C7.7634 3.09696 7.81914 3.22176 7.81914 3.3663C7.81914 3.51083 7.7634 3.6359 7.65194 3.7415C7.541 3.8471 7.41887 3.8999 7.28554 3.8999H3.60234C3.55807 3.8999 3.51354 3.92203 3.46874 3.9663C3.42447 4.0111 3.40234 4.05563 3.40234 4.0999V12.8999C3.40234 12.9442 3.42447 12.9887 3.46874 13.0335C3.51354 13.0778 3.55807 13.0999 3.60234 13.0999H12.4023C12.4466 13.0999 12.4911 13.0778 12.5359 13.0335C12.5802 12.9887 12.6023 12.9442 12.6023 12.8999V9.2167C12.6023 9.08336 12.6551 8.96123 12.7607 8.8503C12.8663 8.73883 12.9914 8.6831 13.1359 8.6831C13.2805 8.6831 13.4053 8.73883 13.5103 8.8503C13.6159 8.96123 13.6687 9.08336 13.6687 9.2167V12.8999C13.6687 13.2556 13.5466 13.5556 13.3023 13.7999C13.0581 14.0442 12.7581 14.1663 12.4023 14.1663H3.60234ZM6.13594 10.3663C6.02447 10.2666 5.96874 10.1444 5.96874 9.9999C5.96874 9.85536 6.02447 9.72763 6.13594 9.6167L11.8519 3.8999H10.0023C9.8578 3.8999 9.73274 3.8471 9.62714 3.7415C9.52154 3.6359 9.46874 3.51083 9.46874 3.3663C9.46874 3.22176 9.52154 3.09696 9.62714 2.9919C9.73274 2.8863 9.8578 2.8335 10.0023 2.8335H13.0359C13.2023 2.8335 13.3495 2.89723 13.4775 3.0247C13.605 3.1527 13.6687 3.2999 13.6687 3.4663V6.4999C13.6687 6.64443 13.6159 6.7695 13.5103 6.8751C13.4053 6.9807 13.2805 7.0335 13.1359 7.0335C12.9914 7.0335 12.8663 6.9807 12.7607 6.8751C12.6551 6.7695 12.6023 6.64443 12.6023 6.4999V4.6503L6.86874 10.3831C6.769 10.494 6.64954 10.5495 6.51034 10.5495C6.37167 10.5495 6.24687 10.4884 6.13594 10.3663Z"
+                  fill="currentColor"
+                />
+              </g>
+            </svg>
+          </a>
+          <div
+            style="
+              margin: 8px 0;
+              font-weight: 400;
+              font-size: 16px;
+              line-height: 1.2rem;
+              color: #888a9e;
+            "
+          >
             Affine is the next-generation collaborative knowledge base for
             professionals.
           </div>
 
-          <div style="text-align: center;
-          margin-top: 40px;">
+          <div style="text-align: center; margin-top: 56px">
             <svg
               width="100"
               height="42"
@@ -168,14 +283,26 @@
               />
             </svg>
 
-            <p>Copyright © 2022 Toeverything</p>
+            <p
+              style="
+                font-family: 'Inter';
+                font-style: normal;
+                font-weight: 400;
+                font-size: 14px;
+                line-height: 17px;
+              "
+            >
+              Copyright © <span id="year"></span> Toeverything
+            </p>
             <p class="footer-contact">
-              <a style="display: inline-block;
-              margin-left: 16px;" href="https://www.reddit.com/r/Affine/"
+              <a
+                style="display: inline-block; margin-left: 16px"
+                href="https://www.reddit.com/r/Affine/"
+                target="_blank"
                 ><svg
                   width="22"
-                  height="21"
-                  viewBox="0 0 22 21"
+                  height="22"
+                  viewBox="0 0 22 22"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
                 >
@@ -185,8 +312,11 @@
                   />
                 </svg>
               </a>
-              <a style="display: inline-block;
-              margin-left: 16px;" href="https://twitter.com/AffineOfficial">
+              <a
+                style="display: inline-block; margin-left: 16px"
+                href="https://twitter.com/AffineOfficial"
+                target="_blank"
+              >
                 <svg
                   width="22"
                   height="22"
@@ -200,8 +330,10 @@
                   />
                 </svg>
               </a>
-              <a style="display: inline-block;
-              margin-left: 16px;" href="https://github.com/toeverything/AFFiNE/"
+              <a
+                style="display: inline-block; margin-left: 16px"
+                href="https://github.com/toeverything/AFFiNE/"
+                target="_blank"
                 ><svg
                   width="22"
                   height="22"
@@ -224,8 +356,10 @@
                   </defs>
                 </svg>
               </a>
-              <a style="display: inline-block;
-              margin-left: 16px;" href="https://t.me/affineworkos"
+              <a
+                style="display: inline-block; margin-left: 16px"
+                href="https://t.me/affineworkos"
+                target="_blank"
                 ><svg
                   width="22"
                   height="22"
@@ -239,8 +373,11 @@
                   />
                 </svg>
               </a>
-              <a style="display: inline-block;
-              margin-left: 16px;" href="https://discord.gg/yz6tGVsf5p">
+              <a
+                style="display: inline-block; margin-left: 16px"
+                href="https://discord.gg/yz6tGVsf5p"
+                target="_blank"
+              >
                 <svg
                   width="22"
                   height="22"
@@ -266,5 +403,10 @@
         </footer>
       </div>
     </div>
+    <script type="text/javascript">
+      var date = new Date();
+      var year = date.getFullYear();
+      document.getElementById("year").textContent = `${year}`;
+    </script>
   </body>
 </html>
