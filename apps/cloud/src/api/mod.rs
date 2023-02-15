@@ -40,6 +40,11 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/invitation/:path", post(permissions::accept_invitation))
         .nest_service("/global/sync", get(global_ws_handler))
         .route("/public/doc/:id", get(get_public_doc))
+        // TODO: Will consider this permission in the future
+        .route(
+            "/workspace/:id/blob/:name",
+            get(blobs::get_blob_in_workspace),
+        )
         .nest(
             "/",
             Router::new()
@@ -62,10 +67,6 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
                 .route("/workspace/:id/doc", get(get_doc))
                 .route("/workspace/:id/search", post(search_workspace))
                 .route("/workspace/:id/blob", put(blobs::upload_blob_in_workspace))
-                .route(
-                    "/workspace/:id/blob/:name",
-                    get(blobs::get_blob_in_workspace),
-                )
                 .route("/permission/:id", delete(permissions::remove_user))
                 .layer(
                     ServiceBuilder::new()

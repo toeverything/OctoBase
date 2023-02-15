@@ -2,7 +2,7 @@ use super::{
     async_trait, entities::prelude::*, get_hash, BlobMetadata, BlobStorage, Bytes, ReaderStream,
     Stream,
 };
-use chrono::{NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use jwst_blob_migration::{Migrator, MigratorTrait};
 use path_ext::PathExt;
 use sea_orm::{prelude::*, Database, FromQueryResult, QuerySelect, Set};
@@ -67,8 +67,8 @@ impl ORM {
     pub async fn metadata(&self, table: &str, hash: &str) -> Result<BlobMetadata, DbErr> {
         #[derive(FromQueryResult)]
         struct Metadata {
-            size: i32,
-            created_at: NaiveDateTime,
+            size: i64,
+            created_at: DateTime<Utc>,
         }
 
         let ret = Blobs::find_by_id((table.into(), hash.into()))
@@ -82,7 +82,7 @@ impl ORM {
 
         Ok(BlobMetadata {
             size: ret.size as u64,
-            last_modified: ret.created_at,
+            last_modified: ret.created_at.naive_local(),
         })
     }
 
@@ -93,7 +93,7 @@ impl ORM {
                 hash: Set(hash.into()),
                 blob: Set(blob.into()),
                 length: Set(blob.len().try_into().unwrap()),
-                timestamp: Set(Utc::now()),
+                timestamp: Set(Utc::now().into()),
             })
             .exec(&self.pool)
             .await?;

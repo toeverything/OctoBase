@@ -142,20 +142,20 @@ pub async fn upload_blob(
 
 pub async fn get_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
-    Extension(claims): Extension<Arc<Claims>>,
+    // Extension(claims): Extension<Arc<Claims>>,
     Path((workspace_id, id)): Path<(String, String)>,
     method: http::Method,
     headers: HeaderMap,
 ) -> Response {
-    match ctx
-        .db
-        .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
-        .await
-    {
-        Ok(true) => (),
-        Ok(false) => return ErrorStatus::Forbidden.into_response(),
-        Err(_) => return ErrorStatus::InternalServerError.into_response(),
-    }
+    // match ctx
+    //     .db
+    //     .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
+    //     .await
+    // {
+    //     Ok(true) => (),
+    //     Ok(false) => return ErrorStatus::Forbidden.into_response(),
+    //     Err(_) => return ErrorStatus::InternalServerError.into_response(),
+    // }
 
     ctx.get_blob(Some(workspace_id), id, method, headers).await
 }

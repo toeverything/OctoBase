@@ -569,21 +569,26 @@ impl CloudDatabase {
         })
     }
 
-    // ok
     pub async fn google_user_login(&self, claims: &GoogleClaims) -> Result<UsersModel, DbErr> {
         let google_user: Option<GoogleUsersModel> = GoogleUsers::find()
             .filter(GoogleUsersColumn::GoogleId.eq(claims.user_id.clone()))
             .one(&self.pool)
             .await?;
         if let Some(google_user) = google_user {
-            // todo check this
+            let model = Users::find()
+                .filter(UsersColumn::Uuid.eq(google_user.user_id))
+                .one(&self.pool)
+                .await?
+                .unwrap();
+            let id = model.id;
             let user = Users::update(UsersActiveModel {
+                id: Set(id),
                 name: Set(claims.name.clone()),
                 email: Set(claims.email.clone()),
                 avatar_url: Set(Some(claims.picture.clone())),
                 ..Default::default()
             })
-            .filter(UsersColumn::Uuid.eq(google_user.user_id))
+            .filter(UsersColumn::Id.eq(id))
             .exec(&self.pool)
             .await?;
             Ok(user)
