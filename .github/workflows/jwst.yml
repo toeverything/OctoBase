@@ -57,6 +57,30 @@ jobs:
               with:
                   submodules: true
 
+            - name: Install Rust
+              uses: actions-rs/toolchain@v1
+              with:
+                  profile: minimal
+                  toolchain: ${{ inputs.rust-version }}
+                  override: true
+
+            - name: Set up cargo cache
+              uses: actions/cache@v3
+              continue-on-error: false
+              with:
+                  path: |
+                      ~/.cargo/bin/
+                      ~/.cargo/registry/index/
+                      ~/.cargo/registry/cache/
+                      ~/.cargo/git/db/
+                      ./vendor
+                      ./.cargo/config
+                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+                  restore-keys: ${{ runner.os }}-cargo-
+
+            - name: Cargo Vendor
+              run: cargo vendor > .cargo/config
+
             - name: Log in to the Container registry
               uses: docker/login-action@v2
               if: github.ref == 'refs/heads/master'
