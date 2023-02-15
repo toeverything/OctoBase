@@ -21,13 +21,18 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Permissions::WorkspaceId).char_len(36))
-                    .col(ColumnDef::new(Permissions::UserId).char_len(36))
+                    .col(
+                        ColumnDef::new(Permissions::WorkspaceId)
+                            .char_len(36)
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(Permissions::UserId).char_len(36).not_null())
                     .col(ColumnDef::new(Permissions::UserEmail).text())
                     .col(ColumnDef::new(Permissions::Type).small_integer().not_null())
                     .col(
                         ColumnDef::new(Permissions::Accepted)
                             .boolean()
+                            .not_null()
                             .default(false),
                     )
                     .col(
@@ -40,16 +45,16 @@ impl MigrationTrait for Migration {
                             .name("permissions_workspace_id_fkey")
                             .from(Permissions::Table, Permissions::WorkspaceId)
                             .to(Workspaces::Table, Workspaces::Uuid)
-                            .on_delete(ForeignKeyAction::NoAction)
-                            .on_update(ForeignKeyAction::NoAction),
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
                             .name("permissions_user_id_fkey")
                             .from(Permissions::Table, Permissions::UserId)
                             .to(Users::Table, Users::Uuid)
-                            .on_delete(ForeignKeyAction::NoAction)
-                            .on_update(ForeignKeyAction::NoAction),
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )

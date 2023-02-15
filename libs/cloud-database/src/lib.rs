@@ -1,33 +1,22 @@
-// mod model;
-mod orm;
+mod database;
+mod entities;
+mod model;
 
-pub use orm::Claims;
-pub use orm::CloudDatabase;
-pub use orm::CreatePermission;
-pub use orm::GoogleClaims;
-pub use orm::MakeToken;
-pub use orm::PermissionType;
-pub use orm::RefreshToken;
-pub use orm::UpdateWorkspace;
-pub use orm::User;
-pub use orm::UserCred;
-pub use orm::UserLogin;
-pub use orm::UserQuery;
-pub use orm::UserToken;
-pub use orm::UserWithNonce;
-pub use orm::WorkspaceDetail;
-pub use orm::WorkspaceMetadata;
-pub use orm::WorkspaceSearchInput;
-pub use orm::WorkspaceWithPermission;
+pub use database::CloudDatabase;
+pub use model::*;
 
-// #[cfg(feature = "postgres")]
-// mod postgres;
-// #[cfg(feature = "sqlite")]
-// mod sqlite;
+use entities::prelude::*;
+use sea_orm::EntityTrait;
 
-// pub use model::*;
-
-// #[cfg(feature = "postgres")]
-// pub use postgres::PostgreSQL as PostgresDBContext;
-// #[cfg(feature = "sqlite")]
-// pub use sqlite::SQLite as SqliteDBContext;
+type UsersModel = <Users as EntityTrait>::Model;
+type UsersActiveModel = entities::users::ActiveModel;
+type UsersColumn = <Users as EntityTrait>::Column;
+type WorkspacesModel = <Workspaces as EntityTrait>::Model;
+type WorkspacesActiveModel = entities::workspaces::ActiveModel;
+type WorkspacesColumn = <Workspaces as EntityTrait>::Column;
+type PermissionModel = <Permissions as EntityTrait>::Model;
+type PermissionActiveModel = entities::permissions::ActiveModel;
+type PermissionColumn = <Permissions as EntityTrait>::Column;
+type GoogleUsersModel = <GoogleUsers as EntityTrait>::Model;
+type GoogleUsersActiveModel = entities::google_users::ActiveModel;
+type GoogleUsersColumn = <GoogleUsers as EntityTrait>::Column;

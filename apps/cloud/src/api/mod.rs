@@ -10,7 +10,7 @@ use axum::{
 use base64::Engine;
 use chrono::{Duration, Utc};
 use cloud_database::{
-    Claims, MakeToken, RefreshToken, UpdateWorkspace, User, UserQuery, UserToken, UserWithNonce,
+    Claims, MakeToken, RefreshToken, UpdateWorkspace, User, UserQuery, UserToken,
     WorkspaceSearchInput,
 };
 use http::StatusCode;

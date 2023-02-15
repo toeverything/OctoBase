@@ -22,7 +22,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(GoogleUsers::UserId).char_len(36))
                     .col(
                         ColumnDef::new(GoogleUsers::GoogleId)
-                            .text()
+                            .string()
                             .not_null()
                             .unique_key(),
                     )
@@ -31,8 +31,8 @@ impl MigrationTrait for Migration {
                             .name("google_users_user_id_fkey")
                             .from(GoogleUsers::Table, GoogleUsers::UserId)
                             .to(Users::Table, Users::Uuid)
-                            .on_delete(ForeignKeyAction::NoAction)
-                            .on_update(ForeignKeyAction::NoAction),
+                            .on_delete(ForeignKeyAction::Cascade)
+                            .on_update(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
