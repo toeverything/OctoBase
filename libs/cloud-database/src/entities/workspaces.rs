@@ -4,32 +4,20 @@ use chrono::{DateTime, Utc};
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "users")]
+#[sea_orm(table_name = "workspaces")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: i32,
-    #[sea_orm(unique)]
+    pub id: i64,
     pub uuid: String,
-    pub name: String,
-    pub email: String,
-    pub avatar_url: Option<String>,
-    pub token_nonce: Option<i32>,
-    pub password: Option<String>,
-    pub created_at: Option<DateTime<Utc>>,
+    pub public: bool,
+    pub r#type: i16,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::google_users::Entity")]
-    GoogleUsers,
     #[sea_orm(has_many = "super::permissions::Entity")]
     Permissions,
-}
-
-impl Related<super::google_users::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::GoogleUsers.def()
-    }
 }
 
 impl Related<super::permissions::Entity> for Entity {

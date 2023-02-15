@@ -12,42 +12,46 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(Permission::Table)
+                    .table(Permissions::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(Permission::Id)
+                        ColumnDef::new(Permissions::Id)
                             .big_integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(Permission::WorkspaceId)
+                        ColumnDef::new(Permissions::WorkspaceId)
                             .char_len(36)
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Permission::UserId).char_len(36).not_null())
-                    .col(ColumnDef::new(Permission::UserEmail).text())
-                    .col(ColumnDef::new(Permission::Type).small_integer().not_null())
+                    .col(ColumnDef::new(Permissions::UserId).char_len(36).not_null())
+                    .col(ColumnDef::new(Permissions::UserEmail).text())
+                    .col(ColumnDef::new(Permissions::Type).small_integer().not_null())
                     .col(
-                        ColumnDef::new(Permission::Accepted)
+                        ColumnDef::new(Permissions::Accepted)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(Permission::CreatedAt).timestamp().not_null())
+                    .col(
+                        ColumnDef::new(Permissions::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .default(Expr::current_timestamp()),
+                    )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("permission_workspace_id_fkey")
-                            .from(Permission::Table, Permission::WorkspaceId)
+                            .name("permissions_workspace_id_fkey")
+                            .from(Permissions::Table, Permissions::WorkspaceId)
                             .to(Workspaces::Table, Workspaces::Uuid)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("permission_user_id_fkey")
-                            .from(Permission::Table, Permission::UserId)
+                            .name("permissions_user_id_fkey")
+                            .from(Permissions::Table, Permissions::UserId)
                             .to(Users::Table, Users::Uuid)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
@@ -61,40 +65,40 @@ impl MigrationTrait for Migration {
         manager
             .drop_foreign_key(
                 ForeignKey::drop()
-                    .name("permission_workspace_id_fkey")
+                    .name("permissions_workspace_id_fkey")
                     .to_owned(),
             )
             .await?;
         manager
             .drop_foreign_key(
                 ForeignKey::drop()
-                    .name("permission_user_id_fkey")
+                    .name("permissions_user_id_fkey")
                     .to_owned(),
             )
             .await?;
         manager
             .drop_index(
                 Index::drop()
-                    .name("permission_workspace_id_user_id_unique")
+                    .name("permissions_workspace_id_user_id_unique")
                     .to_owned(),
             )
             .await?;
         manager
             .drop_index(
                 Index::drop()
-                    .name("permission_workspace_id_user_email_unique")
+                    .name("permissions_workspace_id_user_email_unique")
                     .to_owned(),
             )
             .await?;
         manager
-            .drop_table(Table::drop().table(Permission::Table).to_owned())
+            .drop_table(Table::drop().table(Permissions::Table).to_owned())
             .await
     }
 }
 
 /// Learn more at https://docs.rs/sea-query#iden
 #[derive(Iden)]
-enum Permission {
+enum Permissions {
     Table,
     Id,          // BIGSERIAL PRIMARY KEY,
     WorkspaceId, // CHAR(36),
