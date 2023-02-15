@@ -118,7 +118,7 @@ impl CloudDatabase {
     pub async fn create_user(
         &self,
         user: CreateUser,
-    ) -> Result<Option<(UsersModel, Workspace)>, DbErr> {
+    ) -> Result<Option<(UsersModel, WorkspacesModel)>, DbErr> {
         let trx = self.pool.begin().await?;
 
         let uuid = Uuid::new_v4().to_string();
@@ -290,10 +290,10 @@ impl CloudDatabase {
                 Query::select()
                     .from(Workspaces)
                     .and_where(
-                        Expr::tbl(Workspaces, WorkspacesColumn::Uuid).eq(workspace_id.clone()),
+                        Expr::col((Workspaces, WorkspacesColumn::Uuid)).eq(workspace_id.clone()),
                     )
                     .and_where(
-                        Expr::tbl(Workspaces, WorkspacesColumn::Type)
+                        Expr::col((Workspaces, WorkspacesColumn::Type))
                             .eq(WorkspaceType::Normal as i32),
                     )
                     .take(),
@@ -384,7 +384,7 @@ impl CloudDatabase {
                     Query::select()
                         .from(Permissions)
                         .column(PermissionColumn::WorkspaceId)
-                        .and_where(Expr::tbl(Permissions, PermissionColumn::Id).eq(permission_id))
+                        .and_where(Expr::col((Permissions, PermissionColumn::Id)).eq(permission_id))
                         .take(),
                 ),
             )
@@ -408,10 +408,10 @@ impl CloudDatabase {
                         Query::select()
                             .from(Workspaces)
                             .and_where(
-                                Expr::tbl(Workspaces, WorkspacesColumn::Uuid)
+                                Expr::col((Workspaces, WorkspacesColumn::Uuid))
                                     .eq(workspace_id.clone()),
                             )
-                            .and_where(Expr::tbl(Workspaces, WorkspacesColumn::Public).eq(true))
+                            .and_where(Expr::col((Workspaces, WorkspacesColumn::Public)).eq(true))
                             .take(),
                     )),
             )

@@ -27,3 +27,4 @@ rifgen = "^0.1.61"
 [lib]
 name = "jwst"
 crate-type = ["cdylib"]
+doc = false

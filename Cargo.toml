@@ -15,8 +15,6 @@ members = [
     "libs/jwst-storage",
     "libs/jwst-storage/src/blobs/migration",
     "libs/jwst-storage/src/docs/migration",
-    "libs/OctoBase",
-    "libs/vendors/cang-jie",
     # "libs/vendors/y-crdt-0.14/yrs",
     # "libs/vendors/y-crdt-0.14/lib0",
 ]
