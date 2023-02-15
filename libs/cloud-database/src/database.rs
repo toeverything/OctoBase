@@ -446,7 +446,7 @@ impl CloudDatabase {
 
         let user = self.get_user_by_email(email).await?;
         let id = Permissions::insert(PermissionActiveModel {
-            user_id: Set(user.clone().and_then(|u| Some(u.uuid))),
+            user_id: Set(user.clone().map(|u| u.uuid)),
             user_email: Set(user.clone().and(None).or(Some(email.to_string()))),
             workspace_id: Set(workspace_id),
             r#type: Set(permission_type as i16),

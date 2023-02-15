@@ -171,11 +171,11 @@ impl Context {
 
         let site_url = dotenvy::var("SITE_URL").expect("should provide site url");
 
-        let db = CloudDatabase::init_pool(&db_env)
+        let cloud_db = CloudDatabase::init_pool(&db_env)
             .await
             .expect("Cannot create cloud database");
         Self {
-            db: db,
+            db: cloud_db,
             key,
             firebase,
             mail,
