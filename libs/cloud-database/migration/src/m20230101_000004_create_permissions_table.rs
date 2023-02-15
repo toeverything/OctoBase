@@ -32,7 +32,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(Permissions::CreatedAt)
-                            .timestamp()
+                            .timestamp_with_time_zone()
                             .default(Expr::current_timestamp()),
                     )
                     .foreign_key(

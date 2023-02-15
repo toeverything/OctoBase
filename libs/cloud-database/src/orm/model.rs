@@ -2,6 +2,7 @@
 // use sqlx::{postgres::PgRow, FromRow, Result, Row};
 
 use chrono::naive::serde::{ts_milliseconds, ts_seconds};
+use chrono::{DateTime, Utc};
 use jwst_logger::error;
 use schemars::{JsonSchema, JsonSchema_repr};
 use sea_orm::{FromQueryResult, TryGetable};
@@ -139,8 +140,8 @@ pub enum WorkspaceType {
     Normal = 1,
 }
 
-impl From<i32> for WorkspaceType {
-    fn from(i: i32) -> Self {
+impl From<i16> for WorkspaceType {
+    fn from(i: i16) -> Self {
         match i {
             0 => WorkspaceType::Private,
             1 => WorkspaceType::Normal,
@@ -158,7 +159,7 @@ impl TryGetable for WorkspaceType {
         pre: &str,
         col: &str,
     ) -> Result<Self, sea_orm::TryGetError> {
-        let i: i32 = res.try_get(pre, col).map_err(sea_orm::TryGetError::DbErr)?;
+        let i: i16 = res.try_get(pre, col).map_err(sea_orm::TryGetError::DbErr)?;
         Ok(WorkspaceType::from(i))
     }
 }
@@ -183,9 +184,9 @@ pub struct WorkspaceWithPermission {
     pub public: bool,
     #[serde(rename = "type")]
     pub r#type: WorkspaceType,
-    #[serde(with = "ts_milliseconds")]
-    #[schemars(with = "i64")]
-    pub created_at: NaiveDateTime,
+    // #[serde(with = "ts_milliseconds")]
+    // #[schemars(with = "i64")]
+    // pub created_at: NaiveDateTime,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -234,7 +235,7 @@ pub struct UpdateWorkspace {
     Clone,
     JsonSchema_repr,
 )]
-#[repr(i32)]
+#[repr(i16)]
 pub enum PermissionType {
     Read = 0,
     Write = 1,
@@ -242,8 +243,8 @@ pub enum PermissionType {
     Owner = 99,
 }
 
-impl From<i32> for PermissionType {
-    fn from(i: i32) -> Self {
+impl From<i16> for PermissionType {
+    fn from(i: i16) -> Self {
         match i {
             0 => PermissionType::Read,
             1 => PermissionType::Write,
@@ -263,14 +264,14 @@ impl TryGetable for PermissionType {
         pre: &str,
         col: &str,
     ) -> Result<Self, sea_orm::TryGetError> {
-        let i: i32 = res.try_get(pre, col).map_err(sea_orm::TryGetError::DbErr)?;
+        let i: i16 = res.try_get(pre, col).map_err(sea_orm::TryGetError::DbErr)?;
         Ok(PermissionType::from(i))
     }
 }
 
 #[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Permission {
-    pub id: i32,
+    pub id: i64,
     #[serde(rename = "type")]
     #[sqlx(rename = "type")]
     pub type_: PermissionType,
@@ -328,20 +329,21 @@ pub struct MemberResult {
     // .column_as(PermissionColumn::UserEmail, "user_email")
     // .column_as(PermissionColumn::Accepted, "accepted")
     // .column_as(PermissionColumn::CreatedAt, "created_at")
-    // .column_as(UsersColumn::Id, "user_id")
+    // .column_as(UsersColumn::Uuid, "user_id")
     // .column_as(UsersColumn::Name, "user_name")
     // .column_as(UsersColumn::Email, "user_table_email")
-    // .column_as(UsersColumn::AvatarUrl, "avatar_url")
+    // .column_as(UsersColumn::AvatarUrl, "user_avatar_url")
     // .column_as(UsersColumn::CreatedAt, "user_created_at")
     pub id: i64,
     pub r#type: PermissionType,
+    pub user_email: Option<String>,
     pub accepted: bool,
-    pub created_at: NaiveDateTime,
+    pub created_at: Option<DateTime<Utc>>,
     pub user_id: Option<String>,
     pub user_name: Option<String>,
-    pub user_email: Option<String>,
+    pub user_table_email: Option<String>,
     pub user_avatar_url: Option<String>,
-    pub user_created_at: Option<NaiveDateTime>,
+    pub user_created_at: Option<DateTime<Utc>>,
 }
 
 impl From<&MemberResult> for Member {
@@ -350,9 +352,9 @@ impl From<&MemberResult> for Member {
             UserCred::Registered(User {
                 id,
                 name: r.user_name.clone().unwrap(),
-                email: r.user_email.clone().unwrap(),
+                email: r.user_table_email.clone().unwrap(),
                 avatar_url: r.user_avatar_url.clone(),
-                created_at: r.user_created_at.unwrap(),
+                created_at: r.user_created_at.unwrap_or_default().naive_local(),
             })
         } else {
             UserCred::UnRegistered {
@@ -364,7 +366,7 @@ impl From<&MemberResult> for Member {
             user,
             accepted: r.accepted,
             r#type: r.r#type.clone(),
-            created_at: r.created_at,
+            created_at: r.created_at.unwrap_or_default().naive_local(),
         }
     }
 }

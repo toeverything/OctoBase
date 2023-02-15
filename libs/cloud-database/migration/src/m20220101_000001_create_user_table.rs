@@ -26,7 +26,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Users::Password).text())
                     .col(
                         ColumnDef::new(Users::CreatedAt)
-                            .timestamp()
+                            .timestamp_with_time_zone()
                             .default(Expr::current_timestamp()),
                     )
                     .to_owned(),

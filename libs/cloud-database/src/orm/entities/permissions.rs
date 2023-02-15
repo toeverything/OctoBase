@@ -4,16 +4,16 @@ use chrono::{DateTime, Utc};
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "permission")]
+#[sea_orm(table_name = "permissions")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: i32,
+    pub id: i64,
     pub workspace_id: String,
     pub user_id: Option<String>,
     pub user_email: Option<String>,
-    pub r#type: i32,
+    pub r#type: i16,
     pub accepted: bool,
-    pub created_at: DateTime<Utc>,
+    pub created_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -7,10 +7,10 @@ use sea_orm::entity::prelude::*;
 #[sea_orm(table_name = "workspaces")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: i32,
+    pub id: i64,
     pub uuid: String,
     pub public: bool,
-    pub r#type: i32,
+    pub r#type: i16,
     pub created_at: DateTime<Utc>,
 }
 

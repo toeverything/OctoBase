@@ -1,8 +1,8 @@
 use super::{
     model::{
         CreateUser, GoogleClaims, Member, MemberResult, PermissionType, RefreshToken,
-        UpdateWorkspace, User, UserCred, UserInWorkspace, UserLogin, UserWithNonce, Workspace,
-        WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
+        UpdateWorkspace, User, UserCred, UserInWorkspace, UserLogin, Workspace, WorkspaceDetail,
+        WorkspaceType, WorkspaceWithPermission,
     },
     *,
 };
@@ -29,7 +29,6 @@ impl CloudDatabase {
         Ok(Self { pool })
     }
 
-    // TODO UUID
     pub async fn get_user_by_email(&self, email: &str) -> Result<Option<UsersModel>, DbErr> {
         Users::find()
             .filter(UsersColumn::Email.eq(email))
@@ -42,11 +41,14 @@ impl CloudDatabase {
         workspace_id: String,
     ) -> Result<Option<UsersModel>, DbErr> {
         Permissions::find()
-            .column_as(UsersColumn::Uuid, "id")
+            .column(UsersColumn::Id)
+            .column(UsersColumn::Uuid)
             .column(UsersColumn::Name)
             .column(UsersColumn::Email)
             .column(UsersColumn::AvatarUrl)
             .column(UsersColumn::CreatedAt)
+            .column(UsersColumn::Password)
+            .column(UsersColumn::TokenNonce)
             .join_rev(
                 JoinType::InnerJoin,
                 Users::belongs_to(Permissions)
@@ -61,7 +63,6 @@ impl CloudDatabase {
             .await
     }
 
-    // todo uuid
     pub async fn user_login(&self, login: UserLogin) -> Result<Option<UsersModel>, DbErr> {
         Users::find()
             .filter(UsersColumn::Email.eq(login.email))
@@ -70,7 +71,6 @@ impl CloudDatabase {
             .await
     }
 
-    // todo uuid
     pub async fn refresh_token(&self, token: RefreshToken) -> Result<Option<UsersModel>, DbErr> {
         Users::find()
             .filter(UsersColumn::Uuid.eq(token.user_id))
@@ -93,16 +93,26 @@ impl CloudDatabase {
         trx: &DatabaseTransaction,
         user_id: String,
         user_email: &str,
-    ) -> Result<(), DbErr> {
+    ) -> Result<Option<()>, DbErr> {
+        let model = Permissions::find()
+            .filter(PermissionColumn::UserEmail.eq(user_email))
+            .one(trx)
+            .await?;
+        if model.is_none() {
+            return Ok(None);
+        }
+
+        let id = model.unwrap().id;
         Permissions::update(PermissionActiveModel {
+            id: Set(id),
             user_id: Set(Some(user_id)),
             user_email: Set(None),
             ..Default::default()
         })
-        .filter(PermissionColumn::UserEmail.eq(user_email))
+        .filter(PermissionColumn::Id.eq(id))
         .exec(trx)
         .await
-        .map(|_| ())
+        .map(|_| Some(()))
     }
 
     pub async fn create_user(
@@ -146,7 +156,7 @@ impl CloudDatabase {
             .await?;
 
         let workspace = match workspace {
-            Some(workspace) if workspace.r#type == WorkspaceType::Private as i32 => {
+            Some(workspace) if workspace.r#type == WorkspaceType::Private as i16 => {
                 return Ok(Some(WorkspaceDetail {
                     owner: None,
                     member_count: 0,
@@ -202,7 +212,7 @@ impl CloudDatabase {
 
         let workspace = Workspaces::insert(WorkspacesActiveModel {
             public: Set(false),
-            r#type: Set(ws_type as i32),
+            r#type: Set(ws_type as i16),
             uuid: Set(workspace_id),
             ..Default::default()
         })
@@ -218,7 +228,7 @@ impl CloudDatabase {
         Permissions::insert(PermissionActiveModel {
             user_id: Set(Some(user_id)),
             workspace_id: Set(workspace.id.clone()),
-            r#type: Set(PermissionType::Owner as i32),
+            r#type: Set(PermissionType::Owner as i16),
             accepted: Set(true),
             ..Default::default()
         })
@@ -253,12 +263,13 @@ impl CloudDatabase {
             return Ok(None);
         }
 
+        let id = model.unwrap().id;
         let workspace = Workspaces::update(WorkspacesActiveModel {
+            id: Set(id),
             public: Set(data.public),
             ..Default::default()
         })
-        .filter(WorkspacesColumn::Uuid.eq(workspace_id.clone()))
-        .filter(WorkspacesColumn::Type.eq(WorkspaceType::Normal as i32))
+        .filter(WorkspacesColumn::Id.eq(id))
         .exec(&self.pool)
         .await
         .map(|ws| Workspace {
@@ -326,11 +337,12 @@ impl CloudDatabase {
         Permissions::find()
             .column_as(PermissionColumn::Id, "id")
             .column_as(PermissionColumn::Type, "type")
+            .column_as(PermissionColumn::UserEmail, "user_email")
             .column_as(PermissionColumn::Accepted, "accepted")
             .column_as(PermissionColumn::CreatedAt, "created_at")
             .column_as(UsersColumn::Uuid, "user_id")
             .column_as(UsersColumn::Name, "user_name")
-            .column_as(UsersColumn::Email, "user_email")
+            .column_as(UsersColumn::Email, "user_table_email")
             .column_as(UsersColumn::AvatarUrl, "user_avatar_url")
             .column_as(UsersColumn::CreatedAt, "user_created_at")
             .join_rev(
@@ -363,7 +375,7 @@ impl CloudDatabase {
     pub async fn get_permission_by_permission_id(
         &self,
         user_id: String,
-        permission_id: i32,
+        permission_id: i64,
     ) -> Result<Option<PermissionType>, DbErr> {
         Permissions::find()
             .filter(PermissionColumn::UserId.eq(user_id))
@@ -422,10 +434,9 @@ impl CloudDatabase {
         email: &str,
         workspace_id: String,
         permission_type: PermissionType,
-    ) -> Result<Option<(i32, UserCred)>, DbErr> {
+    ) -> Result<Option<(i64, UserCred)>, DbErr> {
         let workspace = Workspaces::find()
             .filter(WorkspacesColumn::Uuid.eq(workspace_id.clone()))
-            // todo: check if this is correct
             .filter(WorkspacesColumn::Type.eq(WorkspaceType::Normal as i32))
             .one(&self.pool)
             .await?;
@@ -438,7 +449,7 @@ impl CloudDatabase {
             user_id: Set(user.clone().and_then(|u| Some(u.uuid))),
             user_email: Set(user.clone().and(None).or(Some(email.to_string()))),
             workspace_id: Set(workspace_id),
-            r#type: Set(permission_type as i32),
+            r#type: Set(permission_type as i16),
             ..Default::default()
         })
         .exec_with_returning(&self.pool)
@@ -473,6 +484,7 @@ impl CloudDatabase {
 
         Ok(Some(
             Permissions::update(PermissionActiveModel {
+                id: Set(permission_id),
                 accepted: Set(true),
                 ..Default::default()
             })
@@ -486,17 +498,15 @@ impl CloudDatabase {
                 user_id: op.user_id,
                 user_email: op.user_email,
                 accepted: op.accepted,
-                created_at: op.created_at.naive_local(),
+                created_at: op.created_at.unwrap_or_default().naive_local(),
             })?,
         ))
     }
 
-    pub async fn delete_permission(&self, permission_id: i32) -> Result<bool, DbErr> {
-        let trx = self.pool.begin().await?;
-
+    pub async fn delete_permission(&self, permission_id: i64) -> Result<bool, DbErr> {
         Permissions::delete_many()
             .filter(PermissionColumn::Id.eq(permission_id))
-            .exec(&trx)
+            .exec(&self.pool)
             .await
             .map(|q| q.rows_affected > 0)
     }
@@ -506,12 +516,10 @@ impl CloudDatabase {
         user_id: String,
         workspace_id: String,
     ) -> Result<bool, DbErr> {
-        let trx = self.pool.begin().await?;
-
         Permissions::delete_many()
             .filter(PermissionColumn::UserId.eq(user_id))
             .filter(PermissionColumn::WorkspaceId.eq(workspace_id.clone()))
-            .exec(&trx)
+            .exec(&self.pool)
             .await
             .map(|q| q.rows_affected > 0)
     }
@@ -561,12 +569,14 @@ impl CloudDatabase {
         })
     }
 
+    // ok
     pub async fn google_user_login(&self, claims: &GoogleClaims) -> Result<UsersModel, DbErr> {
         let google_user: Option<GoogleUsersModel> = GoogleUsers::find()
-            .filter(GoogleUsersColumn::UserId.eq(claims.user_id.clone()))
+            .filter(GoogleUsersColumn::GoogleId.eq(claims.user_id.clone()))
             .one(&self.pool)
             .await?;
         if let Some(google_user) = google_user {
+            // todo check this
             let user = Users::update(UsersActiveModel {
                 name: Set(claims.name.clone()),
                 email: Set(claims.email.clone()),
@@ -576,17 +586,6 @@ impl CloudDatabase {
             .filter(UsersColumn::Uuid.eq(google_user.user_id))
             .exec(&self.pool)
             .await?;
-            // let user_with_nonce = UserWithNonce {
-            //     user: User {
-            //         id: user.uuid,
-            //         name: user.name,
-            //         email: user.email,
-            //         avatar_url: user.avatar_url,
-            //         created_at: user.created_at.unwrap_or_default().naive_local(),
-            //     },
-            //     token_nonce: user.token_nonce.unwrap_or_default(),
-            // };
-            // Ok(user_with_nonce)
             Ok(user)
         } else {
             let uuid = uuid::Uuid::new_v4().to_string();
@@ -606,117 +605,83 @@ impl CloudDatabase {
             })
             .exec_with_returning(&self.pool)
             .await?;
-            // let user_with_nonce = UserWithNonce {
-            //     user: User {
-            //         id: user.uuid,
-            //         name: user.name,
-            //         email: user.email,
-            //         avatar_url: user.avatar_url,
-            //         created_at: user.created_at.unwrap_or_default().naive_local(),
-            //     },
-            //     token_nonce: user.token_nonce.unwrap_or_default(),
-            // };
-            // Ok(user_with_nonce)
             Ok(user)
         }
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     #[ignore = "need postgres instance"]
-//     #[tokio::test]
-//     async fn database_create_tables() -> anyhow::Result<()> {
-//         use super::*;
-//         // let check_table_exists =
-//         // "IF EXISTS(SELECT 1 FROM sys.Tables WHERE  Name = N'users' AND Type = N'U')
-//         //     RETURN True
-//         // ELSE
-//         //     RETURN False";
-//         let db_context =
-//             PostgreSQL::new("postgresql://jwst:jwst@localhost:5432/jwst".to_string()).await;
-//         // clean db
-//         let drop_statement = "
-//         DROP TABLE IF EXISTS \"google_users\";
-//         DROP TABLE IF EXISTS \"permissions\";
-//         DROP TABLE IF EXISTS \"workspaces\";
-//         DROP TABLE IF EXISTS \"users\";
-//         ";
-//         for line in drop_statement.split("\n") {
-//             query(&line)
-//                 .execute(&db_context.db)
-//                 .await
-//                 .expect("Drop all table in test failed");
-//         }
-//         db_context.init_db().await;
-//         // start test
-//         let (new_user, _) = db_context
-//             .create_user(CreateUser {
-//                 avatar_url: Some("xxx".to_string()),
-//                 email: "xxx@xxx.xx".to_string(),
-//                 name: "xxx".to_string(),
-//                 password: "xxx".to_string(),
-//             })
-//             .await
-//             .unwrap()
-//             .unwrap();
-//         assert_eq!(new_user.id, 1);
-//         let (new_user2, _) = db_context
-//             .create_user(CreateUser {
-//                 avatar_url: Some("xxx".to_string()),
-//                 email: "xxx2@xxx.xx".to_string(),
-//                 name: "xxx".to_string(),
-//                 password: "xxx".to_string(),
-//             })
-//             .await
-//             .unwrap()
-//             .unwrap();
-//         assert_eq!(new_user2.id, 2);
-//         let mut new_workspace = db_context
-//             .create_normal_workspace(new_user.id)
-//             .await
-//             .unwrap();
-//         let new_workspace2 = db_context
-//             .create_normal_workspace(new_user2.id)
-//             .await
-//             .unwrap();
+#[cfg(test)]
+mod tests {
+    #[tokio::test]
+    async fn database_create_tables() -> anyhow::Result<()> {
+        use super::*;
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await?;
+        // start test
+        let (new_user, _) = pool
+            .create_user(CreateUser {
+                avatar_url: Some("xxx".to_string()),
+                email: "xxx@xxx.xx".to_string(),
+                name: "xxx".to_string(),
+                password: "xxx".to_string(),
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(new_user.id, 1);
+        let (new_user2, _) = pool
+            .create_user(CreateUser {
+                avatar_url: Some("xxx".to_string()),
+                email: "xxx2@xxx.xx".to_string(),
+                name: "xxx".to_string(),
+                password: "xxx".to_string(),
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(new_user2.id, 2);
+        let mut new_workspace = pool
+            .create_normal_workspace(new_user.uuid.clone())
+            .await
+            .unwrap();
+        let new_workspace2 = pool
+            .create_normal_workspace(new_user.uuid.clone())
+            .await
+            .unwrap();
 
-//         assert_eq!(new_workspace.id.len(), 36);
-//         assert_eq!(new_workspace.public, false);
-//         assert_eq!(new_workspace2.id.len(), 36);
+        assert_eq!(new_workspace.id.len(), 36);
+        assert_eq!(new_workspace.public, false);
+        assert_eq!(new_workspace2.id.len(), 36);
 
-//         let new_workspace1_clone = db_context
-//             .get_workspace_by_id(new_workspace.id.clone())
-//             .await
-//             .unwrap()
-//             .unwrap();
+        let new_workspace1_clone = pool
+            .get_workspace_by_id(new_workspace.id.clone())
+            .await
+            .unwrap()
+            .unwrap();
 
-//         assert_eq!(new_user.id, new_workspace1_clone.owner.unwrap().id);
-//         assert_eq!(new_workspace.id, new_workspace1_clone.workspace.id);
-//         assert_eq!(
-//             new_workspace.created_at,
-//             new_workspace1_clone.workspace.created_at
-//         );
+        assert_eq!(new_user.uuid, new_workspace1_clone.owner.unwrap().id);
+        assert_eq!(new_workspace.id, new_workspace1_clone.workspace.id);
+        assert_eq!(
+            new_workspace.created_at,
+            new_workspace1_clone.workspace.created_at
+        );
 
-//         assert_eq!(
-//             new_workspace.id,
-//             db_context
-//                 .get_user_workspaces(new_user.id)
-//                 .await
-//                 .unwrap()
-//                 // when create user, will auto create a private workspace, our created will be second one
-//                 .get(1)
-//                 .unwrap()
-//                 .workspace
-//                 .id
-//         );
+        assert_eq!(
+            new_workspace.id,
+            pool.get_user_workspaces(new_user.uuid)
+                .await
+                .unwrap()
+                // when create user, will auto create a private workspace, our created will be second one
+                .get(1)
+                .unwrap()
+                .id
+        );
 
-//         new_workspace = db_context
-//             .update_workspace(new_workspace.id, UpdateWorkspace { public: true })
-//             .await
-//             .unwrap()
-//             .unwrap();
-//         assert_eq!(new_workspace.public, true);
-//         Ok(())
-//     }
-// }
+        new_workspace = pool
+            .update_workspace(new_workspace.id, UpdateWorkspace { public: true })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(new_workspace.public, true);
+        Ok(())
+    }
+}

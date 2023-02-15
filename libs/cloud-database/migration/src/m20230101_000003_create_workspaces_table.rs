@@ -23,7 +23,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Workspaces::Type).small_integer().not_null())
                     .col(
                         ColumnDef::new(Workspaces::CreatedAt)
-                            .timestamp()
+                            .timestamp_with_time_zone()
                             .default(Expr::current_timestamp()),
                     )
                     .to_owned(),
