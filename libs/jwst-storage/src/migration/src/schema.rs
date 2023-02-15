@@ -9,3 +9,12 @@ pub enum Blobs {
     Length,
     Timestamp,
 }
+
+#[derive(Iden)]
+pub enum Docs {
+    Table,
+    Id,
+    Workspace,
+    Timestamp,
+    Blob,
+}

@@ -13,8 +13,7 @@ members = [
     "libs/jwst-logger",
     "libs/jwst-static",
     "libs/jwst-storage",
-    "libs/jwst-storage/src/blobs/migration",
-    "libs/jwst-storage/src/docs/migration",
+    "libs/jwst-storage/src/migration",
     # "libs/vendors/y-crdt-0.14/yrs",
     # "libs/vendors/y-crdt-0.14/lib0",
 ]

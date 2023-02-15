@@ -1,16 +1,11 @@
-use super::{async_trait, entities::prelude::*, DocStorage, DocSync};
-use chrono::Utc;
+use super::{entities::prelude::*, *};
 use dashmap::{mapref::entry::Entry, DashMap};
 use futures::{SinkExt, StreamExt};
-use jwst::{sync_encode_update, Workspace};
-use jwst_doc_migration::{Migrator, MigratorTrait};
+use jwst::{sync_encode_update, DocStorage, DocSync, Workspace};
 use jwst_logger::{debug, error, trace, warn};
-use path_ext::PathExt;
-use sea_orm::{prelude::*, Database, Set, TransactionTrait};
+use jwst_storage_migration::{Migrator, MigratorTrait};
 use std::{
-    io,
     panic::{catch_unwind, AssertUnwindSafe},
-    path::PathBuf,
     sync::Arc,
 };
 use tokio::sync::{
@@ -26,7 +21,7 @@ use yrs::{updates::decoder::Decode, Doc, Options, StateVector, Update};
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
 
-fn migrate_update(updates: Vec<<UpdateBinary as EntityTrait>::Model>, doc: Doc) -> Doc {
+fn migrate_update(updates: Vec<<Docs as EntityTrait>::Model>, doc: Doc) -> Doc {
     let mut trx = doc.transact();
     for update in updates {
         let id = update.timestamp;
@@ -49,9 +44,9 @@ fn migrate_update(updates: Vec<<UpdateBinary as EntityTrait>::Model>, doc: Doc) 
     doc
 }
 
-type UpdateBinaryModel = <UpdateBinary as EntityTrait>::Model;
-type UpdateBinaryActiveModel = super::entities::update_binary::ActiveModel;
-type UpdateBinaryColumn = <UpdateBinary as EntityTrait>::Column;
+type DocsModel = <Docs as EntityTrait>::Model;
+type DocsActiveModel = super::entities::docs::ActiveModel;
+type DocsColumn = <Docs as EntityTrait>::Column;
 
 pub struct DocAutoStorage {
     pool: DatabaseConnection,
@@ -91,22 +86,22 @@ impl DocAutoStorage {
         Self::init_pool(&format!("sqlite:{}?mode=rwc", path.display())).await
     }
 
-    pub async fn all(&self, table: &str) -> Result<Vec<UpdateBinaryModel>, DbErr> {
-        UpdateBinary::find()
-            .filter(UpdateBinaryColumn::Workspace.eq(table))
+    pub async fn all(&self, table: &str) -> Result<Vec<DocsModel>, DbErr> {
+        Docs::find()
+            .filter(DocsColumn::Workspace.eq(table))
             .all(&self.pool)
             .await
     }
 
     async fn count(&self, table: &str) -> Result<u64, DbErr> {
-        UpdateBinary::find()
-            .filter(UpdateBinaryColumn::Workspace.eq(table))
+        Docs::find()
+            .filter(DocsColumn::Workspace.eq(table))
             .count(&self.pool)
             .await
     }
 
     pub async fn insert(&self, table: &str, blob: &[u8]) -> Result<(), DbErr> {
-        UpdateBinary::insert(UpdateBinaryActiveModel {
+        Docs::insert(DocsActiveModel {
             workspace: Set(table.into()),
             timestamp: Set(Utc::now().into()),
             blob: Set(blob.into()),
@@ -120,12 +115,12 @@ impl DocAutoStorage {
     pub async fn replace_with(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
         let tx = self.pool.begin().await?;
 
-        UpdateBinary::delete_many()
-            .filter(UpdateBinaryColumn::Workspace.eq(table))
+        Docs::delete_many()
+            .filter(DocsColumn::Workspace.eq(table))
             .exec(&tx)
             .await?;
 
-        UpdateBinary::insert(UpdateBinaryActiveModel {
+        Docs::insert(DocsActiveModel {
             workspace: Set(table.into()),
             timestamp: Set(Utc::now().into()),
             blob: Set(blob),
@@ -140,8 +135,8 @@ impl DocAutoStorage {
     }
 
     pub async fn drop(&self, table: &str) -> Result<(), DbErr> {
-        UpdateBinary::delete_many()
-            .filter(UpdateBinaryColumn::Workspace.eq(table))
+        Docs::delete_many()
+            .filter(DocsColumn::Workspace.eq(table))
             .exec(&self.pool)
             .await?;
         Ok(())
@@ -380,7 +375,7 @@ mod tests {
         let all = pool.all("basic").await?;
         assert_eq!(
             all,
-            vec![UpdateBinaryModel {
+            vec![DocsModel {
                 id: all.get(0).unwrap().id,
                 workspace: "basic".into(),
                 timestamp: all.get(0).unwrap().timestamp,
@@ -396,7 +391,7 @@ mod tests {
         let all = pool.all("basic").await?;
         assert_eq!(
             all,
-            vec![UpdateBinaryModel {
+            vec![DocsModel {
                 id: all.get(0).unwrap().id,
                 workspace: "basic".into(),
                 timestamp: all.get(0).unwrap().timestamp,

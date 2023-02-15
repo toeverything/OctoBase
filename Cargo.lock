@@ -1952,22 +1952,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jwst-blob-migration"
-version = "0.1.0"
-dependencies = [
- "sea-orm-migration",
- "tokio",
-]
-
-[[package]]
-name = "jwst-doc-migration"
-version = "0.1.0"
-dependencies = [
- "sea-orm-migration",
- "tokio",
-]
-
-[[package]]
 name = "jwst-ffi"
 version = "0.1.0"
 dependencies = [
@@ -2028,9 +2012,8 @@ dependencies = [
  "dashmap",
  "futures",
  "jwst",
- "jwst-blob-migration",
- "jwst-doc-migration",
  "jwst-logger",
+ "jwst-storage-migration",
  "path-ext",
  "sea-orm",
  "sea-orm-migration",
@@ -2040,6 +2023,14 @@ dependencies = [
  "tokio-util",
  "url",
  "yrs",
+]
+
+[[package]]
+name = "jwst-storage-migration"
+version = "0.1.0"
+dependencies = [
+ "sea-orm-migration",
+ "tokio",
 ]
 
 [[package]]
