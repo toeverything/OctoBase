@@ -112,6 +112,7 @@ mod tests {
         Ok(())
     }
 
+    #[ignore = "need postgres server"]
     #[cfg(feature = "postgres")]
     #[tokio::test]
     async fn postgres_storage_test() -> anyhow::Result<()> {
