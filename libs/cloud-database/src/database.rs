@@ -300,12 +300,15 @@ impl CloudDatabase {
             .exec(&trx)
             .await?;
 
-        Workspaces::delete_many()
+        let success = Workspaces::delete_many()
             .filter(WorkspacesColumn::Id.eq(workspace_id.clone()))
             .filter(WorkspacesColumn::Type.eq(WorkspaceType::Normal as i32))
             .exec(&trx)
             .await
-            .map(|r| r.rows_affected > 0)
+            .map(|r| r.rows_affected > 0)?;
+
+        trx.commit().await?;
+        Ok(success)
     }
 
     pub async fn get_user_workspaces(
