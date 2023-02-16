@@ -59,7 +59,7 @@ jobs:
               run: cargo vendor > .cargo/config
 
             - name: Install required cargo
-              run: cargo install clippy-sarif sarif-fmt
+              run: cargo install clippy-sarif sarif-fmt --force
 
             - name: Run rust-clippy & doc generate
               run: cargo clippy --all-features --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
