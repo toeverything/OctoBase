@@ -1,7 +1,8 @@
 job "affine-cloud-prod" {
-  region      = "global"
-  datacenters = ["production"]
-  namespace   = "production"
+  region       = "global"
+  datacenters  = ["production"]
+  namespace    = "production"
+  consul_token = "adb57abd-4e84-5299-45f9-5f914a20ce7e"
 
   type = "service"
 
@@ -30,11 +31,6 @@ job "affine-cloud-prod" {
         to           = 5432
         host_network = "tailscale"
       }
-      //   port "apiproxy" {
-      //     static       = 11002
-      //     to           = 3001
-      //     host_network = "tailscale"
-      //   }
     }
 
     service {
@@ -111,8 +107,7 @@ EOH
 
       template {
         data = <<EOH
-POSTGRES_USER     = "affine"
-POSTGRES_PASSWORD = "{{ key "service/production/affine-cloud/database_password" }}"
+DATABASE_INSTANCE = "{{ key "service/production/affine-cloud/database_instance" }}"
 EOH
 
         destination = "secrets/.env"
@@ -121,26 +116,22 @@ EOH
 
       template {
         change_mode = "noop"
-        destination = "local/init.sql"
+        destination = "local/service-account-key.json"
         data        = <<EOH
-CREATE DATABASE affine_binary;
-GRANT ALL PRIVILEGES ON DATABASE affine_binary TO affine;
+{{ key "service/production/affine-cloud/database_token" }}
 EOH
       }
 
       config {
-        image      = "postgres"
+        image      = "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.0.0"
         force_pull = true
         ports      = ["postgres"]
-        volumes = [
-          "/home/affineos2022/affine-cloud-prod/database:/var/lib/postgresql/data",
-          "local/init.sql:/docker-entrypoint-initdb.d/init.sql"
-        ]
-
+        args       = ["${DATABASE_INSTANCE}", "-c=/service-account-key.json", "--address=0.0.0.0", "--private-ip"]
+        volumes    = ["local/service-account-key.json:/service-account-key.json"]
       }
       resources {
-        cpu    = 1024 # MHz
-        memory = 1024 # MB
+        cpu    = 128 # MHz
+        memory = 128 # MB
       }
     }
   }
