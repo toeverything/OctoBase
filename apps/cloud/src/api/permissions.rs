@@ -8,6 +8,7 @@ use axum::{
     response::{IntoResponse, Response},
     Extension, Json,
 };
+use chrono::prelude::*;
 use cloud_database::{Claims, CreatePermission, PermissionType, UserCred, WorkspaceMetadata};
 use http::StatusCode;
 use jwst::error;
@@ -58,7 +59,6 @@ async fn make_invite_email(
 
         WorkspaceMetadata::parse(ws.metadata())?
     };
-
     // let mut file = ctx.blob.get_blob(None, metadata.avatar).await.ok()?;
 
     // let mut file_content = Vec::new();
@@ -93,8 +93,9 @@ async fn make_invite_email(
         avatar_url: String,
         workspace_name: String,
         invite_code: String,
+        current_year: i32,
     }
-
+    let dt = Utc::now();
     let content = ctx
         .mail
         .template
@@ -106,6 +107,7 @@ async fn make_invite_email(
                 avatar_url: claims.user.avatar_url.to_owned().unwrap_or("".to_string()),
                 workspace_name: metadata.name,
                 invite_code: invite_code.to_string(),
+                current_year: dt.year(),
             },
         )
         .ok()?;

@@ -292,7 +292,7 @@
                 line-height: 17px;
               "
             >
-              Copyright © <span id="year"></span> Toeverything
+              Copyright © {{current_year}} Toeverything
             </p>
             <p class="footer-contact">
               <a
@@ -403,10 +403,5 @@
         </footer>
       </div>
     </div>
-    <script type="text/javascript">
-      var date = new Date();
-      var year = date.getFullYear();
-      document.getElementById("year").textContent = `${year}`;
-    </script>
   </body>
 </html>
