@@ -16,17 +16,12 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(
                         ColumnDef::new(Permissions::Id)
-                            .big_integer()
+                            .string()
                             .not_null()
-                            .auto_increment()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(Permissions::WorkspaceId)
-                            .char_len(36)
-                            .not_null(),
-                    )
-                    .col(ColumnDef::new(Permissions::UserId).char_len(36))
+                    .col(ColumnDef::new(Permissions::WorkspaceId).string().not_null())
+                    .col(ColumnDef::new(Permissions::UserId).string())
                     .col(ColumnDef::new(Permissions::UserEmail).text())
                     .col(ColumnDef::new(Permissions::Type).small_integer().not_null())
                     .col(
@@ -44,7 +39,7 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("permissions_workspace_id_fkey")
                             .from(Permissions::Table, Permissions::WorkspaceId)
-                            .to(Workspaces::Table, Workspaces::Uuid)
+                            .to(Workspaces::Table, Workspaces::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
@@ -52,7 +47,7 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .name("permissions_user_id_fkey")
                             .from(Permissions::Table, Permissions::UserId)
-                            .to(Users::Table, Users::Uuid)
+                            .to(Users::Table, Users::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
@@ -100,15 +95,15 @@ impl MigrationTrait for Migration {
 #[derive(Iden)]
 enum Permissions {
     Table,
-    Id,          // BIGSERIAL PRIMARY KEY,
+    Id,          // STRING PRIMARY KEY,
     WorkspaceId, // CHAR(36),
     UserId,      // INTEGER,
     UserEmail,   // TEXT,
     Type,        // SMALLINT NOT NULL,
     Accepted,    // BOOL DEFAULT False,
     CreatedAt,   // TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                 // FOREIGN KEY(workspace_id) REFERENCES workspaces(uuid),
-                 // FOREIGN KEY(user_id) REFERENCES users(uuid),
+                 // FOREIGN KEY(workspace_id) REFERENCES workspaces(id),
+                 // FOREIGN KEY(user_id) REFERENCES users(id),
                  // UNIQUE (workspace_id, user_id),
                  // UNIQUE (workspace_id, user_email)
 }

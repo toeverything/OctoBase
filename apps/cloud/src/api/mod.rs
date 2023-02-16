@@ -141,7 +141,7 @@ async fn make_token(
             let refresh = refresh.unwrap_or_else(|| {
                 let refresh = RefreshToken {
                     expires: Utc::now().naive_utc() + Duration::days(180),
-                    user_id: user.uuid.clone(),
+                    user_id: user.id.clone(),
                     token_nonce: user.token_nonce.unwrap(),
                 };
 
@@ -155,7 +155,7 @@ async fn make_token(
             let claims = Claims {
                 exp: Utc::now().naive_utc() + Duration::minutes(10),
                 user: User {
-                    id: user.uuid,
+                    id: user.id,
                     name: user.name,
                     email: user.email,
                     avatar_url: user.avatar_url,
