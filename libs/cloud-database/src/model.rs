@@ -267,10 +267,10 @@ impl TryGetable for PermissionType {
 
 #[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Permission {
-    pub id: i64,
+    pub id: String,
     #[serde(rename = "type")]
     #[sqlx(rename = "type")]
-    pub type_: PermissionType,
+    pub r#type: PermissionType,
     pub workspace_id: String,
     pub user_id: Option<String>,
     pub user_email: Option<String>,
@@ -308,7 +308,7 @@ pub enum UserCred {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Member {
-    pub id: i64,
+    pub id: String,
     pub user: UserCred,
     pub accepted: bool,
     #[serde(rename = "type")]
@@ -325,12 +325,12 @@ pub struct MemberResult {
     // .column_as(PermissionColumn::UserEmail, "user_email")
     // .column_as(PermissionColumn::Accepted, "accepted")
     // .column_as(PermissionColumn::CreatedAt, "created_at")
-    // .column_as(UsersColumn::Uuid, "user_id")
+    // .column_as(UsersColumn::Id, "user_id")
     // .column_as(UsersColumn::Name, "user_name")
     // .column_as(UsersColumn::Email, "user_table_email")
     // .column_as(UsersColumn::AvatarUrl, "user_avatar_url")
     // .column_as(UsersColumn::CreatedAt, "user_created_at")
-    pub id: i64,
+    pub id: String,
     pub r#type: PermissionType,
     pub user_email: Option<String>,
     pub accepted: bool,
@@ -358,7 +358,7 @@ impl From<&MemberResult> for Member {
             }
         };
         Member {
-            id: r.id,
+            id: r.id.clone(),
             user,
             accepted: r.accepted,
             r#type: r.r#type.clone(),

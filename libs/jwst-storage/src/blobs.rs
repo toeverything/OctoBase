@@ -1,25 +1,24 @@
-use super::{
-    async_trait, entities::prelude::*, get_hash, BlobMetadata, BlobStorage, Bytes, ReaderStream,
-    Stream,
-};
-use chrono::{NaiveDateTime, Utc};
-use jwst_blob_migration::{Migrator, MigratorTrait};
-use path_ext::PathExt;
-use sea_orm::{prelude::*, Database, FromQueryResult, QuerySelect, Set};
-use std::{
-    io::{self, Cursor},
-    path::PathBuf,
-};
+use super::{entities::prelude::*, utils::get_hash, *};
+use bytes::Bytes;
+use jwst::{BlobMetadata, BlobStorage};
+use jwst_storage_migration::{Migrator, MigratorTrait};
+use tokio_util::io::ReaderStream;
 
-type BlobModel = <Blobs as EntityTrait>::Model;
+pub(super) type BlobModel = <Blobs as EntityTrait>::Model;
 type BlobActiveModel = super::entities::blobs::ActiveModel;
 type BlobColumn = <Blobs as EntityTrait>::Column;
 
-pub struct ORM {
+#[derive(Clone)]
+pub struct BlobAutoStorage {
     pool: DatabaseConnection,
 }
 
-impl ORM {
+impl BlobAutoStorage {
+    pub async fn init_with_pool(pool: DatabaseConnection) -> Result<Self, DbErr> {
+        Migrator::up(&pool, None).await?;
+        Ok(Self { pool })
+    }
+
     pub async fn init_pool(database: &str) -> Result<Self, DbErr> {
         let pool = Database::connect(database).await?;
         Migrator::up(&pool, None).await?;
@@ -67,8 +66,8 @@ impl ORM {
     pub async fn metadata(&self, table: &str, hash: &str) -> Result<BlobMetadata, DbErr> {
         #[derive(FromQueryResult)]
         struct Metadata {
-            size: i32,
-            created_at: NaiveDateTime,
+            size: i64,
+            created_at: DateTime<Utc>,
         }
 
         let ret = Blobs::find_by_id((table.into(), hash.into()))
@@ -82,7 +81,7 @@ impl ORM {
 
         Ok(BlobMetadata {
             size: ret.size as u64,
-            last_modified: ret.created_at,
+            last_modified: ret.created_at.naive_local(),
         })
     }
 
@@ -93,7 +92,7 @@ impl ORM {
                 hash: Set(hash.into()),
                 blob: Set(blob.into()),
                 length: Set(blob.len().try_into().unwrap()),
-                timestamp: Set(Utc::now()),
+                timestamp: Set(Utc::now().into()),
             })
             .exec(&self.pool)
             .await?;
@@ -127,7 +126,7 @@ impl ORM {
 }
 
 #[async_trait]
-impl BlobStorage for ORM {
+impl BlobStorage for BlobAutoStorage {
     type Read = ReaderStream<Cursor<Vec<u8>>>;
 
     async fn get_blob(&self, workspace: Option<String>, id: String) -> io::Result<Self::Read> {
@@ -179,62 +178,5 @@ impl BlobStorage for ORM {
         } else {
             Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    #[tokio::test]
-    async fn basic_storage_test() -> anyhow::Result<()> {
-        use super::*;
-
-        let pool = ORM::init_pool("sqlite::memory:").await?;
-
-        // empty table
-        assert_eq!(pool.count("basic").await?, 0);
-
-        // first insert
-        pool.insert("basic", "test", &[1, 2, 3, 4]).await?;
-        assert_eq!(pool.count("basic").await?, 1);
-
-        let all = pool.all("basic").await?;
-        assert_eq!(
-            all,
-            vec![BlobModel {
-                workspace: "basic".into(),
-                hash: "test".into(),
-                blob: vec![1, 2, 3, 4],
-                length: 4,
-                timestamp: all.get(0).unwrap().timestamp
-            }]
-        );
-        assert_eq!(pool.count("basic").await?, 1);
-
-        pool.drop("basic").await?;
-
-        pool.insert("basic", "test1", &[1, 2, 3, 4]).await?;
-
-        let all = pool.all("basic").await?;
-        assert_eq!(
-            all,
-            vec![BlobModel {
-                workspace: "basic".into(),
-                hash: "test1".into(),
-                blob: vec![1, 2, 3, 4],
-                length: 4,
-                timestamp: all.get(0).unwrap().timestamp
-            }]
-        );
-        assert_eq!(pool.count("basic").await?, 1);
-
-        let metadata = pool.metadata("basic", "test1").await?;
-
-        assert_eq!(metadata.size, 4);
-        assert!((metadata.last_modified.timestamp() - Utc::now().timestamp()).abs() < 2);
-
-        pool.drop("basic").await?;
-
-        Ok(())
     }
 }

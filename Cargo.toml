@@ -13,10 +13,7 @@ members = [
     "libs/jwst-logger",
     "libs/jwst-static",
     "libs/jwst-storage",
-    "libs/jwst-storage/src/blobs/migration",
-    "libs/jwst-storage/src/docs/migration",
-    # "libs/vendors/y-crdt-0.14/yrs",
-    # "libs/vendors/y-crdt-0.14/lib0",
+    "libs/jwst-storage/src/migration",
 ]
 
 
@@ -24,6 +21,9 @@ members = [
 lto = true
 opt-level = "z"
 codegen-units = 1
+
+[profile.dev.package.sqlx-macros]
+opt-level = 3
 
 [patch.crates-io]
 rust-embed = { git = "https://github.com/pyrossh/rust-embed", rev = "7c0fc42" }

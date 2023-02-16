@@ -9,9 +9,9 @@ use dashmap::DashMap;
 use handlebars::Handlebars;
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
-use jwst::{DocStorage, SearchResults, Workspace};
-use jwst_logger::{error, info};
-use jwst_storage::{BlobAutoStorage, DocAutoStorage};
+use jwst::SearchResults;
+use jwst_logger::info;
+use jwst_storage::JwstStorage;
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
     Tokio1Executor,
@@ -19,7 +19,7 @@ use lettre::{
 use rand::{thread_rng, Rng};
 use reqwest::Client;
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{RwLock, RwLockReadGuard};
 use x509_parser::prelude::parse_x509_pem;
@@ -45,49 +45,6 @@ pub struct MailContext {
     pub template: Handlebars<'static>,
 }
 
-pub struct DocStore {
-    pub storage: DocAutoStorage,
-}
-
-impl DocStore {
-    async fn new() -> Self {
-        let database_url = dotenvy::var("DATABASE_URL").expect("should provide doc storage path");
-
-        Self {
-            storage: DocAutoStorage::init_pool(&format!("{database_url}_docs"))
-                .await
-                .expect("Failed to init doc storage"),
-        }
-    }
-
-    pub async fn get_workspace(&self, workspace_id: String) -> Arc<RwLock<Workspace>> {
-        self.storage
-            .get(workspace_id.clone())
-            .await
-            .expect("Failed to get workspace")
-    }
-
-    pub async fn full_migrate(&self, workspace_id: String, update: Option<Vec<u8>>) -> bool {
-        if let Ok(workspace) = self.storage.get(workspace_id.clone()).await {
-            let update = if let Some(update) = update {
-                if let Err(e) = self.storage.delete(workspace_id.clone()).await {
-                    error!("full_migrate write error: {}", e.to_string());
-                    return false;
-                };
-                update
-            } else {
-                workspace.read().await.sync_migration()
-            };
-            if let Err(e) = self.storage.full_migrate(&workspace_id, update).await {
-                error!("db write error: {}", e.to_string());
-                return false;
-            }
-            return true;
-        }
-        false
-    }
-}
-
 pub struct Context {
     pub key: KeyContext,
     pub site_url: String,
@@ -95,8 +52,7 @@ pub struct Context {
     firebase: RwLock<FirebaseContext>,
     pub mail: MailContext,
     pub db: CloudDatabase,
-    pub blob: BlobAutoStorage,
-    pub doc: DocStore,
+    pub storage: JwstStorage,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub user_channel: UserChannel,
 }
@@ -165,23 +121,25 @@ impl Context {
 
         let db_env = dotenvy::var("DATABASE_URL").expect("should provide database URL");
 
-        let blob = BlobAutoStorage::init_pool(&format!("{db_env}_blobs"))
-            .await
-            .expect("Cannot create database");
-
         let site_url = dotenvy::var("SITE_URL").expect("should provide site url");
 
         let cloud_db = CloudDatabase::init_pool(&db_env)
             .await
             .expect("Cannot create cloud database");
+        let storage = JwstStorage::new(&format!(
+            "{}_binary",
+            dotenvy::var("DATABASE_URL").expect("should provide doc storage path")
+        ))
+        .await
+        .expect("Cannot create storage");
+
         Self {
             db: cloud_db,
             key,
             firebase,
             mail,
             http_client: Client::new(),
-            doc: DocStore::new().await,
-            blob,
+            storage,
             site_url,
             channel: DashMap::new(),
             user_channel: UserChannel::new(),
@@ -306,7 +264,7 @@ impl Context {
         query_string: &str,
     ) -> Result<SearchResults, Box<dyn std::error::Error>> {
         let workspace_id = workspace_id.to_string();
-        let workspace_arc_rw = self.doc.get_workspace(workspace_id.clone()).await;
+        let workspace_arc_rw = self.storage.get_workspace(workspace_id.clone()).await;
 
         let search_results = workspace_arc_rw.write().await.search(query_string)?;
 

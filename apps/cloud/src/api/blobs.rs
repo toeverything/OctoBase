@@ -34,7 +34,7 @@ impl Context {
             }
         }
 
-        let Ok(meta) = self.blob.get_metadata(workspace.clone(), id.clone()).await else {
+        let Ok(meta) = self.storage.blobs().get_metadata(workspace.clone(), id.clone()).await else {
             return ErrorStatus::NotFound.into_response();
         };
 
@@ -72,7 +72,7 @@ impl Context {
             return header.into_response();
         };
 
-        let Ok(file) = self.blob.get_blob(workspace, id).await else {
+        let Ok(file) = self.storage.blobs().get_blob(workspace, id).await else {
             return ErrorStatus::NotFound.into_response();
         };
 
@@ -89,9 +89,14 @@ impl Context {
             })
             .filter_map(|data| future::ready(data.ok()));
 
-        if let Ok(id) = self.blob.put_blob(workspace.clone(), stream).await {
+        if let Ok(id) = self
+            .storage
+            .blobs()
+            .put_blob(workspace.clone(), stream)
+            .await
+        {
             if has_error {
-                let _ = self.blob.delete_blob(workspace, id).await;
+                let _ = self.storage.blobs().delete_blob(workspace, id).await;
                 ErrorStatus::InternalServerError.into_response()
             } else {
                 id.into_response()
@@ -142,20 +147,20 @@ pub async fn upload_blob(
 
 pub async fn get_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
-    Extension(claims): Extension<Arc<Claims>>,
+    // Extension(claims): Extension<Arc<Claims>>,
     Path((workspace_id, id)): Path<(String, String)>,
     method: http::Method,
     headers: HeaderMap,
 ) -> Response {
-    match ctx
-        .db
-        .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
-        .await
-    {
-        Ok(true) => (),
-        Ok(false) => return ErrorStatus::Forbidden.into_response(),
-        Err(_) => return ErrorStatus::InternalServerError.into_response(),
-    }
+    // match ctx
+    //     .db
+    //     .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
+    //     .await
+    // {
+    //     Ok(true) => (),
+    //     Ok(false) => return ErrorStatus::Forbidden.into_response(),
+    //     Err(_) => return ErrorStatus::InternalServerError.into_response(),
+    // }
 
     ctx.get_blob(Some(workspace_id), id, method, headers).await
 }
@@ -197,7 +202,7 @@ pub async fn create_workspace(
         Ok(data) => {
             let id = data.id.to_string();
             let update = ctx.upload_workspace(stream).await;
-            if !ctx.doc.full_migrate(id, Some(update)).await {
+            if !ctx.storage.full_migrate(id, Some(update)).await {
                 return ErrorStatus::InternalServerError.into_response();
             }
             ctx.user_channel

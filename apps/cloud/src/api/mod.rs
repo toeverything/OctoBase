@@ -40,6 +40,11 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/invitation/:path", post(permissions::accept_invitation))
         .nest_service("/global/sync", get(global_ws_handler))
         .route("/public/doc/:id", get(get_public_doc))
+        // TODO: Will consider this permission in the future
+        .route(
+            "/workspace/:id/blob/:name",
+            get(blobs::get_blob_in_workspace),
+        )
         .nest(
             "/",
             Router::new()
@@ -62,10 +67,6 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
                 .route("/workspace/:id/doc", get(get_doc))
                 .route("/workspace/:id/search", post(search_workspace))
                 .route("/workspace/:id/blob", put(blobs::upload_blob_in_workspace))
-                .route(
-                    "/workspace/:id/blob/:name",
-                    get(blobs::get_blob_in_workspace),
-                )
                 .route("/permission/:id", delete(permissions::remove_user))
                 .layer(
                     ServiceBuilder::new()
@@ -140,7 +141,7 @@ async fn make_token(
             let refresh = refresh.unwrap_or_else(|| {
                 let refresh = RefreshToken {
                     expires: Utc::now().naive_utc() + Duration::days(180),
-                    user_id: user.uuid.clone(),
+                    user_id: user.id.clone(),
                     token_nonce: user.token_nonce.unwrap(),
                 };
 
@@ -154,7 +155,7 @@ async fn make_token(
             let claims = Claims {
                 exp: Utc::now().naive_utc() + Duration::minutes(10),
                 user: User {
-                    id: user.uuid,
+                    id: user.id,
                     name: user.name,
                     email: user.email,
                     avatar_url: user.avatar_url,
@@ -270,7 +271,7 @@ async fn delete_workspace(
         Ok(true) => {
             ctx.user_channel
                 .update_workspace(workspace_id.clone(), ctx.clone());
-            let _ = ctx.blob.delete_workspace(workspace_id).await;
+            let _ = ctx.storage.blobs().delete_workspace(workspace_id).await;
             StatusCode::OK.into_response()
         }
         Ok(false) => ErrorStatus::NotFoundWorkspace(workspace_id).into_response(),
@@ -319,7 +320,7 @@ pub async fn get_public_doc(
 }
 
 async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response {
-    ctx.doc
+    ctx.storage
         .get_workspace(workspace_id)
         .await
         .read()

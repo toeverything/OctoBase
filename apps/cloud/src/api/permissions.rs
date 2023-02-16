@@ -53,7 +53,7 @@ async fn make_invite_email(
     invite_code: &str,
 ) -> Option<(String, MultiPart)> {
     let metadata = {
-        let ws = ctx.doc.get_workspace(workspace_id).await;
+        let ws = ctx.storage.get_workspace(workspace_id).await;
 
         let ws = ws.read().await;
 
@@ -166,7 +166,7 @@ pub async fn invite_member(
             .await;
     }
 
-    let encrypted = ctx.encrypt_aes(&permission_id.to_le_bytes()[..]);
+    let encrypted = ctx.encrypt_aes(&permission_id.as_bytes());
 
     let invite_code = URL_SAFE_ENGINE.encode(encrypted);
 
@@ -231,11 +231,15 @@ pub async fn accept_invitation(
         return ErrorStatus::BadRequest.into_response();
     };
 
-    let Ok(data) = TryInto::<[u8; 8]>::try_into(data) else {
-        return ErrorStatus::BadRequest.into_response();
-    };
+    // let Ok(data) = TryInto::<[u8; 8]>::try_into(data) else {
+    //     return ErrorStatus::BadRequest.into_response();
+    // };
 
-    match ctx.db.accept_permission(i64::from_le_bytes(data)).await {
+    match ctx
+        .db
+        .accept_permission(String::from_utf8(data).unwrap())
+        .await
+    {
         Ok(Some(p)) => Json(p).into_response(),
         Ok(None) => ErrorStatus::NotFoundInvitation.into_response(),
         Err(e) => {
@@ -267,11 +271,11 @@ pub async fn leave_workspace(
 pub async fn remove_user(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
 ) -> Response {
     match ctx
         .db
-        .get_permission_by_permission_id(claims.user.id.clone(), id)
+        .get_permission_by_permission_id(claims.user.id.clone(), id.clone())
         .await
     {
         Ok(Some(p)) if p.can_admin() => (),

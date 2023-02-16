@@ -142,7 +142,7 @@ impl UserChannel {
                 .await
                 .unwrap();
             workspace_detail_list.insert(item.id.to_string(), workspace_detail);
-            let workspace = context.doc.get_workspace(item.id.clone()).await;
+            let workspace = context.storage.get_workspace(item.id.clone()).await;
             workspace_metadata_list.insert(
                 item.id.to_string(),
                 workspace.read().await.metadata().to_json(),

@@ -99,7 +99,12 @@ async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Con
 
                 if let Some(workspace) = context.workspace.get(&workspace_id) {
                     let update = workspace.read().await.sync_migration();
-                    if let Err(e) = context.docs.full_migrate(&workspace_id, update).await {
+                    if let Err(e) = context
+                        .storage
+                        .docs()
+                        .full_migrate(&workspace_id, update)
+                        .await
+                    {
                         error!("db write error: {}", e.to_string());
                     }
                 } else {

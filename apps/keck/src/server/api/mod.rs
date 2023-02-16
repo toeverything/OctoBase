@@ -14,7 +14,7 @@ use axum::{
 };
 use dashmap::DashMap;
 use jwst::Workspace;
-use jwst_storage::{BlobAutoStorage, DocAutoStorage};
+use jwst_storage::JwstStorage;
 use tokio::sync::{mpsc::Sender, RwLock};
 
 #[derive(Deserialize)]
@@ -39,22 +39,16 @@ pub struct PageData<T> {
 pub struct Context {
     pub workspace: DashMap<String, Arc<RwLock<Workspace>>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
-    pub docs: DocAutoStorage,
-    pub blobs: BlobAutoStorage,
+    pub storage: JwstStorage,
 }
 
 impl Context {
-    pub async fn new(docs: Option<DocAutoStorage>, blobs: Option<BlobAutoStorage>) -> Self {
+    pub async fn new(storage: Option<JwstStorage>) -> Self {
         Context {
             workspace: DashMap::new(),
             channel: DashMap::new(),
-            docs: docs.unwrap_or(
-                DocAutoStorage::init_sqlite_pool_with_name("jwst")
-                    .await
-                    .expect("Cannot create database"),
-            ),
-            blobs: blobs.unwrap_or(
-                BlobAutoStorage::init_sqlite_pool_with_name("blobs")
+            storage: storage.unwrap_or(
+                JwstStorage::new_with_sqlite("jwst")
                     .await
                     .expect("Cannot create database"),
             ),

@@ -472,9 +472,9 @@ dependencies = [
 
 [[package]]
 name = "borsh"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3ef05d137e34b7ac51dbec170ee523a9b728cff71385796771d259771d592f8"
+checksum = "40f9ca3698b2e4cb7c15571db0abc5551dca417a21ae8140460b50309bb2cc62"
 dependencies = [
  "borsh-derive",
  "hashbrown 0.13.2",
@@ -482,9 +482,9 @@ dependencies = [
 
 [[package]]
 name = "borsh-derive"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "190b1188f062217531748807129459c8c14641b648e887e39681a433db7fc939"
+checksum = "598b3eacc6db9c3ee57b22707ad8f6a8d2f6d442bfe24ffeb8cbb70ca59e6a35"
 dependencies = [
  "borsh-derive-internal",
  "borsh-schema-derive-internal",
@@ -495,9 +495,9 @@ dependencies = [
 
 [[package]]
 name = "borsh-derive-internal"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0fcf747a3e4eb47869441664df09d0eb88dcc9a85d499860efb82c2cfe6affc"
+checksum = "186b734fa1c9f6743e90c95d7233c9faab6360d1a96d4ffa19d9cfd1e9350f8a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -506,9 +506,9 @@ dependencies = [
 
 [[package]]
 name = "borsh-schema-derive-internal"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f671d085f791c5fd3331c843ded45454b034b6188bf0f78ed28e7fd66a8b3f69"
+checksum = "99b7ff1008316626f485991b960ade129253d4034014616b94f309a15366cc49"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -771,6 +771,7 @@ dependencies = [
  "futures",
  "jwst",
  "jwst-logger",
+ "nanoid",
  "num-traits",
  "path-ext",
  "schemars",
@@ -1952,22 +1953,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jwst-blob-migration"
-version = "0.1.0"
-dependencies = [
- "sea-orm-migration",
- "tokio",
-]
-
-[[package]]
-name = "jwst-doc-migration"
-version = "0.1.0"
-dependencies = [
- "sea-orm-migration",
- "tokio",
-]
-
-[[package]]
 name = "jwst-ffi"
 version = "0.1.0"
 dependencies = [
@@ -2028,9 +2013,8 @@ dependencies = [
  "dashmap",
  "futures",
  "jwst",
- "jwst-blob-migration",
- "jwst-doc-migration",
  "jwst-logger",
+ "jwst-storage-migration",
  "path-ext",
  "sea-orm",
  "sea-orm-migration",
@@ -2040,6 +2024,14 @@ dependencies = [
  "tokio-util",
  "url",
  "yrs",
+]
+
+[[package]]
+name = "jwst-storage-migration"
+version = "0.1.0"
+dependencies = [
+ "sea-orm-migration",
+ "tokio",
 ]
 
 [[package]]
@@ -2414,6 +2406,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nanoid"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ffa00dec017b5b1a8b7cf5e2c008bfda1aa7e0697ac1508b491fdf2622fb4d8"
+dependencies = [
+ "rand 0.8.5",
+]
+
+[[package]]
 name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2513,9 +2514,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.17.0"
+version = "1.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f61fba1741ea2b3d6a1e3178721804bb716a68a6aeba1149b5d52e3d464ea66"
+checksum = "b7e5500299e16ebb147ae15a00a942af264cf3688f47923b8fc2cd5858f23ad3"
 
 [[package]]
 name = "oneshot"
@@ -4198,12 +4199,12 @@ dependencies = [
 
 [[package]]
 name = "terminal_size"
-version = "0.2.3"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb20089a8ba2b69debd491f8d2d023761cbf196e999218c591fa1e7e15a21907"
+checksum = "4c9afddd2cec1c0909f06b00ef33f94ab2cc0578c4a610aa208ddfec8aa2b43a"
 dependencies = [
  "rustix",
- "windows-sys 0.42.0",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]
@@ -4355,8 +4356,12 @@ checksum = "54319c93411147bced34cb5609a80e0a8e44c5999c93903a81cd866630ec0bfd"
 dependencies = [
  "futures-util",
  "log",
+ "rustls",
  "tokio",
+ "tokio-rustls",
  "tungstenite",
+ "webpki",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -4552,10 +4557,12 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.8.5",
+ "rustls",
  "sha1",
  "thiserror",
  "url",
  "utf-8",
+ "webpki",
 ]
 
 [[package]]

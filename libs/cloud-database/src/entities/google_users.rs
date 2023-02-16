@@ -5,9 +5,10 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "google_users")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: i32,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub id: String,
     pub user_id: String,
+    #[sea_orm(unique)]
     pub google_id: String,
 }
 
@@ -16,9 +17,9 @@ pub enum Relation {
     #[sea_orm(
         belongs_to = "super::users::Entity",
         from = "Column::UserId",
-        to = "super::users::Column::Uuid",
-        on_update = "NoAction",
-        on_delete = "NoAction"
+        to = "super::users::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
     )]
     Users,
 }

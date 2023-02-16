@@ -1,16 +1,10 @@
-use super::{async_trait, entities::prelude::*, DocStorage, DocSync};
-use chrono::Utc;
+use super::{entities::prelude::*, *};
 use dashmap::{mapref::entry::Entry, DashMap};
 use futures::{SinkExt, StreamExt};
-use jwst::{sync_encode_update, Workspace};
-use jwst_doc_migration::{Migrator, MigratorTrait};
-use jwst_logger::{debug, error, trace, warn};
-use path_ext::PathExt;
-use sea_orm::{prelude::*, Database, Set, TransactionTrait};
+use jwst::{sync_encode_update, DocStorage, DocSync, Workspace};
+use jwst_storage_migration::{Migrator, MigratorTrait};
 use std::{
-    io,
     panic::{catch_unwind, AssertUnwindSafe},
-    path::PathBuf,
     sync::Arc,
 };
 use tokio::sync::{
@@ -26,7 +20,7 @@ use yrs::{updates::decoder::Decode, Doc, Options, StateVector, Update};
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
 
-fn migrate_update(updates: Vec<<UpdateBinary as EntityTrait>::Model>, doc: Doc) -> Doc {
+fn migrate_update(updates: Vec<<Docs as EntityTrait>::Model>, doc: Doc) -> Doc {
     let mut trx = doc.transact();
     for update in updates {
         let id = update.timestamp;
@@ -49,10 +43,11 @@ fn migrate_update(updates: Vec<<UpdateBinary as EntityTrait>::Model>, doc: Doc) 
     doc
 }
 
-type UpdateBinaryModel = <UpdateBinary as EntityTrait>::Model;
-type UpdateBinaryActiveModel = super::entities::update_binary::ActiveModel;
-type UpdateBinaryColumn = <UpdateBinary as EntityTrait>::Column;
+pub(super) type DocsModel = <Docs as EntityTrait>::Model;
+type DocsActiveModel = super::entities::docs::ActiveModel;
+type DocsColumn = <Docs as EntityTrait>::Column;
 
+#[derive(Clone)]
 pub struct DocAutoStorage {
     pool: DatabaseConnection,
     workspaces: DashMap<String, Arc<RwLock<Workspace>>>,
@@ -60,6 +55,15 @@ pub struct DocAutoStorage {
 }
 
 impl DocAutoStorage {
+    pub async fn init_with_pool(pool: DatabaseConnection) -> Result<Self, DbErr> {
+        Migrator::up(&pool, None).await?;
+        Ok(Self {
+            pool,
+            workspaces: DashMap::new(),
+            remote: DashMap::new(),
+        })
+    }
+
     pub async fn init_pool(database: &str) -> Result<Self, DbErr> {
         let pool = Database::connect(database).await?;
         Migrator::up(&pool, None).await?;
@@ -91,25 +95,26 @@ impl DocAutoStorage {
         Self::init_pool(&format!("sqlite:{}?mode=rwc", path.display())).await
     }
 
-    pub async fn all(&self, table: &str) -> Result<Vec<UpdateBinaryModel>, DbErr> {
-        UpdateBinary::find()
-            .filter(UpdateBinaryColumn::Workspace.eq(table))
+    pub async fn all(&self, table: &str) -> Result<Vec<DocsModel>, DbErr> {
+        Docs::find()
+            .filter(DocsColumn::Workspace.eq(table))
             .all(&self.pool)
             .await
     }
 
-    async fn count(&self, table: &str) -> Result<u64, DbErr> {
-        UpdateBinary::find()
-            .filter(UpdateBinaryColumn::Workspace.eq(table))
+    pub(super) async fn count(&self, table: &str) -> Result<u64, DbErr> {
+        Docs::find()
+            .filter(DocsColumn::Workspace.eq(table))
             .count(&self.pool)
             .await
     }
 
     pub async fn insert(&self, table: &str, blob: &[u8]) -> Result<(), DbErr> {
-        UpdateBinary::insert(UpdateBinaryActiveModel {
+        Docs::insert(DocsActiveModel {
             workspace: Set(table.into()),
-            timestamp: Set(Utc::now()),
+            timestamp: Set(Utc::now().into()),
             blob: Set(blob.into()),
+            ..Default::default()
         })
         .exec(&self.pool)
         .await?;
@@ -119,15 +124,16 @@ impl DocAutoStorage {
     pub async fn replace_with(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
         let tx = self.pool.begin().await?;
 
-        UpdateBinary::delete_many()
-            .filter(UpdateBinaryColumn::Workspace.eq(table))
+        Docs::delete_many()
+            .filter(DocsColumn::Workspace.eq(table))
             .exec(&tx)
             .await?;
 
-        UpdateBinary::insert(UpdateBinaryActiveModel {
+        Docs::insert(DocsActiveModel {
             workspace: Set(table.into()),
-            timestamp: Set(Utc::now()),
+            timestamp: Set(Utc::now().into()),
             blob: Set(blob),
+            ..Default::default()
         })
         .exec(&tx)
         .await?;
@@ -138,8 +144,8 @@ impl DocAutoStorage {
     }
 
     pub async fn drop(&self, table: &str) -> Result<(), DbErr> {
-        UpdateBinary::delete_many()
-            .filter(UpdateBinaryColumn::Workspace.eq(table))
+        Docs::delete_many()
+            .filter(DocsColumn::Workspace.eq(table))
             .exec(&self.pool)
             .await?;
         Ok(())
@@ -252,10 +258,7 @@ impl DocSync for DocAutoStorage {
     async fn sync(&self, id: String, remote: String) -> io::Result<()> {
         if let Entry::Vacant(entry) = self.remote.entry(id.clone()) {
             let workspace = self.get(id).await.map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::BrokenPipe,
-                    format!("Failed to get doc: {e}"),
-                )
+                io::Error::new(io::ErrorKind::BrokenPipe, format!("Failed to get doc: {e}"))
             })?;
 
             let (tx, mut rx) = channel(100);
@@ -289,7 +292,7 @@ impl DocSync for DocAutoStorage {
                             return error!("Failed to connect to remote: {}", e);
                         }
                     };
-           
+
                     debug!("sync init message");
                     match workspace.read().await.sync_init_message() {
                         Ok(init_data) => {
@@ -355,55 +358,6 @@ impl DocSync for DocAutoStorage {
 
             entry.insert(tx);
         }
-
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[tokio::test]
-    async fn basic_storage_test() -> anyhow::Result<()> {
-        use super::*;
-
-        let pool = DocAutoStorage::init_pool("sqlite::memory:").await?;
-
-        // empty table
-        assert_eq!(pool.count("basic").await?, 0);
-
-        // first insert
-        pool.insert("basic", &[1, 2, 3, 4]).await?;
-        pool.insert("basic", &[2, 2, 3, 4]).await?;
-        assert_eq!(pool.count("basic").await?, 2);
-
-        // second insert
-        pool.replace_with("basic", vec![3, 2, 3, 4]).await?;
-
-        let all = pool.all("basic").await?;
-        assert_eq!(
-            all,
-            vec![UpdateBinaryModel {
-                workspace: "basic".into(),
-                timestamp: all.get(0).unwrap().timestamp,
-                blob: vec![3, 2, 3, 4]
-            }]
-        );
-        assert_eq!(pool.count("basic").await?, 1);
-
-        pool.drop("basic").await?;
-
-        pool.insert("basic", &[1, 2, 3, 4]).await?;
-
-        let all = pool.all("basic").await?;
-        assert_eq!(
-            all,
-            vec![UpdateBinaryModel {
-                workspace: "basic".into(),
-                timestamp: all.get(0).unwrap().timestamp,
-                blob: vec![1, 2, 3, 4]
-            }]
-        );
-        assert_eq!(pool.count("basic").await?, 1);
 
         Ok(())
     }

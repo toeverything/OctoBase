@@ -7,10 +7,10 @@ use super::{
     *,
 };
 use affine_cloud_migration::{Expr, JoinType, Migrator, MigratorTrait, Query};
+use nanoid::nanoid;
 use sea_orm::{
     prelude::*, ConnectionTrait, Database, DatabaseTransaction, QuerySelect, Set, TransactionTrait,
 };
-use uuid::Uuid;
 
 // #[derive(FromRow)]
 // struct PermissionQuery {
@@ -42,7 +42,6 @@ impl CloudDatabase {
     ) -> Result<Option<UsersModel>, DbErr> {
         Permissions::find()
             .column(UsersColumn::Id)
-            .column(UsersColumn::Uuid)
             .column(UsersColumn::Name)
             .column(UsersColumn::Email)
             .column(UsersColumn::AvatarUrl)
@@ -52,7 +51,7 @@ impl CloudDatabase {
             .join_rev(
                 JoinType::InnerJoin,
                 Users::belongs_to(Permissions)
-                    .from(UsersColumn::Uuid)
+                    .from(UsersColumn::Id)
                     .to(PermissionColumn::UserId)
                     .into(),
             )
@@ -73,7 +72,7 @@ impl CloudDatabase {
 
     pub async fn refresh_token(&self, token: RefreshToken) -> Result<Option<UsersModel>, DbErr> {
         Users::find()
-            .filter(UsersColumn::Uuid.eq(token.user_id))
+            .filter(UsersColumn::Id.eq(token.user_id))
             .filter(UsersColumn::TokenNonce.eq(token.token_nonce))
             .one(&self.pool)
             .await
@@ -82,7 +81,7 @@ impl CloudDatabase {
     pub async fn verify_refresh_token(&self, token: &RefreshToken) -> Result<bool, DbErr> {
         Users::find()
             .column(UsersColumn::Id)
-            .filter(UsersColumn::Uuid.eq(token.user_id.clone()))
+            .filter(UsersColumn::Id.eq(token.user_id.clone()))
             .filter(UsersColumn::TokenNonce.eq(token.token_nonce))
             .one(&self.pool)
             .await
@@ -104,7 +103,7 @@ impl CloudDatabase {
 
         let id = model.unwrap().id;
         Permissions::update(PermissionActiveModel {
-            id: Set(id),
+            id: Set(id.clone()),
             user_id: Set(Some(user_id)),
             user_email: Set(None),
             ..Default::default()
@@ -121,9 +120,9 @@ impl CloudDatabase {
     ) -> Result<Option<(UsersModel, Workspace)>, DbErr> {
         let trx = self.pool.begin().await?;
 
-        let uuid = Uuid::new_v4().to_string();
+        let id = nanoid!();
         let Ok(user) = Users::insert(UsersActiveModel {
-            uuid: Set(uuid.clone()),
+            id: Set(id.clone()),
             name: Set(user.name),
             password: Set(Some(user.password)),
             email: Set(user.email),
@@ -136,10 +135,10 @@ impl CloudDatabase {
         };
 
         let new_workspace = self
-            .create_workspace(&trx, uuid.clone(), WorkspaceType::Private)
+            .create_workspace(&trx, id.clone(), WorkspaceType::Private)
             .await?;
 
-        Self::update_cred(&trx, uuid, &user.email).await?;
+        Self::update_cred(&trx, id, &user.email).await?;
 
         trx.commit().await?;
 
@@ -151,7 +150,7 @@ impl CloudDatabase {
         workspace_id: String,
     ) -> Result<Option<WorkspaceDetail>, DbErr> {
         let workspace = Workspaces::find()
-            .filter(WorkspacesColumn::Uuid.eq(workspace_id.clone()))
+            .filter(WorkspacesColumn::Id.eq(workspace_id.clone()))
             .one(&self.pool)
             .await?;
 
@@ -161,10 +160,10 @@ impl CloudDatabase {
                     owner: None,
                     member_count: 0,
                     workspace: Workspace {
-                        id: workspace.uuid.clone(),
+                        id: workspace.id.clone(),
                         public: workspace.public,
                         r#type: workspace.r#type.into(),
-                        created_at: workspace.created_at.naive_local(),
+                        created_at: workspace.created_at.unwrap_or_default().naive_local(),
                     },
                 }))
             }
@@ -185,7 +184,7 @@ impl CloudDatabase {
 
         Ok(Some(WorkspaceDetail {
             owner: Some(User {
-                id: owner.uuid,
+                id: owner.id,
                 name: owner.name,
                 email: owner.email,
                 avatar_url: owner.avatar_url,
@@ -193,10 +192,10 @@ impl CloudDatabase {
             }),
             member_count,
             workspace: Workspace {
-                id: workspace.uuid.clone(),
+                id: workspace.id.clone(),
                 public: workspace.public,
                 r#type: workspace.r#type.into(),
-                created_at: workspace.created_at.naive_local(),
+                created_at: workspace.created_at.unwrap_or_default().naive_local(),
             },
         }))
     }
@@ -207,25 +206,25 @@ impl CloudDatabase {
         user_id: String,
         ws_type: WorkspaceType,
     ) -> Result<Workspace, DbErr> {
-        let uuid = Uuid::new_v4();
-        let workspace_id = uuid.to_string().replace('-', "_");
-
+        let id = nanoid!();
         let workspace = Workspaces::insert(WorkspacesActiveModel {
+            id: Set(id),
             public: Set(false),
             r#type: Set(ws_type as i16),
-            uuid: Set(workspace_id),
             ..Default::default()
         })
         .exec_with_returning(trx)
         .await
         .map(|ws| Workspace {
-            id: ws.uuid,
+            id: ws.id,
             public: ws.public,
             r#type: ws.r#type.into(),
-            created_at: ws.created_at.naive_local(),
+            created_at: ws.created_at.unwrap_or_default().naive_local(),
         })?;
 
+        let permissions_id = nanoid!();
         Permissions::insert(PermissionActiveModel {
+            id: Set(permissions_id),
             user_id: Set(Some(user_id)),
             workspace_id: Set(workspace.id.clone()),
             r#type: Set(PermissionType::Owner as i16),
@@ -255,7 +254,7 @@ impl CloudDatabase {
         data: UpdateWorkspace,
     ) -> Result<Option<Workspace>, DbErr> {
         let model = Workspaces::find()
-            .filter(WorkspacesColumn::Uuid.eq(workspace_id.clone()))
+            .filter(WorkspacesColumn::Id.eq(workspace_id.clone()))
             .filter(WorkspacesColumn::Type.eq(WorkspaceType::Normal as i32))
             .one(&self.pool)
             .await?;
@@ -265,7 +264,7 @@ impl CloudDatabase {
 
         let id = model.unwrap().id;
         let workspace = Workspaces::update(WorkspacesActiveModel {
-            id: Set(id),
+            id: Set(id.clone()),
             public: Set(data.public),
             ..Default::default()
         })
@@ -273,10 +272,10 @@ impl CloudDatabase {
         .exec(&self.pool)
         .await
         .map(|ws| Workspace {
-            id: ws.uuid,
+            id: ws.id,
             public: ws.public,
             r#type: ws.r#type.into(),
-            created_at: ws.created_at.naive_local(),
+            created_at: ws.created_at.unwrap_or_default().naive_local(),
         })?;
         Ok(Some(workspace))
     }
@@ -290,7 +289,7 @@ impl CloudDatabase {
                 Query::select()
                     .from(Workspaces)
                     .and_where(
-                        Expr::col((Workspaces, WorkspacesColumn::Uuid)).eq(workspace_id.clone()),
+                        Expr::col((Workspaces, WorkspacesColumn::Id)).eq(workspace_id.clone()),
                     )
                     .and_where(
                         Expr::col((Workspaces, WorkspacesColumn::Type))
@@ -302,7 +301,7 @@ impl CloudDatabase {
             .await?;
 
         Workspaces::delete_many()
-            .filter(WorkspacesColumn::Uuid.eq(workspace_id.clone()))
+            .filter(WorkspacesColumn::Id.eq(workspace_id.clone()))
             .filter(WorkspacesColumn::Type.eq(WorkspaceType::Normal as i32))
             .exec(&trx)
             .await
@@ -314,7 +313,7 @@ impl CloudDatabase {
         user_id: String,
     ) -> Result<Vec<WorkspaceWithPermission>, DbErr> {
         Permissions::find()
-            .column_as(WorkspacesColumn::Uuid, "id")
+            .column_as(WorkspacesColumn::Id, "id")
             .column_as(WorkspacesColumn::Public, "public")
             .column_as(WorkspacesColumn::CreatedAt, "created_at")
             .column_as(WorkspacesColumn::Type, "type")
@@ -322,7 +321,7 @@ impl CloudDatabase {
             .join_rev(
                 JoinType::InnerJoin,
                 Workspaces::belongs_to(Permissions)
-                    .from(WorkspacesColumn::Uuid)
+                    .from(WorkspacesColumn::Id)
                     .to(PermissionColumn::WorkspaceId)
                     .into(),
             )
@@ -340,7 +339,7 @@ impl CloudDatabase {
             .column_as(PermissionColumn::UserEmail, "user_email")
             .column_as(PermissionColumn::Accepted, "accepted")
             .column_as(PermissionColumn::CreatedAt, "created_at")
-            .column_as(UsersColumn::Uuid, "user_id")
+            .column_as(UsersColumn::Id, "user_id")
             .column_as(UsersColumn::Name, "user_name")
             .column_as(UsersColumn::Email, "user_table_email")
             .column_as(UsersColumn::AvatarUrl, "user_avatar_url")
@@ -348,7 +347,7 @@ impl CloudDatabase {
             .join_rev(
                 JoinType::LeftJoin,
                 Users::belongs_to(Permissions)
-                    .from(UsersColumn::Uuid)
+                    .from(UsersColumn::Id)
                     .to(PermissionColumn::UserId)
                     .into(),
             )
@@ -375,7 +374,7 @@ impl CloudDatabase {
     pub async fn get_permission_by_permission_id(
         &self,
         user_id: String,
-        permission_id: i64,
+        permission_id: String,
     ) -> Result<Option<PermissionType>, DbErr> {
         Permissions::find()
             .filter(PermissionColumn::UserId.eq(user_id))
@@ -408,7 +407,7 @@ impl CloudDatabase {
                         Query::select()
                             .from(Workspaces)
                             .and_where(
-                                Expr::col((Workspaces, WorkspacesColumn::Uuid))
+                                Expr::col((Workspaces, WorkspacesColumn::Id))
                                     .eq(workspace_id.clone()),
                             )
                             .and_where(Expr::col((Workspaces, WorkspacesColumn::Public)).eq(true))
@@ -422,7 +421,7 @@ impl CloudDatabase {
 
     pub async fn is_public_workspace(&self, workspace_id: String) -> Result<bool, DbErr> {
         Workspaces::find()
-            .filter(WorkspacesColumn::Uuid.eq(workspace_id.clone()))
+            .filter(WorkspacesColumn::Id.eq(workspace_id.clone()))
             .filter(WorkspacesColumn::Public.eq(true))
             .one(&self.pool)
             .await
@@ -434,9 +433,9 @@ impl CloudDatabase {
         email: &str,
         workspace_id: String,
         permission_type: PermissionType,
-    ) -> Result<Option<(i64, UserCred)>, DbErr> {
+    ) -> Result<Option<(String, UserCred)>, DbErr> {
         let workspace = Workspaces::find()
-            .filter(WorkspacesColumn::Uuid.eq(workspace_id.clone()))
+            .filter(WorkspacesColumn::Id.eq(workspace_id.clone()))
             .filter(WorkspacesColumn::Type.eq(WorkspaceType::Normal as i32))
             .one(&self.pool)
             .await?;
@@ -445,20 +444,21 @@ impl CloudDatabase {
         }
 
         let user = self.get_user_by_email(email).await?;
-        let id = Permissions::insert(PermissionActiveModel {
-            user_id: Set(user.clone().map(|u| u.uuid)),
+        let id = nanoid!();
+        Permissions::insert(PermissionActiveModel {
+            id: Set(id.clone()),
+            user_id: Set(user.clone().map(|u| u.id)),
             user_email: Set(user.clone().and(None).or(Some(email.to_string()))),
             workspace_id: Set(workspace_id),
             r#type: Set(permission_type as i16),
             ..Default::default()
         })
-        .exec_with_returning(&self.pool)
-        .await
-        .map(|p| p.id)?;
+        .exec(&self.pool)
+        .await?;
 
         let user = match user {
             Some(user) => UserCred::Registered(User {
-                id: user.uuid,
+                id: user.id,
                 name: user.name,
                 email: user.email,
                 avatar_url: user.avatar_url,
@@ -472,9 +472,12 @@ impl CloudDatabase {
         Ok(Some((id, user)))
     }
 
-    pub async fn accept_permission(&self, permission_id: i64) -> Result<Option<Permission>, DbErr> {
+    pub async fn accept_permission(
+        &self,
+        permission_id: String,
+    ) -> Result<Option<Permission>, DbErr> {
         let p = Permissions::find()
-            .filter(PermissionColumn::Id.eq(permission_id))
+            .filter(PermissionColumn::Id.eq(permission_id.clone()))
             .one(&self.pool)
             .await?;
 
@@ -484,7 +487,7 @@ impl CloudDatabase {
 
         Ok(Some(
             Permissions::update(PermissionActiveModel {
-                id: Set(permission_id),
+                id: Set(permission_id.clone()),
                 accepted: Set(true),
                 ..Default::default()
             })
@@ -493,7 +496,7 @@ impl CloudDatabase {
             .await
             .map(|op| Permission {
                 id: op.id,
-                type_: op.r#type.into(),
+                r#type: op.r#type.into(),
                 workspace_id: op.workspace_id,
                 user_id: op.user_id,
                 user_email: op.user_email,
@@ -503,7 +506,7 @@ impl CloudDatabase {
         ))
     }
 
-    pub async fn delete_permission(&self, permission_id: i64) -> Result<bool, DbErr> {
+    pub async fn delete_permission(&self, permission_id: String) -> Result<bool, DbErr> {
         Permissions::delete_many()
             .filter(PermissionColumn::Id.eq(permission_id))
             .exec(&self.pool)
@@ -536,7 +539,7 @@ impl CloudDatabase {
 
         Ok(if let Some(user) = user {
             let in_workspace = Permissions::find()
-                .filter(PermissionColumn::UserId.eq(user.id))
+                .filter(PermissionColumn::UserId.eq(user.id.clone()))
                 .filter(PermissionColumn::WorkspaceId.eq(workspace_id))
                 .one(&self.pool)
                 .await
@@ -544,7 +547,7 @@ impl CloudDatabase {
 
             UserInWorkspace {
                 user: UserCred::Registered(User {
-                    id: user.uuid,
+                    id: user.id,
                     name: user.name,
                     email: user.email,
                     avatar_url: user.avatar_url,
@@ -569,28 +572,33 @@ impl CloudDatabase {
         })
     }
 
-    // ok
     pub async fn google_user_login(&self, claims: &GoogleClaims) -> Result<UsersModel, DbErr> {
         let google_user: Option<GoogleUsersModel> = GoogleUsers::find()
             .filter(GoogleUsersColumn::GoogleId.eq(claims.user_id.clone()))
             .one(&self.pool)
             .await?;
         if let Some(google_user) = google_user {
-            // todo check this
+            let model = Users::find()
+                .filter(UsersColumn::Id.eq(google_user.user_id))
+                .one(&self.pool)
+                .await?
+                .unwrap();
+            let id = model.id;
             let user = Users::update(UsersActiveModel {
+                id: Set(id.clone()),
                 name: Set(claims.name.clone()),
                 email: Set(claims.email.clone()),
                 avatar_url: Set(Some(claims.picture.clone())),
                 ..Default::default()
             })
-            .filter(UsersColumn::Uuid.eq(google_user.user_id))
+            .filter(UsersColumn::Id.eq(id))
             .exec(&self.pool)
             .await?;
             Ok(user)
         } else {
-            let uuid = uuid::Uuid::new_v4().to_string();
+            let id = nanoid!();
             let user = Users::insert(UsersActiveModel {
-                uuid: Set(uuid),
+                id: Set(id),
                 name: Set(claims.name.clone()),
                 email: Set(claims.email.clone()),
                 avatar_url: Set(Some(claims.picture.clone())),
@@ -598,8 +606,10 @@ impl CloudDatabase {
             })
             .exec_with_returning(&self.pool)
             .await?;
+            let google_user_id = nanoid!();
             GoogleUsers::insert(GoogleUsersActiveModel {
-                user_id: Set(user.uuid.clone()),
+                id: Set(google_user_id),
+                user_id: Set(user.id.clone()),
                 google_id: Set(claims.user_id.clone()),
                 ..Default::default()
             })
@@ -627,7 +637,6 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(new_user.id, 1);
         let (new_user2, _) = pool
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
@@ -638,13 +647,12 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(new_user2.id, 2);
         let mut new_workspace = pool
-            .create_normal_workspace(new_user.uuid.clone())
+            .create_normal_workspace(new_user.id.clone())
             .await
             .unwrap();
         let new_workspace2 = pool
-            .create_normal_workspace(new_user.uuid.clone())
+            .create_normal_workspace(new_user.id.clone())
             .await
             .unwrap();
 
@@ -658,7 +666,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        assert_eq!(new_user.uuid, new_workspace1_clone.owner.unwrap().id);
+        assert_eq!(new_user.id, new_workspace1_clone.owner.unwrap().id);
         assert_eq!(new_workspace.id, new_workspace1_clone.workspace.id);
         assert_eq!(
             new_workspace.created_at,
@@ -667,7 +675,7 @@ mod tests {
 
         assert_eq!(
             new_workspace.id,
-            pool.get_user_workspaces(new_user.uuid)
+            pool.get_user_workspaces(new_user.id)
                 .await
                 .unwrap()
                 // when create user, will auto create a private workspace, our created will be second one
