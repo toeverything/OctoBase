@@ -93,7 +93,7 @@ impl MigrationTrait for Migration {
 
 /// Learn more at https://docs.rs/sea-query#iden
 #[derive(Iden)]
-enum Permissions {
+pub enum Permissions {
     Table,
     Id,          // STRING PRIMARY KEY,
     WorkspaceId, // CHAR(36),
