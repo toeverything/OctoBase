@@ -2,6 +2,8 @@
 
 This file was generated using [@jscutlery/semver](https://github.com/jscutlery/semver).
 
+### [0.4.1](https://github.com/toeverything/OctoBase/compare/libs-jwt-0.4.0...libs-jwt-0.4.1) (2023-02-15)
+
 ## [0.4.0](https://github.com/toeverything/OctoBase/compare/libs-jwt-0.3.0...libs-jwt-0.4.0) (2023-02-10)
 
 
