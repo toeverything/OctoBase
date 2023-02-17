@@ -256,10 +256,17 @@ pub async fn leave_workspace(
 ) -> Response {
     match ctx
         .db
-        .delete_permission_by_query(claims.user.id.clone(), id)
+        .delete_permission_by_query(claims.user.id.clone(), id.clone())
         .await
     {
-        Ok(true) => StatusCode::OK.into_response(),
+        Ok(true) => {
+            ctx.user_channel
+                .update_user(claims.user.id.clone(), ctx.clone());
+            ctx.close_websocket(id.clone(), claims.user.id.clone())
+                .await;
+
+            StatusCode::OK.into_response()
+        }
         Ok(false) => StatusCode::OK.into_response(),
         Err(e) => {
             error!("Failed to leave workspace: {}", e);
@@ -278,7 +285,26 @@ pub async fn remove_user(
         .get_permission_by_permission_id(claims.user.id.clone(), id.clone())
         .await
     {
-        Ok(Some(p)) if p.can_admin() => (),
+        Ok(Some(p)) if PermissionType::from(p.r#type).can_admin() => {
+            let mut user_id = p.user_id;
+            if user_id.is_none() && p.user_email.is_some() {
+                let user_email = p.user_email.unwrap();
+                let user = ctx.db.get_user_by_email(&user_email).await.unwrap();
+                user_id = match user {
+                    Some(user) => Some(user.id),
+                    None => None,
+                };
+            }
+            match user_id {
+                Some(user_id) => {
+                    ctx.user_channel.update_user(user_id.clone(), ctx.clone());
+                    ctx.close_websocket(p.workspace_id.clone(), user_id.clone())
+                        .await;
+                }
+                None => {}
+            };
+            ()
+        }
         Ok(_) => return ErrorStatus::Forbidden.into_response(),
         Err(e) => {
             error!("Failed to get permission: {}", e);

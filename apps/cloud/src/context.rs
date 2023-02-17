@@ -1,7 +1,7 @@
 use super::constants;
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
-use axum::extract::ws::Message;
+use axum::extract::ws::{self, Message};
 use chrono::{NaiveDateTime, Utc};
 use cloud_database::CloudDatabase;
 use cloud_database::{Claims, GoogleClaims};
@@ -53,7 +53,7 @@ pub struct Context {
     pub mail: MailContext,
     pub db: CloudDatabase,
     pub storage: JwstStorage,
-    pub channel: DashMap<(String, String), Sender<Message>>,
+    pub channel: DashMap<(String, String, String), Sender<Message>>,
     pub user_channel: UserChannel,
 }
 
@@ -269,5 +269,37 @@ impl Context {
         let search_results = workspace_arc_rw.write().await.search(query_string)?;
 
         Ok(search_results)
+    }
+
+    // TODO: this should be moved to another module
+    pub async fn close_websocket(&self, workspace: String, user: String) {
+        let mut closed = vec![];
+        for item in self.channel.iter() {
+            let ((ws_id, user_id, id), tx) = item.pair();
+            if &workspace == ws_id && user_id == &user {
+                closed.push((ws_id.clone(), user_id.clone(), id.clone()));
+                let _ = tx.send(ws::Message::Close(None)).await;
+            }
+        }
+        for close in closed {
+            let (ws_id, user_id, id) = close;
+            self.channel.remove(&(ws_id, user_id, id));
+        }
+    }
+
+    // TODO: this should be moved to another module
+    pub async fn close_websocket_by_workspace(&self, workspace: String) {
+        let mut closed = vec![];
+        for item in self.channel.iter() {
+            let ((ws_id, user_id, id), tx) = item.pair();
+            if &workspace == ws_id {
+                closed.push((ws_id.clone(), user_id.clone(), id.clone()));
+                let _ = tx.send(ws::Message::Close(None)).await;
+            }
+        }
+        for close in closed {
+            let (ws_id, user_id, id) = close;
+            self.channel.remove(&(ws_id, user_id, id));
+        }
     }
 }
