@@ -1,7 +1,7 @@
 use super::constants;
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
-use axum::extract::ws::Message;
+use axum::extract::ws::{self, Message};
 use chrono::{NaiveDateTime, Utc};
 use cloud_database::CloudDatabase;
 use cloud_database::{Claims, GoogleClaims};
@@ -275,15 +275,15 @@ impl Context {
     pub async fn close_websocket(&self, workspace: String, user: String) {
         let mut closed = vec![];
         for item in self.channel.iter() {
-            let ((ws, user_id, id), tx) = item.pair();
-            if &workspace == ws && user_id == &user {
-                tx.closed().await;
-                closed.push((ws.clone(), user_id.clone(), id.clone()));
+            let ((ws_id, user_id, id), tx) = item.pair();
+            if &workspace == ws_id && user_id == &user {
+                closed.push((ws_id.clone(), user_id.clone(), id.clone()));
+                let _ = tx.send(ws::Message::Close(None)).await;
             }
         }
         for close in closed {
-            let (ws, user_id, id) = close;
-            self.channel.remove(&(ws, user_id, id));
+            let (ws_id, user_id, id) = close;
+            self.channel.remove(&(ws_id, user_id, id));
         }
     }
 
@@ -291,15 +291,15 @@ impl Context {
     pub async fn close_websocket_by_workspace(&self, workspace: String) {
         let mut closed = vec![];
         for item in self.channel.iter() {
-            let ((ws, user_id, id), tx) = item.pair();
-            if &workspace == ws {
-                tx.closed().await;
-                closed.push((ws.clone(), user_id.clone(), id.clone()));
+            let ((ws_id, user_id, id), tx) = item.pair();
+            if &workspace == ws_id {
+                closed.push((ws_id.clone(), user_id.clone(), id.clone()));
+                let _ = tx.send(ws::Message::Close(None)).await;
             }
         }
         for close in closed {
-            let (ws, user_id, id) = close;
-            self.channel.remove(&(ws, user_id, id));
+            let (ws_id, user_id, id) = close;
+            self.channel.remove(&(ws_id, user_id, id));
         }
     }
 }

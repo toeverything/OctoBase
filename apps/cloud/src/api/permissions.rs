@@ -287,9 +287,9 @@ pub async fn remove_user(
     {
         Ok(Some(p)) if PermissionType::from(p.r#type).can_admin() => {
             let mut user_id = p.user_id;
-            if p.user_id.is_none() && p.user_email.is_some() {
+            if user_id.is_none() && p.user_email.is_some() {
                 let user_email = p.user_email.unwrap();
-                let user = ctx.db.get_user_by_email(&user_email).await?;
+                let user = ctx.db.get_user_by_email(&user_email).await.unwrap();
                 user_id = match user {
                     Some(user) => Some(user.id),
                     None => None,
