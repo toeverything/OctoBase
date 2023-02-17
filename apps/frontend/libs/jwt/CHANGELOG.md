@@ -2,6 +2,13 @@
 
 This file was generated using [@jscutlery/semver](https://github.com/jscutlery/semver).
 
+### [0.4.2](https://github.com/toeverything/OctoBase/compare/libs-jwt-0.4.1...libs-jwt-0.4.2) (2023-02-17)
+
+
+### Bug Fixes
+
+* catch error from provider ([d279631](https://github.com/toeverything/OctoBase/commit/d2796312e838f3ee30cbf56b1f51cbf0702d528d))
+
 ### [0.4.1](https://github.com/toeverything/OctoBase/compare/libs-jwt-0.4.0...libs-jwt-0.4.1) (2023-02-15)
 
 ## [0.4.0](https://github.com/toeverything/OctoBase/compare/libs-jwt-0.3.0...libs-jwt-0.4.0) (2023-02-10)
