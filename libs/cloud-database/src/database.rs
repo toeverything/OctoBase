@@ -378,7 +378,7 @@ impl CloudDatabase {
         &self,
         user_id: String,
         permission_id: String,
-    ) -> Result<Option<PermissionModel>, DbErr> {
+    ) -> Result<Option<PermissionType>, DbErr> {
         Permissions::find()
             .filter(PermissionColumn::UserId.eq(user_id))
             .filter(
@@ -390,6 +390,17 @@ impl CloudDatabase {
                         .take(),
                 ),
             )
+            .one(&self.pool)
+            .await
+            .map(|p| p.map(|p| p.r#type.into()))
+    }
+
+    pub async fn get_permission_by_id(
+        &self,
+        permission_id: String,
+    ) -> Result<Option<PermissionModel>, DbErr> {
+        Permissions::find()
+            .filter(PermissionColumn::Id.eq(permission_id))
             .one(&self.pool)
             .await
     }

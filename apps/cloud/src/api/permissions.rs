@@ -285,27 +285,43 @@ pub async fn remove_user(
         .get_permission_by_permission_id(claims.user.id.clone(), id.clone())
         .await
     {
-        Ok(Some(p)) if PermissionType::from(p.r#type).can_admin() => {
-            match p.user_id {
-                Some(user_id) => {
-                    ctx.user_channel.update_user(user_id.clone(), ctx.clone());
-                    ctx.close_websocket(p.workspace_id.clone(), user_id.clone())
-                        .await;
-                }
-                None => {}
-            };
-            ()
-        }
+        Ok(Some(p)) if p.can_admin() => (),
         Ok(_) => return ErrorStatus::Forbidden.into_response(),
         Err(e) => {
             error!("Failed to get permission: {}", e);
             return ErrorStatus::InternalServerError.into_response();
         }
-    }
+    };
 
+    let permission_model = ctx
+        .db
+        .get_permission_by_id(id.clone())
+        .await
+        .unwrap()
+        .unwrap();
     match ctx.db.delete_permission(id).await {
-        Ok(true) => StatusCode::OK.into_response(),
-        Ok(false) => StatusCode::OK.into_response(),
+        Ok(true) => {
+            match permission_model.user_id {
+                Some(user_id) => {
+                    ctx.user_channel.update_user(user_id.clone(), ctx.clone());
+                    ctx.close_websocket(permission_model.workspace_id.clone(), user_id.clone())
+                        .await;
+                }
+                None => {}
+            };
+            StatusCode::OK.into_response()
+        }
+        Ok(false) => {
+            match permission_model.user_id {
+                Some(user_id) => {
+                    ctx.user_channel.update_user(user_id.clone(), ctx.clone());
+                    ctx.close_websocket(permission_model.workspace_id.clone(), user_id.clone())
+                        .await;
+                }
+                None => {}
+            };
+            StatusCode::OK.into_response()
+        }
         Err(e) => {
             error!("Failed to remove user: {}", e);
             ErrorStatus::InternalServerError.into_response()
