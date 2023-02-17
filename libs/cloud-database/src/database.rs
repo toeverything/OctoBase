@@ -617,6 +617,14 @@ impl CloudDatabase {
             })
             .exec_with_returning(&self.pool)
             .await?;
+            Permissions::update_many()
+                .set(PermissionActiveModel {
+                    user_id: Set(Some(user.id.clone())),
+                    ..Default::default()
+                })
+                .filter(PermissionColumn::UserEmail.eq(claims.email.clone()))
+                .exec(&self.pool)
+                .await?;
             Ok(user)
         }
     }

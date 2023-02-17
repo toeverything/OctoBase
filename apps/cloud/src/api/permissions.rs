@@ -286,16 +286,7 @@ pub async fn remove_user(
         .await
     {
         Ok(Some(p)) if PermissionType::from(p.r#type).can_admin() => {
-            let mut user_id = p.user_id;
-            if user_id.is_none() && p.user_email.is_some() {
-                let user_email = p.user_email.unwrap();
-                let user = ctx.db.get_user_by_email(&user_email).await.unwrap();
-                user_id = match user {
-                    Some(user) => Some(user.id),
-                    None => None,
-                };
-            }
-            match user_id {
+            match p.user_id {
                 Some(user_id) => {
                     ctx.user_channel.update_user(user_id.clone(), ctx.clone());
                     ctx.close_websocket(p.workspace_id.clone(), user_id.clone())
