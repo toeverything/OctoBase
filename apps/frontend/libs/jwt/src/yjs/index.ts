@@ -70,8 +70,14 @@ function initYProvider(
                 .emit(new Map([[workspace, c]]));
         };
         synced = Promise.all(
-            Object.entries(options.providers).flatMap(([, p]) => [
-                p({ awareness, doc, token, workspace, emitState }),
+            Object.entries(options.providers).flatMap(([name, provider]) => [
+                provider({ awareness, doc, token, workspace, emitState }).catch(
+                    e => {
+                        console.error(
+                            `Failed to connect to ${workspace} with ${name} provider: ${e}`
+                        );
+                    }
+                ),
                 // p({
                 //     awareness,
                 //     doc: binaries,

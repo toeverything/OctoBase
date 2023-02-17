@@ -83,7 +83,7 @@ EOH
       }
       resources {
         cpu    = 400 # MHz
-        memory = 512 # MB
+        memory = 256 # MB
       }
     }
 
@@ -141,8 +141,8 @@ EOH
 
       }
       resources {
-        cpu    = 200 # MHz
-        memory = 128 # MB
+        cpu    = 400 # MHz
+        memory = 256 # MB
       }
     }
   }
