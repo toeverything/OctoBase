@@ -13,26 +13,30 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
         let builder = db.get_database_backend();
 
-        let mut stmt = Query::select();
-        stmt.column(Users::Id);
-        stmt.column(Users::Email);
-        stmt.from(Users::Table);
-        let rows = db.query_all(builder.build(&stmt)).await?;
+        let trx = db.begin().await?;
+
+        let stmt = Query::select()
+            .column(Users::Id)
+            .column(Users::Email)
+            .from(Users::Table)
+            .to_owned();
+        let rows = trx.query_all(builder.build(&stmt)).await?;
 
         for row in rows.into_iter() {
             let user_id = row.try_get::<String>("", "id").unwrap();
             let user_email = row.try_get::<String>("", "email").unwrap();
-            let mut set_values = vec![];
-            set_values.push((Permissions::UserId, user_id.into()));
-            let mut condition = Cond::all();
-            condition = condition.add(Expr::col(Permissions::UserEmail).eq(user_email));
+
             let stmt = Query::update()
                 .table(Permissions::Table)
-                .values(set_values)
-                .cond_where(condition)
+                .values(vec![(Permissions::UserId, user_id.into())])
+                .cond_where(Cond::all().add(Expr::col(Permissions::UserEmail).eq(user_email)))
                 .to_owned();
-            db.execute(builder.build(&stmt)).await?;
+
+            trx.execute(builder.build(&stmt)).await?;
         }
+
+        trx.commit().await?;
+
         Ok(())
     }
 }
