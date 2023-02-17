@@ -53,7 +53,7 @@ pub struct Context {
     pub mail: MailContext,
     pub db: CloudDatabase,
     pub storage: JwstStorage,
-    pub channel: DashMap<(String, String), Sender<Message>>,
+    pub channel: DashMap<(String, String, String), Sender<Message>>,
     pub user_channel: UserChannel,
 }
 
@@ -269,5 +269,37 @@ impl Context {
         let search_results = workspace_arc_rw.write().await.search(query_string)?;
 
         Ok(search_results)
+    }
+
+    // TODO: this should be moved to another module
+    pub async fn close_websocket(&self, workspace: String, user: String) {
+        let mut closed = vec![];
+        for item in self.channel.iter() {
+            let ((ws, user_id, id), tx) = item.pair();
+            if &workspace == ws && user_id == &user {
+                tx.closed().await;
+                closed.push((ws.clone(), user_id.clone(), id.clone()));
+            }
+        }
+        for close in closed {
+            let (ws, user_id, id) = close;
+            self.channel.remove(&(ws, user_id, id));
+        }
+    }
+
+    // TODO: this should be moved to another module
+    pub async fn close_websocket_by_workspace(&self, workspace: String) {
+        let mut closed = vec![];
+        for item in self.channel.iter() {
+            let ((ws, user_id, id), tx) = item.pair();
+            if &workspace == ws {
+                tx.closed().await;
+                closed.push((ws.clone(), user_id.clone(), id.clone()));
+            }
+        }
+        for close in closed {
+            let (ws, user_id, id) = close;
+            self.channel.remove(&(ws, user_id, id));
+        }
     }
 }
