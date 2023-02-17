@@ -166,7 +166,7 @@ pub async fn invite_member(
             .await;
     }
 
-    let encrypted = ctx.encrypt_aes(&permission_id.as_bytes());
+    let encrypted = ctx.encrypt_aes(permission_id.as_bytes());
 
     let invite_code = URL_SAFE_ENGINE.encode(encrypted);
 
@@ -301,24 +301,18 @@ pub async fn remove_user(
         .unwrap();
     match ctx.db.delete_permission(id).await {
         Ok(true) => {
-            match permission_model.user_id {
-                Some(user_id) => {
-                    ctx.user_channel.update_user(user_id.clone(), ctx.clone());
-                    ctx.close_websocket(permission_model.workspace_id.clone(), user_id.clone())
-                        .await;
-                }
-                None => {}
+            if let Some(user_id) = permission_model.user_id {
+                ctx.user_channel.update_user(user_id.clone(), ctx.clone());
+                ctx.close_websocket(permission_model.workspace_id.clone(), user_id.clone())
+                    .await;
             };
             StatusCode::OK.into_response()
         }
         Ok(false) => {
-            match permission_model.user_id {
-                Some(user_id) => {
-                    ctx.user_channel.update_user(user_id.clone(), ctx.clone());
-                    ctx.close_websocket(permission_model.workspace_id.clone(), user_id.clone())
-                        .await;
-                }
-                None => {}
+            if let Some(user_id) = permission_model.user_id {
+                ctx.user_channel.update_user(user_id.clone(), ctx.clone());
+                ctx.close_websocket(permission_model.workspace_id.clone(), user_id.clone())
+                    .await;
             };
             StatusCode::OK.into_response()
         }

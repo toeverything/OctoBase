@@ -624,7 +624,6 @@ impl CloudDatabase {
                 id: Set(google_user_id),
                 user_id: Set(user.id.clone()),
                 google_id: Set(claims.user_id.clone()),
-                ..Default::default()
             })
             .exec_with_returning(&self.pool)
             .await?;
