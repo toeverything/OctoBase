@@ -101,7 +101,7 @@ impl Context {
             let invite_file = constants::StaticFiles::get("invite.html").unwrap();
             let invite_file = String::from_utf8_lossy(&invite_file.data);
             template
-                .register_template_string("MAIL_INVITE_CONTENT", &invite_file)
+                .register_template_string("MAIL_INVITE_CONTENT", invite_file)
                 .expect("should provide valid email file");
 
             MailContext {
