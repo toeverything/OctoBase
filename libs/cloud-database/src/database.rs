@@ -378,7 +378,7 @@ impl CloudDatabase {
         &self,
         user_id: String,
         permission_id: String,
-    ) -> Result<Option<PermissionType>, DbErr> {
+    ) -> Result<Option<PermissionModel>, DbErr> {
         Permissions::find()
             .filter(PermissionColumn::UserId.eq(user_id))
             .filter(
@@ -392,7 +392,6 @@ impl CloudDatabase {
             )
             .one(&self.pool)
             .await
-            .map(|p| p.map(|p| p.r#type.into()))
     }
 
     pub async fn can_read_workspace(

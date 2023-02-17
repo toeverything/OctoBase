@@ -271,6 +271,8 @@ async fn delete_workspace(
         Ok(true) => {
             ctx.user_channel
                 .update_workspace(workspace_id.clone(), ctx.clone());
+            ctx.close_websocket_by_workspace(workspace_id.clone()).await;
+
             let _ = ctx.storage.blobs().delete_workspace(workspace_id).await;
             StatusCode::OK.into_response()
         }
