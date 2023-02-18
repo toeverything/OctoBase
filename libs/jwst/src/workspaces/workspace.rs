@@ -21,6 +21,8 @@ static PROTOCOL: DefaultProtocol = DefaultProtocol;
 use super::PluginMap;
 use plugins::PluginImpl;
 
+type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>;
+
 pub struct Workspace {
     id: String,
     awareness: Awareness,
@@ -151,7 +153,7 @@ impl Workspace {
     pub fn observe_metadata(
         &mut self,
         f: impl Fn(&TransactionMut, &MapEvent) + 'static,
-    ) -> Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent) -> ()>> {
+    ) -> MapSubscription {
         self.metadata.observe(f)
     }
 

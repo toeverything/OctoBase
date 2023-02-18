@@ -312,7 +312,7 @@ impl Block {
         self.children
             .iter(trx)
             .map(|v| v.to_string(trx))
-            .any(|bid| &bid == block_id.as_ref())
+            .any(|bid| bid == block_id.as_ref())
     }
 
     pub(crate) fn content<T>(&self, trx: &T) -> HashMap<String, Any>

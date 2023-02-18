@@ -371,7 +371,7 @@ pub async fn remove_block_children(
                 error!("db write error: {}", e.to_string());
             }
             // response block content
-            return Json(block).into_response();
+            Json(block).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
         }

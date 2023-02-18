@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use yrs::{Array, ArrayRef, ReadTxn, Transaction};
+use yrs::{Array, ArrayRef, ReadTxn};
 
 #[derive(Serialize, Deserialize, ToSchema, Debug, PartialEq)]
 pub enum HistoryOperation {
