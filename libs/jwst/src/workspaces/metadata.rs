@@ -18,10 +18,10 @@ impl From<(&'_ Transaction<'_>, MapRef)> for WorkspaceMetadata {
     }
 }
 
-impl Into<Any> for WorkspaceMetadata {
-    fn into(self) -> Any {
+impl From<WorkspaceMetadata> for Any {
+    fn from(val: WorkspaceMetadata) -> Self {
         let mut map = HashMap::new();
-        if let Some(name) = self.name {
+        if let Some(name) = val.name {
             map.insert("name".to_owned(), name.into());
         }
         Any::Map(map.into())

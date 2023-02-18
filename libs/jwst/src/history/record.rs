@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use yrs::{Array, ArrayRef, Transaction};
+use yrs::{Array, ArrayRef, ReadTxn, Transaction};
 
 #[derive(Serialize, Deserialize, ToSchema, Debug, PartialEq)]
 pub enum HistoryOperation {
@@ -67,8 +67,8 @@ pub struct BlockHistory {
     pub operation: HistoryOperation,
 }
 
-impl From<(&'_ Transaction<'_>, ArrayRef, String)> for BlockHistory {
-    fn from(params: (&'_ Transaction<'_>, ArrayRef, String)) -> Self {
+impl<T: ReadTxn> From<(&'_ T, ArrayRef, String)> for BlockHistory {
+    fn from(params: (&'_ T, ArrayRef, String)) -> Self {
         let (trx, array, block_id) = params;
         Self {
             block_id,

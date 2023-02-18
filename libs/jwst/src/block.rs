@@ -231,46 +231,54 @@ impl Block {
             .unwrap()
     }
 
-    pub fn created(&self) -> u64 {
-        let trx = self.doc.transact();
+    pub fn created<T>(&self, trx: &T) -> u64
+    where
+        T: ReadTxn,
+    {
         self.block
-            .get(&trx, "sys:created")
-            .and_then(|c| match c.to_json(&trx) {
+            .get(trx, "sys:created")
+            .and_then(|c| match c.to_json(trx) {
                 Any::Number(n) => Some(n as u64),
                 _ => None,
             })
             .unwrap_or_default()
     }
 
-    pub fn updated(&self) -> u64 {
-        let trx = self.doc.transact();
+    pub fn updated<T>(&self, trx: &T) -> u64
+    where
+        T: ReadTxn,
+    {
         self.updated
-            .iter(&trx)
+            .iter(trx)
             .filter_map(|v| v.to_yarray())
             .last()
             .and_then(|a| {
-                a.get(&trx, 1).and_then(|i| match i.to_json(&trx) {
+                a.get(trx, 1).and_then(|i| match i.to_json(trx) {
                     Any::Number(n) => Some(n as u64),
                     _ => None,
                 })
             })
-            .unwrap_or_else(|| self.created())
+            .unwrap_or_else(|| self.created(trx))
     }
 
-    pub fn history(&self) -> Vec<BlockHistory> {
-        let trx = self.doc.transact();
+    pub fn history<T>(&self, trx: &T) -> Vec<BlockHistory>
+    where
+        T: ReadTxn,
+    {
         self.updated
-            .iter(&trx)
+            .iter(trx)
             .filter_map(|v| v.to_yarray())
-            .map(|v| (&trx, v, self.id.clone()).into())
+            .map(|v| (trx, v, self.id.clone()).into())
             .collect()
     }
 
-    pub fn parent(&self) -> Option<String> {
-        let trx = self.doc.transact();
+    pub fn parent<T>(&self, trx: &T) -> Option<String>
+    where
+        T: ReadTxn,
+    {
         self.block
-            .get(&trx, "sys:parent")
-            .and_then(|c| match c.to_json(&trx) {
+            .get(trx, "sys:parent")
+            .and_then(|c| match c.to_json(trx) {
                 Any::String(s) => Some(s.to_string()),
                 _ => None,
             })
@@ -304,8 +312,7 @@ impl Block {
         self.children
             .iter(trx)
             .map(|v| v.to_string(trx))
-            .find(|bid| bid == block_id.as_ref())
-            .is_some()
+            .any(|bid| &bid == block_id.as_ref())
     }
 
     pub(crate) fn content<T>(&self, trx: &T) -> HashMap<String, Any>
@@ -541,15 +548,13 @@ mod tests {
     fn updated() {
         let workspace = Workspace::new("test");
 
-        let block = workspace.with_trx(|mut t| {
+        workspace.with_trx(|mut t| {
             let block = t.create("a", "affine:text");
 
             block.set(&mut t.trx, "test", 1);
 
-            block
+            assert!(block.created(&t.trx) <= block.updated(&t.trx))
         });
-
-        assert!(block.created() <= block.updated())
     }
 
     #[test]
@@ -560,16 +565,16 @@ mod tests {
 
         let workspace = Workspace::from_doc(doc, "test");
 
-        let (block, b) = workspace.with_trx(|mut t| {
+        let (block, b, history) = workspace.with_trx(|mut t| {
             let block = t.create("a", "affine:text");
             let b = t.create("b", "affine:text");
 
             block.set(&mut t.trx, "test", 1);
 
-            (block, b)
-        });
+            let history = block.history(&t.trx);
 
-        let history = block.history();
+            (block, b, history)
+        });
 
         assert_eq!(history.len(), 2);
 
@@ -593,7 +598,7 @@ mod tests {
             ]
         );
 
-        workspace.with_trx(|mut t| {
+        let history = workspace.with_trx(|mut t| {
             block.push_children(&mut t.trx, &b);
 
             assert_eq!(block.exists_children(&t.trx, "b"), Some(0));
@@ -601,9 +606,10 @@ mod tests {
             block.remove_children(&mut t.trx, &b);
 
             assert_eq!(block.exists_children(&t.trx, "b"), None);
+
+            block.history(&t.trx)
         });
 
-        let history = block.history();
         assert_eq!(history.len(), 4);
 
         if let [.., insert, remove] = history.as_slice() {

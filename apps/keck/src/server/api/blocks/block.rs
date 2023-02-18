@@ -134,11 +134,13 @@ pub async fn get_block_history(
     if let Some(workspace) = context.workspace.get(&workspace) {
         // init block instance
         let workspace = workspace.value().read().await;
-        if let Some(block) = workspace.with_trx(|t| workspace.get(&t.trx, block)) {
-            Json(&block.history()).into_response()
-        } else {
-            StatusCode::NOT_FOUND.into_response()
-        }
+        workspace.with_trx(|t| {
+            if let Some(block) = workspace.get(&t.trx, block) {
+                Json(&block.history(&t.trx)).into_response()
+            } else {
+                StatusCode::NOT_FOUND.into_response()
+            }
+        })
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
