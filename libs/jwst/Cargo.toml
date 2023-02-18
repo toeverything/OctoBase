@@ -18,17 +18,18 @@ cang-jie = "0.15.0"
 chrono = "0.4.23"
 dashmap = "5.4.0"
 futures = "0.3.26"
-lib0 = { version = "0.12.2", features = ["lib0-serde"] }
+lib0 = { version = "0.16.2", features = ["lib0-serde"] }
 log = "0.4.17"
 utoipa = "2.4.2"
+schemars = "0.8.11"
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.91"
 type-map = "0.5.0"
 tantivy = { version = "0.19.2", optional = true }
-tokio = "1.25.0"
+tokio = { version = "1.25.0", features = ["sync"] }
 
-y-sync = "0.1.0"
-yrs = "=0.12.0"
+y-sync = "0.2.0"
+yrs = "0.16.2"
 
 [dev-dependencies]
 assert-json-diff = "2.0.2"

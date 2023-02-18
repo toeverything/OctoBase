@@ -9,7 +9,6 @@ use sea_orm::{FromQueryResult, TryGetable};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Type};
-use yrs::Map;
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct GoogleClaims {
@@ -392,17 +391,4 @@ pub struct BigId {
 #[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Count {
     pub count: i64,
-}
-
-#[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct WorkspaceMetadata {
-    pub name: String,
-}
-
-impl WorkspaceMetadata {
-    pub fn parse(metadata: &Map) -> Option<Self> {
-        let name = metadata.get("name")?.to_string();
-
-        Some(WorkspaceMetadata { name })
-    }
 }

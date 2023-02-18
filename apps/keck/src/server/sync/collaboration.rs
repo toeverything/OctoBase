@@ -40,7 +40,7 @@ fn subscribe_handler(
     uuid: String,
     ws_id: String,
 ) {
-    let sub = workspace.observe(move |_, e| {
+    if let Some(sub) = workspace.observe(move |_, e| {
         let update = sync_encode_update(&e.update);
 
         let context = context.clone();
@@ -65,8 +65,11 @@ fn subscribe_handler(
                 context.channel.remove(&(ws_id.clone(), id));
             }
         });
-    });
-    std::mem::forget(sub);
+    }) {
+        std::mem::forget(sub);
+    } else {
+        error!("on observe error");
+    }
 }
 
 async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Context>) {

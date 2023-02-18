@@ -316,6 +316,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "atomic_refcell"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "857253367827bd9d0fd973f0ef15506a96e79e41b0ad7aa691203a4e3214f6c8"
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1942,6 +1948,7 @@ dependencies = [
  "futures",
  "lib0",
  "log",
+ "schemars",
  "serde",
  "serde_json",
  "tantivy",
@@ -2110,9 +2117,9 @@ checksum = "0c2cdeb66e45e9f36bfad5bbdb4d2384e70936afbee843c6f6543f0c551ebb25"
 
 [[package]]
 name = "lib0"
-version = "0.12.2"
+version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "988e5aa573db0f1f3fe56b635484cd96a880afd102404250e4703738cda66c6b"
+checksum = "2ed76ef194e5b6bf8e3ce00a54436d3cea0bc4e98654f08a4af8655a050a20db"
 dependencies = [
  "serde",
  "serde_json",
@@ -5148,8 +5155,9 @@ dependencies = [
 
 [[package]]
 name = "y-sync"
-version = "0.1.0"
-source = "git+https://github.com/toeverything/y-sync?rev=e061fa3#e061fa3f7b74c6350b2d2ff141ce79c3cb78925e"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57b05ee3c166fe347adc9b90dd75362df1bd661615baa11c29ca1c7ef1545073"
 dependencies = [
  "lib0",
  "thiserror",
@@ -5158,12 +5166,16 @@ dependencies = [
 
 [[package]]
 name = "yrs"
-version = "0.12.0"
-source = "git+https://github.com/toeverything/y-crdt?rev=a1034b4#a1034b46ac852c13112c0a3cd94cb1587901315b"
+version = "0.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c87dfbcaf4e73d3ca2be0a7d5ba57f71fd517d9ed2367d485f2efc1fd6d3f573"
 dependencies = [
+ "atomic_refcell",
  "lib0",
  "rand 0.7.3",
  "smallstr",
+ "smallvec",
+ "thiserror",
 ]
 
 [[package]]

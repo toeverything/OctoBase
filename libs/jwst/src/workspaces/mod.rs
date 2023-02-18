@@ -1,12 +1,11 @@
-mod content;
+mod metadata;
 mod plugins;
 mod transaction;
 mod workspace;
 
 use super::{info, Block};
+use metadata::WorkspaceMetadata;
 use plugins::PluginMap;
-
-pub(crate) use content::Content;
 
 #[cfg(feature = "workspace-search")]
 pub use plugins::{SearchResult, SearchResults};
