@@ -657,28 +657,11 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        let (new_user2, _) = pool
-            .create_user(CreateUser {
-                avatar_url: Some("xxx".to_string()),
-                email: "xxx2@xxx.xx".to_string(),
-                name: "xxx".to_string(),
-                password: "xxx".to_string(),
-            })
-            .await
-            .unwrap()
-            .unwrap();
-        let mut new_workspace = pool
+        let new_workspace = pool
             .create_normal_workspace(new_user.id.clone())
             .await
             .unwrap();
-        let new_workspace2 = pool
-            .create_normal_workspace(new_user.id.clone())
-            .await
-            .unwrap();
-
-        assert_eq!(new_workspace.id.len(), 36);
         assert_eq!(new_workspace.public, false);
-        assert_eq!(new_workspace2.id.len(), 36);
 
         let new_workspace1_clone = pool
             .get_workspace_by_id(new_workspace.id.clone())
@@ -704,12 +687,150 @@ mod tests {
                 .id
         );
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn database_update_tables() -> anyhow::Result<()> {
+        use super::*;
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await?;
+        // start test
+        let (new_user, _) = pool
+            .create_user(CreateUser {
+                avatar_url: Some("xxx".to_string()),
+                email: "xxx@xxx.xx".to_string(),
+                name: "xxx".to_string(),
+                password: "xxx".to_string(),
+            })
+            .await
+            .unwrap()
+            .unwrap();
+
+        let mut new_workspace = pool
+            .create_normal_workspace(new_user.id.clone())
+            .await
+            .unwrap();
+
         new_workspace = pool
-            .update_workspace(new_workspace.id, UpdateWorkspace { public: true })
+            .update_workspace(new_workspace.id.clone(), UpdateWorkspace { public: true })
             .await
             .unwrap()
             .unwrap();
         assert_eq!(new_workspace.public, true);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn database_delete_tables() -> anyhow::Result<()> {
+        use super::*;
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await?;
+        // start test
+        let (new_user, _) = pool
+            .create_user(CreateUser {
+                avatar_url: Some("xxx".to_string()),
+                email: "xxx@xxx.xx".to_string(),
+                name: "xxx".to_string(),
+                password: "xxx".to_string(),
+            })
+            .await
+            .unwrap()
+            .unwrap();
+
+        let new_workspace = pool
+            .create_normal_workspace(new_user.id.clone())
+            .await
+            .unwrap();
+
+        let is_deleted = pool
+            .delete_workspace(new_workspace.id.clone())
+            .await
+            .unwrap();
+        assert_eq!(is_deleted, true);
+
+        Ok(())
+    }
+    #[tokio::test]
+    async fn database_permission() -> anyhow::Result<()> {
+        use super::*;
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await?;
+        // start test
+        let (new_user, _) = pool
+            .create_user(CreateUser {
+                avatar_url: Some("xxx".to_string()),
+                email: "xxx@xxx.xx".to_string(),
+                name: "xxx".to_string(),
+                password: "xxx".to_string(),
+            })
+            .await
+            .unwrap()
+            .unwrap();
+
+        let new_workspace = pool
+            .create_normal_workspace(new_user.id.clone())
+            .await
+            .unwrap();
+
+        //Create permission
+        let new_permission = pool
+            .create_permission(
+                &new_user.email.clone(),
+                new_workspace.id.clone(),
+                PermissionType::Admin,
+            )
+            .await
+            .unwrap()
+            .unwrap();
+
+        //accept permission
+        let accept_permission = pool
+            .accept_permission(new_permission.0.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            accept_permission.workspace_id.clone(),
+            new_workspace.id.clone()
+        );
+        assert_eq!(accept_permission.r#type.clone(), PermissionType::Admin);
+        assert_eq!(
+            accept_permission.user_id.unwrap().clone(),
+            new_user.id.clone()
+        );
+        assert_eq!(
+            accept_permission.user_email.unwrap().clone(),
+            new_user.email.clone()
+        );
+        assert_eq!(accept_permission.accepted, true);
+
+        //get user in workspace by email
+
+        let user_in_workspace = pool
+            .get_user_in_workspace_by_email(new_workspace.id.clone(), &new_user.email.clone())
+            .await
+            .unwrap();
+        assert_eq!(user_in_workspace.in_workspace, true);
+
+        //can read workspace
+        let can_read_workspace = pool
+            .can_read_workspace(new_user.id.clone(), new_workspace.id.clone())
+            .await
+            .unwrap();
+        assert_eq!(can_read_workspace, true);
+
+        //delete permission
+        let is_deleted = pool
+            .delete_permission(new_permission.0.clone())
+            .await
+            .unwrap();
+        assert_eq!(is_deleted, true);
+
+        //delete permission by query
+        let is_deleted_by_query = pool
+            .delete_permission_by_query(new_user.id.clone(), new_workspace.id.clone())
+            .await
+            .unwrap();
+        assert_eq!(is_deleted_by_query, true);
         Ok(())
     }
 }
