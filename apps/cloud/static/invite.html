@@ -57,11 +57,11 @@
               padding-right: 48px;
               font-weight: 500;
               font-size: 18px;
+              word-break: break-all;
               overflow-wrap: break-word;
-              display: flex;
-              flex-wrap: wrap;
               align-items: center;
               margin-top: 16px;
+              line-height: 26px;
             "
             class="user-invite"
           >
@@ -79,35 +79,36 @@
               src="{{avatar_url}}"
               alt=""
             />
+            {{inviter_name}}
 
-            <span style="line-height: 26px; margin-right: 12px"
-              >{{inviter_name}}</span
-            >
-            <span style="font-weight: 400; font-size: 16px"
+            <span
+              style="
+                font-weight: 400;
+                font-size: 16px;
+                margin-left: 6px;
+                margin-right: 6px;
+              "
               >invited you to join</span
             >
-            <div>
-              <img
-                style="
-                  margin-left: 6px;
-                  width: 28px;
-                  height: 28px;
-                  border-radius: 50%;
-                  vertical-align: middle;
-                  margin-left: 12px;
-                  margin-right: 12px;
-                  box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
-                    -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
-                    4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);
-                  display: none;
-                "
-                src="{{workspace_avatar}}"
-                alt=""
-              />
-              <span style="line-height: 26px; margin-left: 12px"
-                >{{workspace_name}}</span
-              >
-            </div>
+
+            <img
+              style="
+                margin-left: 6px;
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                vertical-align: middle;
+                margin-left: 12px;
+                margin-right: 12px;
+                box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
+                  -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
+                  4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);
+                display: none;
+              "
+              src="{{workspace_avatar}}"
+              alt=""
+            />
+            {{workspace_name}}
           </div>
           <div style="margin: 8px 0; font-weight: 400; font-size: 16px">
             Click here to join this workspace
