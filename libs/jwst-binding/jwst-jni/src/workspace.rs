@@ -30,21 +30,25 @@ impl Workspace {
     }
 
     #[generate_interface]
-    pub fn get(&self, block_id: String) -> Option<Block> {
-        self.workspace
-            .with_trx(|t| self.workspace.get(&t.trx, block_id).map(Block))
+    pub fn get(&self, trx: &WorkspaceTransaction, block_id: String) -> Option<Block> {
+        self.workspace.get(&trx.0.trx, block_id).map(Block)
     }
 
     #[generate_interface]
-    pub fn exists(&self, block_id: &str) -> bool {
-        self.workspace
-            .with_trx(|t| self.workspace.exists(&t.trx, block_id))
+    pub fn exists(&self, trx: &WorkspaceTransaction, block_id: &str) -> bool {
+        self.workspace.exists(&trx.0.trx, block_id)
     }
 
     #[generate_interface]
-    pub fn with_trx(&self, on_trx: Box<dyn OnWorkspaceTransaction>) {
+    pub fn with_trx(&self, on_trx: Box<dyn OnWorkspaceTransaction>) -> bool {
         self.workspace
-            .with_trx(|trx| on_trx.on_trx(WorkspaceTransaction(trx)))
+            .try_with_trx(|trx| on_trx.on_trx(WorkspaceTransaction(trx)))
+            .is_some()
+    }
+
+    #[generate_interface]
+    pub fn drop_trx(&self, trx: WorkspaceTransaction) {
+        drop(trx)
     }
 
     #[generate_interface]

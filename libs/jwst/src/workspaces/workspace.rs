@@ -102,6 +102,19 @@ impl Workspace {
         f(trx)
     }
 
+    pub fn try_with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> Option<T> {
+        match self.doc().try_transact_mut() {
+            Ok(trx) => {
+                let trx = WorkspaceTransaction { trx, ws: self };
+                Some(f(trx))
+            }
+            Err(e) => {
+                info!("try_with_trx error: {}", e);
+                None
+            }
+        }
+    }
+
     pub fn id(&self) -> String {
         self.id.clone()
     }

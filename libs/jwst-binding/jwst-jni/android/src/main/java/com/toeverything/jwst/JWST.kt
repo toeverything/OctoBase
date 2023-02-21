@@ -2,10 +2,9 @@ package com.toeverything.jwst
 
 import com.toeverything.jwst.lib.JwstStorage
 import java.util.*
-import java.util.Optional
-import com.toeverything.jwst.lib.WorkspaceTransaction as JwstWorkspaceTransaction
 import com.toeverything.jwst.lib.Block as JwstBlock
 import com.toeverything.jwst.lib.Workspace as JwstWorkspace
+import com.toeverything.jwst.lib.WorkspaceTransaction as JwstWorkspaceTransaction
 
 class Workspace(id: String) {
     private var workspace: JwstWorkspace
@@ -21,29 +20,37 @@ class Workspace(id: String) {
     }
 
     fun id(): String {
-        return this.workspace.id();
+        return this.workspace.id()
     }
 
     fun client_id(): Long {
-        return this.workspace.clientId();
+        return this.workspace.clientId()
     }
 
-    fun get(block_id: String): Optional<Block> {
-        return this.workspace.get(block_id).map { block -> Block(block) };
+    fun get(trx: WorkspaceTransaction, block_id: String): Optional<Block> {
+        return this.workspace.get(trx.trx, block_id).map { block -> Block(block) }
     }
 
-    fun exists(block_id: String): Boolean {
-        return this.workspace.exists(block_id);
+    fun exists(trx: WorkspaceTransaction, block_id: String): Boolean {
+        return this.workspace.exists(trx.trx, block_id)
     }
 
-    fun withTrx(callback: (trx: WorkspaceTransaction) -> Unit) {
-        this.workspace.withTrx { trx ->
-            run {
-                val trx = WorkspaceTransaction(trx);
-                callback(trx);
-                trx.commit()
+    fun <T> withTrx(callback: (trx: WorkspaceTransaction) -> T): T? {
+        var ret: T? = null
+        for (i in 0..5) {
+            val success = this.workspace.withTrx { trx ->
+                run {
+                    ret = callback(WorkspaceTransaction(trx))
+                    this.workspace.dropTrx(trx)
+                }
             }
+            if (success) {
+                return ret
+            }
+            Thread.sleep(50)
         }
+
+        return ret
     }
 
     fun withStorage(storage: JwstStorage, remote: String) {
@@ -60,7 +67,7 @@ class WorkspaceTransaction constructor(internal var trx: JwstWorkspaceTransactio
     }
 
     fun create(id: String, flavor: String): Block {
-        return Block(this.trx.create(id, flavor));
+        return Block(this.trx.create(id, flavor))
     }
 
     fun remove(block_id: String): Boolean {
@@ -106,7 +113,7 @@ class Block constructor(private var block: JwstBlock) {
                 .filter(OptionalLong::isPresent).map(OptionalLong::getAsLong)
             this.block.isFloat(trx.trx, key) -> Optional.of(this.block.getFloat(trx.trx, key))
                 .filter(OptionalDouble::isPresent).map(OptionalDouble::getAsDouble)
-            else -> Optional.empty();
+            else -> Optional.empty()
         }
     }
 
