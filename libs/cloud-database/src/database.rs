@@ -642,6 +642,8 @@ impl CloudDatabase {
 
 #[cfg(test)]
 mod tests {
+    use crate::User;
+
     #[tokio::test]
     async fn database_create_tables() -> anyhow::Result<()> {
         use super::*;
@@ -892,8 +894,19 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(workspace_members.len(), 2);
-        assert_eq!(workspace_members.get(0).unwrap().id, new_user.id);
-        assert_eq!(workspace_members.get(1).unwrap().id, new_user2.id);
+
+        let member1 = workspace_members.get(0).unwrap().user.clone();
+        let member2 = workspace_members.get(1).unwrap().user.clone();
+        if let UserCred::Registered(user) = member1 {
+            assert_eq!(user.id, new_user.id);
+        } else {
+            panic!("get workspace members failed, owner is not registered");
+        }
+        if let UserCred::Registered(user2) = member2 {
+            assert_eq!(user2.id, new_user2.id);
+        } else {
+            panic!("get workspace members failed, member is not registered");
+        }
 
         //get user in workspace by email
 
