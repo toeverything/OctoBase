@@ -210,6 +210,7 @@ impl Workspace {
     }
 
     pub fn sync_handle_message(&mut self, msg: Message) -> Result<Option<Message>, Error> {
+        debug!("processing message: {:?}", msg);
         match msg {
             Message::Sync(msg) => match msg {
                 SyncMessage::SyncStep1(sv) => PROTOCOL.handle_sync_step1(&self.awareness, sv),
@@ -220,6 +221,9 @@ impl Workspace {
                     let mut txn = self.doc().transact_mut();
                     txn.apply_update(Update::decode_v1(&update)?);
                     txn.commit();
+                    debug!("changed_parent_types: {:?}", txn.changed_parent_types());
+                    debug!("before_state: {:?}", txn.before_state());
+                    debug!("after_state: {:?}", txn.after_state());
                     let update = txn.encode_update_v1();
                     Ok(Some(Message::Sync(SyncMessage::Update(update))))
                 }

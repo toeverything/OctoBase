@@ -3,7 +3,7 @@ mod plugins;
 mod transaction;
 mod workspace;
 
-use super::{info, Block};
+use super::{debug, info, Block};
 use metadata::WorkspaceMetadata;
 use plugins::PluginMap;
 

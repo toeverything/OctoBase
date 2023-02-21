@@ -22,17 +22,18 @@ class MainActivity : AppCompatActivity() {
         val storage = Storage(database.absolutePath, "ws://10.0.2.2:3000/collaboration/test")
         val workspace = storage.getWorkspace("test")
 
-        workspace.withTrx { trx -> workspace.get(trx,"a").unwrap() }?.let { block ->
+        workspace.withTrx { trx -> workspace.get(trx, "a").unwrap() }?.let { block ->
             // load the existing block on the second startup program.
             val content = workspace.withTrx { trx -> block.get(trx, "a key") }?.get()
             this.title = (content as String) + " exists"
-            workspace.withTrx { trx ->workspace.get(trx,"root").get().children(trx)}?.joinToString { it }
+            workspace.withTrx { trx -> workspace.get(trx, "root").get().children(trx) }
+                ?.joinToString { it }
                 ?.let { Log.i("jwst", it) }
             workspace.withTrx { trx ->
-                Thread.sleep(5000)
+                Thread.sleep(1000)
                 trx.create("child11", "child");
             }
-        }  ?: run {
+        } ?: run {
             // create a new block on the first startup program.
             workspace.withTrx { trx ->
                 val block = trx.create("a", "b")
@@ -70,6 +71,17 @@ class MainActivity : AppCompatActivity() {
                 block1.insertChildrenAt(trx, block10, 8)
                 block1.insertChildrenAt(trx, block11, 9)
             }
+        }
+        while (true) {
+            workspace.withTrx { trx ->
+                Log.i("jwst"," getting root")
+                workspace.get(trx, "root").unwrap()?.let { block ->
+                    block.get(trx, "test").ifPresent { value ->
+                        Log.i("jwst", "test: $value")
+                    }
+                }
+            }
+            Thread.sleep(1000)
         }
     }
 }
