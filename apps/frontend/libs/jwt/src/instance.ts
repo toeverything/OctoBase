@@ -43,6 +43,7 @@ export type JwtOptions = {
     tagger?: BlockExporters<string[]>;
     enabled?: YProviderType[];
     token?: string;
+    extraToleranceTime?: number;
 };
 
 export type IJwtStore = {

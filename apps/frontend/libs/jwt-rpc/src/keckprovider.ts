@@ -46,7 +46,7 @@ export class KeckProvider extends Observable<string> {
         serverUrl: string,
         roomName: string,
         doc: Y.Doc,
-        { params = {}, resyncInterval = -1, maxBackOffTime = 2500 } = {}
+        { params = {}, resyncInterval = -1, maxBackOffTime = 2500, extraToleranceTime = 0 } = {}
     ) {
         super();
 
@@ -68,7 +68,7 @@ export class KeckProvider extends Observable<string> {
 
         this._synced = false;
 
-        this._websocket = registerWebsocket(this, token, resyncInterval);
+        this._websocket = registerWebsocket(this, token, resyncInterval, extraToleranceTime);
 
         this._updateHandlerDestroy = registerKeckUpdateHandler(
             this,

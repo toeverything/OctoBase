@@ -52,10 +52,15 @@ const _getTimeout = (provider: KeckProvider) =>
         provider.maxBackOffTime
     );
 
+const _getRegisterWSTimeout = (provider: KeckProvider, extraToleranceTime = 0) => {
+  return _getTimeout(provider) + extraToleranceTime;
+}
+
 export const registerWebsocket = (
     provider: KeckProvider,
     token: string,
     resync = -1,
+    extraToleranceTime = 0,
     reconnect = 3,
     existsProtocol?: string
 ) => {
@@ -89,7 +94,7 @@ export const registerWebsocket = (
         token,
         existsProtocol,
         reconnect,
-        _getTimeout(provider)
+        _getRegisterWSTimeout(provider, extraToleranceTime)
     )
         .then(({ protocol }) => {
             websocket = new WebSocket(provider.url, protocol);
