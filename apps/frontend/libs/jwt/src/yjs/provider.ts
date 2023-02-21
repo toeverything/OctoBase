@@ -26,6 +26,7 @@ export type YProviderOptions = {
     importData?: () => Promise<Uint8Array> | Uint8Array | undefined;
     exportData?: (binary: Uint8Array) => Promise<void> | undefined;
     hasExporter?: () => boolean;
+    extraToleranceTime?: number;
 };
 
 export const getYProviders = (
@@ -50,6 +51,7 @@ export const getYProviders = (
                         context.doc,
                         {
                             params: options.params,
+                            extraToleranceTime: options.extraToleranceTime,
                         }
                     ) as any;
 
