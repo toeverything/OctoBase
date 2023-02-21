@@ -710,13 +710,29 @@ mod tests {
             .create_normal_workspace(new_user.id.clone())
             .await
             .unwrap();
-
+        let is_published = pool
+            .is_public_workspace(new_workspace.id.clone())
+            .await
+            .unwrap();
+        let workspace_owner = pool
+            .get_workspace_owner(new_workspace.id.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(workspace_owner.id, new_user.id);
+        assert_eq!(new_workspace.public, false);
+        assert_eq!(is_published, false);
         new_workspace = pool
             .update_workspace(new_workspace.id.clone(), UpdateWorkspace { public: true })
             .await
             .unwrap()
             .unwrap();
+        let is_published = pool
+            .is_public_workspace(new_workspace.id.clone())
+            .await
+            .unwrap();
         assert_eq!(new_workspace.public, true);
+        assert_eq!(is_published, true);
 
         Ok(())
     }
@@ -793,6 +809,12 @@ mod tests {
             .await
             .unwrap();
 
+        let workspace_owner = pool
+            .get_workspace_owner(new_workspace.id.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(workspace_owner.id, new_user.id);
         //Create permission
         let new_permission = pool
             .create_permission(
@@ -825,6 +847,13 @@ mod tests {
         );
         assert_eq!(accept_permission.accepted, true);
 
+        let workspace_owner = pool
+            .get_workspace_owner(new_workspace.id.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(workspace_owner.id, new_user.id);
+
         //get permission by use id
         let permission_by_user1_id = pool
             .get_permission(new_user.id.clone(), new_workspace.id.clone())
@@ -843,6 +872,28 @@ mod tests {
         assert_eq!(permission_by_user1_id, PermissionType::Owner);
         assert_eq!(permission_by_user2_id, PermissionType::Admin);
         assert_eq!(permission_by_user3_id, None);
+
+        //get user workspace by user id
+        let user1_workspace = pool.get_user_workspaces(new_user.id.clone()).await.unwrap();
+        let user2_workspace = pool
+            .get_user_workspaces(new_user2.id.clone())
+            .await
+            .unwrap();
+        assert_eq!(user1_workspace.len(), 2);
+        assert_eq!(user2_workspace.len(), 2);
+        assert_eq!(
+            user1_workspace.get(1).unwrap().id,
+            user2_workspace.get(1).unwrap().id
+        );
+
+        //get workspace members
+        let workspace_members = pool
+            .get_workspace_members(new_workspace.id.clone())
+            .await
+            .unwrap();
+        assert_eq!(workspace_members.len(), 2);
+        assert_eq!(workspace_members.get(0).unwrap().id, new_user.id);
+        assert_eq!(workspace_members.get(1).unwrap().id, new_user2.id);
 
         //get user in workspace by email
 
@@ -887,7 +938,12 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(is_deleted, true);
-
+        let workspace_owner = pool
+            .get_workspace_owner(new_workspace.id.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(workspace_owner.id, new_user.id);
         //delete permission by query
         let _new_permission = pool
             .create_permission(
@@ -904,7 +960,12 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(is_deleted_by_query, true);
-
+        let workspace_owner = pool
+            .get_workspace_owner(new_workspace.id.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(workspace_owner.id, new_user.id);
         //if in workspace after delete permission
 
         let user1_in_workspace = pool
