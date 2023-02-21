@@ -27,3 +27,5 @@ opt-level = 3
 
 [patch.crates-io]
 rust-embed = { git = "https://github.com/pyrossh/rust-embed", rev = "7c0fc42" }
+lib0 = { git = "https://github.com/toeverything/y-crdt", rev = "20b861f" }
+yrs = { git = "https://github.com/toeverything/y-crdt", rev = "20b861f" }

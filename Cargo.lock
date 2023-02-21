@@ -2067,8 +2067,7 @@ checksum = "0c2cdeb66e45e9f36bfad5bbdb4d2384e70936afbee843c6f6543f0c551ebb25"
 [[package]]
 name = "lib0"
 version = "0.16.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ed76ef194e5b6bf8e3ce00a54436d3cea0bc4e98654f08a4af8655a050a20db"
+source = "git+https://github.com/toeverything/y-crdt?rev=20b861f#20b861f660761aede5ce8920fd7581a2eabc96c0"
 dependencies = [
  "serde",
  "serde_json",
@@ -5116,8 +5115,7 @@ dependencies = [
 [[package]]
 name = "yrs"
 version = "0.16.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c87dfbcaf4e73d3ca2be0a7d5ba57f71fd517d9ed2367d485f2efc1fd6d3f573"
+source = "git+https://github.com/toeverything/y-crdt?rev=20b861f#20b861f660761aede5ce8920fd7581a2eabc96c0"
 dependencies = [
  "atomic_refcell",
  "lib0",
