@@ -642,7 +642,6 @@ impl CloudDatabase {
 
 #[cfg(test)]
 mod tests {
-    use crate::User;
 
     #[tokio::test]
     async fn database_create_tables() -> anyhow::Result<()> {
