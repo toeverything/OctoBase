@@ -5,8 +5,7 @@ version = "0.1.0"
 
 [features]
 default = ["affine"]
-affine = ["postgres"]
-postgres = ["cloud-database/postgres", "jwst-storage/postgres"]
+affine = ["cloud-database/postgres", "jwst-storage/postgres"]
 
 [dependencies]
 async-trait = "0.1.64"
