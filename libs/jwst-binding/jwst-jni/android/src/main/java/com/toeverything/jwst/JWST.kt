@@ -96,15 +96,15 @@ class Block constructor(private var block: JwstBlock) {
         }
     }
 
-    fun get(key: String): Optional<Any> {
+    fun get(trx: WorkspaceTransaction, key: String): Optional<Any> {
         return when {
-            this.block.isBool(key) -> Optional.of(this.block.getBool(key))
+            this.block.isBool(trx.trx, key) -> Optional.of(this.block.getBool(trx.trx, key))
                 .filter(OptionalLong::isPresent).map(OptionalLong::getAsLong).map { it == 1L }
-            this.block.isString(key) -> Optional.of(this.block.getString(key))
+            this.block.isString(trx.trx, key) -> Optional.of(this.block.getString(trx.trx, key))
                 .filter(Optional<String>::isPresent).map(Optional<String>::get)
-            this.block.isInteger(key) -> Optional.of(this.block.getInteger(key))
+            this.block.isInteger(trx.trx, key) -> Optional.of(this.block.getInteger(trx.trx, key))
                 .filter(OptionalLong::isPresent).map(OptionalLong::getAsLong)
-            this.block.isFloat(key) -> Optional.of(this.block.getFloat(key))
+            this.block.isFloat(trx.trx, key) -> Optional.of(this.block.getFloat(trx.trx, key))
                 .filter(OptionalDouble::isPresent).map(OptionalDouble::getAsDouble)
             else -> Optional.empty();
         }
@@ -114,24 +114,24 @@ class Block constructor(private var block: JwstBlock) {
         return this.block.id()
     }
 
-    fun flavor(): String {
-        return this.block.flavor()
+    fun flavor(trx: WorkspaceTransaction): String {
+        return this.block.flavor(trx.trx)
     }
 
-    fun created(): Long {
-        return this.block.created()
+    fun created(trx: WorkspaceTransaction): Long {
+        return this.block.created(trx.trx)
     }
 
-    fun updated(): Long {
-        return this.block.updated()
+    fun updated(trx: WorkspaceTransaction): Long {
+        return this.block.updated(trx.trx)
     }
 
-    fun parent(): Optional<String> {
-        return this.block.parent()
+    fun parent(trx: WorkspaceTransaction): Optional<String> {
+        return this.block.parent(trx.trx)
     }
 
-    fun children(): Array<String> {
-        return this.block.children()
+    fun children(trx: WorkspaceTransaction): Array<String> {
+        return this.block.children(trx.trx)
     }
 
     fun pushChildren(trx: WorkspaceTransaction, block: Block) {
@@ -154,8 +154,8 @@ class Block constructor(private var block: JwstBlock) {
         this.block.removeChildren(trx.trx, block.block)
     }
 
-    fun existsChildren(block_id: String): Int {
-        return this.block.existsChildren(block_id)
+    fun existsChildren(trx: WorkspaceTransaction, block_id: String): Int {
+        return this.block.existsChildren(trx.trx, block_id)
     }
 }
 
