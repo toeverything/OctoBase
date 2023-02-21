@@ -2,6 +2,13 @@
 
 This file was generated using [@jscutlery/semver](https://github.com/jscutlery/semver).
 
+## [0.3.0](https://github.com/toeverything/OctoBase/compare/libs-jwt-rpc-0.2.0...libs-jwt-rpc-0.3.0) (2023-02-21)
+
+
+### Features
+
+* expose timeout config for keck provider ([#195](https://github.com/toeverything/OctoBase/issues/195)) ([69e3d2e](https://github.com/toeverything/OctoBase/commit/69e3d2e4a731fe9c9568f13d3817f460702015a0))
+
 ## [0.2.0](https://github.com/toeverything/OctoBase/compare/libs-jwt-rpc-0.1.0...libs-jwt-rpc-0.2.0) (2022-12-19)
 
 
