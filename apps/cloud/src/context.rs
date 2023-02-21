@@ -1,21 +1,16 @@
-use super::constants;
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use axum::extract::ws::{self, Message};
 use chrono::{NaiveDateTime, Utc};
 use cloud_database::CloudDatabase;
 use cloud_database::{Claims, GoogleClaims};
+use cloud_mail::MailContext;
 use dashmap::DashMap;
-use handlebars::Handlebars;
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::SearchResults;
 use jwst_logger::info;
 use jwst_storage::JwstStorage;
-use lettre::{
-    message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
-    Tokio1Executor,
-};
 use rand::{thread_rng, Rng};
 use reqwest::Client;
 use sha2::{Digest, Sha256};
@@ -37,12 +32,6 @@ struct FirebaseContext {
     id: String,
     expires: NaiveDateTime,
     pub_key: HashMap<String, DecodingKey>,
-}
-
-pub struct MailContext {
-    pub client: AsyncSmtpTransport<Tokio1Executor>,
-    pub mail_box: Mailbox,
-    pub template: Handlebars<'static>,
 }
 
 pub struct Context {
@@ -77,44 +66,13 @@ impl Context {
             }
         };
 
-        let mail_name = dotenvy::var("MAIL_ACCOUNT").expect("should provide email name");
-        let mail_password = dotenvy::var("MAIL_PASSWORD").expect("should provide email password");
-
-        let creds = Credentials::new(mail_name, mail_password);
-
-        // Open a remote connection to gmail
-        let mail = {
-            let client = AsyncSmtpTransport::<Tokio1Executor>::relay(constants::MAIL_PROVIDER)
-                .unwrap()
-                .credentials(creds)
-                .build();
-
-            let mail_box = constants::MAIL_FROM
-                .parse()
-                .expect("should provide valid mail from");
-
-            let mut template = Handlebars::new();
-            template
-                .register_template_string("MAIL_INVITE_TITLE", constants::MAIL_INVITE_TITLE)
-                .expect("should provide valid email title");
-
-            let invite_file = constants::StaticFiles::get("invite.html").unwrap();
-            let invite_file = String::from_utf8_lossy(&invite_file.data);
-            template
-                .register_template_string("MAIL_INVITE_CONTENT", invite_file)
-                .expect("should provide valid email file");
-
-            MailContext {
-                client,
-                mail_box,
-                template,
-            }
-        };
-
-        let firebase_id = dotenvy::var("FIREBASE_PROJECT_ID").expect("should provide Firebase ID");
+        let mail = MailContext::new(
+            dotenvy::var("MAIL_ACCOUNT").expect("should provide email name"),
+            dotenvy::var("MAIL_PASSWORD").expect("should provide email password"),
+        );
 
         let firebase = RwLock::new(FirebaseContext {
-            id: firebase_id,
+            id: dotenvy::var("FIREBASE_PROJECT_ID").expect("should provide Firebase ID"),
             expires: NaiveDateTime::MIN,
             pub_key: HashMap::new(),
         });

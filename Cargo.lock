@@ -70,6 +70,7 @@ dependencies = [
  "base64 0.21.0",
  "bytes",
  "chrono",
+ "cloud-components",
  "cloud-database",
  "dashmap",
  "dotenvy",
@@ -756,6 +757,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "783fe232adfca04f90f56201b26d79682d4cd2625e0bc7290b95123afe558ade"
 dependencies = [
  "os_str_bytes",
+]
+
+[[package]]
+name = "cloud-components"
+version = "0.1.0"
+dependencies = [
+ "cloud-database",
+ "handlebars",
+ "jwst-static",
+ "lettre",
 ]
 
 [[package]]
