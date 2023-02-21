@@ -2043,6 +2043,7 @@ dependencies = [
  "axum-test-helper",
  "cfg-if",
  "dashmap",
+ "dotenvy",
  "futures",
  "http",
  "jwst",

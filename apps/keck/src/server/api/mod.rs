@@ -44,14 +44,19 @@ pub struct Context {
 
 impl Context {
     pub async fn new(storage: Option<JwstStorage>) -> Self {
+        let storage = if let Some(storage) = storage {
+            Ok(storage)
+        } else if let Ok(database_url) = dotenvy::var("DATABASE_URL") {
+            JwstStorage::new(&format!("{}_binary", database_url)).await
+        } else {
+            JwstStorage::new_with_sqlite("jwst").await
+        }
+        .expect("Cannot create database");
+
         Context {
             workspace: DashMap::new(),
             channel: DashMap::new(),
-            storage: storage.unwrap_or(
-                JwstStorage::new_with_sqlite("jwst")
-                    .await
-                    .expect("Cannot create database"),
-            ),
+            storage,
         }
     }
 }
