@@ -54,16 +54,16 @@ impl Block {
                 .unwrap();
 
             // init default schema
-            block.insert(trx, "sys:flavor", flavor.as_ref());
-            block.insert(trx, "sys:version", ArrayPrelim::from([1, 0]));
+            block.insert(trx, sys::FLAVOR, flavor.as_ref());
+            block.insert(trx, sys::VERSION, ArrayPrelim::from([1, 0]));
             block.insert(
                 trx,
-                "sys:children",
+                sys::CHILDREN,
                 ArrayPrelim::<Vec<String>, String>::from(vec![]),
             );
             block.insert(
                 trx,
-                "sys:created",
+                sys::CREATED,
                 chrono::Utc::now().timestamp_millis() as f64,
             );
 
@@ -72,7 +72,7 @@ impl Block {
                 .insert(trx, block_id, ArrayPrelim::<_, Any>::from([]));
 
             let children = block
-                .get(trx, "sys:children")
+                .get(trx, sys::CHILDREN)
                 .and_then(|c| c.to_yarray())
                 .unwrap();
             let updated = workspace
@@ -104,7 +104,7 @@ impl Block {
         let block = workspace.blocks.get(trx, block_id.as_ref())?.to_ymap()?;
         let updated = workspace.updated.get(trx, block_id.as_ref())?.to_yarray()?;
 
-        let children = block.get(trx, "sys:children")?.to_yarray()?;
+        let children = block.get(trx, sys::CHILDREN)?.to_yarray()?;
 
         Some(Self {
             id: block_id.as_ref().to_string(),
@@ -124,7 +124,7 @@ impl Block {
         updated: ArrayRef,
         operator: u64,
     ) -> Block {
-        let children = block.get(trx, "sys:children").unwrap().to_yarray().unwrap();
+        let children = block.get(trx, sys::CHILDREN).unwrap().to_yarray().unwrap();
         Self {
             id,
             doc: doc.clone(),
@@ -206,7 +206,7 @@ impl Block {
         T: ReadTxn,
     {
         self.block
-            .get(trx, "sys:flavor")
+            .get(trx, sys::FLAVOR)
             .unwrap_or_default()
             .to_string(trx)
     }
@@ -218,7 +218,7 @@ impl Block {
         T: ReadTxn,
     {
         self.block
-            .get(trx, "sys:version")
+            .get(trx, sys::VERSION)
             .and_then(|v| v.to_yarray())
             .map(|v| {
                 v.iter(trx)
@@ -236,7 +236,7 @@ impl Block {
         T: ReadTxn,
     {
         self.block
-            .get(trx, "sys:created")
+            .get(trx, sys::CREATED)
             .and_then(|c| match c.to_json(trx) {
                 Any::Number(n) => Some(n as u64),
                 _ => None,
@@ -277,7 +277,7 @@ impl Block {
         T: ReadTxn,
     {
         self.block
-            .get(trx, "sys:parent")
+            .get(trx, sys::PARENT)
             .and_then(|c| match c.to_json(trx) {
                 Any::String(s) => Some(s.to_string()),
                 _ => None,
@@ -329,7 +329,7 @@ impl Block {
     }
 
     fn set_parent(&self, trx: &mut TransactionMut, block_id: String) {
-        self.block.insert(trx, "sys:parent", block_id);
+        self.block.insert(trx, sys::PARENT, block_id);
     }
 
     pub fn push_children(&self, trx: &mut TransactionMut, block: &Block) {

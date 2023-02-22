@@ -4,6 +4,8 @@ mod storage;
 mod utils;
 mod workspaces;
 
+pub mod sys;
+
 pub use block::Block;
 pub use history::{
     parse_history, parse_history_client, BlockHistory, HistoryOperation, RawHistory,
