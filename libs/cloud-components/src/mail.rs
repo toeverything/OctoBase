@@ -1,6 +1,6 @@
 pub use lettre::transport::smtp::commands::Mail;
 
-use constants::*;
+use super::constants::*;
 use handlebars::Handlebars;
 use lettre::{
     message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
