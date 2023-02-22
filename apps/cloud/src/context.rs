@@ -162,14 +162,14 @@ impl Context {
             self.http_client.get(endpoint)
         };
 
-        let req = client.send().await.unwrap();
+        let resp = client.send().await.unwrap();
 
         let now = Utc::now().naive_utc();
-        let cache = req.headers().get(CACHE_CONTROL).unwrap().to_str().unwrap();
+        let cache = resp.headers().get(CACHE_CONTROL).unwrap().to_str().unwrap();
         let cache = CacheControl::parse(cache).unwrap();
         let expires = now + cache.max_age.unwrap();
 
-        let body: HashMap<String, String> = req.json().await.unwrap();
+        let body: HashMap<String, String> = resp.json().await.unwrap();
 
         let pub_key = body
             .into_iter()
