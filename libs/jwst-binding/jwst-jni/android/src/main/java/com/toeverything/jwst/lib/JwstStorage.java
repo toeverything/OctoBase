@@ -18,6 +18,19 @@ public final class JwstStorage {
     }
     private static native @Nullable String do_error(long self);
 
+    public final @NonNull java.util.Optional<Workspace> connect(@NonNull String workspace_id, @NonNull String remote) {
+        long ret = do_connect(mNativeObj, workspace_id, remote);
+        java.util.Optional<Workspace> convRet;
+        if (ret != 0) {
+            convRet = java.util.Optional.of(new Workspace(InternalPointerMarker.RAW_PTR, ret));
+        } else {
+            convRet = java.util.Optional.empty();
+        }
+
+        return convRet;
+    }
+    private static native long do_connect(long self, @NonNull String workspace_id, @NonNull String remote);
+
     public synchronized void delete() {
         if (mNativeObj != 0) {
             do_delete(mNativeObj);

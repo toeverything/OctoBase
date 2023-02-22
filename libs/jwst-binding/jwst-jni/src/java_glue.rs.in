@@ -7,6 +7,7 @@ foreign_class!(
         self_type JwstStorage;
         constructor JwstStorage::new(path: String) -> JwstStorage;
         fn JwstStorage::error(&self) -> Option<String>; alias error;
+        fn JwstStorage::connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace>; alias connect;
     }
 );
 foreign_class!(
@@ -62,13 +63,12 @@ foreign_class!(
 foreign_class!(
 	class Workspace {
 		self_type Workspace;
-		constructor Workspace::new(id : String)->Workspace;
+		constructor Workspace::new(_id : String)->Workspace;
 		fn Workspace::id(& self)->String; alias id;
 		fn Workspace::client_id(& self)->u64; alias clientId;
 		fn Workspace::get(& self , trx : & WorkspaceTransaction , block_id : String)->Option<Block>; alias get;
 		fn Workspace::exists(& self , trx : & WorkspaceTransaction , block_id : & str)->bool; alias exists;
 		fn Workspace::with_trx(& self , on_trx : Box < dyn OnWorkspaceTransaction >)->bool; alias withTrx;
 		fn Workspace::drop_trx(& self , trx : WorkspaceTransaction); alias dropTrx;
-		fn Workspace::with_storage(& mut self , storage : JwstStorage , remote : String); alias withStorage;
 	}
 );

@@ -261,13 +261,14 @@ impl DocStorage for DocAutoStorage {
 
 #[async_trait]
 impl DocSync for DocAutoStorage {
-    async fn sync(&self, id: String, remote: String) -> io::Result<()> {
-        if let Entry::Vacant(entry) = self.remote.entry(id.clone()) {
-            let workspace = self.get(id).await.map_err(|e| {
-                io::Error::new(io::ErrorKind::BrokenPipe, format!("Failed to get doc: {e}"))
-            })?;
+    async fn sync(&self, id: String, remote: String) -> io::Result<Arc<RwLock<Workspace>>> {
+        let workspace = self.get(id.clone()).await.map_err(|e| {
+            io::Error::new(io::ErrorKind::BrokenPipe, format!("Failed to get doc: {e}"))
+        })?;
 
+        if let Entry::Vacant(entry) = self.remote.entry(id.clone()) {
             let (tx, mut rx) = channel(100);
+            let workspace = workspace.clone();
 
             debug!("spawn sync thread");
             std::thread::spawn(move || {
@@ -298,6 +299,7 @@ impl DocSync for DocAutoStorage {
                             return error!("Failed to connect to remote: {}", e);
                         }
                     };
+
 
                     debug!("sync init message");
                     match workspace.read().await.sync_init_message() {
@@ -365,6 +367,6 @@ impl DocSync for DocAutoStorage {
             entry.insert(tx);
         }
 
-        Ok(())
+        Ok(workspace.clone())
     }
 }

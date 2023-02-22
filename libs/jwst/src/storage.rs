@@ -17,7 +17,7 @@ pub trait DocStorage {
 
 #[async_trait]
 pub trait DocSync {
-    async fn sync(&self, id: String, remote: String) -> io::Result<()>;
+    async fn sync(&self, id: String, remote: String) -> io::Result<Arc<RwLock<Workspace>>>;
 }
 
 #[derive(Debug)]

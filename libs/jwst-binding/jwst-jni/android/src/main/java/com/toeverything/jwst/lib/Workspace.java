@@ -4,10 +4,10 @@ import androidx.annotation.NonNull;
 
 public final class Workspace {
 
-    public Workspace(@NonNull String id) {
-        mNativeObj = init(id);
+    public Workspace(@NonNull String _id) {
+        mNativeObj = init(_id);
     }
-    private static native long init(@NonNull String id);
+    private static native long init(@NonNull String _id);
 
     public final @NonNull String id() {
         String ret = do_id(mNativeObj);
@@ -65,16 +65,6 @@ public final class Workspace {
         JNIReachabilityFence.reachabilityFence1(trx);
     }
     private static native void do_dropTrx(long self, long trx);
-
-    public final void withStorage(@NonNull JwstStorage storage, @NonNull String remote) {
-        long a0 = storage.mNativeObj;
-        storage.mNativeObj = 0;
-
-        do_withStorage(mNativeObj, a0, remote);
-
-        JNIReachabilityFence.reachabilityFence1(storage);
-    }
-    private static native void do_withStorage(long self, long storage, @NonNull String remote);
 
     public synchronized void delete() {
         if (mNativeObj != 0) {
