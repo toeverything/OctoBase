@@ -16,28 +16,31 @@ use tokio_tungstenite::{
     tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
 };
 use url::Url;
-use yrs::{updates::decoder::Decode, Doc, Options, StateVector, Update};
+use yrs::{updates::decoder::Decode, Doc, Options, ReadTxn, StateVector, Transact, Update};
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
 
 fn migrate_update(updates: Vec<<Docs as EntityTrait>::Model>, doc: Doc) -> Doc {
-    let mut trx = doc.transact();
-    for update in updates {
-        let id = update.timestamp;
-        match Update::decode_v1(&update.blob) {
-            Ok(update) => {
-                if let Err(e) = catch_unwind(AssertUnwindSafe(|| trx.apply_update(update))) {
-                    warn!("update {} merge failed, skip it: {:?}", id, e);
+    {
+        let mut trx = doc.transact_mut();
+        for update in updates {
+            let id = update.timestamp;
+            match Update::decode_v1(&update.blob) {
+                Ok(update) => {
+                    if let Err(e) = catch_unwind(AssertUnwindSafe(|| trx.apply_update(update))) {
+                        warn!("update {} merge failed, skip it: {:?}", id, e);
+                    }
                 }
+                Err(err) => warn!("failed to decode update: {:?}", err),
             }
-            Err(err) => warn!("failed to decode update: {:?}", err),
         }
+        trx.commit();
     }
-    trx.commit();
 
     trace!(
         "migrate_update: {:?}",
-        doc.encode_state_as_update_v1(&StateVector::default())
+        doc.transact()
+            .encode_state_as_update_v1(&StateVector::default())
     );
 
     doc
@@ -157,7 +160,9 @@ impl DocAutoStorage {
 
             let doc = migrate_update(data, Doc::default());
 
-            let data = doc.encode_state_as_update_v1(&StateVector::default());
+            let data = doc
+                .transact()
+                .encode_state_as_update_v1(&StateVector::default());
 
             self.replace_with(table, data).await?;
         } else {
@@ -198,7 +203,9 @@ impl DocAutoStorage {
         let all_data = self.all(workspace).await?;
 
         if all_data.is_empty() {
-            let update = doc.encode_state_as_update_v1(&StateVector::default());
+            let update = doc
+                .transact()
+                .encode_state_as_update_v1(&StateVector::default());
             self.insert(workspace, &update).await?;
         } else {
             doc = migrate_update(all_data, doc);
@@ -226,8 +233,7 @@ impl DocStorage for DocAutoStorage {
     }
 
     /// This function is not atomic -- please provide external lock mechanism
-    async fn write_doc(&self, workspace_id: String, doc: &Doc) -> io::Result<()> {
-        let data = doc.encode_state_as_update_v1(&StateVector::default());
+    async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> io::Result<()> {
         trace!("write_doc: {:?}", data);
 
         self.full_migrate(&workspace_id, data)

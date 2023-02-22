@@ -5,12 +5,11 @@ use chrono::NaiveDateTime;
 use futures::Stream;
 use std::sync::Arc;
 use tokio::{io, sync::RwLock};
-use yrs::Doc;
 
 #[async_trait]
 pub trait DocStorage {
     async fn get(&self, workspace_id: String) -> io::Result<Arc<RwLock<Workspace>>>;
-    async fn write_doc(&self, workspace_id: String, doc: &Doc) -> io::Result<()>;
+    async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> io::Result<()>;
     /// Return false means update exceeding max update
     async fn write_update(&self, workspace_id: String, data: &[u8]) -> io::Result<bool>;
     async fn delete(&self, workspace_id: String) -> io::Result<()>;

@@ -4,7 +4,7 @@ use axum::{
     http::header,
     response::Response,
 };
-use jwst::{parse_history, parse_history_client, Block};
+use jwst::{parse_history, parse_history_client};
 use utoipa::IntoParams;
 
 /// Get a exists `Workspace` by id
@@ -227,7 +227,12 @@ pub async fn get_workspace_block(
     if let Some(workspace) = context.workspace.get(&workspace) {
         let workspace = workspace.value().read().await;
         let total = workspace.block_count() as usize;
-        let data: Vec<Block> = workspace.block_iter().skip(offset).take(limit).collect();
+
+        let data = workspace.with_trx(|t| {
+            workspace.blocks(&t.trx, |blocks| {
+                blocks.skip(offset).take(limit).collect::<Vec<_>>()
+            })
+        });
 
         let status = if data.is_empty() {
             StatusCode::NOT_FOUND
