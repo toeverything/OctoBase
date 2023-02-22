@@ -3,6 +3,7 @@
 members = [
     "apps/cloud",
     "apps/keck",
+    "libs/cloud-components",
     "libs/cloud-database",
     "libs/cloud-database/migration",
     "libs/jwst",
