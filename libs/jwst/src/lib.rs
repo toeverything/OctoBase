@@ -4,7 +4,7 @@ mod storage;
 mod utils;
 mod workspaces;
 
-pub mod sys;
+pub mod constants;
 
 pub use block::Block;
 pub use history::{
