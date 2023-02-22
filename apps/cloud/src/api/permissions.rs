@@ -10,8 +10,9 @@ use axum::{
 };
 use chrono::prelude::*;
 use cloud_database::{Claims, CreatePermission, PermissionType, UserCred};
+use futures::StreamExt;
 use http::StatusCode;
-use jwst::error;
+use jwst::{error, BlobStorage};
 use lettre::{
     message::{Mailbox, MultiPart, SinglePart},
     AsyncTransport, Message,
@@ -53,19 +54,24 @@ async fn make_invite_email(
     invite_code: &str,
 ) -> Option<(String, MultiPart)> {
     let metadata = {
-        let ws = ctx.storage.get_workspace(workspace_id).await;
+        let ws = ctx.storage.get_workspace(workspace_id.clone()).await;
         let ws = ws.read().await;
         ws.metadata()
     };
 
-    // let mut file = ctx.blob.get_blob(None, metadata.avatar).await.ok()?;
+    let mut file = ctx
+        .storage
+        .blobs()
+        .get_blob(Some(workspace_id.clone()), metadata.avatar.clone().unwrap())
+        .await
+        .ok()?;
 
-    // let mut file_content = Vec::new();
-    // while let Some(chunk) = file.next().await {
-    //     file_content.extend(chunk.ok()?);
-    // }
+    let mut file_content = Vec::new();
+    while let Some(chunk) = file.next().await {
+        file_content.extend(chunk.ok()?);
+    }
 
-    // let workspace_avatar = lettre::message::Body::new(file_content);
+    let workspace_avatar = lettre::message::Body::new(file_content);
 
     #[derive(Serialize)]
     struct Title {
@@ -91,6 +97,7 @@ async fn make_invite_email(
         site_url: String,
         avatar_url: String,
         workspace_name: String,
+        workspace_avatar: String,
         invite_code: String,
         current_year: i32,
     }
@@ -107,6 +114,7 @@ async fn make_invite_email(
                 workspace_name: metadata.name.unwrap_or_default(),
                 invite_code: invite_code.to_string(),
                 current_year: dt.year(),
+                workspace_avatar: workspace_avatar.encoding().to_string(),
             },
         )
         .ok()?;
