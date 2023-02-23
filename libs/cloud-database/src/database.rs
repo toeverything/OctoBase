@@ -676,9 +676,9 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(new_workspace.id.len(), 36);
+        assert_eq!(new_workspace.id.len(), 21);
         assert_eq!(new_workspace.public, false);
-        assert_eq!(new_workspace2.id.len(), 36);
+        assert_eq!(new_workspace2.id.len(), 21);
 
         let new_workspace1_clone = pool
             .get_workspace_by_id(new_workspace.id.clone())

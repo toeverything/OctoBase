@@ -63,6 +63,7 @@ y-sync = "0.2.0"
 yrs = "0.16.2"
 
 # ======= workspace dependencies =======
+cloud-components = { path = "../../libs/cloud-components" }
 cloud-database = { path = "../../libs/cloud-database" }
 jwst = { path = "../../libs/jwst" }
 jwst-logger = { path = "../../libs/jwst-logger" }
