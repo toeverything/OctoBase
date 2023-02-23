@@ -36,6 +36,10 @@ impl JwstStorage {
         .await
     }
 
+    pub fn database(&self) -> String {
+        format!("{:?}", self.pool)
+    }
+
     pub fn blobs(&self) -> &BlobAutoStorage {
         &self.blobs
     }

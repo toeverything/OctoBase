@@ -45,10 +45,13 @@ pub struct Context {
 impl Context {
     pub async fn new(storage: Option<JwstStorage>) -> Self {
         let storage = if let Some(storage) = storage {
+            info!("use external storage instance: {}", storage.database());
             Ok(storage)
         } else if let Ok(database_url) = dotenvy::var("DATABASE_URL") {
+            info!("use external database: {}", database_url);
             JwstStorage::new(&database_url).await
         } else {
+            info!("use sqlite database: jwst.db");
             JwstStorage::new_with_sqlite("jwst").await
         }
         .expect("Cannot create database");
