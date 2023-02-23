@@ -1,22 +1,17 @@
 use super::{
-    generate_interface, Block, JwstStorage, JwstWorkspace, OnWorkspaceTransaction,
-    WorkspaceTransaction,
+    generate_interface, Block, JwstWorkspace, OnWorkspaceTransaction, WorkspaceTransaction,
 };
-use jwst::{error, info};
 use yrs::UpdateSubscription;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
-    sub: Option<UpdateSubscription>,
+    pub(crate) sub: Option<UpdateSubscription>,
 }
 
 impl Workspace {
     #[generate_interface(constructor)]
-    pub fn new(id: String) -> Workspace {
-        Self {
-            workspace: JwstWorkspace::new(id),
-            sub: None,
-        }
+    pub fn new(_id: String) -> Workspace {
+        unimplemented!("Workspace::new")
     }
 
     #[generate_interface]
@@ -49,22 +44,5 @@ impl Workspace {
     #[generate_interface]
     pub fn drop_trx(&self, trx: WorkspaceTransaction) {
         drop(trx)
-    }
-
-    #[generate_interface]
-    pub fn with_storage(&mut self, storage: JwstStorage, remote: String) {
-        let id = self.id();
-        storage.reload(id.clone(), self.workspace.doc());
-        info!("remote: {}", remote);
-        if !remote.is_empty() {
-            if let Err(e) = storage.connect(id.clone(), remote) {
-                error!("Failed to connect to remote: {}", e);
-            }
-        }
-        self.sub = self.workspace.observe(move |_, e| {
-            if let Err(e) = storage.write_update(id.clone(), &e.update) {
-                error!("Failed to write update to storage: {}", e);
-            }
-        });
     }
 }

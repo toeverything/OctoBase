@@ -13,9 +13,8 @@ use axum::{
     routing::{delete, get, head},
 };
 use dashmap::DashMap;
-use jwst::Workspace;
 use jwst_storage::JwstStorage;
-use tokio::sync::{mpsc::Sender, RwLock};
+use tokio::sync::mpsc::Sender;
 
 #[derive(Deserialize)]
 #[cfg_attr(feature = "api", derive(utoipa::IntoParams))]
@@ -37,7 +36,6 @@ pub struct PageData<T> {
 }
 
 pub struct Context {
-    pub workspace: DashMap<String, Arc<RwLock<Workspace>>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub storage: JwstStorage,
 }
@@ -45,16 +43,18 @@ pub struct Context {
 impl Context {
     pub async fn new(storage: Option<JwstStorage>) -> Self {
         let storage = if let Some(storage) = storage {
+            info!("use external storage instance: {}", storage.database());
             Ok(storage)
         } else if let Ok(database_url) = dotenvy::var("DATABASE_URL") {
+            info!("use external database: {}", database_url);
             JwstStorage::new(&database_url).await
         } else {
+            info!("use sqlite database: jwst.db");
             JwstStorage::new_with_sqlite("jwst").await
         }
         .expect("Cannot create database");
 
         Context {
-            workspace: DashMap::new(),
             channel: DashMap::new(),
             storage,
         }

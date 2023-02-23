@@ -260,6 +260,14 @@ impl Serialize for Workspace {
     }
 }
 
+impl Clone for Workspace {
+    fn clone(&self) -> Self {
+        let id = self.id.clone();
+        let doc = self.doc().clone();
+        Self::from_doc(doc, id)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

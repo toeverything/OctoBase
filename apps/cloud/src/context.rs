@@ -9,7 +9,7 @@ use dashmap::DashMap;
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::SearchResults;
-use jwst_logger::info;
+use jwst_logger::{error, info};
 use jwst_storage::JwstStorage;
 use rand::{thread_rng, Rng};
 use reqwest::Client;
@@ -222,11 +222,17 @@ impl Context {
         query_string: &str,
     ) -> Result<SearchResults, Box<dyn std::error::Error>> {
         let workspace_id = workspace_id.to_string();
-        let workspace_arc_rw = self.storage.get_workspace(workspace_id.clone()).await;
 
-        let search_results = workspace_arc_rw.write().await.search(query_string)?;
-
-        Ok(search_results)
+        match self.storage.get_workspace(workspace_id.clone()).await {
+            Ok(workspace) => {
+                let search_results = workspace.write().await.search(query_string)?;
+                Ok(search_results)
+            }
+            Err(e) => {
+                error!("cannot get workspace: {}", e);
+                Err(Box::new(e))
+            }
+        }
     }
 
     // TODO: this should be moved to another module

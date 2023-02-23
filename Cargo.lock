@@ -1908,6 +1908,7 @@ dependencies = [
 name = "jwst"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "assert-json-diff",
  "async-trait",
  "bytes",
@@ -1921,6 +1922,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tantivy",
+ "thiserror",
  "tokio",
  "type-map",
  "utoipa 2.4.2",
