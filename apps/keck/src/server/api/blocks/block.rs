@@ -24,10 +24,10 @@ pub async fn get_block(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
 ) -> Response {
-    let (workspace, block) = params;
-    info!("get_block: {}, {}", workspace, block);
-    if let Some(workspace) = context.workspace.get(&workspace) {
-        let workspace = workspace.value().read().await;
+    let (ws_id, block) = params;
+    info!("get_block: {}, {}", ws_id, block);
+    if let Ok(workspace) = context.storage.get_workspace(ws_id).await {
+        let workspace = workspace.read().await;
         if let Some(block) = workspace.with_trx(|t| workspace.get(&t.trx, block)) {
             Json(block).into_response()
         } else {
@@ -67,8 +67,7 @@ pub async fn set_block(
 ) -> Response {
     let (ws_id, block) = params;
     info!("set_block: {}, {}", ws_id, block);
-    if let Some(workspace) = context.workspace.get(&ws_id) {
-        // init block instance
+    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         let workspace = workspace.read().await;
 
         let mut update = None;
@@ -129,11 +128,11 @@ pub async fn get_block_history(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
 ) -> Response {
-    let (workspace, block) = params;
-    info!("get_block_history: {}, {}", workspace, block);
-    if let Some(workspace) = context.workspace.get(&workspace) {
-        // init block instance
-        let workspace = workspace.value().read().await;
+    let (ws_id, block) = params;
+    info!("get_block_history: {}, {}", ws_id, block);
+    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+        let workspace = workspace.read().await;
+
         workspace.with_trx(|t| {
             if let Some(block) = workspace.get(&t.trx, block) {
                 Json(&block.history(&t.trx)).into_response()
@@ -169,8 +168,8 @@ pub async fn delete_block(
 ) -> StatusCode {
     let (ws_id, block) = params;
     info!("delete_block: {}, {}", ws_id, block);
-    if let Some(workspace) = context.workspace.get(&ws_id) {
-        let workspace = workspace.value().read().await;
+    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+        let workspace = workspace.read().await;
 
         if let Some(update) = workspace.with_trx(|mut t| {
             if t.remove(&block) {
@@ -211,11 +210,12 @@ pub async fn get_block_children(
     Path(params): Path<(String, String)>,
     Query(pagination): Query<Pagination>,
 ) -> Response {
-    let (workspace, block) = params;
+    let (ws_id, block) = params;
     let Pagination { offset, limit } = pagination;
-    info!("get_block_children: {}, {}", workspace, block);
-    if let Some(workspace) = context.workspace.get(&workspace) {
-        let workspace = workspace.value().read().await;
+    info!("get_block_children: {}, {}", ws_id, block);
+    if let Ok(workspace) = context.storage.get_workspace(ws_id).await {
+        let workspace = workspace.read().await;
+
         if let Some(block) = workspace.with_trx(|t| workspace.get(&t.trx, &block)) {
             let data: Vec<String> =
                 block.children_iter(|children| children.skip(offset).take(limit).collect());
@@ -272,9 +272,9 @@ pub async fn insert_block_children(
 ) -> Response {
     let (ws_id, block) = params;
     info!("insert_block: {}, {}", ws_id, block);
-    if let Some(workspace) = context.workspace.get(&ws_id) {
-        // init block instance
-        let workspace = workspace.value().read().await;
+    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+        let workspace = workspace.read().await;
+
         let mut update = None;
 
         if let Some(block) = workspace.with_trx(|t| workspace.get(&t.trx, block)) {
@@ -353,9 +353,9 @@ pub async fn remove_block_children(
 ) -> Response {
     let (ws_id, block, child_id) = params;
     info!("insert_block: {}, {}", ws_id, block);
-    if let Some(workspace) = context.workspace.get(&ws_id) {
-        // init block instance
-        let workspace = workspace.value().read().await;
+    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+        let workspace = workspace.read().await;
+
         if let Some(update) = workspace.with_trx(|mut t| {
             if let Some(block) = workspace.get(&t.trx, &block) {
                 if block.children_exists(&t.trx, &child_id) {

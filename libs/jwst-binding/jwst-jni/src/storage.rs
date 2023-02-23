@@ -1,10 +1,10 @@
+use crate::Workspace;
 use android_logger::Config;
-use jwst::{error, DocStorage, DocSync};
+use jwst::{error, DocStorage, DocSync, JwstError, JwstResult};
 use jwst_storage::JwstStorage as AutoStorage;
 use log::LevelFilter;
-use std::{io::Result, sync::Arc};
+use std::sync::Arc;
 use tokio::{runtime::Runtime, sync::RwLock};
-use yrs::{updates::decoder::Decode, Doc, Transact, Update};
 
 #[derive(Clone)]
 pub struct JwstStorage {
@@ -38,55 +38,50 @@ impl JwstStorage {
         self.error.clone()
     }
 
-    pub fn connect(&self, workspace_id: String, remote: String) -> Result<()> {
+    pub fn connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace> {
+        match self.sync(workspace_id, remote) {
+            Ok(workspace) => Some(workspace),
+            Err(e) => {
+                error!("Failed to connect to workspace: {}", e);
+                self.error = Some(e.to_string());
+                None
+            }
+        }
+    }
+
+    fn sync(&self, workspace_id: String, remote: String) -> JwstResult<Workspace> {
         if let Some(storage) = &self.storage {
             let rt = Runtime::new().unwrap();
-            rt.block_on(async move {
+
+            let workspace = rt.block_on(async move {
                 let storage = storage.read().await;
                 storage.docs().sync(workspace_id, remote).await
             })?;
-            Ok(())
-        } else {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Storage not initialized",
-            ))
-        }
-    }
 
-    pub fn reload(&self, workspace_id: String, doc: &Doc) {
-        if let Some(storage) = &self.storage {
-            let rt = Runtime::new().unwrap();
-            rt.block_on(async move {
-                let storage = storage.write().await;
-                let updates = storage
-                    .docs()
-                    .all(&workspace_id)
-                    .await
-                    .expect("Failed to get all updates");
-                if !updates.is_empty() {
-                    let mut trx = doc.transact_mut();
-                    for update in updates {
-                        if let Ok(update) = Update::decode_v1(&update.blob) {
-                            trx.apply_update(update);
-                        } else {
-                            error!("Failed to decode update: {}", update.timestamp);
+            let (sub, workspace) = {
+                let mut ws = workspace.blocking_write();
+                let id = ws.id();
+                let storage = self.storage.clone();
+                let sub = ws.observe(move |_, e| {
+                    let id = id.clone();
+                    if let Some(storage) = storage.clone() {
+                        let rt = Runtime::new().unwrap();
+                        log::info!("update: {:?}", &e.update);
+                        if let Err(e) = rt.block_on(async move {
+                            let storage = storage.write().await;
+                            storage.docs().write_update(id, &e.update).await
+                        }) {
+                            error!("Failed to write update to storage: {}", e);
                         }
                     }
-                }
-            });
-        }
-    }
+                });
 
-    pub fn write_update(&self, workspace_id: String, update: &[u8]) -> Result<()> {
-        if let Some(storage) = &self.storage {
-            let rt = Runtime::new().unwrap();
-            log::info!("update: {:?}", update);
-            rt.block_on(async move {
-                let storage = storage.write().await;
-                storage.docs().write_update(workspace_id, update).await
-            })?;
+                (sub, ws.clone())
+            };
+
+            Ok(Workspace { workspace, sub })
+        } else {
+            Err(JwstError::WorkspaceNotInitialized(workspace_id))
         }
-        Ok(())
     }
 }

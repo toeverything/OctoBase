@@ -1,4 +1,5 @@
 use super::{blobs::BlobAutoStorage, docs::DocAutoStorage, *};
+use jwst::info;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -10,21 +11,27 @@ pub struct JwstStorage {
 }
 
 impl JwstStorage {
-    pub async fn new(database: &str) -> Result<Self, DbErr> {
-        let pool = Database::connect(database).await?;
+    pub async fn new(database: &str) -> JwstResult<Self> {
+        let pool = Database::connect(database)
+            .await
+            .context("Failed to connect to database")?;
 
-        let blobs = BlobAutoStorage::init_with_pool(pool.clone()).await?;
-        let docs = DocAutoStorage::init_with_pool(pool.clone()).await?;
+        let blobs = BlobAutoStorage::init_with_pool(pool.clone())
+            .await
+            .context("Failed to init blobs")?;
+        let docs = DocAutoStorage::init_with_pool(pool.clone())
+            .await
+            .context("Failed to init docs")?;
 
         Ok(Self { pool, blobs, docs })
     }
 
-    pub async fn new_with_sqlite(file: &str) -> Result<Self, DbErr> {
+    pub async fn new_with_sqlite(file: &str) -> JwstResult<Self> {
         use std::fs::create_dir;
 
         let data = PathBuf::from("./data");
         if !data.exists() {
-            create_dir(&data).map_err(|e| DbErr::Custom(e.to_string()))?;
+            create_dir(&data).context("Failed to create data directory")?;
         }
 
         Self::new(&format!(
@@ -36,6 +43,10 @@ impl JwstStorage {
         .await
     }
 
+    pub fn database(&self) -> String {
+        format!("{:?}", self.pool)
+    }
+
     pub fn blobs(&self) -> &BlobAutoStorage {
         &self.blobs
     }
@@ -44,19 +55,51 @@ impl JwstStorage {
         &self.docs
     }
 
-    pub async fn with_pool<R, F, Fut>(&self, func: F) -> Result<R, DbErr>
+    pub async fn with_pool<R, F, Fut>(&self, func: F) -> JwstResult<R>
     where
         F: Fn(DatabaseConnection) -> Fut,
-        Fut: Future<Output = Result<R, DbErr>>,
+        Fut: Future<Output = JwstResult<R>>,
     {
         func(self.pool.clone()).await
     }
 
-    pub async fn get_workspace(&self, workspace_id: String) -> Arc<RwLock<Workspace>> {
-        self.docs
-            .get(workspace_id.clone())
+    pub async fn create_workspace<S>(&self, workspace_id: S) -> JwstResult<Arc<RwLock<Workspace>>>
+    where
+        S: AsRef<str>,
+    {
+        info!("create_workspace: {}", workspace_id.as_ref());
+        Ok(self
+            .docs
+            .get(workspace_id.as_ref().into())
             .await
-            .expect("Failed to get workspace")
+            .context(format!(
+                "Failed to create workspace {}",
+                workspace_id.as_ref()
+            ))?)
+    }
+
+    pub async fn get_workspace<S>(&self, workspace_id: S) -> JwstResult<Arc<RwLock<Workspace>>>
+    where
+        S: AsRef<str>,
+    {
+        info!("get_workspace: {}", workspace_id.as_ref());
+        if self
+            .docs
+            .exists(workspace_id.as_ref().into())
+            .await
+            .context(format!(
+                "Failed to check workspace {}",
+                workspace_id.as_ref()
+            ))?
+        {
+            Ok(self
+                .docs
+                .get(workspace_id.as_ref().into())
+                .await
+                .context(format!("Failed to get workspace {}", workspace_id.as_ref()))?)
+        } else {
+            Err(JwstError::WorkspaceNotFound(workspace_id.as_ref().into()))
+        }
     }
 
     pub async fn full_migrate(&self, workspace_id: String, update: Option<Vec<u8>>) -> bool {

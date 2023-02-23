@@ -221,7 +221,11 @@ async fn handle_socket(
     );
 
     if let Ok(init_data) = {
-        let ws = context.storage.get_workspace(workspace_id.clone()).await;
+        let ws = context
+            .storage
+            .create_workspace(workspace_id.clone())
+            .await
+            .expect("create workspace failed, please check if the workspace_id is valid or not");
 
         let mut ws = ws.write().await;
 
@@ -245,7 +249,11 @@ async fn handle_socket(
     while let Some(msg) = socket_rx.next().await {
         if let Ok(Message::Binary(binary)) = msg {
             let payload = {
-                let workspace = context.storage.get_workspace(workspace_id.clone()).await;
+                let workspace = context
+                    .storage
+                    .get_workspace(workspace_id.clone())
+                    .await
+                    .expect("workspace not found");
                 let mut workspace = workspace.write().await;
 
                 use std::panic::{catch_unwind, AssertUnwindSafe};
