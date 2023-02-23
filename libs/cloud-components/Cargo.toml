@@ -1,0 +1,20 @@
+[package]
+name = "cloud-components"
+version = "0.1.0"
+authors = ["DarkSky <darksky2048@gmail.com>"]
+edition = "2021"
+license = "AGPL-3.0-only"
+
+[dependencies]
+handlebars = "4.3.6"
+lettre = { version = "0.10.2", default-features = false, features = [
+    "builder",
+    "tokio1",
+    "pool",
+    "smtp-transport",
+    "tokio1-rustls-tls",
+] }
+
+# ======= workspace dependencies =======
+cloud-database = { path = "../cloud-database" }
+jwst-static = { path = "../jwst-static" }
