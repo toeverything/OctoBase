@@ -383,6 +383,6 @@ impl DocSync for DocAutoStorage {
             entry.insert(tx);
         }
 
-        Ok(workspace.clone())
+        Ok(workspace)
     }
 }
