@@ -41,6 +41,7 @@ fn subscribe_handler(
     ws_id: String,
 ) {
     if let Some(sub) = workspace.observe(move |_, e| {
+        debug!("workspace changed: {}, {:?}", ws_id, &e.update);
         let update = sync_encode_update(&e.update);
 
         let context = context.clone();
@@ -51,8 +52,10 @@ fn subscribe_handler(
 
             for item in context.channel.iter() {
                 let ((ws, id), tx) = item.pair();
+                debug!("workspace send: {}, {}", ws_id, id);
                 if &ws_id == ws && id != &uuid {
                     if tx.is_closed() {
+                        debug!("workspace closed: {}, {}", ws_id, id);
                         closed.push(id.clone());
                     } else if let Err(e) = tx.send(Message::Binary(update.clone())).await {
                         if !tx.is_closed() {
@@ -166,9 +169,10 @@ async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Con
                     if let Err(e) = tx.send(Message::Binary(reply)).await {
                         if !tx.is_closed() {
                             error!("socket send error: {}", e.to_string());
+                        } else {
+                            // client disconnected
+                            return;
                         }
-                        // client disconnected
-                        return;
                     }
                 }
             }

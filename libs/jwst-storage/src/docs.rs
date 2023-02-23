@@ -1,7 +1,7 @@
 use super::{entities::prelude::*, *};
 use dashmap::{mapref::entry::Entry, DashMap};
 use futures::{SinkExt, StreamExt};
-use jwst::{sync_encode_update, DocStorage, DocSync, Workspace};
+use jwst::{info, sync_encode_update, DocStorage, DocSync, Workspace};
 use jwst_storage_migration::{Migrator, MigratorTrait};
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
@@ -231,6 +231,7 @@ impl DocStorage for DocAutoStorage {
         match self.workspaces.entry(workspace_id.clone()) {
             Entry::Occupied(ws) => Ok(ws.get().clone()),
             Entry::Vacant(v) => {
+                debug!("init workspace cache");
                 let doc = self
                     .create_doc(&workspace_id)
                     .await

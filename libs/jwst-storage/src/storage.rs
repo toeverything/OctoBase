@@ -1,4 +1,5 @@
 use super::{blobs::BlobAutoStorage, docs::DocAutoStorage, *};
+use jwst::info;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -66,6 +67,7 @@ impl JwstStorage {
     where
         S: AsRef<str>,
     {
+        info!("create_workspace: {}", workspace_id.as_ref());
         Ok(self
             .docs
             .get(workspace_id.as_ref().into())
@@ -80,6 +82,7 @@ impl JwstStorage {
     where
         S: AsRef<str>,
     {
+        info!("get_workspace: {}", workspace_id.as_ref());
         if self
             .docs
             .exists(workspace_id.as_ref().into())

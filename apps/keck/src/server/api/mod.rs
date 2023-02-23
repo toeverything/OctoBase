@@ -13,9 +13,8 @@ use axum::{
     routing::{delete, get, head},
 };
 use dashmap::DashMap;
-use jwst::Workspace;
 use jwst_storage::JwstStorage;
-use tokio::sync::{mpsc::Sender, RwLock};
+use tokio::sync::mpsc::Sender;
 
 #[derive(Deserialize)]
 #[cfg_attr(feature = "api", derive(utoipa::IntoParams))]
