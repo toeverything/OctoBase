@@ -2,6 +2,13 @@
 
 This file was generated using [@jscutlery/semver](https://github.com/jscutlery/semver).
 
+### [0.5.1](https://github.com/toeverything/OctoBase/compare/libs-jwt-0.5.0...libs-jwt-0.5.1) (2023-02-23)
+
+
+### Bug Fixes
+
+* disable cache after modify yBlock children ([#205](https://github.com/toeverything/OctoBase/issues/205)) ([f570890](https://github.com/toeverything/OctoBase/commit/f570890bd8645457356a6bbecbe9aa4922ac36ef))
+
 ## [0.5.0](https://github.com/toeverything/OctoBase/compare/libs-jwt-0.4.2...libs-jwt-0.5.0) (2023-02-21)
 
 
