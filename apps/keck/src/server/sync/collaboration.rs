@@ -30,30 +30,32 @@ pub async fn upgrade_handler(
     Path(workspace): Path<String>,
     ws: WebSocketUpgrade,
 ) -> Response {
-    ws.protocols(["AFFiNE"])
-        .on_upgrade(|socket| async move { handle_socket(socket, workspace, context.clone()).await })
+    let identifier = Uuid::new_v4().to_string();
+    ws.protocols(["AFFiNE"]).on_upgrade(|socket| async move {
+        handle_socket(socket, workspace, context.clone(), identifier).await
+    })
 }
 
 fn subscribe_handler(
     context: Arc<Context>,
     workspace: &mut Workspace,
-    uuid: String,
     ws_id: String,
+    identifier: String,
 ) {
     if let Some(sub) = workspace.observe(move |_, e| {
         debug!("workspace changed: {}, {:?}", ws_id, &e.update);
         let update = sync_encode_update(&e.update);
 
         let context = context.clone();
-        let uuid = uuid.clone();
         let ws_id = ws_id.clone();
+        let identifier = identifier.clone();
         tokio::spawn(async move {
             let mut closed = vec![];
 
             for item in context.channel.iter() {
                 let ((ws, id), tx) = item.pair();
                 debug!("workspace send: {}, {}", ws_id, id);
-                if &ws_id == ws && id != &uuid {
+                if &ws_id == ws && id != &identifier {
                     if tx.is_closed() {
                         debug!("workspace closed: {}, {}", ws_id, id);
                         closed.push(id.clone());
@@ -75,8 +77,13 @@ fn subscribe_handler(
     }
 }
 
-async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Context>) {
-    info!("collaboration: {}", workspace_id);
+async fn handle_socket(
+    socket: WebSocket,
+    workspace_id: String,
+    context: Arc<Context>,
+    identifier: String,
+) {
+    info!("collaboration: {}, {}", workspace_id, identifier);
 
     let (mut socket_tx, mut socket_rx) = socket.split();
     let (tx, mut rx) = channel(100);
@@ -103,50 +110,43 @@ async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Con
             loop {
                 sleep(Duration::from_secs(10)).await;
 
-                if let Ok(workspace) = context.storage.get_workspace(&workspace_id).await {
-                    let update = workspace.read().await.sync_migration();
-                    if let Err(e) = context
-                        .storage
-                        .docs()
-                        .full_migrate(&workspace_id, update)
-                        .await
-                    {
-                        error!("db write error: {}", e.to_string());
-                    }
-                } else {
-                    break;
-                }
+                context
+                    .storage
+                    .full_migrate(workspace_id.clone(), None)
+                    .await;
             }
         });
     }
 
-    let uuid = Uuid::new_v4().to_string();
     context
         .channel
-        .insert((workspace_id.clone(), uuid.clone()), tx.clone());
+        .insert((workspace_id.clone(), identifier.clone()), tx.clone());
 
     if let Ok(init_data) = {
-        let ws = match context.storage.create_workspace(&workspace_id).await {
-            Ok(doc) => doc,
-            Err(e) => {
-                error!("Failed to init doc: {}", e);
-                return;
-            }
-        };
+        let ws = context
+            .storage
+            .create_workspace(&workspace_id)
+            .await
+            .expect("create workspace failed, please check if the workspace_id is valid or not");
 
         let mut ws = ws.write().await;
 
-        subscribe_handler(context.clone(), &mut ws, uuid.clone(), workspace_id.clone());
+        subscribe_handler(
+            context.clone(),
+            &mut ws,
+            workspace_id.clone(),
+            identifier.clone(),
+        );
 
         ws.sync_init_message()
     } {
         if tx.send(Message::Binary(init_data)).await.is_err() {
-            context.channel.remove(&(workspace_id, uuid));
+            context.channel.remove(&(workspace_id, identifier));
             // client disconnected
             return;
         }
     } else {
-        context.channel.remove(&(workspace_id, uuid));
+        context.channel.remove(&(workspace_id, identifier));
         // client disconnected
         return;
     }
@@ -179,5 +179,5 @@ async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Con
         }
     }
 
-    context.channel.remove(&(workspace_id, uuid));
+    context.channel.remove(&(workspace_id, identifier));
 }

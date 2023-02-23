@@ -42,7 +42,7 @@ pub struct Context {
     pub mail: MailContext,
     pub db: CloudDatabase,
     pub storage: JwstStorage,
-    pub channel: DashMap<(String, String, String), Sender<Message>>,
+    pub channel: DashMap<(String, String), Sender<Message>>,
     pub user_channel: UserChannel,
 }
 
@@ -239,15 +239,15 @@ impl Context {
     pub async fn close_websocket(&self, workspace: String, user: String) {
         let mut closed = vec![];
         for item in self.channel.iter() {
-            let ((ws_id, user_id, id), tx) = item.pair();
-            if &workspace == ws_id && user_id == &user {
-                closed.push((ws_id.clone(), user_id.clone(), id.clone()));
+            let ((ws_id, id), tx) = item.pair();
+            if &workspace == ws_id && id == &user {
+                closed.push((ws_id.clone(), id.clone()));
                 let _ = tx.send(ws::Message::Close(None)).await;
             }
         }
         for close in closed {
-            let (ws_id, user_id, id) = close;
-            self.channel.remove(&(ws_id, user_id, id));
+            let (ws_id, id) = close;
+            self.channel.remove(&(ws_id, id));
         }
     }
 
@@ -255,15 +255,15 @@ impl Context {
     pub async fn close_websocket_by_workspace(&self, workspace: String) {
         let mut closed = vec![];
         for item in self.channel.iter() {
-            let ((ws_id, user_id, id), tx) = item.pair();
+            let ((ws_id, id), tx) = item.pair();
             if &workspace == ws_id {
-                closed.push((ws_id.clone(), user_id.clone(), id.clone()));
+                closed.push((ws_id.clone(), id.clone()));
                 let _ = tx.send(ws::Message::Close(None)).await;
             }
         }
         for close in closed {
-            let (ws_id, user_id, id) = close;
-            self.channel.remove(&(ws_id, user_id, id));
+            let (ws_id, id) = close;
+            self.channel.remove(&(ws_id, id));
         }
     }
 }
