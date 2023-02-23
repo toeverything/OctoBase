@@ -306,6 +306,7 @@ export class AbstractBlock<T extends object = object> {
         }
 
         this._block.insertChildren(block[GET_BLOCK](), position);
+        this._cachedChildren = undefined;
         block[SET_PARENT](this);
     }
 
@@ -325,6 +326,7 @@ export class AbstractBlock<T extends object = object> {
 
     public removeChildren(blockId?: string) {
         this._block.removeChildren([blockId]);
+        this._cachedChildren = undefined;
     }
 
     public remove() {
