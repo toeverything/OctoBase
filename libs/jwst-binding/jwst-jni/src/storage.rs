@@ -1,9 +1,9 @@
 use crate::Workspace;
 use android_logger::Config;
-use jwst::{error, DocStorage, DocSync};
+use jwst::{error, DocStorage, DocSync, JwstError, JwstResult};
 use jwst_storage::JwstStorage as AutoStorage;
 use log::LevelFilter;
-use std::{io::Result, sync::Arc};
+use std::sync::Arc;
 use tokio::{runtime::Runtime, sync::RwLock};
 
 #[derive(Clone)]
@@ -49,7 +49,7 @@ impl JwstStorage {
         }
     }
 
-    fn sync(&self, workspace_id: String, remote: String) -> Result<Workspace> {
+    fn sync(&self, workspace_id: String, remote: String) -> JwstResult<Workspace> {
         if let Some(storage) = &self.storage {
             let rt = Runtime::new().unwrap();
 
@@ -81,10 +81,7 @@ impl JwstStorage {
 
             Ok(Workspace { workspace, sub })
         } else {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Storage not initialized",
-            ))
+            Err(JwstError::WorkspaceNotInitialized(workspace_id))
         }
     }
 }

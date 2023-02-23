@@ -37,7 +37,6 @@ pub struct PageData<T> {
 }
 
 pub struct Context {
-    pub workspace: DashMap<String, Arc<RwLock<Workspace>>>,
     pub channel: DashMap<(String, String), Sender<Message>>,
     pub storage: JwstStorage,
 }
@@ -57,7 +56,6 @@ impl Context {
         .expect("Cannot create database");
 
         Context {
-            workspace: DashMap::new(),
             channel: DashMap::new(),
             storage,
         }

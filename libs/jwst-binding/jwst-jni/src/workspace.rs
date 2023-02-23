@@ -1,8 +1,6 @@
 use super::{
     generate_interface, Block, JwstWorkspace, OnWorkspaceTransaction, WorkspaceTransaction,
 };
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use yrs::UpdateSubscription;
 
 pub struct Workspace {

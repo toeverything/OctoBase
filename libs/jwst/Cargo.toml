@@ -12,6 +12,7 @@ default = ["workspace-search"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.69"
 async-trait = "0.1.64"
 bytes = "1.4.0"
 cang-jie = "0.15.0"
@@ -24,6 +25,7 @@ utoipa = "2.4.2"
 schemars = "0.8.11"
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.91"
+thiserror = "1.0.38"
 type-map = "0.5.0"
 tantivy = { version = "0.19.2", optional = true }
 tokio = { version = "1.25.0", features = ["sync"] }

@@ -129,31 +129,31 @@ impl BlobAutoStorage {
 impl BlobStorage for BlobAutoStorage {
     type Read = ReaderStream<Cursor<Vec<u8>>>;
 
-    async fn get_blob(&self, workspace: Option<String>, id: String) -> io::Result<Self::Read> {
+    async fn get_blob(&self, workspace: Option<String>, id: String) -> JwstResult<Self::Read> {
         let workspace = workspace.unwrap_or("__default__".into());
         if let Ok(blob) = self.get(&workspace, &id).await {
             return Ok(ReaderStream::new(Cursor::new(blob.blob)));
         }
 
-        Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
+        Err(JwstError::WorkspaceNotFound(workspace))
     }
     async fn get_metadata(
         &self,
         workspace: Option<String>,
         id: String,
-    ) -> io::Result<BlobMetadata> {
+    ) -> JwstResult<BlobMetadata> {
         let workspace = workspace.unwrap_or("__default__".into());
         if let Ok(metadata) = self.metadata(&workspace, &id).await {
             Ok(metadata)
         } else {
-            Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
+            Err(JwstError::WorkspaceNotFound(workspace))
         }
     }
     async fn put_blob(
         &self,
         workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
-    ) -> io::Result<String> {
+    ) -> JwstResult<String> {
         let workspace = workspace.unwrap_or("__default__".into());
 
         let (hash, blob) = get_hash(stream).await;
@@ -161,22 +161,22 @@ impl BlobStorage for BlobAutoStorage {
         if self.insert(&workspace, &hash, &blob).await.is_ok() {
             Ok(hash)
         } else {
-            Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
+            Err(JwstError::WorkspaceNotFound(workspace))
         }
     }
-    async fn delete_blob(&self, workspace_id: Option<String>, id: String) -> io::Result<()> {
+    async fn delete_blob(&self, workspace_id: Option<String>, id: String) -> JwstResult<()> {
         let workspace_id = workspace_id.unwrap_or("__default__".into());
         if let Ok(_success) = self.delete(&workspace_id, &id).await {
             Ok(())
         } else {
-            Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
+            Err(JwstError::WorkspaceNotFound(workspace_id))
         }
     }
-    async fn delete_workspace(&self, workspace_id: String) -> io::Result<()> {
+    async fn delete_workspace(&self, workspace_id: String) -> JwstResult<()> {
         if self.drop(&workspace_id).await.is_ok() {
             Ok(())
         } else {
-            Err(io::Error::new(io::ErrorKind::NotFound, "Not found"))
+            Err(JwstError::WorkspaceNotFound(workspace_id))
         }
     }
 }

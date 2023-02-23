@@ -217,14 +217,25 @@ impl DocAutoStorage {
 
 #[async_trait]
 impl DocStorage for DocAutoStorage {
-    async fn get(&self, workspace_id: String) -> io::Result<Arc<RwLock<Workspace>>> {
+    async fn exists(&self, workspace_id: String) -> JwstResult<bool> {
+        Ok(self.workspaces.contains_key(&workspace_id)
+            || self
+                .count(&workspace_id)
+                .await
+                .map(|c| c > 0)
+                .context("Failed to check workspace")
+                .map_err(JwstError::StorageError)?)
+    }
+
+    async fn get(&self, workspace_id: String) -> JwstResult<Arc<RwLock<Workspace>>> {
         match self.workspaces.entry(workspace_id.clone()) {
             Entry::Occupied(ws) => Ok(ws.get().clone()),
             Entry::Vacant(v) => {
                 let doc = self
                     .create_doc(&workspace_id)
                     .await
-                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+                    .context("Failed to check workspace")
+                    .map_err(JwstError::StorageError)?;
 
                 let ws = Arc::new(RwLock::new(Workspace::from_doc(doc, workspace_id)));
                 Ok(v.insert(ws).clone())
@@ -233,38 +244,42 @@ impl DocStorage for DocAutoStorage {
     }
 
     /// This function is not atomic -- please provide external lock mechanism
-    async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> io::Result<()> {
+    async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> JwstResult<()> {
         trace!("write_doc: {:?}", data);
 
-        self.full_migrate(&workspace_id, data)
+        Ok(self
+            .full_migrate(&workspace_id, data)
             .await
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+            .context("Failed to store workspace")
+            .map_err(JwstError::StorageError)?)
     }
 
     /// This function is not atomic -- please provide external lock mechanism
-    async fn write_update(&self, workspace_id: String, data: &[u8]) -> io::Result<bool> {
+    async fn write_update(&self, workspace_id: String, data: &[u8]) -> JwstResult<()> {
         trace!("write_update: {:?}", data);
         self.update(&workspace_id, data.into())
             .await
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+            .context("Failed to store update workspace")
+            .map_err(JwstError::StorageError)?;
 
-        Ok(true)
+        Ok(())
     }
 
-    async fn delete(&self, workspace_id: String) -> io::Result<()> {
+    async fn delete(&self, workspace_id: String) -> JwstResult<()> {
         self.workspaces.remove(&workspace_id);
         self.drop(&workspace_id)
             .await
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+            .context("Failed to delete workspace")
+            .map_err(JwstError::StorageError)?;
+
+        Ok(())
     }
 }
 
 #[async_trait]
 impl DocSync for DocAutoStorage {
-    async fn sync(&self, id: String, remote: String) -> io::Result<Arc<RwLock<Workspace>>> {
-        let workspace = self.get(id.clone()).await.map_err(|e| {
-            io::Error::new(io::ErrorKind::BrokenPipe, format!("Failed to get doc: {e}"))
-        })?;
+    async fn sync(&self, id: String, remote: String) -> JwstResult<Arc<RwLock<Workspace>>> {
+        let workspace = self.get(id.clone()).await?;
 
         if let Entry::Vacant(entry) = self.remote.entry(id.clone()) {
             let (tx, mut rx) = channel(100);
