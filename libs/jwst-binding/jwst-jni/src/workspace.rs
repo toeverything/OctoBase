@@ -3,11 +3,11 @@ use super::{
     WorkspaceTransaction,
 };
 use jwst::{error, info};
-use yrs::{Subscription, UpdateEvent};
+use yrs::UpdateSubscription;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
-    sub: Option<Subscription<UpdateEvent>>,
+    sub: Option<UpdateSubscription>,
 }
 
 impl Workspace {
@@ -30,19 +30,25 @@ impl Workspace {
     }
 
     #[generate_interface]
-    pub fn get(&self, block_id: String) -> Option<Block> {
-        self.workspace.get(block_id).map(Block)
+    pub fn get(&self, trx: &WorkspaceTransaction, block_id: String) -> Option<Block> {
+        self.workspace.get(&trx.0.trx, block_id).map(Block)
     }
 
     #[generate_interface]
-    pub fn exists(&self, block_id: &str) -> bool {
-        self.workspace.exists(block_id)
+    pub fn exists(&self, trx: &WorkspaceTransaction, block_id: &str) -> bool {
+        self.workspace.exists(&trx.0.trx, block_id)
     }
 
     #[generate_interface]
-    pub fn with_trx(&self, on_trx: Box<dyn OnWorkspaceTransaction>) {
+    pub fn with_trx(&self, on_trx: Box<dyn OnWorkspaceTransaction>) -> bool {
         self.workspace
-            .with_trx(|trx| on_trx.on_trx(WorkspaceTransaction(trx)))
+            .try_with_trx(|trx| on_trx.on_trx(WorkspaceTransaction(trx)))
+            .is_some()
+    }
+
+    #[generate_interface]
+    pub fn drop_trx(&self, trx: WorkspaceTransaction) {
+        drop(trx)
     }
 
     #[generate_interface]
@@ -55,10 +61,10 @@ impl Workspace {
                 error!("Failed to connect to remote: {}", e);
             }
         }
-        self.sub = Some(self.workspace.observe(move |_, e| {
+        self.sub = self.workspace.observe(move |_, e| {
             if let Err(e) = storage.write_update(id.clone(), &e.update) {
                 error!("Failed to write update to storage: {}", e);
             }
-        }));
+        });
     }
 }

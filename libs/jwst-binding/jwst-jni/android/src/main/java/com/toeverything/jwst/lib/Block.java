@@ -5,12 +5,12 @@ import androidx.annotation.Nullable;
 
 public final class Block {
 
-    public Block(@NonNull Workspace workspace, @NonNull String block_id, @NonNull String flavor, long operator) {
-        long a0 = workspace.mNativeObj;
-        mNativeObj = init(a0, block_id, flavor, operator);
-        JNIReachabilityFence.reachabilityFence1(workspace);
+    public Block(@NonNull WorkspaceTransaction trx, @NonNull Workspace workspace, @NonNull String block_id, @NonNull String flavor, long operator) {
+        long a0 = trx.mNativeObj;        long a1 = workspace.mNativeObj;
+        mNativeObj = init(a0, a1, block_id, flavor, operator);
+        JNIReachabilityFence.reachabilityFence2(trx, workspace);
     }
-    private static native long init(long workspace, @NonNull String block_id, @NonNull String flavor, long operator);
+    private static native long init(long trx, long workspace, @NonNull String block_id, @NonNull String flavor, long operator);
 
     public final void setBool(@NonNull WorkspaceTransaction trx, @NonNull String key, boolean value) {
         long a0 = trx.mNativeObj;
@@ -52,62 +52,86 @@ public final class Block {
     }
     private static native void do_setNull(long self, long trx, @NonNull String key);
 
-    public final boolean isBool(@NonNull String key) {
-        boolean ret = do_isBool(mNativeObj, key);
+    public final boolean isBool(@NonNull WorkspaceTransaction trx, @NonNull String key) {
+        long a0 = trx.mNativeObj;
+        boolean ret = do_isBool(mNativeObj, a0, key);
+
+        JNIReachabilityFence.reachabilityFence1(trx);
 
         return ret;
     }
-    private static native boolean do_isBool(long self, @NonNull String key);
+    private static native boolean do_isBool(long self, long trx, @NonNull String key);
 
-    public final boolean isString(@NonNull String key) {
-        boolean ret = do_isString(mNativeObj, key);
+    public final boolean isString(@NonNull WorkspaceTransaction trx, @NonNull String key) {
+        long a0 = trx.mNativeObj;
+        boolean ret = do_isString(mNativeObj, a0, key);
 
-        return ret;
-    }
-    private static native boolean do_isString(long self, @NonNull String key);
-
-    public final boolean isFloat(@NonNull String key) {
-        boolean ret = do_isFloat(mNativeObj, key);
+        JNIReachabilityFence.reachabilityFence1(trx);
 
         return ret;
     }
-    private static native boolean do_isFloat(long self, @NonNull String key);
+    private static native boolean do_isString(long self, long trx, @NonNull String key);
 
-    public final boolean isInteger(@NonNull String key) {
-        boolean ret = do_isInteger(mNativeObj, key);
+    public final boolean isFloat(@NonNull WorkspaceTransaction trx, @NonNull String key) {
+        long a0 = trx.mNativeObj;
+        boolean ret = do_isFloat(mNativeObj, a0, key);
 
-        return ret;
-    }
-    private static native boolean do_isInteger(long self, @NonNull String key);
-
-    public final @NonNull java.util.OptionalLong getBool(@NonNull String key) {
-        java.util.OptionalLong ret = do_getBool(mNativeObj, key);
+        JNIReachabilityFence.reachabilityFence1(trx);
 
         return ret;
     }
-    private static native @NonNull java.util.OptionalLong do_getBool(long self, @NonNull String key);
+    private static native boolean do_isFloat(long self, long trx, @NonNull String key);
 
-    public final @NonNull java.util.Optional<String> getString(@NonNull String key) {
-        String ret = do_getString(mNativeObj, key);
+    public final boolean isInteger(@NonNull WorkspaceTransaction trx, @NonNull String key) {
+        long a0 = trx.mNativeObj;
+        boolean ret = do_isInteger(mNativeObj, a0, key);
+
+        JNIReachabilityFence.reachabilityFence1(trx);
+
+        return ret;
+    }
+    private static native boolean do_isInteger(long self, long trx, @NonNull String key);
+
+    public final @NonNull java.util.OptionalLong getBool(@NonNull WorkspaceTransaction trx, @NonNull String key) {
+        long a0 = trx.mNativeObj;
+        java.util.OptionalLong ret = do_getBool(mNativeObj, a0, key);
+
+        JNIReachabilityFence.reachabilityFence1(trx);
+
+        return ret;
+    }
+    private static native @NonNull java.util.OptionalLong do_getBool(long self, long trx, @NonNull String key);
+
+    public final @NonNull java.util.Optional<String> getString(@NonNull WorkspaceTransaction trx, @NonNull String key) {
+        long a0 = trx.mNativeObj;
+        String ret = do_getString(mNativeObj, a0, key);
         java.util.Optional<String> convRet = java.util.Optional.ofNullable(ret);
+
+        JNIReachabilityFence.reachabilityFence1(trx);
 
         return convRet;
     }
-    private static native @Nullable String do_getString(long self, @NonNull String key);
+    private static native @Nullable String do_getString(long self, long trx, @NonNull String key);
 
-    public final @NonNull java.util.OptionalDouble getFloat(@NonNull String key) {
-        java.util.OptionalDouble ret = do_getFloat(mNativeObj, key);
+    public final @NonNull java.util.OptionalDouble getFloat(@NonNull WorkspaceTransaction trx, @NonNull String key) {
+        long a0 = trx.mNativeObj;
+        java.util.OptionalDouble ret = do_getFloat(mNativeObj, a0, key);
 
-        return ret;
-    }
-    private static native @NonNull java.util.OptionalDouble do_getFloat(long self, @NonNull String key);
-
-    public final @NonNull java.util.OptionalLong getInteger(@NonNull String key) {
-        java.util.OptionalLong ret = do_getInteger(mNativeObj, key);
+        JNIReachabilityFence.reachabilityFence1(trx);
 
         return ret;
     }
-    private static native @NonNull java.util.OptionalLong do_getInteger(long self, @NonNull String key);
+    private static native @NonNull java.util.OptionalDouble do_getFloat(long self, long trx, @NonNull String key);
+
+    public final @NonNull java.util.OptionalLong getInteger(@NonNull WorkspaceTransaction trx, @NonNull String key) {
+        long a0 = trx.mNativeObj;
+        java.util.OptionalLong ret = do_getInteger(mNativeObj, a0, key);
+
+        JNIReachabilityFence.reachabilityFence1(trx);
+
+        return ret;
+    }
+    private static native @NonNull java.util.OptionalLong do_getInteger(long self, long trx, @NonNull String key);
 
     public final @NonNull String id() {
         String ret = do_id(mNativeObj);
@@ -116,48 +140,66 @@ public final class Block {
     }
     private static native @NonNull String do_id(long self);
 
-    public final @NonNull String flavor() {
-        String ret = do_flavor(mNativeObj);
+    public final @NonNull String flavor(@NonNull WorkspaceTransaction trx) {
+        long a0 = trx.mNativeObj;
+        String ret = do_flavor(mNativeObj, a0);
+
+        JNIReachabilityFence.reachabilityFence1(trx);
 
         return ret;
     }
-    private static native @NonNull String do_flavor(long self);
+    private static native @NonNull String do_flavor(long self, long trx);
 
-    public final @NonNull String version() {
-        String ret = do_version(mNativeObj);
+    public final @NonNull String version(@NonNull WorkspaceTransaction trx) {
+        long a0 = trx.mNativeObj;
+        String ret = do_version(mNativeObj, a0);
 
-        return ret;
-    }
-    private static native @NonNull String do_version(long self);
-
-    public final long created() {
-        long ret = do_created(mNativeObj);
+        JNIReachabilityFence.reachabilityFence1(trx);
 
         return ret;
     }
-    private static native long do_created(long self);
+    private static native @NonNull String do_version(long self, long trx);
 
-    public final long updated() {
-        long ret = do_updated(mNativeObj);
+    public final long created(@NonNull WorkspaceTransaction trx) {
+        long a0 = trx.mNativeObj;
+        long ret = do_created(mNativeObj, a0);
+
+        JNIReachabilityFence.reachabilityFence1(trx);
 
         return ret;
     }
-    private static native long do_updated(long self);
+    private static native long do_created(long self, long trx);
 
-    public final @NonNull java.util.Optional<String> parent() {
-        String ret = do_parent(mNativeObj);
+    public final long updated(@NonNull WorkspaceTransaction trx) {
+        long a0 = trx.mNativeObj;
+        long ret = do_updated(mNativeObj, a0);
+
+        JNIReachabilityFence.reachabilityFence1(trx);
+
+        return ret;
+    }
+    private static native long do_updated(long self, long trx);
+
+    public final @NonNull java.util.Optional<String> parent(@NonNull WorkspaceTransaction trx) {
+        long a0 = trx.mNativeObj;
+        String ret = do_parent(mNativeObj, a0);
         java.util.Optional<String> convRet = java.util.Optional.ofNullable(ret);
+
+        JNIReachabilityFence.reachabilityFence1(trx);
 
         return convRet;
     }
-    private static native @Nullable String do_parent(long self);
+    private static native @Nullable String do_parent(long self, long trx);
 
-    public final @NonNull java.lang.String [] children() {
-        java.lang.String [] ret = do_children(mNativeObj);
+    public final @NonNull java.lang.String [] children(@NonNull WorkspaceTransaction trx) {
+        long a0 = trx.mNativeObj;
+        java.lang.String [] ret = do_children(mNativeObj, a0);
+
+        JNIReachabilityFence.reachabilityFence1(trx);
 
         return ret;
     }
-    private static native @NonNull java.lang.String [] do_children(long self);
+    private static native @NonNull java.lang.String [] do_children(long self, long trx);
 
     public final void pushChildren(@NonNull WorkspaceTransaction trx, @NonNull Block block) {
         long a0 = trx.mNativeObj;        long a1 = block.mNativeObj;
@@ -199,12 +241,15 @@ public final class Block {
     }
     private static native void do_removeChildren(long self, long trx, long block);
 
-    public final int existsChildren(@NonNull String block_id) {
-        int ret = do_existsChildren(mNativeObj, block_id);
+    public final int existsChildren(@NonNull WorkspaceTransaction trx, @NonNull String block_id) {
+        long a0 = trx.mNativeObj;
+        int ret = do_existsChildren(mNativeObj, a0, block_id);
+
+        JNIReachabilityFence.reachabilityFence1(trx);
 
         return ret;
     }
-    private static native int do_existsChildren(long self, @NonNull String block_id);
+    private static native int do_existsChildren(long self, long trx, @NonNull String block_id);
 
     public synchronized void delete() {
         if (mNativeObj != 0) {

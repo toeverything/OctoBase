@@ -29,9 +29,9 @@ tokio-tungstenite = { version = "0.18.0", features = [
 ] }
 tokio-util = { version = "0.7.7", features = ["io"] }
 url = "2.3.1"
+yrs = "0.16.2"
 
 # ======= workspace dependencies =======
 jwst = { path = "../jwst" }
 jwst-logger = { path = "../jwst-logger" }
 jwst-storage-migration = { path = "./src/migration" }
-yrs = "=0.12.0"

@@ -3,10 +3,11 @@
 members = [
     "apps/cloud",
     "apps/keck",
+    "libs/cloud-components",
     "libs/cloud-database",
     "libs/cloud-database/migration",
     "libs/jwst",
-    "libs/jwst-binding/jwst-ffi",
+    # "libs/jwst-binding/jwst-ffi",
     "libs/jwst-binding/jwst-jni",
     # "libs/jwst-binding/jwst-py",
     # "libs/jwst-binding/jwst-wasm",
@@ -27,5 +28,5 @@ opt-level = 3
 
 [patch.crates-io]
 rust-embed = { git = "https://github.com/pyrossh/rust-embed", rev = "7c0fc42" }
-yrs = { git = "https://github.com/toeverything/y-crdt", rev = "a1034b4" }
-y-sync = { git = "https://github.com/toeverything/y-sync", rev = "e061fa3" }
+lib0 = { git = "https://github.com/toeverything/y-crdt", rev = "e0cf899" }
+yrs = { git = "https://github.com/toeverything/y-crdt", rev = "e0cf899" }

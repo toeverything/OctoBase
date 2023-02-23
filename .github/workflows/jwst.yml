@@ -235,6 +235,7 @@ jobs:
                   tags: ${{ steps.meta_mysc.outputs.tags }}
                   labels: ${{ steps.meta_mysc.outputs.labels }}
                   target: mysc
+                  network: host
 
     apiproxy:
         if: github.ref == 'refs/heads/master'

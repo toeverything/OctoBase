@@ -6,7 +6,7 @@ use yrs::{
     block::{Item, ItemContent, ID},
     types::TypePtr,
     updates::decoder::Decode,
-    Doc, StateVector, Update,
+    Doc, ReadTxn, StateVector, Transact, Update,
 };
 
 struct ParentMap(HashMap<ID, String>);
@@ -84,7 +84,9 @@ pub struct RawHistory {
 }
 
 pub fn parse_history_client(doc: &Doc) -> Option<Vec<u64>> {
-    let update = doc.encode_state_as_update_v1(&StateVector::default());
+    let update = doc
+        .transact()
+        .encode_state_as_update_v1(&StateVector::default());
     let update = Update::decode_v1(&update).ok()?;
 
     Some(
@@ -99,7 +101,9 @@ pub fn parse_history_client(doc: &Doc) -> Option<Vec<u64>> {
 }
 
 pub fn parse_history(doc: &Doc, client: u64) -> Option<Vec<RawHistory>> {
-    let update = doc.encode_state_as_update_v1(&StateVector::default());
+    let update = doc
+        .transact()
+        .encode_state_as_update_v1(&StateVector::default());
     let update = Update::decode_v1(&update).ok()?;
     let items = update.as_items();
 
@@ -144,20 +148,22 @@ mod tests {
 
         let client = parse_history_client(&doc).unwrap();
 
-        assert_eq!(client[0], doc.client_id);
+        assert_eq!(client[0], doc.client_id());
     }
 
     #[test]
     fn parse_history_test() {
         let workspace = Workspace::new("test");
-        workspace.with_trx(|t| {
+        workspace.with_trx(|mut t| {
             t.create("test", "text");
         });
         let doc = workspace.doc();
 
         let history = parse_history(&doc, 0).unwrap();
 
-        let update = doc.encode_state_as_update_v1(&StateVector::default());
+        let update = doc
+            .transact()
+            .encode_state_as_update_v1(&StateVector::default());
         let update = Update::decode_v1(&update).unwrap();
         let mut items = update.as_items();
 

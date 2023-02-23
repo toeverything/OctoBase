@@ -70,6 +70,7 @@ dependencies = [
  "base64 0.21.0",
  "bytes",
  "chrono",
+ "cloud-components",
  "cloud-database",
  "dashmap",
  "dotenvy",
@@ -316,15 +317,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "atty"
-version = "0.2.14"
+name = "atomic_refcell"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
-dependencies = [
- "hermit-abi 0.1.19",
- "libc",
- "winapi",
-]
+checksum = "857253367827bd9d0fd973f0ef15506a96e79e41b0ad7aa691203a4e3214f6c8"
 
 [[package]]
 name = "autocfg"
@@ -615,25 +611,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cbindgen"
-version = "0.24.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6358dedf60f4d9b8db43ad187391afe959746101346fe51bb978126bec61dfb"
-dependencies = [
- "clap 3.2.23",
- "heck 0.4.1",
- "indexmap",
- "log",
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn",
- "tempfile",
- "toml",
-]
-
-[[package]]
 name = "cc"
 version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -692,14 +669,11 @@ version = "3.2.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71655c45cb9845d3270c9d6df84ebe72b4dad3c2ba3f7023ad47c144e4e473a5"
 dependencies = [
- "atty",
  "bitflags",
  "clap_derive",
  "clap_lex 0.2.4",
  "indexmap",
  "once_cell",
- "strsim",
- "termcolor",
  "textwrap",
 ]
 
@@ -756,6 +730,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "783fe232adfca04f90f56201b26d79682d4cd2625e0bc7290b95123afe558ade"
 dependencies = [
  "os_str_bytes",
+]
+
+[[package]]
+name = "cloud-components"
+version = "0.1.0"
+dependencies = [
+ "cloud-database",
+ "handlebars",
+ "jwst-static",
+ "lettre",
 ]
 
 [[package]]
@@ -1607,15 +1591,6 @@ dependencies = [
 
 [[package]]
 name = "hermit-abi"
-version = "0.1.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62b467343b94ba476dcb2500d242dadbb39557df889310ac77c5d99100aaac33"
-dependencies = [
- "libc",
-]
-
-[[package]]
-name = "hermit-abi"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee512640fe35acbfb4bb779db6f0d80704c2cacfa2e39b601ef3e3f47d1ae4c7"
@@ -1942,6 +1917,7 @@ dependencies = [
  "futures",
  "lib0",
  "log",
+ "schemars",
  "serde",
  "serde_json",
  "tantivy",
@@ -1949,16 +1925,6 @@ dependencies = [
  "type-map",
  "utoipa 2.4.2",
  "y-sync",
- "yrs",
-]
-
-[[package]]
-name = "jwst-ffi"
-version = "0.1.0"
-dependencies = [
- "cbindgen",
- "jwst",
- "lib0",
  "yrs",
 ]
 
@@ -2111,9 +2077,8 @@ checksum = "0c2cdeb66e45e9f36bfad5bbdb4d2384e70936afbee843c6f6543f0c551ebb25"
 
 [[package]]
 name = "lib0"
-version = "0.12.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "988e5aa573db0f1f3fe56b635484cd96a880afd102404250e4703738cda66c6b"
+version = "0.16.2"
+source = "git+https://github.com/toeverything/y-crdt?rev=e0cf899#e0cf8990c3767fcc211e45bd2a520f4283b88b5d"
 dependencies = [
  "serde",
  "serde_json",
@@ -5149,8 +5114,9 @@ dependencies = [
 
 [[package]]
 name = "y-sync"
-version = "0.1.0"
-source = "git+https://github.com/toeverything/y-sync?rev=e061fa3#e061fa3f7b74c6350b2d2ff141ce79c3cb78925e"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57b05ee3c166fe347adc9b90dd75362df1bd661615baa11c29ca1c7ef1545073"
 dependencies = [
  "lib0",
  "thiserror",
@@ -5159,12 +5125,15 @@ dependencies = [
 
 [[package]]
 name = "yrs"
-version = "0.12.0"
-source = "git+https://github.com/toeverything/y-crdt?rev=a1034b4#a1034b46ac852c13112c0a3cd94cb1587901315b"
+version = "0.16.2"
+source = "git+https://github.com/toeverything/y-crdt?rev=e0cf899#e0cf8990c3767fcc211e45bd2a520f4283b88b5d"
 dependencies = [
+ "atomic_refcell",
  "lib0",
  "rand 0.7.3",
  "smallstr",
+ "smallvec",
+ "thiserror",
 ]
 
 [[package]]

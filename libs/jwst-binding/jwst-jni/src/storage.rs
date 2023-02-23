@@ -4,7 +4,7 @@ use jwst_storage::JwstStorage as AutoStorage;
 use log::LevelFilter;
 use std::{io::Result, sync::Arc};
 use tokio::{runtime::Runtime, sync::RwLock};
-use yrs::{updates::decoder::Decode, Doc, Update};
+use yrs::{updates::decoder::Decode, Doc, Transact, Update};
 
 #[derive(Clone)]
 pub struct JwstStorage {
@@ -65,7 +65,7 @@ impl JwstStorage {
                     .await
                     .expect("Failed to get all updates");
                 if !updates.is_empty() {
-                    let mut trx = doc.transact();
+                    let mut trx = doc.transact_mut();
                     for update in updates {
                         if let Ok(update) = Update::decode_v1(&update.blob) {
                             trx.apply_update(update);

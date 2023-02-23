@@ -1,6 +1,7 @@
 //! Plugins are an internal experimental interface for extending the [Workspace].
 
 use super::*;
+use std::sync::{Arc, RwLock};
 use type_map::TypeMap;
 
 /// A configuration from which a [WorkspacePlugin] can be created from.
@@ -19,7 +20,7 @@ pub(crate) trait PluginImpl: 'static {
     /// IDEA 1/10:
     /// This update is called sometime between when we know changes have been made to the workspace
     /// and the time when we will get the plugin to query its data (e.g. search())
-    fn on_update(&mut self, _ws: &Content) -> Result<(), Box<dyn std::error::Error>> {
+    fn on_update(&mut self, _ws: &Workspace) -> Result<(), Box<dyn std::error::Error>> {
         // Default implementation for a WorkspacePlugin update does nothing.
         Ok(())
     }
@@ -30,29 +31,32 @@ pub(crate) struct PluginMap {
     /// We store plugins into the TypeMap, so that their ownership is tied to [Workspace].
     /// This enables us to properly manage lifetimes of observers which will subscribe
     /// into events that the [Workspace] experiences, like block updates.
-    map: TypeMap,
+    map: Arc<RwLock<TypeMap>>,
 }
 
 impl PluginMap {
     pub(crate) fn insert_plugin<P: PluginImpl>(
-        &mut self,
+        &self,
         plugin: P,
-    ) -> Result<&mut Self, Box<dyn std::error::Error>> {
-        self.map.insert(plugin);
+    ) -> Result<&Self, Box<dyn std::error::Error>> {
+        self.map.write().unwrap().insert(plugin);
         Ok(self)
     }
 
-    pub(crate) fn get_plugin<P: PluginImpl>(&self) -> Option<&P> {
-        self.map.get::<P>()
+    pub(crate) fn with_plugin<P: PluginImpl, T>(&self, cb: impl Fn(&P) -> T) -> Option<T> {
+        let map = self.map.read().unwrap();
+        let plugin = map.get::<P>();
+        plugin.map(cb)
     }
 
     pub(crate) fn update_plugin<P: PluginImpl>(
-        &mut self,
-        content: &Content,
+        &self,
+        ws: &Workspace,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let plugin = self.map.get_mut::<P>().ok_or("Plugin not found")?;
+        let mut map = self.map.write().unwrap();
+        let plugin = map.get_mut::<P>().ok_or("Plugin not found")?;
 
-        plugin.on_update(content)?;
+        plugin.on_update(ws)?;
 
         Ok(())
     }

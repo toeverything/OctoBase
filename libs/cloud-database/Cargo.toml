@@ -43,4 +43,4 @@ nanoid = "0.4.0"
 affine-cloud-migration = { path = "./migration" }
 jwst = { path = "../jwst" }
 jwst-logger = { path = "../jwst-logger" }
-yrs = "=0.12.0"
+yrs = "0.16.2"
