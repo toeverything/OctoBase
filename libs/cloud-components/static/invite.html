@@ -11,25 +11,35 @@
   <body style="margin: 0">
     <style>
       .hover_color {
-        color: #4c6275;
+        color: #424149;
         transition: all 0.15s;
       }
       .hover_color:hover {
         color: #6880ff;
       }
       .hover_color:visited > span {
-        color: #4c6275;
+        color: #424149;
       }
     </style>
-    <div style="width: 100%; height: 100%; background: #eef0f4">
+    <div
+      style="
+        width: 100%;
+        background: #eef0f4;
+        padding-top: 40px;
+        padding-bottom: 40px;
+      "
+    >
       <div
         style="
           width: 600px;
-          margin: auto;
+          margin: 0 auto;
           font-family: 'Inter';
-          color: #4c6275;
+          color: #424149;
           background-color: #fff;
           line-height: 24px;
+          border-radius: 20px;
+          box-shadow: 0px 0px 20px -5px rgba(15, 44, 115, 0.06),
+            0px 0px 35px rgba(15, 44, 115, 0.12);
         "
       >
         <div style="padding: 16px">
@@ -46,7 +56,7 @@
               font-style: normal;
               font-weight: 600;
               font-size: 28px;
-              color: #3a4c5c;
+              color: #424149;
               line-height: 32px;
             "
           >
@@ -100,10 +110,10 @@
                 vertical-align: middle;
                 margin-left: 12px;
                 margin-right: 12px;
+                display: none;
                 box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
                   -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
                   4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);
-                display: none;
               "
               src="{{workspace_avatar}}"
               alt=""
@@ -144,7 +154,9 @@
               text-decoration: none;
             "
           >
-            <pre>{{site_url}}/invite/{{invite_code}}</pre>
+            <a rel="nofollow" style="text-decoration: none; color: #424149"
+              >{{site_url}}/invite/{{invite_code}}</a
+            >
           </div>
         </div>
         <div
@@ -152,8 +164,9 @@
             padding: 28px 48px;
             margin-top: 40px;
             font-size: 14px;
-            color: #4c6275;
+            color: #424149;
             background: #f8f9ff;
+            border-radius: 0 0 20px 20px;
           "
         >
           <div>
@@ -174,6 +187,7 @@
               line-height: 23px;
               align-items: center;
               text-align: center;
+              color: #424149;
             "
             href="https://affine.pro/"
             alt="Affine"
@@ -195,7 +209,7 @@
               font-weight: 400;
               font-size: 16px;
               line-height: 19px;
-              color: #888a9e;
+              color: #8e8d91;
             "
           >
             Affine is the next-generation collaborative knowledge base for
