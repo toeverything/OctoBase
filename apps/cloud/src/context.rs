@@ -49,6 +49,7 @@ pub struct Context {
 impl Context {
     pub async fn new() -> Context {
         let key = {
+            // https://docs.rs/dotenvy/0.15.6/dotenvy/fn.var.html
             let key_env = dotenvy::var("SIGN_KEY").expect("should provide AES key");
 
             let mut hasher = Sha256::new();
