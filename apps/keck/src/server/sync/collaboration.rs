@@ -151,7 +151,11 @@ async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Con
     while let Some(msg) = socket_rx.next().await {
         if let Ok(Message::Binary(binary)) = msg {
             let payload = {
-                let workspace = context.storage.get_workspace(&workspace_id).await.unwrap();
+                let workspace = context
+                    .storage
+                    .get_workspace(&workspace_id)
+                    .await
+                    .expect("workspace not found");
                 let mut workspace = workspace.write().await;
 
                 use std::panic::{catch_unwind, AssertUnwindSafe};

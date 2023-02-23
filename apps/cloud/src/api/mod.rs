@@ -322,13 +322,13 @@ pub async fn get_public_doc(
 }
 
 async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response {
-    ctx.storage
-        .get_workspace(workspace_id)
-        .await
-        .read()
-        .await
-        .sync_migration()
-        .into_response()
+    match ctx.storage.get_workspace(workspace_id).await {
+        Ok(workspace) => workspace.read().await.sync_migration().into_response(),
+        Err(e) => {
+            error!("Failed to get workspace: {:?}", e);
+            ErrorStatus::InternalServerError.into_response()
+        }
+    }
 }
 
 /// Resolves to [`SearchResults`]
