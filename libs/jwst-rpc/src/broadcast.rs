@@ -16,7 +16,6 @@ fn broadcast(
     update: Vec<u8>,
     context: Arc<impl ContextImpl<'static> + Send + Sync + 'static>,
 ) {
-    let context = context.clone();
     tokio::spawn(async move {
         let mut closed = vec![];
 
@@ -71,7 +70,6 @@ pub fn subscribe(
         })
     };
     let doc = {
-        let context = context.clone();
         let item = item.clone();
         workspace.observe(move |_, e| {
             trace!("workspace changed: {}, {:?}", item.workspace, &e.update);
