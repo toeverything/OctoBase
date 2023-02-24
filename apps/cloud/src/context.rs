@@ -1,6 +1,6 @@
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
-use axum::extract::ws::{self, Message};
+use axum::extract::ws;
 use chrono::{NaiveDateTime, Utc};
 use cloud_components::MailContext;
 use cloud_database::CloudDatabase;
@@ -10,12 +10,12 @@ use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::SearchResults;
 use jwst_logger::{error, info};
+use jwst_rpc::{Channels, ContextImpl};
 use jwst_storage::JwstStorage;
 use rand::{thread_rng, Rng};
 use reqwest::Client;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use tokio::sync::mpsc::Sender;
 use tokio::sync::{RwLock, RwLockReadGuard};
 use x509_parser::prelude::parse_x509_pem;
 
@@ -42,7 +42,7 @@ pub struct Context {
     pub mail: MailContext,
     pub db: CloudDatabase,
     pub storage: JwstStorage,
-    pub channel: DashMap<(String, String, String), Sender<Message>>,
+    pub channel: Channels,
     pub user_channel: UserChannel,
 }
 
@@ -239,15 +239,14 @@ impl Context {
     pub async fn close_websocket(&self, workspace: String, user: String) {
         let mut closed = vec![];
         for item in self.channel.iter() {
-            let ((ws_id, user_id, id), tx) = item.pair();
-            if &workspace == ws_id && user_id == &user {
-                closed.push((ws_id.clone(), user_id.clone(), id.clone()));
+            let (channel, tx) = item.pair();
+            if workspace == channel.workspace && user == channel.identifier {
+                closed.push(channel.clone());
                 let _ = tx.send(ws::Message::Close(None)).await;
             }
         }
-        for close in closed {
-            let (ws_id, user_id, id) = close;
-            self.channel.remove(&(ws_id, user_id, id));
+        for channel in closed {
+            self.channel.remove(&channel);
         }
     }
 
@@ -255,15 +254,24 @@ impl Context {
     pub async fn close_websocket_by_workspace(&self, workspace: String) {
         let mut closed = vec![];
         for item in self.channel.iter() {
-            let ((ws_id, user_id, id), tx) = item.pair();
-            if &workspace == ws_id {
-                closed.push((ws_id.clone(), user_id.clone(), id.clone()));
+            let (item, tx) = item.pair();
+            if workspace == item.workspace {
+                closed.push(item.clone());
                 let _ = tx.send(ws::Message::Close(None)).await;
             }
         }
-        for close in closed {
-            let (ws_id, user_id, id) = close;
-            self.channel.remove(&(ws_id, user_id, id));
+        for channel in closed {
+            self.channel.remove(&channel);
         }
+    }
+}
+
+impl ContextImpl<'_> for Context {
+    fn get_storage(&self) -> JwstStorage {
+        self.storage.clone()
+    }
+
+    fn get_channel(&self) -> &Channels {
+        &self.channel
     }
 }

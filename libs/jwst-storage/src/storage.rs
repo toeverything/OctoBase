@@ -82,7 +82,7 @@ impl JwstStorage {
     where
         S: AsRef<str>,
     {
-        info!("get_workspace: {}", workspace_id.as_ref());
+        trace!("get_workspace: {}", workspace_id.as_ref());
         if self
             .docs
             .exists(workspace_id.as_ref().into())

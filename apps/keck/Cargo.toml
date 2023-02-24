@@ -53,6 +53,7 @@ yrs = "0.16.2"
 
 jwst = { path = "../../libs/jwst" }
 jwst-logger = { path = "../../libs/jwst-logger" }
+jwst-rpc = { path = "../../libs/jwst-rpc" }
 jwst-static = { path = "../../libs/jwst-static" }
 jwst-storage = { path = "../../libs/jwst-storage" }
 

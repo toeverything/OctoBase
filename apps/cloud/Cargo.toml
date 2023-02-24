@@ -59,13 +59,12 @@ tower = "0.4.13"
 tower-http = { version = "0.3.5", features = ["auth", "cors"] }
 uuid = { version = "1.3.0", default-features = false, features = ["v4"] }
 x509-parser = "0.14.0"
-y-sync = "0.2.0"
-yrs = "0.16.2"
 
 # ======= workspace dependencies =======
 cloud-components = { path = "../../libs/cloud-components" }
 cloud-database = { path = "../../libs/cloud-database" }
 jwst = { path = "../../libs/jwst" }
 jwst-logger = { path = "../../libs/jwst-logger" }
+jwst-rpc = { path = "../../libs/jwst-rpc" }
 jwst-static = { path = "../../libs/jwst-static" }
 jwst-storage = { path = "../../libs/jwst-storage" }

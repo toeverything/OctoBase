@@ -1,7 +1,6 @@
-use std::sync::Arc;
-
 use super::{plugins::setup_plugin, *};
 use serde::{ser::SerializeMap, Serialize, Serializer};
+use std::sync::Arc;
 use y_sync::{
     awareness::{Awareness, Event, Subscription as AwarenessSubscription},
     sync::{DefaultProtocol, Error, Message, MessageReader, Protocol, SyncMessage},
@@ -21,7 +20,7 @@ static PROTOCOL: DefaultProtocol = DefaultProtocol;
 use super::PluginMap;
 use plugins::PluginImpl;
 
-type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>;
+pub type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>;
 
 pub struct Workspace {
     id: String,
@@ -210,7 +209,7 @@ impl Workspace {
     }
 
     pub fn sync_handle_message(&mut self, msg: Message) -> Result<Option<Message>, Error> {
-        debug!("processing message: {:?}", msg);
+        trace!("processing message: {:?}", msg);
         match msg {
             Message::Sync(msg) => match msg {
                 SyncMessage::SyncStep1(sv) => PROTOCOL.handle_sync_step1(&self.awareness, sv),
@@ -221,9 +220,9 @@ impl Workspace {
                     let mut txn = self.doc().transact_mut();
                     txn.apply_update(Update::decode_v1(&update)?);
                     txn.commit();
-                    debug!("changed_parent_types: {:?}", txn.changed_parent_types());
-                    debug!("before_state: {:?}", txn.before_state());
-                    debug!("after_state: {:?}", txn.after_state());
+                    trace!("changed_parent_types: {:?}", txn.changed_parent_types());
+                    trace!("before_state: {:?}", txn.before_state());
+                    trace!("after_state: {:?}", txn.after_state());
                     let update = txn.encode_update_v1();
                     Ok(Some(Message::Sync(SyncMessage::Update(update))))
                 }

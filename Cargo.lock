@@ -82,6 +82,7 @@ dependencies = [
  "jsonwebtoken",
  "jwst",
  "jwst-logger",
+ "jwst-rpc",
  "jwst-static",
  "jwst-storage",
  "lettre",
@@ -102,8 +103,6 @@ dependencies = [
  "tower-http",
  "uuid",
  "x509-parser",
- "y-sync",
- "yrs",
 ]
 
 [[package]]
@@ -1953,6 +1952,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "jwst-rpc"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "dashmap",
+ "futures",
+ "jwst",
+ "jwst-storage",
+ "nanoid",
+ "tokio",
+ "y-sync",
+ "yrs",
+]
+
+[[package]]
 name = "jwst-static"
 version = "0.1.0"
 dependencies = [
@@ -2026,6 +2040,7 @@ dependencies = [
  "http",
  "jwst",
  "jwst-logger",
+ "jwst-rpc",
  "jwst-static",
  "jwst-storage",
  "lib0",
