@@ -1,7 +1,7 @@
 use super::{entities::prelude::*, *};
 use dashmap::{mapref::entry::Entry, DashMap};
 use futures::{SinkExt, StreamExt};
-use jwst::{info, sync_encode_update, DocStorage, DocSync, Workspace};
+use jwst::{sync_encode_update, DocStorage, DocSync, Workspace};
 use jwst_storage_migration::{Migrator, MigratorTrait};
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
