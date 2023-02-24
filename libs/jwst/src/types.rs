@@ -33,11 +33,6 @@ pub trait DocStorage {
     async fn delete(&self, workspace_id: String) -> JwstResult<()>;
 }
 
-#[async_trait]
-pub trait DocSync {
-    async fn sync(&self, id: String, remote: String) -> JwstResult<Arc<RwLock<Workspace>>>;
-}
-
 #[derive(Debug)]
 pub struct BlobMetadata {
     pub size: u64,

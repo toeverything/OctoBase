@@ -28,7 +28,6 @@ tokio-tungstenite = { version = "0.18.0", features = [
     "rustls-tls-webpki-roots",
 ] }
 tokio-util = { version = "0.7.7", features = ["io"] }
-url = "2.3.1"
 yrs = "0.16.2"
 
 # ======= workspace dependencies =======

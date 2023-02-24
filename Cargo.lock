@@ -1962,6 +1962,8 @@ dependencies = [
  "jwst-storage",
  "nanoid",
  "tokio",
+ "tokio-tungstenite",
+ "url",
  "y-sync",
  "yrs",
 ]
@@ -1996,7 +1998,6 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tokio-util",
- "url",
  "yrs",
 ]
 

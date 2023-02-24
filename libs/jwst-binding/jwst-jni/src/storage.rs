@@ -1,6 +1,6 @@
 use crate::Workspace;
 use android_logger::Config;
-use jwst::{error, DocStorage, DocSync, JwstError, JwstResult};
+use jwst::{error, DocStorage, JwstError, JwstResult};
 use jwst_storage::JwstStorage as AutoStorage;
 use log::LevelFilter;
 use std::sync::Arc;
