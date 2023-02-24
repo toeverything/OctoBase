@@ -29,6 +29,116 @@ extension BlockRef {
     public func get<GenericIntoRustString: IntoRustString>(_ block_id: GenericIntoRustString) -> Optional<DynamicValue> {
         { let val = __swift_bridge__$Block$get(ptr, { let rustString = block_id.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val != nil { return DynamicValue(ptr: val!) } else { return nil } }()
     }
+
+    public func children() -> RustVec<RustString> {
+        RustVec(ptr: __swift_bridge__$Block$children(ptr))
+    }
+
+    public func push_children(_ block: BlockRef) {
+        __swift_bridge__$Block$push_children(ptr, block.ptr)
+    }
+
+    public func insert_children_at(_ block: BlockRef, _ pos: UInt32) {
+        __swift_bridge__$Block$insert_children_at(ptr, block.ptr, pos)
+    }
+
+    public func insert_children_before<GenericToRustStr: ToRustStr>(_ block: BlockRef, _ reference: GenericToRustStr) {
+        reference.toRustStr({ referenceAsRustStr in
+            __swift_bridge__$Block$insert_children_before(ptr, block.ptr, referenceAsRustStr)
+        })
+    }
+
+    public func insert_children_after<GenericToRustStr: ToRustStr>(_ block: BlockRef, _ reference: GenericToRustStr) {
+        reference.toRustStr({ referenceAsRustStr in
+            __swift_bridge__$Block$insert_children_after(ptr, block.ptr, referenceAsRustStr)
+        })
+    }
+
+    public func remove_children(_ block: BlockRef) {
+        __swift_bridge__$Block$remove_children(ptr, block.ptr)
+    }
+
+    public func exists_children<GenericToRustStr: ToRustStr>(_ block_id: GenericToRustStr) -> Int32 {
+        return block_id.toRustStr({ block_idAsRustStr in
+            __swift_bridge__$Block$exists_children(ptr, block_idAsRustStr)
+        })
+    }
+
+    public func parent() -> RustString {
+        RustString(ptr: __swift_bridge__$Block$parent(ptr))
+    }
+
+    public func updated() -> UInt64 {
+        __swift_bridge__$Block$updated(ptr)
+    }
+
+    public func id() -> RustString {
+        RustString(ptr: __swift_bridge__$Block$id(ptr))
+    }
+
+    public func flavor() -> RustString {
+        RustString(ptr: __swift_bridge__$Block$flavor(ptr))
+    }
+
+    public func version() -> RustString {
+        RustString(ptr: __swift_bridge__$Block$version(ptr))
+    }
+
+    public func created() -> UInt64 {
+        __swift_bridge__$Block$created(ptr)
+    }
+
+    public func set_bool<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString, _ value: Bool) {
+        __swift_bridge__$Block$set_bool(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), value)
+    }
+
+    public func set_string<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString, _ value: GenericIntoRustString) {
+        __swift_bridge__$Block$set_string(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = value.intoRustString(); rustString.isOwned = false; return rustString.ptr }())
+    }
+
+    public func set_float<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString, _ value: Double) {
+        __swift_bridge__$Block$set_float(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), value)
+    }
+
+    public func set_integer<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString, _ value: Int64) {
+        __swift_bridge__$Block$set_integer(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), value)
+    }
+
+    public func set_null<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) {
+        __swift_bridge__$Block$set_null(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }())
+    }
+
+    public func is_bool<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Bool {
+        __swift_bridge__$Block$is_bool(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }())
+    }
+
+    public func is_string<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Bool {
+        __swift_bridge__$Block$is_string(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }())
+    }
+
+    public func is_float<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Bool {
+        __swift_bridge__$Block$is_float(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }())
+    }
+
+    public func is_integer<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Bool {
+        __swift_bridge__$Block$is_integer(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }())
+    }
+
+    public func get_bool<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Optional<Int64> {
+        { let val = __swift_bridge__$Block$get_bool(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_some { return val.val } else { return nil } }()
+    }
+
+    public func get_string<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Optional<RustString> {
+        { let val = __swift_bridge__$Block$get_string(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val != nil { return RustString(ptr: val!) } else { return nil } }()
+    }
+
+    public func get_float<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Optional<Double> {
+        { let val = __swift_bridge__$Block$get_float(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_some { return val.val } else { return nil } }()
+    }
+
+    public func get_integer<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Optional<Int64> {
+        { let val = __swift_bridge__$Block$get_integer(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_some { return val.val } else { return nil } }()
+    }
 }
 extension Block: Vectorizable {
     public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
