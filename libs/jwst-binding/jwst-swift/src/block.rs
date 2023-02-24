@@ -1,17 +1,18 @@
-use super::{DynamicValue, Transaction};
-use jwst::Block as JwstBlock;
-use yrs::ReadTxn;
+use super::DynamicValue;
+use jwst::{Block as JwstBlock, Workspace};
 
 pub struct Block {
+    workspace: Workspace,
     block: JwstBlock,
 }
 
 impl Block {
-    pub fn new(block: JwstBlock) -> Self {
-        Self { block }
+    pub fn new(workspace: Workspace, block: JwstBlock) -> Self {
+        Self { workspace, block }
     }
 
-    pub fn get(&self, trx: Transaction<'_>, key: String) -> Option<DynamicValue> {
-        self.block.get(&trx.trx, &key).map(DynamicValue::new)
+    pub fn get(&self, key: String) -> Option<DynamicValue> {
+        self.workspace
+            .with_trx(|trx| self.block.get(&trx.trx, &key).map(DynamicValue::new))
     }
 }

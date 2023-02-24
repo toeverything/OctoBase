@@ -21,12 +21,23 @@ impl Workspace {
     }
 
     pub fn get(&self, block_id: String) -> Option<Block> {
-        self.workspace
-            .with_trx(|trx| self.workspace.get(&trx.trx, &block_id).map(Block::new))
+        let workspace = self.workspace.clone();
+        self.workspace.with_trx(|trx| {
+            let block = self
+                .workspace
+                .get(&trx.trx, &block_id)
+                .map(|b| Block::new(workspace, b));
+            drop(trx);
+            block
+        })
     }
 
     pub fn create(&self, block_id: String, flavor: String) -> Block {
-        self.workspace
-            .with_trx(|trx| Block::new(trx.create(block_id, flavor)))
+        let workspace = self.workspace.clone();
+        self.workspace.with_trx(|mut trx| {
+            let block = Block::new(workspace, trx.create(block_id, flavor));
+            drop(trx);
+            block
+        })
     }
 }
