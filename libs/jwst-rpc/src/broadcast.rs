@@ -1,9 +1,7 @@
-use super::{debug, error, ContextImpl};
+use super::{debug, error, info, trace, ChannelItem, ContextImpl};
 use axum::extract::ws::Message;
-use dashmap::DashMap;
 use jwst::{sync_encode_update, MapSubscription, Workspace};
 use std::sync::Arc;
-use tokio::sync::mpsc::Sender;
 use y_sync::{
     awareness::{Event, Subscription},
     sync::Message as YMessage,
@@ -14,19 +12,19 @@ use yrs::{
 };
 
 fn broadcast(
-    workspace: String,
-    identifier: String,
+    current_item: ChannelItem,
     update: Vec<u8>,
-    channel: DashMap<(String, String), Sender<Message>>,
+    context: Arc<impl ContextImpl<'static> + Send + Sync + 'static>,
 ) {
+    let context = context.clone();
     tokio::spawn(async move {
         let mut closed = vec![];
 
-        for item in channel.iter() {
-            let ((ws, id), tx) = item.pair();
-            if &workspace == ws && id != &identifier {
+        for item in context.get_channel().iter() {
+            let (item, tx) = item.pair();
+            if current_item.workspace == item.workspace && current_item.uuid != item.uuid {
                 if tx.is_closed() {
-                    closed.push(id.clone());
+                    closed.push(item.clone());
                 } else if let Err(e) = tx.send(Message::Binary(update.clone())).await {
                     if !tx.is_closed() {
                         error!("on awareness_update error: {}", e);
@@ -34,8 +32,8 @@ fn broadcast(
                 }
             }
         }
-        for id in closed {
-            channel.remove(&(workspace.clone(), id));
+        for item in closed {
+            context.get_channel().remove(&item);
         }
     });
 }
@@ -47,19 +45,17 @@ pub struct Subscriptions {
 }
 
 pub fn subscribe(
-    context: Arc<impl ContextImpl<'static>>,
+    context: Arc<impl ContextImpl<'static> + Send + Sync + 'static>,
     workspace: &mut Workspace,
-    ws_id: String,
-    identifier: String,
+    item: &ChannelItem,
 ) -> Subscriptions {
     let awareness = {
-        let channel = context.get_channel();
-        let ws_id = ws_id.clone();
-        let identifier = identifier.clone();
+        let context = context.clone();
+        let item = item.clone();
         workspace.on_awareness_update(move |awareness, e| {
-            debug!(
+            trace!(
                 "workspace awareness changed: {}, {:?}",
-                ws_id,
+                item.workspace,
                 [e.added(), e.updated(), e.removed()].concat()
             );
             if let Ok(update) = awareness
@@ -70,18 +66,17 @@ pub fn subscribe(
                     encoder.to_vec()
                 })
             {
-                broadcast(ws_id.clone(), identifier.clone(), update, channel.clone());
+                broadcast(item.clone(), update, context.clone());
             }
         })
     };
     let doc = {
-        let channel = context.get_channel();
-        let ws_id = ws_id.clone();
-        let identifier = identifier.clone();
+        let context = context.clone();
+        let item = item.clone();
         workspace.observe(move |_, e| {
-            debug!("workspace changed: {}, {:?}", ws_id, &e.update);
+            debug!("workspace changed: {}, {:?}", item.workspace, &e.update);
             let update = sync_encode_update(&e.update);
-            broadcast(ws_id.clone(), identifier.clone(), update, channel.clone());
+            broadcast(item.clone(), update, context.clone());
         })
     };
     let metadata = workspace.observe_metadata(move |_, _e| {

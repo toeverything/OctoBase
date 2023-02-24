@@ -1968,6 +1968,7 @@ dependencies = [
  "futures",
  "jwst",
  "jwst-storage",
+ "nanoid",
  "tokio",
  "y-sync",
  "yrs",
