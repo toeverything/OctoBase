@@ -74,7 +74,7 @@ pub fn subscribe(
         let context = context.clone();
         let item = item.clone();
         workspace.observe(move |_, e| {
-            debug!("workspace changed: {}, {:?}", item.workspace, &e.update);
+            trace!("workspace changed: {}, {:?}", item.workspace, &e.update);
             let update = sync_encode_update(&e.update);
             broadcast(item.clone(), update, context.clone());
         })
