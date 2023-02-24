@@ -13,6 +13,7 @@ use axum::{
     routing::{delete, get, head},
 };
 use dashmap::DashMap;
+use jwst_rpc::ContextImpl;
 use jwst_storage::JwstStorage;
 use tokio::sync::mpsc::Sender;
 
@@ -58,6 +59,16 @@ impl Context {
             channel: DashMap::new(),
             storage,
         }
+    }
+}
+
+impl ContextImpl<'_> for Context {
+    fn get_storage(&self) -> JwstStorage {
+        self.storage.clone()
+    }
+
+    fn get_channel(&self) -> DashMap<(String, String), Sender<Message>> {
+        self.channel.clone()
     }
 }
 

@@ -10,6 +10,7 @@ use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::SearchResults;
 use jwst_logger::{error, info};
+use jwst_rpc::ContextImpl;
 use jwst_storage::JwstStorage;
 use rand::{thread_rng, Rng};
 use reqwest::Client;
@@ -265,5 +266,15 @@ impl Context {
             let (ws_id, id) = close;
             self.channel.remove(&(ws_id, id));
         }
+    }
+}
+
+impl ContextImpl<'_> for Context {
+    fn get_storage(&self) -> JwstStorage {
+        self.storage.clone()
+    }
+
+    fn get_channel(&self) -> DashMap<(String, String), Sender<Message>> {
+        self.channel.clone()
     }
 }
