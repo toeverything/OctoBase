@@ -1,5 +1,6 @@
-use super::DynamicValue;
+use super::{DynamicValue, Transaction};
 use jwst::Block as JwstBlock;
+use yrs::ReadTxn;
 
 pub struct Block {
     block: JwstBlock,
@@ -10,7 +11,7 @@ impl Block {
         Self { block }
     }
 
-    pub fn get(&self, key: String) -> Option<DynamicValue> {
-        self.block.get(&key).map(DynamicValue::new)
+    pub fn get(&self, trx: Transaction<'_>, key: String) -> Option<DynamicValue> {
+        self.block.get(&trx.trx, &key).map(DynamicValue::new)
     }
 }

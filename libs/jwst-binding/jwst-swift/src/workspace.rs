@@ -21,7 +21,8 @@ impl Workspace {
     }
 
     pub fn get(&self, block_id: String) -> Option<Block> {
-        self.workspace.get(&block_id).map(Block::new)
+        self.workspace
+            .with_trx(|trx| self.workspace.get(&trx.trx, &block_id).map(Block::new))
     }
 
     pub fn create(&self, block_id: String, flavor: String) -> Block {

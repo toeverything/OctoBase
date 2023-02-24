@@ -1,18 +1,24 @@
 mod block;
 mod dynamic_value;
+mod transaction;
 mod workspace;
 
 pub use block::Block;
 pub use dynamic_value::{DynamicValue, DynamicValueMap};
+pub use transaction::Transaction;
 pub use workspace::Workspace;
 
 #[swift_bridge::bridge]
 mod ffi {
     extern "Rust" {
+        type Transaction;
+    }
+
+    extern "Rust" {
         type Block;
 
         #[swift_bridge(associated_to = Block)]
-        fn get(self: &Block, block_id: String) -> Option<DynamicValue>;
+        fn get(self: &Block, trx: Transaction<'_>, block_id: String) -> Option<DynamicValue>;
     }
 
     extern "Rust" {
