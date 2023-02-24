@@ -4,7 +4,7 @@ mod blobs;
 mod blocks;
 
 use super::*;
-use axum::{extract::ws::Message, Router};
+use axum::Router;
 #[cfg(feature = "api")]
 use axum::{
     extract::{Json, Path},
@@ -13,9 +13,8 @@ use axum::{
     routing::{delete, get, head},
 };
 use dashmap::DashMap;
-use jwst_rpc::ContextImpl;
+use jwst_rpc::{Channels, ContextImpl};
 use jwst_storage::JwstStorage;
-use tokio::sync::mpsc::Sender;
 
 #[derive(Deserialize)]
 #[cfg_attr(feature = "api", derive(utoipa::IntoParams))]
@@ -37,7 +36,7 @@ pub struct PageData<T> {
 }
 
 pub struct Context {
-    pub channel: DashMap<(String, String), Sender<Message>>,
+    pub channel: Channels,
     pub storage: JwstStorage,
 }
 
@@ -67,8 +66,8 @@ impl ContextImpl<'_> for Context {
         self.storage.clone()
     }
 
-    fn get_channel(&self) -> DashMap<(String, String), Sender<Message>> {
-        self.channel.clone()
+    fn get_channel(&self) -> &Channels {
+        &self.channel
     }
 }
 

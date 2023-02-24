@@ -1,4 +1,4 @@
-use super::{debug, error, info, trace, ChannelItem, ContextImpl};
+use super::{error, trace, ChannelItem, ContextImpl};
 use axum::extract::ws::Message;
 use jwst::{sync_encode_update, MapSubscription, Workspace};
 use std::sync::Arc;

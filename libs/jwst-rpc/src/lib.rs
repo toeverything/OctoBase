@@ -7,7 +7,7 @@ use axum::extract::ws::{Message, WebSocket};
 use broadcast::subscribe;
 use channel::ChannelItem;
 use futures::{sink::SinkExt, stream::StreamExt};
-use jwst::{debug, error, info, trace};
+use jwst::{error, info, trace};
 use jwst_storage::JwstStorage;
 use std::sync::Arc;
 use tokio::sync::mpsc::channel;
