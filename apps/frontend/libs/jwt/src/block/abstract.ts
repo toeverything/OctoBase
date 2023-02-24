@@ -1,9 +1,8 @@
 /* eslint-disable max-lines */
-import { nanoid } from 'nanoid';
 import type { BlockItem } from '../types';
 import { BlockFlavors } from '../types';
 import type { TopicEventBus } from '../utils';
-import { getLogger } from '../utils';
+import { getLogger, nanoid } from '../utils';
 import type { HistoryManager, YBlock } from '../yjs';
 import type {
     BlockListener,
@@ -307,6 +306,7 @@ export class AbstractBlock<T extends object = object> {
         }
 
         this._block.insertChildren(block[GET_BLOCK](), position);
+        this._cachedChildren = undefined;
         block[SET_PARENT](this);
     }
 
@@ -326,6 +326,7 @@ export class AbstractBlock<T extends object = object> {
 
     public removeChildren(blockId?: string) {
         this._block.removeChildren([blockId]);
+        this._cachedChildren = undefined;
     }
 
     public remove() {

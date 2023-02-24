@@ -4,10 +4,10 @@ import androidx.annotation.NonNull;
 
 public final class Workspace {
 
-    public Workspace(@NonNull String id) {
-        mNativeObj = init(id);
+    public Workspace(@NonNull String _id) {
+        mNativeObj = init(_id);
     }
-    private static native long init(@NonNull String id);
+    private static native long init(@NonNull String _id);
 
     public final @NonNull String id() {
         String ret = do_id(mNativeObj);
@@ -23,8 +23,9 @@ public final class Workspace {
     }
     private static native long do_clientId(long self);
 
-    public final @NonNull java.util.Optional<Block> get(@NonNull String block_id) {
-        long ret = do_get(mNativeObj, block_id);
+    public final @NonNull java.util.Optional<Block> get(@NonNull WorkspaceTransaction trx, @NonNull String block_id) {
+        long a0 = trx.mNativeObj;
+        long ret = do_get(mNativeObj, a0, block_id);
         java.util.Optional<Block> convRet;
         if (ret != 0) {
             convRet = java.util.Optional.of(new Block(InternalPointerMarker.RAW_PTR, ret));
@@ -32,31 +33,38 @@ public final class Workspace {
             convRet = java.util.Optional.empty();
         }
 
+        JNIReachabilityFence.reachabilityFence1(trx);
+
         return convRet;
     }
-    private static native long do_get(long self, @NonNull String block_id);
+    private static native long do_get(long self, long trx, @NonNull String block_id);
 
-    public final boolean exists(@NonNull String block_id) {
-        boolean ret = do_exists(mNativeObj, block_id);
+    public final boolean exists(@NonNull WorkspaceTransaction trx, @NonNull String block_id) {
+        long a0 = trx.mNativeObj;
+        boolean ret = do_exists(mNativeObj, a0, block_id);
+
+        JNIReachabilityFence.reachabilityFence1(trx);
 
         return ret;
     }
-    private static native boolean do_exists(long self, @NonNull String block_id);
+    private static native boolean do_exists(long self, long trx, @NonNull String block_id);
 
-    public final void withTrx(@NonNull OnWorkspaceTransaction on_trx) {
-        do_withTrx(mNativeObj, on_trx);
+    public final boolean withTrx(@NonNull OnWorkspaceTransaction on_trx) {
+        boolean ret = do_withTrx(mNativeObj, on_trx);
+
+        return ret;
     }
-    private static native void do_withTrx(long self, OnWorkspaceTransaction on_trx);
+    private static native boolean do_withTrx(long self, OnWorkspaceTransaction on_trx);
 
-    public final void withStorage(@NonNull JwstStorage storage, @NonNull String remote) {
-        long a0 = storage.mNativeObj;
-        storage.mNativeObj = 0;
+    public final void dropTrx(@NonNull WorkspaceTransaction trx) {
+        long a0 = trx.mNativeObj;
+        trx.mNativeObj = 0;
 
-        do_withStorage(mNativeObj, a0, remote);
+        do_dropTrx(mNativeObj, a0);
 
-        JNIReachabilityFence.reachabilityFence1(storage);
+        JNIReachabilityFence.reachabilityFence1(trx);
     }
-    private static native void do_withStorage(long self, long storage, @NonNull String remote);
+    private static native void do_dropTrx(long self, long trx);
 
     public synchronized void delete() {
         if (mNativeObj != 0) {

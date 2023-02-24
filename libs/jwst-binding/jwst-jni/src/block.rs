@@ -5,8 +5,15 @@ pub struct Block(pub(crate) JwstBlock);
 
 impl Block {
     #[generate_interface(constructor)]
-    pub fn new(workspace: &Workspace, block_id: String, flavor: String, operator: u64) -> Block {
+    pub fn new(
+        trx: &mut WorkspaceTransaction,
+        workspace: &Workspace,
+        block_id: String,
+        flavor: String,
+        operator: u64,
+    ) -> Block {
         Self(JwstBlock::new(
+            &mut trx.0.trx,
             &workspace.workspace,
             block_id,
             flavor,
@@ -40,64 +47,64 @@ impl Block {
     }
 
     #[generate_interface]
-    pub fn is_bool(&self, key: String) -> bool {
+    pub fn is_bool(&self, trx: &WorkspaceTransaction, key: String) -> bool {
         self.0
-            .get(&key)
+            .get(&trx.0.trx, &key)
             .map(|a| matches!(a, Any::Bool(_)))
             .unwrap_or(false)
     }
 
     #[generate_interface]
-    pub fn is_string(&self, key: String) -> bool {
+    pub fn is_string(&self, trx: &WorkspaceTransaction, key: String) -> bool {
         self.0
-            .get(&key)
+            .get(&trx.0.trx, &key)
             .map(|a| matches!(a, Any::String(_)))
             .unwrap_or(false)
     }
 
     #[generate_interface]
-    pub fn is_float(&self, key: String) -> bool {
+    pub fn is_float(&self, trx: &WorkspaceTransaction, key: String) -> bool {
         self.0
-            .get(&key)
+            .get(&trx.0.trx, &key)
             .map(|a| matches!(a, Any::Number(_)))
             .unwrap_or(false)
     }
 
     #[generate_interface]
-    pub fn is_integer(&self, key: String) -> bool {
+    pub fn is_integer(&self, trx: &WorkspaceTransaction, key: String) -> bool {
         self.0
-            .get(&key)
+            .get(&trx.0.trx, &key)
             .map(|a| matches!(a, Any::BigInt(_)))
             .unwrap_or(false)
     }
 
     #[generate_interface]
-    pub fn get_bool(&self, key: String) -> Option<i64> {
-        self.0.get(&key).and_then(|a| match a {
+    pub fn get_bool(&self, trx: &WorkspaceTransaction, key: String) -> Option<i64> {
+        self.0.get(&trx.0.trx, &key).and_then(|a| match a {
             Any::Bool(i) => Some(i.into()),
             _ => None,
         })
     }
 
     #[generate_interface]
-    pub fn get_string(&self, key: String) -> Option<String> {
-        self.0.get(&key).and_then(|a| match a {
+    pub fn get_string(&self, trx: &WorkspaceTransaction, key: String) -> Option<String> {
+        self.0.get(&trx.0.trx, &key).and_then(|a| match a {
             Any::String(i) => Some(i.into()),
             _ => None,
         })
     }
 
     #[generate_interface]
-    pub fn get_float(&self, key: String) -> Option<f64> {
-        self.0.get(&key).and_then(|a| match a {
+    pub fn get_float(&self, trx: &WorkspaceTransaction, key: String) -> Option<f64> {
+        self.0.get(&trx.0.trx, &key).and_then(|a| match a {
             Any::Number(i) => Some(i),
             _ => None,
         })
     }
 
     #[generate_interface]
-    pub fn get_integer(&self, key: String) -> Option<i64> {
-        self.0.get(&key).and_then(|a| match a {
+    pub fn get_integer(&self, trx: &WorkspaceTransaction, key: String) -> Option<i64> {
+        self.0.get(&trx.0.trx, &key).and_then(|a| match a {
             Any::BigInt(i) => Some(i),
             _ => None,
         })
@@ -109,34 +116,34 @@ impl Block {
     }
 
     #[generate_interface]
-    pub fn flavor(&self) -> String {
-        self.0.flavor()
+    pub fn flavor(&self, trx: &WorkspaceTransaction) -> String {
+        self.0.flavor(&trx.0.trx)
     }
 
     #[generate_interface]
-    pub fn version(&self) -> String {
-        let [major, minor] = self.0.version();
+    pub fn version(&self, trx: &WorkspaceTransaction) -> String {
+        let [major, minor] = self.0.version(&trx.0.trx);
         format!("{major}.{minor}")
     }
 
     #[generate_interface]
-    pub fn created(&self) -> u64 {
-        self.0.created()
+    pub fn created(&self, trx: &WorkspaceTransaction) -> u64 {
+        self.0.created(&trx.0.trx)
     }
 
     #[generate_interface]
-    pub fn updated(&self) -> u64 {
-        self.0.updated()
+    pub fn updated(&self, trx: &WorkspaceTransaction) -> u64 {
+        self.0.updated(&trx.0.trx)
     }
 
     #[generate_interface]
-    pub fn parent(&self) -> Option<String> {
-        self.0.parent()
+    pub fn parent(&self, trx: &WorkspaceTransaction) -> Option<String> {
+        self.0.parent(&trx.0.trx)
     }
 
     #[generate_interface]
-    pub fn children(&self) -> Vec<String> {
-        self.0.children()
+    pub fn children(&self, trx: &WorkspaceTransaction) -> Vec<String> {
+        self.0.children(&trx.0.trx)
     }
 
     #[generate_interface]
@@ -177,9 +184,9 @@ impl Block {
     }
 
     #[generate_interface]
-    pub fn exists_children(&self, block_id: &str) -> i32 {
+    pub fn exists_children(&self, trx: &WorkspaceTransaction, block_id: &str) -> i32 {
         self.0
-            .exists_children(block_id)
+            .exists_children(&trx.0.trx, block_id)
             .map(|i| i as i32)
             .unwrap_or(-1)
     }

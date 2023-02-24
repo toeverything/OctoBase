@@ -8,9 +8,11 @@ use axum::{
     response::{IntoResponse, Response},
     Extension, Json,
 };
-use cloud_database::{Claims, CreatePermission, PermissionType, UserCred, WorkspaceMetadata};
+use chrono::prelude::*;
+use cloud_database::{Claims, CreatePermission, PermissionType, UserCred};
+use futures::StreamExt;
 use http::StatusCode;
-use jwst::error;
+use jwst::{error, BlobStorage};
 use lettre::{
     message::{Mailbox, MultiPart, SinglePart},
     AsyncTransport, Message,
@@ -52,14 +54,18 @@ async fn make_invite_email(
     invite_code: &str,
 ) -> Option<(String, MultiPart)> {
     let metadata = {
-        let ws = ctx.doc.get_workspace(workspace_id).await;
+        let ws = ctx.storage.get_workspace(workspace_id.clone()).await.ok()?;
 
         let ws = ws.read().await;
-
-        WorkspaceMetadata::parse(ws.metadata())?
+        ws.metadata()
     };
 
-    // let mut file = ctx.blob.get_blob(None, metadata.avatar).await.ok()?;
+    // let mut file = ctx
+    //     .storage
+    //     .blobs()
+    //     .get_blob(Some(workspace_id.clone()), metadata.avatar.clone().unwrap())
+    //     .await
+    //     .ok()?;
 
     // let mut file_content = Vec::new();
     // while let Some(chunk) = file.next().await {
@@ -81,7 +87,7 @@ async fn make_invite_email(
             "MAIL_INVITE_TITLE",
             &Title {
                 inviter_name: claims.user.name.clone(),
-                workspace_name: metadata.name.clone(),
+                workspace_name: metadata.name.clone().unwrap_or_default(),
             },
         )
         .ok()?;
@@ -92,9 +98,11 @@ async fn make_invite_email(
         site_url: String,
         avatar_url: String,
         workspace_name: String,
+        // workspace_avatar: String,
         invite_code: String,
+        current_year: i32,
     }
-
+    let dt = Utc::now();
     let content = ctx
         .mail
         .template
@@ -104,8 +112,10 @@ async fn make_invite_email(
                 inviter_name: claims.user.name.clone(),
                 site_url: ctx.site_url.clone(),
                 avatar_url: claims.user.avatar_url.to_owned().unwrap_or("".to_string()),
-                workspace_name: metadata.name,
+                workspace_name: metadata.name.unwrap_or_default(),
                 invite_code: invite_code.to_string(),
+                current_year: dt.year(),
+                // workspace_avatar: workspace_avatar.encoding().to_string(),
             },
         )
         .ok()?;
@@ -164,7 +174,7 @@ pub async fn invite_member(
             .await;
     }
 
-    let encrypted = ctx.encrypt_aes(&permission_id.to_le_bytes()[..]);
+    let encrypted = ctx.encrypt_aes(permission_id.as_bytes());
 
     let invite_code = URL_SAFE_ENGINE.encode(encrypted);
 
@@ -229,11 +239,15 @@ pub async fn accept_invitation(
         return ErrorStatus::BadRequest.into_response();
     };
 
-    let Ok(data) = TryInto::<[u8; 8]>::try_into(data) else {
-        return ErrorStatus::BadRequest.into_response();
-    };
+    // let Ok(data) = TryInto::<[u8; 8]>::try_into(data) else {
+    //     return ErrorStatus::BadRequest.into_response();
+    // };
 
-    match ctx.db.accept_permission(i64::from_le_bytes(data)).await {
+    match ctx
+        .db
+        .accept_permission(String::from_utf8(data).unwrap())
+        .await
+    {
         Ok(Some(p)) => Json(p).into_response(),
         Ok(None) => ErrorStatus::NotFoundInvitation.into_response(),
         Err(e) => {
@@ -250,10 +264,17 @@ pub async fn leave_workspace(
 ) -> Response {
     match ctx
         .db
-        .delete_permission_by_query(claims.user.id.clone(), id)
+        .delete_permission_by_query(claims.user.id.clone(), id.clone())
         .await
     {
-        Ok(true) => StatusCode::OK.into_response(),
+        Ok(true) => {
+            ctx.user_channel
+                .update_user(claims.user.id.clone(), ctx.clone());
+            ctx.close_websocket(id.clone(), claims.user.id.clone())
+                .await;
+
+            StatusCode::OK.into_response()
+        }
         Ok(false) => StatusCode::OK.into_response(),
         Err(e) => {
             error!("Failed to leave workspace: {}", e);
@@ -265,11 +286,11 @@ pub async fn leave_workspace(
 pub async fn remove_user(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    Path(id): Path<i64>,
+    Path(id): Path<String>,
 ) -> Response {
     match ctx
         .db
-        .get_permission_by_permission_id(claims.user.id.clone(), id)
+        .get_permission_by_permission_id(claims.user.id.clone(), id.clone())
         .await
     {
         Ok(Some(p)) if p.can_admin() => (),
@@ -278,11 +299,31 @@ pub async fn remove_user(
             error!("Failed to get permission: {}", e);
             return ErrorStatus::InternalServerError.into_response();
         }
-    }
+    };
 
+    let permission_model = ctx
+        .db
+        .get_permission_by_id(id.clone())
+        .await
+        .unwrap()
+        .unwrap();
     match ctx.db.delete_permission(id).await {
-        Ok(true) => StatusCode::OK.into_response(),
-        Ok(false) => StatusCode::OK.into_response(),
+        Ok(true) => {
+            if let Some(user_id) = permission_model.user_id {
+                ctx.user_channel.update_user(user_id.clone(), ctx.clone());
+                ctx.close_websocket(permission_model.workspace_id.clone(), user_id.clone())
+                    .await;
+            };
+            StatusCode::OK.into_response()
+        }
+        Ok(false) => {
+            if let Some(user_id) = permission_model.user_id {
+                ctx.user_channel.update_user(user_id.clone(), ctx.clone());
+                ctx.close_websocket(permission_model.workspace_id.clone(), user_id.clone())
+                    .await;
+            };
+            StatusCode::OK.into_response()
+        }
         Err(e) => {
             error!("Failed to remove user: {}", e);
             ErrorStatus::InternalServerError.into_response()

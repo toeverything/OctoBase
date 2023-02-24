@@ -10,7 +10,7 @@ use axum::{
 use base64::Engine;
 use chrono::{Duration, Utc};
 use cloud_database::{
-    Claims, MakeToken, RefreshToken, UpdateWorkspace, UserQuery, UserToken, UserWithNonce,
+    Claims, MakeToken, RefreshToken, UpdateWorkspace, User, UserQuery, UserToken,
     WorkspaceSearchInput,
 };
 use http::StatusCode;
@@ -21,7 +21,7 @@ use tower::ServiceBuilder;
 
 use crate::{
     context::Context, error_status::ErrorStatus, layer::make_firebase_auth_layer,
-    login::ThirdPartyLogin, utils::URL_SAFE_ENGINE,
+    utils::URL_SAFE_ENGINE,
 };
 
 mod ws;
@@ -40,6 +40,11 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/invitation/:path", post(permissions::accept_invitation))
         .nest_service("/global/sync", get(global_ws_handler))
         .route("/public/doc/:id", get(get_public_doc))
+        // TODO: Will consider this permission in the future
+        .route(
+            "/workspace/:id/blob/:name",
+            get(blobs::get_blob_in_workspace),
+        )
         .nest(
             "/",
             Router::new()
@@ -62,10 +67,6 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
                 .route("/workspace/:id/doc", get(get_doc))
                 .route("/workspace/:id/search", post(search_workspace))
                 .route("/workspace/:id/blob", put(blobs::upload_blob_in_workspace))
-                .route(
-                    "/workspace/:id/blob/:name",
-                    get(blobs::get_blob_in_workspace),
-                )
                 .route("/permission/:id", delete(permissions::remove_user))
                 .layer(
                     ServiceBuilder::new()
@@ -105,7 +106,7 @@ async fn make_token(
         MakeToken::User(user) => (ctx.db.user_login(user).await, None),
         MakeToken::Google { token } => (
             if let Some(claims) = ctx.decode_google_token(token).await {
-                ctx.google_user_login(&claims).await.map(Some)
+                ctx.db.google_user_login(&claims).await.map(Some)
             } else {
                 Ok(None)
             },
@@ -136,12 +137,12 @@ async fn make_token(
     };
 
     match user {
-        Ok(Some(UserWithNonce { user, token_nonce })) => {
+        Ok(Some(user)) => {
             let refresh = refresh.unwrap_or_else(|| {
                 let refresh = RefreshToken {
                     expires: Utc::now().naive_utc() + Duration::days(180),
                     user_id: user.id.clone(),
-                    token_nonce,
+                    token_nonce: user.token_nonce.unwrap(),
                 };
 
                 let json = serde_json::to_string(&refresh).unwrap();
@@ -153,7 +154,13 @@ async fn make_token(
 
             let claims = Claims {
                 exp: Utc::now().naive_utc() + Duration::minutes(10),
-                user,
+                user: User {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    avatar_url: user.avatar_url,
+                    created_at: user.created_at.unwrap_or_default().naive_local(),
+                },
             };
             let token = ctx.sign_jwt(&claims);
 
@@ -264,7 +271,9 @@ async fn delete_workspace(
         Ok(true) => {
             ctx.user_channel
                 .update_workspace(workspace_id.clone(), ctx.clone());
-            let _ = ctx.blob.delete_workspace(workspace_id).await;
+            ctx.close_websocket_by_workspace(workspace_id.clone()).await;
+
+            let _ = ctx.storage.blobs().delete_workspace(workspace_id).await;
             StatusCode::OK.into_response()
         }
         Ok(false) => ErrorStatus::NotFoundWorkspace(workspace_id).into_response(),
@@ -313,16 +322,18 @@ pub async fn get_public_doc(
 }
 
 async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response {
-    ctx.doc
-        .get_workspace(workspace_id)
-        .await
-        .read()
-        .await
-        .sync_migration()
-        .into_response()
+    match ctx.storage.get_workspace(workspace_id).await {
+        Ok(workspace) => workspace.read().await.sync_migration().into_response(),
+        Err(e) => {
+            error!("Failed to get workspace: {:?}", e);
+            ErrorStatus::InternalServerError.into_response()
+        }
+    }
 }
 
-/// Resolves to [WorkspaceSearchResults]
+/// Resolves to [`SearchResults`]
+///
+/// [`SearchResults`]: jwst::SearchResults
 async fn search_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,

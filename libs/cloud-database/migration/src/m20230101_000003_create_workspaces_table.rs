@@ -13,20 +13,17 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(
                         ColumnDef::new(Workspaces::Id)
-                            .big_integer()
+                            .string()
                             .not_null()
-                            .auto_increment()
                             .primary_key(),
-                    )
-                    .col(
-                        ColumnDef::new(Workspaces::Uuid)
-                            .string_len(36)
-                            .not_null()
-                            .unique_key(),
                     )
                     .col(ColumnDef::new(Workspaces::Public).boolean().not_null())
                     .col(ColumnDef::new(Workspaces::Type).small_integer().not_null())
-                    .col(ColumnDef::new(Workspaces::CreatedAt).timestamp().not_null())
+                    .col(
+                        ColumnDef::new(Workspaces::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .default(Expr::current_timestamp()),
+                    )
                     .to_owned(),
             )
             .await
@@ -42,8 +39,7 @@ impl MigrationTrait for Migration {
 #[derive(Iden)]
 pub enum Workspaces {
     Table,
-    Id,        // BIGSERIAL PRIMARY KEY,
-    Uuid,      // CHAR(36) UNIQUE(uuid),
+    Id,        // STRING PRIMARY KEY,
     Public,    // BOOL NOT NULL,
     Type,      // SMALLINT NOT NULL,
     CreatedAt, // TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

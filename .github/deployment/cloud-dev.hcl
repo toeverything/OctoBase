@@ -126,10 +126,8 @@ EOH
         change_mode = "noop"
         destination = "local/init.sql"
         data        = <<EOH
-CREATE DATABASE affine_blobs;
-CREATE DATABASE affine_docs;
-GRANT ALL PRIVILEGES ON DATABASE affine_blobs TO affine;
-GRANT ALL PRIVILEGES ON DATABASE affine_docs TO affine;
+CREATE DATABASE affine_binary;
+GRANT ALL PRIVILEGES ON DATABASE affine_binary TO affine;
 EOH
       }
 

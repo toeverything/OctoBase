@@ -83,11 +83,11 @@ impl UserChannel {
         self.remove_user_observe(user_id.clone());
         if let Ok(data) = context.db.get_user_workspaces(user_id.clone()).await {
             data.iter().for_each(|item| {
-                let mut user_option_set = self.workspace_map.get(&item.workspace.id.to_string());
+                let mut user_option_set = self.workspace_map.get(&item.id.to_string());
                 if user_option_set.is_none() {
                     self.workspace_map
-                        .insert(item.workspace.id.to_string(), DashSet::new());
-                    user_option_set = self.workspace_map.get(&item.workspace.id.to_string());
+                        .insert(item.id.to_string(), DashSet::new());
+                    user_option_set = self.workspace_map.get(&item.id.to_string());
                 }
                 let user_set = user_option_set.unwrap();
                 user_set.insert(user_id.clone());
@@ -138,15 +138,19 @@ impl UserChannel {
         for item in workspace_list.iter() {
             let workspace_detail = context
                 .db
-                .get_workspace_by_id(item.workspace.id.clone())
+                .get_workspace_by_id(item.id.clone())
                 .await
                 .unwrap();
-            workspace_detail_list.insert(item.workspace.id.to_string(), workspace_detail);
-            let workspace = context.doc.get_workspace(item.workspace.id.clone()).await;
-            workspace_metadata_list.insert(
-                item.workspace.id.to_string(),
-                workspace.read().await.metadata().to_json(),
-            );
+            workspace_detail_list.insert(item.id.to_string(), workspace_detail);
+
+            if let Ok(workspace) = context.storage.get_workspace(item.id.clone()).await {
+                workspace_metadata_list.insert(
+                    item.id.to_string(),
+                    workspace.read().await.metadata().into(),
+                );
+            } else {
+                error!("get workspace metadata error: {}", item.id)
+            }
         }
         AllWorkspaceInfo {
             ws_list: workspace_list,

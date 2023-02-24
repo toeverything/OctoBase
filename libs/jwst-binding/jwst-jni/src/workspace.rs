@@ -1,22 +1,17 @@
 use super::{
-    generate_interface, Block, JwstStorage, JwstWorkspace, OnWorkspaceTransaction,
-    WorkspaceTransaction,
+    generate_interface, Block, JwstWorkspace, OnWorkspaceTransaction, WorkspaceTransaction,
 };
-use jwst::{error, info};
-use yrs::{Subscription, UpdateEvent};
+use yrs::UpdateSubscription;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
-    sub: Option<Subscription<UpdateEvent>>,
+    pub(crate) sub: Option<UpdateSubscription>,
 }
 
 impl Workspace {
     #[generate_interface(constructor)]
-    pub fn new(id: String) -> Workspace {
-        Self {
-            workspace: JwstWorkspace::new(id),
-            sub: None,
-        }
+    pub fn new(_id: String) -> Workspace {
+        unimplemented!("Workspace::new")
     }
 
     #[generate_interface]
@@ -30,35 +25,24 @@ impl Workspace {
     }
 
     #[generate_interface]
-    pub fn get(&self, block_id: String) -> Option<Block> {
-        self.workspace.get(block_id).map(Block)
+    pub fn get(&self, trx: &WorkspaceTransaction, block_id: String) -> Option<Block> {
+        self.workspace.get(&trx.0.trx, block_id).map(Block)
     }
 
     #[generate_interface]
-    pub fn exists(&self, block_id: &str) -> bool {
-        self.workspace.exists(block_id)
+    pub fn exists(&self, trx: &WorkspaceTransaction, block_id: &str) -> bool {
+        self.workspace.exists(&trx.0.trx, block_id)
     }
 
     #[generate_interface]
-    pub fn with_trx(&self, on_trx: Box<dyn OnWorkspaceTransaction>) {
+    pub fn with_trx(&self, on_trx: Box<dyn OnWorkspaceTransaction>) -> bool {
         self.workspace
-            .with_trx(|trx| on_trx.on_trx(WorkspaceTransaction(trx)))
+            .try_with_trx(|trx| on_trx.on_trx(WorkspaceTransaction(trx)))
+            .is_some()
     }
 
     #[generate_interface]
-    pub fn with_storage(&mut self, storage: JwstStorage, remote: String) {
-        let id = self.id();
-        storage.reload(id.clone(), self.workspace.doc());
-        info!("remote: {}", remote);
-        if !remote.is_empty() {
-            if let Err(e) = storage.connect(id.clone(), remote) {
-                error!("Failed to connect to remote: {}", e);
-            }
-        }
-        self.sub = Some(self.workspace.observe(move |_, e| {
-            if let Err(e) = storage.write_update(id.clone(), &e.update) {
-                error!("Failed to write update to storage: {}", e);
-            }
-        }));
+    pub fn drop_trx(&self, trx: WorkspaceTransaction) {
+        drop(trx)
     }
 }

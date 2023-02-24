@@ -40,7 +40,8 @@ fn subscribe_handler(
     uuid: String,
     ws_id: String,
 ) {
-    let sub = workspace.observe(move |_, e| {
+    if let Some(sub) = workspace.observe(move |_, e| {
+        debug!("workspace changed: {}, {:?}", ws_id, &e.update);
         let update = sync_encode_update(&e.update);
 
         let context = context.clone();
@@ -51,8 +52,10 @@ fn subscribe_handler(
 
             for item in context.channel.iter() {
                 let ((ws, id), tx) = item.pair();
+                debug!("workspace send: {}, {}", ws_id, id);
                 if &ws_id == ws && id != &uuid {
                     if tx.is_closed() {
+                        debug!("workspace closed: {}, {}", ws_id, id);
                         closed.push(id.clone());
                     } else if let Err(e) = tx.send(Message::Binary(update.clone())).await {
                         if !tx.is_closed() {
@@ -65,8 +68,11 @@ fn subscribe_handler(
                 context.channel.remove(&(ws_id.clone(), id));
             }
         });
-    });
-    std::mem::forget(sub);
+    }) {
+        std::mem::forget(sub);
+    } else {
+        error!("on observe error");
+    }
 }
 
 async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Context>) {
@@ -97,9 +103,14 @@ async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Con
             loop {
                 sleep(Duration::from_secs(10)).await;
 
-                if let Some(workspace) = context.workspace.get(&workspace_id) {
+                if let Ok(workspace) = context.storage.get_workspace(&workspace_id).await {
                     let update = workspace.read().await.sync_migration();
-                    if let Err(e) = context.docs.full_migrate(&workspace_id, update).await {
+                    if let Err(e) = context
+                        .storage
+                        .docs()
+                        .full_migrate(&workspace_id, update)
+                        .await
+                    {
                         error!("db write error: {}", e.to_string());
                     }
                 } else {
@@ -115,7 +126,7 @@ async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Con
         .insert((workspace_id.clone(), uuid.clone()), tx.clone());
 
     if let Ok(init_data) = {
-        let ws = match init_workspace(&context, &workspace_id).await {
+        let ws = match context.storage.create_workspace(&workspace_id).await {
             Ok(doc) => doc,
             Err(e) => {
                 error!("Failed to init doc: {}", e);
@@ -143,8 +154,12 @@ async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Con
     while let Some(msg) = socket_rx.next().await {
         if let Ok(Message::Binary(binary)) = msg {
             let payload = {
-                let workspace = context.workspace.get(&workspace_id).unwrap();
-                let mut workspace = workspace.value().write().await;
+                let workspace = context
+                    .storage
+                    .get_workspace(&workspace_id)
+                    .await
+                    .expect("workspace not found");
+                let mut workspace = workspace.write().await;
 
                 use std::panic::{catch_unwind, AssertUnwindSafe};
                 catch_unwind(AssertUnwindSafe(|| workspace.sync_decode_message(&binary)))
@@ -154,9 +169,10 @@ async fn handle_socket(socket: WebSocket, workspace_id: String, context: Arc<Con
                     if let Err(e) = tx.send(Message::Binary(reply)).await {
                         if !tx.is_closed() {
                             error!("socket send error: {}", e.to_string());
+                        } else {
+                            // client disconnected
+                            return;
                         }
-                        // client disconnected
-                        return;
                     }
                 }
             }

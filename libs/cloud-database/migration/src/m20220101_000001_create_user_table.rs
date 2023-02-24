@@ -11,19 +11,7 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Users::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(Users::Id)
-                            .integer()
-                            .auto_increment()
-                            .not_null()
-                            .primary_key(),
-                    )
-                    .col(
-                        ColumnDef::new(Users::Uuid)
-                            .char_len(36)
-                            .not_null()
-                            .unique_key(),
-                    )
+                    .col(ColumnDef::new(Users::Id).string().not_null().primary_key())
                     .col(ColumnDef::new(Users::Name).string().not_null())
                     .col(
                         ColumnDef::new(Users::Email)
@@ -36,8 +24,8 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Users::Password).string())
                     .col(
                         ColumnDef::new(Users::CreatedAt)
-                            .timestamp()
-                            .default("CURRENT_TIMESTAMP"),
+                            .timestamp_with_time_zone()
+                            .default(Expr::current_timestamp()),
                     )
                     .to_owned(),
             )
@@ -54,8 +42,7 @@ impl MigrationTrait for Migration {
 #[derive(Iden)]
 pub enum Users {
     Table,
-    Id,         // SERIAL PRIMARY KEY,
-    Uuid,       // CHAR(36),
+    Id,         // STRING PRIMARY KEY,
     Name,       // TEXT NOT NULL,
     Email,      // TEXT NOT NULL Unique,
     AvatarUrl,  // TEXT,

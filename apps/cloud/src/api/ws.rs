@@ -80,10 +80,10 @@ fn subscribe_handler(
             let mut closed = vec![];
 
             for item in context.channel.iter() {
-                let ((ws, id), tx) = item.pair();
+                let ((ws, user_id, id), tx) = item.pair();
                 if &ws_id == ws && id != &uuid {
                     if tx.is_closed() {
-                        closed.push(id.clone());
+                        closed.push((user_id.clone(), id.clone()));
                     } else if let Err(e) = tx.send(Message::Binary(update.clone())).await {
                         if !tx.is_closed() {
                             error!("on observe_update error: {}", e);
@@ -91,8 +91,9 @@ fn subscribe_handler(
                     }
                 }
             }
-            for id in closed {
-                context.channel.remove(&(ws_id.clone(), id));
+            for close in closed {
+                let (user_id, id) = close;
+                context.channel.remove(&(ws_id.clone(), user_id, id));
             }
         });
     });
@@ -128,10 +129,10 @@ fn subscribe_awareness_handler(
                 let mut closed = vec![];
 
                 for item in context.channel.iter() {
-                    let ((ws, id), tx) = item.pair();
+                    let ((ws, user_id, id), tx) = item.pair();
                     if &ws_id == ws && id != &uuid {
                         if tx.is_closed() {
-                            closed.push(id.clone());
+                            closed.push((user_id.clone(), id.clone()));
                         } else if let Err(e) = tx.send(Message::Binary(update.clone())).await {
                             if !tx.is_closed() {
                                 error!("on awareness_update error: {}", e);
@@ -139,8 +140,9 @@ fn subscribe_awareness_handler(
                         }
                     }
                 }
-                for id in closed {
-                    context.channel.remove(&(ws_id.clone(), id));
+                for close in closed {
+                    let (user_id, id) = close;
+                    context.channel.remove(&(ws_id.clone(), user_id, id));
                 }
             });
         }
@@ -204,18 +206,26 @@ async fn handle_socket(
             loop {
                 sleep(Duration::from_secs(10)).await;
 
-                context.doc.full_migrate(workspace_id.clone(), None).await;
+                context
+                    .storage
+                    .full_migrate(workspace_id.clone(), None)
+                    .await;
             }
         });
     }
 
     let uuid = Uuid::new_v4().to_string();
-    context
-        .channel
-        .insert((workspace_id.clone(), uuid.clone()), tx.clone());
+    context.channel.insert(
+        (workspace_id.clone(), user_id.clone(), uuid.clone()),
+        tx.clone(),
+    );
 
     if let Ok(init_data) = {
-        let ws = context.doc.get_workspace(workspace_id.clone()).await;
+        let ws = context
+            .storage
+            .create_workspace(workspace_id.clone())
+            .await
+            .expect("create workspace failed, please check if the workspace_id is valid or not");
 
         let mut ws = ws.write().await;
 
@@ -226,12 +236,12 @@ async fn handle_socket(
         ws.sync_init_message()
     } {
         if tx.send(Message::Binary(init_data)).await.is_err() {
-            context.channel.remove(&(workspace_id, uuid));
+            context.channel.remove(&(workspace_id, user_id, uuid));
             // client disconnected
             return;
         }
     } else {
-        context.channel.remove(&(workspace_id, uuid));
+        context.channel.remove(&(workspace_id, user_id, uuid));
         // client disconnected
         return;
     }
@@ -239,7 +249,11 @@ async fn handle_socket(
     while let Some(msg) = socket_rx.next().await {
         if let Ok(Message::Binary(binary)) = msg {
             let payload = {
-                let workspace = context.doc.get_workspace(workspace_id.clone()).await;
+                let workspace = context
+                    .storage
+                    .get_workspace(workspace_id.clone())
+                    .await
+                    .expect("workspace not found");
                 let mut workspace = workspace.write().await;
 
                 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -259,5 +273,5 @@ async fn handle_socket(
         }
     }
 
-    context.channel.remove(&(workspace_id, uuid));
+    context.channel.remove(&(workspace_id, user_id, uuid));
 }

@@ -24,11 +24,11 @@ pub async fn get_block(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
 ) -> Response {
-    let (workspace, block) = params;
-    info!("get_block: {}, {}", workspace, block);
-    if let Some(workspace) = context.workspace.get(&workspace) {
-        let workspace = workspace.value().read().await;
-        if let Some(block) = workspace.get(block) {
+    let (ws_id, block) = params;
+    info!("get_block: {}, {}", ws_id, block);
+    if let Ok(workspace) = context.storage.get_workspace(ws_id).await {
+        let workspace = workspace.read().await;
+        if let Some(block) = workspace.with_trx(|t| workspace.get(&t.trx, block)) {
             Json(block).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
@@ -67,8 +67,7 @@ pub async fn set_block(
 ) -> Response {
     let (ws_id, block) = params;
     info!("set_block: {}, {}", ws_id, block);
-    if let Some(workspace) = context.workspace.get(&ws_id) {
-        // init block instance
+    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         let workspace = workspace.read().await;
 
         let mut update = None;
@@ -76,6 +75,7 @@ pub async fn set_block(
         // set block content
         let block = workspace.with_trx(|mut t| {
             let block = t.create(&block, "text");
+
             // set block content
             if let Some(block_content) = payload.as_object() {
                 let mut changed = false;
@@ -95,7 +95,7 @@ pub async fn set_block(
         });
 
         if let Some(update) = update {
-            if let Err(e) = context.docs.update(&ws_id, update).await {
+            if let Err(e) = context.storage.docs().update(&ws_id, update).await {
                 error!("db write error: {}", e.to_string());
             }
         }
@@ -128,16 +128,18 @@ pub async fn get_block_history(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
 ) -> Response {
-    let (workspace, block) = params;
-    info!("get_block_history: {}, {}", workspace, block);
-    if let Some(workspace) = context.workspace.get(&workspace) {
-        // init block instance
-        let workspace = workspace.value().read().await;
-        if let Some(block) = workspace.get(block) {
-            Json(&block.history()).into_response()
-        } else {
-            StatusCode::NOT_FOUND.into_response()
-        }
+    let (ws_id, block) = params;
+    info!("get_block_history: {}, {}", ws_id, block);
+    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+        let workspace = workspace.read().await;
+
+        workspace.with_trx(|t| {
+            if let Some(block) = workspace.get(&t.trx, block) {
+                Json(&block.history(&t.trx)).into_response()
+            } else {
+                StatusCode::NOT_FOUND.into_response()
+            }
+        })
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
@@ -166,8 +168,8 @@ pub async fn delete_block(
 ) -> StatusCode {
     let (ws_id, block) = params;
     info!("delete_block: {}, {}", ws_id, block);
-    if let Some(workspace) = context.workspace.get(&ws_id) {
-        let workspace = workspace.value().read().await;
+    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+        let workspace = workspace.read().await;
 
         if let Some(update) = workspace.with_trx(|mut t| {
             if t.remove(&block) {
@@ -176,7 +178,7 @@ pub async fn delete_block(
                 None
             }
         }) {
-            if let Err(e) = context.docs.update(&ws_id, update).await {
+            if let Err(e) = context.storage.docs().update(&ws_id, update).await {
                 error!("db write error: {}", e.to_string());
             }
             return StatusCode::NO_CONTENT;
@@ -208,13 +210,15 @@ pub async fn get_block_children(
     Path(params): Path<(String, String)>,
     Query(pagination): Query<Pagination>,
 ) -> Response {
-    let (workspace, block) = params;
+    let (ws_id, block) = params;
     let Pagination { offset, limit } = pagination;
-    info!("get_block_children: {}, {}", workspace, block);
-    if let Some(workspace) = context.workspace.get(&workspace) {
-        let workspace = workspace.value().read().await;
-        if let Some(block) = workspace.get(&block) {
-            let data: Vec<String> = block.children_iter().skip(offset).take(limit).collect();
+    info!("get_block_children: {}, {}", ws_id, block);
+    if let Ok(workspace) = context.storage.get_workspace(ws_id).await {
+        let workspace = workspace.read().await;
+
+        if let Some(block) = workspace.with_trx(|t| workspace.get(&t.trx, &block)) {
+            let data: Vec<String> =
+                block.children_iter(|children| children.skip(offset).take(limit).collect());
 
             let status = if data.is_empty() {
                 StatusCode::NOT_FOUND
@@ -268,35 +272,35 @@ pub async fn insert_block_children(
 ) -> Response {
     let (ws_id, block) = params;
     info!("insert_block: {}, {}", ws_id, block);
-    if let Some(workspace) = context.workspace.get(&ws_id) {
-        // init block instance
-        let workspace = workspace.value().read().await;
+    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+        let workspace = workspace.read().await;
+
         let mut update = None;
 
-        if let Some(block) = workspace.get(block) {
+        if let Some(block) = workspace.with_trx(|t| workspace.get(&t.trx, block)) {
             let block = workspace.with_trx(|mut t| {
                 let mut changed = false;
                 match payload {
                     InsertChildren::Push(block_id) => {
-                        if let Some(child) = workspace.get(block_id) {
+                        if let Some(child) = workspace.get(&t.trx, block_id) {
                             changed = true;
                             block.push_children(&mut t.trx, &child)
                         }
                     }
                     InsertChildren::InsertBefore { id, before } => {
-                        if let Some(child) = workspace.get(id) {
+                        if let Some(child) = workspace.get(&t.trx, id) {
                             changed = true;
                             block.insert_children_before(&mut t.trx, &child, &before)
                         }
                     }
                     InsertChildren::InsertAfter { id, after } => {
-                        if let Some(child) = workspace.get(id) {
+                        if let Some(child) = workspace.get(&t.trx, id) {
                             changed = true;
                             block.insert_children_after(&mut t.trx, &child, &after)
                         }
                     }
                     InsertChildren::InsertAt { id, pos } => {
-                        if let Some(child) = workspace.get(id) {
+                        if let Some(child) = workspace.get(&t.trx, id) {
                             changed = true;
                             block.insert_children_at(&mut t.trx, &child, pos)
                         }
@@ -311,7 +315,7 @@ pub async fn insert_block_children(
             });
 
             if let Some(update) = update {
-                if let Err(e) = context.docs.update(&ws_id, update).await {
+                if let Err(e) = context.storage.docs().update(&ws_id, update).await {
                     error!("db write error: {}", e.to_string());
                 }
             }
@@ -349,21 +353,23 @@ pub async fn remove_block_children(
 ) -> Response {
     let (ws_id, block, child_id) = params;
     info!("insert_block: {}, {}", ws_id, block);
-    if let Some(workspace) = context.workspace.get(&ws_id) {
-        // init block instance
-        let workspace = workspace.value().read().await;
-        if let Some(block) = workspace.get(&block) {
-            if let Some(child) = workspace.get(&child_id) {
-                let update = workspace.with_trx(|mut t| {
-                    block.remove_children(&mut t.trx, &child);
-                    t.trx.encode_update_v1()
-                });
+    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+        let workspace = workspace.read().await;
 
-                if let Err(e) = context.docs.update(&ws_id, update).await {
-                    error!("db write error: {}", e.to_string());
+        if let Some(update) = workspace.with_trx(|mut t| {
+            if let Some(block) = workspace.get(&t.trx, &block) {
+                if block.children_exists(&t.trx, &child_id) {
+                    if let Some(child) = workspace.get(&t.trx, &child_id) {
+                        block.remove_children(&mut t.trx, &child);
+                        return Some(t.trx.encode_update_v1());
+                    }
                 }
             }
-
+            None
+        }) {
+            if let Err(e) = context.storage.docs().update(&ws_id, update).await {
+                error!("db write error: {}", e.to_string());
+            }
             // response block content
             Json(block).into_response()
         } else {

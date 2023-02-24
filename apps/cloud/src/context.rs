@@ -1,25 +1,20 @@
-use super::constants;
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
-use axum::extract::ws::Message;
+use axum::extract::ws::{self, Message};
 use chrono::{NaiveDateTime, Utc};
-use cloud_database::PostgresDBContext;
+use cloud_components::MailContext;
+use cloud_database::CloudDatabase;
 use cloud_database::{Claims, GoogleClaims};
 use dashmap::DashMap;
-use handlebars::Handlebars;
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
-use jwst::{DocStorage, SearchResults, Workspace};
+use jwst::SearchResults;
 use jwst_logger::{error, info};
-use jwst_storage::{BlobAutoStorage, DocAutoStorage};
-use lettre::{
-    message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
-    Tokio1Executor,
-};
+use jwst_storage::JwstStorage;
 use rand::{thread_rng, Rng};
 use reqwest::Client;
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{RwLock, RwLockReadGuard};
 use x509_parser::prelude::parse_x509_pem;
@@ -39,65 +34,15 @@ struct FirebaseContext {
     pub_key: HashMap<String, DecodingKey>,
 }
 
-pub struct MailContext {
-    pub client: AsyncSmtpTransport<Tokio1Executor>,
-    pub mail_box: Mailbox,
-    pub template: Handlebars<'static>,
-}
-
-pub struct DocStore {
-    pub storage: DocAutoStorage,
-}
-
-impl DocStore {
-    async fn new() -> Self {
-        let database_url = dotenvy::var("DATABASE_URL").expect("should provide doc storage path");
-
-        Self {
-            storage: DocAutoStorage::init_pool(&format!("{database_url}_docs"))
-                .await
-                .expect("Failed to init doc storage"),
-        }
-    }
-
-    pub async fn get_workspace(&self, workspace_id: String) -> Arc<RwLock<Workspace>> {
-        self.storage
-            .get(workspace_id.clone())
-            .await
-            .expect("Failed to get workspace")
-    }
-
-    pub async fn full_migrate(&self, workspace_id: String, update: Option<Vec<u8>>) -> bool {
-        if let Ok(workspace) = self.storage.get(workspace_id.clone()).await {
-            let update = if let Some(update) = update {
-                if let Err(e) = self.storage.delete(workspace_id.clone()).await {
-                    error!("full_migrate write error: {}", e.to_string());
-                    return false;
-                };
-                update
-            } else {
-                workspace.read().await.sync_migration()
-            };
-            if let Err(e) = self.storage.full_migrate(&workspace_id, update).await {
-                error!("db write error: {}", e.to_string());
-                return false;
-            }
-            return true;
-        }
-        false
-    }
-}
-
 pub struct Context {
     pub key: KeyContext,
     pub site_url: String,
     pub http_client: Client,
     firebase: RwLock<FirebaseContext>,
     pub mail: MailContext,
-    pub db: PostgresDBContext,
-    pub blob: BlobAutoStorage,
-    pub doc: DocStore,
-    pub channel: DashMap<(String, String), Sender<Message>>,
+    pub db: CloudDatabase,
+    pub storage: JwstStorage,
+    pub channel: DashMap<(String, String, String), Sender<Message>>,
     pub user_channel: UserChannel,
 }
 
@@ -121,64 +66,38 @@ impl Context {
             }
         };
 
-        let mail_name = dotenvy::var("MAIL_ACCOUNT").expect("should provide email name");
-        let mail_password = dotenvy::var("MAIL_PASSWORD").expect("should provide email password");
-
-        let creds = Credentials::new(mail_name, mail_password);
-
-        // Open a remote connection to gmail
-        let mail = {
-            let client = AsyncSmtpTransport::<Tokio1Executor>::relay(constants::MAIL_PROVIDER)
-                .unwrap()
-                .credentials(creds)
-                .build();
-
-            let mail_box = constants::MAIL_FROM
-                .parse()
-                .expect("should provide valid mail from");
-
-            let mut template = Handlebars::new();
-            template
-                .register_template_string("MAIL_INVITE_TITLE", constants::MAIL_INVITE_TITLE)
-                .expect("should provide valid email title");
-
-            let invite_file = constants::StaticFiles::get("invite.html").unwrap();
-            let invite_file = String::from_utf8_lossy(&invite_file.data);
-            template
-                .register_template_string("MAIL_INVITE_CONTENT", &invite_file)
-                .expect("should provide valid email file");
-
-            MailContext {
-                client,
-                mail_box,
-                template,
-            }
-        };
-
-        let firebase_id = dotenvy::var("FIREBASE_PROJECT_ID").expect("should provide Firebase ID");
+        let mail = MailContext::new(
+            dotenvy::var("MAIL_ACCOUNT").expect("should provide email name"),
+            dotenvy::var("MAIL_PASSWORD").expect("should provide email password"),
+        );
 
         let firebase = RwLock::new(FirebaseContext {
-            id: firebase_id,
+            id: dotenvy::var("FIREBASE_PROJECT_ID").expect("should provide Firebase ID"),
             expires: NaiveDateTime::MIN,
             pub_key: HashMap::new(),
         });
 
         let db_env = dotenvy::var("DATABASE_URL").expect("should provide database URL");
 
-        let blob = BlobAutoStorage::init_pool(&format!("{db_env}_blobs"))
-            .await
-            .expect("Cannot create database");
-
         let site_url = dotenvy::var("SITE_URL").expect("should provide site url");
 
+        let cloud_db = CloudDatabase::init_pool(&db_env)
+            .await
+            .expect("Cannot create cloud database");
+        let storage = JwstStorage::new(&format!(
+            "{}_binary",
+            dotenvy::var("DATABASE_URL").expect("should provide doc storage path")
+        ))
+        .await
+        .expect("Cannot create storage");
+
         Self {
-            db: PostgresDBContext::new(db_env).await,
+            db: cloud_db,
             key,
             firebase,
             mail,
             http_client: Client::new(),
-            doc: DocStore::new().await,
-            blob,
+            storage,
             site_url,
             channel: DashMap::new(),
             user_channel: UserChannel::new(),
@@ -201,14 +120,14 @@ impl Context {
             self.http_client.get(endpoint)
         };
 
-        let req = client.send().await.unwrap();
+        let resp = client.send().await.unwrap();
 
         let now = Utc::now().naive_utc();
-        let cache = req.headers().get(CACHE_CONTROL).unwrap().to_str().unwrap();
+        let cache = resp.headers().get(CACHE_CONTROL).unwrap().to_str().unwrap();
         let cache = CacheControl::parse(cache).unwrap();
         let expires = now + cache.max_age.unwrap();
 
-        let body: HashMap<String, String> = req.json().await.unwrap();
+        let body: HashMap<String, String> = resp.json().await.unwrap();
 
         let pub_key = body
             .into_iter()
@@ -303,10 +222,48 @@ impl Context {
         query_string: &str,
     ) -> Result<SearchResults, Box<dyn std::error::Error>> {
         let workspace_id = workspace_id.to_string();
-        let workspace_arc_rw = self.doc.get_workspace(workspace_id.clone()).await;
 
-        let search_results = workspace_arc_rw.write().await.search(query_string)?;
+        match self.storage.get_workspace(workspace_id.clone()).await {
+            Ok(workspace) => {
+                let search_results = workspace.write().await.search(query_string)?;
+                Ok(search_results)
+            }
+            Err(e) => {
+                error!("cannot get workspace: {}", e);
+                Err(Box::new(e))
+            }
+        }
+    }
 
-        Ok(search_results)
+    // TODO: this should be moved to another module
+    pub async fn close_websocket(&self, workspace: String, user: String) {
+        let mut closed = vec![];
+        for item in self.channel.iter() {
+            let ((ws_id, user_id, id), tx) = item.pair();
+            if &workspace == ws_id && user_id == &user {
+                closed.push((ws_id.clone(), user_id.clone(), id.clone()));
+                let _ = tx.send(ws::Message::Close(None)).await;
+            }
+        }
+        for close in closed {
+            let (ws_id, user_id, id) = close;
+            self.channel.remove(&(ws_id, user_id, id));
+        }
+    }
+
+    // TODO: this should be moved to another module
+    pub async fn close_websocket_by_workspace(&self, workspace: String) {
+        let mut closed = vec![];
+        for item in self.channel.iter() {
+            let ((ws_id, user_id, id), tx) = item.pair();
+            if &workspace == ws_id {
+                closed.push((ws_id.clone(), user_id.clone(), id.clone()));
+                let _ = tx.send(ws::Message::Close(None)).await;
+            }
+        }
+        for close in closed {
+            let (ws_id, user_id, id) = close;
+            self.channel.remove(&(ws_id, user_id, id));
+        }
     }
 }

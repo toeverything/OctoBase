@@ -1,0 +1,16 @@
+[package]
+name = "jwst-storage-migration"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "jwst_storage_migration"
+path = "src/lib.rs"
+
+[dependencies]
+tokio = { version = "^1", features = ["macros"] }
+
+[dependencies.sea-orm-migration]
+version = "0.11.0"
+features = ["runtime-tokio-rustls", "sqlx-postgres"]

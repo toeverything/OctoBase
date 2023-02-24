@@ -3,12 +3,10 @@ use jwst_logger::{error, info, init_logger};
 use std::{net::SocketAddr, sync::Arc};
 
 mod api;
-mod constants;
 mod context;
 mod error_status;
 mod files;
 mod layer;
-mod login;
 mod utils;
 
 #[tokio::main]
@@ -36,8 +34,6 @@ async fn main() {
     {
         error!("Server shutdown due to error: {}", e);
     }
-
-    context.db.db.close().await;
 
     info!("Server shutdown complete");
 }
