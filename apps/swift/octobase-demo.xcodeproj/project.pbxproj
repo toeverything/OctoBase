@@ -1,0 +1,639 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		419B1B6C2998DADF00D3388A /* octobase_demoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 419B1B6B2998DADF00D3388A /* octobase_demoApp.swift */; };
+		419B1B6E2998DADF00D3388A /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 419B1B6D2998DADF00D3388A /* ContentView.swift */; };
+		419B1B702998DAE000D3388A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 419B1B6F2998DAE000D3388A /* Assets.xcassets */; };
+		419B1B742998DAE000D3388A /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 419B1B732998DAE000D3388A /* Preview Assets.xcassets */; };
+		419B1B7E2998DAE000D3388A /* octobase_demoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 419B1B7D2998DAE000D3388A /* octobase_demoTests.swift */; };
+		419B1B882998DAE000D3388A /* octobase_demoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 419B1B872998DAE000D3388A /* octobase_demoUITests.swift */; };
+		419B1B8A2998DAE000D3388A /* octobase_demoUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 419B1B892998DAE000D3388A /* octobase_demoUITestsLaunchTests.swift */; };
+		419B1B9B2998DDDC00D3388A /* OctoBase in Frameworks */ = {isa = PBXBuildFile; productRef = 419B1B9A2998DDDC00D3388A /* OctoBase */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		419B1B7A2998DAE000D3388A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 419B1B602998DADF00D3388A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 419B1B672998DADF00D3388A;
+			remoteInfo = "octobase-demo";
+		};
+		419B1B842998DAE000D3388A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 419B1B602998DADF00D3388A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 419B1B672998DADF00D3388A;
+			remoteInfo = "octobase-demo";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		419B1B682998DADF00D3388A /* octobase-demo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "octobase-demo.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		419B1B6B2998DADF00D3388A /* octobase_demoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = octobase_demoApp.swift; sourceTree = "<group>"; };
+		419B1B6D2998DADF00D3388A /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		419B1B6F2998DAE000D3388A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		419B1B712998DAE000D3388A /* octobase_demo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = octobase_demo.entitlements; sourceTree = "<group>"; };
+		419B1B732998DAE000D3388A /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		419B1B792998DAE000D3388A /* octobase-demoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "octobase-demoTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		419B1B7D2998DAE000D3388A /* octobase_demoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = octobase_demoTests.swift; sourceTree = "<group>"; };
+		419B1B832998DAE000D3388A /* octobase-demoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "octobase-demoUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		419B1B872998DAE000D3388A /* octobase_demoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = octobase_demoUITests.swift; sourceTree = "<group>"; };
+		419B1B892998DAE000D3388A /* octobase_demoUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = octobase_demoUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		419B1B972998DB7700D3388A /* OctoBaseSwift */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = OctoBaseSwift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		419B1B652998DADF00D3388A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				419B1B9B2998DDDC00D3388A /* OctoBase in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		419B1B762998DAE000D3388A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		419B1B802998DAE000D3388A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		419B1B5F2998DADF00D3388A = {
+			isa = PBXGroup;
+			children = (
+				419B1B962998DB7700D3388A /* Packages */,
+				419B1B6A2998DADF00D3388A /* octobase-demo */,
+				419B1B7C2998DAE000D3388A /* octobase-demoTests */,
+				419B1B862998DAE000D3388A /* octobase-demoUITests */,
+				419B1B692998DADF00D3388A /* Products */,
+				419B1B992998DDDC00D3388A /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		419B1B692998DADF00D3388A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				419B1B682998DADF00D3388A /* octobase-demo.app */,
+				419B1B792998DAE000D3388A /* octobase-demoTests.xctest */,
+				419B1B832998DAE000D3388A /* octobase-demoUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		419B1B6A2998DADF00D3388A /* octobase-demo */ = {
+			isa = PBXGroup;
+			children = (
+				419B1B6B2998DADF00D3388A /* octobase_demoApp.swift */,
+				419B1B6D2998DADF00D3388A /* ContentView.swift */,
+				419B1B6F2998DAE000D3388A /* Assets.xcassets */,
+				419B1B712998DAE000D3388A /* octobase_demo.entitlements */,
+				419B1B722998DAE000D3388A /* Preview Content */,
+			);
+			path = "octobase-demo";
+			sourceTree = "<group>";
+		};
+		419B1B722998DAE000D3388A /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				419B1B732998DAE000D3388A /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		419B1B7C2998DAE000D3388A /* octobase-demoTests */ = {
+			isa = PBXGroup;
+			children = (
+				419B1B7D2998DAE000D3388A /* octobase_demoTests.swift */,
+			);
+			path = "octobase-demoTests";
+			sourceTree = "<group>";
+		};
+		419B1B862998DAE000D3388A /* octobase-demoUITests */ = {
+			isa = PBXGroup;
+			children = (
+				419B1B872998DAE000D3388A /* octobase_demoUITests.swift */,
+				419B1B892998DAE000D3388A /* octobase_demoUITestsLaunchTests.swift */,
+			);
+			path = "octobase-demoUITests";
+			sourceTree = "<group>";
+		};
+		419B1B962998DB7700D3388A /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				419B1B972998DB7700D3388A /* OctoBaseSwift */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		419B1B992998DDDC00D3388A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		419B1B672998DADF00D3388A /* octobase-demo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 419B1B8D2998DAE000D3388A /* Build configuration list for PBXNativeTarget "octobase-demo" */;
+			buildPhases = (
+				419B1B642998DADF00D3388A /* Sources */,
+				419B1B652998DADF00D3388A /* Frameworks */,
+				419B1B662998DADF00D3388A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "octobase-demo";
+			packageProductDependencies = (
+				419B1B9A2998DDDC00D3388A /* OctoBase */,
+			);
+			productName = "octobase-demo";
+			productReference = 419B1B682998DADF00D3388A /* octobase-demo.app */;
+			productType = "com.apple.product-type.application";
+		};
+		419B1B782998DAE000D3388A /* octobase-demoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 419B1B902998DAE000D3388A /* Build configuration list for PBXNativeTarget "octobase-demoTests" */;
+			buildPhases = (
+				419B1B752998DAE000D3388A /* Sources */,
+				419B1B762998DAE000D3388A /* Frameworks */,
+				419B1B772998DAE000D3388A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				419B1B7B2998DAE000D3388A /* PBXTargetDependency */,
+			);
+			name = "octobase-demoTests";
+			productName = "octobase-demoTests";
+			productReference = 419B1B792998DAE000D3388A /* octobase-demoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		419B1B822998DAE000D3388A /* octobase-demoUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 419B1B932998DAE000D3388A /* Build configuration list for PBXNativeTarget "octobase-demoUITests" */;
+			buildPhases = (
+				419B1B7F2998DAE000D3388A /* Sources */,
+				419B1B802998DAE000D3388A /* Frameworks */,
+				419B1B812998DAE000D3388A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				419B1B852998DAE000D3388A /* PBXTargetDependency */,
+			);
+			name = "octobase-demoUITests";
+			productName = "octobase-demoUITests";
+			productReference = 419B1B832998DAE000D3388A /* octobase-demoUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		419B1B602998DADF00D3388A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1420;
+				LastUpgradeCheck = 1420;
+				TargetAttributes = {
+					419B1B672998DADF00D3388A = {
+						CreatedOnToolsVersion = 14.2;
+					};
+					419B1B782998DAE000D3388A = {
+						CreatedOnToolsVersion = 14.2;
+						TestTargetID = 419B1B672998DADF00D3388A;
+					};
+					419B1B822998DAE000D3388A = {
+						CreatedOnToolsVersion = 14.2;
+						TestTargetID = 419B1B672998DADF00D3388A;
+					};
+				};
+			};
+			buildConfigurationList = 419B1B632998DADF00D3388A /* Build configuration list for PBXProject "octobase-demo" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 419B1B5F2998DADF00D3388A;
+			productRefGroup = 419B1B692998DADF00D3388A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				419B1B672998DADF00D3388A /* octobase-demo */,
+				419B1B782998DAE000D3388A /* octobase-demoTests */,
+				419B1B822998DAE000D3388A /* octobase-demoUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		419B1B662998DADF00D3388A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				419B1B742998DAE000D3388A /* Preview Assets.xcassets in Resources */,
+				419B1B702998DAE000D3388A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		419B1B772998DAE000D3388A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		419B1B812998DAE000D3388A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		419B1B642998DADF00D3388A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				419B1B6E2998DADF00D3388A /* ContentView.swift in Sources */,
+				419B1B6C2998DADF00D3388A /* octobase_demoApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		419B1B752998DAE000D3388A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				419B1B7E2998DAE000D3388A /* octobase_demoTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		419B1B7F2998DAE000D3388A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				419B1B882998DAE000D3388A /* octobase_demoUITests.swift in Sources */,
+				419B1B8A2998DAE000D3388A /* octobase_demoUITestsLaunchTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		419B1B7B2998DAE000D3388A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 419B1B672998DADF00D3388A /* octobase-demo */;
+			targetProxy = 419B1B7A2998DAE000D3388A /* PBXContainerItemProxy */;
+		};
+		419B1B852998DAE000D3388A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 419B1B672998DADF00D3388A /* octobase-demo */;
+			targetProxy = 419B1B842998DAE000D3388A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		419B1B8B2998DAE000D3388A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		419B1B8C2998DAE000D3388A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		419B1B8E2998DAE000D3388A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "octobase-demo/octobase_demo.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"octobase-demo/Preview Content\"";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.toeverything.octobase-demo";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		419B1B8F2998DAE000D3388A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "octobase-demo/octobase_demo.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"octobase-demo/Preview Content\"";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.toeverything.octobase-demo";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		419B1B912998DAE000D3388A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MACOSX_DEPLOYMENT_TARGET = 13.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.toeverything.octobase-demoTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/octobase-demo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/octobase-demo";
+			};
+			name = Debug;
+		};
+		419B1B922998DAE000D3388A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MACOSX_DEPLOYMENT_TARGET = 13.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.toeverything.octobase-demoTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/octobase-demo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/octobase-demo";
+			};
+			name = Release;
+		};
+		419B1B942998DAE000D3388A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MACOSX_DEPLOYMENT_TARGET = 13.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.toeverything.octobase-demoUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "octobase-demo";
+			};
+			name = Debug;
+		};
+		419B1B952998DAE000D3388A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				MACOSX_DEPLOYMENT_TARGET = 13.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.toeverything.octobase-demoUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "octobase-demo";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		419B1B632998DADF00D3388A /* Build configuration list for PBXProject "octobase-demo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				419B1B8B2998DAE000D3388A /* Debug */,
+				419B1B8C2998DAE000D3388A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		419B1B8D2998DAE000D3388A /* Build configuration list for PBXNativeTarget "octobase-demo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				419B1B8E2998DAE000D3388A /* Debug */,
+				419B1B8F2998DAE000D3388A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		419B1B902998DAE000D3388A /* Build configuration list for PBXNativeTarget "octobase-demoTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				419B1B912998DAE000D3388A /* Debug */,
+				419B1B922998DAE000D3388A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		419B1B932998DAE000D3388A /* Build configuration list for PBXNativeTarget "octobase-demoUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				419B1B942998DAE000D3388A /* Debug */,
+				419B1B952998DAE000D3388A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		419B1B9A2998DDDC00D3388A /* OctoBase */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OctoBase;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 419B1B602998DADF00D3388A /* Project object */;
+}
