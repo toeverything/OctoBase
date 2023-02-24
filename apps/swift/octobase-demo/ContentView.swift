@@ -17,11 +17,8 @@ struct ContentView: View {
             Text("Hello, world!")
             Button(
                 action: {
-                    let block = workspace.create(block_id: "test", flavor: "test")
-                    
-                    print(block.get("test").map({
-                        $0.as_array()
-                    }) as Any)
+                    workspace.create_block_set_prop_demo();
+                    workspace.insert_remove_children_demo();
                     
                 },
                 label: { Text("Click Me") }

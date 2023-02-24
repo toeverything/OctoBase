@@ -13,6 +13,88 @@ mod ffi {
 
         #[swift_bridge(associated_to = Block)]
         fn get(self: &Block, block_id: String) -> Option<DynamicValue>;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn children(self: &Block) -> Vec<String>;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn push_children(self: &Block, block: &Block);
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn insert_children_at(&self, block: &Block, pos: u32);
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn insert_children_before(
+            self: &Block,
+            block: &Block,
+            reference: &str,
+        );
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn insert_children_after(self: &Block, block: &Block, reference: &str);
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn remove_children(self: &Block, block: &Block);
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn exists_children(self: &Block, block_id: &str) -> i32;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn parent(self: &Block) -> String;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn updated(self: &Block) -> u64;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn id(self: &Block) -> String;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn flavor(self: &Block) -> String;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn version(self: &Block) -> String;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn created(self: &Block) -> u64;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn set_bool(self: &Block, key: String, value: bool);
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn set_string(self: &Block, key: String, value: String);
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn set_float(self: &Block, key: String, value: f64);
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn set_integer(self: &Block, key: String, value: i64);
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn set_null(self: &Block, key: String);
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn is_bool(self: &Block, key: String) -> bool;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn is_string(self: &Block, key: String) -> bool;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn is_float(&self, key: String) -> bool;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn is_integer(&self, key: String) -> bool;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn get_bool(&self, key: String) -> Option<i64>;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn get_string(&self, key: String) -> Option<String>;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn get_float(&self, key: String) -> Option<f64>;
+
+        #[swift_bridge(associated_to = Block)]
+        pub fn get_integer(&self, key: String) -> Option<i64>;
     }
 
     extern "Rust" {
