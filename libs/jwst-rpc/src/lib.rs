@@ -1,112 +1,17 @@
+mod broadcast;
+
 use axum::extract::ws::{Message, WebSocket};
+use broadcast::subscribe;
 use dashmap::DashMap;
 use futures::{sink::SinkExt, stream::StreamExt};
-use jwst::{debug, error, info, sync_encode_update, Workspace};
+use jwst::{debug, error, info};
 use jwst_storage::JwstStorage;
 use std::sync::Arc;
 use tokio::sync::mpsc::{channel, Sender};
-use y_sync::sync::Message as YMessage;
-use yrs::updates::encoder::{Encode, Encoder, EncoderV1};
 
 pub trait ContextImpl<'a> {
     fn get_storage(&self) -> JwstStorage;
     fn get_channel(&self) -> DashMap<(String, String), Sender<Message>>;
-}
-
-fn subscribe_handler(
-    context: Arc<impl ContextImpl<'static>>,
-    workspace: &mut Workspace,
-    ws_id: String,
-    identifier: String,
-) {
-    let channel = context.get_channel();
-    if let Some(sub) = workspace.observe(move |_, e| {
-        debug!("workspace changed: {}, {:?}", ws_id, &e.update);
-        let update = sync_encode_update(&e.update);
-
-        let ws_id = ws_id.clone();
-        let identifier = identifier.clone();
-        let channel = channel.clone();
-        tokio::spawn(async move {
-            let mut closed = vec![];
-
-            for item in channel.iter() {
-                let ((ws, id), tx) = item.pair();
-                debug!("workspace send: {}, {}", ws_id, id);
-                if &ws_id == ws && id != &identifier {
-                    if tx.is_closed() {
-                        debug!("workspace closed: {}, {}", ws_id, id);
-                        closed.push(id.clone());
-                    } else if let Err(e) = tx.send(Message::Binary(update.clone())).await {
-                        if !tx.is_closed() {
-                            error!("on observe_update error: {}", e);
-                        }
-                    }
-                }
-            }
-            for id in closed {
-                channel.remove(&(ws_id.clone(), id));
-            }
-        });
-    }) {
-        std::mem::forget(sub);
-    } else {
-        error!("on observe error");
-    }
-}
-
-// fn subscribe_metadata_handler(
-//     context: Arc<impl ContextImpl<'static>>,
-//     workspace: &mut Workspace,
-//     ws_id: String,
-// ) {
-//     let sub_metadata = workspace.observe_metadata(move |_, _e| {
-//         context
-//             .user_channel
-//             .update_workspace(ws_id.clone(), context.clone());
-//     });
-//     std::mem::forget(sub_metadata);
-// }
-
-fn subscribe_awareness_handler(
-    context: Arc<impl ContextImpl<'static>>,
-    workspace: &mut Workspace,
-    ws_id: String,
-    identifier: String,
-) {
-    let channel = context.get_channel();
-    let awareness_sub = workspace.on_awareness_update(move |awareness, e| {
-        let update_result =
-            awareness.update_with_clients([e.added(), e.updated(), e.removed()].concat());
-        if let Ok(aw_update) = update_result {
-            let mut encoder = EncoderV1::new();
-            YMessage::Awareness(aw_update).encode(&mut encoder);
-            let update = encoder.to_vec();
-            let ws_id = ws_id.clone();
-            let identifier = identifier.clone();
-            let channel = channel.clone();
-            tokio::spawn(async move {
-                let mut closed = vec![];
-
-                for item in channel.iter() {
-                    let ((ws, id), tx) = item.pair();
-                    if &ws_id == ws && id != &identifier {
-                        if tx.is_closed() {
-                            closed.push(id.clone());
-                        } else if let Err(e) = tx.send(Message::Binary(update.clone())).await {
-                            if !tx.is_closed() {
-                                error!("on awareness_update error: {}", e);
-                            }
-                        }
-                    }
-                }
-                for id in closed {
-                    channel.remove(&(ws_id.clone(), id));
-                }
-            });
-        }
-    });
-    std::mem::forget(awareness_sub);
 }
 
 pub async fn handle_socket(
@@ -161,19 +66,13 @@ pub async fn handle_socket(
 
         let mut ws = ws.write().await;
 
-        subscribe_handler(
+        let sub = subscribe(
             context.clone(),
             &mut ws,
             workspace_id.clone(),
             identifier.clone(),
         );
-        // subscribe_metadata_handler(context.clone(), &mut ws, workspace_id.clone());
-        subscribe_awareness_handler(
-            context.clone(),
-            &mut ws,
-            workspace_id.clone(),
-            identifier.clone(),
-        );
+        std::mem::forget(sub);
 
         ws.sync_init_message()
     } {
