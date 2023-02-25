@@ -45,15 +45,15 @@ fn main() {
         paths: HashMap::from([
             (
                 Platform::IOS,
-                PathBuf::from(format!("target/aarch64-apple-ios/{}/liboctobase.a", dir)) as _,
+                PathBuf::from(format!("target/aarch64-apple-ios/{dir}/liboctobase.a")),
             ),
             (
                 Platform::Simulator,
-                PathBuf::from(format!("target/aarch64-apple-ios-sim/{}/liboctobase.a", dir)) as _,
+                PathBuf::from(format!("target/aarch64-apple-ios-sim/{dir}/liboctobase.a",)),
             ),
             (
                 Platform::MacOS,
-                PathBuf::from(format!("target/aarch64-apple-darwin/{}/liboctobase.a", dir)) as _,
+                PathBuf::from(format!("target/aarch64-apple-darwin/{dir}/liboctobase.a")),
             ),
         ]),
         out_dir: PathBuf::from("apps/swift/OctoBaseSwift"),

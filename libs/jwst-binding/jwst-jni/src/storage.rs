@@ -79,7 +79,10 @@ impl JwstStorage {
                 (sub, ws.clone())
             };
 
-            Ok(Workspace { workspace, sub })
+            Ok(Workspace {
+                workspace,
+                _sub: sub,
+            })
         } else {
             Err(JwstError::WorkspaceNotInitialized(workspace_id))
         }

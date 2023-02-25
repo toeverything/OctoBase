@@ -66,7 +66,7 @@ r#"foreign_callback!(
     swig_gen.expand(
         "android bindings",
         in_src,
-        &Path::new(&out_dir).join("java_glue.rs"),
+        Path::new(&out_dir).join("java_glue.rs"),
     );
 
     println!("cargo:rerun-if-changed=src");

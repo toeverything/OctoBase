@@ -49,12 +49,7 @@ impl DynamicValue {
 
     pub fn as_array(&self) -> Option<Vec<DynamicValue>> {
         match &self.any {
-            Any::Array(value) => Some(
-                value
-                    .into_iter()
-                    .map(|a| DynamicValue::new(a.clone()))
-                    .collect(),
-            ),
+            Any::Array(value) => Some(value.iter().map(|a| DynamicValue::new(a.clone())).collect()),
             _ => None,
         }
     }
