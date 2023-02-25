@@ -35,20 +35,25 @@ fn main() {
         })
         .status()
         .expect("Failed to build jwst-swift");
+    let dir = if cfg!(debug_assertions) {
+        "debug"
+    } else {
+        "release"
+    };
     create_package(CreatePackageConfig {
         bridge_dir: PathBuf::from("libs/jwst-binding/jwst-swift/generated"),
         paths: HashMap::from([
             (
                 Platform::IOS,
-                PathBuf::from("target/aarch64-apple-ios/debug/liboctobase.a") as _,
+                PathBuf::from(format!("target/aarch64-apple-ios/{}/liboctobase.a", dir)) as _,
             ),
             (
                 Platform::Simulator,
-                PathBuf::from("target/aarch64-apple-ios-sim/debug/liboctobase.a") as _,
+                PathBuf::from(format!("target/aarch64-apple-ios-sim/{}/liboctobase.a", dir)) as _,
             ),
             (
                 Platform::MacOS,
-                PathBuf::from("target/aarch64-apple-darwin/debug/liboctobase.a") as _,
+                PathBuf::from(format!("target/aarch64-apple-darwin/{}/liboctobase.a", dir)) as _,
             ),
         ]),
         out_dir: PathBuf::from("apps/swift/OctoBaseSwift"),
