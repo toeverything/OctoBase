@@ -57,7 +57,7 @@ impl JwstStorage {
             let mut workspace = rt.block_on(async move {
                 let storage = storage.read().await;
 
-                start_client(&*storage, workspace_id, remote).await
+                start_client(&storage, workspace_id, remote).await
             })?;
 
             let (sub, workspace) = {

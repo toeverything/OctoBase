@@ -127,10 +127,7 @@ pub async fn handle_socket(
                     msg.as_ref().map(|v| v.len() as isize).unwrap_or(-1)
                 );
                 if let Err(e) = socket_tx
-                    .send(
-                        msg.map(|v| Message::Binary(v.clone()))
-                            .unwrap_or(Message::Close(None)),
-                    )
+                    .send(msg.map(Message::Binary).unwrap_or(Message::Close(None)))
                     .await
                 {
                     error!("send error: {}", e);

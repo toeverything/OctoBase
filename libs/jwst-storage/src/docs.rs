@@ -93,7 +93,7 @@ impl DocAutoStorage {
     }
 
     pub fn remote(&self) -> &DashMap<String, Sender<Vec<u8>>> {
-        &&self.remote
+        &self.remote
     }
 
     pub(super) async fn all<C>(&self, conn: &C, table: &str) -> Result<Vec<DocsModel>, DbErr>

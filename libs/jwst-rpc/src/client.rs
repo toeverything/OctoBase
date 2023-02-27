@@ -27,7 +27,7 @@ type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 async fn prepare_connection(remote: &str) -> JwstResult<Socket> {
     debug!("generate remote config");
-    let uri = Url::parse(&remote).context(format!("failed to parse remote url"))?;
+    let uri = Url::parse(remote).context("failed to parse remote url".to_string())?;
 
     let mut req = uri
         .into_client_request()
@@ -130,7 +130,7 @@ async fn run_sync(
     rx: &mut Receiver<Vec<u8>>,
 ) -> JwstResult<bool> {
     let socket = init_connection(workspace, &remote).await?;
-    Ok(join_sync_thread(first_sync, workspace, socket, rx).await?)
+    join_sync_thread(first_sync, workspace, socket, rx).await
 }
 
 fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec<u8>>) {
