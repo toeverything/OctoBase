@@ -19,7 +19,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         val database = File(filesDir, "jwst.db")
-        val storage = Storage(database.absolutePath, "ws://10.0.2.2:3000/collaboration/test")
+        val storage = Storage(database.absolutePath, "ws://10.0.2.2:3001/collaboration")
         storage.getWorkspace("test").unwrap()?.let { workspace ->
             workspace.withTrx { trx -> workspace.get(trx, "a").unwrap() }?.let { block ->
                 // load the existing block on the second startup program.
