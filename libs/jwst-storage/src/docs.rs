@@ -180,9 +180,12 @@ impl DocAutoStorage {
     }
 
     pub async fn full_migrate(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
+        info!("full migrate3.1: {table}");
         if self.count(table).await? > 0 {
+            info!("full migrate3.2: {table}");
             self.replace_with(table, blob).await
         } else {
+            info!("full migrate3.3: {table}");
             self.insert(table, &blob).await
         }
     }
