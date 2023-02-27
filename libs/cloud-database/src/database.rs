@@ -642,9 +642,51 @@ impl CloudDatabase {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Ok;
 
     #[tokio::test]
-    async fn database_create_tables() -> anyhow::Result<()> {
+    #[should_panic]
+    async fn not_existed_user_id_create_workspace() {
+        use super::*;
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        pool.create_normal_workspace("fake_id".to_string())
+            .await
+            .unwrap();
+    }
+    #[tokio::test]
+    #[should_panic]
+    async fn not_existed_user_id_get_workspace() {
+        use super::*;
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        pool.get_workspace_by_id("fake_id".to_string())
+            .await
+            .unwrap()
+            .unwrap();
+    }
+    #[tokio::test]
+    #[should_panic]
+    async fn not_existed_user_id_get_user_workspace() {
+        use super::*;
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        pool.get_user_workspaces("fake_id".to_string())
+            .await
+            .unwrap()
+            .get(0)
+            .unwrap();
+    }
+    #[tokio::test]
+    #[should_panic]
+    async fn not_existed_user_id_get_permission() {
+        use super::*;
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        pool.get_permission("fake_id".to_string(), "fake_id".to_string())
+            .await
+            .unwrap()
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn database_create_workspace() -> anyhow::Result<()> {
         use super::*;
         let pool = CloudDatabase::init_pool("sqlite::memory:").await?;
         // start test
@@ -692,7 +734,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn database_update_tables() -> anyhow::Result<()> {
+    async fn database_update_workspace() -> anyhow::Result<()> {
         use super::*;
         let pool = CloudDatabase::init_pool("sqlite::memory:").await?;
         // start test
@@ -741,7 +783,7 @@ mod tests {
     //FIXME: delete workspace not work
 
     // #[tokio::test]
-    // async fn database_delete_tables() -> anyhow::Result<()> {
+    // async fn database_delete_workspace() -> anyhow::Result<()> {
     //     use super::*;
     //     let pool = CloudDatabase::init_pool("sqlite::memory:").await?;
     //     // start test
