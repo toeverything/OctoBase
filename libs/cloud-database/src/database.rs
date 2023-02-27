@@ -336,6 +336,9 @@ impl CloudDatabase {
     }
 
     pub async fn get_workspace_members(&self, workspace_id: String) -> Result<Vec<Member>, DbErr> {
+        self.get_workspace_by_id(workspace_id.clone())
+            .await?
+            .unwrap();
         Permissions::find()
             .column_as(PermissionColumn::Id, "id")
             .column_as(PermissionColumn::Type, "type")
@@ -646,6 +649,14 @@ mod tests {
 
     #[tokio::test]
     #[should_panic]
+    async fn get_user_by_not_existed_email() {
+        use super::*;
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        pool.get_user_by_email("fake_email").await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    #[should_panic]
     async fn not_existed_user_id_create_workspace() {
         use super::*;
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
@@ -653,6 +664,7 @@ mod tests {
             .await
             .unwrap();
     }
+
     #[tokio::test]
     #[should_panic]
     async fn not_existed_user_id_get_workspace() {
@@ -663,6 +675,7 @@ mod tests {
             .unwrap()
             .unwrap();
     }
+
     #[tokio::test]
     #[should_panic]
     async fn not_existed_user_id_get_user_workspace() {
@@ -674,6 +687,7 @@ mod tests {
             .get(0)
             .unwrap();
     }
+
     #[tokio::test]
     #[should_panic]
     async fn not_existed_user_id_get_permission() {
@@ -682,6 +696,16 @@ mod tests {
         pool.get_permission("fake_id".to_string(), "fake_id".to_string())
             .await
             .unwrap()
+            .unwrap();
+    }
+
+    #[tokio::test]
+    #[should_panic]
+    async fn get_workspace_members_by_not_existed_workspace_id() {
+        use super::*;
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        pool.get_workspace_members("fake_id".to_string())
+            .await
             .unwrap();
     }
 
