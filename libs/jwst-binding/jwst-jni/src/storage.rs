@@ -80,7 +80,10 @@ impl JwstStorage {
                 (sub, workspace)
             };
 
-            Ok(Workspace { workspace, sub })
+            Ok(Workspace {
+                workspace,
+                _sub: sub,
+            })
         } else {
             Err(JwstError::WorkspaceNotInitialized(workspace_id))
         }

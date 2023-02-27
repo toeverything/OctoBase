@@ -5,7 +5,7 @@ use yrs::UpdateSubscription;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
-    pub(crate) sub: Option<UpdateSubscription>,
+    pub(crate) _sub: Option<UpdateSubscription>,
 }
 
 impl Workspace {

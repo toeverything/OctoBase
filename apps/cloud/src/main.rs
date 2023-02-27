@@ -1,6 +1,8 @@
 use axum::{Extension, Router, Server};
+use http::Method;
 use jwst_logger::{error, info, init_logger};
 use std::{net::SocketAddr, sync::Arc};
+use tower_http::cors::{Any, CorsLayer};
 
 mod api;
 mod context;
@@ -13,6 +15,18 @@ mod utils;
 async fn main() {
     init_logger();
 
+    let cors = CorsLayer::new()
+        // allow `GET` and `POST` when accessing the resource
+        .allow_methods(vec![
+            Method::GET,
+            Method::POST,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        // allow requests from any origin
+        .allow_origin(["https://affine-next.vercel.app".parse().unwrap()])
+        .allow_headers(Any);
+
     let context = Arc::new(context::Context::new().await);
 
     let app = files::static_files(
@@ -21,7 +35,8 @@ async fn main() {
                 "/api",
                 api::make_rest_route(context.clone()).nest("/sync", api::make_ws_route()),
             )
-            .layer(Extension(context.clone())),
+            .layer(Extension(context.clone()))
+            .layer(cors),
     );
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));

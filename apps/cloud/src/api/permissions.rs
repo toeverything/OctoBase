@@ -246,7 +246,13 @@ pub async fn accept_invitation(
         .accept_permission(String::from_utf8(data).unwrap())
         .await
     {
-        Ok(Some(p)) => Json(p).into_response(),
+        Ok(Some(p)) => {
+            if let Some(user_id) = p.user_id.clone() {
+                ctx.user_channel.update_user(user_id, ctx.clone());
+            };
+
+            Json(p).into_response()
+        }
         Ok(None) => ErrorStatus::NotFoundInvitation.into_response(),
         Err(e) => {
             error!("Failed to accept invitation: {}", e);
