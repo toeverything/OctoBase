@@ -31,3 +31,6 @@ yrs = "0.16.2"
 jwst = { path = "../jwst" }
 jwst-logger = { path = "../jwst-logger" }
 jwst-storage-migration = { path = "./src/migration" }
+
+[dev-dependencies]
+rand = "0.8.5"

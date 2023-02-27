@@ -1994,6 +1994,7 @@ dependencies = [
  "jwst-logger",
  "jwst-storage-migration",
  "path-ext",
+ "rand 0.8.5",
  "sea-orm",
  "sea-orm-migration",
  "sha2",

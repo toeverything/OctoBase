@@ -1,5 +1,6 @@
 use super::*;
 use axum::{extract::Query, response::Response};
+use jwst::DocStorage;
 use lib0::any::Any;
 use serde_json::Value as JsonValue;
 
@@ -92,7 +93,7 @@ pub async fn set_block(
         });
 
         if let Some(update) = update {
-            if let Err(e) = context.storage.docs().update(&ws_id, update).await {
+            if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
                 error!("db write error: {}", e.to_string());
             }
         }
@@ -171,7 +172,7 @@ pub async fn delete_block(
                 None
             }
         }) {
-            if let Err(e) = context.storage.docs().update(&ws_id, update).await {
+            if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
                 error!("db write error: {}", e.to_string());
             }
             return StatusCode::NO_CONTENT;
@@ -304,7 +305,7 @@ pub async fn insert_block_children(
             });
 
             if let Some(update) = update {
-                if let Err(e) = context.storage.docs().update(&ws_id, update).await {
+                if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
                     error!("db write error: {}", e.to_string());
                 }
             }
@@ -354,7 +355,7 @@ pub async fn remove_block_children(
             }
             None
         }) {
-            if let Err(e) = context.storage.docs().update(&ws_id, update).await {
+            if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
                 error!("db write error: {}", e.to_string());
             }
             // response block content
