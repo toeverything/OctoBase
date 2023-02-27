@@ -62,8 +62,8 @@ impl Context {
 }
 
 impl ContextImpl<'_> for Context {
-    fn get_storage(&self) -> JwstStorage {
-        self.storage.clone()
+    fn get_storage(&self) -> &JwstStorage {
+        &self.storage
     }
 
     fn get_channel(&self) -> &Channels {

@@ -3,7 +3,6 @@ use jwst::info;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-#[derive(Clone)]
 pub struct JwstStorage {
     pool: DatabaseConnection,
     blobs: BlobAutoStorage,

@@ -6,8 +6,7 @@ use std::{
     panic::{catch_unwind, AssertUnwindSafe},
     sync::Arc,
 };
-use tokio::sync::{mpsc::Sender, RwLock};
-use tokio_tungstenite::tungstenite::Message;
+use tokio::sync::{broadcast::Sender, RwLock};
 use yrs::{updates::decoder::Decode, Doc, Options, ReadTxn, StateVector, Transact, Update};
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
@@ -42,11 +41,10 @@ pub(super) type DocsModel = <Docs as EntityTrait>::Model;
 type DocsActiveModel = super::entities::docs::ActiveModel;
 type DocsColumn = <Docs as EntityTrait>::Column;
 
-#[derive(Clone)]
 pub struct DocAutoStorage {
     pool: DatabaseConnection,
     workspaces: DashMap<String, Arc<RwLock<Workspace>>>,
-    remote: DashMap<String, Sender<Message>>,
+    remote: DashMap<String, Sender<Vec<u8>>>,
 }
 
 impl DocAutoStorage {
@@ -90,7 +88,7 @@ impl DocAutoStorage {
         Self::init_pool(&format!("sqlite:{}?mode=rwc", path.display())).await
     }
 
-    pub fn remote(&self) -> &DashMap<String, Sender<Message>> {
+    pub fn remote(&self) -> &DashMap<String, Sender<Vec<u8>>> {
         &&self.remote
     }
 
@@ -167,16 +165,12 @@ impl DocAutoStorage {
 
         debug!("update {}bytes to {}", blob.len(), table);
         if let Entry::Occupied(remote) = self.remote.entry(table.into()) {
-            let socket = &remote.get();
-            debug!("send update to channel");
-            if let Err(e) = socket
-                .send(Message::binary(sync_encode_update(&blob)))
-                .await
-            {
-                warn!("send update to remote failed: {:?}", e);
-                socket.closed().await;
+            let broadcast = &remote.get();
+            debug!("sending update to pipeline");
+            if let Err(e) = broadcast.send(sync_encode_update(&blob)) {
+                warn!("send update to pipeline failed: {:?}", e);
             }
-            debug!("send update to channel end");
+            debug!("send update to pipeline end");
         }
 
         Ok(())
@@ -227,7 +221,7 @@ impl DocStorage for DocAutoStorage {
         match self.workspaces.entry(workspace_id.clone()) {
             Entry::Occupied(ws) => Ok(ws.get().clone()),
             Entry::Vacant(v) => {
-                debug!("init workspace cache");
+                debug!("init workspace cache: {workspace_id}");
                 let doc = self
                     .create_doc(&workspace_id)
                     .await
@@ -263,6 +257,7 @@ impl DocStorage for DocAutoStorage {
     }
 
     async fn delete(&self, workspace_id: String) -> JwstResult<()> {
+        debug!("delete workspace cache: {workspace_id}");
         self.workspaces.remove(&workspace_id);
         self.drop(&workspace_id)
             .await

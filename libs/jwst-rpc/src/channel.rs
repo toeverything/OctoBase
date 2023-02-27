@@ -1,4 +1,3 @@
-use axum::extract::ws::Message;
 use dashmap::DashMap;
 use nanoid::nanoid;
 use tokio::sync::mpsc::Sender;
@@ -24,4 +23,4 @@ impl ChannelItem {
     }
 }
 
-pub type Channels = DashMap<ChannelItem, Sender<Message>>;
+pub type Channels = DashMap<ChannelItem, Sender<Option<Vec<u8>>>>;

@@ -242,7 +242,7 @@ impl Context {
             let (channel, tx) = item.pair();
             if workspace == channel.workspace && user == channel.identifier {
                 closed.push(channel.clone());
-                let _ = tx.send(ws::Message::Close(None)).await;
+                let _ = tx.send(None).await;
             }
         }
         for channel in closed {
@@ -257,7 +257,7 @@ impl Context {
             let (item, tx) = item.pair();
             if workspace == item.workspace {
                 closed.push(item.clone());
-                let _ = tx.send(ws::Message::Close(None)).await;
+                let _ = tx.send(None).await;
             }
         }
         for channel in closed {
@@ -267,8 +267,8 @@ impl Context {
 }
 
 impl ContextImpl<'_> for Context {
-    fn get_storage(&self) -> JwstStorage {
-        self.storage.clone()
+    fn get_storage(&self) -> &JwstStorage {
+        &self.storage
     }
 
     fn get_channel(&self) -> &Channels {
