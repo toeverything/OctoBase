@@ -66,7 +66,13 @@ pub async fn start_server() {
         .layer(cors)
         .layer(Extension(context.clone()));
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    let addr = SocketAddr::from((
+        [0, 0, 0, 0],
+        dotenvy::var("KECK_PORT")
+            .ok()
+            .and_then(|s| s.parse::<u16>().ok())
+            .unwrap_or(3000),
+    ));
     info!("listening on {}", addr);
 
     if let Err(e) = Server::bind(&addr)

@@ -1,6 +1,6 @@
 use super::{plugins::setup_plugin, *};
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use y_sync::{
     awareness::{Awareness, Event, Subscription as AwarenessSubscription},
     sync::{DefaultProtocol, Error, Message, MessageReader, Protocol, SyncMessage},
@@ -24,7 +24,7 @@ pub type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>
 
 pub struct Workspace {
     id: String,
-    awareness: Awareness,
+    awareness: Arc<RwLock<Awareness>>,
     pub(crate) blocks: MapRef,
     pub(crate) updated: MapRef,
     pub(crate) metadata: MapRef,
@@ -51,16 +51,31 @@ impl Workspace {
         let updated = doc.get_or_insert_map("updated");
         let metadata = doc.get_or_insert_map("space:meta");
 
-        let workspace = Self {
+        setup_plugin(Self {
             id: id.as_ref().to_string(),
-            awareness: Awareness::new(doc),
+            awareness: Arc::new(RwLock::new(Awareness::new(doc))),
             blocks,
             updated,
             metadata,
             plugins: Default::default(),
-        };
+        })
+    }
 
-        setup_plugin(workspace)
+    fn from_raw<S: AsRef<str>>(
+        id: S,
+        awareness: Arc<RwLock<Awareness>>,
+        blocks: MapRef,
+        updated: MapRef,
+        metadata: MapRef,
+    ) -> Workspace {
+        setup_plugin(Self {
+            id: id.as_ref().to_string(),
+            awareness,
+            blocks,
+            updated,
+            metadata,
+            plugins: Default::default(),
+        })
     }
 
     /// Allow the plugin to run any necessary updates it could have flagged via observers.
@@ -93,8 +108,9 @@ impl Workspace {
     }
 
     pub fn with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> T {
+        let doc = self.doc();
         let trx = WorkspaceTransaction {
-            trx: self.doc().transact_mut(),
+            trx: doc.transact_mut(),
             ws: self,
         };
 
@@ -152,7 +168,7 @@ impl Workspace {
                     Block::from_raw_parts(
                         trx,
                         id.to_owned(),
-                        self.doc(),
+                        &self.doc(),
                         block.to_ymap().unwrap(),
                         updated.to_yarray().unwrap(),
                         self.client_id(),
@@ -173,7 +189,7 @@ impl Workspace {
         &mut self,
         f: impl Fn(&Awareness, &Event) + 'static,
     ) -> AwarenessSubscription<Event> {
-        self.awareness.on_update(f)
+        self.awareness.write().unwrap().on_update(f)
     }
 
     /// Check if the block exists in this workspace's blocks.
@@ -189,11 +205,21 @@ impl Workspace {
         &mut self,
         f: impl Fn(&TransactionMut, &UpdateEvent) + 'static,
     ) -> Option<UpdateSubscription> {
-        self.awareness.doc_mut().observe_update_v1(f).ok()
+        self.awareness
+            .read()
+            .unwrap()
+            .doc()
+            .observe_update_v1(move |trx, evt| {
+                use std::panic::{catch_unwind, AssertUnwindSafe};
+                if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(trx, evt))) {
+                    error!("panic in observe callback: {:?}", e);
+                }
+            })
+            .ok()
     }
 
-    pub fn doc(&self) -> &Doc {
-        self.awareness.doc()
+    pub fn doc(&self) -> Doc {
+        self.awareness.read().unwrap().doc().clone()
     }
 
     pub fn sync_migration(&self) -> Vec<u8> {
@@ -204,7 +230,7 @@ impl Workspace {
 
     pub fn sync_init_message(&self) -> Result<Vec<u8>, Error> {
         let mut encoder = EncoderV1::new();
-        PROTOCOL.start(&self.awareness, &mut encoder)?;
+        PROTOCOL.start(&self.awareness.read().unwrap(), &mut encoder)?;
         Ok(encoder.to_vec())
     }
 
@@ -212,12 +238,16 @@ impl Workspace {
         trace!("processing message: {:?}", msg);
         match msg {
             Message::Sync(msg) => match msg {
-                SyncMessage::SyncStep1(sv) => PROTOCOL.handle_sync_step1(&self.awareness, sv),
-                SyncMessage::SyncStep2(update) => {
-                    PROTOCOL.handle_sync_step2(&mut self.awareness, Update::decode_v1(&update)?)
+                SyncMessage::SyncStep1(sv) => {
+                    PROTOCOL.handle_sync_step1(&self.awareness.read().unwrap(), sv)
                 }
+                SyncMessage::SyncStep2(update) => PROTOCOL.handle_sync_step2(
+                    &mut self.awareness.write().unwrap(),
+                    Update::decode_v1(&update)?,
+                ),
                 SyncMessage::Update(update) => {
-                    let mut txn = self.doc().transact_mut();
+                    let doc = self.doc();
+                    let mut txn = doc.transact_mut();
                     txn.apply_update(Update::decode_v1(&update)?);
                     txn.commit();
                     trace!("changed_parent_types: {:?}", txn.changed_parent_types());
@@ -227,12 +257,16 @@ impl Workspace {
                     Ok(Some(Message::Sync(SyncMessage::Update(update))))
                 }
             },
-            Message::Auth(reason) => PROTOCOL.handle_auth(&self.awareness, reason),
-            Message::AwarenessQuery => PROTOCOL.handle_awareness_query(&self.awareness),
-            Message::Awareness(update) => {
-                PROTOCOL.handle_awareness_update(&mut self.awareness, update)
+            Message::Auth(reason) => PROTOCOL.handle_auth(&self.awareness.read().unwrap(), reason),
+            Message::AwarenessQuery => {
+                PROTOCOL.handle_awareness_query(&self.awareness.read().unwrap())
             }
-            Message::Custom(tag, data) => PROTOCOL.missing_handle(&mut self.awareness, tag, data),
+            Message::Awareness(update) => {
+                PROTOCOL.handle_awareness_update(&mut self.awareness.write().unwrap(), update)
+            }
+            Message::Custom(tag, data) => {
+                PROTOCOL.missing_handle(&mut self.awareness.write().unwrap(), tag, data)
+            }
         }
     }
 
@@ -251,7 +285,8 @@ impl Serialize for Workspace {
     where
         S: Serializer,
     {
-        let trx = self.doc().transact();
+        let doc = self.doc();
+        let trx = doc.transact();
         let mut map = serializer.serialize_map(Some(2))?;
         map.serialize_entry("blocks", &self.blocks.to_json(&trx))?;
         map.serialize_entry("updated", &self.updated.to_json(&trx))?;
@@ -261,9 +296,13 @@ impl Serialize for Workspace {
 
 impl Clone for Workspace {
     fn clone(&self) -> Self {
-        let id = self.id.clone();
-        let doc = self.doc().clone();
-        Self::from_doc(doc, id)
+        Self::from_raw(
+            &self.id,
+            self.awareness.clone(),
+            self.blocks.clone(),
+            self.updated.clone(),
+            self.metadata.clone(),
+        )
     }
 }
 

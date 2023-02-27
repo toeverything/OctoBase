@@ -3,7 +3,12 @@ use tracing_subscriber::layer::{Context, Filter};
 
 pub struct GeneralFilter;
 
-const EXCLUDE_PREFIX: [&str; 3] = ["hyper::", "rustls::", "mio::"];
+const EXCLUDE_PREFIX: [&str; 4] = [
+    "hyper::",
+    "rustls::",
+    "mio::",
+    "tantivy::indexer::segment_updater",
+];
 
 impl GeneralFilter {
     fn is_enabled(&self, metadata: &Metadata<'_>) -> bool {

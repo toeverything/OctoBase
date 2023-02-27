@@ -6,15 +6,20 @@ authors = ["DarkSky <darksky2048@gmail.com>"]
 license = "AGPL-3.0-only"
 
 [dependencies]
+anyhow = "1.0.69"
 axum = { version = "0.6.6", features = ["headers", "ws"] }
 dashmap = "5.4.0"
 futures = "0.3.26"
+nanoid = "0.4.0"
 tokio = { version = "1.25.0", features = [
     "macros",
     "rt-multi-thread",
     "signal",
 ] }
-nanoid = "0.4.0"
+tokio-tungstenite = { version = "0.18.0", features = [
+    "rustls-tls-webpki-roots",
+] }
+url = "2.3.1"
 y-sync = "0.2.0"
 yrs = "0.16.2"
 

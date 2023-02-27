@@ -82,7 +82,7 @@ impl Block {
                 .unwrap();
 
             let block = Self {
-                doc: workspace.doc().clone(),
+                doc: workspace.doc(),
                 id: block_id.to_string(),
                 operator,
                 block,
@@ -108,7 +108,7 @@ impl Block {
 
         Some(Self {
             id: block_id.as_ref().to_string(),
-            doc: workspace.doc().clone(),
+            doc: workspace.doc(),
             operator,
             block,
             children,

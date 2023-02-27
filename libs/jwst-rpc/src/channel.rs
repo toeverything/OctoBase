@@ -1,9 +1,8 @@
-use axum::extract::ws::Message;
 use dashmap::DashMap;
 use nanoid::nanoid;
 use tokio::sync::mpsc::Sender;
 
-#[derive(Clone, Eq, Hash, PartialEq)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub struct ChannelItem {
     pub workspace: String,
     pub identifier: String,
@@ -24,4 +23,4 @@ impl ChannelItem {
     }
 }
 
-pub type Channels = DashMap<ChannelItem, Sender<Message>>;
+pub type Channels = DashMap<ChannelItem, Sender<Option<Vec<u8>>>>;
