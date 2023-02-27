@@ -55,7 +55,6 @@ async fn make_invite_email(
     let metadata = {
         let ws = ctx.storage.get_workspace(workspace_id.clone()).await.ok()?;
 
-        let ws = ws.read().await;
         ws.metadata()
     };
 

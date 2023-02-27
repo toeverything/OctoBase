@@ -4,9 +4,9 @@ use jwst::{sync_encode_update, DocStorage, Workspace};
 use jwst_storage_migration::{Migrator, MigratorTrait};
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
-    sync::Arc,
+    time::Instant,
 };
-use tokio::sync::{broadcast::Sender, RwLock};
+use tokio::sync::broadcast::Sender;
 use yrs::{updates::decoder::Decode, Doc, Options, ReadTxn, StateVector, Transact, Update};
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
@@ -43,8 +43,9 @@ type DocsColumn = <Docs as EntityTrait>::Column;
 
 pub struct DocAutoStorage {
     pool: DatabaseConnection,
-    workspaces: DashMap<String, Arc<RwLock<Workspace>>>,
+    workspaces: DashMap<String, Workspace>,
     remote: DashMap<String, Sender<Vec<u8>>>,
+    pub(crate) last_migrate: DashMap<String, Instant>,
 }
 
 impl DocAutoStorage {
@@ -54,6 +55,7 @@ impl DocAutoStorage {
             pool,
             workspaces: DashMap::new(),
             remote: DashMap::new(),
+            last_migrate: DashMap::new(),
         })
     }
 
@@ -64,6 +66,7 @@ impl DocAutoStorage {
             pool,
             workspaces: DashMap::new(),
             remote: DashMap::new(),
+            last_migrate: DashMap::new(),
         })
     }
 
@@ -217,7 +220,7 @@ impl DocStorage for DocAutoStorage {
                 .map_err(JwstError::StorageError)?)
     }
 
-    async fn get(&self, workspace_id: String) -> JwstResult<Arc<RwLock<Workspace>>> {
+    async fn get(&self, workspace_id: String) -> JwstResult<Workspace> {
         match self.workspaces.entry(workspace_id.clone()) {
             Entry::Occupied(ws) => Ok(ws.get().clone()),
             Entry::Vacant(v) => {
@@ -228,7 +231,7 @@ impl DocStorage for DocAutoStorage {
                     .context("Failed to check workspace")
                     .map_err(JwstError::StorageError)?;
 
-                let ws = Arc::new(RwLock::new(Workspace::from_doc(doc, workspace_id)));
+                let ws = Workspace::from_doc(doc, workspace_id);
                 Ok(v.insert(ws).clone())
             }
         }

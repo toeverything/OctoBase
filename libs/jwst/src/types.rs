@@ -3,9 +3,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use chrono::NaiveDateTime;
 use futures::Stream;
-use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::RwLock;
 
 #[derive(Debug, Error)]
 pub enum JwstError {
@@ -26,7 +24,7 @@ pub type JwstResult<T> = Result<T, JwstError>;
 #[async_trait]
 pub trait DocStorage {
     async fn exists(&self, workspace_id: String) -> JwstResult<bool>;
-    async fn get(&self, workspace_id: String) -> JwstResult<Arc<RwLock<Workspace>>>;
+    async fn get(&self, workspace_id: String) -> JwstResult<Workspace>;
     async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> JwstResult<()>;
     /// Return false means update exceeding max update
     async fn write_update(&self, workspace_id: String, data: &[u8]) -> JwstResult<()>;

@@ -144,10 +144,7 @@ impl UserChannel {
             workspace_detail_list.insert(item.id.to_string(), workspace_detail);
 
             if let Ok(workspace) = context.storage.get_workspace(item.id.clone()).await {
-                workspace_metadata_list.insert(
-                    item.id.to_string(),
-                    workspace.read().await.metadata().into(),
-                );
+                workspace_metadata_list.insert(item.id.to_string(), workspace.metadata().into());
             } else {
                 error!("get workspace metadata error: {}", item.id)
             }

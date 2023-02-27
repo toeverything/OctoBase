@@ -54,17 +54,16 @@ impl JwstStorage {
         if let Some(storage) = &self.storage {
             let rt = Runtime::new().unwrap();
 
-            let workspace = rt.block_on(async move {
+            let mut workspace = rt.block_on(async move {
                 let storage = storage.read().await;
 
                 start_client(&*storage, workspace_id, remote).await
             })?;
 
             let (sub, workspace) = {
-                let mut ws = workspace.blocking_write();
-                let id = ws.id();
+                let id = workspace.id();
                 let storage = self.storage.clone();
-                let sub = ws.observe(move |_, e| {
+                let sub = workspace.observe(move |_, e| {
                     let id = id.clone();
                     if let Some(storage) = storage.clone() {
                         let rt = Runtime::new().unwrap();
@@ -78,7 +77,7 @@ impl JwstStorage {
                     }
                 });
 
-                (sub, ws.clone())
+                (sub, workspace)
             };
 
             Ok(Workspace { workspace, sub })

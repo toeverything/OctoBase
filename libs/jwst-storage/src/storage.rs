@@ -1,7 +1,5 @@
 use super::{blobs::BlobAutoStorage, docs::DocAutoStorage, *};
-use jwst::info;
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::time::Instant;
 
 pub struct JwstStorage {
     pool: DatabaseConnection,
@@ -62,7 +60,7 @@ impl JwstStorage {
         func(self.pool.clone()).await
     }
 
-    pub async fn create_workspace<S>(&self, workspace_id: S) -> JwstResult<Arc<RwLock<Workspace>>>
+    pub async fn create_workspace<S>(&self, workspace_id: S) -> JwstResult<Workspace>
     where
         S: AsRef<str>,
     {
@@ -77,7 +75,7 @@ impl JwstStorage {
             ))?)
     }
 
-    pub async fn get_workspace<S>(&self, workspace_id: S) -> JwstResult<Arc<RwLock<Workspace>>>
+    pub async fn get_workspace<S>(&self, workspace_id: S) -> JwstResult<Workspace>
     where
         S: AsRef<str>,
     {
@@ -102,21 +100,35 @@ impl JwstStorage {
     }
 
     pub async fn full_migrate(&self, workspace_id: String, update: Option<Vec<u8>>) -> bool {
-        if let Ok(workspace) = self.docs.get(workspace_id.clone()).await {
-            let update = if let Some(update) = update {
-                if let Err(e) = self.docs.delete(workspace_id.clone()).await {
-                    error!("full_migrate write error: {}", e.to_string());
-                    return false;
+        let mut ts = self
+            .docs
+            .last_migrate
+            .entry(workspace_id.clone())
+            .or_insert(Instant::now());
+
+        if ts.elapsed().as_secs() > 5 {
+            info!("full migrate: {workspace_id}");
+            if let Ok(workspace) = self.docs.get(workspace_id.clone()).await {
+                let update = if let Some(update) = update {
+                    if let Err(e) = self.docs.delete(workspace_id.clone()).await {
+                        error!("full_migrate write error: {}", e.to_string());
+                        return false;
+                    };
+                    update
+                } else {
+                    workspace.sync_migration()
                 };
-                update
-            } else {
-                workspace.read().await.sync_migration()
-            };
-            if let Err(e) = self.docs.full_migrate(&workspace_id, update).await {
-                error!("db write error: {}", e.to_string());
-                return false;
+                if let Err(e) = self.docs.full_migrate(&workspace_id, update).await {
+                    error!("db write error: {}", e.to_string());
+                    return false;
+                }
+
+                *ts = Instant::now();
+
+                info!("full migrate final: {workspace_id}");
+                return true;
             }
-            return true;
+            warn!("workspace {workspace_id} not exists in cache");
         }
         false
     }

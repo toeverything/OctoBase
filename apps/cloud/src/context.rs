@@ -1,6 +1,5 @@
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
-use axum::extract::ws;
 use chrono::{NaiveDateTime, Utc};
 use cloud_components::MailContext;
 use cloud_database::CloudDatabase;
@@ -224,8 +223,8 @@ impl Context {
         let workspace_id = workspace_id.to_string();
 
         match self.storage.get_workspace(workspace_id.clone()).await {
-            Ok(workspace) => {
-                let search_results = workspace.write().await.search(query_string)?;
+            Ok(mut workspace) => {
+                let search_results = workspace.search(query_string)?;
                 Ok(search_results)
             }
             Err(e) => {
