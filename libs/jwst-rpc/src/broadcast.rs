@@ -1,4 +1,4 @@
-use super::{error, trace, ChannelItem, ContextImpl};
+use super::{debug, error, trace, ChannelItem, ContextImpl};
 use axum::extract::ws::Message;
 use jwst::{sync_encode_update, MapSubscription, Workspace};
 use std::sync::Arc;
@@ -18,9 +18,13 @@ fn broadcast(
 ) {
     tokio::spawn(async move {
         let mut closed = vec![];
-
+        debug!(
+            "{} broadcast to {}: {:?}",
+            current_item.workspace, current_item.identifier, update
+        );
         for item in context.get_channel().iter() {
             let (item, tx) = item.pair();
+            debug!("sending: {:?}", item);
             if current_item.workspace == item.workspace && current_item.uuid != item.uuid {
                 if tx.is_closed() {
                     closed.push(item.clone());
@@ -72,7 +76,7 @@ pub fn subscribe(
     let doc = {
         let item = item.clone();
         workspace.observe(move |_, e| {
-            trace!("workspace changed: {}, {:?}", item.workspace, &e.update);
+            debug!("workspace changed: {}, {:?}", item.workspace, &e.update);
             let update = sync_encode_update(&e.update);
             broadcast(item.clone(), update, context.clone());
         })

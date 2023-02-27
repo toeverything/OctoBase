@@ -3,7 +3,7 @@ use dashmap::DashMap;
 use nanoid::nanoid;
 use tokio::sync::mpsc::Sender;
 
-#[derive(Clone, Eq, Hash, PartialEq)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub struct ChannelItem {
     pub workspace: String,
     pub identifier: String,

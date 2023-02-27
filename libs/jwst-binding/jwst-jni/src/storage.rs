@@ -1,6 +1,7 @@
 use crate::Workspace;
 use android_logger::Config;
 use jwst::{error, DocStorage, JwstError, JwstResult};
+use jwst_rpc::start_client;
 use jwst_storage::JwstStorage as AutoStorage;
 use log::LevelFilter;
 use std::sync::Arc;
@@ -55,7 +56,8 @@ impl JwstStorage {
 
             let workspace = rt.block_on(async move {
                 let storage = storage.read().await;
-                storage.docs().sync(workspace_id, remote).await
+
+                start_client(&*storage, workspace_id, remote).await
             })?;
 
             let (sub, workspace) = {
