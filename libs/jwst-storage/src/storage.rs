@@ -13,9 +13,9 @@ impl JwstStorage {
         let pool = Database::connect(
             ConnectOptions::from(database)
                 .max_connections(50)
-                .acquire_timeout(Duration::from_secs(5))
-                .connect_timeout(Duration::from_secs(5))
-                .acquire_timeout(Duration::from_secs(5))
+                .min_connections(10)
+                .acquire_timeout(Duration::from_secs(2))
+                .connect_timeout(Duration::from_secs(2))
                 .idle_timeout(Duration::from_secs(5))
                 .max_lifetime(Duration::from_secs(30))
                 .to_owned(),
