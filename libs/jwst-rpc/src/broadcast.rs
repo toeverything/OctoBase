@@ -17,7 +17,7 @@ fn broadcast(
 ) {
     tokio::spawn(async move {
         let mut closed = vec![];
-        debug!(
+        trace!(
             "{} broadcast to {}: {}bytes",
             current_item.workspace,
             current_item.identifier,
@@ -25,7 +25,7 @@ fn broadcast(
         );
         for item in context.get_channel().iter() {
             let (item, tx) = item.pair();
-            debug!("sending: {:?}", item);
+            trace!("sending: {:?}", item);
             if current_item.workspace == item.workspace && current_item.uuid != item.uuid {
                 if tx.is_closed() {
                     closed.push(item.clone());

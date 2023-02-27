@@ -202,7 +202,7 @@ pub async fn create_workspace(
         Ok(data) => {
             let id = data.id.to_string();
             let update = ctx.upload_workspace(stream).await;
-            if !ctx.storage.full_migrate(id, Some(update)).await {
+            if !ctx.storage.full_migrate(id, Some(update), true).await {
                 return ErrorStatus::InternalServerError.into_response();
             }
             ctx.user_channel

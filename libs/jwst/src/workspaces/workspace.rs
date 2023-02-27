@@ -47,30 +47,35 @@ impl Workspace {
     }
 
     pub fn from_doc<S: AsRef<str>>(doc: Doc, id: S) -> Workspace {
-        Self::from_awareness(Arc::new(RwLock::new(Awareness::new(doc))), id)
+        let blocks = doc.get_or_insert_map("blocks");
+        let updated = doc.get_or_insert_map("updated");
+        let metadata = doc.get_or_insert_map("space:meta");
+
+        setup_plugin(Self {
+            id: id.as_ref().to_string(),
+            awareness: Arc::new(RwLock::new(Awareness::new(doc))),
+            blocks,
+            updated,
+            metadata,
+            plugins: Default::default(),
+        })
     }
 
-    fn from_awareness<S: AsRef<str>>(awareness: Arc<RwLock<Awareness>>, id: S) -> Workspace {
-        let (blocks, updated, metadata) = {
-            let inner = awareness.read().unwrap();
-            let doc = inner.doc();
-
-            let blocks = doc.get_or_insert_map("blocks");
-            let updated = doc.get_or_insert_map("updated");
-            let metadata = doc.get_or_insert_map("space:meta");
-            (blocks, updated, metadata)
-        };
-
-        let workspace = Self {
+    fn from_raw<S: AsRef<str>>(
+        id: S,
+        awareness: Arc<RwLock<Awareness>>,
+        blocks: MapRef,
+        updated: MapRef,
+        metadata: MapRef,
+    ) -> Workspace {
+        setup_plugin(Self {
             id: id.as_ref().to_string(),
             awareness,
             blocks,
             updated,
             metadata,
             plugins: Default::default(),
-        };
-
-        setup_plugin(workspace)
+        })
     }
 
     /// Allow the plugin to run any necessary updates it could have flagged via observers.
@@ -286,9 +291,13 @@ impl Serialize for Workspace {
 
 impl Clone for Workspace {
     fn clone(&self) -> Self {
-        let id = self.id.clone();
-        let awareness = self.awareness.clone();
-        Self::from_awareness(awareness, id)
+        Self::from_raw(
+            &self.id,
+            self.awareness.clone(),
+            self.blocks.clone(),
+            self.updated.clone(),
+            self.metadata.clone(),
+        )
     }
 }
 

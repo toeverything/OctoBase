@@ -122,7 +122,7 @@ pub async fn handle_socket(
                 }
             },
             Some(msg) = rx.recv() => {
-                debug!(
+                trace!(
                     "recv from channel: {}bytes",
                     msg.as_ref().map(|v| v.len() as isize).unwrap_or(-1)
                 );
@@ -138,7 +138,10 @@ pub async fn handle_socket(
                 }
             },
             _ = sleep(Duration::from_secs(5)) => {
-                context.get_storage().full_migrate(workspace_id.clone(), None).await;
+                context
+                    .get_storage()
+                    .full_migrate(workspace_id.clone(), None, false)
+                    .await;
             }
         }
     }
