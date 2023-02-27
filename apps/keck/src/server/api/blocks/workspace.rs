@@ -263,7 +263,7 @@ pub async fn history_workspace_clients(
     Path(ws_id): Path<String>,
 ) -> Response {
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        if let Some(history) = parse_history_client(workspace.doc()) {
+        if let Some(history) = parse_history_client(&workspace.doc()) {
             Json(history).into_response()
         } else {
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -302,7 +302,7 @@ pub async fn history_workspace(
     let (ws_id, client) = params;
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         if let Ok(client) = client.parse::<u64>() {
-            if let Some(json) = parse_history(workspace.doc(), client)
+            if let Some(json) = parse_history(&workspace.doc(), client)
                 .and_then(|history| serde_json::to_string(&history).ok())
             {
                 ([(header::CONTENT_TYPE, "application/json")], json).into_response()
