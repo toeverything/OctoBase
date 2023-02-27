@@ -206,10 +206,15 @@ impl Workspace {
         f: impl Fn(&TransactionMut, &UpdateEvent) + 'static,
     ) -> Option<UpdateSubscription> {
         self.awareness
-            .write()
+            .read()
             .unwrap()
-            .doc_mut()
-            .observe_update_v1(f)
+            .doc()
+            .observe_update_v1(move |trx, evt| {
+                use std::panic::{catch_unwind, AssertUnwindSafe};
+                if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(trx, evt))) {
+                    error!("panic in observe callback: {:?}", e);
+                }
+            })
             .ok()
     }
 
