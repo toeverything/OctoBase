@@ -22,11 +22,12 @@ impl JwstStorage {
         )
         .await
         .context("Failed to connect to database")?;
+        let bucket = get_bucket();
 
-        let blobs = BlobAutoStorage::init_with_pool(pool.clone())
+        let blobs = BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone())
             .await
             .context("Failed to init blobs")?;
-        let docs = DocAutoStorage::init_with_pool(pool.clone())
+        let docs = DocAutoStorage::init_with_pool(pool.clone(), bucket.clone())
             .await
             .context("Failed to init docs")?;
 
