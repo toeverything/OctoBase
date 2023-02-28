@@ -24,6 +24,11 @@ class JwstWorkspace: ObservableObject {
     
     init (workspace: String) {
         self.workspace = Workspace(workspace)
+        
+        let storage = Storage("../../../data/jwst.db")
+        print(storage)
+        let w = storage.connect("1", "ws://10.0.2.2:3001/collaboration")
+        print(w)
     }
     
     func create(block_id:String, flavor:String) -> Block {

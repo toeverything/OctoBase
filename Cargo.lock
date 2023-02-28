@@ -2016,9 +2016,13 @@ name = "jwst-swift"
 version = "0.1.0"
 dependencies = [
  "jwst",
+ "jwst-rpc",
+ "jwst-storage",
  "lib0",
+ "log",
  "swift-bridge",
  "swift-bridge-build",
+ "tokio",
  "yrs",
 ]
 

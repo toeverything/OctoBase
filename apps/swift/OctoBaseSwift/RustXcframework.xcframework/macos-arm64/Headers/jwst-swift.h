@@ -49,6 +49,30 @@ void* __swift_bridge__$Vec_Workspace$get_mut(void* vec_ptr, uintptr_t index);
 uintptr_t __swift_bridge__$Vec_Workspace$len(void* vec_ptr);
 void* __swift_bridge__$Vec_Workspace$as_ptr(void* vec_ptr);
 
+typedef struct JwstWorkSpaceResult JwstWorkSpaceResult;
+void __swift_bridge__$JwstWorkSpaceResult$_free(void* self);
+
+void* __swift_bridge__$Vec_JwstWorkSpaceResult$new(void);
+void __swift_bridge__$Vec_JwstWorkSpaceResult$drop(void* vec_ptr);
+void __swift_bridge__$Vec_JwstWorkSpaceResult$push(void* vec_ptr, void* item_ptr);
+void* __swift_bridge__$Vec_JwstWorkSpaceResult$pop(void* vec_ptr);
+void* __swift_bridge__$Vec_JwstWorkSpaceResult$get(void* vec_ptr, uintptr_t index);
+void* __swift_bridge__$Vec_JwstWorkSpaceResult$get_mut(void* vec_ptr, uintptr_t index);
+uintptr_t __swift_bridge__$Vec_JwstWorkSpaceResult$len(void* vec_ptr);
+void* __swift_bridge__$Vec_JwstWorkSpaceResult$as_ptr(void* vec_ptr);
+
+typedef struct Storage Storage;
+void __swift_bridge__$Storage$_free(void* self);
+
+void* __swift_bridge__$Vec_Storage$new(void);
+void __swift_bridge__$Vec_Storage$drop(void* vec_ptr);
+void __swift_bridge__$Vec_Storage$push(void* vec_ptr, void* item_ptr);
+void* __swift_bridge__$Vec_Storage$pop(void* vec_ptr);
+void* __swift_bridge__$Vec_Storage$get(void* vec_ptr, uintptr_t index);
+void* __swift_bridge__$Vec_Storage$get_mut(void* vec_ptr, uintptr_t index);
+uintptr_t __swift_bridge__$Vec_Storage$len(void* vec_ptr);
+void* __swift_bridge__$Vec_Storage$as_ptr(void* vec_ptr);
+
 void* __swift_bridge__$Block$get(void* self, void* block_id);
 void* __swift_bridge__$Block$children(void* self);
 void __swift_bridge__$Block$push_children(void* self, void* block);
@@ -88,5 +112,9 @@ void* __swift_bridge__$Workspace$id(void* self);
 uint64_t __swift_bridge__$Workspace$client_id(void* self);
 void* __swift_bridge__$Workspace$get(void* self, void* block_id);
 void* __swift_bridge__$Workspace$create(void* self, void* block_id, void* flavor);
+void* __swift_bridge__$Storage$new(void* path);
+void* __swift_bridge__$Storage$error(void* self);
+void* __swift_bridge__$Storage$connect(void* self, void* workspace_id, void* remote);
+void* __swift_bridge__$Storage$sync(void* self, void* workspace_id, void* remote);
 
 

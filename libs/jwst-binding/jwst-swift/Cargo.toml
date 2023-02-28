@@ -8,10 +8,14 @@ edition = "2021"
 [dependencies]
 lib0 = "0.16.2"
 swift-bridge = "0.1.48"
+tokio = "1.24.2"
+log = "^0.4.17"
 yrs = "0.16.2"
 
 # ======= workspace dependencies =======
 jwst = { path = "../../jwst" }
+jwst-rpc = { path = "../../jwst-rpc" }
+jwst-storage = { path = "../../jwst-storage", features = ["sqlite"] }
 
 [lib]
 name = "octobase"
