@@ -1,5 +1,4 @@
-use super::{error, trace, ChannelItem, ContextImpl};
-use axum::extract::ws::Message;
+use super::{debug, error, trace, ChannelItem, ContextImpl};
 use jwst::{sync_encode_update, MapSubscription, Workspace};
 use std::sync::Arc;
 use y_sync::{
@@ -18,13 +17,19 @@ fn broadcast(
 ) {
     tokio::spawn(async move {
         let mut closed = vec![];
-
+        trace!(
+            "{} broadcast to {}: {}bytes",
+            current_item.workspace,
+            current_item.identifier,
+            update.len()
+        );
         for item in context.get_channel().iter() {
             let (item, tx) = item.pair();
+            trace!("sending: {:?}", item);
             if current_item.workspace == item.workspace && current_item.uuid != item.uuid {
                 if tx.is_closed() {
                     closed.push(item.clone());
-                } else if let Err(e) = tx.send(Message::Binary(update.clone())).await {
+                } else if let Err(e) = tx.send(Some(update.clone())).await {
                     if !tx.is_closed() {
                         error!("on awareness_update error: {}", e);
                     }
@@ -72,7 +77,11 @@ pub fn subscribe(
     let doc = {
         let item = item.clone();
         workspace.observe(move |_, e| {
-            trace!("workspace changed: {}, {:?}", item.workspace, &e.update);
+            debug!(
+                "workspace {} changed: {}bytes",
+                item.workspace,
+                &e.update.len()
+            );
             let update = sync_encode_update(&e.update);
             broadcast(item.clone(), update, context.clone());
         })

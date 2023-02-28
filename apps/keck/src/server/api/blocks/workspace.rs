@@ -29,8 +29,7 @@ pub async fn get_workspace(
 ) -> Response {
     info!("get_workspace: {}", ws_id);
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        let workspace = workspace.read().await;
-        Json(&*workspace).into_response()
+        Json(workspace).into_response()
     } else {
         (
             StatusCode::NOT_FOUND,
@@ -63,10 +62,7 @@ pub async fn set_workspace(
     info!("set_workspace: {}", workspace);
 
     match context.storage.create_workspace(workspace).await {
-        Ok(workspace) => {
-            let workspace = workspace.read().await;
-            Json(&*workspace).into_response()
-        }
+        Ok(workspace) => Json(workspace).into_response(),
         Err(e) => {
             error!("Failed to init doc: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -128,7 +124,6 @@ pub async fn workspace_client(
     Path(ws_id): Path<String>,
 ) -> Response {
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        let workspace = workspace.read().await;
         Json(workspace.client_id()).into_response()
     } else {
         (
@@ -170,9 +165,7 @@ pub async fn workspace_search(
 ) -> Response {
     let query_text = &query.query;
     info!("workspace_search: {ws_id:?} query = {query_text:?}");
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        let mut workspace = workspace.write().await;
-
+    if let Ok(mut workspace) = context.storage.get_workspace(&ws_id).await {
         match workspace.search(query_text) {
             Ok(list) => {
                 debug!("workspace_search: {ws_id:?} query = {query_text:?}; {list:#?}");
@@ -217,7 +210,6 @@ pub async fn get_workspace_block(
     let Pagination { offset, limit } = pagination;
     info!("get_workspace_block: {ws_id:?}");
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        let workspace = workspace.read().await;
         let total = workspace.block_count() as usize;
 
         let data = workspace.with_trx(|t| {
@@ -271,8 +263,7 @@ pub async fn history_workspace_clients(
     Path(ws_id): Path<String>,
 ) -> Response {
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        let workspace = workspace.read().await;
-        if let Some(history) = parse_history_client(workspace.doc()) {
+        if let Some(history) = parse_history_client(&workspace.doc()) {
             Json(history).into_response()
         } else {
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -310,9 +301,8 @@ pub async fn history_workspace(
 ) -> Response {
     let (ws_id, client) = params;
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        let workspace = workspace.read().await;
         if let Ok(client) = client.parse::<u64>() {
-            if let Some(json) = parse_history(workspace.doc(), client)
+            if let Some(json) = parse_history(&workspace.doc(), client)
                 .and_then(|history| serde_json::to_string(&history).ok())
             {
                 ([(header::CONTENT_TYPE, "application/json")], json).into_response()

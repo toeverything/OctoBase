@@ -1,21 +1,13 @@
 use super::{entities::prelude::*, *};
 use dashmap::{mapref::entry::Entry, DashMap};
-use futures::{SinkExt, StreamExt};
-use jwst::{sync_encode_update, DocStorage, DocSync, Workspace};
+use jwst::{sync_encode_update, DocStorage, Workspace};
 use jwst_storage_migration::{Migrator, MigratorTrait};
+use sea_orm::DatabaseTransaction;
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
-    sync::Arc,
+    time::Instant,
 };
-use tokio::sync::{
-    mpsc::{channel, Sender},
-    RwLock,
-};
-use tokio_tungstenite::{
-    connect_async,
-    tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
-};
-use url::Url;
+use tokio::sync::broadcast::Sender;
 use yrs::{updates::decoder::Decode, Doc, Options, ReadTxn, StateVector, Transact, Update};
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
@@ -50,11 +42,11 @@ pub(super) type DocsModel = <Docs as EntityTrait>::Model;
 type DocsActiveModel = super::entities::docs::ActiveModel;
 type DocsColumn = <Docs as EntityTrait>::Column;
 
-#[derive(Clone)]
 pub struct DocAutoStorage {
-    pool: DatabaseConnection,
-    workspaces: DashMap<String, Arc<RwLock<Workspace>>>,
-    remote: DashMap<String, Sender<Message>>,
+    pub(super) pool: DatabaseConnection,
+    workspaces: DashMap<String, Workspace>,
+    remote: DashMap<String, Sender<Vec<u8>>>,
+    pub(crate) last_migrate: DashMap<String, Instant>,
 }
 
 impl DocAutoStorage {
@@ -64,6 +56,7 @@ impl DocAutoStorage {
             pool,
             workspaces: DashMap::new(),
             remote: DashMap::new(),
+            last_migrate: DashMap::new(),
         })
     }
 
@@ -74,6 +67,7 @@ impl DocAutoStorage {
             pool,
             workspaces: DashMap::new(),
             remote: DashMap::new(),
+            last_migrate: DashMap::new(),
         })
     }
 
@@ -98,38 +92,61 @@ impl DocAutoStorage {
         Self::init_pool(&format!("sqlite:{}?mode=rwc", path.display())).await
     }
 
-    pub async fn all(&self, table: &str) -> Result<Vec<DocsModel>, DbErr> {
+    pub fn remote(&self) -> &DashMap<String, Sender<Vec<u8>>> {
+        &self.remote
+    }
+
+    pub(super) async fn all<C>(&self, conn: &C, table: &str) -> Result<Vec<DocsModel>, DbErr>
+    where
+        C: ConnectionTrait,
+    {
         Docs::find()
             .filter(DocsColumn::Workspace.eq(table))
-            .all(&self.pool)
+            .all(conn)
             .await
     }
 
-    pub(super) async fn count(&self, table: &str) -> Result<u64, DbErr> {
-        Docs::find()
+    pub(super) async fn count<C>(&self, conn: &C, table: &str) -> Result<u64, DbErr>
+    where
+        C: ConnectionTrait,
+    {
+        debug!("start count: {table}");
+        let count = Docs::find()
             .filter(DocsColumn::Workspace.eq(table))
-            .count(&self.pool)
+            .count(conn)
             .await
+            .unwrap();
+        debug!("end count: {table}, {count}");
+        Ok(count)
     }
 
-    pub async fn insert(&self, table: &str, blob: &[u8]) -> Result<(), DbErr> {
+    pub(super) async fn insert<C>(&self, conn: &C, table: &str, blob: &[u8]) -> Result<(), DbErr>
+    where
+        C: ConnectionTrait,
+    {
         Docs::insert(DocsActiveModel {
             workspace: Set(table.into()),
             timestamp: Set(Utc::now().into()),
             blob: Set(blob.into()),
             ..Default::default()
         })
-        .exec(&self.pool)
+        .exec(conn)
         .await?;
         Ok(())
     }
 
-    pub async fn replace_with(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
-        let tx = self.pool.begin().await?;
-
+    pub(super) async fn replace_with<C>(
+        &self,
+        conn: &C,
+        table: &str,
+        blob: Vec<u8>,
+    ) -> Result<(), DbErr>
+    where
+        C: ConnectionTrait,
+    {
         Docs::delete_many()
             .filter(DocsColumn::Workspace.eq(table))
-            .exec(&tx)
+            .exec(conn)
             .await?;
 
         Docs::insert(DocsActiveModel {
@@ -138,25 +155,29 @@ impl DocAutoStorage {
             blob: Set(blob),
             ..Default::default()
         })
-        .exec(&tx)
+        .exec(conn)
         .await?;
-
-        tx.commit().await?;
 
         Ok(())
     }
 
-    pub async fn drop(&self, table: &str) -> Result<(), DbErr> {
+    pub(super) async fn drop<C>(&self, conn: &C, table: &str) -> Result<(), DbErr>
+    where
+        C: ConnectionTrait,
+    {
         Docs::delete_many()
             .filter(DocsColumn::Workspace.eq(table))
-            .exec(&self.pool)
+            .exec(conn)
             .await?;
         Ok(())
     }
 
-    pub async fn update(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
-        if self.count(table).await? > MAX_TRIM_UPDATE_LIMIT - 1 {
-            let data = self.all(table).await?;
+    async fn update<C>(&self, conn: &C, table: &str, blob: Vec<u8>) -> Result<(), DbErr>
+    where
+        C: ConnectionTrait,
+    {
+        if self.count(conn, table).await? > MAX_TRIM_UPDATE_LIMIT - 1 {
+            let data = self.all(conn, table).await?;
 
             let doc = migrate_update(data, Doc::default());
 
@@ -164,49 +185,51 @@ impl DocAutoStorage {
                 .transact()
                 .encode_state_as_update_v1(&StateVector::default());
 
-            self.replace_with(table, data).await?;
+            self.replace_with(conn, table, data).await?;
         } else {
-            self.insert(table, &blob).await?;
+            self.insert(conn, table, &blob).await?;
         }
 
         debug!("update {}bytes to {}", blob.len(), table);
         if let Entry::Occupied(remote) = self.remote.entry(table.into()) {
-            let socket = &remote.get();
-            debug!("send update to channel");
-            if let Err(e) = socket
-                .send(Message::binary(sync_encode_update(&blob)))
-                .await
-            {
-                warn!("send update to remote failed: {:?}", e);
-                socket.closed().await;
+            let broadcast = &remote.get();
+            debug!("sending update to pipeline");
+            if let Err(e) = broadcast.send(sync_encode_update(&blob)) {
+                warn!("send update to pipeline failed: {:?}", e);
             }
-            debug!("send update to channel end");
+            debug!("send update to pipeline end");
         }
 
         Ok(())
     }
 
-    pub async fn full_migrate(&self, table: &str, blob: Vec<u8>) -> Result<(), DbErr> {
-        if self.count(table).await? > 0 {
-            self.replace_with(table, blob).await
+    async fn full_migrate<C>(&self, conn: &C, table: &str, blob: Vec<u8>) -> Result<(), DbErr>
+    where
+        C: ConnectionTrait,
+    {
+        info!("full migrate3.1: {table}");
+        if self.count(conn, table).await? > 0 {
+            info!("full migrate3.2: {table}");
+            self.replace_with(conn, table, blob).await
         } else {
-            self.insert(table, &blob).await
+            info!("full migrate3.3: {table}");
+            self.insert(conn, table, &blob).await
         }
     }
 
-    async fn create_doc(&self, workspace: &str) -> Result<Doc, DbErr> {
+    async fn create_doc(&self, conn: &DatabaseTransaction, workspace: &str) -> Result<Doc, DbErr> {
         let mut doc = Doc::with_options(Options {
             skip_gc: true,
             ..Default::default()
         });
 
-        let all_data = self.all(workspace).await?;
+        let all_data = self.all(conn, workspace).await?;
 
         if all_data.is_empty() {
             let update = doc
                 .transact()
                 .encode_state_as_update_v1(&StateVector::default());
-            self.insert(workspace, &update).await?;
+            self.insert(conn, workspace, &update).await?;
         } else {
             doc = migrate_update(all_data, doc);
         }
@@ -220,25 +243,31 @@ impl DocStorage for DocAutoStorage {
     async fn exists(&self, workspace_id: String) -> JwstResult<bool> {
         Ok(self.workspaces.contains_key(&workspace_id)
             || self
-                .count(&workspace_id)
+                .count(&self.pool, &workspace_id)
                 .await
                 .map(|c| c > 0)
                 .context("Failed to check workspace")
                 .map_err(JwstError::StorageError)?)
     }
 
-    async fn get(&self, workspace_id: String) -> JwstResult<Arc<RwLock<Workspace>>> {
+    async fn get(&self, workspace_id: String) -> JwstResult<Workspace> {
         match self.workspaces.entry(workspace_id.clone()) {
             Entry::Occupied(ws) => Ok(ws.get().clone()),
             Entry::Vacant(v) => {
-                debug!("init workspace cache");
-                let doc = self
-                    .create_doc(&workspace_id)
+                debug!("init workspace cache: {workspace_id}");
+                let trx = self
+                    .pool
+                    .begin()
                     .await
-                    .context("Failed to check workspace")
+                    .context("failed to start transaction")?;
+                let doc = self
+                    .create_doc(&trx, &workspace_id)
+                    .await
+                    .context("failed to check workspace")
                     .map_err(JwstError::StorageError)?;
+                trx.commit().await.context("failed to commit transaction")?;
 
-                let ws = Arc::new(RwLock::new(Workspace::from_doc(doc, workspace_id)));
+                let ws = Workspace::from_doc(doc, workspace_id);
                 Ok(v.insert(ws).clone())
             }
         }
@@ -247,18 +276,29 @@ impl DocStorage for DocAutoStorage {
     /// This function is not atomic -- please provide external lock mechanism
     async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> JwstResult<()> {
         trace!("write_doc: {:?}", data);
+        debug!("write_full_update 1");
+        let trx = self
+            .pool
+            .begin()
+            .await
+            .context("failed to start transaction")?;
 
-        Ok(self
-            .full_migrate(&workspace_id, data)
+        debug!("write_full_update 2");
+        self.full_migrate(&trx, &workspace_id, data)
             .await
             .context("Failed to store workspace")
-            .map_err(JwstError::StorageError)?)
+            .map_err(JwstError::StorageError)?;
+
+        debug!("write_full_update 3");
+        trx.commit().await.context("failed to commit transaction")?;
+        debug!("write_full_update 4");
+        Ok(())
     }
 
     /// This function is not atomic -- please provide external lock mechanism
     async fn write_update(&self, workspace_id: String, data: &[u8]) -> JwstResult<()> {
         trace!("write_update: {:?}", data);
-        self.update(&workspace_id, data.into())
+        self.update(&self.pool, &workspace_id, data.into())
             .await
             .context("Failed to store update workspace")
             .map_err(JwstError::StorageError)?;
@@ -267,122 +307,13 @@ impl DocStorage for DocAutoStorage {
     }
 
     async fn delete(&self, workspace_id: String) -> JwstResult<()> {
+        debug!("delete workspace cache: {workspace_id}");
         self.workspaces.remove(&workspace_id);
-        self.drop(&workspace_id)
+        self.drop(&self.pool, &workspace_id)
             .await
             .context("Failed to delete workspace")
             .map_err(JwstError::StorageError)?;
 
         Ok(())
-    }
-}
-
-#[async_trait]
-impl DocSync for DocAutoStorage {
-    async fn sync(&self, id: String, remote: String) -> JwstResult<Arc<RwLock<Workspace>>> {
-        let workspace = self.get(id.clone()).await?;
-
-        if let Entry::Vacant(entry) = self.remote.entry(id.clone()) {
-            let (tx, mut rx) = channel(100);
-            let workspace = workspace.clone();
-
-            debug!("spawn sync thread");
-            std::thread::spawn(move || {
-                let Ok(rt) = tokio::runtime::Runtime::new() else {
-                    return error!("Failed to create runtime");
-                };
-                rt.block_on(async move {
-                    debug!("generate remote config");
-                    let uri = match Url::parse(&remote) {
-                        Ok(uri) => uri,
-                        Err(e) => {
-                            return error!("Failed to parse remote url: {}", e);
-                        }
-                    };
-                    let mut req = match uri.into_client_request() {
-                        Ok(req)=> req,
-                        Err(e) => {
-                            return error!("Failed to create client request: {}", e);
-                        }
-                    };
-                    req.headers_mut()
-                        .append("Sec-WebSocket-Protocol", HeaderValue::from_static("AFFiNE"));
-
-                    debug!("connect to remote: {}", req.uri());
-                    let (mut socket_tx, mut socket_rx) = match connect_async(req).await {
-                        Ok((socket, _)) => socket.split(),
-                        Err(e) => {
-                            return error!("Failed to connect to remote: {}", e);
-                        }
-                    };
-
-
-                    debug!("sync init message");
-                    match workspace.read().await.sync_init_message() {
-                        Ok(init_data) => {
-                            debug!("send init message");
-                            if let Err(e) = socket_tx.send(Message::Binary(init_data)).await {
-                                error!("Failed to send init message: {}", e);
-                                return;
-                            }
-                        }
-                        Err(e) => {
-                            error!("Failed to create init message: {}", e);
-                            return;
-                        }
-                    }
-
-                    let id = workspace.read().await.id();
-                    debug!("start sync thread {id}");
-                    loop {
-                        tokio::select! {
-                            Some(msg) = socket_rx.next() => {
-                                match msg {
-                                    Ok(msg) => {
-                                        if let Message::Binary(msg) = msg {
-                                            trace!("get update from remote: {:?}", msg);
-                                            let buffer = workspace.write().await.sync_decode_message(&msg);
-                                            for update in buffer {
-                                                // skip empty updates
-                                                if update == [0, 2, 2, 0, 0] {
-                                                    continue;
-                                                }
-                                                trace!("send differential update to remote: {:?}", update);
-                                                if let Err(e) = socket_tx.send(Message::binary(update)).await {
-                                                    warn!("send update to remote failed: {:?}", e);
-                                                    if let Err(e) = socket_tx.close().await {
-                                                        error!("close failed: {}", e);
-                                                    };
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    },
-                                    Err(e) => {
-                                        error!("remote closed: {e}");
-                                        break;
-                                    },
-                                }
-                            }
-                            Some(msg) = rx.recv() => {
-                                trace!("send update to remote: {:?}", msg);
-                                if let Err(e) = socket_tx.send(msg).await {
-                                    warn!("send update to remote failed: {:?}", e);
-                                    if let Err(e) = socket_tx.close().await{
-                                        error!("close failed: {}", e);
-                                    }
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    debug!("end sync thread");
-                });
-            });
-
-            entry.insert(tx);
-        }
-
-        Ok(workspace)
     }
 }
