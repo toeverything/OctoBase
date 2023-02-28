@@ -282,7 +282,6 @@ impl CloudDatabase {
 
     pub async fn delete_workspace(&self, workspace_id: String) -> Result<bool, DbErr> {
         let trx = self.pool.begin().await?;
-
         Permissions::delete_many()
             .filter(PermissionColumn::WorkspaceId.eq(workspace_id.clone()))
             .filter(Expr::exists(
@@ -336,9 +335,6 @@ impl CloudDatabase {
     }
 
     pub async fn get_workspace_members(&self, workspace_id: String) -> Result<Vec<Member>, DbErr> {
-        self.get_workspace_by_id(workspace_id.clone())
-            .await?
-            .unwrap();
         Permissions::find()
             .column_as(PermissionColumn::Id, "id")
             .column_as(PermissionColumn::Type, "type")
@@ -645,7 +641,6 @@ impl CloudDatabase {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Ok;
 
     #[tokio::test]
     #[should_panic]
@@ -687,6 +682,17 @@ mod tests {
             .get(0)
             .unwrap();
     }
+    #[tokio::test]
+    #[should_panic]
+    async fn not_existed_workspace_id_get_workspace_members() {
+        use super::*;
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        pool.get_workspace_members("fake_id".to_string())
+            .await
+            .unwrap()
+            .get(0)
+            .unwrap();
+    }
 
     #[tokio::test]
     #[should_panic]
@@ -696,16 +702,6 @@ mod tests {
         pool.get_permission("fake_id".to_string(), "fake_id".to_string())
             .await
             .unwrap()
-            .unwrap();
-    }
-
-    #[tokio::test]
-    #[should_panic]
-    async fn get_workspace_members_by_not_existed_workspace_id() {
-        use super::*;
-        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        pool.get_workspace_members("fake_id".to_string())
-            .await
             .unwrap();
     }
 
