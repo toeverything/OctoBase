@@ -112,6 +112,7 @@ void* __swift_bridge__$Workspace$id(void* self);
 uint64_t __swift_bridge__$Workspace$client_id(void* self);
 void* __swift_bridge__$Workspace$get(void* self, void* block_id);
 void* __swift_bridge__$Workspace$create(void* self, void* block_id, void* flavor);
+void* __swift_bridge__$Workspace$get_blocks_by_flavour(void* self, struct RustStr flavour);
 void* __swift_bridge__$Storage$new(void* path);
 void* __swift_bridge__$Storage$error(void* self);
 void* __swift_bridge__$Storage$connect(void* self, void* workspace_id, void* remote);

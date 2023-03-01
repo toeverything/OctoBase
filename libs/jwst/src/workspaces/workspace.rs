@@ -178,6 +178,16 @@ impl Workspace {
         cb(Box::new(iterator))
     }
 
+    pub fn get_blocks_by_flavour<T>(&self, trx: &T, flavour: &str) -> Vec<Block>
+    where T: ReadTxn
+    {
+        self.blocks(trx, |blocks| {
+            blocks
+                .filter(|block| block.flavor(trx) == flavour)
+                .collect::<Vec<_>>()
+        })
+    }
+
     pub fn observe_metadata(
         &mut self,
         f: impl Fn(&TransactionMut, &MapEvent) + 'static,
@@ -383,6 +393,12 @@ mod test {
             assert_eq!(workspace.updated.len(&t.trx), 0);
             assert_eq!(workspace.get(&t.trx, "block"), None);
             assert_eq!(workspace.exists(&t.trx, "block"), false);
+        });
+
+        workspace.with_trx(|mut t| {
+            Block::new(&mut t.trx, &workspace, "test", "test", 1);
+            let vec = workspace.get_blocks_by_flavour(&t.trx, "test");
+            assert_eq!(vec.len(), 1);
         });
 
         let doc = Doc::with_client_id(123);

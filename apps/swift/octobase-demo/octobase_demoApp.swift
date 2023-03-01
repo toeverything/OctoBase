@@ -34,6 +34,10 @@ class JwstWorkspace: ObservableObject {
         return self.workspace.get(blockId)
     }
     
+    func get_blocks_by_flavour(flavour: String) -> RustVec<OctoBase.Block> {
+        return self.workspace.get_blocks_by_flavour(flavour)
+    }
+    
     func create_block_set_prop_demo() {
         print("create_block_set_prop_demo")
         let block = self.create(block_id: "test", flavor: "test")
@@ -78,6 +82,12 @@ class JwstWorkspace: ObservableObject {
         for child in block.children() {
             print(child.as_str().toString());
         }
+    }
+    
+    func search_blocks_demo() {
+        print("search_blocks_demo")
+        let block = self.create(block_id: "test", flavor: "test")
+        print(self.get_blocks_by_flavour(flavour: "test"))
     }
 }
 

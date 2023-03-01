@@ -403,6 +403,12 @@ extension WorkspaceRef {
     public func create<GenericIntoRustString: IntoRustString>(_ block_id: GenericIntoRustString, _ flavor: GenericIntoRustString) -> Block {
         Block(ptr: __swift_bridge__$Workspace$create(ptr, { let rustString = block_id.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = flavor.intoRustString(); rustString.isOwned = false; return rustString.ptr }()))
     }
+
+    public func get_blocks_by_flavour<GenericToRustStr: ToRustStr>(_ flavour: GenericToRustStr) -> RustVec<Block> {
+        return flavour.toRustStr({ flavourAsRustStr in
+            RustVec(ptr: __swift_bridge__$Workspace$get_blocks_by_flavour(ptr, flavourAsRustStr))
+        })
+    }
 }
 extension Workspace: Vectorizable {
     public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
