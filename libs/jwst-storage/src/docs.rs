@@ -6,7 +6,7 @@ use std::{
     panic::{catch_unwind, AssertUnwindSafe},
     time::Instant,
 };
-use tokio::{runtime::Runtime, sync::broadcast::Sender};
+use tokio::sync::broadcast::Sender;
 use yrs::{updates::decoder::Decode, Doc, Options, ReadTxn, StateVector, Transact, Update};
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
@@ -96,7 +96,7 @@ impl DocAutoStorage {
         &self.remote
     }
 
-    async fn all<C>(conn: &C, table: &str) -> Result<Vec<DocsModel>, DbErr>
+    async fn all<C>(conn: &C, table: &str) -> JwstResult<Vec<DocsModel>>
     where
         C: ConnectionTrait,
     {
@@ -104,12 +104,13 @@ impl DocAutoStorage {
         let models = Docs::find()
             .filter(DocsColumn::Workspace.eq(table))
             .all(conn)
-            .await?;
+            .await
+            .context("failed to scan all updates")?;
         info!("end scan all: {table}, {}", models.len());
         Ok(models)
     }
 
-    async fn count<C>(conn: &C, table: &str) -> Result<u64, DbErr>
+    async fn count<C>(conn: &C, table: &str) -> JwstResult<u64>
     where
         C: ConnectionTrait,
     {
@@ -118,12 +119,12 @@ impl DocAutoStorage {
             .filter(DocsColumn::Workspace.eq(table))
             .count(conn)
             .await
-            .unwrap();
+            .context("failed to count update")?;
         info!("end count: {table}, {count}");
         Ok(count)
     }
 
-    async fn insert<C>(conn: &C, table: &str, blob: &[u8]) -> Result<(), DbErr>
+    async fn insert<C>(conn: &C, table: &str, blob: &[u8]) -> JwstResult<()>
     where
         C: ConnectionTrait,
     {
@@ -135,12 +136,13 @@ impl DocAutoStorage {
             ..Default::default()
         })
         .exec(conn)
-        .await?;
+        .await
+        .context("failed to insert update")?;
         info!("end insert: {table}");
         Ok(())
     }
 
-    async fn replace_with<C>(conn: &C, table: &str, blob: Vec<u8>) -> Result<(), DbErr>
+    async fn replace_with<C>(conn: &C, table: &str, blob: Vec<u8>) -> JwstResult<()>
     where
         C: ConnectionTrait,
     {
@@ -148,7 +150,8 @@ impl DocAutoStorage {
         Docs::delete_many()
             .filter(DocsColumn::Workspace.eq(table))
             .exec(conn)
-            .await?;
+            .await
+            .context("failed to delete old updates")?;
         Docs::insert(DocsActiveModel {
             workspace: Set(table.into()),
             timestamp: Set(Utc::now().into()),
@@ -156,12 +159,13 @@ impl DocAutoStorage {
             ..Default::default()
         })
         .exec(conn)
-        .await?;
+        .await
+        .context("failed to insert new updates")?;
         info!("end replace: {table}");
         Ok(())
     }
 
-    async fn drop<C>(conn: &C, table: &str) -> Result<(), DbErr>
+    async fn drop<C>(conn: &C, table: &str) -> JwstResult<()>
     where
         C: ConnectionTrait,
     {
@@ -169,12 +173,13 @@ impl DocAutoStorage {
         Docs::delete_many()
             .filter(DocsColumn::Workspace.eq(table))
             .exec(conn)
-            .await?;
+            .await
+            .context("failed to delete updates")?;
         info!("end drop: {table}");
         Ok(())
     }
 
-    async fn update<C>(&self, conn: &C, table: &str, blob: Vec<u8>) -> Result<(), DbErr>
+    async fn update<C>(&self, conn: &C, table: &str, blob: Vec<u8>) -> JwstResult<()>
     where
         C: ConnectionTrait,
     {
@@ -182,11 +187,14 @@ impl DocAutoStorage {
         if Self::count(conn, table).await? > MAX_TRIM_UPDATE_LIMIT - 1 {
             let data = Self::all(conn, table).await?;
 
-            let doc = migrate_update(data, Doc::default());
+            let data = tokio::task::spawn_blocking(move || {
+                let doc = migrate_update(data, Doc::default());
 
-            let data = doc
-                .transact()
-                .encode_state_as_update_v1(&StateVector::default());
+                let trx = doc.transact();
+                trx.encode_state_as_update_v1(&StateVector::default())
+            })
+            .await
+            .context("failed to merge update")?;
 
             Self::replace_with(conn, table, data).await?;
         } else {
@@ -197,18 +205,16 @@ impl DocAutoStorage {
         debug!("update {}bytes to {}", blob.len(), table);
         if let Entry::Occupied(remote) = self.remote.entry(table.into()) {
             let broadcast = &remote.get();
-            debug!("sending update to pipeline");
             if let Err(e) = broadcast.send(sync_encode_update(&blob)) {
                 warn!("send update to pipeline failed: {:?}", e);
             }
-            debug!("send update to pipeline end");
         }
         info!("end update broadcast: {table}");
 
         Ok(())
     }
 
-    async fn full_migrate<C>(&self, conn: &C, table: &str, blob: Vec<u8>) -> Result<(), DbErr>
+    async fn full_migrate<C>(&self, conn: &C, table: &str, blob: Vec<u8>) -> JwstResult<()>
     where
         C: ConnectionTrait,
     {
@@ -224,7 +230,7 @@ impl DocAutoStorage {
         Ok(())
     }
 
-    async fn create_doc<C>(conn: &C, workspace: &str) -> Result<Doc, DbErr>
+    async fn create_doc<C>(conn: &C, workspace: &str) -> JwstResult<Doc>
     where
         C: ConnectionTrait,
     {
@@ -295,22 +301,12 @@ impl DocStorage for DocAutoStorage {
         let _lock = self.bucket.get_lock().await;
 
         trace!("write_doc: {:?}", data);
-        info!("write_full_update 1");
-        let trx = self
-            .pool
-            .begin()
-            .await
-            .context("failed to start transaction")?;
 
-        info!("write_full_update 2");
-        self.full_migrate(&trx, &workspace_id, data)
+        self.full_migrate(&self.pool, &workspace_id, data)
             .await
             .context("Failed to store workspace")
             .map_err(JwstError::StorageError)?;
 
-        info!("write_full_update 3");
-        trx.commit().await.context("failed to commit transaction")?;
-        info!("write_full_update 4");
         Ok(())
     }
 
@@ -457,7 +453,7 @@ pub async fn full_migration_test(pool: &DocAutoStorage) -> anyhow::Result<()> {
 }
 
 #[cfg(test)]
-pub mod test {
+mod test {
     use super::{Arc, DashMap, Doc, DocAutoStorage, DocStorage, Entry, Workspace};
     use anyhow::Context;
     use jwst::JwstError;
@@ -504,7 +500,7 @@ pub mod test {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    pub async fn create_workspace_stress_test() -> anyhow::Result<()> {
+    async fn create_workspace_stress_test() -> anyhow::Result<()> {
         jwst_logger::init_logger();
 
         let storage = Arc::new(

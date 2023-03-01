@@ -18,10 +18,7 @@ use governor::{Quota, RateLimiter};
 use jwst::{DocStorage, JwstError, JwstResult, Workspace};
 use jwst_logger::{debug, error, info, trace, warn};
 use path_ext::PathExt;
-use sea_orm::{
-    prelude::*, ConnectOptions, Database, DbErr, FromQueryResult, QuerySelect, Set,
-    TransactionTrait,
-};
+use sea_orm::{prelude::*, ConnectOptions, Database, DbErr, FromQueryResult, QuerySelect, Set};
 use std::{io::Cursor, num::NonZeroU32, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use url::Url;
