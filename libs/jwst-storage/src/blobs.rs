@@ -193,3 +193,52 @@ impl BlobStorage for BlobAutoStorage {
         }
     }
 }
+
+#[cfg(test)]
+pub async fn blobs_storage_test(pool: &BlobAutoStorage) -> anyhow::Result<()> {
+    // empty table
+    assert_eq!(pool.count("basic").await?, 0);
+
+    // first insert
+    pool.insert("basic", "test", &[1, 2, 3, 4]).await?;
+    assert_eq!(pool.count("basic").await?, 1);
+
+    let all = pool.all("basic").await?;
+    assert_eq!(
+        all,
+        vec![BlobModel {
+            workspace: "basic".into(),
+            hash: "test".into(),
+            blob: vec![1, 2, 3, 4],
+            length: 4,
+            timestamp: all.get(0).unwrap().timestamp
+        }]
+    );
+    assert_eq!(pool.count("basic").await?, 1);
+
+    pool.drop("basic").await?;
+
+    pool.insert("basic", "test1", &[1, 2, 3, 4]).await?;
+
+    let all = pool.all("basic").await?;
+    assert_eq!(
+        all,
+        vec![BlobModel {
+            workspace: "basic".into(),
+            hash: "test1".into(),
+            blob: vec![1, 2, 3, 4],
+            length: 4,
+            timestamp: all.get(0).unwrap().timestamp
+        }]
+    );
+    assert_eq!(pool.count("basic").await?, 1);
+
+    let metadata = pool.metadata("basic", "test1").await?;
+
+    assert_eq!(metadata.size, 4);
+    assert!((metadata.last_modified.timestamp() - Utc::now().timestamp()).abs() < 2);
+
+    pool.drop("basic").await?;
+
+    Ok(())
+}
