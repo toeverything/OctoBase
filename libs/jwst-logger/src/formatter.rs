@@ -1,6 +1,6 @@
 use nu_ansi_term::{AnsiGenericString, Color};
 use std::fmt::Result;
-use tracing::{Event, Level, Subscriber};
+use tracing::{Event, Level, Metadata, Subscriber};
 use tracing_log::NormalizeEvent;
 use tracing_subscriber::{
     fmt::{
@@ -43,6 +43,24 @@ impl JWSTFormatter {
             Level::TRACE => Color::Purple.paint("TRACE"),
         }
     }
+
+    fn write_log(meta: &Metadata<'_>) -> String {
+        if option_env!("JWST_COLORFUL_LOGS").is_some() || cfg!(debug_assertions) {
+            format!(
+                "\r[{}][{}][{}] ",
+                Color::DarkGray.paint(LogTime::get_time()),
+                Self::format_level(meta.level()),
+                Color::LightMagenta.paint(meta.target())
+            )
+        } else {
+            format!(
+                "\r[{}][{}][{}] ",
+                LogTime::get_time(),
+                meta.level().as_str(),
+                meta.target()
+            )
+        }
+    }
 }
 
 impl<S, N> FormatEvent<S, N> for JWSTFormatter
@@ -66,13 +84,7 @@ where
                 return Ok(());
             }
 
-            write!(
-                &mut writer,
-                "\r[{}][{}][{}] ",
-                Color::DarkGray.paint(LogTime::get_time()),
-                Self::format_level(meta.level()),
-                Color::LightMagenta.paint(meta.target())
-            )?;
+            write!(&mut writer, "{}", Self::write_log(meta))?;
 
             // Format all the spans in the event's span context.
             if let Some(scope) = ctx.event_scope() {

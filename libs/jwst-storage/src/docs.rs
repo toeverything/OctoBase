@@ -43,6 +43,7 @@ type DocsActiveModel = super::entities::docs::ActiveModel;
 type DocsColumn = <Docs as EntityTrait>::Column;
 
 pub struct DocAutoStorage {
+    bucket: Bucket,
     pub(super) pool: DatabaseConnection,
     workspaces: DashMap<String, Workspace>,
     remote: DashMap<String, Sender<Vec<u8>>>,
@@ -50,9 +51,10 @@ pub struct DocAutoStorage {
 }
 
 impl DocAutoStorage {
-    pub async fn init_with_pool(pool: DatabaseConnection) -> Result<Self, DbErr> {
+    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Bucket) -> Result<Self, DbErr> {
         Migrator::up(&pool, None).await?;
         Ok(Self {
+            bucket,
             pool,
             workspaces: DashMap::new(),
             remote: DashMap::new(),
@@ -64,6 +66,7 @@ impl DocAutoStorage {
         let pool = Database::connect(database).await?;
         Migrator::up(&pool, None).await?;
         Ok(Self {
+            bucket: get_bucket(),
             pool,
             workspaces: DashMap::new(),
             remote: DashMap::new(),
@@ -100,6 +103,7 @@ impl DocAutoStorage {
     where
         C: ConnectionTrait,
     {
+        self.bucket.until_ready().await;
         Docs::find()
             .filter(DocsColumn::Workspace.eq(table))
             .all(conn)
@@ -110,6 +114,7 @@ impl DocAutoStorage {
     where
         C: ConnectionTrait,
     {
+        self.bucket.until_ready().await;
         debug!("start count: {table}");
         let count = Docs::find()
             .filter(DocsColumn::Workspace.eq(table))
@@ -124,6 +129,7 @@ impl DocAutoStorage {
     where
         C: ConnectionTrait,
     {
+        self.bucket.until_ready().await;
         Docs::insert(DocsActiveModel {
             workspace: Set(table.into()),
             timestamp: Set(Utc::now().into()),
@@ -144,6 +150,7 @@ impl DocAutoStorage {
     where
         C: ConnectionTrait,
     {
+        self.bucket.until_ready().await;
         Docs::delete_many()
             .filter(DocsColumn::Workspace.eq(table))
             .exec(conn)
@@ -165,6 +172,7 @@ impl DocAutoStorage {
     where
         C: ConnectionTrait,
     {
+        self.bucket.until_ready().await;
         Docs::delete_many()
             .filter(DocsColumn::Workspace.eq(table))
             .exec(conn)
