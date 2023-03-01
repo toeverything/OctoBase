@@ -27,6 +27,7 @@ sea-orm = { version = "0.11.0", features = ["runtime-tokio-rustls", "macros"] }
 sea-orm-migration = "0.11.0"
 tokio = { version = "1.25.0", features = ["fs", "macros", "sync"] }
 tokio-util = { version = "0.7.7", features = ["io"] }
+url = "2.3.1"
 yrs = "0.16.2"
 
 # ======= workspace dependencies =======

@@ -10,19 +10,21 @@ pub struct JwstStorage {
 
 impl JwstStorage {
     pub async fn new(database: &str) -> JwstResult<Self> {
+        let is_sqlite = is_sqlite(database);
+
         let pool = Database::connect(
             ConnectOptions::from(database)
-                .max_connections(50)
-                .min_connections(10)
-                .acquire_timeout(Duration::from_secs(2))
-                .connect_timeout(Duration::from_secs(2))
+                .max_connections(if is_sqlite { 1 } else { 50 })
+                .min_connections(if is_sqlite { 1 } else { 10 })
+                .acquire_timeout(Duration::from_secs(5))
+                .connect_timeout(Duration::from_secs(5))
                 .idle_timeout(Duration::from_secs(5))
                 .max_lifetime(Duration::from_secs(30))
                 .to_owned(),
         )
         .await
         .context("Failed to connect to database")?;
-        let bucket = get_bucket();
+        let bucket = get_bucket(is_sqlite);
 
         let blobs = BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone())
             .await

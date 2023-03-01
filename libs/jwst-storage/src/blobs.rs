@@ -25,7 +25,7 @@ impl BlobAutoStorage {
         Migrator::up(&pool, None).await?;
 
         Ok(Self {
-            bucket: get_bucket(),
+            bucket: get_bucket(is_sqlite(database)),
             pool,
         })
     }
