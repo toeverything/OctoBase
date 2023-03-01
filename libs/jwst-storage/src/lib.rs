@@ -1,8 +1,5 @@
-mod blobs;
-mod docs;
 mod entities;
 mod storage;
-mod tests;
 mod utils;
 
 use anyhow::Context;
@@ -59,7 +56,7 @@ fn is_sqlite(database: &str) -> bool {
 #[inline]
 fn get_bucket(single_thread: bool) -> Arc<Bucket> {
     Arc::new(Bucket::new(
-        if single_thread { 1 } else { 30 },
+        if single_thread { 1 } else { 25 },
         if single_thread { 1 } else { 5 },
     ))
 }

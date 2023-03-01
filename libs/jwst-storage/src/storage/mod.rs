@@ -1,4 +1,10 @@
-use super::{blobs::BlobAutoStorage, docs::DocAutoStorage, *};
+mod blobs;
+mod docs;
+mod tests;
+
+use super::*;
+use blobs::BlobAutoStorage;
+use docs::DocAutoStorage;
 use std::time::Instant;
 
 pub struct JwstStorage {
@@ -107,6 +113,7 @@ impl JwstStorage {
     ) -> bool {
         let mut ts = self
             .docs
+            .0
             .last_migrate
             .entry(workspace_id.clone())
             .or_insert(Instant::now());

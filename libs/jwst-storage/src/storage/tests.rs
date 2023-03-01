@@ -10,7 +10,7 @@ mod tests {
         let storage = JwstStorage::new("sqlite::memory:").await?;
 
         blobs_storage_test(storage.blobs()).await?;
-        docs_storage_test(storage.docs()).await?;
+        docs_storage_test(&storage.docs().0).await?;
 
         Ok(())
     }
@@ -25,8 +25,8 @@ mod tests {
         let storage = JwstStorage::new(db).await?;
         let (r1, r2, r3) = tokio::join!(
             blobs_storage_test(storage.blobs()),
-            docs_storage_test(storage.docs()),
-            full_migration_test(storage.docs()),
+            docs_storage_test(&storage.docs().0),
+            full_migration_test(&storage.docs().0),
         );
 
         r1?;
