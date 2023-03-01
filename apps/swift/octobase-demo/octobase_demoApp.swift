@@ -80,3 +80,20 @@ class JwstWorkspace: ObservableObject {
         }
     }
 }
+
+class JWSTStorage: ObservableObject {
+    var storage: Storage
+    
+    var remote: String
+    
+    // path:    path of sqlite db
+    // remote:  websocket server api, eg: ws://localhost:3000/collaboration
+    init (path: String, remote: String) {
+        self.storage = Storage(path)
+        self.remote = remote
+    }
+    
+    func get_workspace(id: String) -> Workspace {
+        return self.storage.connect(id, self.remote + "/" + id)!
+    }
+}

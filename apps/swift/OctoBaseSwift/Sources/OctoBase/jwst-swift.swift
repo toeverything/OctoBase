@@ -450,4 +450,165 @@ extension Workspace: Vectorizable {
 }
 
 
+public class JwstWorkSpaceResult: JwstWorkSpaceResultRefMut {
+    var isOwned: Bool = true
+
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+
+    deinit {
+        if isOwned {
+            __swift_bridge__$JwstWorkSpaceResult$_free(ptr)
+        }
+    }
+}
+public class JwstWorkSpaceResultRefMut: JwstWorkSpaceResultRef {
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+}
+public class JwstWorkSpaceResultRef {
+    var ptr: UnsafeMutableRawPointer
+
+    public init(ptr: UnsafeMutableRawPointer) {
+        self.ptr = ptr
+    }
+}
+extension JwstWorkSpaceResult: Vectorizable {
+    public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
+        __swift_bridge__$Vec_JwstWorkSpaceResult$new()
+    }
+
+    public static func vecOfSelfFree(vecPtr: UnsafeMutableRawPointer) {
+        __swift_bridge__$Vec_JwstWorkSpaceResult$drop(vecPtr)
+    }
+
+    public static func vecOfSelfPush(vecPtr: UnsafeMutableRawPointer, value: JwstWorkSpaceResult) {
+        __swift_bridge__$Vec_JwstWorkSpaceResult$push(vecPtr, {value.isOwned = false; return value.ptr;}())
+    }
+
+    public static func vecOfSelfPop(vecPtr: UnsafeMutableRawPointer) -> Optional<Self> {
+        let pointer = __swift_bridge__$Vec_JwstWorkSpaceResult$pop(vecPtr)
+        if pointer == nil {
+            return nil
+        } else {
+            return (JwstWorkSpaceResult(ptr: pointer!) as! Self)
+        }
+    }
+
+    public static func vecOfSelfGet(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<JwstWorkSpaceResultRef> {
+        let pointer = __swift_bridge__$Vec_JwstWorkSpaceResult$get(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return JwstWorkSpaceResultRef(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfGetMut(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<JwstWorkSpaceResultRefMut> {
+        let pointer = __swift_bridge__$Vec_JwstWorkSpaceResult$get_mut(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return JwstWorkSpaceResultRefMut(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
+        __swift_bridge__$Vec_JwstWorkSpaceResult$len(vecPtr)
+    }
+}
+
+
+public class Storage: StorageRefMut {
+    var isOwned: Bool = true
+
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+
+    deinit {
+        if isOwned {
+            __swift_bridge__$Storage$_free(ptr)
+        }
+    }
+}
+extension Storage {
+    public convenience init<GenericIntoRustString: IntoRustString>(_ path: GenericIntoRustString) {
+        self.init(ptr: __swift_bridge__$Storage$new({ let rustString = path.intoRustString(); rustString.isOwned = false; return rustString.ptr }()))
+    }
+}
+public class StorageRefMut: StorageRef {
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+}
+extension StorageRefMut {
+    public func connect<GenericIntoRustString: IntoRustString>(_ workspace_id: GenericIntoRustString, _ remote: GenericIntoRustString) -> Optional<Workspace> {
+        { let val = __swift_bridge__$Storage$connect(ptr, { let rustString = workspace_id.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = remote.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val != nil { return Workspace(ptr: val!) } else { return nil } }()
+    }
+}
+public class StorageRef {
+    var ptr: UnsafeMutableRawPointer
+
+    public init(ptr: UnsafeMutableRawPointer) {
+        self.ptr = ptr
+    }
+}
+extension StorageRef {
+    public func error() -> Optional<RustString> {
+        { let val = __swift_bridge__$Storage$error(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
+    }
+
+    public func sync<GenericIntoRustString: IntoRustString>(_ workspace_id: GenericIntoRustString, _ remote: GenericIntoRustString) -> JwstWorkSpaceResult {
+        JwstWorkSpaceResult(ptr: __swift_bridge__$Storage$sync(ptr, { let rustString = workspace_id.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = remote.intoRustString(); rustString.isOwned = false; return rustString.ptr }()))
+    }
+}
+extension Storage: Vectorizable {
+    public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
+        __swift_bridge__$Vec_Storage$new()
+    }
+
+    public static func vecOfSelfFree(vecPtr: UnsafeMutableRawPointer) {
+        __swift_bridge__$Vec_Storage$drop(vecPtr)
+    }
+
+    public static func vecOfSelfPush(vecPtr: UnsafeMutableRawPointer, value: Storage) {
+        __swift_bridge__$Vec_Storage$push(vecPtr, {value.isOwned = false; return value.ptr;}())
+    }
+
+    public static func vecOfSelfPop(vecPtr: UnsafeMutableRawPointer) -> Optional<Self> {
+        let pointer = __swift_bridge__$Vec_Storage$pop(vecPtr)
+        if pointer == nil {
+            return nil
+        } else {
+            return (Storage(ptr: pointer!) as! Self)
+        }
+    }
+
+    public static func vecOfSelfGet(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<StorageRef> {
+        let pointer = __swift_bridge__$Vec_Storage$get(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return StorageRef(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfGetMut(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<StorageRefMut> {
+        let pointer = __swift_bridge__$Vec_Storage$get_mut(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return StorageRefMut(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
+        __swift_bridge__$Vec_Storage$len(vecPtr)
+    }
+}
+
+
 
