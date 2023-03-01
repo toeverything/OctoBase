@@ -13,6 +13,8 @@ pub enum JwstError {
     BoxedError(#[from] anyhow::Error),
     #[error(transparent)]
     StorageError(anyhow::Error),
+    #[error("io error")]
+    Io(#[from] std::io::Error),
     #[error("workspace {0} not initialized")]
     WorkspaceNotInitialized(String),
     #[error("workspace {0} not found")]

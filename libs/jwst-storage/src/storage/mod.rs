@@ -1,6 +1,11 @@
-use super::{blobs::BlobAutoStorage, docs::DocAutoStorage, *};
-use sea_orm::ConnectOptions;
-use std::time::{Duration, Instant};
+mod blobs;
+mod docs;
+mod tests;
+
+use super::*;
+use blobs::BlobAutoStorage;
+use docs::DocAutoStorage;
+use std::time::Instant;
 
 pub struct JwstStorage {
     pool: DatabaseConnection,
@@ -11,19 +16,7 @@ pub struct JwstStorage {
 impl JwstStorage {
     pub async fn new(database: &str) -> JwstResult<Self> {
         let is_sqlite = is_sqlite(database);
-
-        let pool = Database::connect(
-            ConnectOptions::from(database)
-                .max_connections(if is_sqlite { 1 } else { 50 })
-                .min_connections(if is_sqlite { 1 } else { 10 })
-                .acquire_timeout(Duration::from_secs(5))
-                .connect_timeout(Duration::from_secs(5))
-                .idle_timeout(Duration::from_secs(5))
-                .max_lifetime(Duration::from_secs(30))
-                .to_owned(),
-        )
-        .await
-        .context("Failed to connect to database")?;
+        let pool = create_connection(database, is_sqlite).await?;
         let bucket = get_bucket(is_sqlite);
 
         let blobs = BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone())
@@ -120,6 +113,7 @@ impl JwstStorage {
     ) -> bool {
         let mut ts = self
             .docs
+            .0
             .last_migrate
             .entry(workspace_id.clone())
             .or_insert(Instant::now());

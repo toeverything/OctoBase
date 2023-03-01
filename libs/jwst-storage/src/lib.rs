@@ -1,8 +1,5 @@
-mod blobs;
-mod docs;
 mod entities;
 mod storage;
-mod tests;
 mod utils;
 
 use anyhow::Context;
@@ -17,15 +14,37 @@ use governor::{
 use governor::{Quota, RateLimiter};
 use jwst::{DocStorage, JwstError, JwstResult, Workspace};
 use jwst_logger::{debug, error, info, trace, warn};
-use nonzero_ext::*;
 use path_ext::PathExt;
-use sea_orm::{prelude::*, Database, DbErr, FromQueryResult, QuerySelect, Set, TransactionTrait};
-use std::{io::Cursor, num::NonZeroU32, path::PathBuf, sync::Arc};
+use sea_orm::{prelude::*, ConnectOptions, Database, DbErr, FromQueryResult, QuerySelect, Set};
+use std::{io::Cursor, num::NonZeroU32, path::PathBuf, sync::Arc, time::Duration};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use url::Url;
 
 pub use storage::JwstStorage;
 
-type Bucket = Arc<RateLimiter<NotKeyed, InMemoryState, QuantaClock, NoOpMiddleware<QuantaInstant>>>;
+pub struct Bucket {
+    bucket: Arc<RateLimiter<NotKeyed, InMemoryState, QuantaClock, NoOpMiddleware<QuantaInstant>>>,
+    semaphore: Arc<Semaphore>,
+}
+
+impl Bucket {
+    fn new(bucket_size: u32, semaphore_size: usize) -> Self {
+        let bucket_size =
+            NonZeroU32::new(bucket_size).unwrap_or(unsafe { NonZeroU32::new_unchecked(1) });
+
+        Self {
+            bucket: Arc::new(RateLimiter::direct(
+                Quota::per_second(bucket_size).allow_burst(bucket_size),
+            )),
+            semaphore: Arc::new(Semaphore::new(semaphore_size)),
+        }
+    }
+
+    async fn get_lock(&self) -> OwnedSemaphorePermit {
+        self.bucket.until_ready().await;
+        self.semaphore.clone().acquire_owned().await.unwrap()
+    }
+}
 
 #[inline]
 fn is_sqlite(database: &str) -> bool {
@@ -35,10 +54,25 @@ fn is_sqlite(database: &str) -> bool {
 }
 
 #[inline]
-fn get_bucket(single_thread: bool) -> Bucket {
-    Arc::new(RateLimiter::direct(
-        Quota::per_second(nonzero!(30u32)).allow_burst(unsafe {
-            NonZeroU32::new_unchecked(if single_thread { 1u32 } else { 5u32 })
-        }),
+fn get_bucket(single_thread: bool) -> Arc<Bucket> {
+    Arc::new(Bucket::new(
+        if single_thread { 1 } else { 25 },
+        if single_thread { 1 } else { 5 },
     ))
+}
+
+#[inline]
+async fn create_connection(database: &str, single_thread: bool) -> JwstResult<DatabaseConnection> {
+    Ok(Database::connect(
+        ConnectOptions::from(database)
+            .max_connections(if single_thread { 1 } else { 50 })
+            .min_connections(if single_thread { 1 } else { 10 })
+            .acquire_timeout(Duration::from_secs(5))
+            .connect_timeout(Duration::from_secs(5))
+            .idle_timeout(Duration::from_secs(5))
+            .max_lifetime(Duration::from_secs(30))
+            .to_owned(),
+    )
+    .await
+    .context("Failed to connect to database")?)
 }
