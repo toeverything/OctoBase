@@ -10,6 +10,7 @@ use base64::Engine;
 use jwst_rpc::handle_socket;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tokio::task::spawn_blocking;
 
 #[derive(Serialize)]
 pub struct WebSocketAuthentication {
@@ -77,6 +78,15 @@ async fn ws_handler(
                 return;
             };
 
-            handle_socket(socket, workspace, ctx.clone(), user_id).await
+            if let Err(e) = spawn_blocking(|| {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(
+                    async move { handle_socket(socket, workspace, ctx.clone(), user_id).await },
+                );
+            })
+            .await
+            {
+                error!("sync thread error: {:?}", e);
+            }
         })
 }
