@@ -70,27 +70,6 @@ impl DocDBStorage {
         Self::init_with_pool(pool, get_bucket(is_sqlite)).await
     }
 
-    pub async fn init_sqlite_pool_with_name(file: &str) -> JwstResult<Self> {
-        use std::fs::create_dir;
-
-        let data = PathBuf::from("./data");
-        if !data.exists() {
-            create_dir(&data)?;
-        }
-
-        Self::init_pool(&format!(
-            "sqlite:{}?mode=rwc",
-            data.join(PathBuf::from(file).name_str())
-                .with_extension("db")
-                .display()
-        ))
-        .await
-    }
-
-    pub async fn init_sqlite_pool_with_full_path(path: PathBuf) -> JwstResult<Self> {
-        Self::init_pool(&format!("sqlite:{}?mode=rwc", path.display())).await
-    }
-
     pub fn remote(&self) -> &DashMap<String, Sender<Vec<u8>>> {
         &self.remote
     }

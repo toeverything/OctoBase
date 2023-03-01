@@ -29,23 +29,6 @@ impl BlobAutoStorage {
         Self::init_with_pool(pool, get_bucket(is_sqlite)).await
     }
 
-    pub async fn init_sqlite_pool_with_name(file: &str) -> JwstResult<Self> {
-        use std::fs::create_dir;
-
-        let data = PathBuf::from("./data");
-        if !data.exists() {
-            create_dir(&data)?;
-        }
-
-        Self::init_pool(&format!(
-            "sqlite:{}?mode=rwc",
-            data.join(PathBuf::from(file).name_str())
-                .with_extension("db")
-                .display()
-        ))
-        .await
-    }
-
     pub async fn all(&self, table: &str) -> Result<Vec<BlobModel>, DbErr> {
         let _lock = self.bucket.get_lock().await;
         Blobs::find()
