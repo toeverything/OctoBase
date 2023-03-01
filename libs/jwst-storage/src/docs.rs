@@ -43,7 +43,7 @@ type DocsActiveModel = super::entities::docs::ActiveModel;
 type DocsColumn = <Docs as EntityTrait>::Column;
 
 pub struct DocAutoStorage {
-    bucket: Bucket,
+    bucket: Arc<Bucket>,
     pub(super) pool: DatabaseConnection,
     workspaces: DashMap<String, Workspace>,
     remote: DashMap<String, Sender<Vec<u8>>>,
@@ -51,8 +51,11 @@ pub struct DocAutoStorage {
 }
 
 impl DocAutoStorage {
-    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Bucket) -> Result<Self, DbErr> {
-        Migrator::up(&pool, None).await?;
+    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstResult<Self> {
+        Migrator::up(&pool, None)
+            .await
+            .context("failed to run migration")?;
+
         Ok(Self {
             bucket,
             pool,
@@ -62,24 +65,19 @@ impl DocAutoStorage {
         })
     }
 
-    pub async fn init_pool(database: &str) -> Result<Self, DbErr> {
-        let pool = Database::connect(database).await?;
-        Migrator::up(&pool, None).await?;
-        Ok(Self {
-            bucket: get_bucket(is_sqlite(database)),
-            pool,
-            workspaces: DashMap::new(),
-            remote: DashMap::new(),
-            last_migrate: DashMap::new(),
-        })
+    pub async fn init_pool(database: &str) -> JwstResult<Self> {
+        let is_sqlite = is_sqlite(database);
+        let pool = create_connection(database, is_sqlite).await?;
+
+        Self::init_with_pool(pool, get_bucket(is_sqlite)).await
     }
 
-    pub async fn init_sqlite_pool_with_name(file: &str) -> Result<Self, DbErr> {
+    pub async fn init_sqlite_pool_with_name(file: &str) -> JwstResult<Self> {
         use std::fs::create_dir;
 
         let data = PathBuf::from("./data");
         if !data.exists() {
-            create_dir(&data).map_err(|e| DbErr::Custom(e.to_string()))?;
+            create_dir(&data)?;
         }
 
         Self::init_pool(&format!(
@@ -91,7 +89,7 @@ impl DocAutoStorage {
         .await
     }
 
-    pub async fn init_sqlite_pool_with_full_path(path: PathBuf) -> Result<Self, DbErr> {
+    pub async fn init_sqlite_pool_with_full_path(path: PathBuf) -> JwstResult<Self> {
         Self::init_pool(&format!("sqlite:{}?mode=rwc", path.display())).await
     }
 
@@ -227,7 +225,10 @@ impl DocAutoStorage {
         Ok(())
     }
 
-    async fn create_doc(&self, conn: &DatabaseTransaction, workspace: &str) -> Result<Doc, DbErr> {
+    async fn create_doc<C>(&self, conn: &C, workspace: &str) -> Result<Doc, DbErr>
+    where
+        C: ConnectionTrait,
+    {
         info!("start create doc: {workspace}");
         let mut doc = Doc::with_options(Options {
             skip_gc: true,

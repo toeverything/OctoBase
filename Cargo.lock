@@ -2018,7 +2018,6 @@ dependencies = [
  "jwst",
  "jwst-logger",
  "jwst-storage-migration",
- "nonzero_ext",
  "path-ext",
  "rand 0.8.5",
  "sea-orm",
