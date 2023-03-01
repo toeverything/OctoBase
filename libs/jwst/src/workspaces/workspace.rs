@@ -179,7 +179,8 @@ impl Workspace {
     }
 
     pub fn get_blocks_by_flavour<T>(&self, trx: &T, flavour: &str) -> Vec<Block>
-    where T: ReadTxn
+    where
+        T: ReadTxn,
     {
         self.blocks(trx, |blocks| {
             blocks
@@ -215,17 +216,23 @@ impl Workspace {
         &mut self,
         f: impl Fn(&TransactionMut, &UpdateEvent) + 'static,
     ) -> Option<UpdateSubscription> {
-        self.awareness
-            .read()
-            .unwrap()
-            .doc()
-            .observe_update_v1(move |trx, evt| {
-                use std::panic::{catch_unwind, AssertUnwindSafe};
+        use std::panic::{catch_unwind, AssertUnwindSafe};
+        let doc = self.awareness.read().unwrap().doc().clone();
+
+        match catch_unwind(AssertUnwindSafe(move || {
+            doc.observe_update_v1(move |trx, evt| {
                 if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(trx, evt))) {
                     error!("panic in observe callback: {:?}", e);
                 }
             })
             .ok()
+        })) {
+            Ok(sub) => sub,
+            Err(e) => {
+                error!("panic in observe callback: {:?}", e);
+                None
+            }
+        }
     }
 
     pub fn doc(&self) -> Doc {

@@ -26,7 +26,16 @@ pub async fn upgrade_handler(
     ws: WebSocketUpgrade,
 ) -> Response {
     let identifier = Uuid::new_v4().to_string();
-    ws.protocols(["AFFiNE"]).on_upgrade(|socket| async move {
-        handle_socket(socket, workspace, context.clone(), identifier).await
+    ws.protocols(["AFFiNE"]).on_upgrade(|socket| {
+        if let Err(e) = tokio::task::spawn_blocking(move || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async move {
+                handle_socket(socket, workspace, context.clone(), identifier).await
+            })
+        })
+        .await
+        {
+            error!("sync thread error: {}", e);
+        }
     })
 }
