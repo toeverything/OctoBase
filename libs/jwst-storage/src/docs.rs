@@ -66,7 +66,7 @@ impl DocAutoStorage {
         let pool = Database::connect(database).await?;
         Migrator::up(&pool, None).await?;
         Ok(Self {
-            bucket: get_bucket(),
+            bucket: get_bucket(is_sqlite(database)),
             pool,
             workspaces: DashMap::new(),
             remote: DashMap::new(),
@@ -99,22 +99,20 @@ impl DocAutoStorage {
         &self.remote
     }
 
-    pub(super) async fn all<C>(&self, conn: &C, table: &str) -> Result<Vec<DocsModel>, DbErr>
+    async fn all<C>(&self, conn: &C, table: &str) -> Result<Vec<DocsModel>, DbErr>
     where
         C: ConnectionTrait,
     {
-        self.bucket.until_ready().await;
         Docs::find()
             .filter(DocsColumn::Workspace.eq(table))
             .all(conn)
             .await
     }
 
-    pub(super) async fn count<C>(&self, conn: &C, table: &str) -> Result<u64, DbErr>
+    async fn count<C>(&self, conn: &C, table: &str) -> Result<u64, DbErr>
     where
         C: ConnectionTrait,
     {
-        self.bucket.until_ready().await;
         debug!("start count: {table}");
         let count = Docs::find()
             .filter(DocsColumn::Workspace.eq(table))
@@ -125,11 +123,10 @@ impl DocAutoStorage {
         Ok(count)
     }
 
-    pub(super) async fn insert<C>(&self, conn: &C, table: &str, blob: &[u8]) -> Result<(), DbErr>
+    async fn insert<C>(&self, conn: &C, table: &str, blob: &[u8]) -> Result<(), DbErr>
     where
         C: ConnectionTrait,
     {
-        self.bucket.until_ready().await;
         Docs::insert(DocsActiveModel {
             workspace: Set(table.into()),
             timestamp: Set(Utc::now().into()),
@@ -141,16 +138,10 @@ impl DocAutoStorage {
         Ok(())
     }
 
-    pub(super) async fn replace_with<C>(
-        &self,
-        conn: &C,
-        table: &str,
-        blob: Vec<u8>,
-    ) -> Result<(), DbErr>
+    async fn replace_with<C>(&self, conn: &C, table: &str, blob: Vec<u8>) -> Result<(), DbErr>
     where
         C: ConnectionTrait,
     {
-        self.bucket.until_ready().await;
         Docs::delete_many()
             .filter(DocsColumn::Workspace.eq(table))
             .exec(conn)
@@ -168,11 +159,10 @@ impl DocAutoStorage {
         Ok(())
     }
 
-    pub(super) async fn drop<C>(&self, conn: &C, table: &str) -> Result<(), DbErr>
+    async fn drop<C>(&self, conn: &C, table: &str) -> Result<(), DbErr>
     where
         C: ConnectionTrait,
     {
-        self.bucket.until_ready().await;
         Docs::delete_many()
             .filter(DocsColumn::Workspace.eq(table))
             .exec(conn)
@@ -249,6 +239,7 @@ impl DocAutoStorage {
 #[async_trait]
 impl DocStorage for DocAutoStorage {
     async fn exists(&self, workspace_id: String) -> JwstResult<bool> {
+        self.bucket.until_ready().await;
         Ok(self.workspaces.contains_key(&workspace_id)
             || self
                 .count(&self.pool, &workspace_id)
@@ -262,7 +253,10 @@ impl DocStorage for DocAutoStorage {
         match self.workspaces.entry(workspace_id.clone()) {
             Entry::Occupied(ws) => Ok(ws.get().clone()),
             Entry::Vacant(v) => {
-                debug!("init workspace cache: {workspace_id}");
+                info!("init workspace cache: get lock");
+                self.bucket.until_ready().await;
+
+                info!("init workspace cache: {workspace_id}");
                 let trx = self
                     .pool
                     .begin()
@@ -283,6 +277,9 @@ impl DocStorage for DocAutoStorage {
 
     /// This function is not atomic -- please provide external lock mechanism
     async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> JwstResult<()> {
+        info!("write_full_update: get lock");
+        self.bucket.until_ready().await;
+
         trace!("write_doc: {:?}", data);
         debug!("write_full_update 1");
         let trx = self
@@ -305,6 +302,9 @@ impl DocStorage for DocAutoStorage {
 
     /// This function is not atomic -- please provide external lock mechanism
     async fn write_update(&self, workspace_id: String, data: &[u8]) -> JwstResult<()> {
+        info!("write_update: get lock");
+        self.bucket.until_ready().await;
+
         trace!("write_update: {:?}", data);
         self.update(&self.pool, &workspace_id, data.into())
             .await
@@ -315,6 +315,9 @@ impl DocStorage for DocAutoStorage {
     }
 
     async fn delete(&self, workspace_id: String) -> JwstResult<()> {
+        info!("delete workspace: get lock");
+        self.bucket.until_ready().await;
+
         debug!("delete workspace cache: {workspace_id}");
         self.workspaces.remove(&workspace_id);
         self.drop(&self.pool, &workspace_id)
