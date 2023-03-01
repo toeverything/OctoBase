@@ -103,23 +103,26 @@ impl DocAutoStorage {
     where
         C: ConnectionTrait,
     {
-        Docs::find()
+        info!("start scan all: {table}");
+        let models = Docs::find()
             .filter(DocsColumn::Workspace.eq(table))
             .all(conn)
-            .await
+            .await?;
+        info!("end scan all: {table}, {}", models.len());
+        Ok(models)
     }
 
     async fn count<C>(&self, conn: &C, table: &str) -> Result<u64, DbErr>
     where
         C: ConnectionTrait,
     {
-        debug!("start count: {table}");
+        info!("start count: {table}");
         let count = Docs::find()
             .filter(DocsColumn::Workspace.eq(table))
             .count(conn)
             .await
             .unwrap();
-        debug!("end count: {table}, {count}");
+        info!("end count: {table}, {count}");
         Ok(count)
     }
 
@@ -127,6 +130,7 @@ impl DocAutoStorage {
     where
         C: ConnectionTrait,
     {
+        info!("start insert: {table}");
         Docs::insert(DocsActiveModel {
             workspace: Set(table.into()),
             timestamp: Set(Utc::now().into()),
@@ -135,6 +139,7 @@ impl DocAutoStorage {
         })
         .exec(conn)
         .await?;
+        info!("end insert: {table}");
         Ok(())
     }
 
@@ -142,11 +147,11 @@ impl DocAutoStorage {
     where
         C: ConnectionTrait,
     {
+        info!("start replace: {table}");
         Docs::delete_many()
             .filter(DocsColumn::Workspace.eq(table))
             .exec(conn)
             .await?;
-
         Docs::insert(DocsActiveModel {
             workspace: Set(table.into()),
             timestamp: Set(Utc::now().into()),
@@ -155,7 +160,7 @@ impl DocAutoStorage {
         })
         .exec(conn)
         .await?;
-
+        info!("end replace: {table}");
         Ok(())
     }
 
@@ -163,10 +168,12 @@ impl DocAutoStorage {
     where
         C: ConnectionTrait,
     {
+        info!("start drop: {table}");
         Docs::delete_many()
             .filter(DocsColumn::Workspace.eq(table))
             .exec(conn)
             .await?;
+        info!("end drop: {table}");
         Ok(())
     }
 
@@ -174,6 +181,7 @@ impl DocAutoStorage {
     where
         C: ConnectionTrait,
     {
+        info!("start update: {table}");
         if self.count(conn, table).await? > MAX_TRIM_UPDATE_LIMIT - 1 {
             let data = self.all(conn, table).await?;
 
@@ -187,6 +195,7 @@ impl DocAutoStorage {
         } else {
             self.insert(conn, table, &blob).await?;
         }
+        info!("end update: {table}");
 
         debug!("update {}bytes to {}", blob.len(), table);
         if let Entry::Occupied(remote) = self.remote.entry(table.into()) {
@@ -197,6 +206,7 @@ impl DocAutoStorage {
             }
             debug!("send update to pipeline end");
         }
+        info!("end update broadcast: {table}");
 
         Ok(())
     }
@@ -205,17 +215,20 @@ impl DocAutoStorage {
     where
         C: ConnectionTrait,
     {
-        info!("full migrate3.1: {table}");
+        info!("start full migrate: {table}");
         if self.count(conn, table).await? > 0 {
-            info!("full migrate3.2: {table}");
-            self.replace_with(conn, table, blob).await
+            info!("full migrate1.1: {table}");
+            self.replace_with(conn, table, blob).await?;
         } else {
-            info!("full migrate3.3: {table}");
-            self.insert(conn, table, &blob).await
+            info!("full migrate1.2: {table}");
+            self.insert(conn, table, &blob).await?;
         }
+        info!("end full migrate: {table}");
+        Ok(())
     }
 
     async fn create_doc(&self, conn: &DatabaseTransaction, workspace: &str) -> Result<Doc, DbErr> {
+        info!("start create doc: {workspace}");
         let mut doc = Doc::with_options(Options {
             skip_gc: true,
             ..Default::default()
@@ -231,6 +244,7 @@ impl DocAutoStorage {
         } else {
             doc = migrate_update(all_data, doc);
         }
+        info!("end create doc: {workspace}");
 
         Ok(doc)
     }
@@ -239,7 +253,9 @@ impl DocAutoStorage {
 #[async_trait]
 impl DocStorage for DocAutoStorage {
     async fn exists(&self, workspace_id: String) -> JwstResult<bool> {
+        info!("check workspace exists: get lock");
         self.bucket.until_ready().await;
+
         Ok(self.workspaces.contains_key(&workspace_id)
             || self
                 .count(&self.pool, &workspace_id)
@@ -281,22 +297,22 @@ impl DocStorage for DocAutoStorage {
         self.bucket.until_ready().await;
 
         trace!("write_doc: {:?}", data);
-        debug!("write_full_update 1");
+        info!("write_full_update 1");
         let trx = self
             .pool
             .begin()
             .await
             .context("failed to start transaction")?;
 
-        debug!("write_full_update 2");
+        info!("write_full_update 2");
         self.full_migrate(&trx, &workspace_id, data)
             .await
             .context("Failed to store workspace")
             .map_err(JwstError::StorageError)?;
 
-        debug!("write_full_update 3");
+        info!("write_full_update 3");
         trx.commit().await.context("failed to commit transaction")?;
-        debug!("write_full_update 4");
+        info!("write_full_update 4");
         Ok(())
     }
 
