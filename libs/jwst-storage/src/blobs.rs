@@ -10,19 +10,24 @@ type BlobColumn = <Blobs as EntityTrait>::Column;
 
 #[derive(Clone)]
 pub struct BlobAutoStorage {
+    bucket: Bucket,
     pool: DatabaseConnection,
 }
 
 impl BlobAutoStorage {
-    pub async fn init_with_pool(pool: DatabaseConnection) -> Result<Self, DbErr> {
+    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Bucket) -> Result<Self, DbErr> {
         Migrator::up(&pool, None).await?;
-        Ok(Self { pool })
+        Ok(Self { bucket, pool })
     }
 
     pub async fn init_pool(database: &str) -> Result<Self, DbErr> {
         let pool = Database::connect(database).await?;
         Migrator::up(&pool, None).await?;
-        Ok(Self { pool })
+
+        Ok(Self {
+            bucket: get_bucket(is_sqlite(database)),
+            pool,
+        })
     }
 
     pub async fn init_sqlite_pool_with_name(file: &str) -> Result<Self, DbErr> {
@@ -43,6 +48,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn all(&self, table: &str) -> Result<Vec<BlobModel>, DbErr> {
+        self.bucket.until_ready().await;
         Blobs::find()
             .filter(BlobColumn::Workspace.eq(table))
             .all(&self.pool)
@@ -50,6 +56,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn count(&self, table: &str) -> Result<u64, DbErr> {
+        self.bucket.until_ready().await;
         Blobs::find()
             .filter(BlobColumn::Workspace.eq(table))
             .count(&self.pool)
@@ -57,6 +64,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn exists(&self, table: &str, hash: &str) -> Result<bool, DbErr> {
+        self.bucket.until_ready().await;
         Blobs::find_by_id((table.into(), hash.into()))
             .count(&self.pool)
             .await
@@ -64,6 +72,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn metadata(&self, table: &str, hash: &str) -> Result<BlobMetadata, DbErr> {
+        self.bucket.until_ready().await;
         #[derive(FromQueryResult)]
         struct Metadata {
             size: i64,
@@ -86,6 +95,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn insert(&self, table: &str, hash: &str, blob: &[u8]) -> Result<(), DbErr> {
+        self.bucket.until_ready().await;
         if !self.exists(table, hash).await? {
             Blobs::insert(BlobActiveModel {
                 workspace: Set(table.into()),
@@ -102,6 +112,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn get(&self, table: &str, hash: &str) -> Result<BlobModel, DbErr> {
+        self.bucket.until_ready().await;
         Blobs::find_by_id((table.into(), hash.into()))
             .one(&self.pool)
             .await
@@ -109,6 +120,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn delete(&self, table: &str, hash: &str) -> Result<bool, DbErr> {
+        self.bucket.until_ready().await;
         Blobs::delete_by_id((table.into(), hash.into()))
             .exec(&self.pool)
             .await
@@ -116,6 +128,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn drop(&self, table: &str) -> Result<(), DbErr> {
+        self.bucket.until_ready().await;
         Blobs::delete_many()
             .filter(BlobColumn::Workspace.eq(table))
             .exec(&self.pool)
@@ -179,4 +192,53 @@ impl BlobStorage for BlobAutoStorage {
             Err(JwstError::WorkspaceNotFound(workspace_id))
         }
     }
+}
+
+#[cfg(test)]
+pub async fn blobs_storage_test(pool: &BlobAutoStorage) -> anyhow::Result<()> {
+    // empty table
+    assert_eq!(pool.count("basic").await?, 0);
+
+    // first insert
+    pool.insert("basic", "test", &[1, 2, 3, 4]).await?;
+    assert_eq!(pool.count("basic").await?, 1);
+
+    let all = pool.all("basic").await?;
+    assert_eq!(
+        all,
+        vec![BlobModel {
+            workspace: "basic".into(),
+            hash: "test".into(),
+            blob: vec![1, 2, 3, 4],
+            length: 4,
+            timestamp: all.get(0).unwrap().timestamp
+        }]
+    );
+    assert_eq!(pool.count("basic").await?, 1);
+
+    pool.drop("basic").await?;
+
+    pool.insert("basic", "test1", &[1, 2, 3, 4]).await?;
+
+    let all = pool.all("basic").await?;
+    assert_eq!(
+        all,
+        vec![BlobModel {
+            workspace: "basic".into(),
+            hash: "test1".into(),
+            blob: vec![1, 2, 3, 4],
+            length: 4,
+            timestamp: all.get(0).unwrap().timestamp
+        }]
+    );
+    assert_eq!(pool.count("basic").await?, 1);
+
+    let metadata = pool.metadata("basic", "test1").await?;
+
+    assert_eq!(metadata.size, 4);
+    assert!((metadata.last_modified.timestamp() - Utc::now().timestamp()).abs() < 2);
+
+    pool.drop("basic").await?;
+
+    Ok(())
 }

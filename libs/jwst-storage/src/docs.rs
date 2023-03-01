@@ -38,11 +38,12 @@ fn migrate_update(updates: Vec<<Docs as EntityTrait>::Model>, doc: Doc) -> Doc {
     doc
 }
 
-pub(super) type DocsModel = <Docs as EntityTrait>::Model;
+type DocsModel = <Docs as EntityTrait>::Model;
 type DocsActiveModel = super::entities::docs::ActiveModel;
 type DocsColumn = <Docs as EntityTrait>::Column;
 
 pub struct DocAutoStorage {
+    bucket: Bucket,
     pub(super) pool: DatabaseConnection,
     workspaces: DashMap<String, Workspace>,
     remote: DashMap<String, Sender<Vec<u8>>>,
@@ -50,9 +51,10 @@ pub struct DocAutoStorage {
 }
 
 impl DocAutoStorage {
-    pub async fn init_with_pool(pool: DatabaseConnection) -> Result<Self, DbErr> {
+    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Bucket) -> Result<Self, DbErr> {
         Migrator::up(&pool, None).await?;
         Ok(Self {
+            bucket,
             pool,
             workspaces: DashMap::new(),
             remote: DashMap::new(),
@@ -64,6 +66,7 @@ impl DocAutoStorage {
         let pool = Database::connect(database).await?;
         Migrator::up(&pool, None).await?;
         Ok(Self {
+            bucket: get_bucket(is_sqlite(database)),
             pool,
             workspaces: DashMap::new(),
             remote: DashMap::new(),
@@ -96,34 +99,38 @@ impl DocAutoStorage {
         &self.remote
     }
 
-    pub(super) async fn all<C>(&self, conn: &C, table: &str) -> Result<Vec<DocsModel>, DbErr>
+    async fn all<C>(&self, conn: &C, table: &str) -> Result<Vec<DocsModel>, DbErr>
     where
         C: ConnectionTrait,
     {
-        Docs::find()
+        info!("start scan all: {table}");
+        let models = Docs::find()
             .filter(DocsColumn::Workspace.eq(table))
             .all(conn)
-            .await
+            .await?;
+        info!("end scan all: {table}, {}", models.len());
+        Ok(models)
     }
 
-    pub(super) async fn count<C>(&self, conn: &C, table: &str) -> Result<u64, DbErr>
+    async fn count<C>(&self, conn: &C, table: &str) -> Result<u64, DbErr>
     where
         C: ConnectionTrait,
     {
-        debug!("start count: {table}");
+        info!("start count: {table}");
         let count = Docs::find()
             .filter(DocsColumn::Workspace.eq(table))
             .count(conn)
             .await
             .unwrap();
-        debug!("end count: {table}, {count}");
+        info!("end count: {table}, {count}");
         Ok(count)
     }
 
-    pub(super) async fn insert<C>(&self, conn: &C, table: &str, blob: &[u8]) -> Result<(), DbErr>
+    async fn insert<C>(&self, conn: &C, table: &str, blob: &[u8]) -> Result<(), DbErr>
     where
         C: ConnectionTrait,
     {
+        info!("start insert: {table}");
         Docs::insert(DocsActiveModel {
             workspace: Set(table.into()),
             timestamp: Set(Utc::now().into()),
@@ -132,23 +139,19 @@ impl DocAutoStorage {
         })
         .exec(conn)
         .await?;
+        info!("end insert: {table}");
         Ok(())
     }
 
-    pub(super) async fn replace_with<C>(
-        &self,
-        conn: &C,
-        table: &str,
-        blob: Vec<u8>,
-    ) -> Result<(), DbErr>
+    async fn replace_with<C>(&self, conn: &C, table: &str, blob: Vec<u8>) -> Result<(), DbErr>
     where
         C: ConnectionTrait,
     {
+        info!("start replace: {table}");
         Docs::delete_many()
             .filter(DocsColumn::Workspace.eq(table))
             .exec(conn)
             .await?;
-
         Docs::insert(DocsActiveModel {
             workspace: Set(table.into()),
             timestamp: Set(Utc::now().into()),
@@ -157,18 +160,20 @@ impl DocAutoStorage {
         })
         .exec(conn)
         .await?;
-
+        info!("end replace: {table}");
         Ok(())
     }
 
-    pub(super) async fn drop<C>(&self, conn: &C, table: &str) -> Result<(), DbErr>
+    async fn drop<C>(&self, conn: &C, table: &str) -> Result<(), DbErr>
     where
         C: ConnectionTrait,
     {
+        info!("start drop: {table}");
         Docs::delete_many()
             .filter(DocsColumn::Workspace.eq(table))
             .exec(conn)
             .await?;
+        info!("end drop: {table}");
         Ok(())
     }
 
@@ -176,6 +181,7 @@ impl DocAutoStorage {
     where
         C: ConnectionTrait,
     {
+        info!("start update: {table}");
         if self.count(conn, table).await? > MAX_TRIM_UPDATE_LIMIT - 1 {
             let data = self.all(conn, table).await?;
 
@@ -189,6 +195,7 @@ impl DocAutoStorage {
         } else {
             self.insert(conn, table, &blob).await?;
         }
+        info!("end update: {table}");
 
         debug!("update {}bytes to {}", blob.len(), table);
         if let Entry::Occupied(remote) = self.remote.entry(table.into()) {
@@ -199,6 +206,7 @@ impl DocAutoStorage {
             }
             debug!("send update to pipeline end");
         }
+        info!("end update broadcast: {table}");
 
         Ok(())
     }
@@ -207,17 +215,20 @@ impl DocAutoStorage {
     where
         C: ConnectionTrait,
     {
-        info!("full migrate3.1: {table}");
+        info!("start full migrate: {table}");
         if self.count(conn, table).await? > 0 {
-            info!("full migrate3.2: {table}");
-            self.replace_with(conn, table, blob).await
+            info!("full migrate1.1: {table}");
+            self.replace_with(conn, table, blob).await?;
         } else {
-            info!("full migrate3.3: {table}");
-            self.insert(conn, table, &blob).await
+            info!("full migrate1.2: {table}");
+            self.insert(conn, table, &blob).await?;
         }
+        info!("end full migrate: {table}");
+        Ok(())
     }
 
     async fn create_doc(&self, conn: &DatabaseTransaction, workspace: &str) -> Result<Doc, DbErr> {
+        info!("start create doc: {workspace}");
         let mut doc = Doc::with_options(Options {
             skip_gc: true,
             ..Default::default()
@@ -233,6 +244,7 @@ impl DocAutoStorage {
         } else {
             doc = migrate_update(all_data, doc);
         }
+        info!("end create doc: {workspace}");
 
         Ok(doc)
     }
@@ -241,6 +253,9 @@ impl DocAutoStorage {
 #[async_trait]
 impl DocStorage for DocAutoStorage {
     async fn exists(&self, workspace_id: String) -> JwstResult<bool> {
+        info!("check workspace exists: get lock");
+        self.bucket.until_ready().await;
+
         Ok(self.workspaces.contains_key(&workspace_id)
             || self
                 .count(&self.pool, &workspace_id)
@@ -254,7 +269,10 @@ impl DocStorage for DocAutoStorage {
         match self.workspaces.entry(workspace_id.clone()) {
             Entry::Occupied(ws) => Ok(ws.get().clone()),
             Entry::Vacant(v) => {
-                debug!("init workspace cache: {workspace_id}");
+                info!("init workspace cache: get lock");
+                self.bucket.until_ready().await;
+
+                info!("init workspace cache: {workspace_id}");
                 let trx = self
                     .pool
                     .begin()
@@ -275,28 +293,34 @@ impl DocStorage for DocAutoStorage {
 
     /// This function is not atomic -- please provide external lock mechanism
     async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> JwstResult<()> {
+        info!("write_full_update: get lock");
+        self.bucket.until_ready().await;
+
         trace!("write_doc: {:?}", data);
-        debug!("write_full_update 1");
+        info!("write_full_update 1");
         let trx = self
             .pool
             .begin()
             .await
             .context("failed to start transaction")?;
 
-        debug!("write_full_update 2");
+        info!("write_full_update 2");
         self.full_migrate(&trx, &workspace_id, data)
             .await
             .context("Failed to store workspace")
             .map_err(JwstError::StorageError)?;
 
-        debug!("write_full_update 3");
+        info!("write_full_update 3");
         trx.commit().await.context("failed to commit transaction")?;
-        debug!("write_full_update 4");
+        info!("write_full_update 4");
         Ok(())
     }
 
     /// This function is not atomic -- please provide external lock mechanism
     async fn write_update(&self, workspace_id: String, data: &[u8]) -> JwstResult<()> {
+        info!("write_update: get lock");
+        self.bucket.until_ready().await;
+
         trace!("write_update: {:?}", data);
         self.update(&self.pool, &workspace_id, data.into())
             .await
@@ -307,6 +331,9 @@ impl DocStorage for DocAutoStorage {
     }
 
     async fn delete(&self, workspace_id: String) -> JwstResult<()> {
+        info!("delete workspace: get lock");
+        self.bucket.until_ready().await;
+
         debug!("delete workspace cache: {workspace_id}");
         self.workspaces.remove(&workspace_id);
         self.drop(&self.pool, &workspace_id)
@@ -316,4 +343,117 @@ impl DocStorage for DocAutoStorage {
 
         Ok(())
     }
+}
+
+#[cfg(test)]
+pub async fn docs_storage_test(pool: &DocAutoStorage) -> anyhow::Result<()> {
+    let conn = &pool.pool;
+
+    pool.drop(conn, "basic").await?;
+
+    // empty table
+    assert_eq!(pool.count(conn, "basic").await?, 0);
+
+    // first insert
+    pool.insert(conn, "basic", &[1, 2, 3, 4]).await?;
+    pool.insert(conn, "basic", &[2, 2, 3, 4]).await?;
+    assert_eq!(pool.count(conn, "basic").await?, 2);
+
+    // second insert
+    pool.replace_with(conn, "basic", vec![3, 2, 3, 4]).await?;
+
+    let all = pool.all(conn, "basic").await?;
+    assert_eq!(
+        all,
+        vec![DocsModel {
+            id: all.get(0).unwrap().id,
+            workspace: "basic".into(),
+            timestamp: all.get(0).unwrap().timestamp,
+            blob: vec![3, 2, 3, 4]
+        }]
+    );
+    assert_eq!(pool.count(conn, "basic").await?, 1);
+
+    pool.drop(conn, "basic").await?;
+
+    pool.insert(conn, "basic", &[1, 2, 3, 4]).await?;
+
+    let all = pool.all(conn, "basic").await?;
+    assert_eq!(
+        all,
+        vec![DocsModel {
+            id: all.get(0).unwrap().id,
+            workspace: "basic".into(),
+            timestamp: all.get(0).unwrap().timestamp,
+            blob: vec![1, 2, 3, 4]
+        }]
+    );
+    assert_eq!(pool.count(conn, "basic").await?, 1);
+
+    Ok(())
+}
+
+#[cfg(test)]
+#[cfg(feature = "postgres")]
+pub async fn full_migration_test(pool: &DocAutoStorage) -> anyhow::Result<()> {
+    let final_bytes: Vec<u8> = (0..1024 * 100).map(|_| rand::random::<u8>()).collect();
+    for i in 0..=50 {
+        let random_bytes: Vec<u8> = if i == 50 {
+            final_bytes.clone()
+        } else {
+            (0..1024 * 100).map(|_| rand::random::<u8>()).collect()
+        };
+        let (r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15) = tokio::join!(
+            pool.write_full_update("full_migration_1".to_owned(), random_bytes.clone()),
+            pool.write_full_update("full_migration_2".to_owned(), random_bytes.clone()),
+            pool.write_full_update("full_migration_3".to_owned(), random_bytes.clone()),
+            pool.write_full_update("full_migration_4".to_owned(), random_bytes.clone()),
+            pool.write_full_update("full_migration_5".to_owned(), random_bytes.clone()),
+            pool.write_full_update("full_migration_6".to_owned(), random_bytes.clone()),
+            pool.write_full_update("full_migration_7".to_owned(), random_bytes.clone()),
+            pool.write_full_update("full_migration_8".to_owned(), random_bytes.clone()),
+            pool.write_full_update("full_migration_9".to_owned(), random_bytes.clone()),
+            pool.write_full_update("full_migration_10".to_owned(), random_bytes.clone()),
+            pool.write_full_update("full_migration_11".to_owned(), random_bytes.clone()),
+            pool.write_full_update("full_migration_12".to_owned(), random_bytes.clone()),
+            pool.write_full_update("full_migration_13".to_owned(), random_bytes.clone()),
+            pool.write_full_update("full_migration_14".to_owned(), random_bytes.clone()),
+            pool.write_full_update("full_migration_15".to_owned(), random_bytes.clone())
+        );
+        r1?;
+        r2?;
+        r3?;
+        r4?;
+        r5?;
+        r6?;
+        r7?;
+        r8?;
+        r9?;
+        r10?;
+        r11?;
+        r12?;
+        r13?;
+        r14?;
+        r15?;
+    }
+
+    assert_eq!(
+        pool.all(&pool.pool, "full_migration_1")
+            .await?
+            .into_iter()
+            .map(|d| d.blob)
+            .collect::<Vec<_>>(),
+        vec![final_bytes.clone()]
+    );
+
+    assert_eq!(
+        pool.all(&pool.pool, "full_migration_2")
+            .await?
+            .into_iter()
+            .map(|d| d.blob)
+            .collect::<Vec<_>>(),
+        vec![final_bytes]
+    );
+
+    Ok(())
 }

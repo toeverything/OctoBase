@@ -11,7 +11,6 @@ on:
             - 'libs/**'
             - '.github/deployment/Dockerfile-cloud'
             - '.github/deployment/Dockerfile-jwst'
-            - '.github/deployment/Dockerfile-mysc'
             - '.github/workflows/jwst.yml'
     pull_request:
         branches: [master]
@@ -22,7 +21,6 @@ on:
             - 'libs/**'
             - '.github/deployment/Dockerfile-cloud'
             - '.github/deployment/Dockerfile-jwst'
-            - '.github/deployment/Dockerfile-mysc'
             - '.github/workflows/jwst.yml'
 
 # Cancels all previous workflow runs for pull requests that have not completed.
@@ -39,7 +37,6 @@ env:
     APIPROXY_IMAGE_NAME: apiproxy
     CLOUD_IMAGE_NAME: cloud
     JWST_IMAGE_NAME: jwst
-    MYSC_IMAGE_NAME: mysc
     IMAGE_TAG: canary-${{ github.sha }}
     IMAGE_TAG_LATEST: nightly-latest
 
@@ -122,58 +119,6 @@ jobs:
                   target: cloud
 
     jwst:
-        if: github.ref != 'refs/heads/master'
-        runs-on: self-hosted
-        environment: development
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v2
-              with:
-                  submodules: true
-
-            - name: Install Rust
-              uses: actions-rs/toolchain@v1
-              with:
-                  profile: minimal
-                  toolchain: stable
-                  override: true
-
-            - name: Set up cargo cache
-              uses: actions/cache@v3
-              continue-on-error: false
-              with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      ./vendor
-                      ./.cargo/config
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: ${{ runner.os }}-cargo-
-
-            - name: Cargo Vendor
-              run: cargo vendor > .cargo/config
-
-            - name: Extract metadata (tags, labels) for Docker (jwst)
-              id: meta_jwst
-              uses: docker/metadata-action@v4
-              with:
-                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}
-                  tags: ${{ env.IMAGE_TAG_LATEST }}
-
-            - name: Build and push Docker image (jwst)
-              uses: docker/build-push-action@v3
-              with:
-                  context: .
-                  file: ./.github/deployment/Dockerfile-jwst
-                  tags: ${{ steps.meta_jwst.outputs.tags }}
-                  labels: ${{ steps.meta_jwst.outputs.labels }}
-                  target: jwst
-
-    mysc:
-        if: github.ref == 'refs/heads/master'
         runs-on: self-hosted
         environment: development
         permissions:
@@ -183,8 +128,6 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v2
-              with:
-                  submodules: true
 
             - name: Install Rust
               uses: actions-rs/toolchain@v1
@@ -211,30 +154,31 @@ jobs:
               run: cargo vendor > .cargo/config
 
             - name: Log in to the Container registry
+              if: github.ref == 'refs/heads/master'
               uses: docker/login-action@v2
               with:
                   registry: ${{ env.REGISTRY }}
                   username: ${{ github.actor }}
                   password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
 
-            - name: Extract metadata (tags, labels) for Docker (mysc)
-              id: meta_mysc
+            - name: Extract metadata (tags, labels) for Docker
+              id: meta_jwst
               uses: docker/metadata-action@v4
               with:
-                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.MYSC_IMAGE_NAME }}
+                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}
                   tags: |
                       ${{ env.IMAGE_TAG }}
                       ${{ env.IMAGE_TAG_LATEST }}
 
-            - name: Build and push Docker image (mysc)
+            - name: Build and push Docker image (jwst)
               uses: docker/build-push-action@v3
               with:
                   context: .
-                  file: ./.github/deployment/Dockerfile-mysc
+                  file: ./.github/deployment/Dockerfile-jwst
                   push: ${{ github.ref == 'refs/heads/master' && true || false }}
-                  tags: ${{ steps.meta_mysc.outputs.tags }}
-                  labels: ${{ steps.meta_mysc.outputs.labels }}
-                  target: mysc
+                  tags: ${{ steps.meta_jwst.outputs.tags }}
+                  labels: ${{ steps.meta_jwst.outputs.labels }}
+                  target: jwst
                   network: host
 
     apiproxy:
@@ -248,8 +192,6 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v2
-              with:
-                  submodules: true
 
             - name: Log in to the Container registry
               uses: docker/login-action@v2
