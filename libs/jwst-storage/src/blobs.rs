@@ -10,32 +10,31 @@ type BlobColumn = <Blobs as EntityTrait>::Column;
 
 #[derive(Clone)]
 pub struct BlobAutoStorage {
-    bucket: Bucket,
+    bucket: Arc<Bucket>,
     pool: DatabaseConnection,
 }
 
 impl BlobAutoStorage {
-    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Bucket) -> Result<Self, DbErr> {
-        Migrator::up(&pool, None).await?;
+    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstResult<Self> {
+        Migrator::up(&pool, None)
+            .await
+            .context("failed to run migration")?;
         Ok(Self { bucket, pool })
     }
 
-    pub async fn init_pool(database: &str) -> Result<Self, DbErr> {
-        let pool = Database::connect(database).await?;
-        Migrator::up(&pool, None).await?;
+    pub async fn init_pool(database: &str) -> JwstResult<Self> {
+        let is_sqlite = is_sqlite(database);
+        let pool = create_connection(database, is_sqlite).await?;
 
-        Ok(Self {
-            bucket: get_bucket(is_sqlite(database)),
-            pool,
-        })
+        Self::init_with_pool(pool, get_bucket(is_sqlite)).await
     }
 
-    pub async fn init_sqlite_pool_with_name(file: &str) -> Result<Self, DbErr> {
+    pub async fn init_sqlite_pool_with_name(file: &str) -> JwstResult<Self> {
         use std::fs::create_dir;
 
         let data = PathBuf::from("./data");
         if !data.exists() {
-            create_dir(&data).map_err(|e| DbErr::Custom(e.to_string()))?;
+            create_dir(&data)?;
         }
 
         Self::init_pool(&format!(
@@ -48,7 +47,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn all(&self, table: &str) -> Result<Vec<BlobModel>, DbErr> {
-        self.bucket.until_ready().await;
+        let _lock = self.bucket.get_lock().await;
         Blobs::find()
             .filter(BlobColumn::Workspace.eq(table))
             .all(&self.pool)
@@ -56,7 +55,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn count(&self, table: &str) -> Result<u64, DbErr> {
-        self.bucket.until_ready().await;
+        let _lock = self.bucket.get_lock().await;
         Blobs::find()
             .filter(BlobColumn::Workspace.eq(table))
             .count(&self.pool)
@@ -64,7 +63,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn exists(&self, table: &str, hash: &str) -> Result<bool, DbErr> {
-        self.bucket.until_ready().await;
+        let _lock = self.bucket.get_lock().await;
         Blobs::find_by_id((table.into(), hash.into()))
             .count(&self.pool)
             .await
@@ -72,7 +71,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn metadata(&self, table: &str, hash: &str) -> Result<BlobMetadata, DbErr> {
-        self.bucket.until_ready().await;
+        let _lock = self.bucket.get_lock().await;
         #[derive(FromQueryResult)]
         struct Metadata {
             size: i64,
@@ -95,7 +94,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn insert(&self, table: &str, hash: &str, blob: &[u8]) -> Result<(), DbErr> {
-        self.bucket.until_ready().await;
+        let _lock = self.bucket.get_lock().await;
         if !self.exists(table, hash).await? {
             Blobs::insert(BlobActiveModel {
                 workspace: Set(table.into()),
@@ -112,7 +111,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn get(&self, table: &str, hash: &str) -> Result<BlobModel, DbErr> {
-        self.bucket.until_ready().await;
+        let _lock = self.bucket.get_lock().await;
         Blobs::find_by_id((table.into(), hash.into()))
             .one(&self.pool)
             .await
@@ -120,7 +119,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn delete(&self, table: &str, hash: &str) -> Result<bool, DbErr> {
-        self.bucket.until_ready().await;
+        let _lock = self.bucket.get_lock().await;
         Blobs::delete_by_id((table.into(), hash.into()))
             .exec(&self.pool)
             .await
@@ -128,7 +127,7 @@ impl BlobAutoStorage {
     }
 
     pub async fn drop(&self, table: &str) -> Result<(), DbErr> {
-        self.bucket.until_ready().await;
+        let _lock = self.bucket.get_lock().await;
         Blobs::delete_many()
             .filter(BlobColumn::Workspace.eq(table))
             .exec(&self.pool)
