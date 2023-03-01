@@ -266,8 +266,12 @@ impl DocStorage for DocAutoStorage {
     }
 
     async fn get(&self, workspace_id: String) -> JwstResult<Workspace> {
+        info!("get workspace: enter");
         match self.workspaces.entry(workspace_id.clone()) {
-            Entry::Occupied(ws) => Ok(ws.get().clone()),
+            Entry::Occupied(ws) => {
+                info!("get workspace: get cached");
+                Ok(ws.get().clone())
+            }
             Entry::Vacant(v) => {
                 info!("init workspace cache: get lock");
                 self.bucket.until_ready().await;
@@ -456,4 +460,49 @@ pub async fn full_migration_test(pool: &DocAutoStorage) -> anyhow::Result<()> {
     );
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::{Arc, DashMap, Doc, Entry, Workspace};
+    use rand::random;
+    use std::collections::HashSet;
+    use threadpool::ThreadPool;
+
+    #[test]
+    fn dashmap_capacity_test() -> anyhow::Result<()> {
+        let workspaces: Arc<DashMap<String, Workspace>> = Arc::new(DashMap::new());
+        let pool = ThreadPool::with_name("worker".into(), 10);
+        let mut set = HashSet::new();
+
+        for _ in 0..100000 {
+            let id = random::<u64>().to_string();
+            set.insert(id.clone());
+            let workspaces = workspaces.clone();
+
+            pool.execute(move || {
+                let workspace = match workspaces.entry(id.clone()) {
+                    Entry::Occupied(ws) => ws.get().clone(),
+                    Entry::Vacant(v) => {
+                        let ws = Workspace::from_doc(Doc::new(), id.clone());
+                        v.insert(ws).clone()
+                    }
+                };
+                assert_eq!(workspace.id(), id);
+            });
+        }
+
+        pool.join();
+
+        for id in set {
+            let workspaces = workspaces.clone();
+            pool.execute(move || {
+                let workspace = workspaces.get(&id).unwrap();
+                assert_eq!(workspace.id(), id);
+            });
+        }
+        pool.join();
+
+        Ok(())
+    }
 }

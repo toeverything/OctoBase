@@ -37,3 +37,4 @@ jwst-storage-migration = { path = "./src/migration" }
 
 [dev-dependencies]
 rand = "0.8.5"
+threadpool = "1.8.1"

@@ -1,9 +1,5 @@
 #[cfg(test)]
-use super::{
-    blobs::blobs_storage_test,
-    docs::{docs_storage_test, full_migration_test},
-    *,
-};
+use super::{blobs::blobs_storage_test, docs::docs_storage_test, *};
 
 #[cfg(test)]
 mod tests {
@@ -23,6 +19,8 @@ mod tests {
     #[cfg(feature = "postgres")]
     #[tokio::test]
     async fn postgres_storage_test() -> anyhow::Result<()> {
+        use super::super::docs::full_migration_test;
+
         let db = "postgresql://affine:affine@localhost:5432/affine_binary";
         let storage = JwstStorage::new(db).await?;
         let (r1, r2, r3) = tokio::join!(
