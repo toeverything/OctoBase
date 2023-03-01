@@ -3,8 +3,8 @@ use jwst::{Block as JwstBlock, Workspace};
 use lib0::any::Any;
 
 pub struct Block {
-    workspace: Workspace,
-    block: JwstBlock,
+    pub workspace: Workspace,
+    pub block: JwstBlock,
 }
 
 impl Block {
