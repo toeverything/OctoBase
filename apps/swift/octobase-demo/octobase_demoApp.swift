@@ -24,11 +24,6 @@ class JwstWorkspace: ObservableObject {
     
     init (workspace: String) {
         self.workspace = Workspace(workspace)
-        
-        let storage = Storage("../../../data/jwst.db")
-        print(storage)
-        let w = storage.connect("1", "ws://10.0.2.2:3001/collaboration")
-        print(w)
     }
     
     func create(block_id:String, flavor:String) -> Block {
@@ -83,5 +78,22 @@ class JwstWorkspace: ObservableObject {
         for child in block.children() {
             print(child.as_str().toString());
         }
+    }
+}
+
+class JWSTStorage: ObservableObject {
+    var storage: Storage
+    
+    var remote: String
+    
+    // path:    path of sqlite db
+    // remote:  websocket server api, eg: ws://localhost:3000/collaboration
+    init (path: String, remote: String) {
+        self.storage = Storage(path)
+        self.remote = remote
+    }
+    
+    func get_workspace(id: String) -> Workspace {
+        return self.storage.connect(id, self.remote + "/" + id)!
     }
 }
