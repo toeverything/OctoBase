@@ -44,7 +44,7 @@ impl DocStorage for DocAutoStorage {
     }
 
     async fn write_update(&self, id: String, data: &[u8]) -> JwstResult<()> {
-        self.0.write_update(id, &data).await
+        self.0.write_update(id, data).await
     }
 
     async fn delete(&self, id: String) -> JwstResult<()> {

@@ -271,7 +271,8 @@ async fn delete_workspace(
     match ctx.db.delete_workspace(workspace_id.clone()).await {
         Ok(true) => {
             ctx.user_channel
-                .update_workspace(workspace_id.clone(), ctx.clone());
+                .update_workspace(workspace_id.clone(), ctx.clone())
+                .await;
             ctx.close_websocket_by_workspace(workspace_id.clone()).await;
 
             let _ = ctx.storage.blobs().delete_workspace(workspace_id).await;
