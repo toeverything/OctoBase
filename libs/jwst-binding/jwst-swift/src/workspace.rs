@@ -11,7 +11,7 @@ impl Workspace {
     pub fn new(id: String) -> Self {
         Self {
             workspace: JwstWorkspace::new(id),
-            _sub: None
+            _sub: None,
         }
     }
 
@@ -42,5 +42,9 @@ impl Workspace {
             drop(trx);
             block
         })
+    }
+
+    pub fn search(self: &Workspace, query: String) -> String {
+        self.workspace.search_result(query)
     }
 }

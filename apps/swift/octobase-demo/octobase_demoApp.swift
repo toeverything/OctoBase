@@ -79,6 +79,17 @@ class JwstWorkspace: ObservableObject {
             print(child.as_str().toString());
         }
     }
+    
+    func search_demo() {
+        print("search_demo")
+        let block = self.create(block_id: "search_test", flavor: "search_test_flavor")
+        block.set_string("title", "introduction")
+        block.set_string("text", "hello every one")
+        let result1 = self.workspace.search("duc")
+        print(result1.toString())
+        let result2 = self.workspace.search("ver")
+        print(result2.toString())
+    }
 }
 
 class JWSTStorage: ObservableObject {
