@@ -1,6 +1,6 @@
-use dashmap::DashMap;
 use nanoid::nanoid;
-use tokio::sync::mpsc::Sender;
+use std::collections::HashMap;
+use tokio::sync::{mpsc::Sender, RwLock};
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub struct ChannelItem {
@@ -23,4 +23,4 @@ impl ChannelItem {
     }
 }
 
-pub type Channels = DashMap<ChannelItem, Sender<Option<Vec<u8>>>>;
+pub type Channels = RwLock<HashMap<ChannelItem, Sender<Option<Vec<u8>>>>>;
