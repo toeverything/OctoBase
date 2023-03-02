@@ -25,14 +25,17 @@ pub async fn get_block(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
 ) -> Response {
-    let (ws_id, block) = params;
-    info!("get_block: {}, {}", ws_id, block);
-    if let Ok(workspace) = context.storage.get_workspace(ws_id).await {
-        if let Some(block) = workspace.with_trx(|t| workspace.get(&t.trx, block)) {
-            Json(block).into_response()
-        } else {
-            StatusCode::NOT_FOUND.into_response()
-        }
+    let (ws_id, block_id) = params;
+    info!("get_block: {}, {}", ws_id, block_id);
+
+    if let Some(block) = context
+        .storage
+        .get_workspace(ws_id)
+        .await
+        .ok()
+        .and_then(|workspace| workspace.with_trx(|t| workspace.get(&t.trx, block_id)))
+    {
+        Json(block).into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
@@ -126,16 +129,23 @@ pub async fn get_block_history(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
 ) -> Response {
-    let (ws_id, block) = params;
-    info!("get_block_history: {}, {}", ws_id, block);
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        workspace.with_trx(|t| {
-            if let Some(block) = workspace.get(&t.trx, block) {
-                Json(&block.history(&t.trx)).into_response()
-            } else {
-                StatusCode::NOT_FOUND.into_response()
-            }
+    let (ws_id, block_id) = params;
+    info!("get_block_history: {}, {}", ws_id, block_id);
+
+    if let Some(history) = context
+        .storage
+        .get_workspace(&ws_id)
+        .await
+        .ok()
+        .and_then(|workspace| {
+            workspace.with_trx(|t| {
+                workspace
+                    .get(&t.trx, block_id)
+                    .map(|block| block.history(&t.rx))
+            })
         })
+    {
+        Json(history).into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
@@ -162,22 +172,24 @@ pub async fn delete_block(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
 ) -> StatusCode {
-    let (ws_id, block) = params;
-    info!("delete_block: {}, {}", ws_id, block);
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        if let Some(update) = workspace.with_trx(|mut t| {
-            if t.remove(&block) {
-                Some(t.trx.encode_update_v1())
-            } else {
-                None
-            }
-        }) {
-            if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
-                error!("db write error: {}", e.to_string());
-            }
-            return StatusCode::NO_CONTENT;
+    let (ws_id, block_id) = params;
+    info!("delete_block: {}, {}", ws_id, block_id);
+
+    if let Some(update) = context
+        .storage
+        .get_workspace(&ws_id)
+        .await
+        .ok()
+        .and_then(|workspace| {
+            workspace.with_trx(|mut t| t.remove(&block_id).then_some(t.trx.encode_update_v1()))
+        })
+    {
+        if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
+            error!("db write error: {}", e.to_string());
         }
+        return StatusCode::NO_CONTENT;
     }
+
     StatusCode::NOT_FOUND
 }
 
@@ -204,34 +216,37 @@ pub async fn get_block_children(
     Path(params): Path<(String, String)>,
     Query(pagination): Query<Pagination>,
 ) -> Response {
-    let (ws_id, block) = params;
+    let (ws_id, block_id) = params;
     let Pagination { offset, limit } = pagination;
-    info!("get_block_children: {}, {}", ws_id, block);
-    if let Ok(workspace) = context.storage.get_workspace(ws_id).await {
-        if let Some(block) = workspace.with_trx(|t| workspace.get(&t.trx, &block)) {
-            let data: Vec<String> =
-                block.children_iter(|children| children.skip(offset).take(limit).collect());
+    info!("get_block_children: {}, {}", ws_id, block_id);
 
-            let status = if data.is_empty() {
+    if let Some((total, data)) = context
+        .storage
+        .get_workspace(ws_id)
+        .await
+        .ok()
+        .and_then(|workspace| workspace.with_trx(|t| workspace.get(&t.trx, &block_id)))
+        .map(|block| {
+            (
+                block.children_len() as usize,
+                block.children_iter(|children| {
+                    children.skip(offset).take(limit).collect::<Vec<String>>()
+                }),
+            )
+        })
+    {
+        return (
+            if data.is_empty() {
                 StatusCode::NOT_FOUND
             } else {
                 StatusCode::OK
-            };
-
-            (
-                status,
-                Json(PageData {
-                    total: block.children_len() as usize,
-                    data,
-                }),
-            )
-                .into_response()
-        } else {
-            StatusCode::NOT_FOUND.into_response()
-        }
-    } else {
-        StatusCode::NOT_FOUND.into_response()
+            },
+            Json(PageData { total, data }),
+        )
+            .into_response();
     }
+
+    StatusCode::NOT_FOUND.into_response()
 }
 
 /// Insert a another `Block` into a `Block`'s children
