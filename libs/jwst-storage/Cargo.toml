@@ -17,7 +17,6 @@ async-trait = "0.1.64"
 base64 = "0.21.0"
 bytes = "1.4.0"
 chrono = { version = "0.4.23", features = ["serde"] }
-dashmap = "5.4.0"
 futures = "0.3.26"
 governor = "0.5.1"
 path-ext = "0.1.0"
@@ -36,4 +35,3 @@ jwst-storage-migration = { path = "./src/migration" }
 
 [dev-dependencies]
 rand = "0.8.5"
-threadpool = "1.8.1"

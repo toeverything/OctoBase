@@ -1,9 +1,8 @@
 mod database;
 
 use super::*;
-use dashmap::DashMap;
 use database::DocDBStorage;
-use tokio::sync::broadcast::Sender;
+use tokio::sync::{broadcast::Sender, RwLock};
 
 #[cfg(test)]
 pub(super) use database::docs_storage_test;
@@ -25,7 +24,7 @@ impl DocAutoStorage {
         Ok(Self(Arc::new(DocDBStorage::init_pool(database).await?)))
     }
 
-    pub fn remote(&self) -> &DashMap<String, Sender<Vec<u8>>> {
+    pub fn remote(&self) -> &RwLock<HashMap<String, Sender<Vec<u8>>>> {
         self.0.remote()
     }
 }
@@ -33,105 +32,33 @@ impl DocAutoStorage {
 #[async_trait]
 impl DocStorage for DocAutoStorage {
     async fn exists(&self, id: String) -> JwstResult<bool> {
-        let db = self.0.clone();
-        tokio::task::spawn_blocking(move || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async move { db.exists(id).await })
-        })
-        .await
-        .context("failed to spawn query thread")?
+        self.0.exists(id).await
     }
 
     async fn get(&self, id: String) -> JwstResult<Workspace> {
-        let db = self.0.clone();
-        tokio::task::spawn_blocking(move || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async move { db.get(id).await })
-        })
-        .await
-        .context("failed to spawn query thread")?
+        self.0.get(id).await
     }
 
     async fn write_full_update(&self, id: String, data: Vec<u8>) -> JwstResult<()> {
-        let db = self.0.clone();
-        tokio::task::spawn_blocking(move || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async move { db.write_full_update(id, data).await })
-        })
-        .await
-        .context("failed to spawn query thread")?
+        self.0.write_full_update(id, data).await
     }
 
     async fn write_update(&self, id: String, data: &[u8]) -> JwstResult<()> {
-        let db = self.0.clone();
-        let data = data.to_vec();
-        tokio::task::spawn_blocking(move || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async move { db.write_update(id, &data).await })
-        })
-        .await
-        .context("failed to spawn query thread")?
+        self.0.write_update(id, &data).await
     }
 
     async fn delete(&self, id: String) -> JwstResult<()> {
-        let db = self.0.clone();
-        tokio::task::spawn_blocking(move || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async move { db.delete(id).await })
-        })
-        .await
-        .context("failed to spawn query thread")?
+        self.0.delete(id).await
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::{error, info, Arc, DocAutoStorage, DocStorage, Workspace};
-    use dashmap::{mapref::entry::Entry, DashMap};
+    use super::{error, info, DocAutoStorage, DocStorage};
     use jwst::JwstError;
     use rand::random;
     use std::collections::HashSet;
-    use threadpool::ThreadPool;
     use tokio::task::JoinSet;
-    use yrs::Doc;
-
-    #[ignore = "for stress testing"]
-    #[test]
-    fn dashmap_stress_test() -> anyhow::Result<()> {
-        let workspaces: Arc<DashMap<String, Workspace>> = Arc::new(DashMap::new());
-        let pool = ThreadPool::with_name("worker".into(), 10);
-        let mut set = HashSet::new();
-
-        for _ in 0..100000 {
-            let id = random::<u64>().to_string();
-            set.insert(id.clone());
-            let workspaces = workspaces.clone();
-
-            pool.execute(move || {
-                let workspace = match workspaces.entry(id.clone()) {
-                    Entry::Occupied(ws) => ws.get().clone(),
-                    Entry::Vacant(v) => {
-                        let ws = Workspace::from_doc(Doc::new(), id.clone());
-                        v.insert(ws).clone()
-                    }
-                };
-                assert_eq!(workspace.id(), id);
-            });
-        }
-
-        pool.join();
-
-        for id in set {
-            let workspaces = workspaces.clone();
-            pool.execute(move || {
-                let workspace = workspaces.get(&id).unwrap();
-                assert_eq!(workspace.id(), id);
-            });
-        }
-        pool.join();
-
-        Ok(())
-    }
 
     async fn create_workspace_stress_test(storage: DocAutoStorage) -> anyhow::Result<()> {
         let mut join_set = JoinSet::new();
