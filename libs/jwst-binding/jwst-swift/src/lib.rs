@@ -105,6 +105,8 @@ mod ffi {
         fn create(self: &Workspace, block_id: String, flavor: String) -> Block;
 
         fn search(self: &Workspace, query: String) -> String;
+
+        fn get_blocks_by_flavour(self: &Workspace, flavour: &str) -> Vec<Block>;
     }
 
     extern "Rust" {

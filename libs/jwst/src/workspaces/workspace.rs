@@ -110,7 +110,7 @@ impl Workspace {
     pub fn search_result(&self, query: String) -> String {
         match self.search(&query) {
             Ok(list) => serde_json::to_string(&list).unwrap(),
-            Err(err) => format!("{{\"error\": \"{}\"}}", err),
+            Err(err) => "".to_string(),
         }
     }
 
@@ -185,6 +185,17 @@ impl Workspace {
         cb(Box::new(iterator))
     }
 
+    pub fn get_blocks_by_flavour<T>(&self, trx: &T, flavour: &str) -> Vec<Block>
+    where
+        T: ReadTxn,
+    {
+        self.blocks(trx, |blocks| {
+            blocks
+                .filter(|block| block.flavor(trx) == flavour)
+                .collect::<Vec<_>>()
+        })
+    }
+
     pub fn observe_metadata(
         &mut self,
         f: impl Fn(&TransactionMut, &MapEvent) + 'static,
@@ -212,17 +223,23 @@ impl Workspace {
         &mut self,
         f: impl Fn(&TransactionMut, &UpdateEvent) + 'static,
     ) -> Option<UpdateSubscription> {
-        self.awareness
-            .read()
-            .unwrap()
-            .doc()
-            .observe_update_v1(move |trx, evt| {
-                use std::panic::{catch_unwind, AssertUnwindSafe};
+        use std::panic::{catch_unwind, AssertUnwindSafe};
+        let doc = self.awareness.read().unwrap().doc().clone();
+
+        match catch_unwind(AssertUnwindSafe(move || {
+            doc.observe_update_v1(move |trx, evt| {
                 if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(trx, evt))) {
                     error!("panic in observe callback: {:?}", e);
                 }
             })
             .ok()
+        })) {
+            Ok(sub) => sub,
+            Err(e) => {
+                error!("panic in observe callback: {:?}", e);
+                None
+            }
+        }
     }
 
     pub fn doc(&self) -> Doc {
@@ -390,6 +407,12 @@ mod test {
             assert_eq!(workspace.updated.len(&t.trx), 0);
             assert_eq!(workspace.get(&t.trx, "block"), None);
             assert_eq!(workspace.exists(&t.trx, "block"), false);
+        });
+
+        workspace.with_trx(|mut t| {
+            Block::new(&mut t.trx, &workspace, "test", "test", 1);
+            let vec = workspace.get_blocks_by_flavour(&t.trx, "test");
+            assert_eq!(vec.len(), 1);
         });
 
         let doc = Doc::with_client_id(123);

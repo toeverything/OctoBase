@@ -20,6 +20,7 @@ struct ContentView: View {
                     workspace.create_block_set_prop_demo();
                     workspace.insert_remove_children_demo();
                     workspace.search_demo();
+                    workspace.search_blocks_demo();
                 },
                 label: { Text("Click Me") }
             )

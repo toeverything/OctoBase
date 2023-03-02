@@ -7,7 +7,7 @@ use yrs::{
     TransactionMut,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Block {
     // block schema
     // for example: {

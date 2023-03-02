@@ -47,4 +47,15 @@ impl Workspace {
     pub fn search(self: &Workspace, query: String) -> String {
         self.workspace.search_result(query)
     }
+
+    pub fn get_blocks_by_flavour(&self, flavour: &str) -> Vec<Block> {
+        self.workspace
+            .with_trx(|trx| self.workspace.get_blocks_by_flavour(&trx.trx, flavour))
+            .iter()
+            .map(|block| Block {
+                workspace: self.workspace.clone(),
+                block: block.clone(),
+            })
+            .collect()
+    }
 }
