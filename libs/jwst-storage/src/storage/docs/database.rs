@@ -247,7 +247,7 @@ impl DocStorage for DocDBStorage {
         debug!("get workspace: enter");
         match self.workspaces.entry(workspace_id.clone()) {
             Entry::Occupied(ws) => {
-                debug!("get workspace cache: {workspace_id");
+                debug!("get workspace cache: {workspace_id}");
                 Ok(ws.get().clone())
             }
             Entry::Vacant(v) => {
