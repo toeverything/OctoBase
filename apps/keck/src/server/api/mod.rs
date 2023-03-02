@@ -12,9 +12,10 @@ use axum::{
     response::IntoResponse,
     routing::{delete, get, head},
 };
-use dashmap::DashMap;
 use jwst_rpc::{Channels, ContextImpl};
 use jwst_storage::JwstStorage;
+use std::collections::HashMap;
+use tokio::sync::RwLock;
 
 #[derive(Deserialize)]
 #[cfg_attr(feature = "api", derive(utoipa::IntoParams))]
@@ -55,7 +56,7 @@ impl Context {
         .expect("Cannot create database");
 
         Context {
-            channel: DashMap::new(),
+            channel: RwLock::new(HashMap::new()),
             storage,
         }
     }
