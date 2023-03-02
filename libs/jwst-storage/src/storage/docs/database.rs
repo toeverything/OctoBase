@@ -2,10 +2,7 @@ use super::{entities::prelude::*, *};
 use dashmap::mapref::entry::Entry;
 use jwst::{sync_encode_update, DocStorage, Workspace};
 use jwst_storage_migration::{Migrator, MigratorTrait};
-use std::{
-    panic::{catch_unwind, AssertUnwindSafe},
-    time::Instant,
-};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use yrs::{updates::decoder::Decode, Doc, Options, ReadTxn, StateVector, Transact, Update};
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
@@ -249,7 +246,10 @@ impl DocStorage for DocDBStorage {
     async fn get(&self, workspace_id: String) -> JwstResult<Workspace> {
         debug!("get workspace: enter");
         match self.workspaces.entry(workspace_id.clone()) {
-            Entry::Occupied(ws) => Ok(ws.get().clone()),
+            Entry::Occupied(ws) => {
+                debug!("get workspace cache: {workspace_id");
+                Ok(ws.get().clone())
+            }
             Entry::Vacant(v) => {
                 debug!("init workspace cache: get lock");
                 let _lock = self.bucket.get_lock().await;
