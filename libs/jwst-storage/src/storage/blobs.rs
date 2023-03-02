@@ -116,6 +116,16 @@ impl BlobAutoStorage {
 impl BlobStorage for BlobAutoStorage {
     type Read = ReaderStream<Cursor<Vec<u8>>>;
 
+    async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool> {
+        let _lock = self.bucket.get_lock().await;
+        let workspace = workspace.unwrap_or("__default__".into());
+        if let Ok(exists) = self.exists(&workspace, &id).await {
+            return Ok(exists);
+        }
+
+        Err(JwstError::WorkspaceNotFound(workspace))
+    }
+
     async fn get_blob(&self, workspace: Option<String>, id: String) -> JwstResult<Self::Read> {
         let _lock = self.bucket.get_lock().await;
         let workspace = workspace.unwrap_or("__default__".into());
@@ -125,6 +135,7 @@ impl BlobStorage for BlobAutoStorage {
 
         Err(JwstError::WorkspaceNotFound(workspace))
     }
+
     async fn get_metadata(
         &self,
         workspace: Option<String>,
@@ -138,6 +149,7 @@ impl BlobStorage for BlobAutoStorage {
             Err(JwstError::WorkspaceNotFound(workspace))
         }
     }
+
     async fn put_blob(
         &self,
         workspace: Option<String>,
@@ -154,15 +166,17 @@ impl BlobStorage for BlobAutoStorage {
             Err(JwstError::WorkspaceNotFound(workspace))
         }
     }
-    async fn delete_blob(&self, workspace_id: Option<String>, id: String) -> JwstResult<()> {
+
+    async fn delete_blob(&self, workspace_id: Option<String>, id: String) -> JwstResult<bool> {
         let _lock = self.bucket.get_lock().await;
         let workspace_id = workspace_id.unwrap_or("__default__".into());
-        if let Ok(_success) = self.delete(&workspace_id, &id).await {
-            Ok(())
+        if let Ok(success) = self.delete(&workspace_id, &id).await {
+            Ok(success)
         } else {
             Err(JwstError::WorkspaceNotFound(workspace_id))
         }
     }
+
     async fn delete_workspace(&self, workspace_id: String) -> JwstResult<()> {
         let _lock = self.bucket.get_lock().await;
         if self.drop(&workspace_id).await.is_ok() {

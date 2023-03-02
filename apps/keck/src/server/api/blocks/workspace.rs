@@ -165,7 +165,7 @@ pub async fn workspace_search(
 ) -> Response {
     let query_text = &query.query;
     info!("workspace_search: {ws_id:?} query = {query_text:?}");
-    if let Ok(mut workspace) = context.storage.get_workspace(&ws_id).await {
+    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         match workspace.search(query_text) {
             Ok(list) => {
                 debug!("workspace_search: {ws_id:?} query = {query_text:?}; {list:#?}");
