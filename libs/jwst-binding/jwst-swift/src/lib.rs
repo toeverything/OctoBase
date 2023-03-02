@@ -1,13 +1,13 @@
 mod block;
 mod dynamic_value;
-mod workspace;
 mod storage;
+mod workspace;
 
 pub use block::Block;
 pub use dynamic_value::{DynamicValue, DynamicValueMap};
 use jwst::JwstError;
-pub use workspace::Workspace;
 pub use storage::Storage;
+pub use workspace::Workspace;
 
 type JwstWorkSpaceResult = Result<Workspace, JwstError>;
 
@@ -24,11 +24,7 @@ mod ffi {
 
         pub fn insert_children_at(&self, block: &Block, pos: u32);
 
-        pub fn insert_children_before(
-            self: &Block,
-            block: &Block,
-            reference: &str,
-        );
+        pub fn insert_children_before(self: &Block, block: &Block, reference: &str);
 
         pub fn insert_children_after(self: &Block, block: &Block, reference: &str);
 
@@ -107,6 +103,8 @@ mod ffi {
         fn get(self: &Workspace, block_id: String) -> Option<Block>;
 
         fn create(self: &Workspace, block_id: String, flavor: String) -> Block;
+
+        fn search(self: &Workspace, query: String) -> String;
 
         fn get_blocks_by_flavour(self: &Workspace, flavour: &str) -> Vec<Block>;
     }

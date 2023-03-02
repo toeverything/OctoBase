@@ -51,7 +51,7 @@ impl PluginRegister for IndexingPluginRegister {
     fn setup(self, ws: &mut Workspace) -> Result<IndexingPluginImpl, Box<dyn std::error::Error>> {
         let options = TextOptions::default().set_indexing_options(
             TextFieldIndexing::default()
-                .set_tokenizer(LANG_CN)
+                .set_tokenizer(GRAM_TOKENIZER)
                 .set_index_option(IndexRecordOption::WithFreqsAndPositions),
         );
 
