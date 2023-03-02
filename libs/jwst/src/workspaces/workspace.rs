@@ -110,7 +110,7 @@ impl Workspace {
     pub fn search_result(&self, query: String) -> String {
         match self.search(&query) {
             Ok(list) => serde_json::to_string(&list).unwrap(),
-            Err(err) => "".to_string(),
+            Err(_) => "".to_string(),
         }
     }
 
