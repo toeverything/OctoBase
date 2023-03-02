@@ -5,12 +5,14 @@ mod tests;
 use super::*;
 use blobs::BlobAutoStorage;
 use docs::DocAutoStorage;
-use std::time::Instant;
+use std::{collections::HashMap, time::Instant};
+use tokio::sync::Mutex;
 
 pub struct JwstStorage {
     pool: DatabaseConnection,
     blobs: BlobAutoStorage,
     docs: DocAutoStorage,
+    last_migrate: Mutex<HashMap<String, Instant>>,
 }
 
 impl JwstStorage {
@@ -26,7 +28,12 @@ impl JwstStorage {
             .await
             .context("Failed to init docs")?;
 
-        Ok(Self { pool, blobs, docs })
+        Ok(Self {
+            pool,
+            blobs,
+            docs,
+            last_migrate: Mutex::new(HashMap::new()),
+        })
     }
 
     pub async fn new_with_sqlite(file: &str) -> JwstResult<Self> {
@@ -111,12 +118,8 @@ impl JwstStorage {
         update: Option<Vec<u8>>,
         force: bool,
     ) -> bool {
-        let mut ts = self
-            .docs
-            .0
-            .last_migrate
-            .entry(workspace_id.clone())
-            .or_insert(Instant::now());
+        let mut map = self.last_migrate.lock().await;
+        let ts = map.entry(workspace_id.clone()).or_insert(Instant::now());
 
         if ts.elapsed().as_secs() > 5 || force {
             info!("full migrate: {workspace_id}");

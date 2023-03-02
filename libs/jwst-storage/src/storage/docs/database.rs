@@ -45,7 +45,6 @@ pub struct DocDBStorage {
     pub(super) pool: DatabaseConnection,
     workspaces: DashMap<String, Workspace>,
     remote: DashMap<String, Sender<Vec<u8>>>,
-    pub(crate) last_migrate: DashMap<String, Instant>,
 }
 
 impl DocDBStorage {
@@ -59,7 +58,6 @@ impl DocDBStorage {
             pool,
             workspaces: DashMap::new(),
             remote: DashMap::new(),
-            last_migrate: DashMap::new(),
         })
     }
 
