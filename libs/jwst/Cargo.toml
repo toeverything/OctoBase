@@ -17,7 +17,6 @@ async-trait = "0.1.64"
 bytes = "1.4.0"
 cang-jie = "0.15.0"
 chrono = "0.4.23"
-dashmap = "5.4.0"
 futures = "0.3.26"
 lib0 = { version = "0.16.2", features = ["lib0-serde"] }
 log = "0.4.17"

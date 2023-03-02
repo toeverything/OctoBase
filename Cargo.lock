@@ -1939,7 +1939,6 @@ dependencies = [
  "bytes",
  "cang-jie",
  "chrono",
- "dashmap",
  "futures",
  "lib0",
  "log",
@@ -1992,7 +1991,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
- "dashmap",
  "futures",
  "jwst",
  "jwst-storage",
