@@ -222,7 +222,7 @@ impl Context {
         let workspace_id = workspace_id.to_string();
 
         match self.storage.get_workspace(workspace_id.clone()).await {
-            Ok(mut workspace) => {
+            Ok(workspace) => {
                 let search_results = workspace.search(query_string)?;
                 Ok(search_results)
             }

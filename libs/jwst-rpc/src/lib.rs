@@ -8,11 +8,10 @@ pub use client::start_client;
 use axum::extract::ws::{Message, WebSocket};
 use broadcast::subscribe;
 use channel::ChannelItem;
-use dashmap::mapref::entry::Entry;
 use futures::{sink::SinkExt, stream::StreamExt};
 use jwst::{debug, error, info, trace, warn};
 use jwst_storage::JwstStorage;
-use std::sync::Arc;
+use std::{collections::hash_map::Entry, sync::Arc};
 use tokio::{
     sync::broadcast::channel as broadcast,
     sync::mpsc::channel,
@@ -47,6 +46,8 @@ pub async fn handle_socket(
         .get_storage()
         .docs()
         .remote()
+        .write()
+        .await
         .entry(workspace_id.clone())
     {
         Entry::Occupied(tx) => tx.get().subscribe(),

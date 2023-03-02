@@ -1,6 +1,5 @@
 use super::*;
 use anyhow::Context;
-use dashmap::mapref::entry::Entry;
 use futures::{SinkExt, StreamExt};
 use jwst::{DocStorage, JwstResult, Workspace};
 use jwst_storage::JwstStorage;
@@ -185,7 +184,7 @@ pub async fn start_client(
 ) -> JwstResult<Workspace> {
     let workspace = storage.docs().get(id.clone()).await?;
 
-    if let Entry::Vacant(entry) = storage.docs().remote().entry(id.clone()) {
+    if let Entry::Vacant(entry) = storage.docs().remote().write().await.entry(id.clone()) {
         let (tx, rx) = channel(100);
 
         start_sync_thread(&workspace, remote, rx);
