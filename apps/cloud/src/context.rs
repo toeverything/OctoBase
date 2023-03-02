@@ -4,7 +4,6 @@ use chrono::{NaiveDateTime, Utc};
 use cloud_components::MailContext;
 use cloud_database::CloudDatabase;
 use cloud_database::{Claims, GoogleClaims};
-use dashmap::DashMap;
 use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::SearchResults;
@@ -98,7 +97,7 @@ impl Context {
             http_client: Client::new(),
             storage,
             site_url,
-            channel: DashMap::new(),
+            channel: RwLock::new(HashMap::new()),
             user_channel: UserChannel::new(),
         }
     }
@@ -237,30 +236,28 @@ impl Context {
     // TODO: this should be moved to another module
     pub async fn close_websocket(&self, workspace: String, user: String) {
         let mut closed = vec![];
-        for item in self.channel.iter() {
-            let (channel, tx) = item.pair();
+        for (channel, tx) in self.channel.read().await.iter() {
             if workspace == channel.workspace && user == channel.identifier {
                 closed.push(channel.clone());
                 let _ = tx.send(None).await;
             }
         }
         for channel in closed {
-            self.channel.remove(&channel);
+            self.channel.write().await.remove(&channel);
         }
     }
 
     // TODO: this should be moved to another module
     pub async fn close_websocket_by_workspace(&self, workspace: String) {
         let mut closed = vec![];
-        for item in self.channel.iter() {
-            let (item, tx) = item.pair();
+        for (item, tx) in self.channel.read().await.iter() {
             if workspace == item.workspace {
                 closed.push(item.clone());
                 let _ = tx.send(None).await;
             }
         }
         for channel in closed {
-            self.channel.remove(&channel);
+            self.channel.write().await.remove(&channel);
         }
     }
 }
