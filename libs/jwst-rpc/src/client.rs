@@ -153,13 +153,16 @@ fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec
                 {
                     Ok(true) => {
                         debug!("sync thread finished");
+                        first_sync_cloned.store(true, Ordering::Release);
                         break;
                     }
                     Ok(false) => {
+                        first_sync_cloned.store(true, Ordering::Release);
                         warn!("Remote sync connection disconnected, try again in 2 seconds");
                         sleep(Duration::from_secs(3)).await;
                     }
                     Err(e) => {
+                        first_sync_cloned.store(true, Ordering::Release);
                         warn!("Remote sync error, try again in 3 seconds: {}", e);
                         sleep(Duration::from_secs(1)).await;
                     }
