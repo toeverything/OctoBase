@@ -348,7 +348,7 @@ pub async fn history_workspace(
         }
         Err(e) => {
             error!("client id parsing failure: {e}");
-            return StatusCode::BAD_REQUEST.into_response();
+            StatusCode::BAD_REQUEST.into_response()
         }
     }
 }

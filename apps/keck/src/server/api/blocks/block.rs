@@ -2,7 +2,7 @@ use super::*;
 use axum::{extract::Query, response::Response};
 use jwst::DocStorage;
 use lib0::any::Any;
-use serde_json::Value as JsonValue;
+use serde_json::{Map, Value};
 
 /// Get a `Block` by id
 /// - Return 200 and `Block`'s data if `Block` is exists.
@@ -66,7 +66,7 @@ pub async fn get_block(
 pub async fn set_block(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
-    Json(payload): Json<JsonValue>,
+    Json(payload): Json<Map<String, Value>>,
 ) -> Response {
     let (ws_id, block_id) = params;
     info!("set_block: {}, {}", ws_id, block_id);
@@ -82,18 +82,13 @@ pub async fn set_block(
                     let block = t.create(&block_id, "text");
 
                     let count = payload
-                        .as_object()
-                        .map(|block_content| {
-                            block_content
-                                .iter()
-                                .filter_map(|(key, value)| {
-                                    serde_json::from_value::<Any>(value.clone())
-                                        .map(|value| block.set(&mut t.trx, key, value))
-                                        .ok()
-                                })
-                                .count()
+                        .into_iter()
+                        .filter_map(|(key, value)| {
+                            serde_json::from_value::<Any>(value)
+                                .map(|value| block.set(&mut t.trx, &key, value))
+                                .ok()
                         })
-                        .unwrap_or_default();
+                        .count();
 
                     Some(((count > 0).then(|| t.trx.encode_update_v1()), block))
                 })
