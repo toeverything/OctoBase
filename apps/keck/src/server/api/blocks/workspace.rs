@@ -1,7 +1,6 @@
 use super::*;
 use axum::{
     extract::{Path, Query},
-    http::header,
     response::Response,
 };
 use jwst::{parse_history, parse_history_client, DocStorage};
@@ -28,15 +27,16 @@ pub async fn get_workspace(
     Path(ws_id): Path<String>,
 ) -> Response {
     info!("get_workspace: {}", ws_id);
+
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        Json(workspace).into_response()
-    } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
-        )
-            .into_response()
+        return Json(workspace).into_response();
     }
+
+    (
+        StatusCode::NOT_FOUND,
+        format!("Workspace({ws_id:?}) not found"),
+    )
+        .into_response()
 }
 
 /// Create a `Workspace` by id
@@ -124,14 +124,14 @@ pub async fn workspace_client(
     Path(ws_id): Path<String>,
 ) -> Response {
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        Json(workspace.client_id()).into_response()
-    } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
-        )
-            .into_response()
+        return Json(workspace.client_id()).into_response();
     }
+
+    (
+        StatusCode::NOT_FOUND,
+        format!("Workspace({ws_id:?}) not found"),
+    )
+        .into_response()
 }
 
 /// Block search query
@@ -161,28 +161,34 @@ pub struct BlockSearchQuery {
 pub async fn workspace_search(
     Extension(context): Extension<Arc<Context>>,
     Path(ws_id): Path<String>,
-    query: Query<BlockSearchQuery>,
+    Query(search): Query<BlockSearchQuery>,
 ) -> Response {
-    let query_text = &query.query;
-    info!("workspace_search: {ws_id:?} query = {query_text:?}");
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        match workspace.search(query_text) {
+    let BlockSearchQuery { query } = search;
+    info!("workspace_search: {ws_id:?} query = {query:?}");
+
+    if let Ok(resp) = context
+        .storage
+        .get_workspace(&ws_id)
+        .await
+        .map(|workspace| match workspace.search(&query) {
             Ok(list) => {
-                debug!("workspace_search: {ws_id:?} query = {query_text:?}; {list:#?}");
+                debug!("workspace_search: {ws_id:?} query = {query:?}; {list:#?}");
                 Json(list).into_response()
             }
             Err(err) => {
                 error!("Internal server error calling workspace_search: {err:?}");
                 StatusCode::INTERNAL_SERVER_ERROR.into_response()
             }
-        }
-    } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
-        )
-            .into_response()
+        })
+    {
+        return resp;
     }
+
+    (
+        StatusCode::NOT_FOUND,
+        format!("Workspace({ws_id:?}) not found"),
+    )
+        .into_response()
 }
 
 /// Get `Block` in `Workspace`
@@ -209,29 +215,40 @@ pub async fn get_workspace_block(
 ) -> Response {
     let Pagination { offset, limit } = pagination;
     info!("get_workspace_block: {ws_id:?}");
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        let total = workspace.block_count() as usize;
 
-        let data = workspace.with_trx(|t| {
-            workspace.blocks(&t.trx, |blocks| {
-                blocks.skip(offset).take(limit).collect::<Vec<_>>()
-            })
-        });
+    if let Some((total, data)) = context
+        .storage
+        .get_workspace(&ws_id)
+        .await
+        .ok()
+        .map(|workspace| {
+            let total = workspace.block_count() as usize;
 
-        let status = if data.is_empty() {
-            StatusCode::NOT_FOUND
-        } else {
-            StatusCode::OK
-        };
+            let data = workspace.with_trx(|t| {
+                workspace.blocks(&t.trx, |blocks| {
+                    blocks.skip(offset).take(limit).collect::<Vec<_>>()
+                })
+            });
 
-        (status, Json(PageData { total, data })).into_response()
-    } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
+            (total, data)
+        })
+    {
+        return (
+            if data.is_empty() {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::OK
+            },
+            Json(PageData { total, data }),
         )
-            .into_response()
+            .into_response();
     }
+
+    (
+        StatusCode::NOT_FOUND,
+        format!("Workspace({ws_id:?}) not found"),
+    )
+        .into_response()
 }
 
 /// Get all client ids of the `Workspace`
@@ -262,19 +279,25 @@ pub async fn history_workspace_clients(
     Extension(context): Extension<Arc<Context>>,
     Path(ws_id): Path<String>,
 ) -> Response {
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        if let Some(history) = parse_history_client(&workspace.doc()) {
-            Json(history).into_response()
-        } else {
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        }
-    } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
-        )
-            .into_response()
+    if let Ok(resp) = context
+        .storage
+        .get_workspace(&ws_id)
+        .await
+        .map(|workspace| {
+            parse_history_client(&workspace.doc()).map_or_else(
+                || StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+                |history| Json(history).into_response(),
+            )
+        })
+    {
+        return resp;
     }
+
+    (
+        StatusCode::NOT_FOUND,
+        format!("Workspace({ws_id:?}) not found"),
+    )
+        .into_response()
 }
 
 /// Get the history generated by a specific `Client ID` of the `Workspace`
@@ -299,25 +322,34 @@ pub async fn history_workspace(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
 ) -> Response {
-    let (ws_id, client) = params;
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        if let Ok(client) = client.parse::<u64>() {
-            if let Some(json) = parse_history(&workspace.doc(), client)
-                .and_then(|history| serde_json::to_string(&history).ok())
+    let (ws_id, client_id) = params;
+
+    match client_id.parse::<u64>() {
+        Ok(client) => {
+            if let Ok(resp) = context
+                .storage
+                .get_workspace(&ws_id)
+                .await
+                .map(|workspace| {
+                    parse_history(&workspace.doc(), client).map_or_else(
+                        || StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+                        |history| Json(history).into_response(),
+                    )
+                })
             {
-                ([(header::CONTENT_TYPE, "application/json")], json).into_response()
-            } else {
-                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+                return resp;
             }
-        } else {
-            StatusCode::BAD_REQUEST.into_response()
+
+            (
+                StatusCode::NOT_FOUND,
+                format!("Workspace({ws_id:?}) not found"),
+            )
+                .into_response()
         }
-    } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
-        )
-            .into_response()
+        Err(e) => {
+            error!("client id parsing failure: {e}");
+            return StatusCode::BAD_REQUEST.into_response();
+        }
     }
 }
 
