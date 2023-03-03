@@ -1,4 +1,5 @@
 {
+    "name": "libs-jwt-rpc",
     "$schema": "../../node_modules/nx/schemas/project-schema.json",
     "sourceRoot": "libs/jwt-rpc/src",
     "projectType": "library",
@@ -30,14 +31,6 @@
             "outputs": ["{options.outputFile}"],
             "options": {
                 "lintFilePatterns": ["libs/jwt-rpc/**/*.{ts,tsx,js,jsx}"]
-            }
-        },
-        "test": {
-            "executor": "@nrwl/jest:jest",
-            "outputs": ["coverage/libs/jwt-rpc"],
-            "options": {
-                "jestConfig": "libs/jwt-rpc/jest.config.ts",
-                "passWithNoTests": true
             }
         },
         "version": {

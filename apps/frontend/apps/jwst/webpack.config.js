@@ -1,9 +1,7 @@
-const path = require('path');
 const zlib = require('zlib');
 const webpack = require('webpack');
-const getNxWebpackConfig = require('@nrwl/react/plugins/webpack');
+const { composePlugins, withNx } = require('@nrwl/webpack');
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const CompressionPlugin = require('compression-webpack-plugin');
@@ -11,11 +9,8 @@ const TerserPlugin = require('terser-webpack-plugin');
 
 const enableBundleAnalyzer = process.env.BUNDLE_ANALYZER;
 
-module.exports = function (webpackConfig) {
-    const config = getNxWebpackConfig(webpackConfig);
-
+module.exports = composePlugins(withNx(), (config, { options, context }) => {
     const isProd = config.mode === 'production';
-    const isE2E = process.env.NX_E2E;
 
     config.experiments.topLevelAwait = true;
 
@@ -45,34 +40,6 @@ module.exports = function (webpackConfig) {
                 new CssMinimizerPlugin(),
             ],
         };
-        config.module.rules.unshift({
-            test: /\.css$/i,
-            use: [
-                MiniCssExtractPlugin.loader,
-                {
-                    loader: 'css-loader',
-                    options: {
-                        sourceMap: false,
-                    },
-                },
-            ],
-        });
-        config.module.rules.unshift({
-            test: /\.scss$/i,
-            use: [
-                'style-loader',
-                {
-                    loader: 'css-loader',
-                    options: {
-                        sourceMap: false,
-                    },
-                },
-                {
-                    loader: 'postcss-loader',
-                },
-            ],
-        });
-        config.module.rules.splice(6);
     } else {
         config.output = {
             ...config.output,
@@ -128,13 +95,13 @@ module.exports = function (webpackConfig) {
             JWT_DEV: !isProd,
             global: {},
         }),
-        isProd &&
-            !isE2E &&
-            new HtmlWebpackPlugin({
-                title: 'AFFiNE - All In One Workos',
-                template: path.resolve(__dirname, './src/template.html'),
-                publicPath: '/',
-            }),
+        // isProd &&
+        //     !isE2E &&
+        //     new HtmlWebpackPlugin({
+        //         title: 'AFFiNE - All In One Workos',
+        //         template: path.resolve(__dirname, './src/template.html'),
+        //         publicPath: '/',
+        //     }),
         isProd && new MiniCssExtractPlugin(),
         isProd &&
             new CompressionPlugin({
@@ -157,9 +124,8 @@ module.exports = function (webpackConfig) {
         // followSymlinks: false,
         ignored: ['**/*.css'],
     };
-
     return config;
-};
+});
 
 // TODO handle nx issue
 // see https://github.com/nrwl/nx/issues/8870

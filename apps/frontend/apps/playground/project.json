@@ -1,10 +1,11 @@
 {
+    "name": "playground",
     "$schema": "../../node_modules/nx/schemas/project-schema.json",
     "sourceRoot": "apps/playground/src",
     "projectType": "application",
     "targets": {
         "build": {
-            "executor": "@nrwl/web:webpack",
+            "executor": "@nrwl/webpack:webpack",
             "outputs": ["{options.outputPath}"],
             "defaultConfiguration": "production",
             "options": {
