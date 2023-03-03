@@ -45,7 +45,7 @@
             }
         },
         "serve": {
-            "executor": "@nrwl/web:dev-server",
+            "executor": "@nrwl/webpack:dev-server",
             "defaultConfiguration": "development",
             "options": {
                 "buildTarget": "jwst:build",
