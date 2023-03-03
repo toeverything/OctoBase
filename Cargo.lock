@@ -101,6 +101,8 @@ dependencies = [
  "tokio-util",
  "tower",
  "tower-http 0.3.5",
+ "utoipa 3.0.3",
+ "utoipa-swagger-ui",
  "uuid",
  "x509-parser",
 ]

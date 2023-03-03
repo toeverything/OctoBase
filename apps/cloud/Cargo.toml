@@ -5,7 +5,14 @@ version = "0.1.0"
 
 [features]
 default = ["affine"]
-affine = ["cloud-database/postgres", "jwst-storage/postgres"]
+affine = [
+  "api",
+  "schema",
+  "cloud-database/postgres", 
+  "jwst-storage/postgres",
+]
+api = ["utoipa"]
+schema = ["utoipa-swagger-ui"]
 
 [dependencies]
 async-trait = "0.1.64"
@@ -59,6 +66,8 @@ tower = "0.4.13"
 tower-http = { version = "0.3.5", features = ["auth", "cors"] }
 uuid = { version = "1.3.0", default-features = false, features = ["v4"] }
 x509-parser = "0.14.0"
+utoipa = { version = "3.0.3", features = ["axum_extras"], optional = true }
+utoipa-swagger-ui = { version = "3.0.2", features = ["axum"], optional = true }
 
 # ======= workspace dependencies =======
 cloud-components = { path = "../../libs/cloud-components" }
