@@ -173,19 +173,16 @@ async fn make_token(
         }
     }
 }
-/// Get a exists `Workspace` by id
+/// Get user's `Workspace` .
 /// - Return 200 Ok and `Workspace`'s data if `Workspace` is exists.
 /// - Return 404 Not Found if `Workspace` not exists.
 #[utoipa::path(
     get,
     tag = "Workspace",
-    context_path = "/api/workspaces",
-    path = "/{workspace}",
-    params(
-        ("workspace", description = "workspace id"),
-    ),
+    context_path = "/api",
+    path = "/workspace",
     responses(
-        (status = 200, description = "Get workspace data"),
+        (status = 200, description = "Get user workspace data"),
         (status = 404, description = "Workspace not found")
     )
 )]
@@ -195,7 +192,14 @@ pub async fn get_workspaces(
 ) -> Response {
     // TODO should print error
     match ctx.db.get_user_workspaces(claims.user.id.clone()).await {
-        Ok(data) => Json(data).into_response(),
+        Ok(data) => {
+            let status = if data.is_empty() {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::OK
+            };
+            (status, Json(data)).into_response()
+        }
         Err(e) => {
             error!("Failed to get workspaces: {:?}", e);
             ErrorStatus::InternalServerError.into_response()
@@ -203,7 +207,19 @@ pub async fn get_workspaces(
     }
 }
 
-async fn get_workspace_by_id(
+/// Get a exists `Workspace` by id
+/// - Return 200 Ok and `Workspace`'s data if `Workspace` is exists.
+/// - Return 404 Not Found if `Workspace` not exists.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/workspace",
+    path = "/{workspace}",
+    params(
+        ("workspace", description = "workspace id"),
+    )
+)]
+pub async fn get_workspace_by_id(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
@@ -231,7 +247,25 @@ async fn get_workspace_by_id(
     }
 }
 
-async fn update_workspace(
+/// update a exists `Workspace` by id
+/// - Return 204 No Content if update successful.
+/// - Return 404 Not Found if `Workspace` not exists.
+/// - Return 500 Internal Server Error if update failed.
+#[utoipa::path(
+    post,
+    tag = "Workspace",
+    context_path = "/api/workspace",
+    path = "/{workspace}",
+    params(
+        ("workspace", description = "workspace id"),
+    ),
+    responses(
+        (status = 204, description = "Workspace data updated"),
+        (status = 404, description = "Workspace not exists"),
+        (status = 500, description = "Failed to update workspace")
+    )
+)]
+pub async fn update_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
@@ -264,7 +298,25 @@ async fn update_workspace(
     }
 }
 
-async fn delete_workspace(
+/// Delete a exists `Workspace` by id
+/// - Return 204 No Content if delete successful.
+/// - Return 404 Not Found if `Workspace` not exists.
+/// - Return 500 Internal Server Error if delete failed.
+#[utoipa::path(
+    delete,
+    tag = "Workspace",
+    context_path = "/api/workspace",
+    path = "/{workspace_id}",
+    params(
+        ("workspace_id", description = "workspace id"),
+    ),
+    responses(
+        (status = 204, description = "Workspace data deleted"),
+        (status = 404, description = "Workspace not exists"),
+        (status = 500, description = "Failed to delete workspace")
+    )
+)]
+pub async fn delete_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
@@ -299,7 +351,23 @@ async fn delete_workspace(
     }
 }
 
-async fn get_doc(
+/// Get a exists `doc` by workspace id
+/// - Return 200 No Content if update successful.
+/// - Return 404 Not Found if `doc` not exists.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/workspace",
+    path = "/{workspace}/doc",
+    params(
+        ("workspace", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Get workspace doc"),
+        (status = 404, description = "doc not found")
+    )
+)]
+pub async fn get_doc(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
@@ -320,6 +388,22 @@ async fn get_doc(
     get_workspace_doc(ctx, workspace_id).await
 }
 
+/// Get a exists `public doc` by workspace id
+/// - Return 204 No Content if update successful.
+/// - Return 404 Not Found if `public doc` not exists.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/public",
+    path = "/doc/{workspace}",
+    params(
+        ("workspace", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Get workspace doc"),
+        (status = 404, description = "doc not found")
+    )
+)]
 pub async fn get_public_doc(
     Extension(ctx): Extension<Arc<Context>>,
     Path(workspace_id): Path<String>,
@@ -350,7 +434,26 @@ async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response 
 /// Resolves to [`SearchResults`]
 ///
 /// [`SearchResults`]: jwst::SearchResults
-async fn search_workspace(
+
+/// update a exists `Workspace` by id
+/// - Return 204 No Content if update successful.
+/// - Return 404 Not Found if `Workspace` not exists.
+/// - Return 500 Internal Server Error if update failed.
+#[utoipa::path(
+    post,
+    tag = "Workspace",
+    context_path = "/api/workspace",
+    path = "/{workspace}/search",
+    params(
+        ("workspace", description = "workspace id"),
+    ),
+    responses(
+        (status = 204, description = "Workspace data updated"),
+        (status = 404, description = "Workspace not exists"),
+        (status = 500, description = "Failed to update workspace")
+    )
+)]
+pub async fn search_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
