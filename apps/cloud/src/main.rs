@@ -9,7 +9,6 @@ mod context;
 mod error_status;
 mod files;
 mod layer;
-mod schema;
 mod utils;
 pub use api::get_workspaces;
 use utoipa::OpenApi;
@@ -21,12 +20,6 @@ async fn main() {
     #[openapi(
         paths(
             api::get_workspaces,
-        ),
-        components(
-            schemas(
-                schema::InsertChildren,
-                schema::Workspace,
-            )
         ),
         tags(
             (name = "Workspace", description = "Read and write remote workspace"),

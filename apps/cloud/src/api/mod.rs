@@ -179,13 +179,13 @@ async fn make_token(
 #[utoipa::path(
     get,
     tag = "Workspace",
-    context_path = "/api/block",
+    context_path = "/api/workspaces",
     path = "/{workspace}",
     params(
         ("workspace", description = "workspace id"),
     ),
     responses(
-        (status = 200, description = "Get workspace data", body = Workspace),
+        (status = 200, description = "Get workspace data"),
         (status = 404, description = "Workspace not found")
     )
 )]
