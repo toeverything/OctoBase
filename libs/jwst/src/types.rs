@@ -43,6 +43,7 @@ pub struct BlobMetadata {
 pub trait BlobStorage {
     type Read: Stream + Send;
 
+    async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool>;
     async fn get_blob(&self, workspace: Option<String>, id: String) -> JwstResult<Self::Read>;
     async fn get_metadata(&self, workspace: Option<String>, id: String)
         -> JwstResult<BlobMetadata>;
@@ -51,6 +52,6 @@ pub trait BlobStorage {
         workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
     ) -> JwstResult<String>;
-    async fn delete_blob(&self, workspace: Option<String>, id: String) -> JwstResult<()>;
+    async fn delete_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool>;
     async fn delete_workspace(&self, workspace_id: String) -> JwstResult<()>;
 }

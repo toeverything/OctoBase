@@ -22,7 +22,6 @@ bytes = "1.4.0"
 axum = { version = "0.6.6", features = ["headers", "ws"] }
 base64 = "0.21.0"
 chrono = { version = "0.4.23", features = ["serde"] }
-dashmap = "5.4.0"
 dotenvy = "0.15.6"
 futures = "0.3.26"
 handlebars = "4.3.6"

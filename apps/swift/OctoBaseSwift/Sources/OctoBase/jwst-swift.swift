@@ -404,6 +404,10 @@ extension WorkspaceRef {
         Block(ptr: __swift_bridge__$Workspace$create(ptr, { let rustString = block_id.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = flavor.intoRustString(); rustString.isOwned = false; return rustString.ptr }()))
     }
 
+    public func search<GenericIntoRustString: IntoRustString>(_ query: GenericIntoRustString) -> RustString {
+        RustString(ptr: __swift_bridge__$Workspace$search(ptr, { let rustString = query.intoRustString(); rustString.isOwned = false; return rustString.ptr }()))
+    }
+    
     public func get_blocks_by_flavour<GenericToRustStr: ToRustStr>(_ flavour: GenericToRustStr) -> RustVec<Block> {
         return flavour.toRustStr({ flavourAsRustStr in
             RustVec(ptr: __swift_bridge__$Workspace$get_blocks_by_flavour(ptr, flavourAsRustStr))

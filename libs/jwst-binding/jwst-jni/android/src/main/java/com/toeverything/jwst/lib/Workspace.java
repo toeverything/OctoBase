@@ -66,6 +66,13 @@ public final class Workspace {
     }
     private static native void do_dropTrx(long self, long trx);
 
+    public final @NonNull String search(@NonNull String query) {
+        String ret = do_search(mNativeObj, query);
+
+        return ret;
+    }
+    private static native @NonNull String do_search(long self, @NonNull String query);
+
     public synchronized void delete() {
         if (mNativeObj != 0) {
             do_delete(mNativeObj);

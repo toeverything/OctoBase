@@ -641,7 +641,7 @@ impl CloudDatabase {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
 
     #[tokio::test]
     async fn database_create_tables() -> anyhow::Result<()> {

@@ -71,6 +71,19 @@ class MainActivity : AppCompatActivity() {
                     block1.insertChildrenAt(trx, block11, 9)
                 }
             }
+
+            // search demo
+            Log.i("jwst", "search demo")
+            workspace.withTrx { trx ->
+                val block = trx.create("search_test", "search_test_flavor")
+                block.set(trx, "title", "introduction")
+                block.set(trx, "text", "hello every one")
+            }
+            val searchResult1 = "search result: " + workspace.search("duc")
+            Log.i("jwst",  searchResult1)
+            val searchResult2 = "search result: " + workspace.search("ver")
+            Log.i("jwst", searchResult2)
+
             while (true) {
                 workspace.withTrx { trx ->
                     Log.i("jwst", " getting root")

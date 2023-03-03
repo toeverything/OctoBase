@@ -1,5 +1,5 @@
 use super::Block;
-use jwst::{Workspace as JwstWorkspace};
+use jwst::Workspace as JwstWorkspace;
 use yrs::UpdateSubscription;
 
 pub struct Workspace {
@@ -42,6 +42,10 @@ impl Workspace {
             drop(trx);
             block
         })
+    }
+
+    pub fn search(self: &Workspace, query: String) -> String {
+        self.workspace.search_result(query)
     }
 
     pub fn get_blocks_by_flavour(&self, flavour: &str) -> Vec<Block> {

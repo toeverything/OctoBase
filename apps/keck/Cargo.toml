@@ -24,7 +24,6 @@ schema = ["utoipa-swagger-ui"]
 anyhow = "1.0.69"
 axum = { version = "0.6.6", features = ["headers", "ws"] }
 cfg-if = "1.0.0"
-dashmap = "5.4.0"
 futures = "0.3.26"
 http = "0.2.8"
 lib0 = { version = "0.16.2", features = ["lib0-serde"] }

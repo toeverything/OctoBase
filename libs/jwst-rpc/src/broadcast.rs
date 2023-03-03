@@ -23,8 +23,7 @@ fn broadcast(
             current_item.identifier,
             update.len()
         );
-        for item in context.get_channel().iter() {
-            let (item, tx) = item.pair();
+        for (item, tx) in context.get_channel().read().await.iter() {
             trace!("sending: {:?}", item);
             if current_item.workspace == item.workspace && current_item.uuid != item.uuid {
                 if tx.is_closed() {
@@ -37,7 +36,7 @@ fn broadcast(
             }
         }
         for item in closed {
-            context.get_channel().remove(&item);
+            context.get_channel().write().await.remove(&item);
         }
     });
 }
