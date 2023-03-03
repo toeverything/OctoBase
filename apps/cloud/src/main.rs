@@ -9,12 +9,30 @@ mod context;
 mod error_status;
 mod files;
 mod layer;
+mod schema;
 mod utils;
-
+pub use api::get_workspaces;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 #[tokio::main]
 async fn main() {
     init_logger();
-
+    #[derive(OpenApi)]
+    #[openapi(
+        paths(
+            api::get_workspaces,
+        ),
+        components(
+            schemas(
+                schema::InsertChildren,
+                schema::Workspace,
+            )
+        ),
+        tags(
+            (name = "Workspace", description = "Read and write remote workspace"),
+        )
+    )]
+    struct ApiDoc;
     let cors = CorsLayer::new()
         // allow `GET` and `POST` when accessing the resource
         .allow_methods(vec![
@@ -31,6 +49,7 @@ async fn main() {
 
     let app = files::static_files(
         Router::new()
+            .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
             .nest(
                 "/api",
                 api::make_rest_route(context.clone()).nest("/sync", api::make_ws_route()),

@@ -173,8 +173,23 @@ async fn make_token(
         }
     }
 }
-
-async fn get_workspaces(
+/// Get a exists `Workspace` by id
+/// - Return 200 Ok and `Workspace`'s data if `Workspace` is exists.
+/// - Return 404 Not Found if `Workspace` not exists.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/block",
+    path = "/{workspace}",
+    params(
+        ("workspace", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Get workspace data", body = Workspace),
+        (status = 404, description = "Workspace not found")
+    )
+)]
+pub async fn get_workspaces(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
 ) -> Response {
