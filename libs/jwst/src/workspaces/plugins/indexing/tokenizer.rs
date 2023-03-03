@@ -1,14 +1,7 @@
-use cang_jie::{CangJieTokenizer, TokenizerOption};
-use tantivy::tokenizer::TokenizerManager;
+use tantivy::tokenizer::{NgramTokenizer, TokenizerManager};
 
-pub use cang_jie::CANG_JIE as LANG_CN;
+pub const GRAM_TOKENIZER: &str = "gram";
 
 pub fn tokenizers_register(tokenizers: &TokenizerManager) {
-    tokenizers.register(
-        LANG_CN,
-        CangJieTokenizer {
-            option: TokenizerOption::ForSearch { hmm: true },
-            ..Default::default()
-        },
-    );
+    tokenizers.register(GRAM_TOKENIZER, NgramTokenizer::new(1, 10, false));
 }

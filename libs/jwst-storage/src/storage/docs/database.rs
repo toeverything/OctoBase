@@ -1,8 +1,10 @@
 use super::{entities::prelude::*, *};
-use dashmap::mapref::entry::Entry;
 use jwst::{sync_encode_update, DocStorage, Workspace};
 use jwst_storage_migration::{Migrator, MigratorTrait};
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::{
+    collections::hash_map::Entry,
+    panic::{catch_unwind, AssertUnwindSafe},
+};
 use yrs::{updates::decoder::Decode, Doc, Options, ReadTxn, StateVector, Transact, Update};
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
@@ -40,8 +42,8 @@ type DocsColumn = <Docs as EntityTrait>::Column;
 pub struct DocDBStorage {
     bucket: Arc<Bucket>,
     pub(super) pool: DatabaseConnection,
-    workspaces: DashMap<String, Workspace>,
-    remote: DashMap<String, Sender<Vec<u8>>>,
+    workspaces: RwLock<HashMap<String, Workspace>>,
+    remote: RwLock<HashMap<String, Sender<Vec<u8>>>>,
 }
 
 impl DocDBStorage {
@@ -53,8 +55,8 @@ impl DocDBStorage {
         Ok(Self {
             bucket,
             pool,
-            workspaces: DashMap::new(),
-            remote: DashMap::new(),
+            workspaces: RwLock::new(HashMap::new()),
+            remote: RwLock::new(HashMap::new()),
         })
     }
 
@@ -65,7 +67,7 @@ impl DocDBStorage {
         Self::init_with_pool(pool, get_bucket(is_sqlite)).await
     }
 
-    pub fn remote(&self) -> &DashMap<String, Sender<Vec<u8>>> {
+    pub fn remote(&self) -> &RwLock<HashMap<String, Sender<Vec<u8>>>> {
         &self.remote
     }
 
@@ -176,7 +178,7 @@ impl DocDBStorage {
         trace!("end update: {table}");
 
         debug!("update {}bytes to {}", blob.len(), table);
-        if let Entry::Occupied(remote) = self.remote.entry(table.into()) {
+        if let Entry::Occupied(remote) = self.remote.write().await.entry(table.into()) {
             let broadcast = &remote.get();
             if let Err(e) = broadcast.send(sync_encode_update(&blob)) {
                 warn!("send update to pipeline failed: {:?}", e);
@@ -235,7 +237,7 @@ impl DocStorage for DocDBStorage {
         debug!("check workspace exists: get lock");
         let _lock = self.bucket.get_lock().await;
 
-        Ok(self.workspaces.contains_key(&workspace_id)
+        Ok(self.workspaces.read().await.contains_key(&workspace_id)
             || Self::count(&self.pool, &workspace_id)
                 .await
                 .map(|c| c > 0)
@@ -245,7 +247,7 @@ impl DocStorage for DocDBStorage {
 
     async fn get(&self, workspace_id: String) -> JwstResult<Workspace> {
         debug!("get workspace: enter");
-        match self.workspaces.entry(workspace_id.clone()) {
+        match self.workspaces.write().await.entry(workspace_id.clone()) {
             Entry::Occupied(ws) => {
                 debug!("get workspace cache: {workspace_id}");
                 Ok(ws.get().clone())
@@ -300,7 +302,7 @@ impl DocStorage for DocDBStorage {
         let _lock = self.bucket.get_lock().await;
 
         debug!("delete workspace cache: {workspace_id}");
-        self.workspaces.remove(&workspace_id);
+        self.workspaces.write().await.remove(&workspace_id);
         DocDBStorage::drop(&self.pool, &workspace_id)
             .await
             .context("Failed to delete workspace")

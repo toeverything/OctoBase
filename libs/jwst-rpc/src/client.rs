@@ -1,6 +1,5 @@
 use super::*;
 use anyhow::Context;
-use dashmap::mapref::entry::Entry;
 use futures::{SinkExt, StreamExt};
 use jwst::{DocStorage, JwstResult, Workspace};
 use jwst_storage::JwstStorage;
@@ -154,13 +153,16 @@ fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec
                 {
                     Ok(true) => {
                         debug!("sync thread finished");
+                        first_sync_cloned.store(true, Ordering::Release);
                         break;
                     }
                     Ok(false) => {
+                        first_sync_cloned.store(true, Ordering::Release);
                         warn!("Remote sync connection disconnected, try again in 2 seconds");
                         sleep(Duration::from_secs(3)).await;
                     }
                     Err(e) => {
+                        first_sync_cloned.store(true, Ordering::Release);
                         warn!("Remote sync error, try again in 3 seconds: {}", e);
                         sleep(Duration::from_secs(1)).await;
                     }
@@ -185,7 +187,7 @@ pub async fn start_client(
 ) -> JwstResult<Workspace> {
     let workspace = storage.docs().get(id.clone()).await?;
 
-    if let Entry::Vacant(entry) = storage.docs().remote().entry(id.clone()) {
+    if let Entry::Vacant(entry) = storage.docs().remote().write().await.entry(id.clone()) {
         let (tx, rx) = channel(100);
 
         start_sync_thread(&workspace, remote, rx);

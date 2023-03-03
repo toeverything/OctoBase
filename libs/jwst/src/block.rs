@@ -430,7 +430,7 @@ impl Serialize for Block {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
     use std::collections::HashMap;
 

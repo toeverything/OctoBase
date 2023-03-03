@@ -52,6 +52,10 @@ class Workspace(workspace: JwstWorkspace) {
 
         return ret
     }
+
+    fun search(query: String): String {
+        return this.workspace.search(query)
+    }
 }
 
 class WorkspaceTransaction constructor(internal var trx: JwstWorkspaceTransaction) {

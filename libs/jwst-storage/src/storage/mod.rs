@@ -1,6 +1,6 @@
 mod blobs;
 mod docs;
-mod tests;
+mod test;
 
 use super::*;
 use blobs::BlobAutoStorage;

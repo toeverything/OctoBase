@@ -91,7 +91,7 @@ impl Workspace {
 
     #[cfg(feature = "workspace-search")]
     pub fn search<S: AsRef<str>>(
-        &mut self,
+        &self,
         options: S,
     ) -> Result<SearchResults, Box<dyn std::error::Error>> {
         use plugins::IndexingPluginImpl;
@@ -105,6 +105,13 @@ impl Workspace {
             |search_plugin| search_plugin.search(options),
         )
         .expect("text search was set up by default")
+    }
+
+    pub fn search_result(&self, query: String) -> String {
+        match self.search(&query) {
+            Ok(list) => serde_json::to_string(&list).unwrap(),
+            Err(_) => "".to_string(),
+        }
     }
 
     pub fn with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> T {

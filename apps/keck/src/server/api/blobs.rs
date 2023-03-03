@@ -1,10 +1,13 @@
 use super::*;
 
-use axum::{body::Bytes, response::Response};
+use axum::{body::StreamBody, extract::BodyStream, response::Response};
+use futures::{future, StreamExt};
+use jwst::BlobStorage;
 use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
 struct BlobStatus {
+    id: String,
     exists: bool,
 }
 
@@ -32,7 +35,12 @@ pub async fn check_blob(
 ) -> Response {
     let (workspace, hash) = params;
     info!("check_blob: {}, {}", workspace, hash);
-    if let Ok(exists) = context.storage.blobs().exists(&workspace, &hash).await {
+    if let Ok(exists) = context
+        .storage
+        .blobs()
+        .check_blob(Some(workspace), hash)
+        .await
+    {
         if exists {
             StatusCode::OK
         } else {
@@ -67,8 +75,13 @@ pub async fn get_blob(
 ) -> Response {
     let (workspace, hash) = params;
     info!("get_blob: {}, {}", workspace, hash);
-    if let Ok(blob) = context.storage.blobs().get(&workspace, &hash).await {
-        blob.blob.into_response()
+    if let Ok(blob) = context
+        .storage
+        .blobs()
+        .get_blob(Some(workspace), hash)
+        .await
+    {
+        StreamBody::new(blob).into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
@@ -97,21 +110,44 @@ pub async fn get_blob(
 pub async fn set_blob(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
-    body: Bytes,
+    body: BodyStream,
 ) -> Response {
     let (workspace, hash) = params;
     info!("set_blob: {}, {}", workspace, hash);
 
-    if context
+    let mut has_error = false;
+    let body = body
+        .take_while(|x| {
+            has_error = x.is_err();
+            future::ready(x.is_ok())
+        })
+        .filter_map(|data| future::ready(data.ok()));
+
+    if let Ok(id) = context
         .storage
         .blobs()
-        .insert(&workspace, &hash, &body)
+        .put_blob(Some(workspace.clone()), body)
         .await
-        .is_ok()
     {
-        Json(BlobStatus { exists: true }).into_response()
+        if has_error {
+            let _ = context
+                .storage
+                .blobs()
+                .delete_blob(Some(workspace), id)
+                .await;
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        } else {
+            Json(BlobStatus { id, exists: true }).into_response()
+        }
     } else {
-        (StatusCode::NOT_FOUND, Json(BlobStatus { exists: false })).into_response()
+        (
+            StatusCode::NOT_FOUND,
+            Json(BlobStatus {
+                id: hash,
+                exists: false,
+            }),
+        )
+            .into_response()
     }
 }
 
@@ -139,7 +175,12 @@ pub async fn delete_blob(
     let (workspace, hash) = params;
     info!("delete_blob: {}, {}", workspace, hash);
 
-    if let Ok(success) = context.storage.blobs().delete(&workspace, &hash).await {
+    if let Ok(success) = context
+        .storage
+        .blobs()
+        .delete_blob(Some(workspace), hash)
+        .await
+    {
         if success {
             StatusCode::NO_CONTENT
         } else {

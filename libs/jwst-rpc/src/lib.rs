@@ -8,11 +8,10 @@ pub use client::start_client;
 use axum::extract::ws::{Message, WebSocket};
 use broadcast::subscribe;
 use channel::ChannelItem;
-use dashmap::mapref::entry::Entry;
 use futures::{sink::SinkExt, stream::StreamExt};
 use jwst::{debug, error, info, trace, warn};
 use jwst_storage::JwstStorage;
-use std::sync::Arc;
+use std::{collections::hash_map::Entry, sync::Arc};
 use tokio::{
     sync::broadcast::channel as broadcast,
     sync::mpsc::channel,
@@ -38,6 +37,8 @@ pub async fn handle_socket(
     let channel_item = ChannelItem::new(&workspace_id, &identifier);
     context
         .get_channel()
+        .write()
+        .await
         .insert(channel_item.clone(), tx.clone());
     debug!("{workspace_id} add channel: {identifier}");
 
@@ -45,6 +46,8 @@ pub async fn handle_socket(
         .get_storage()
         .docs()
         .remote()
+        .write()
+        .await
         .entry(workspace_id.clone())
     {
         Entry::Occupied(tx) => tx.get().subscribe(),
@@ -68,13 +71,13 @@ pub async fn handle_socket(
         ws.sync_init_message()
     } {
         if tx.send(Some(init_data)).await.is_err() {
-            context.get_channel().remove(&channel_item);
+            context.get_channel().write().await.remove(&channel_item);
             debug!("{workspace_id} remove channel: {identifier}");
             // client disconnected
             return;
         }
     } else {
-        context.get_channel().remove(&channel_item);
+        context.get_channel().write().await.remove(&channel_item);
         // client disconnected
         return;
     }
@@ -143,5 +146,5 @@ pub async fn handle_socket(
         }
     }
 
-    context.get_channel().remove(&channel_item);
+    context.get_channel().write().await.remove(&channel_item);
 }

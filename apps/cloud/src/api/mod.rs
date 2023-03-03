@@ -287,7 +287,8 @@ pub async fn update_workspace(
     match ctx.db.update_workspace(workspace_id.clone(), payload).await {
         Ok(Some(data)) => {
             ctx.user_channel
-                .update_workspace(workspace_id.clone(), ctx.clone());
+                .update_workspace(workspace_id.clone(), ctx.clone())
+                .await;
             Json(data).into_response()
         }
         Ok(None) => ErrorStatus::NotFoundWorkspace(workspace_id).into_response(),
@@ -337,7 +338,8 @@ pub async fn delete_workspace(
     match ctx.db.delete_workspace(workspace_id.clone()).await {
         Ok(true) => {
             ctx.user_channel
-                .update_workspace(workspace_id.clone(), ctx.clone());
+                .update_workspace(workspace_id.clone(), ctx.clone())
+                .await;
             ctx.close_websocket_by_workspace(workspace_id.clone()).await;
 
             let _ = ctx.storage.blobs().delete_workspace(workspace_id).await;

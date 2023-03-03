@@ -185,7 +185,9 @@ pub async fn invite_member(
     );
 
     let Some((title, msg_body)) = make_invite_email(&ctx, workspace_id, &claims, &invite_code).await else {
-        let _ = ctx.db.delete_permission(permission_id);
+        if let Err(e) = ctx.db.delete_permission(permission_id).await {
+                error!("Failed to withdraw permissions: {}", e);
+        }
         return ErrorStatus::InternalServerError.into_response();
     };
 

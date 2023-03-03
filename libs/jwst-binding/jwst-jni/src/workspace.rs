@@ -45,4 +45,9 @@ impl Workspace {
     pub fn drop_trx(&self, trx: WorkspaceTransaction) {
         drop(trx)
     }
+
+    #[generate_interface]
+    pub fn search(&self, query: String) -> String {
+        self.workspace.search_result(query)
+    }
 }
