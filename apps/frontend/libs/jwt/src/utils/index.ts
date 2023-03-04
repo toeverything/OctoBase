@@ -1,11 +1,8 @@
 import debug from 'debug';
-import { enableAllPlugins } from 'immer';
 import { v5 as UUIDv5 } from 'uuid';
 import { AbstractBlock } from '../block/abstract';
 
 declare const JWT_DEV: boolean;
-
-enableAllPlugins();
 
 // sha3-256(toeverything uuid) -> truncate 128 bits
 // e66a34f77a3b09d2020eb20e1f77e3c56250c19788ed2c70993ad2c495e55de6

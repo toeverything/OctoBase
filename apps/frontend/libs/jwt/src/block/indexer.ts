@@ -1,12 +1,6 @@
-/* eslint-disable no-await-in-loop */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable max-lines */
 import { createNewSortInstance } from 'fast-sort';
-import { deflateSync, inflateSync, strFromU8, strToU8 } from 'fflate';
 import type { DocumentSearchOptions } from 'flexsearch';
 import { Document as DocumentIndexer } from 'flexsearch';
-import { createStore, del, get, keys, set } from 'idb-keyval';
-import { produce } from 'immer';
 import type { Query } from 'sift';
 import sift from 'sift';
 
@@ -58,39 +52,6 @@ function tokenizeZh(text: string) {
     return text.replace(/[\x00-\x7F]/g, '').split('');
 }
 
-type IdbInstance = {
-    get: (key: string) => Promise<ArrayBufferLike | undefined>;
-    set: (key: string, value: ArrayBufferLike) => Promise<void>;
-    keys: () => Promise<string[]>;
-    delete: (key: string) => Promise<void>;
-};
-
-type BlockIdbInstance = {
-    index: IdbInstance;
-    metadata: IdbInstance;
-};
-
-function initIndexIdb(workspace: string): BlockIdbInstance {
-    const index = createStore(`${workspace}_index`, 'index');
-    const metadata = createStore(`${workspace}_metadata`, 'metadata');
-    return {
-        index: {
-            get: (key: string) => get<ArrayBufferLike>(key, index),
-            set: (key: string, value: ArrayBufferLike) =>
-                set(key, value, index),
-            keys: () => keys(index),
-            delete: (key: string) => del(key, index),
-        },
-        metadata: {
-            get: (key: string) => get<ArrayBufferLike>(key, metadata),
-            set: (key: string, value: ArrayBufferLike) =>
-                set(key, value, metadata),
-            keys: () => keys(metadata),
-            delete: (key: string) => del(key, metadata),
-        },
-    };
-}
-
 type BlockIndexedContent = {
     index: IndexMetadata;
     query: QueryMetadata;
@@ -104,7 +65,6 @@ export type QueryIndexMetadata = Query<QueryMetadata> & {
 
 export class BlockIndexer {
     private readonly _manager: YBlockManager;
-    private readonly _idb: BlockIdbInstance;
 
     private readonly _blockIndexer: DocumentIndexer<IndexMetadata>;
     private readonly _blockMetadataMap = new Map<string, QueryMetadata>();
@@ -121,7 +81,6 @@ export class BlockIndexer {
         eventBus: BlockEventBus
     ) {
         this._manager = manager;
-        this._idb = initIndexIdb(workspace);
 
         this._blockIndexer = new DocumentIndexer({
             document: {
@@ -144,36 +103,25 @@ export class BlockIndexer {
             .on('reindex', this._contentReindex.bind(this), {
                 debounce: { wait: 1000, maxWait: 1000 * 10 },
             });
-
-        this._eventBus
-            .type('save_index')
-            .on('save_index', this._saveIndex.bind(this), {
-                debounce: { wait: 1000 * 10, maxWait: 1000 * 20 },
-            });
     }
 
     private _contentReindex() {
         const paddings: Record<string, BlockIndexedContent> = {};
 
-        this._delayIndex.documents = produce(
-            this._delayIndex.documents,
-            draft => {
-                for (const [k, block] of draft) {
-                    paddings[k] = {
-                        index: block.getIndexMetadata(),
-                        query: block.getQueryMetadata(),
-                    };
-                    draft.delete(k);
-                }
-            }
-        );
+        for (const [k, block] of this._delayIndex.documents) {
+            paddings[k] = {
+                index: block.getIndexMetadata(),
+                query: block.getQueryMetadata(),
+            };
+            this._delayIndex.documents.delete(k);
+        }
+
         for (const [key, { index, query }] of Object.entries(paddings)) {
             if (index.content) {
                 this._blockIndexer.add(key, index);
                 this._blockMetadataMap.set(key, query);
             }
         }
-        this._eventBus.type('save_index').emit();
     }
 
     private _refreshIndex(block: AbstractBlock) {
@@ -188,13 +136,7 @@ export class BlockIndexer {
             BlockFlavors.reference,
         ];
         if (filter.includes(block.flavor)) {
-            this._delayIndex.documents = produce(
-                this._delayIndex.documents,
-                draft => {
-                    draft.set(block.id, block);
-                }
-            );
-
+            this._delayIndex.documents.set(block.id, block);
             this._eventBus.type('reindex').emit();
             return true;
         }
@@ -205,14 +147,10 @@ export class BlockIndexer {
     refreshIndex(id: string, state: ChangedState) {
         JWT_DEV && logger(`refreshArticleIndex: ${id}`);
         if (state === 'delete') {
-            this._delayIndex.documents = produce(
-                this._delayIndex.documents,
-                draft => {
-                    this._blockIndexer.remove(id);
-                    this._blockMetadataMap.delete(id);
-                    draft.delete(id);
-                }
-            );
+            this._blockIndexer.remove(id);
+            this._blockMetadataMap.delete(id);
+            this._delayIndex.documents.delete(id);
+
             return;
         }
         const block = this._manager.getBlock(id);
@@ -230,61 +168,6 @@ export class BlockIndexer {
         } else {
             JWT_DEV && logger(`refreshArticleIndex: ${id} not exists`);
         }
-    }
-
-    async loadIndex() {
-        for (const key of await this._idb.index.keys()) {
-            const content = await this._idb.index.get(key);
-            if (content) {
-                const decoded = strFromU8(inflateSync(new Uint8Array(content)));
-                try {
-                    await this._blockIndexer.import(key, decoded as any);
-                } catch (e) {
-                    console.error(`Failed to load index ${key}`, e);
-                }
-            }
-        }
-        for (const key of await this._idb.metadata.keys()) {
-            const content = await this._idb.metadata.get(key);
-            if (content) {
-                const decoded = strFromU8(inflateSync(new Uint8Array(content)));
-                try {
-                    await this._blockIndexer.import(key, JSON.parse(decoded));
-                } catch (e) {
-                    console.error(`Failed to load index ${key}`, e);
-                }
-            }
-        }
-        return Array.from(this._blockMetadataMap.keys());
-    }
-
-    private async _saveIndex() {
-        const idb = this._idb;
-        await idb.index
-            .keys()
-            .then(keys => Promise.all(keys.map(key => idb.index.delete(key))));
-        await this._blockIndexer.export((key, data) => {
-            idb.index.set(String(key), deflateSync(strToU8(data as any)));
-        });
-        const metadata = this._blockMetadataMap;
-        await idb.metadata
-            .keys()
-            .then(keys =>
-                Promise.all(
-                    keys
-                        .filter(key => !metadata.has(key))
-                        .map(key => idb.metadata.delete(key))
-                )
-            );
-
-        await Promise.all(
-            Array.from(metadata.entries()).map(([key, data]) =>
-                idb.metadata.set(
-                    key,
-                    deflateSync(strToU8(JSON.stringify(data)))
-                )
-            )
-        );
     }
 
     public async inspectIndex() {

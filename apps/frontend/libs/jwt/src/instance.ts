@@ -173,22 +173,15 @@ export class JwtStore implements IJwtStore {
         };
     }
 
-    private _rebuildIndex(existsIds?: string[]) {
+    private _rebuildIndex() {
         JWT_DEV && logger('rebuild index');
         const blocks = this._manager.getAllBlock();
-        const excluded = existsIds || [];
-
-        blocks
-            .filter(id => !excluded.includes(id))
-            .map(id => this._blockIndexer.refreshIndex(id, 'add'));
+        blocks.map(id => this._blockIndexer.refreshIndex(id, 'add'));
     }
 
     public async buildIndex() {
         JWT_DEV && logger('buildIndex: start');
-        // Skip the block index that exists in the metadata, assuming that the index of the block existing in the metadata is the latest, and modify this part if there is a problem
-        // Although there may be cases where the index is refreshed but the metadata is not refreshed, re-indexing will be automatically triggered after the block is changed
-        const existsIds = await this._blockIndexer.loadIndex();
-        this._rebuildIndex(existsIds);
+        this._rebuildIndex();
         this.addBlockListener('index', states => {
             Array.from(states.entries()).map(([id, state]) => {
                 if (state === 'delete') {
