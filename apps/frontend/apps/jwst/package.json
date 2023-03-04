@@ -3,9 +3,8 @@
     "version": "0.0.1",
     "license": "MIT",
     "author": "DarkSky <darksky2048@gmail.com>",
-    "devDependencies": {},
     "dependencies": {
         "@emotion/babel-plugin": "^11.10.2",
-        "jotai": "^1.8.3"
+        "jotai": "^1.13.1"
     }
 }

@@ -3,10 +3,9 @@
     "version": "0.0.1",
     "license": "MIT",
     "author": "DarkSky <darksky2048@gmail.com>",
-    "devDependencies": {},
     "dependencies": {
         "@types/wicg-file-system-access": "^2020.9.5",
         "file-selector": "^0.6.0",
-        "yjs": "^13.5.42"
+        "yjs": "^13.5.48"
     }
 }

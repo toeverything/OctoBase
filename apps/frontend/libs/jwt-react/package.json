@@ -4,8 +4,7 @@
     "license": "MIT",
     "author": "DarkSky <darksky2048@gmail.com>",
     "dependencies": {
-        "jotai": "^1.9.0",
-        "nanoid": "^4.0.0",
-        "preact": "^10.11.2"
+        "jotai": "^1.13.1",
+        "nanoid": "^4.0.1"
     }
 }

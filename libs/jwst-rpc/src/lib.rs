@@ -88,27 +88,24 @@ pub async fn handle_socket(
                 let mut success = true;
                 if let Ok(Message::Binary(binary)) = msg {
                     debug!("recv from remote: {}bytes", binary.len());
-                    let payload = {
-                        let mut workspace = context
-                            .get_storage()
-                            .get_workspace(&workspace_id)
-                            .await
-                            .expect("workspace not found");
 
-                        use std::panic::{catch_unwind, AssertUnwindSafe};
-                        catch_unwind(AssertUnwindSafe(|| workspace.sync_decode_message(&binary)))
-                    };
-                    if let Ok(messages) = payload {
-                        for reply in messages {
-                            debug!("send pipeline message by {identifier:?}");
-                            if let Err(e) = tx.send(Some(reply)).await {
-                                if !tx.is_closed() {
-                                    error!("socket send error: {}", e.to_string());
-                                } else {
-                                    // client disconnected
-                                    success = false;
-                                    break;
-                                }
+                    let mut workspace = context
+                        .get_storage()
+                        .get_workspace(&workspace_id)
+                        .await
+                        .expect("workspace not found");
+
+                    let message = workspace.sync_decode_message(&binary);
+
+                    for reply in message {
+                        debug!("send pipeline message by {identifier:?}");
+                        if let Err(e) = tx.send(Some(reply)).await {
+                            if !tx.is_closed() {
+                                error!("socket send error: {}", e.to_string());
+                            } else {
+                                // client disconnected
+                                success = false;
+                                break;
                             }
                         }
                     }

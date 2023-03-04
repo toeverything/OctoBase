@@ -1,6 +1,9 @@
 use super::{plugins::setup_plugin, *};
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use std::sync::{Arc, RwLock};
+use std::{
+    panic::{catch_unwind, AssertUnwindSafe},
+    sync::{Arc, RwLock},
+};
 use y_sync::{
     awareness::{Awareness, Event, Subscription as AwarenessSubscription},
     sync::{DefaultProtocol, Error, Message, MessageReader, Protocol, SyncMessage},
@@ -223,7 +226,6 @@ impl Workspace {
         &mut self,
         f: impl Fn(&TransactionMut, &UpdateEvent) + 'static,
     ) -> Option<UpdateSubscription> {
-        use std::panic::{catch_unwind, AssertUnwindSafe};
         let doc = self.awareness.read().unwrap().doc().clone();
 
         match catch_unwind(AssertUnwindSafe(move || {
@@ -258,20 +260,19 @@ impl Workspace {
         Ok(encoder.to_vec())
     }
 
-    pub fn sync_handle_message(&mut self, msg: Message) -> Result<Option<Message>, Error> {
+    pub fn sync_handle_message(
+        awareness: &mut Awareness,
+        msg: Message,
+    ) -> Result<Option<Message>, Error> {
         trace!("processing message: {:?}", msg);
         match msg {
             Message::Sync(msg) => match msg {
-                SyncMessage::SyncStep1(sv) => {
-                    PROTOCOL.handle_sync_step1(&self.awareness.read().unwrap(), sv)
+                SyncMessage::SyncStep1(sv) => PROTOCOL.handle_sync_step1(awareness, sv),
+                SyncMessage::SyncStep2(update) => {
+                    PROTOCOL.handle_sync_step2(awareness, Update::decode_v1(&update)?)
                 }
-                SyncMessage::SyncStep2(update) => PROTOCOL.handle_sync_step2(
-                    &mut self.awareness.write().unwrap(),
-                    Update::decode_v1(&update)?,
-                ),
                 SyncMessage::Update(update) => {
-                    let doc = self.doc();
-                    let mut txn = doc.transact_mut();
+                    let mut txn = awareness.doc().transact_mut();
                     txn.apply_update(Update::decode_v1(&update)?);
                     txn.commit();
                     trace!("changed_parent_types: {:?}", txn.changed_parent_types());
@@ -281,26 +282,28 @@ impl Workspace {
                     Ok(Some(Message::Sync(SyncMessage::Update(update))))
                 }
             },
-            Message::Auth(reason) => PROTOCOL.handle_auth(&self.awareness.read().unwrap(), reason),
-            Message::AwarenessQuery => {
-                PROTOCOL.handle_awareness_query(&self.awareness.read().unwrap())
-            }
-            Message::Awareness(update) => {
-                PROTOCOL.handle_awareness_update(&mut self.awareness.write().unwrap(), update)
-            }
-            Message::Custom(tag, data) => {
-                PROTOCOL.missing_handle(&mut self.awareness.write().unwrap(), tag, data)
-            }
+            Message::Auth(reason) => PROTOCOL.handle_auth(awareness, reason),
+            Message::AwarenessQuery => PROTOCOL.handle_awareness_query(awareness),
+            Message::Awareness(update) => PROTOCOL.handle_awareness_update(awareness, update),
+            Message::Custom(tag, data) => PROTOCOL.missing_handle(awareness, tag, data),
         }
     }
 
     pub fn sync_decode_message(&mut self, binary: &[u8]) -> Vec<Vec<u8>> {
         let mut decoder = DecoderV1::from(binary);
+        let mut result = vec![];
+        for msg in MessageReader::new(&mut decoder) {
+            if let Ok(msg) = msg {
+                let mut awareness = self.awareness.write().unwrap();
+                if let Ok(Ok(Some(msg))) = catch_unwind(AssertUnwindSafe(|| {
+                    Self::sync_handle_message(&mut awareness, msg)
+                })) {
+                    result.push(msg.encode_v1());
+                }
+            }
+        }
 
-        MessageReader::new(&mut decoder)
-            .filter_map(|msg| msg.ok().and_then(|msg| self.sync_handle_message(msg).ok()?))
-            .map(|reply| reply.encode_v1())
-            .collect()
+        result
     }
 }
 
