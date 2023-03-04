@@ -95,13 +95,6 @@ module.exports = composePlugins(withNx(), (config, { options, context }) => {
             JWT_DEV: !isProd,
             global: {},
         }),
-        // isProd &&
-        //     !isE2E &&
-        //     new HtmlWebpackPlugin({
-        //         title: 'AFFiNE - All In One Workos',
-        //         template: path.resolve(__dirname, './src/template.html'),
-        //         publicPath: '/',
-        //     }),
         isProd && new MiniCssExtractPlugin(),
         isProd &&
             new CompressionPlugin({

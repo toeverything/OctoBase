@@ -2,8 +2,7 @@
 import type { Awareness } from 'y-protocols/awareness.js';
 import type { Doc } from 'yjs';
 
-import { IndexedDBProvider, KeckProvider } from '@toeverything/jwt-rpc';
-
+import { IndexedDBProvider, KeckProvider } from '../rpc';
 import type { BucketBackend } from '../types';
 import type { Connectivity } from './types';
 

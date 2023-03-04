@@ -324,7 +324,7 @@ export class YBlockManager {
             // binary: ArrayBufferLike | undefined;
         }
     ): YBlock {
-        const uuid = options.uuid || `affine${nanoid(16)}`;
+        const uuid = options.uuid || nanoid(10);
 
         const block = {
             flavor: options.flavor,

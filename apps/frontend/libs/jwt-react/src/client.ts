@@ -12,7 +12,6 @@ export const useClient = (workspace?: string | undefined) => {
         if (!client && workspace) {
             getWorkspace(workspace, {
                 enabled: ['keck'],
-                token: 'AFFiNE',
             }).then(client => {
                 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                 // @ts-ignore

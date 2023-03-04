@@ -132,6 +132,7 @@ importers:
       flexsearch: 0.7.21
       idb-keyval: ^6.2.0
       immer: ^9.0.16
+      lib0: ^0.2.52
       sift: ^16.0.0
       ts-debounce: ^4.0.0
       uuid: ^8.3.2
@@ -144,6 +145,7 @@ importers:
       flexsearch: 0.7.21
       idb-keyval: 6.2.0
       immer: 9.0.16
+      lib0: 0.2.63
       sift: 16.0.0
       ts-debounce: 4.0.0
       uuid: 8.3.2
@@ -161,16 +163,6 @@ importers:
     dependencies:
       jotai: 1.13.1_react@18.2.0
       nanoid: 4.0.1
-
-  libs/jwt-rpc:
-    specifiers:
-      lib0: ^0.2.52
-      y-protocols: ^1.0.5
-      yjs: ^13.5.42
-    dependencies:
-      lib0: 0.2.63
-      y-protocols: 1.0.5
-      yjs: 13.5.48
 
 packages:
 

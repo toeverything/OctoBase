@@ -36,7 +36,6 @@ export type JwtOptions = {
     metadata?: BlockExporters<Array<[string, number | string | string[]]>>;
     tagger?: BlockExporters<string[]>;
     enabled?: YProviderType[];
-    token?: string;
     extraToleranceTime?: number;
 };
 
