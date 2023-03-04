@@ -13,13 +13,7 @@ import type { BlockEventBus } from './utils';
 import { genUuid, getLogger, JwtEventBus } from './utils';
 import type { HistoryManager, YBlock, YProviderType } from './yjs';
 import { getYProviders, YBlockManager } from './yjs';
-import type {
-    BlockListener,
-    ChangedStates,
-    Connectivity,
-    DataExporter,
-} from './yjs/types';
-import { getDataExporter } from './yjs/types';
+import type { BlockListener, ChangedStates, Connectivity } from './yjs/types';
 import { assertExists } from './yjs/utils';
 
 declare const JWT_DEV: boolean;
@@ -74,23 +68,12 @@ export class JwtStore implements IJwtStore {
 
     private readonly _root: { node?: AbstractBlock | undefined };
 
-    private readonly _installExporter: (
-        initialData: Uint8Array,
-        exporter: DataExporter
-    ) => Promise<void>;
-
     constructor(workspace: string, options?: JwtOptions) {
-        const { importData, exportData, hasExporter, installExporter } =
-            getDataExporter();
-
         const manager = new YBlockManager(workspace, {
             eventBus: JwtEventBus.get(workspace),
             providers: getYProviders({
                 enabled: [],
                 backend: options?.backend || BucketBackend.YWebSocketAffine,
-                importData,
-                exportData,
-                hasExporter,
                 ...options,
             }),
             ...options,
@@ -125,7 +108,6 @@ export class JwtStore implements IJwtStore {
             });
 
         this._root = {};
-        this._installExporter = installExporter;
     }
 
     public addBlockListener(tag: string, listener: BlockListener) {
@@ -574,11 +556,6 @@ export class JwtStore implements IJwtStore {
 
     public get history(): HistoryManager {
         return this._manager.history();
-    }
-
-    public async setupDataExporter(initialData: Uint8Array, cb: DataExporter) {
-        await this._installExporter(initialData, cb);
-        this._manager.reload();
     }
 
     public createStoreClient(command?: AbstractCommand): IStoreClient {

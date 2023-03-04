@@ -21,11 +21,8 @@ export type YProviderType = 'idb' | 'sqlite' | 'ws' | 'keck';
 
 export type YProviderOptions = {
     enabled: YProviderType[];
-    backend: typeof BucketBackend[keyof typeof BucketBackend];
+    backend: (typeof BucketBackend)[keyof typeof BucketBackend];
     params?: Record<string, string>;
-    importData?: () => Promise<Uint8Array> | Uint8Array | undefined;
-    exportData?: (binary: Uint8Array) => Promise<void> | undefined;
-    hasExporter?: () => boolean;
     extraToleranceTime?: number;
 };
 
