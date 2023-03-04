@@ -134,7 +134,6 @@ export class KeckProvider extends Observable<string> {
     _checkInterval: NodeJS.Timer;
 
     constructor(
-        token: string,
         serverUrl: string,
         roomName: string,
         doc: Y.Doc,
