@@ -13,6 +13,7 @@ importers:
       react-dom: ^18.2.0
       react-router-dom: ^6.8.2
       rollup-plugin-typescript2: ^0.34.1
+      rollup-plugin-visualizer: ^5.9.0
       terser: ^5.16.5
       typescript: ^4.9.5
       vite: ^4.1.4
@@ -27,6 +28,7 @@ importers:
       '@types/react': 18.0.28
       '@types/react-dom': 18.0.11
       rollup-plugin-typescript2: 0.34.1_typescript@4.9.5
+      rollup-plugin-visualizer: 5.9.0
       terser: 5.16.5
       typescript: 4.9.5
       vite: 4.1.4_ztj2e2jex7igpdm76i6vnk3nci
@@ -39,7 +41,6 @@ importers:
       '@toeverything/jwt-react': workspace:*
       '@vitejs/plugin-react': ^3.1.0
       jotai: ^2.0.3
-      rollup-plugin-visualizer: ^5.9.0
       vite-plugin-html: ^3.2.0
       vite-plugin-singlefile: ^0.13.3
     dependencies:
@@ -50,7 +51,6 @@ importers:
       jotai: 2.0.3
     devDependencies:
       '@vitejs/plugin-react': 3.1.0
-      rollup-plugin-visualizer: 5.9.0
       vite-plugin-html: 3.2.0
       vite-plugin-singlefile: 0.13.3
 
@@ -59,7 +59,6 @@ importers:
       '@toeverything/jwt-react': workspace:^0.1.0
       '@vitejs/plugin-react': ^3.1.0
       jotai: ^2.0.3
-      rollup-plugin-visualizer: ^5.9.0
       vite-plugin-html: ^3.2.0
       vite-plugin-singlefile: ^0.13.3
     dependencies:
@@ -67,7 +66,6 @@ importers:
       jotai: 2.0.3
     devDependencies:
       '@vitejs/plugin-react': 3.1.0
-      rollup-plugin-visualizer: 5.9.0
       vite-plugin-html: 3.2.0
       vite-plugin-singlefile: 0.13.3
 

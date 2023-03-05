@@ -1,5 +1,6 @@
 import { resolve } from 'path'
 import rollupTs from 'rollup-plugin-typescript2'
+import { visualizer } from 'rollup-plugin-visualizer'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
@@ -15,6 +16,7 @@ export default defineConfig({
 			// run before build
 			enforce: 'pre',
 		},
+		visualizer(),
 	],
 	build: {
 		lib: {
