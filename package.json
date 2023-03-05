@@ -3,9 +3,9 @@
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
-		"dev": "pnpm --filter @toeverything/jwt* build && pnpm --filter @toeverything/playground dev",
-		"dev:homepage": "pnpm --filter @toeverything/jwt* build && pnpm --filter @toeverything/octobase-homepage dev",
-		"build": "pnpm -r build",
+		"dev": "turbo --filter @toeverything/jwt* build && pnpm --filter @toeverything/playground dev",
+		"dev:homepage": "turbo --filter @toeverything/jwt* build && pnpm --filter @toeverything/octobase-homepage dev",
+		"build": "turbo build",
 		"build:playground": "pnpm --filter @toeverything/jwt* --filter @toeverything/playground build"
 	},
 	"pnpm": {
@@ -32,6 +32,7 @@
 		"rollup-plugin-typescript2": "^0.34.1",
 		"rollup-plugin-visualizer": "^5.9.0",
 		"terser": "^5.16.5",
+		"turbo": "^1.8.3",
 		"typescript": "^4.9.5",
 		"vite": "^4.1.4"
 	}
