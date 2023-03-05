@@ -1,7 +1,7 @@
 {
 	"name": "@toeverything/jwt-react",
 	"version": "0.1.0",
-	"license": "MIT",
+	"license": "AGPL-3.0-only",
 	"author": "DarkSky <darksky2048@gmail.com>",
 	"type": "module",
 	"main": "dist/index.js",
@@ -14,11 +14,11 @@
 				"import": "./dist/index.js"
 			}
 		},
-		"files": [
-			"dist"
-		],
 		"@toeverything:registry": "https://npm.pkg.github.com"
 	},
+	"files": [
+		"dist"
+	],
 	"scripts": {
 		"build": "vite build"
 	},

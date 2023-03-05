@@ -7,3 +7,4 @@ target
 **/dist
 **/node_modules
 **/stats.html
+.npmrc

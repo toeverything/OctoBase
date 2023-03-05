@@ -1,12 +1,13 @@
 {
-	"name": "blog",
+	"name": "jwt",
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
 		"dev": "turbo --filter @toeverything/playground dev",
 		"dev:homepage": "turbo --filter @toeverything/octobase-homepage dev",
 		"build": "turbo build",
-		"build:playground": "turbo --filter @toeverything/playground build"
+		"build:playground": "turbo --filter @toeverything/playground build",
+		"publish:jwt": "pnpm publish --filter @toeverything/jwt"
 	},
 	"pnpm": {
 		"peerDependencyRules": {
