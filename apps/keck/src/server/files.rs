@@ -63,7 +63,7 @@ pub fn static_files(router: Router) -> Router {
     let router = if cfg!(all(
         // redirect docs if release & not affine target & docs enabled
         not(debug_assertions),
-        not(feature = "affine"),
+        not(feature = "jwst"),
         feature = "docs"
     )) {
         router.route("/", get(|| async { Redirect::to("/docs/index.html") }))
