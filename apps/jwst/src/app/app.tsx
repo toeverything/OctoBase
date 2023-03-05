@@ -9,12 +9,12 @@ const blockOptions = {
 }
 
 const SyncedTextBlock = (props: { name: string; id: string }) => {
-	const text = useSyncedState<string>(props.name, {
+	const [text, setText] = useSyncedState<string>(props.name, {
 		...blockOptions,
 		blockId: props.id,
 	})
 
-	return <input value={text} />
+	return <input value={text} onChange={(v) => setText(v.currentTarget.value)} />
 }
 
 export function App() {

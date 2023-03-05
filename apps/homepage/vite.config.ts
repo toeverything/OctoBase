@@ -1,4 +1,4 @@
-import react from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react-swc'
 import { resolve } from 'node:path'
 import { visualizer } from 'rollup-plugin-visualizer'
 import { defineConfig } from 'vite'

@@ -132,5 +132,12 @@ export const useBlock = (workspace?: string | undefined, blockId?: string) => {
 		}
 	}, [block])
 
-	return { block, onChange, offChange, undo, redo }
+	const setValue = useCallback(
+		(obj: Record<string, unknown>) => {
+			block?.setContent(obj)
+		},
+		[block]
+	)
+
+	return { block, setValue, onChange, offChange, undo, redo }
 }
