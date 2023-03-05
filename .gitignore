@@ -1,6 +1,10 @@
 target
-
+.turbo
 .env
 .DS_Store
 *.db*
 /data/*
+**/dist
+**/node_modules
+**/stats.html
+.npmrc

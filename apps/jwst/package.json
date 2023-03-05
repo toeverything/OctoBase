@@ -1,0 +1,14 @@
+{
+	"name": "@toeverything/playground",
+	"version": "0.0.1",
+	"license": "MIT",
+	"author": "DarkSky <darksky2048@gmail.com>",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build"
+	},
+	"dependencies": {
+		"@toeverything/jwt-react": "workspace:^0.1.0",
+		"jotai": "^2.0.3"
+	}
+}

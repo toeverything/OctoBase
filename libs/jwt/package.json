@@ -1,0 +1,41 @@
+{
+	"name": "@toeverything/jwt",
+	"version": "0.6.0",
+	"license": "AGPL-3.0-only",
+	"author": "DarkSky <darksky2048@gmail.com>",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"publishConfig": {
+		"access": "public",
+		"exports": {
+			".": {
+				"module": "./dist/index.js",
+				"import": "./dist/index.js"
+			}
+		},
+		"@toeverything:registry": "https://npm.pkg.github.com"
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "vite build"
+	},
+	"dependencies": {
+		"debug": "^4.3.4",
+		"fast-sort": "^3.2.1",
+		"flexsearch": "0.7.21",
+		"lib0": "^0.2.63",
+		"sift": "^17.0.1",
+		"ts-debounce": "^4.0.0",
+		"uuid": "^9.0.0",
+		"y-protocols": "^1.0.5",
+		"yjs": "^13.5.48"
+	},
+	"devDependencies": {
+		"@types/debug": "^4.1.7",
+		"@types/flexsearch": "^0.7.3",
+		"@types/uuid": "^9.0.1"
+	}
+}

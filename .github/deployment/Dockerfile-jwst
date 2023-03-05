@@ -2,18 +2,17 @@
 
 FROM node:16-alpine as frontend
 WORKDIR /app
-RUN apk add git && npm i -g pnpm@7
-COPY ./apps/frontend .
+RUN apk add git libc6-compat && npm i -g pnpm@7
+COPY . .
 RUN --mount=type=cache,target=/app/node_modules,rw,sharing=private \
-    pnpm i --frozen-lockfile --store=node_modules/.pnpm-store && \
-    pnpm build --skip-nx-cache
-RUN rm -rf /app/dist/apps/jwst/*.txt
+    pnpm i --frozen-lockfile --store=node_modules/.pnpm-store --filter @toeverything/jwt* --filter @toeverything/playground && \
+    pnpm build:playground
 
 FROM messense/rust-musl-cross:x86_64-musl AS builder-amd64
 ENV CARGO_TERM_COLOR="always"
 COPY . .
-COPY --from=frontend /app/dist ./dist
-# COPY --from=frontend /app/dist/apps/jwst ./dist
+# COPY --from=frontend /app/dist ./dist
+COPY --from=frontend /app/apps/jwst/dist ./dist
 RUN cargo build --release --package keck && \
     mv /home/rust/src/target/x86_64-unknown-linux-musl/release/keck /tmp/jwst-amd64
 
