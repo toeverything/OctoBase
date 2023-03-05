@@ -1,9 +1,18 @@
 {
 	"$schema": "https://turbo.build/schema.json",
 	"pipeline": {
+		"dev": {
+			"dependsOn": ["@toeverything/jwt-react#build"]
+		},
 		"build": {
 			"outputs": ["dist/**"]
 		},
-		"lint": {}
+		"lint": {},
+		"@toeverything/jwt-react#build": {
+			"dependsOn": ["@toeverything/jwt#build"]
+		},
+		"@toeverything/playground#build": {
+			"dependsOn": ["@toeverything/jwt-react#build"]
+		}
 	}
 }
