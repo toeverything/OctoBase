@@ -1,0 +1,20 @@
+{
+	"name": "@toeverything/playground",
+	"version": "0.0.1",
+	"license": "MIT",
+	"author": "DarkSky <darksky2048@gmail.com>",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build"
+	},
+	"dependencies": {
+		"@toeverything/jwt-react": "workspace:^0.1.0",
+		"jotai": "^2.0.3"
+	},
+	"devDependencies": {
+		"@vitejs/plugin-react": "^3.1.0",
+		"rollup-plugin-visualizer": "^5.9.0",
+		"vite-plugin-html": "^3.2.0",
+		"vite-plugin-singlefile": "^0.13.3"
+	}
+}

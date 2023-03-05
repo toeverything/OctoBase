@@ -1,0 +1,35 @@
+{
+	"name": "@toeverything/jwt-react",
+	"version": "0.1.0",
+	"license": "MIT",
+	"author": "DarkSky <darksky2048@gmail.com>",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"publishConfig": {
+		"access": "public",
+		"exports": {
+			".": {
+				"module": "./dist/index.js",
+				"import": "./dist/index.js"
+			}
+		},
+		"files": [
+			"dist"
+		],
+		"@toeverything:registry": "https://npm.pkg.github.com"
+	},
+	"scripts": {
+		"build": "vite build"
+	},
+	"dependencies": {
+		"jotai": "^1.13.1",
+		"nanoid": "^4.0.1"
+	},
+	"peerDependencies": {
+		"react": "^18"
+	},
+	"devDependencies": {
+		"@toeverything/jwt": "workspace:*"
+	}
+}

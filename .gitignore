@@ -4,3 +4,6 @@ target
 .DS_Store
 *.db*
 /data/*
+**/dist
+**/node_modules
+**/stats.html
