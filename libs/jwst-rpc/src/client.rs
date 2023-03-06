@@ -149,7 +149,7 @@ fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec
                     remote.clone(),
                     &mut rx,
                 )
-                    .await
+                .await
                 {
                     Ok(true) => {
                         debug!("sync thread finished");
