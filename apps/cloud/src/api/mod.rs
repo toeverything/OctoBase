@@ -18,6 +18,7 @@ use jwst::{error, BlobStorage, JwstError};
 use lib0::any::Any;
 use std::sync::Arc;
 use tower::ServiceBuilder;
+use utoipa::OpenApi;
 
 use crate::{
     context::Context, error_status::ErrorStatus, layer::make_firebase_auth_layer,
@@ -29,6 +30,42 @@ pub use ws::*;
 
 mod user_channel;
 pub use user_channel::*;
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        get_workspaces,
+        get_workspace_by_id,
+        update_workspace,
+        delete_workspace,
+        search_workspace,
+        query_user,
+        make_token,
+        get_doc,
+        get_public_doc,
+        health_check,
+        blobs::get_blob_in_workspace,
+        blobs::upload_blob_in_workspace,
+        blobs::get_blob,
+        blobs::upload_blob,
+        blobs::create_workspace,
+        permissions::get_members,
+        permissions::invite_member,
+        permissions::accept_invitation,
+        permissions::leave_workspace,
+        permissions::remove_user,
+    ),
+    tags(
+        (name = "Workspace", description = "Read and write remote workspace"),
+        (name = "Blob", description = "Read and write blob"),
+        (name = "Permission", description = "Read and write permission"),
+    )
+)]
+struct ApiDoc;
+
+pub fn make_api_doc_route(route: Router) -> Router {
+    jwst_static::with_api_doc_v3(route, ApiDoc::openapi(), "AFFiNE Cloud Api Docs")
+}
 
 pub fn make_rest_route(ctx: Arc<Context>) -> Router {
     Router::new()

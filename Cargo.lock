@@ -101,7 +101,6 @@ dependencies = [
  "tower",
  "tower-http 0.3.5",
  "utoipa 3.0.3",
- "utoipa-swagger-ui",
  "uuid",
  "x509-parser",
 ]
@@ -2010,6 +2009,9 @@ dependencies = [
  "axum",
  "rust-embed",
  "url-escape",
+ "utoipa 2.4.2",
+ "utoipa 3.0.3",
+ "utoipa-swagger-ui",
 ]
 
 [[package]]

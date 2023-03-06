@@ -12,6 +12,7 @@ pub use workspace::{
 };
 
 use super::*;
+use jwst_static::with_api_doc_v2;
 use schema::InsertChildren;
 use utoipa::OpenApi;
 
@@ -54,40 +55,9 @@ const CORE_CONCEPT: &str = include_str!("../../../../../handbook/src/core_concep
 
 fn doc_apis(router: Router) -> Router {
     if cfg!(feature = "schema") {
-        use utoipa_swagger_ui::{serve, Config, Url};
-
-        async fn serve_swagger_ui(
-            tail: Option<Path<String>>,
-            Extension(state): Extension<Arc<Config<'static>>>,
-        ) -> impl IntoResponse {
-            match serve(&tail.map(|p| p.to_string()).unwrap_or("".into()), state) {
-                Ok(file) => file
-                    .map(|file| {
-                        (
-                            StatusCode::OK,
-                            [("Content-Type", file.content_type)],
-                            file.bytes,
-                        )
-                            .into_response()
-                    })
-                    .unwrap_or_else(|| StatusCode::NOT_FOUND.into_response()),
-                Err(error) => {
-                    (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response()
-                }
-            }
-        }
-
         let mut openapi = ApiDoc::openapi();
         openapi.info.description = Some(vec![README, CORE_CONCEPT].join("\n"));
-
-        router
-            .route("/jwst.json", get(move || async { Json(openapi) }))
-            .route("/docs/", get(serve_swagger_ui))
-            .route("/docs/*tail", get(serve_swagger_ui))
-            .layer(Extension(Arc::new(Config::new(vec![Url::new(
-                "JWST Api Docs",
-                "/api/jwst.json",
-            )]))))
+        with_api_doc_v2(router, openapi, "JWST Api Docs")
     } else {
         router
     }

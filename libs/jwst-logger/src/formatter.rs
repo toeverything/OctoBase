@@ -45,7 +45,7 @@ impl JWSTFormatter {
     }
 
     fn write_log(meta: &Metadata<'_>) -> String {
-        if option_env!("JWST_COLORFUL_LOGS").is_some() || cfg!(debug_assertions) {
+        if std::env::var("JWST_COLORFUL_LOGS").is_ok() || cfg!(debug_assertions) {
             format!(
                 "\r[{}][{}][{}] ",
                 Color::DarkGray.paint(LogTime::get_time()),
@@ -78,7 +78,7 @@ where
             let normalized_meta = event.normalized_metadata();
             let meta = normalized_meta.as_ref().unwrap_or_else(|| event.metadata());
 
-            if option_env!("JWST_DEV").is_none()
+            if std::env::var("JWST_DEV").is_err()
                 && (meta.target() == "sqlx::query" || meta.target() == "runtime.spawn")
             {
                 return Ok(());

@@ -12,4 +12,7 @@ rust-embed = { version = "6.4.2", features = [
     "include-exclude",
     "mime-guess",
 ] }
+utoipa_v2 = { package = "utoipa", version = "2.4.2" }
+utoipa_v3 = { package = "utoipa", version = "3.0.3" }
+utoipa-swagger-ui = { version = "3.0.2", features = ["axum"] }
 url-escape = "0.1.1"
