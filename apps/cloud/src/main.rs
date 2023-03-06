@@ -54,7 +54,7 @@ async fn main() {
 
     let app = files::static_files(
         Router::new()
-            .merge(SwaggerUi::new("/swagger-ui").url("/api-doc/openapi.json", ApiDoc::openapi()))
+            .merge(SwaggerUi::new("/api-docs").url("/api-doc/openapi.json", ApiDoc::openapi()))
             .nest(
                 "/api",
                 api::make_rest_route(context.clone()).nest("/sync", api::make_ws_route()),
