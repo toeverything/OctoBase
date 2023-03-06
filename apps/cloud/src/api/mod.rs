@@ -1,5 +1,5 @@
-mod blobs;
-mod permissions;
+pub mod blobs;
+pub mod permissions;
 
 use axum::{
     extract::{Path, Query},
@@ -75,11 +75,25 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         )
 }
 
-async fn health_check() -> Response {
+///  Health check.
+/// - Return 200 Ok.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api",
+    path = "/healthz",
+    responses(
+        (status = 200, description = "Healthy")
+    )
+)]
+pub async fn health_check() -> Response {
     StatusCode::OK.into_response()
 }
 
-async fn query_user(
+///  Get `user`'s data by email.
+/// - Return `user`'s data.
+#[utoipa::path(get, tag = "Workspace", context_path = "/api", path = "/user")]
+pub async fn query_user(
     Extension(ctx): Extension<Arc<Context>>,
     Query(payload): Query<UserQuery>,
 ) -> Response {
@@ -98,7 +112,10 @@ async fn query_user(
     }
 }
 
-async fn make_token(
+///  create `token` for user.
+/// - Return `token`.
+#[utoipa::path(post, tag = "Workspace", context_path = "/api/user", path = "/token")]
+pub async fn make_token(
     Extension(ctx): Extension<Arc<Context>>,
     Json(payload): Json<MakeToken>,
 ) -> Response {
@@ -173,8 +190,10 @@ async fn make_token(
         }
     }
 }
-
-async fn get_workspaces(
+/// Get user's `Workspace` .
+/// - Return `Workspace`'s data.
+#[utoipa::path(get, tag = "Workspace", context_path = "/api", path = "/workspace")]
+pub async fn get_workspaces(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
 ) -> Response {
@@ -188,7 +207,18 @@ async fn get_workspaces(
     }
 }
 
-async fn get_workspace_by_id(
+/// Get a exists `Workspace` by id
+/// - Return `Workspace`'s data.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/workspace",
+    path = "/{workspace_id}",
+    params(
+        ("workspace_id", description = "workspace id"),
+    )
+)]
+pub async fn get_workspace_by_id(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
@@ -216,7 +246,18 @@ async fn get_workspace_by_id(
     }
 }
 
-async fn update_workspace(
+/// update a exists `Workspace` by id
+/// - Return `Workspace`'s data.
+#[utoipa::path(
+    post,
+    tag = "Workspace",
+    context_path = "/api/workspace",
+    path = "/{workspace_id}",
+    params(
+        ("workspace_id", description = "workspace id"),
+    ),
+)]
+pub async fn update_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
@@ -250,7 +291,18 @@ async fn update_workspace(
     }
 }
 
-async fn delete_workspace(
+/// Delete a exists `Workspace` by id
+/// - Return 200 ok.
+#[utoipa::path(
+    delete,
+    tag = "Workspace",
+    context_path = "/api/workspace",
+    path = "/{workspace_id}",
+    params(
+        ("workspace_id", description = "workspace id"),
+    )
+)]
+pub async fn delete_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
@@ -286,7 +338,18 @@ async fn delete_workspace(
     }
 }
 
-async fn get_doc(
+/// Get a exists `doc` by workspace id
+/// - Return `doc` .
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/workspace",
+    path = "/{workspace_id}/doc",
+    params(
+        ("workspace_id", description = "workspace id"),
+    )
+)]
+pub async fn get_doc(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
@@ -307,6 +370,17 @@ async fn get_doc(
     get_workspace_doc(ctx, workspace_id).await
 }
 
+/// Get a exists `public doc` by workspace id
+/// - Return `public doc` .
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/public",
+    path = "/doc/{workspace_id}",
+    params(
+        ("workspace_id", description = "workspace id"),
+    )
+)]
 pub async fn get_public_doc(
     Extension(ctx): Extension<Arc<Context>>,
     Path(workspace_id): Path<String>,
@@ -337,7 +411,19 @@ async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response 
 /// Resolves to [`SearchResults`]
 ///
 /// [`SearchResults`]: jwst::SearchResults
-async fn search_workspace(
+
+/// search in workspace
+/// - Return block id
+#[utoipa::path(
+    post,
+    tag = "Workspace",
+    context_path = "/api/workspace",
+    path = "/{workspace_id}/search",
+    params(
+        ("workspace_id", description = "workspace id"),
+    )
+)]
+pub async fn search_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
