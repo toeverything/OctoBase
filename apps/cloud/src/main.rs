@@ -10,7 +10,10 @@ mod error_status;
 mod files;
 mod layer;
 mod utils;
-pub use api::get_workspaces;
+pub use api::{
+    delete_workspace, get_doc, get_public_doc, get_workspace_by_id, get_workspaces, health_check,
+    make_token, query_user, search_workspace, update_workspace,
+};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 #[tokio::main]
@@ -20,6 +23,15 @@ async fn main() {
     #[openapi(
         paths(
             api::get_workspaces,
+            api::get_workspace_by_id,
+            api::update_workspace,
+            api::delete_workspace,
+            api::search_workspace,
+            api::query_user,
+            api::make_token,
+            api::get_doc,
+            api::get_public_doc,
+            api::health_check,
         ),
         tags(
             (name = "Workspace", description = "Read and write remote workspace"),

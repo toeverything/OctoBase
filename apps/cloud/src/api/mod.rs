@@ -75,11 +75,33 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         )
 }
 
-async fn health_check() -> Response {
+///  Health heck.
+/// - Return 200 Ok.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api",
+    path = "/healthz",
+    responses(
+        (status = 200, description = "Healthy")
+    )
+)]
+pub async fn health_check() -> Response {
     StatusCode::OK.into_response()
 }
 
-async fn query_user(
+///  Get `user`'s data.
+/// - Return 200 Ok and `user`'s data.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api",
+    path = "/user",
+    responses(
+        (status = 200, description = "Get user data success")
+    )
+)]
+pub async fn query_user(
     Extension(ctx): Extension<Arc<Context>>,
     Query(payload): Query<UserQuery>,
 ) -> Response {
@@ -89,7 +111,8 @@ async fn query_user(
             .get_user_in_workspace_by_email(workspace_id, &email)
             .await
         {
-            Json(vec![user]).into_response()
+            let status = StatusCode::OK;
+            (status, Json(vec![user])).into_response()
         } else {
             ErrorStatus::InternalServerError.into_response()
         }
@@ -98,7 +121,18 @@ async fn query_user(
     }
 }
 
-async fn make_token(
+///  create `token` for user.
+/// - Return 200 Ok and `token`.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/user",
+    path = "/token",
+    responses(
+        (status = 200, description = "create token success")
+    )
+)]
+pub async fn make_token(
     Extension(ctx): Extension<Arc<Context>>,
     Json(payload): Json<MakeToken>,
 ) -> Response {
@@ -163,8 +197,8 @@ async fn make_token(
                 },
             };
             let token = ctx.sign_jwt(&claims);
-
-            Json(UserToken { token, refresh }).into_response()
+            let status = StatusCode::OK;
+            (status, Json(UserToken { token, refresh })).into_response()
         }
         Ok(None) => ErrorStatus::Unauthorized.into_response(),
         Err(e) => {
@@ -214,9 +248,9 @@ pub async fn get_workspaces(
     get,
     tag = "Workspace",
     context_path = "/api/workspace",
-    path = "/{workspace}",
+    path = "/{workspace_id}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
     )
 )]
 pub async fn get_workspace_by_id(
@@ -255,9 +289,9 @@ pub async fn get_workspace_by_id(
     post,
     tag = "Workspace",
     context_path = "/api/workspace",
-    path = "/{workspace}",
+    path = "/{workspace_id}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
     ),
     responses(
         (status = 204, description = "Workspace data updated"),
@@ -360,9 +394,9 @@ pub async fn delete_workspace(
     get,
     tag = "Workspace",
     context_path = "/api/workspace",
-    path = "/{workspace}/doc",
+    path = "/{workspace_id}/doc",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "Get workspace doc"),
@@ -397,9 +431,9 @@ pub async fn get_doc(
     get,
     tag = "Workspace",
     context_path = "/api/public",
-    path = "/doc/{workspace}",
+    path = "/doc/{workspace_id}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "Get workspace doc"),
@@ -445,9 +479,9 @@ async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response 
     post,
     tag = "Workspace",
     context_path = "/api/workspace",
-    path = "/{workspace}/search",
+    path = "/{workspace_id}/search",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
     ),
     responses(
         (status = 204, description = "Workspace data updated"),
