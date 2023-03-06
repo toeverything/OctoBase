@@ -124,6 +124,17 @@ impl Context {
     }
 }
 
+///  Get `blob`.
+/// - Return `blob`.
+#[utoipa::path(
+    get,
+    tag = "Blob",
+    context_path = "/api/blob",
+    path = "/{name}",
+    params(
+        ("name", description = "hash of blob"),
+    )
+)]
 pub async fn get_blob(
     Extension(ctx): Extension<Arc<Context>>,
     Path(id): Path<String>,
@@ -133,6 +144,9 @@ pub async fn get_blob(
     ctx.get_blob(None, id, method, headers).await
 }
 
+///  Upload `blob`.
+/// - Return `hash`.
+#[utoipa::path(put, tag = "Blob", context_path = "/api", path = "/blob")]
 pub async fn upload_blob(
     Extension(ctx): Extension<Arc<Context>>,
     TypedHeader(length): TypedHeader<ContentLength>,
@@ -145,6 +159,18 @@ pub async fn upload_blob(
     ctx.upload_blob(stream, None).await
 }
 
+///  Get `blob` by workspace_id and hash.
+/// - Return `blob`.
+#[utoipa::path(
+    get,
+    tag = "Blob",
+    context_path = "/api/workspace",
+    path = "/{workspace_id}/blob/{name}",
+    params(
+        ("workspace_id", description = "id of workspace"),
+        ("name", description = "hash of blob"),
+    )
+)]
 pub async fn get_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     // Extension(claims): Extension<Arc<Claims>>,
@@ -165,6 +191,17 @@ pub async fn get_blob_in_workspace(
     ctx.get_blob(Some(workspace_id), id, method, headers).await
 }
 
+///  Upload `blob` by workspace_id.
+/// - Return `hash`.
+#[utoipa::path(
+    put,
+    tag = "Blob",
+    context_path = "/api/workspace",
+    path = "/{workspace_id}/blob",
+    params(
+        ("workspace_id", description = "id of workspace"),
+    )
+)]
 pub async fn upload_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
@@ -192,6 +229,9 @@ pub async fn upload_blob_in_workspace(
     ctx.upload_blob(stream, Some(workspace_id)).await
 }
 
+/// Create `Workspace` .
+/// - Return  `Workspace`'s data.
+#[utoipa::path(post, tag = "Workspace", context_path = "/api", path = "/workspace")]
 pub async fn create_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,

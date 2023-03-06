@@ -19,6 +19,17 @@ use lettre::{
 use serde::Serialize;
 use std::sync::Arc;
 
+/// Get workspace's `Members`
+/// - Return `Members`.
+#[utoipa::path(
+    get,
+    tag = "Permission",
+    context_path = "/api/workspace",
+    path = "/{workspace_id}/permission",
+    params(
+        ("workspace_id", description = "workspace id"),
+    )
+)]
 pub async fn get_members(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
@@ -125,6 +136,20 @@ async fn make_invite_email(
     Some((title, msg_body))
 }
 
+/// Invite workspace members
+/// - Return 200 Ok.
+#[utoipa::path(
+    post,
+    tag = "Permission",
+    context_path = "/api/workspace",
+    path = "/{workspace_id}/permission",
+    params(
+        ("workspace_id", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Invite member successfully")
+    )
+)]
 pub async fn invite_member(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
@@ -222,6 +247,17 @@ pub async fn invite_member(
     StatusCode::OK.into_response()
 }
 
+/// Accept invitation
+/// - Return permission.
+#[utoipa::path(
+    post,
+    tag = "Permission",
+    context_path = "/api/invitation",
+    path = "/{path}",
+    params(
+        ("path", description = "invite code"),
+    ),
+)]
 pub async fn accept_invitation(
     Extension(ctx): Extension<Arc<Context>>,
     Path(url): Path<String>,
@@ -263,6 +299,20 @@ pub async fn accept_invitation(
     }
 }
 
+/// Leave workspace
+/// - Return 200 ok.
+#[utoipa::path(
+    delete,
+    tag = "Permission",
+    context_path = "/api/workspace",
+    path = "/{workspace_id}/permission",
+    params(
+        ("workspace_id", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Leave workspace successfully")
+    )
+)]
 pub async fn leave_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
@@ -289,6 +339,20 @@ pub async fn leave_workspace(
     }
 }
 
+/// Remove user from workspace
+/// - Return 200 ok.
+#[utoipa::path(
+    delete,
+    tag = "Permission",
+    context_path = "/api/permission",
+    path = "/{id}",
+    params(
+        ("id", description = "permission id"),
+    ),
+    responses(
+        (status = 200, description = "Remove member successfully")
+    )
+)]
 pub async fn remove_user(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,

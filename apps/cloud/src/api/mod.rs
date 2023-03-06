@@ -1,5 +1,5 @@
-mod blobs;
-mod permissions;
+pub mod blobs;
+pub mod permissions;
 
 use axum::{
     extract::{Path, Query},
@@ -75,7 +75,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         )
 }
 
-///  Health heck.
+///  Health check.
 /// - Return 200 Ok.
 #[utoipa::path(
     get,
@@ -124,7 +124,7 @@ pub async fn query_user(
 ///  create `token` for user.
 /// - Return 200 Ok and `token`.
 #[utoipa::path(
-    get,
+    post,
     tag = "Workspace",
     context_path = "/api/user",
     path = "/token",

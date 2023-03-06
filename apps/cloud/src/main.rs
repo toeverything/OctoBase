@@ -32,9 +32,21 @@ async fn main() {
             api::get_doc,
             api::get_public_doc,
             api::health_check,
+            api::blobs::get_blob_in_workspace,
+            api::blobs::upload_blob_in_workspace,
+            api::blobs::get_blob,
+            api::blobs::upload_blob,
+            api::blobs::create_workspace,
+            api::permissions::get_members,
+            api::permissions::invite_member,
+            api::permissions::accept_invitation,
+            api::permissions::leave_workspace,
+            api::permissions::remove_user,
         ),
         tags(
             (name = "Workspace", description = "Read and write remote workspace"),
+            (name = "Blob", description = "Read and write blob"),
+            (name = "Permission", description = "Read and write permission"),
         )
     )]
     struct ApiDoc;
