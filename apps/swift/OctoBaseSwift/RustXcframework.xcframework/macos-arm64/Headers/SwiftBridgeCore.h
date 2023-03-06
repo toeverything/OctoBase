@@ -143,3 +143,6 @@ void __swift_bridge__$free_boxed_fn_once_no_args_no_return(void* boxed_fnonce);
 
 
 struct __private__ResultPtrAndPtr { bool is_ok; void* ok_or_err; };
+
+
+struct __private__ResultVoidAndPtr { bool is_ok; void* err; };

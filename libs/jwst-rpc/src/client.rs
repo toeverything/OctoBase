@@ -187,12 +187,14 @@ pub async fn start_client(
 ) -> JwstResult<Workspace> {
     let workspace = storage.docs().get(id.clone()).await?;
 
-    if let Entry::Vacant(entry) = storage.docs().remote().write().await.entry(id.clone()) {
-        let (tx, rx) = channel(100);
+    if !remote.is_empty() {
+        if let Entry::Vacant(entry) = storage.docs().remote().write().await.entry(id.clone()) {
+            let (tx, rx) = channel(100);
 
-        start_sync_thread(&workspace, remote, rx);
+            start_sync_thread(&workspace, remote, rx);
 
-        entry.insert(tx);
+            entry.insert(tx);
+        }
     }
 
     Ok(workspace)
