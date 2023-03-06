@@ -24,7 +24,10 @@ async fn main() {
             Method::OPTIONS,
         ])
         // allow requests from any origin
-        .allow_origin(["https://affine-next.vercel.app".parse().unwrap()])
+        .allow_origin([
+            "http://localhost:8080".parse().unwrap(),
+            "https://affine-next.vercel.app".parse().unwrap(),
+        ])
         .allow_headers(Any);
 
     let context = Arc::new(context::Context::new().await);
