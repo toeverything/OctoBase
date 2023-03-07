@@ -135,13 +135,17 @@ async fn run_sync(
 fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec<u8>>) {
     debug!("spawn sync thread");
     let first_sync = Arc::new(AtomicBool::new(false));
-    let first_sync_cloned = first_sync.clone();
+    let [first_sync_cloned, first_sync_cloned2] = [first_sync.clone(), first_sync.clone()];
     let workspace = workspace.clone();
     std::thread::spawn(move || {
         let Ok(rt) = tokio::runtime::Runtime::new() else {
             return error!("Failed to create runtime");
         };
         rt.block_on(async move {
+            tokio::spawn(async move {
+                sleep(Duration::from_secs(2)).await;
+                first_sync_cloned2.store(true, Ordering::Release);
+            });
             loop {
                 match run_sync(
                     first_sync_cloned.clone(),
