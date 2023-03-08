@@ -1,26 +1,36 @@
 mod broadcast;
-mod channel;
 mod client;
 
-pub use channel::Channels;
+pub use broadcast::{BroadcastChannels, BroadcastType};
 pub use client::start_client;
 
-use axum::extract::ws::{Message, WebSocket};
+use axum::{
+    extract::ws::{Message, WebSocket},
+    Error,
+};
 use broadcast::subscribe;
-use channel::ChannelItem;
 use futures::{sink::SinkExt, stream::StreamExt};
 use jwst::{debug, error, info, trace, warn};
 use jwst_storage::JwstStorage;
 use std::{collections::hash_map::Entry, sync::Arc};
 use tokio::{
     sync::broadcast::channel as broadcast,
-    sync::mpsc::channel,
     time::{sleep, Duration},
 };
+use tokio_tungstenite::tungstenite::Error as SocketError;
 
 pub trait ContextImpl<'a> {
     fn get_storage(&self) -> &JwstStorage;
-    fn get_channel(&self) -> &Channels;
+    fn get_channel(&self) -> &BroadcastChannels;
+}
+
+#[inline]
+fn is_connection_closed(error: Error) -> bool {
+    if let Ok(e) = error.into_inner().downcast::<SocketError>() {
+        matches!(e.as_ref(), SocketError::ConnectionClosed)
+    } else {
+        false
+    }
 }
 
 pub async fn handle_socket(
@@ -32,15 +42,22 @@ pub async fn handle_socket(
     info!("{} collaborate with workspace {}", identifier, workspace_id);
 
     let (mut socket_tx, mut socket_rx) = socket.split();
-    let (tx, mut rx) = channel(100);
-
-    let channel_item = ChannelItem::new(&workspace_id, &identifier);
-    context
+    let (tx, mut rx) = match context
         .get_channel()
         .write()
         .await
-        .insert(channel_item.clone(), tx.clone());
-    debug!("{workspace_id} add channel: {identifier}");
+        .entry(workspace_id.clone())
+    {
+        Entry::Occupied(tx) => {
+            let sender = tx.get();
+            (sender.clone(), sender.subscribe())
+        }
+        Entry::Vacant(v) => {
+            let (tx, rx) = broadcast(100);
+            v.insert(tx.clone());
+            (tx, rx)
+        }
+    };
 
     let mut server_update = match context
         .get_storage()
@@ -65,27 +82,29 @@ pub async fn handle_socket(
             .await
             .expect("create workspace failed, please check if the workspace_id is valid or not");
 
-        let sub = subscribe(context.clone(), &mut ws, &channel_item);
-        std::mem::forget(sub);
+        let _sub = subscribe(&mut ws, tx);
+        // just keep the ownership
+        std::mem::forget(_sub);
 
         ws.sync_init_message()
     } {
-        if tx.send(Some(init_data)).await.is_err() {
-            context.get_channel().write().await.remove(&channel_item);
-            debug!("{workspace_id} remove channel: {identifier}");
+        if socket_tx.send(Message::Binary(init_data)).await.is_err() {
             // client disconnected
+            if let Err(e) = socket_tx.send(Message::Close(None)).await {
+                error!("failed to send close event: {}", e);
+            }
             return;
         }
     } else {
-        context.get_channel().write().await.remove(&channel_item);
-        // client disconnected
+        if let Err(e) = socket_tx.send(Message::Close(None)).await {
+            error!("failed to send close event: {}", e);
+        }
         return;
     }
 
     loop {
         tokio::select! {
             Some(msg) = socket_rx.next() => {
-                let mut success = true;
                 if let Ok(Message::Binary(binary)) = msg {
                     debug!("recv from remote: {}bytes", binary.len());
 
@@ -99,39 +118,38 @@ pub async fn handle_socket(
 
                     for reply in message {
                         debug!("send pipeline message by {identifier:?}");
-                        if let Err(e) = tx.send(Some(reply)).await {
-                            if !tx.is_closed() {
-                                error!("socket send error: {}", e.to_string());
+                        if let Err(e) = socket_tx.send(Message::Binary(reply)).await {
+                            let error = e.to_string();
+                            if is_connection_closed(e) {
+                                return
                             } else {
-                                // client disconnected
-                                success = false;
-                                break;
+                                error!("socket send error: {}", error);
                             }
                         }
                     }
                 }
-                if !success {
-                    break
-                }
             },
-            Ok(msg) = server_update.recv() => {
+            Ok(msg) = server_update.recv()=> {
                 debug!("recv from server update: {:?}", msg);
                 if let Err(e) = socket_tx.send(Message::Binary(msg)).await {
                     error!("send error: {}", e);
                     break;
                 }
             },
-            Some(msg) = rx.recv() => {
-                trace!(
-                    "recv from channel: {}bytes",
-                    msg.as_ref().map(|v| v.len() as isize).unwrap_or(-1)
-                );
-                if let Err(e) = socket_tx
-                    .send(msg.map(Message::Binary).unwrap_or(Message::Close(None)))
-                    .await
-                {
-                    error!("send error: {}", e);
-                    break;
+            Ok(msg) = rx.recv()=> {
+                if let BroadcastType::Broadcast(msg) = msg {
+                    debug!("recv from broadcast update: {:?}bytes", msg.len());
+                    if let Err(e) = socket_tx.send(Message::Binary(msg)).await {
+                        error!("send error: {}", e);
+                        break;
+                    }
+                } else {
+                    if matches!(&msg, BroadcastType::CloseUser(user) if user == &identifier) || matches!(msg, BroadcastType::CloseAll) {
+                        if let Err(e) = socket_tx.send(Message::Close(None)).await {
+                            error!("failed to send close event: {}", e);
+                        }
+                        break;
+                    }
                 }
             },
             _ = sleep(Duration::from_secs(5)) => {
@@ -142,6 +160,4 @@ pub async fn handle_socket(
             }
         }
     }
-
-    context.get_channel().write().await.remove(&channel_item);
 }

@@ -8,7 +8,7 @@ use http::header::CACHE_CONTROL;
 use jsonwebtoken::{decode_header, DecodingKey, EncodingKey};
 use jwst::SearchResults;
 use jwst_logger::{error, info};
-use jwst_rpc::{Channels, ContextImpl};
+use jwst_rpc::{BroadcastChannels, BroadcastType, ContextImpl};
 use jwst_storage::JwstStorage;
 use rand::{thread_rng, Rng};
 use reqwest::Client;
@@ -40,8 +40,8 @@ pub struct Context {
     pub mail: MailContext,
     pub db: CloudDatabase,
     pub storage: JwstStorage,
-    pub channel: Channels,
     pub user_channel: UserChannel,
+    pub channel: BroadcastChannels,
 }
 
 impl Context {
@@ -236,10 +236,13 @@ impl Context {
     // TODO: this should be moved to another module
     pub async fn close_websocket(&self, workspace: String, user: String) {
         let mut closed = vec![];
+        let event = BroadcastType::CloseUser(user);
         for (channel, tx) in self.channel.read().await.iter() {
-            if workspace == channel.workspace && user == channel.identifier {
-                closed.push(channel.clone());
-                let _ = tx.send(None).await;
+            if channel == &workspace {
+                if tx.receiver_count() <= 1 {
+                    closed.push(channel.clone());
+                }
+                let _ = tx.send(event.clone());
             }
         }
         for channel in closed {
@@ -250,10 +253,10 @@ impl Context {
     // TODO: this should be moved to another module
     pub async fn close_websocket_by_workspace(&self, workspace: String) {
         let mut closed = vec![];
-        for (item, tx) in self.channel.read().await.iter() {
-            if workspace == item.workspace {
-                closed.push(item.clone());
-                let _ = tx.send(None).await;
+        for (workspace, tx) in self.channel.read().await.iter() {
+            if workspace == workspace {
+                closed.push(workspace.clone());
+                let _ = tx.send(BroadcastType::CloseAll);
             }
         }
         for channel in closed {
@@ -267,7 +270,7 @@ impl ContextImpl<'_> for Context {
         &self.storage
     }
 
-    fn get_channel(&self) -> &Channels {
+    fn get_channel(&self) -> &BroadcastChannels {
         &self.channel
     }
 }
