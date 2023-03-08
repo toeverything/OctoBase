@@ -195,10 +195,8 @@ impl DocDBStorage {
     {
         info!("start full migrate: {table}");
         if Self::count(conn, table).await? > 0 {
-            info!("full migrate1.1: {table}");
             Self::replace_with(conn, table, blob).await?;
         } else {
-            info!("full migrate1.2: {table}");
             Self::insert(conn, table, &blob).await?;
         }
         info!("end full migrate: {table}");
@@ -234,7 +232,7 @@ impl DocDBStorage {
 #[async_trait]
 impl DocStorage for DocDBStorage {
     async fn exists(&self, workspace_id: String) -> JwstResult<bool> {
-        debug!("check workspace exists: get lock");
+        trace!("check workspace exists: get lock");
         let _lock = self.bucket.get_lock().await;
 
         Ok(self.workspaces.read().await.contains_key(&workspace_id)
@@ -246,10 +244,10 @@ impl DocStorage for DocDBStorage {
     }
 
     async fn get(&self, workspace_id: String) -> JwstResult<Workspace> {
-        debug!("get workspace: enter");
+        trace!("get workspace: enter");
         match self.workspaces.write().await.entry(workspace_id.clone()) {
             Entry::Occupied(ws) => {
-                debug!("get workspace cache: {workspace_id}");
+                trace!("get workspace cache: {workspace_id}");
                 Ok(ws.get().clone())
             }
             Entry::Vacant(v) => {
