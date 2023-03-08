@@ -12,6 +12,7 @@ use broadcast::subscribe;
 use futures::{sink::SinkExt, stream::StreamExt};
 use jwst::{debug, error, info, trace, warn};
 use jwst_storage::JwstStorage;
+use lru_time_cache::LruCache;
 use std::{collections::hash_map::Entry, sync::Arc};
 use tokio::{
     sync::broadcast::channel as broadcast,
@@ -102,6 +103,8 @@ pub async fn handle_socket(
         return;
     }
 
+    let mut dedup_cache = LruCache::with_expiry_duration_and_capacity(Duration::from_secs(5), 128);
+
     loop {
         tokio::select! {
             Some(msg) = socket_rx.next() => {
@@ -117,31 +120,40 @@ pub async fn handle_socket(
                     let message = workspace.sync_decode_message(&binary);
 
                     for reply in message {
-                        debug!("send pipeline message by {identifier:?}");
-                        if let Err(e) = socket_tx.send(Message::Binary(reply)).await {
-                            let error = e.to_string();
-                            if is_connection_closed(e) {
-                                return
-                            } else {
-                                error!("socket send error: {}", error);
+                        if !dedup_cache.contains_key(&reply) {
+                            debug!("send pipeline message by {identifier:?}");
+                            if let Err(e) = socket_tx.send(Message::Binary(reply.clone())).await {
+                                let error = e.to_string();
+                                if is_connection_closed(e) {
+                                    return;
+                                } else {
+                                    error!("socket send error: {}", error);
+                                }
                             }
+                            dedup_cache.insert(reply, ());
                         }
                     }
                 }
             },
             Ok(msg) = server_update.recv()=> {
-                debug!("recv from server update: {:?}", msg);
-                if let Err(e) = socket_tx.send(Message::Binary(msg)).await {
-                    error!("send error: {}", e);
-                    break;
+                if !dedup_cache.contains_key(&msg) {
+                    debug!("recv from server update: {:?}", msg);
+                    if let Err(e) = socket_tx.send(Message::Binary(msg.clone())).await {
+                        error!("send error: {}", e);
+                        break;
+                    }
+                    dedup_cache.insert(msg, ());
                 }
             },
             Ok(msg) = rx.recv()=> {
                 if let BroadcastType::Broadcast(msg) = msg {
-                    debug!("recv from broadcast update: {:?}bytes", msg.len());
-                    if let Err(e) = socket_tx.send(Message::Binary(msg)).await {
-                        error!("send error: {}", e);
-                        break;
+                    if !dedup_cache.contains_key(&msg) {
+                        debug!("recv from broadcast update: {:?}bytes", msg.len());
+                        if let Err(e) = socket_tx.send(Message::Binary(msg.clone())).await {
+                            error!("send error: {}", e);
+                            break;
+                        }
+                        dedup_cache.insert(msg, ());
                     }
                 } else {
                     if matches!(&msg, BroadcastType::CloseUser(user) if user == &identifier) || matches!(msg, BroadcastType::CloseAll) {
