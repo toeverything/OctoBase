@@ -70,15 +70,16 @@ impl Workspace {
         blocks: MapRef,
         updated: MapRef,
         metadata: MapRef,
+        plugins: PluginMap,
     ) -> Workspace {
-        setup_plugin(Self {
+        Self {
             id: id.as_ref().to_string(),
             awareness,
             blocks,
             updated,
             metadata,
-            plugins: Default::default(),
-        })
+            plugins,
+        }
     }
 
     /// Allow the plugin to run any necessary updates it could have flagged via observers.
@@ -113,7 +114,7 @@ impl Workspace {
     pub fn search_result(&self, query: String) -> String {
         match self.search(&query) {
             Ok(list) => serde_json::to_string(&list).unwrap(),
-            Err(_) => "".to_string(),
+            Err(_) => "[]".to_string(),
         }
     }
 
@@ -329,6 +330,7 @@ impl Clone for Workspace {
             self.blocks.clone(),
             self.updated.clone(),
             self.metadata.clone(),
+            self.plugins.clone(),
         )
     }
 }

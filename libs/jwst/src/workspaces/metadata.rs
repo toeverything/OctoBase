@@ -9,6 +9,7 @@ use yrs::{Map, MapRef, Transaction};
 pub struct WorkspaceMetadata {
     pub name: Option<String>,
     // pub avatar: Option<String>,
+    pub index_fields: Vec<String>,
 }
 
 impl From<(&'_ Transaction<'_>, MapRef)> for WorkspaceMetadata {
@@ -16,6 +17,10 @@ impl From<(&'_ Transaction<'_>, MapRef)> for WorkspaceMetadata {
         Self {
             name: map.get(trx, "name").map(|s| s.to_string(trx)),
             // avatar: map.get(trx, "avatar").map(|s| s.to_string(trx)),
+            index_fields: match map.get(trx, "index_fields") {
+                Some(value) => vec!["title".to_string(), "text".to_string()],
+                None => vec!["title".to_string(), "text".to_string()],
+            },
         }
     }
 }
@@ -29,6 +34,7 @@ impl From<WorkspaceMetadata> for Any {
         // if let Some(avatar) = val.avatar {
         //     map.insert("avatar".to_owned(), avatar.into());
         // }
+        map.insert("index_fields".to_owned(), val.index_fields.into());
         Any::Map(map.into())
     }
 }
