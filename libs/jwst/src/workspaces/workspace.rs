@@ -95,23 +95,23 @@ impl Workspace {
     #[cfg(feature = "workspace-search")]
     pub fn search<S: AsRef<str>>(
         &self,
-        options: S,
+        query: S,
     ) -> Result<SearchResults, Box<dyn std::error::Error>> {
         use plugins::IndexingPluginImpl;
 
         // refresh index if doc has update
         self.update_plugin::<IndexingPluginImpl>()?;
 
-        let options = options.as_ref();
+        let query = query.as_ref();
 
         self.with_plugin::<IndexingPluginImpl, Result<SearchResults, Box<dyn std::error::Error>>>(
-            |search_plugin| search_plugin.search(options),
+            |search_plugin| search_plugin.search(query),
         )
         .expect("text search was set up by default")
     }
 
     pub fn search_result(&self, query: String) -> String {
-        match self.search(&query) {
+        match self.search(query) {
             Ok(list) => serde_json::to_string(&list).unwrap(),
             Err(_) => "".to_string(),
         }
@@ -292,14 +292,12 @@ impl Workspace {
     pub fn sync_decode_message(&mut self, binary: &[u8]) -> Vec<Vec<u8>> {
         let mut decoder = DecoderV1::from(binary);
         let mut result = vec![];
-        for msg in MessageReader::new(&mut decoder) {
-            if let Ok(msg) = msg {
-                let mut awareness = self.awareness.write().unwrap();
-                if let Ok(Ok(Some(msg))) = catch_unwind(AssertUnwindSafe(|| {
-                    Self::sync_handle_message(&mut awareness, msg)
-                })) {
-                    result.push(msg.encode_v1());
-                }
+        for msg in MessageReader::new(&mut decoder).flatten() {
+            let mut awareness = self.awareness.write().unwrap();
+            if let Ok(Ok(Some(msg))) = catch_unwind(AssertUnwindSafe(|| {
+                Self::sync_handle_message(&mut awareness, msg)
+            })) {
+                result.push(msg.encode_v1());
             }
         }
 

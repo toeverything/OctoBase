@@ -52,7 +52,6 @@ pub fn subscribe(workspace: &mut Workspace, sender: Broadcast) -> Subscriptions 
         })
     };
     let doc = {
-        let sender = sender.clone();
         let workspace_id = workspace.id();
         workspace.observe(move |_, e| {
             debug!(

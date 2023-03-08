@@ -253,9 +253,9 @@ impl Context {
     // TODO: this should be moved to another module
     pub async fn close_websocket_by_workspace(&self, workspace: String) {
         let mut closed = vec![];
-        for (workspace, tx) in self.channel.read().await.iter() {
-            if workspace == workspace {
-                closed.push(workspace.clone());
+        for (id, tx) in self.channel.read().await.iter() {
+            if id == &workspace {
+                closed.push(id.clone());
                 let _ = tx.send(BroadcastType::CloseAll);
             }
         }

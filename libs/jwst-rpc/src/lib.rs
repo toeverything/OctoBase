@@ -155,13 +155,11 @@ pub async fn handle_socket(
                         }
                         dedup_cache.insert(msg, ());
                     }
-                } else {
-                    if matches!(&msg, BroadcastType::CloseUser(user) if user == &identifier) || matches!(msg, BroadcastType::CloseAll) {
-                        if let Err(e) = socket_tx.send(Message::Close(None)).await {
-                            error!("failed to send close event: {}", e);
-                        }
-                        break;
+                } else if matches!(&msg, BroadcastType::CloseUser(user) if user == &identifier) || matches!(msg, BroadcastType::CloseAll) {
+                    if let Err(e) = socket_tx.send(Message::Close(None)).await {
+                        error!("failed to send close event: {}", e);
                     }
+                    break;
                 }
             },
             _ = sleep(Duration::from_secs(5)) => {
