@@ -400,14 +400,14 @@ mod test {
                 Some("block".to_owned())
             );
 
-            assert_eq!(workspace.exists(&t.trx, "block"), true);
+            assert!(workspace.exists(&t.trx, "block"));
 
-            assert_eq!(t.remove("block"), true);
+            assert!(t.remove("block"));
 
             assert_eq!(workspace.blocks.len(&t.trx), 0);
             assert_eq!(workspace.updated.len(&t.trx), 0);
             assert_eq!(workspace.get(&t.trx, "block"), None);
-            assert_eq!(workspace.exists(&t.trx, "block"), false);
+            assert!(!workspace.exists(&t.trx, "block"));
         });
 
         workspace.with_trx(|mut t| {

@@ -31,6 +31,7 @@ lettre = { version = "0.10.2", default-features = false, features = [
 ] }
 lib0 = "0.16.2"
 mime = "0.3.16"
+mimalloc = "0.1"
 moka = { version = "0.9.6", features = ["future"] }
 pem = "1.1.0"
 rand = "0.8.5"

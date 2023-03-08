@@ -32,6 +32,7 @@ log = { version = "0.4.17", features = [
   "release_max_level_info",
 ] }
 dotenvy = "0.15.6"
+mimalloc = "0.1"
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.93"
 sqlx = { version = "0.6.2", features = [
@@ -51,7 +52,7 @@ tokio = { version = "1.25.0", features = [
 ] }
 utoipa = { version = "2.4.2", features = ["axum_extras"], optional = true }
 utoipa-swagger-ui = { version = "3.0.2", features = ["axum"], optional = true }
-uuid = { version = "1.3.0", default-features = false, features = ["v4"] }
+uuid = { version = "1.3.0", default-features = false, features = ["v4", "fast-rng"] }
 yrs = "0.16.2"
 
 # ======= workspace dependencies =======

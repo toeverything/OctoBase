@@ -10,64 +10,65 @@
 name: Clippy analyze & Doc check
 
 on:
-    push:
-        branches: ['master']
-    pull_request:
-        # The branches below must be a subset of the branches above
-        branches: ['master']
-    schedule:
-        - cron: '0 4 * * 5'
+  push:
+    branches: ['master']
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: ['master']
+  schedule:
+    - cron: '0 4 * * 5'
 
 jobs:
-    rust-clippy-analyze:
-        name: Run rust-clippy analyzing
-        runs-on: ubuntu-latest
-        permissions:
-            contents: read
-            security-events: write
-            actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v2
-              with:
-                  submodules: true
-                  fetch-depth: 0
+  rust-clippy-analyze:
+    name: Run rust-clippy analyzing
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0
 
-            - name: Install Rust toolchain
-              uses: actions-rs/toolchain@v1
-              with:
-                  profile: minimal
-                  toolchain: stable
-                  components: clippy
-                  override: true
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy
+          override: true
 
-            - name: Set up cargo cache
-              uses: actions/cache@v3
-              continue-on-error: false
-              with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      ./vendor
-                      ./.cargo/config
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: ${{ runner.os }}-cargo-
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ./vendor
+            ./.cargo/config
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
-            - name: Cargo Vendor
-              run: cargo vendor > .cargo/config
+      - name: Cargo Vendor
+        run: cargo vendor > .cargo/config
 
-            - name: Install required cargo
-              run: cargo install clippy-sarif sarif-fmt --force
+      - name: Install required cargo
+        run: cargo install clippy-sarif sarif-fmt --force
 
-            - name: Run rust-clippy & doc generate
-              run: cargo clippy --all-features --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
-                  RUSTDOCFLAGS="-D rustdoc::broken-intra-doc-links" cargo doc --workspace --all-features --no-deps
-              continue-on-error: true
+      - name: Run rust-clippy & doc generate
+        run:
+          cargo clippy --all-features --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+          RUSTDOCFLAGS="-D rustdoc::broken-intra-doc-links" cargo doc --workspace --all-features --no-deps
+        continue-on-error: true
 
-            - name: Upload analysis results to GitHub
-              uses: github/codeql-action/upload-sarif@v1
-              with:
-                  sarif_file: rust-clippy-results.sarif
-                  wait-for-processing: true
+      - name: Upload analysis results to GitHub
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: rust-clippy-results.sarif
+          wait-for-processing: true
