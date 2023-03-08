@@ -23,7 +23,7 @@ members = [
 
 [profile.release]
 lto = true
-opt-level = "z"
+opt-level = 3
 codegen-units = 1
 
 [profile.dev.package.sqlx-macros]

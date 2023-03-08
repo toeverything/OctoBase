@@ -182,6 +182,7 @@ impl Context {
         encode(&Header::default(), user, &self.key.jwt_encode).expect("encode JWT error")
     }
 
+    #[allow(unused)]
     pub fn decode_jwt(&self, token: &str) -> Option<Claims> {
         use jsonwebtoken::{decode, Validation};
         if let Ok(res) = decode::<Claims>(token, &self.key.jwt_decode, &Validation::default()) {

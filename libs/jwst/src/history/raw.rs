@@ -165,10 +165,10 @@ mod test {
             .transact()
             .encode_state_as_update_v1(&StateVector::default());
         let update = Update::decode_v1(&update).unwrap();
-        let mut items = update.as_items();
+        let items = update.as_items();
 
         let mut mock_histories: Vec<RawHistory> = vec![];
-        let parent_map = ParentMap::from(&mut items);
+        let parent_map = ParentMap::from(&items);
         for item in items {
             if let Some(parent) = parent_map.get(&item.id) {
                 let id = format!("{}:{}", item.id.clock, item.id.client);

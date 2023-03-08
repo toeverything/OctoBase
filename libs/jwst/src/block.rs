@@ -632,7 +632,7 @@ mod test {
                 }
             );
         } else {
-            assert!(false)
+            unreachable!();
         }
     }
 }

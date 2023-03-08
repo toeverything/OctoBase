@@ -235,7 +235,7 @@ pub async fn upload_blob_in_workspace(
 pub async fn create_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
-    TypedHeader(length): TypedHeader<ContentLength>,
+    TypedHeader(_length): TypedHeader<ContentLength>,
     stream: BodyStream,
 ) -> Response {
     match ctx.db.create_normal_workspace(claims.user.id.clone()).await {
