@@ -46,7 +46,7 @@ pub async fn get_workspace(
     get,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{flavour}",
+    path = "/{workspace}/flavour/{flavour}",
     params(
         ("workspace", description = "workspace id"),
         ("flavour", description = "block flavour"),

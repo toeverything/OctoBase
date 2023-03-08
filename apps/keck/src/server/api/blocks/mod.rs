@@ -101,7 +101,7 @@ fn workspace_apis(router: Router) -> Router {
                 .delete(workspace::delete_workspace),
         )
         .route(
-            "/block/:workspace/:flavour",
+            "/block/:workspace/flavour/:flavour",
             get(workspace::get_block_by_flavour)
         )
         .route(
