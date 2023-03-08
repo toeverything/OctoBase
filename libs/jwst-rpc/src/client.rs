@@ -142,6 +142,11 @@ fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec
             return error!("Failed to create runtime");
         };
         rt.block_on(async move {
+            let first_sync_cloned_2 = first_sync_cloned.clone();
+            tokio::spawn(async move {
+                sleep(Duration::from_secs(2)).await;
+                first_sync_cloned_2.store(true, Ordering::Release);
+            });
             loop {
                 match run_sync(
                     first_sync_cloned.clone(),
