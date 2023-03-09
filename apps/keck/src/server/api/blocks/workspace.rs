@@ -64,10 +64,11 @@ pub async fn get_block_by_flavour(
     info!("get_block_by_flavour: ws_id, {}, flavour, {}", ws_id, flavour);
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         match workspace.try_with_trx(|trx| {
-            let blocks = workspace.get_blocks_by_flavour(&trx.trx, &flavour);
-            Json(blocks).into_response()
+            workspace.get_blocks_by_flavour(&trx.trx, &flavour)
         }) {
-            Some(resp) => resp,
+            Some(blocks) => {
+                Json(blocks).into_response()
+            },
             None => {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,

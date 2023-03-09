@@ -32,7 +32,7 @@ impl WorkspaceTransaction<'_> {
         B: AsRef<str>,
         F: AsRef<str>,
     {
-        info!("create block: {}", block_id.as_ref());
+        info!("create block: {}, flavour: {}", block_id.as_ref(), flavor.as_ref());
         Block::new(
             &mut self.trx,
             self.ws,

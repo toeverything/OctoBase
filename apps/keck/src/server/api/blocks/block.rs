@@ -145,11 +145,20 @@ pub async fn set_block_with_flavour(
 
     info!("set_block_by_flavour: ws_id, {}, block_id, {}, flavour, {}", ws_id, block_id, flavour);
 
+    let mut update = None;
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        workspace.with_trx(|mut t| {
-            let block = t.create(block_id, flavour);
-            Json(block).into_response()
-        })
+        let block = workspace.with_trx(|mut t| {
+            let created_block = t.create(block_id, flavour);
+            update = Some(t.trx.encode_update_v1());
+            created_block
+        });
+        if let Some(update) = update {
+            if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
+                error!("db write error: {}", e.to_string());
+            }
+        }
+
+        Json(block).into_response()
     } else {
         (
             StatusCode::NOT_FOUND,
