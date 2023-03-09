@@ -7,6 +7,7 @@ use base64::Engine;
 use cloud_database::{WorkspaceDetail, WorkspaceWithPermission};
 use futures::{sink::SinkExt, stream::StreamExt};
 use jwst_logger::error;
+use nanoid::nanoid;
 use serde::Deserialize;
 use serde::Serialize;
 use std::{
@@ -15,7 +16,6 @@ use std::{
 };
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc::channel, RwLock};
-use uuid::Uuid;
 
 #[derive(Deserialize)]
 pub struct Param {
@@ -202,7 +202,7 @@ async fn handle_socket(socket: WebSocket, user: Option<String>, context: Arc<Con
         });
     }
 
-    let uuid = Uuid::new_v4().to_string();
+    let uuid = nanoid!();
     context
         .user_channel
         .channel

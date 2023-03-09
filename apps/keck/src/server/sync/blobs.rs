@@ -5,17 +5,17 @@ use axum::{
     body::StreamBody,
     extract::{BodyStream, Path},
     headers::ContentLength,
+    http::{
+        header::{
+            CACHE_CONTROL, CONTENT_LENGTH, CONTENT_TYPE, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH,
+            LAST_MODIFIED,
+        },
+        HeaderMap, HeaderValue, StatusCode,
+    },
     response::{IntoResponse, Response},
     Json, TypedHeader,
 };
 use futures::{future, StreamExt};
-use http::{
-    header::{
-        CACHE_CONTROL, CONTENT_LENGTH, CONTENT_TYPE, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH,
-        LAST_MODIFIED,
-    },
-    HeaderMap, HeaderValue, StatusCode,
-};
 use jwst::BlobStorage;
 use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 
@@ -30,7 +30,7 @@ impl Context {
         &self,
         workspace: Option<String>,
         id: String,
-        method: http::Method,
+        method: Method,
         headers: HeaderMap,
     ) -> Response {
         if let Some(etag) = headers.get(IF_NONE_MATCH).and_then(|h| h.to_str().ok()) {
@@ -78,7 +78,7 @@ impl Context {
             HeaderValue::from_str("public, immutable, max-age=31536000").unwrap(),
         );
 
-        if method == http::Method::HEAD {
+        if method == Method::HEAD {
             return header.into_response();
         };
 
@@ -120,7 +120,7 @@ impl Context {
 pub async fn get_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Path((workspace_id, id)): Path<(String, String)>,
-    method: http::Method,
+    method: Method,
     headers: HeaderMap,
 ) -> Response {
     ctx.get_blob(Some(workspace_id), id, method, headers).await

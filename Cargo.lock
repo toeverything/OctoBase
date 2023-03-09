@@ -84,6 +84,7 @@ dependencies = [
  "lib0",
  "mimalloc",
  "mime",
+ "nanoid",
  "pem",
  "rand 0.8.5",
  "reqwest",
@@ -91,9 +92,8 @@ dependencies = [
  "serde_json",
  "sha2",
  "tokio",
- "tower-http 0.4.0",
+ "tower-http",
  "utoipa 3.0.3",
- "uuid",
  "x509-parser",
 ]
 
@@ -322,7 +322,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tower",
- "tower-http 0.4.0",
+ "tower-http",
  "tower-layer",
  "tower-service",
 ]
@@ -2027,7 +2027,6 @@ dependencies = [
  "cfg-if",
  "dotenvy",
  "futures",
- "http",
  "jwst",
  "jwst-logger",
  "jwst-rpc",
@@ -2037,6 +2036,7 @@ dependencies = [
  "log",
  "mdbook",
  "mimalloc",
+ "nanoid",
  "serde",
  "serde_json",
  "sqlx",
@@ -2044,10 +2044,9 @@ dependencies = [
  "time 0.3.20",
  "tokio",
  "tower",
- "tower-http 0.3.5",
+ "tower-http",
  "utoipa 2.4.2",
  "utoipa-swagger-ui",
- "uuid",
  "yrs",
 ]
 
@@ -4418,24 +4417,6 @@ dependencies = [
 
 [[package]]
 name = "tower-http"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f873044bf02dd1e8239e9c1293ea39dad76dc594ec16185d0a1bf31d8dc8d858"
-dependencies = [
- "bitflags",
- "bytes",
- "futures-core",
- "futures-util",
- "http",
- "http-body",
- "http-range-header",
- "pin-project-lite",
- "tower-layer",
- "tower-service",
-]
-
-[[package]]
-name = "tower-http"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d1d42a9b3f3ec46ba828e8d376aec14592ea199f70a06a548587ecd1c4ab658"
@@ -4779,7 +4760,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1674845326ee10d37ca60470760d4288a6f80f304007d92e5c53bab78c9cfd79"
 dependencies = [
  "getrandom 0.2.8",
- "rand 0.8.5",
  "serde",
 ]
 

@@ -25,7 +25,7 @@ pub async fn upgrade_handler(
     Path(workspace): Path<String>,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let identifier = Uuid::new_v4().to_string();
+    let identifier = nanoid!();
     ws.protocols(["AFFiNE"]).on_upgrade(|socket| async move {
         handle_socket(socket, workspace, context.clone(), identifier).await
     })
