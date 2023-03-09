@@ -59,38 +59,11 @@ impl Workspace {
             .collect()
     }
 
-    pub fn get_search_index(self: &Workspace) -> SearchIndex {
-        SearchIndex {
-            workspace: self.workspace.clone(),
-        }
-    }
-}
-
-pub struct SearchIndex {
-    pub workspace: JwstWorkspace,
-}
-
-impl SearchIndex {
-    pub fn new(workspace: JwstWorkspace) -> Self {
-        Self { workspace }
-    }
-
-    pub fn fields(&self) -> Vec<String> {
+    pub fn get_search_index(self: &Workspace) -> Vec<String> {
         self.workspace.metadata().search_index
     }
 
-    pub fn append(&mut self, field: String) -> bool {
-        let mut fields = self.fields();
-        if fields.contains(&field) {
-            return true;
-        }
-        fields.push(field);
-        self.workspace.set_search_index(fields)
-    }
-
-    pub fn remove(&mut self, field: String) -> bool {
-        let mut fields = self.fields();
-        fields.retain(|f| f != &field);
+    pub fn set_search_index(self: &Workspace, fields: Vec<String>) -> bool {
         self.workspace.set_search_index(fields)
     }
 }

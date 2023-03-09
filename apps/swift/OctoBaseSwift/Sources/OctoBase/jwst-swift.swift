@@ -414,8 +414,12 @@ extension WorkspaceRef {
         })
     }
 
-    public func get_search_index() -> SearchIndex {
-        SearchIndex(ptr: __swift_bridge__$Workspace$get_search_index(ptr))
+    public func get_search_index() -> RustVec<RustString> {
+        RustVec(ptr: __swift_bridge__$Workspace$get_search_index(ptr))
+    }
+
+    public func set_search_index<GenericIntoRustString: IntoRustString>(_ fields: RustVec<GenericIntoRustString>) -> Bool {
+        __swift_bridge__$Workspace$set_search_index(ptr, { let val = fields; val.isOwned = false; return val.ptr }())
     }
 }
 extension Workspace: Vectorizable {
@@ -460,91 +464,6 @@ extension Workspace: Vectorizable {
 
     public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
         __swift_bridge__$Vec_Workspace$len(vecPtr)
-    }
-}
-
-
-public class SearchIndex: SearchIndexRefMut {
-    var isOwned: Bool = true
-
-    public override init(ptr: UnsafeMutableRawPointer) {
-        super.init(ptr: ptr)
-    }
-
-    deinit {
-        if isOwned {
-            __swift_bridge__$SearchIndex$_free(ptr)
-        }
-    }
-}
-public class SearchIndexRefMut: SearchIndexRef {
-    public override init(ptr: UnsafeMutableRawPointer) {
-        super.init(ptr: ptr)
-    }
-}
-extension SearchIndexRefMut {
-    public func append<GenericIntoRustString: IntoRustString>(_ field: GenericIntoRustString) -> Bool {
-        __swift_bridge__$SearchIndex$append(ptr, { let rustString = field.intoRustString(); rustString.isOwned = false; return rustString.ptr }())
-    }
-
-    public func remove<GenericIntoRustString: IntoRustString>(_ field: GenericIntoRustString) -> Bool {
-        __swift_bridge__$SearchIndex$remove(ptr, { let rustString = field.intoRustString(); rustString.isOwned = false; return rustString.ptr }())
-    }
-}
-public class SearchIndexRef {
-    var ptr: UnsafeMutableRawPointer
-
-    public init(ptr: UnsafeMutableRawPointer) {
-        self.ptr = ptr
-    }
-}
-extension SearchIndexRef {
-    public func fields() -> RustVec<RustString> {
-        RustVec(ptr: __swift_bridge__$SearchIndex$fields(ptr))
-    }
-}
-extension SearchIndex: Vectorizable {
-    public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
-        __swift_bridge__$Vec_SearchIndex$new()
-    }
-
-    public static func vecOfSelfFree(vecPtr: UnsafeMutableRawPointer) {
-        __swift_bridge__$Vec_SearchIndex$drop(vecPtr)
-    }
-
-    public static func vecOfSelfPush(vecPtr: UnsafeMutableRawPointer, value: SearchIndex) {
-        __swift_bridge__$Vec_SearchIndex$push(vecPtr, {value.isOwned = false; return value.ptr;}())
-    }
-
-    public static func vecOfSelfPop(vecPtr: UnsafeMutableRawPointer) -> Optional<Self> {
-        let pointer = __swift_bridge__$Vec_SearchIndex$pop(vecPtr)
-        if pointer == nil {
-            return nil
-        } else {
-            return (SearchIndex(ptr: pointer!) as! Self)
-        }
-    }
-
-    public static func vecOfSelfGet(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<SearchIndexRef> {
-        let pointer = __swift_bridge__$Vec_SearchIndex$get(vecPtr, index)
-        if pointer == nil {
-            return nil
-        } else {
-            return SearchIndexRef(ptr: pointer!)
-        }
-    }
-
-    public static func vecOfSelfGetMut(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<SearchIndexRefMut> {
-        let pointer = __swift_bridge__$Vec_SearchIndex$get_mut(vecPtr, index)
-        if pointer == nil {
-            return nil
-        } else {
-            return SearchIndexRefMut(ptr: pointer!)
-        }
-    }
-
-    public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
-        __swift_bridge__$Vec_SearchIndex$len(vecPtr)
     }
 }
 

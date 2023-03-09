@@ -60,6 +60,10 @@ class Workspace(workspace: JwstWorkspace) {
         return this.workspace.search(query)
     }
 
+    fun getSearchIndex(): Array<String> {
+        return this.workspace.getSearchIndex()
+    }
+
     fun setSearchIndex(fields: JwstVecOfStrings): Boolean {
         return this.workspace.setSearchIndex(fields)
     }

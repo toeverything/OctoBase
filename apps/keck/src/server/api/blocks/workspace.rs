@@ -186,6 +186,36 @@ pub async fn workspace_search(
 }
 
 #[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/search",
+    path = "/{workspace}/index",
+    params(
+        ("workspace", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "result", body = Vec<String>),
+        (status = 404, description = "Workspace not found")
+    )
+)]
+pub async fn get_search_index(
+    Extension(context): Extension<Arc<Context>>,
+    Path(ws_id): Path<String>,
+) -> Response {
+    info!("get_search_index: {ws_id:?}");
+
+    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+        Json(workspace.metadata().search_index).into_response()
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({ws_id:?}) not found"),
+        )
+            .into_response()
+    }
+}
+
+#[utoipa::path(
     post,
     tag = "Workspace",
     context_path = "/api/search",
@@ -194,7 +224,7 @@ pub async fn workspace_search(
         ("workspace", description = "workspace id"),
     ),
     responses(
-        (status = 200, description = "Get workspace client id", body = u64),
+        (status = 200, description = "success"),
         (status = 400, description = "Bad Request"),
         (status = 404, description = "Workspace not found")
     )

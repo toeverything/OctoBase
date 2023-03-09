@@ -73,6 +73,13 @@ public final class Workspace {
     }
     private static native @NonNull String do_search(long self, @NonNull String query);
 
+    public final @NonNull java.lang.String [] getSearchIndex() {
+        java.lang.String [] ret = do_getSearchIndex(mNativeObj);
+
+        return ret;
+    }
+    private static native @NonNull java.lang.String [] do_getSearchIndex(long self);
+
     public final boolean setSearchIndex(@NonNull VecOfStrings fields) {
         long a0 = fields.mNativeObj;
         fields.mNativeObj = 0;

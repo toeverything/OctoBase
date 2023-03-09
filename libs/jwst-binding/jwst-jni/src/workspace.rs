@@ -53,6 +53,11 @@ impl Workspace {
     }
 
     #[generate_interface]
+    pub fn get_search_index(&self) -> Vec<String> {
+        self.workspace.metadata().search_index
+    }
+
+    #[generate_interface]
     pub fn set_search_index(&self, fields: VecOfStrings) -> bool {
         self.workspace.set_search_index(fields)
     }

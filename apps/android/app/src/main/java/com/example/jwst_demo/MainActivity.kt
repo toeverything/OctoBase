@@ -81,17 +81,24 @@ class MainActivity : AppCompatActivity() {
                 block.set(trx, "text", "hello every one")
                 block.set(trx, "index", "this is index")
             }
+
             val indexFields = JwstVecOfStrings()
             indexFields.push("title")
             indexFields.push("text")
             workspace.setSearchIndex(indexFields)
+            Log.i("jwst",  "search index: " + workspace.getSearchIndex().joinToString(" "))
+
             val searchResult1 = "search result1: " + workspace.search("duc")
             Log.i("jwst",  searchResult1)
+
             val searchResult2 = "search result2: " + workspace.search("this")
             Log.i("jwst", searchResult2)
+
             val indexFields2 = JwstVecOfStrings()
             indexFields2.push("index")
             workspace.setSearchIndex(indexFields2)
+            Log.i("jwst",  "search index: " + workspace.getSearchIndex().joinToString(" "))
+
             val searchResult3 = "search result3: " + workspace.search("this")
             Log.i("jwst", searchResult3)
 

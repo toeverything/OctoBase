@@ -107,7 +107,7 @@ fn workspace_apis(router: Router) -> Router {
         .route("/search/:workspace", get(workspace::workspace_search))
         .route(
             "/search/:workspace/index",
-            post(workspace::set_search_index),
+            get(workspace::get_search_index).post(workspace::set_search_index),
         )
 }
 
