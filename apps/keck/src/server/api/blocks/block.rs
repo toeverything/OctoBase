@@ -109,10 +109,10 @@ pub async fn set_block(
 /// - Return 200 and `Block`'s data if `Block`'s created successful.
 /// - Return 404 Not Found if `Workspace` not exists.
 #[utoipa::path(
-    post,
+    patch,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}/{flavour}",
+    path = "/{workspace}/{block}/",
     params(
         ("workspace", description = "workspace id"),
         ("block", description = "block id"),
@@ -164,6 +164,52 @@ pub async fn set_block_with_flavour(
             StatusCode::NOT_FOUND,
             format!("Workspace({ws_id:?}) not found"),
         ).into_response()
+    }
+}
+
+/// Get exists `Blocks` in certain `Workspace` by flavour
+/// - Return 200 Ok and `Blocks`'s data if `Blocks` is exists.
+/// - Return 404 Not Found if `Workspace` not exists or 500 Internal Server Error when transaction init fails.
+#[utoipa::path(
+    get,
+    tag = "Blocks",
+    context_path = "/api/block",
+    path = "/{workspace}/flavour/{flavour}",
+    params(
+        ("workspace", description = "workspace id"),
+        ("flavour", description = "block flavour"),
+    ),
+    responses(
+        (status = 200, description = "Get all certain flavour blocks belongs to the given workspace"),
+        (status = 404, description = "Workspace not found")
+    )
+)]
+pub async fn get_block_by_flavour(
+    Extension(context): Extension<Arc<Context>>,
+    Path(params): Path<(String, String)>,
+) -> Response {
+    let (ws_id, flavour) = params;
+    info!("get_block_by_flavour: ws_id, {}, flavour, {}", ws_id, flavour);
+    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+        match workspace.try_with_trx(|trx| {
+            workspace.get_blocks_by_flavour(&trx.trx, &flavour)
+        }) {
+            Some(blocks) => {
+                Json(blocks).into_response()
+            },
+            None => {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Workspace({ws_id:?}) get transaction error"),
+                ).into_response()
+            }
+        }
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({ws_id:?}) not found"),
+        )
+            .into_response()
     }
 }
 
