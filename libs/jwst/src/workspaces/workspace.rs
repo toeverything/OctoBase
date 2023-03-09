@@ -119,6 +119,10 @@ impl Workspace {
     }
 
     pub fn set_search_index(&self, fields: Vec<String>) -> bool {
+        if fields.is_empty() {
+            return false;
+        }
+
         let value = serde_json::to_string(&fields).unwrap();
         self.with_trx(|mut trx| trx.set_metadata(SEARCH_INDEX, value));
         setup_plugin(self.clone());

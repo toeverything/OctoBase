@@ -206,15 +206,11 @@ pub async fn set_search_index(
 ) -> Response {
     info!("set_search_index: {ws_id:?} fields = {fields:?}");
 
-    if fields.is_empty() {
-        return StatusCode::BAD_REQUEST.into_response();
-    }
-
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         if workspace.set_search_index(fields) {
             StatusCode::OK.into_response()
         } else {
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            StatusCode::BAD_REQUEST.into_response()
         }
     } else {
         (
