@@ -19,7 +19,13 @@ pub struct KeyContext {
 }
 
 impl KeyContext {
-    pub fn new(key: String) -> Self {
+    pub fn new(key: Option<String>) -> Self {
+        let key = key.unwrap_or_else(|| {
+            let key = nanoid!();
+            warn!("!!! no sign key provided, use random key: `{key}` !!!");
+            warn!("!!! please set SIGN_KEY in .env file or environmental variable to save your login status !!!");
+            key
+        });
         let mut hasher = Sha256::new();
         hasher.update(key.as_bytes());
         let hash = hasher.finalize();

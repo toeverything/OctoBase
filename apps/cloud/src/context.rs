@@ -4,7 +4,6 @@ use jwst::SearchResults;
 use jwst_logger::{error, warn};
 use jwst_rpc::{BroadcastChannels, BroadcastType, ContextImpl};
 use jwst_storage::JwstStorage;
-use nanoid::nanoid;
 use std::collections::HashMap;
 use tokio::sync::{Mutex, RwLock};
 
@@ -31,7 +30,8 @@ impl Context {
         Self {
             // =========== database ===========
             db: CloudDatabase::init_pool(
-                database_url.as_deref()
+                database_url
+                    .as_deref()
                     .unwrap_or("sqlite://affine.db?mode=rwc"),
             )
             .await
@@ -45,12 +45,7 @@ impl Context {
             .await
             .expect("Cannot create storage"),
             // =========== auth ===========
-            key: KeyContext::new(dotenvy::var("SIGN_KEY").unwrap_or_else(|_| {
-                let key = nanoid!();
-                warn!("!!! no sign key provided, use random key: `{key}` !!!");
-                warn!("!!! please set SIGN_KEY in .env file or environmental variable to save your login status !!!");
-                key
-            })),
+            key: KeyContext::new(dotenvy::var("SIGN_KEY").ok()),
             firebase: Mutex::new(FirebaseContext::new(
                 dotenvy::var("FIREBASE_PROJECT_ID")
                     .map(|id| vec![id])

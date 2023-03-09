@@ -8,4 +8,5 @@ pub use mail::{Mail, MailContext};
 
 use constants::*;
 use jwst::{info, warn};
+use nanoid::nanoid;
 use utils::CacheControl;

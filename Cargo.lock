@@ -675,6 +675,7 @@ dependencies = [
  "jwst",
  "jwst-static",
  "lettre",
+ "nanoid",
  "pem",
  "rand 0.8.5",
  "reqwest",
