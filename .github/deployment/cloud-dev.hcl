@@ -68,7 +68,6 @@ SIGN_KEY            = "{{ key "service/development/affine-cloud/sign_key" }}"
 MAIL_ACCOUNT        = "{{ key "service/development/affine-cloud/mail_account" }}"
 MAIL_PASSWORD       = "{{ key "service/development/affine-cloud/mail_password" }}"
 SITE_URL            = "https://dev.affine.live"
-FIREBASE_PROJECT_ID = "pathfinder-52392"
 # GOOGLE_ENDPOINT   = "http://100.77.180.48:11002"
 # GOOGLE_ENDPOINT_PASSWORD = "Dct4pq9E9V"
 EOH

@@ -197,7 +197,7 @@ pub async fn invite_member(
             .await;
     }
 
-    let encrypted = ctx.encrypt_aes(permission_id.as_bytes());
+    let encrypted = ctx.key.encrypt_aes(permission_id.as_bytes());
 
     let invite_code = URL_SAFE_ENGINE.encode(encrypted);
 
@@ -266,7 +266,7 @@ pub async fn accept_invitation(
         return ErrorStatus::BadRequest.into_response();
     };
 
-    let data = match ctx.decrypt_aes(input.clone()) {
+    let data = match ctx.key.decrypt_aes(input.clone()) {
         Ok(data) => data,
         Err(_) => return ErrorStatus::BadRequest.into_response(),
     };

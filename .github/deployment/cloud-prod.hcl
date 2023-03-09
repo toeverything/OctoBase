@@ -63,7 +63,6 @@ SIGN_KEY            = "{{ key "service/production/affine-cloud/sign_key" }}"
 MAIL_ACCOUNT        = "{{ key "service/production/affine-cloud/mail_account" }}"
 MAIL_PASSWORD       = "{{ key "service/production/affine-cloud/mail_password" }}"
 SITE_URL            = "https://app.affine.pro"
-FIREBASE_PROJECT_ID = "quiet-sanctuary-370417"
 EOH
 
         destination = "secrets/.env"

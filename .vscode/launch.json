@@ -20,7 +20,6 @@
 				"SIGN_KEY": "12345678",
 				"MAIL_ACCOUNT": "example@toeverything.info",
 				"MAIL_PASSWORD": "a",
-				"FIREBASE_PROJECT_ID": "pathfinder-52392",
 				"SITE_URL": "https://pathfinder.affine.systems"
 			},
 			"args": [],

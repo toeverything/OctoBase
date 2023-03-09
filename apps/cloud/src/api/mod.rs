@@ -159,7 +159,7 @@ pub async fn make_token(
     let (user, refresh) = match payload {
         MakeToken::User(user) => (ctx.db.user_login(user).await, None),
         MakeToken::Google { token } => (
-            if let Some(claims) = ctx.decode_google_token(token).await {
+            if let Some(claims) = ctx.firebase.lock().await.decode_google_token(token).await {
                 ctx.db.google_user_login(&claims).await.map(Some)
             } else {
                 Ok(None)
@@ -170,7 +170,7 @@ pub async fn make_token(
             let Ok(input) = URL_SAFE_ENGINE.decode(token.clone()) else {
                 return ErrorStatus::BadRequest.into_response();
             };
-            let data = match ctx.decrypt_aes(input.clone()) {
+            let data = match ctx.key.decrypt_aes(input.clone()) {
                 Ok(data) => data,
                 Err(_) => return ErrorStatus::BadRequest.into_response(),
             };
@@ -201,7 +201,7 @@ pub async fn make_token(
 
                 let json = serde_json::to_string(&refresh).unwrap();
 
-                let data = ctx.encrypt_aes(json.as_bytes());
+                let data = ctx.key.encrypt_aes(json.as_bytes());
 
                 URL_SAFE_ENGINE.encode(data)
             });
@@ -216,7 +216,7 @@ pub async fn make_token(
                     created_at: user.created_at.unwrap_or_default().naive_local(),
                 },
             };
-            let token = ctx.sign_jwt(&claims);
+            let token = ctx.key.sign_jwt(&claims);
 
             Json(UserToken { token, refresh }).into_response()
         }

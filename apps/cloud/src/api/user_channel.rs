@@ -165,7 +165,7 @@ pub async fn global_ws_handler(
     let user: Option<RefreshToken> = URL_SAFE_ENGINE
         .decode(token)
         .ok()
-        .and_then(|byte| match ctx.decrypt_aes(byte) {
+        .and_then(|byte| match ctx.key.decrypt_aes(byte) {
             Ok(data) => data,
             Err(_) => None,
         })

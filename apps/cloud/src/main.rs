@@ -8,6 +8,7 @@ mod api;
 mod context;
 mod error_status;
 mod files;
+mod key;
 mod layer;
 mod utils;
 
