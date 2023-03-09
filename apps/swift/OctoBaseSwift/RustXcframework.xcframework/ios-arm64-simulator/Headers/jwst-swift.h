@@ -49,6 +49,18 @@ void* __swift_bridge__$Vec_Workspace$get_mut(void* vec_ptr, uintptr_t index);
 uintptr_t __swift_bridge__$Vec_Workspace$len(void* vec_ptr);
 void* __swift_bridge__$Vec_Workspace$as_ptr(void* vec_ptr);
 
+typedef struct SearchIndex SearchIndex;
+void __swift_bridge__$SearchIndex$_free(void* self);
+
+void* __swift_bridge__$Vec_SearchIndex$new(void);
+void __swift_bridge__$Vec_SearchIndex$drop(void* vec_ptr);
+void __swift_bridge__$Vec_SearchIndex$push(void* vec_ptr, void* item_ptr);
+void* __swift_bridge__$Vec_SearchIndex$pop(void* vec_ptr);
+void* __swift_bridge__$Vec_SearchIndex$get(void* vec_ptr, uintptr_t index);
+void* __swift_bridge__$Vec_SearchIndex$get_mut(void* vec_ptr, uintptr_t index);
+uintptr_t __swift_bridge__$Vec_SearchIndex$len(void* vec_ptr);
+void* __swift_bridge__$Vec_SearchIndex$as_ptr(void* vec_ptr);
+
 typedef struct JwstWorkSpaceResult JwstWorkSpaceResult;
 void __swift_bridge__$JwstWorkSpaceResult$_free(void* self);
 
@@ -114,6 +126,10 @@ void* __swift_bridge__$Workspace$get(void* self, void* block_id);
 void* __swift_bridge__$Workspace$create(void* self, void* block_id, void* flavor);
 void* __swift_bridge__$Workspace$search(void* self, void* query);
 void* __swift_bridge__$Workspace$get_blocks_by_flavour(void* self, struct RustStr flavour);
+void* __swift_bridge__$Workspace$get_search_index(void* self);
+void* __swift_bridge__$SearchIndex$fields(void* self);
+bool __swift_bridge__$SearchIndex$append(void* self, void* field);
+bool __swift_bridge__$SearchIndex$remove(void* self, void* field);
 void* __swift_bridge__$Storage$new(void* path);
 void* __swift_bridge__$Storage$error(void* self);
 void* __swift_bridge__$Storage$connect(void* self, void* workspace_id, void* remote);

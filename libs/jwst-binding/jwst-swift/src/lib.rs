@@ -7,6 +7,7 @@ pub use block::Block;
 pub use dynamic_value::{DynamicValue, DynamicValueMap};
 use jwst::JwstError;
 pub use storage::Storage;
+pub use workspace::SearchIndex;
 pub use workspace::Workspace;
 
 type JwstWorkSpaceResult = Result<Workspace, JwstError>;
@@ -107,6 +108,18 @@ mod ffi {
         fn search(self: &Workspace, query: String) -> String;
 
         fn get_blocks_by_flavour(self: &Workspace, flavour: &str) -> Vec<Block>;
+
+        fn get_search_index(self: &Workspace) -> SearchIndex;
+    }
+
+    extern "Rust" {
+        type SearchIndex;
+
+        fn fields(&self) -> Vec<String>;
+
+        fn append(&mut self, field: String) -> bool;
+
+        fn remove(&mut self, field: String) -> bool;
     }
 
     extern "Rust" {

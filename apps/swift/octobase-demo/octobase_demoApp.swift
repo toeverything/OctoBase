@@ -89,10 +89,18 @@ class JwstWorkspace: ObservableObject {
         let block = self.create(block_id: "search_test", flavor: "search_test_flavor")
         block.set_string("title", "introduction")
         block.set_string("text", "hello every one")
+        block.set_string("index", "this is demo")
         let result1 = self.workspace.search("duc")
         print(result1.toString())
-        let result2 = self.workspace.search("ver")
+        let result2 = self.workspace.search("this")
         print(result2.toString())
+        let search_index = self.workspace.get_search_index()
+        search_index.append("index")
+        let result3 = self.workspace.search("this")
+        print(result3.toString())
+        search_index.remove("index")
+        let result4 = self.workspace.search("this")
+        print(result4.toString())
     }
     
     func search_blocks_demo() {
