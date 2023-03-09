@@ -1,8 +1,8 @@
 use axum::{
+    http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
-use http::StatusCode;
 use serde::Serialize;
 
 pub enum ErrorStatus {
