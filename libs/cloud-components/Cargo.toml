@@ -6,7 +6,7 @@ edition = "2021"
 license = "AGPL-3.0-only"
 
 [dependencies]
-chrono = { version = "0.4.23", features = ["serde"] }
+chrono = "0.4.23"
 handlebars = "4.3.6"
 lettre = { version = "0.10.2", default-features = false, features = [
     "builder",
