@@ -486,3 +486,46 @@ pub async fn search_workspace(
 
     Json(search_results).into_response()
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::context;
+    use axum::http::StatusCode;
+    use axum_test_helper::TestClient;
+    use cloud_database::CreateUser;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_health_check() {
+        let ctx = Arc::new(context::Context::new().await);
+        let app = make_rest_route(ctx.clone());
+
+        // initiate the TestClient with the previous declared Router
+        let client = TestClient::new(app);
+        let res = client.get("/healthz").send().await;
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_get_user_by_email() {
+        let ctx = Arc::new(context::Context::new().await);
+        let app = make_rest_route(ctx.clone());
+
+        // initiate the TestClient with the previous declared Router
+        let client = TestClient::new(app);
+        let (new_user, _) = ctx
+            .db
+            .create_user(CreateUser {
+                avatar_url: Some("xxx".to_string()),
+                email: "xxx@xxx.xx".to_string(),
+                name: "xxx".to_string(),
+                password: "xxx".to_string(),
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        let res = client.get("/healthz").send().await;
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+}
