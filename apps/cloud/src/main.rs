@@ -1,5 +1,4 @@
-use axum::{Extension, Router, Server};
-use http::Method;
+use axum::{http::Method, Extension, Router, Server};
 use jwst_logger::{error, info, init_logger, print_versions};
 use std::{net::SocketAddr, sync::Arc};
 use tower_http::cors::{Any, CorsLayer};

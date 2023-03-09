@@ -3,6 +3,7 @@ pub mod permissions;
 
 use axum::{
     extract::{Path, Query},
+    http::StatusCode,
     response::{IntoResponse, Response},
     routing::{delete, get, post, put, Router},
     Extension, Json,
@@ -13,7 +14,6 @@ use cloud_database::{
     Claims, MakeToken, RefreshToken, UpdateWorkspace, User, UserQuery, UserToken,
     WorkspaceSearchInput,
 };
-use http::StatusCode;
 use jwst::{error, BlobStorage, JwstError};
 use lib0::any::Any;
 use std::sync::Arc;
