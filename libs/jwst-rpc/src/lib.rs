@@ -121,7 +121,7 @@ pub async fn handle_socket(
 
                     for reply in message {
                         if !dedup_cache.contains_key(&reply) {
-                            debug!("send pipeline message by {identifier:?}");
+                            debug!("send pipeline message by {identifier:?}: {}", reply.len());
                             if let Err(e) = socket_tx.send(Message::Binary(reply.clone())).await {
                                 let error = e.to_string();
                                 if is_connection_closed(e) {

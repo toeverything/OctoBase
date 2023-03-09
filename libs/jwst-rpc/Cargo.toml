@@ -10,7 +10,7 @@ anyhow = "1.0.69"
 axum = { version = "0.6.6", features = ["headers", "ws"] }
 futures = "0.3.26"
 nanoid = "0.4.0"
-tokio = { version = "1.25.0", features = [
+tokio = { version = "1.26.0", features = [
     "macros",
     "rt-multi-thread",
     "signal",
@@ -20,7 +20,7 @@ tokio-tungstenite = { version = "0.18.0", features = [
 ] }
 url = "2.3.1"
 y-sync = "0.2.0"
-yrs = "0.16.2"
+yrs = "0.16.3"
 
 # ======= workspace dependencies =======
 jwst = { path = "../jwst" }

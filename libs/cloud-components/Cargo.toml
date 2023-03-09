@@ -6,6 +6,7 @@ edition = "2021"
 license = "AGPL-3.0-only"
 
 [dependencies]
+chrono = "0.4.23"
 handlebars = "4.3.6"
 lettre = { version = "0.10.2", default-features = false, features = [
     "builder",
@@ -14,7 +15,11 @@ lettre = { version = "0.10.2", default-features = false, features = [
     "smtp-transport",
     "tokio1-rustls-tls",
 ] }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "1.0.39"
+url = "2.3.1"
 
 # ======= workspace dependencies =======
 cloud-database = { path = "../cloud-database" }
+jwst = { path = "../jwst" }
 jwst-static = { path = "../jwst-static" }

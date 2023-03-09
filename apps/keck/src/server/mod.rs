@@ -3,8 +3,7 @@ mod files;
 mod sync;
 mod utils;
 
-use axum::{response::Redirect, Extension, Router, Server};
-use http::Method;
+use axum::{http::Method, response::Redirect, Extension, Router, Server};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::signal;
 use tower_http::cors::{Any, CorsLayer};
