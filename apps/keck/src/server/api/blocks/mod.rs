@@ -2,6 +2,7 @@ mod block;
 mod schema;
 mod workspace;
 
+use axum::routing::post;
 pub use block::{
     delete_block, get_block, get_block_history, insert_block_children, remove_block_children,
     set_block,
@@ -104,6 +105,10 @@ fn workspace_apis(router: Router) -> Router {
             get(workspace::get_workspace_block),
         )
         .route("/search/:workspace", get(workspace::workspace_search))
+        .route(
+            "/search/:workspace/index",
+            post(workspace::set_search_index),
+        )
 }
 
 pub fn blocks_apis(router: Router) -> Router {

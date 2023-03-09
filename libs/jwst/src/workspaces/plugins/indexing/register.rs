@@ -49,7 +49,7 @@ impl IndexingPluginRegister {
 impl PluginRegister for IndexingPluginRegister {
     type Plugin = IndexingPluginImpl;
     fn setup(self, ws: &mut Workspace) -> Result<IndexingPluginImpl, Box<dyn std::error::Error>> {
-        let index_fields = ws.metadata().index_fields;
+        let search_index = ws.metadata().search_index;
         let options = TextOptions::default().set_indexing_options(
             TextFieldIndexing::default()
                 .set_tokenizer(GRAM_TOKENIZER)
@@ -58,7 +58,7 @@ impl PluginRegister for IndexingPluginRegister {
 
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("block_id", STRING | STORED);
-        index_fields.iter().for_each(|field_name| {
+        search_index.iter().for_each(|field_name| {
             schema_builder.add_text_field(field_name.as_str(), options.clone());
         });
         let schema = schema_builder.build();
@@ -77,7 +77,7 @@ impl PluginRegister for IndexingPluginRegister {
         });
 
         let mut fields = vec![];
-        index_fields.iter().for_each(|field_name| {
+        search_index.iter().for_each(|field_name| {
             let body = schema.get_field(field_name.as_str()).unwrap();
             fields.push(body);
         });
@@ -112,7 +112,7 @@ impl PluginRegister for IndexingPluginRegister {
             queue_reindex,
             // needs to drop sub with everything else
             _update_sub: sub,
-            index_fields: index_fields,
+            search_index,
         })
     }
 }

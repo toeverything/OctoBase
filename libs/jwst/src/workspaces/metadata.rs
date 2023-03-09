@@ -5,11 +5,13 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use yrs::{Map, MapRef, Transaction};
 
+pub const SEARCH_INDEX: &str = "search_index";
+
 #[derive(Debug, Clone, JsonSchema, Serialize, Deserialize)]
 pub struct WorkspaceMetadata {
     pub name: Option<String>,
     // pub avatar: Option<String>,
-    pub index_fields: Vec<String>,
+    pub search_index: Vec<String>,
 }
 
 impl From<(&'_ Transaction<'_>, MapRef)> for WorkspaceMetadata {
@@ -17,8 +19,8 @@ impl From<(&'_ Transaction<'_>, MapRef)> for WorkspaceMetadata {
         Self {
             name: map.get(trx, "name").map(|s| s.to_string(trx)),
             // avatar: map.get(trx, "avatar").map(|s| s.to_string(trx)),
-            index_fields: match map.get(trx, "index_fields") {
-                Some(value) => vec!["title".to_string(), "text".to_string()],
+            search_index: match map.get(trx, SEARCH_INDEX) {
+                Some(value) => serde_json::from_str::<Vec<String>>(&value.to_string(trx)).unwrap(),
                 None => vec!["title".to_string(), "text".to_string()],
             },
         }
@@ -34,7 +36,7 @@ impl From<WorkspaceMetadata> for Any {
         // if let Some(avatar) = val.avatar {
         //     map.insert("avatar".to_owned(), avatar.into());
         // }
-        map.insert("index_fields".to_owned(), val.index_fields.into());
+        map.insert(SEARCH_INDEX.to_owned(), val.search_index.into());
         Any::Map(map.into())
     }
 }

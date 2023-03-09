@@ -185,6 +185,46 @@ pub async fn workspace_search(
     }
 }
 
+#[utoipa::path(
+    post,
+    tag = "Workspace",
+    context_path = "/api/search",
+    path = "/{workspace}/index",
+    params(
+        ("workspace", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Get workspace client id", body = u64),
+        (status = 400, description = "Bad Request"),
+        (status = 404, description = "Workspace not found")
+    )
+)]
+pub async fn set_search_index(
+    Extension(context): Extension<Arc<Context>>,
+    Path(ws_id): Path<String>,
+    Json(fields): Json<Vec<String>>,
+) -> Response {
+    info!("set_search_index: {ws_id:?} fields = {fields:?}");
+
+    if fields.is_empty() {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+
+    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+        if workspace.set_search_index(fields) {
+            StatusCode::OK.into_response()
+        } else {
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            format!("Workspace({ws_id:?}) not found"),
+        )
+            .into_response()
+    }
+}
+
 /// Get `Block` in `Workspace`
 /// - Return 200 and `Block`'s ID.
 /// - Return 404 Not Found if `Workspace` or `Block` not exists.

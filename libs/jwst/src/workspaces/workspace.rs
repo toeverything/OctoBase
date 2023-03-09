@@ -1,4 +1,4 @@
-use super::{plugins::setup_plugin, *};
+use super::{metadata::SEARCH_INDEX, plugins::setup_plugin, *};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
@@ -116,6 +116,13 @@ impl Workspace {
             Ok(list) => serde_json::to_string(&list).unwrap(),
             Err(_) => "[]".to_string(),
         }
+    }
+
+    pub fn set_search_index(&self, fields: Vec<String>) -> bool {
+        let value = serde_json::to_string(&fields).unwrap();
+        self.with_trx(|mut trx| trx.set_metadata(SEARCH_INDEX, value));
+        setup_plugin(self.clone());
+        return true;
     }
 
     pub fn with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> T {

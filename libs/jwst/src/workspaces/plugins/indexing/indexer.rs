@@ -29,7 +29,7 @@ pub struct IndexingPluginImpl {
     pub(super) query_parser: QueryParser,
     // need to keep so it gets dropped with this plugin
     pub(super) _update_sub: Option<yrs::UpdateSubscription>,
-    pub(super) index_fields: Vec<String>,
+    pub(super) search_index: Vec<String>,
 }
 
 impl IndexingPluginImpl {
@@ -82,7 +82,7 @@ impl PluginImpl for IndexingPluginImpl {
                     let mut re_index_list = HashMap::<String, Vec<Option<String>>>::new();
                     for block in blocks {
                         let index_text = self
-                            .index_fields
+                            .search_index
                             .clone()
                             .into_iter()
                             .map(|field| {
@@ -134,8 +134,8 @@ impl IndexingPluginImpl {
             .writer(50_000_000)
             .map_err(|err| format!("Error creating writer: {err:?}"))?;
 
-        let index_fields = self
-            .index_fields
+        let search_index = self
+            .search_index
             .clone()
             .into_iter()
             .map(|filed| self.schema.get_field(&filed).unwrap())
@@ -146,7 +146,7 @@ impl IndexingPluginImpl {
             block_doc.add_text(block_id_field, block_id);
             fields.iter().enumerate().for_each(|(index, field)| {
                 if let Some(field_text) = field {
-                    let index_field = index_fields.get(index).unwrap().to_owned();
+                    let index_field = search_index.get(index).unwrap().to_owned();
                     block_doc.add_text(index_field, field_text);
                 }
             });
