@@ -1,5 +1,6 @@
 use super::{
-    generate_interface, Block, JwstWorkspace, OnWorkspaceTransaction, WorkspaceTransaction,
+    generate_interface, Block, JwstWorkspace, OnWorkspaceTransaction, VecOfStrings,
+    WorkspaceTransaction,
 };
 use yrs::UpdateSubscription;
 
@@ -49,5 +50,10 @@ impl Workspace {
     #[generate_interface]
     pub fn search(&self, query: String) -> String {
         self.workspace.search_result(query)
+    }
+
+    #[generate_interface]
+    pub fn set_search_index(&self, fields: VecOfStrings) -> bool {
+        self.workspace.set_search_index(fields)
     }
 }
