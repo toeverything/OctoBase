@@ -1,18 +1,17 @@
-use cloud_components::MailContext;
+use cloud_components::{FirebaseContext, KeyContext, MailContext};
 use cloud_database::CloudDatabase;
 use jwst::SearchResults;
-use jwst_logger::error;
+use jwst_logger::{error, warn};
 use jwst_rpc::{BroadcastChannels, BroadcastType, ContextImpl};
 use jwst_storage::JwstStorage;
+use nanoid::nanoid;
 use std::collections::HashMap;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::api::UserChannel;
-use crate::key::{FirebaseContext, KeyContext};
 
 pub struct Context {
     pub key: KeyContext,
-    pub site_url: String,
     pub firebase: Mutex<FirebaseContext>,
     pub mail: MailContext,
     pub db: CloudDatabase,
@@ -23,19 +22,22 @@ pub struct Context {
 
 impl Context {
     pub async fn new() -> Context {
-        let site_url = dotenvy::var("SITE_URL").expect("should provide site url");
+        let database_url = dotenvy::var("DATABASE_URL");
+        if database_url.is_err() {
+            warn!("!!! no database url provided, use affine.db/affine.binary.db !!!");
+            warn!("!!! please set DATABASE_URL in .env file or environmental variable to save your data !!!");
+        }
 
         Self {
             // =========== database ===========
             db: CloudDatabase::init_pool(
-                dotenvy::var("DATABASE_URL")
-                    .as_deref()
+                database_url.as_deref()
                     .unwrap_or("sqlite://affine.db?mode=rwc"),
             )
             .await
             .expect("Cannot create cloud database"),
             storage: JwstStorage::new(
-                dotenvy::var("DATABASE_URL")
+                database_url
                     .map(|db| format!("{db}_binary"))
                     .as_deref()
                     .unwrap_or("sqlite://affine.binary.db?mode=rwc"),
@@ -43,7 +45,12 @@ impl Context {
             .await
             .expect("Cannot create storage"),
             // =========== auth ===========
-            key: KeyContext::new(dotenvy::var("SIGN_KEY").expect("should provide AES key")),
+            key: KeyContext::new(dotenvy::var("SIGN_KEY").unwrap_or_else(|_| {
+                let key = nanoid!();
+                warn!("!!! no sign key provided, use random key: `{key}` !!!");
+                warn!("!!! please set SIGN_KEY in .env file or environmental variable to save your login status !!!");
+                key
+            })),
             firebase: Mutex::new(FirebaseContext::new(
                 dotenvy::var("FIREBASE_PROJECT_ID")
                     .map(|id| vec![id])
@@ -53,10 +60,9 @@ impl Context {
             )),
             // =========== mail ===========
             mail: MailContext::new(
-                dotenvy::var("MAIL_ACCOUNT").expect("should provide email name"),
-                dotenvy::var("MAIL_PASSWORD").expect("should provide email password"),
+                dotenvy::var("MAIL_ACCOUNT").ok(),
+                dotenvy::var("MAIL_PASSWORD").ok(),
             ),
-            site_url,
             // =========== sync channel ===========
             channel: RwLock::new(HashMap::new()),
             user_channel: UserChannel::new(),
