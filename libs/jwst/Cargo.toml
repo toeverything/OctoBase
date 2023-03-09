@@ -18,7 +18,7 @@ bytes = "1.4.0"
 cang-jie = "0.15.0"
 chrono = "0.4.23"
 futures = "0.3.26"
-lib0 = { version = "0.16.2", features = ["lib0-serde"] }
+lib0 = { version = "0.16.3", features = ["lib0-serde"] }
 log = "0.4.17"
 utoipa = "2.4.2"
 schemars = "0.8.11"
@@ -27,10 +27,9 @@ serde_json = "1.0.91"
 thiserror = "1.0.38"
 type-map = "0.5.0"
 tantivy = { version = "0.19.2", optional = true }
-tokio = { version = "1.25.0", features = ["sync"] }
-
+tokio = { version = "1.26.0", features = ["sync"] }
 y-sync = "0.2.0"
-yrs = "0.16.2"
+yrs = "0.16.3"
 
 [dev-dependencies]
 assert-json-diff = "2.0.2"
