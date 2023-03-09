@@ -17,7 +17,6 @@ use http::StatusCode;
 use jwst::{error, BlobStorage, JwstError};
 use lib0::any::Any;
 use std::sync::Arc;
-use tower::ServiceBuilder;
 use utoipa::OpenApi;
 
 use crate::{
@@ -105,10 +104,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
                 .route("/workspace/:id/search", post(search_workspace))
                 .route("/workspace/:id/blob", put(blobs::upload_blob_in_workspace))
                 .route("/permission/:id", delete(permissions::remove_user))
-                .layer(
-                    ServiceBuilder::new()
-                        .layer(make_firebase_auth_layer(ctx.key.jwt_decode.clone())),
-                ),
+                .layer(make_firebase_auth_layer(ctx.key.jwt_decode.clone())),
         )
 }
 

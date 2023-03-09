@@ -23,22 +23,26 @@ pub struct Context {
 
 impl Context {
     pub async fn new() -> Context {
-        let db_env = dotenvy::var("DATABASE_URL").expect("should provide database URL");
-
         let site_url = dotenvy::var("SITE_URL").expect("should provide site url");
 
-        let cloud_db = CloudDatabase::init_pool(&db_env)
-            .await
-            .expect("Cannot create cloud database");
-        let storage = JwstStorage::new(&format!(
-            "{}_binary",
-            dotenvy::var("DATABASE_URL").expect("should provide doc storage path")
-        ))
-        .await
-        .expect("Cannot create storage");
-
         Self {
-            db: cloud_db,
+            // =========== database ===========
+            db: CloudDatabase::init_pool(
+                dotenvy::var("DATABASE_URL")
+                    .as_deref()
+                    .unwrap_or("sqlite://affine.db?mode=rwc"),
+            )
+            .await
+            .expect("Cannot create cloud database"),
+            storage: JwstStorage::new(
+                &dotenvy::var("DATABASE_URL")
+                    .map(|db| format!("{db}_binary"))
+                    .as_deref()
+                    .unwrap_or("sqlite://affine.binary.db?mode=rwc"),
+            )
+            .await
+            .expect("Cannot create storage"),
+            // =========== auth ===========
             key: KeyContext::new(dotenvy::var("SIGN_KEY").expect("should provide AES key")),
             firebase: Mutex::new(FirebaseContext::new(
                 dotenvy::var("FIREBASE_PROJECT_ID")
@@ -47,12 +51,13 @@ impl Context {
                         vec!["pathfinder-52392".into(), "quiet-sanctuary-370417".into()]
                     }),
             )),
+            // =========== mail ===========
             mail: MailContext::new(
                 dotenvy::var("MAIL_ACCOUNT").expect("should provide email name"),
                 dotenvy::var("MAIL_PASSWORD").expect("should provide email password"),
             ),
-            storage,
             site_url,
+            // =========== sync channel ===========
             channel: RwLock::new(HashMap::new()),
             user_channel: UserChannel::new(),
         }
