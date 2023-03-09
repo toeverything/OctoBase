@@ -20,7 +20,7 @@
 				"SIGN_KEY": "12345678",
 				"MAIL_ACCOUNT": "example@toeverything.info",
 				"MAIL_PASSWORD": "a",
-				"SITE_URL": "https://pathfinder.affine.systems"
+				"SITE_URL": "https://dev.affine.live"
 			},
 			"args": [],
 			"cwd": "${workspaceFolder}"

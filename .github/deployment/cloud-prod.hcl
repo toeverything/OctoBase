@@ -62,7 +62,6 @@ DATABASE_URL        = "postgresql://affine:{{ key "service/production/affine-clo
 SIGN_KEY            = "{{ key "service/production/affine-cloud/sign_key" }}"
 MAIL_ACCOUNT        = "{{ key "service/production/affine-cloud/mail_account" }}"
 MAIL_PASSWORD       = "{{ key "service/production/affine-cloud/mail_password" }}"
-SITE_URL            = "https://app.affine.pro"
 EOH
 
         destination = "secrets/.env"

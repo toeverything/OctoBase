@@ -7,15 +7,11 @@ services:
             - 12001:3000
         environment:
             - DATABASE_URL=postgresql://affine:affine@postgres:5432/affine
-            - SIGN_KEY=""
+            - SIGN_KEY="12345678"
             - MAIL_ACCOUNT=""
             - MAIL_PASSWORD=""
-            - SITE_URL=https://pathfinder.affine.systems
             - GOOGLE_ENDPOINT=http://100.77.180.48:11002
             - GOOGLE_ENDPOINT_PASSWORD=Dct4pq9E9V
-        volumes:
-            - ./docs:/docs
-            - ./blobs:/blobs
         restart: always
     postgres:
         image: postgres
