@@ -96,7 +96,7 @@ impl Endpoint {
     #[inline]
     fn endpoint(&self) -> String {
         format!(
-            "{}/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
+            "https://{}/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
             self.endpoint.as_deref().unwrap_or("www.googleapis.com")
         )
     }
