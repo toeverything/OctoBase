@@ -35,7 +35,7 @@ impl Context {
             .await
             .expect("Cannot create cloud database"),
             storage: JwstStorage::new(
-                &dotenvy::var("DATABASE_URL")
+                dotenvy::var("DATABASE_URL")
                     .map(|db| format!("{db}_binary"))
                     .as_deref()
                     .unwrap_or("sqlite://affine.binary.db?mode=rwc"),

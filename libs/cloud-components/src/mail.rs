@@ -19,11 +19,11 @@ use url::Url;
 #[derive(Debug, Error)]
 pub enum MailError {
     #[error("Failed to render mail")]
-    RenderMailError(#[from] RenderError),
+    RenderMail(#[from] RenderError),
     #[error("Failed to config mail client")]
-    ConfigMailError(#[from] MailConfigError),
+    ConfigMail(#[from] MailConfigError),
     #[error("Failed to send email")]
-    SendEmailError(#[from] MailSmtpError),
+    SendEmail(#[from] MailSmtpError),
 }
 
 #[derive(Serialize)]
@@ -149,7 +149,7 @@ impl MailContext {
         invite_code: &str,
     ) -> Result<Message, MailError> {
         let (title, msg_body) = self
-            .make_invite_email_content(metadata, site_url, &claims, &invite_code)
+            .make_invite_email_content(metadata, site_url, claims, invite_code)
             .await?;
 
         Ok(Message::builder()

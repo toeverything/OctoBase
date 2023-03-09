@@ -154,7 +154,7 @@ pub async fn invite_member(
 
         StatusCode::OK.into_response()
     } else {
-        return ErrorStatus::BadRequest.into_response();
+        ErrorStatus::BadRequest.into_response()
     }
 }
 
