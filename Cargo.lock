@@ -63,7 +63,6 @@ dependencies = [
 name = "affine-cloud"
 version = "0.1.0"
 dependencies = [
- "aes-gcm",
  "axum",
  "base64 0.21.0",
  "bytes",
@@ -85,16 +84,11 @@ dependencies = [
  "mimalloc",
  "mime",
  "nanoid",
- "pem",
- "rand 0.8.5",
- "reqwest",
  "serde",
  "serde_json",
- "sha2",
  "tokio",
  "tower-http",
  "utoipa 3.0.3",
- "x509-parser",
 ]
 
 [[package]]
@@ -671,15 +665,24 @@ dependencies = [
 name = "cloud-components"
 version = "0.1.0"
 dependencies = [
+ "aes-gcm",
+ "axum",
  "chrono",
  "cloud-database",
+ "dotenvy",
  "handlebars",
+ "jsonwebtoken",
  "jwst",
  "jwst-static",
  "lettre",
+ "pem",
+ "rand 0.8.5",
+ "reqwest",
  "serde",
+ "sha2",
  "thiserror",
  "url",
+ "x509-parser",
 ]
 
 [[package]]

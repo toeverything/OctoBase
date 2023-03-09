@@ -1,11 +1,11 @@
-use crate::utils::CacheControl;
+use super::*;
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use axum::http::header::CACHE_CONTROL;
 use chrono::{NaiveDateTime, Utc};
 use cloud_database::{Claims, GoogleClaims};
 use jsonwebtoken::{decode, decode_header, encode, DecodingKey, EncodingKey, Header, Validation};
-use jwst_logger::info;
+use pem::{encode as encode_pem, Pem};
 use rand::{thread_rng, Rng};
 use reqwest::{Client, RequestBuilder};
 use sha2::{Digest, Sha256};
@@ -139,7 +139,7 @@ impl FirebaseContext {
                 let (_, pem) = parse_x509_pem(value.as_bytes()).expect("decode PEM error");
                 let cert = pem.parse_x509().expect("decode certificate error");
 
-                let pub_key = pem::encode(&pem::Pem {
+                let pub_key = encode_pem(&Pem {
                     tag: String::from("PUBLIC KEY"),
                     contents: cert.public_key().raw.to_vec(),
                 });
