@@ -119,7 +119,7 @@ impl Workspace {
     }
 
     pub fn set_search_index(&self, fields: Vec<String>) -> bool {
-        if fields.iter().find(|&field| field.is_empty()).is_some() {
+        if let Some(_) = fields.iter().find(|&field| field.is_empty()) {
             false
         } else {
             let value = serde_json::to_string(&fields).unwrap();
