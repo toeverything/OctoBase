@@ -51,8 +51,6 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v2
-              with:
-                  submodules: true
 
             - name: Install Rust
               uses: actions-rs/toolchain@v1
@@ -223,8 +221,6 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v1
-              with:
-                  submodules: true
             - uses: actions-rs/toolchain@v1
               with:
                   toolchain: nightly-2023-01-09
@@ -237,8 +233,6 @@ jobs:
 #         runs-on: ubuntu-latest
 #         steps:
 #             - uses: actions/checkout@v1
-#               with:
-#                   submodules: true
 #             - uses: actions-rs/toolchain@v1
 #               with:
 #                   toolchain: nightly-2023-01-09
