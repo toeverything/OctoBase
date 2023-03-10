@@ -159,13 +159,17 @@ jobs:
                   username: ${{ github.actor }}
                   password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
 
+            - name: Get current time
+              id: time
+              run: echo "::set-output name=time::$(date +'%H%M')"
+
             - name: Extract metadata (tags, labels) for Docker
               id: meta_jwst
               uses: docker/metadata-action@v4
               with:
                   images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}
                   tags: |
-                      ${{ env.IMAGE_TAG }}
+                      ${{ env.IMAGE_TAG }}-${{ steps.time.outputs.time }}
                       ${{ env.IMAGE_TAG_LATEST }}
 
             - name: Build and push Docker image (jwst)
