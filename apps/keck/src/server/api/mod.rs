@@ -12,7 +12,7 @@ use axum::{
     response::IntoResponse,
     routing::{delete, get, head},
 };
-use jwst_rpc::{Channels, ContextImpl};
+use jwst_rpc::{BroadcastChannels, ContextImpl};
 use jwst_storage::JwstStorage;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
@@ -37,7 +37,7 @@ pub struct PageData<T> {
 }
 
 pub struct Context {
-    pub channel: Channels,
+    pub channel: BroadcastChannels,
     pub storage: JwstStorage,
 }
 
@@ -67,7 +67,7 @@ impl ContextImpl<'_> for Context {
         &self.storage
     }
 
-    fn get_channel(&self) -> &Channels {
+    fn get_channel(&self) -> &BroadcastChannels {
         &self.channel
     }
 }

@@ -29,6 +29,7 @@ impl BlobAutoStorage {
         Self::init_with_pool(pool, get_bucket(is_sqlite)).await
     }
 
+    #[allow(unused)]
     async fn all(&self, table: &str) -> Result<Vec<BlobModel>, DbErr> {
         Blobs::find()
             .filter(BlobColumn::Workspace.eq(table))
@@ -36,6 +37,7 @@ impl BlobAutoStorage {
             .await
     }
 
+    #[allow(unused)]
     async fn count(&self, table: &str) -> Result<u64, DbErr> {
         Blobs::find()
             .filter(BlobColumn::Workspace.eq(table))

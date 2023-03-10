@@ -29,6 +29,8 @@ use utoipa::OpenApi;
         workspace::get_workspace_block,
         workspace::workspace_search,
         block::get_block,
+        block::set_block_with_flavour,
+        block::get_block_by_flavour,
         block::set_block,
         block::get_block_history,
         block::get_block_children,
@@ -79,6 +81,7 @@ fn block_apis(router: Router) -> Router {
             "/block/:workspace/:block",
             get(block::get_block)
                 .post(block::set_block)
+                .patch(block::set_block_with_flavour)
                 .delete(block::delete_block),
         )
 }
@@ -99,6 +102,10 @@ fn workspace_apis(router: Router) -> Router {
             get(workspace::get_workspace)
                 .post(workspace::set_workspace)
                 .delete(workspace::delete_workspace),
+        )
+        .route(
+            "/block/:workspace/flavour/:flavour",
+            get(block::get_block_by_flavour)
         )
         .route(
             "/block/:workspace/blocks",

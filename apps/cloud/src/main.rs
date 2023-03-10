@@ -1,6 +1,5 @@
-use axum::{Extension, Router, Server};
-use http::Method;
-use jwst_logger::{error, info, init_logger};
+use axum::{http::Method, Extension, Router, Server};
+use jwst_logger::{error, info, init_logger, print_versions};
 use std::{net::SocketAddr, sync::Arc};
 use tower_http::cors::{Any, CorsLayer};
 
@@ -11,9 +10,13 @@ mod files;
 mod layer;
 mod utils;
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[tokio::main]
 async fn main() {
     init_logger();
+    print_versions(env!("CARGO_PKG_VERSION"));
 
     let cors = CorsLayer::new()
         // allow `GET` and `POST` when accessing the resource
@@ -23,10 +26,10 @@ async fn main() {
             Method::DELETE,
             Method::OPTIONS,
         ])
-        // allow requests from any origin
+        // allow requests from specific origin
         .allow_origin([
             "http://localhost:8080".parse().unwrap(),
-            "https://affine-next.vercel.app".parse().unwrap(),
+            "https://affine-preview.vercel.app".parse().unwrap(),
         ])
         .allow_headers(Any);
 

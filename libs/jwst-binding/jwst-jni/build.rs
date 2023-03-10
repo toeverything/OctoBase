@@ -12,7 +12,6 @@ fn main() {
     let template = fs::read_to_string(in_src).unwrap();
     let template = template
         .split("use jni_sys::*;")
-        .into_iter()
         .collect::<Vec<_>>();
     let template = template
         .first()

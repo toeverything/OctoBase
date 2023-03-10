@@ -1,6 +1,9 @@
 [env]
 CARGO_WORKSPACE_DIR = { value = "", relative = true }
 
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=native"]
+
 [target.aarch64-linux-android]
 runner = "./apps/android/run-on-android.sh"
 

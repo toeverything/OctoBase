@@ -1,6 +1,7 @@
-use super::{debug, error, trace, ChannelItem, ContextImpl};
-use jwst::{sync_encode_update, MapSubscription, Workspace};
-use std::sync::Arc;
+use super::{debug, trace};
+use jwst::{info, sync_encode_update, MapSubscription, Workspace};
+use std::collections::HashMap;
+use tokio::sync::{broadcast::Sender, RwLock};
 use y_sync::{
     awareness::{Event, Subscription},
     sync::Message as YMessage,
@@ -10,36 +11,15 @@ use yrs::{
     UpdateSubscription,
 };
 
-fn broadcast(
-    current_item: ChannelItem,
-    update: Vec<u8>,
-    context: Arc<impl ContextImpl<'static> + Send + Sync + 'static>,
-) {
-    tokio::spawn(async move {
-        let mut closed = vec![];
-        trace!(
-            "{} broadcast to {}: {}bytes",
-            current_item.workspace,
-            current_item.identifier,
-            update.len()
-        );
-        for (item, tx) in context.get_channel().read().await.iter() {
-            trace!("sending: {:?}", item);
-            if current_item.workspace == item.workspace && current_item.uuid != item.uuid {
-                if tx.is_closed() {
-                    closed.push(item.clone());
-                } else if let Err(e) = tx.send(Some(update.clone())).await {
-                    if !tx.is_closed() {
-                        error!("on awareness_update error: {}", e);
-                    }
-                }
-            }
-        }
-        for item in closed {
-            context.get_channel().write().await.remove(&item);
-        }
-    });
+#[derive(Clone)]
+pub enum BroadcastType {
+    Broadcast(Vec<u8>),
+    CloseUser(String),
+    CloseAll,
 }
+
+type Broadcast = Sender<BroadcastType>;
+pub type BroadcastChannels = RwLock<HashMap<String, Broadcast>>;
 
 pub struct Subscriptions {
     _doc: Option<UpdateSubscription>,
@@ -47,18 +27,14 @@ pub struct Subscriptions {
     _metadata: MapSubscription,
 }
 
-pub fn subscribe(
-    context: Arc<impl ContextImpl<'static> + Send + Sync + 'static>,
-    workspace: &mut Workspace,
-    item: &ChannelItem,
-) -> Subscriptions {
+pub fn subscribe(workspace: &mut Workspace, sender: Broadcast) -> Subscriptions {
     let awareness = {
-        let context = context.clone();
-        let item = item.clone();
+        let sender = sender.clone();
+        let workspace_id = workspace.id();
         workspace.on_awareness_update(move |awareness, e| {
             trace!(
                 "workspace awareness changed: {}, {:?}",
-                item.workspace,
+                workspace_id,
                 [e.added(), e.updated(), e.removed()].concat()
             );
             if let Ok(update) = awareness
@@ -69,20 +45,24 @@ pub fn subscribe(
                     encoder.to_vec()
                 })
             {
-                broadcast(item.clone(), update, context.clone());
+                if sender.send(BroadcastType::Broadcast(update)).is_err() {
+                    info!("broadcast channel {workspace_id} has been closed",)
+                }
             }
         })
     };
     let doc = {
-        let item = item.clone();
+        let workspace_id = workspace.id();
         workspace.observe(move |_, e| {
             debug!(
                 "workspace {} changed: {}bytes",
-                item.workspace,
+                workspace_id,
                 &e.update.len()
             );
             let update = sync_encode_update(&e.update);
-            broadcast(item.clone(), update, context.clone());
+            if sender.send(BroadcastType::Broadcast(update)).is_err() {
+                info!("broadcast channel {workspace_id} has been closed",)
+            }
         })
     };
     let metadata = workspace.observe_metadata(move |_, _e| {

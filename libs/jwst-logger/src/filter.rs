@@ -3,20 +3,20 @@ use tracing_subscriber::layer::{Context, Filter};
 
 pub struct GeneralFilter;
 
-const EXCLUDE_PREFIX: [&str; 4] = [
-    "hyper::",
-    "rustls::",
-    "mio::",
-    "tantivy::indexer::segment_updater",
-];
+const EXCLUDE_PREFIX_DEBUG: [&str; 3] = ["hyper::", "rustls::", "mio::"];
+const EXCLUDE_PREFIX_INFO: [&str; 1] = ["tantivy::indexer::segment_updater"];
 
 impl GeneralFilter {
     fn is_enabled(&self, metadata: &Metadata<'_>) -> bool {
         let target = metadata.target();
-        let is_kernel = EXCLUDE_PREFIX
+        let is_kernel = EXCLUDE_PREFIX_DEBUG
             .iter()
             .any(|prefix| target.starts_with(prefix))
-            && *metadata.level() > Level::INFO;
+            && *metadata.level() > Level::INFO
+            || EXCLUDE_PREFIX_INFO
+                .iter()
+                .any(|prefix| target.starts_with(prefix))
+                && *metadata.level() > Level::WARN;
 
         if cfg!(debug_assertions) {
             return target != "sqlx::query" && !is_kernel;

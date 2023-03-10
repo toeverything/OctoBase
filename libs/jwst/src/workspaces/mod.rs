@@ -4,9 +4,9 @@ mod transaction;
 mod workspace;
 
 use super::{error, info, trace, Block};
-use metadata::WorkspaceMetadata;
 use plugins::PluginMap;
 
+pub use metadata::WorkspaceMetadata;
 #[cfg(feature = "workspace-search")]
 pub use plugins::{SearchResult, SearchResults};
 pub use transaction::WorkspaceTransaction;

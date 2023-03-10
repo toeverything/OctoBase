@@ -5,18 +5,16 @@ use crate::{
 };
 use axum::{
     extract::Path,
+    http::{
+        header::{HOST, REFERER},
+        HeaderMap, StatusCode,
+    },
     response::{IntoResponse, Response},
     Extension, Json,
 };
-use chrono::prelude::*;
 use cloud_database::{Claims, CreatePermission, PermissionType, UserCred};
-use http::StatusCode;
 use jwst::error;
-use lettre::{
-    message::{Mailbox, MultiPart, SinglePart},
-    AsyncTransport, Message,
-};
-use serde::Serialize;
+use lettre::message::Mailbox;
 use std::sync::Arc;
 
 /// Get workspace's `Members`
@@ -57,85 +55,6 @@ pub async fn get_members(
     }
 }
 
-async fn make_invite_email(
-    ctx: &Context,
-    workspace_id: String,
-    claims: &Claims,
-    invite_code: &str,
-) -> Option<(String, MultiPart)> {
-    let metadata = {
-        let ws = ctx.storage.get_workspace(workspace_id.clone()).await.ok()?;
-
-        ws.metadata()
-    };
-
-    // let mut file = ctx
-    //     .storage
-    //     .blobs()
-    //     .get_blob(Some(workspace_id.clone()), metadata.avatar.clone().unwrap())
-    //     .await
-    //     .ok()?;
-
-    // let mut file_content = Vec::new();
-    // while let Some(chunk) = file.next().await {
-    //     file_content.extend(chunk.ok()?);
-    // }
-
-    // let workspace_avatar = lettre::message::Body::new(file_content);
-
-    #[derive(Serialize)]
-    struct Title {
-        inviter_name: String,
-        workspace_name: String,
-    }
-
-    let title = ctx
-        .mail
-        .template
-        .render(
-            "MAIL_INVITE_TITLE",
-            &Title {
-                inviter_name: claims.user.name.clone(),
-                workspace_name: metadata.name.clone().unwrap_or_default(),
-            },
-        )
-        .ok()?;
-
-    #[derive(Serialize)]
-    struct Content {
-        inviter_name: String,
-        site_url: String,
-        avatar_url: String,
-        workspace_name: String,
-        // workspace_avatar: String,
-        invite_code: String,
-        current_year: i32,
-    }
-    let dt = Utc::now();
-    let content = ctx
-        .mail
-        .template
-        .render(
-            "MAIL_INVITE_CONTENT",
-            &Content {
-                inviter_name: claims.user.name.clone(),
-                site_url: ctx.site_url.clone(),
-                avatar_url: claims.user.avatar_url.to_owned().unwrap_or("".to_string()),
-                workspace_name: metadata.name.unwrap_or_default(),
-                invite_code: invite_code.to_string(),
-                current_year: dt.year(),
-                // workspace_avatar: workspace_avatar.encoding().to_string(),
-            },
-        )
-        .ok()?;
-
-    let msg_body = MultiPart::mixed().multipart(
-        MultiPart::mixed().multipart(MultiPart::related().singlepart(SinglePart::html(content))),
-    );
-
-    Some((title, msg_body))
-}
-
 /// Invite workspace members
 /// - Return 200 Ok.
 #[utoipa::path(
@@ -153,98 +72,90 @@ async fn make_invite_email(
 pub async fn invite_member(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
+    headers: HeaderMap,
     Path(workspace_id): Path<String>,
     Json(data): Json<CreatePermission>,
 ) -> Response {
-    match ctx
-        .db
-        .get_permission(claims.user.id.clone(), workspace_id.clone())
-        .await
+    if let Some(site_url) = headers
+        .get(REFERER)
+        .or_else(|| headers.get(HOST))
+        .and_then(|v| v.to_str().ok())
+        .and_then(|host| ctx.mail.parse_host(host))
     {
-        Ok(Some(p)) if p.can_admin() => (),
-        Ok(_) => return ErrorStatus::Forbidden.into_response(),
-        Err(e) => {
-            error!("Failed to get permission: {}", e);
-            return ErrorStatus::InternalServerError.into_response();
-        }
-    };
+        match ctx
+            .db
+            .get_permission(claims.user.id.clone(), workspace_id.clone())
+            .await
+        {
+            Ok(Some(p)) if p.can_admin() => (),
+            Ok(_) => return ErrorStatus::Forbidden.into_response(),
+            Err(e) => {
+                error!("Failed to get permission: {}", e);
+                return ErrorStatus::InternalServerError.into_response();
+            }
+        };
 
-    let Ok(addr) = data.email.clone().parse() else {
+        let Ok(addr) = data.email.clone().parse() else {
         return ErrorStatus::BadRequest.into_response()
     };
 
-    let (permission_id, user_cred) = match ctx
-        .db
-        .create_permission(&data.email, workspace_id.clone(), PermissionType::Write)
-        .await
-    {
-        Ok(Some(p)) => p,
-        Ok(None) => return ErrorStatus::ConflictInvitation.into_response(),
-        Err(e) => {
-            error!("Failed to create permission: {}", e);
-            return ErrorStatus::InternalServerError.into_response();
-        }
-    };
+        let (permission_id, user_cred) = match ctx
+            .db
+            .create_permission(&data.email, workspace_id.clone(), PermissionType::Write)
+            .await
+        {
+            Ok(Some(p)) => p,
+            Ok(None) => return ErrorStatus::ConflictInvitation.into_response(),
+            Err(e) => {
+                error!("Failed to create permission: {}", e);
+                return ErrorStatus::InternalServerError.into_response();
+            }
+        };
 
-    let invite_user = user_cred.clone();
-    let invite_user_id = match invite_user {
-        UserCred::Registered(user) => Some(user.id),
-        UserCred::UnRegistered { .. } => None,
-    };
-    if invite_user_id.is_some() {
-        ctx.user_channel
-            .add_user_observe(invite_user_id.unwrap(), ctx.clone())
-            .await;
-    }
+        let send_to = Mailbox::new(
+            if let UserCred::Registered(user) = user_cred {
+                ctx.user_channel
+                    .add_user_observe(user.id.clone(), ctx.clone())
+                    .await;
 
-    let encrypted = ctx.encrypt_aes(permission_id.as_bytes());
+                Some(user.id)
+            } else {
+                None
+            },
+            addr,
+        );
 
-    let invite_code = URL_SAFE_ENGINE.encode(encrypted);
-
-    let mailbox = Mailbox::new(
-        match user_cred {
-            UserCred::Registered(user) => Some(user.name),
-            UserCred::UnRegistered { .. } => None,
-        },
-        addr,
-    );
-
-    let Some((title, msg_body)) = make_invite_email(&ctx, workspace_id, &claims, &invite_code).await else {
-        if let Err(e) = ctx.db.delete_permission(permission_id).await {
-                error!("Failed to withdraw permissions: {}", e);
-        }
-        return ErrorStatus::InternalServerError.into_response();
-    };
-
-    let email = Message::builder()
-        .from(ctx.mail.mail_box.clone())
-        .to(mailbox)
-        .subject(title)
-        .multipart(msg_body)
-        .unwrap();
-
-    match ctx.mail.client.send(email.clone()).await {
-        Ok(_) => {}
-        // TODO: https://github.com/lettre/lettre/issues/743
-        Err(e) if e.is_response() => {
-            if let Err(e) = ctx.mail.client.send(email).await {
-                if let Err(e) = ctx.db.delete_permission(permission_id).await {
-                    error!("Failed to withdraw permissions: {}", e);
-                }
+        let metadata = match ctx
+            .storage
+            .get_workspace(workspace_id.clone())
+            .await
+            .map(|ws| ws.metadata())
+        {
+            Ok(metadata) => metadata,
+            Err(e) => {
                 error!("Failed to send email: {}", e);
                 return ErrorStatus::InternalServerError.into_response();
             }
-        }
-        Err(e) => {
+        };
+
+        let invite_code = URL_SAFE_ENGINE.encode(ctx.key.encrypt_aes(permission_id.as_bytes()));
+
+        if let Err(e) = ctx
+            .mail
+            .send_invite_email(send_to, metadata, site_url, &claims, &invite_code)
+            .await
+        {
             if let Err(e) = ctx.db.delete_permission(permission_id).await {
                 error!("Failed to withdraw permissions: {}", e);
             }
             error!("Failed to send email: {}", e);
             return ErrorStatus::InternalServerError.into_response();
-        }
-    };
+        };
 
-    StatusCode::OK.into_response()
+        StatusCode::OK.into_response()
+    } else {
+        ErrorStatus::BadRequest.into_response()
+    }
 }
 
 /// Accept invitation
@@ -266,7 +177,7 @@ pub async fn accept_invitation(
         return ErrorStatus::BadRequest.into_response();
     };
 
-    let data = match ctx.decrypt_aes(input.clone()) {
+    let data = match ctx.key.decrypt_aes(input.clone()) {
         Ok(data) => data,
         Err(_) => return ErrorStatus::BadRequest.into_response(),
     };
