@@ -38,7 +38,7 @@ impl IndexingPluginImpl {
         query: S,
     ) -> Result<SearchResults, Box<dyn std::error::Error>> {
         let mut items = Vec::new();
-        if (self.search_index.is_empty()) {
+        if self.search_index.is_empty() {
             return Ok(SearchResults(items));
         }
 
