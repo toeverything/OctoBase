@@ -74,10 +74,10 @@ This is a simple http interface binding, which allows you to modify the data in 
 │   └── keck ## collaboration backend
 └── libs ##
     ├── jwst  ## OctoBase core library
-    ├── jwst-binding/jwst-ffi ## OctoBase binging for C ffi
-    ├── jwst-binding/jwst-jni# ## OctoBase binding for JNI
-    ├── jwst-binding/jwst-wasm ## OctoBase binding for WASM
+    ├── jwst-binding ## Multilingual FFI bindings for OctoBase
     ├── jwst-logger ## logger plugins for OctoBase
+    ├── jwst-rpc ## sync plugins for OctoBase
+    ├── jwst-storage ## storage plugins for OctoBase
     └── jwst-storage ## multiple platform storage plugins for OctoBase
 ```
 

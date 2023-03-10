@@ -1,6 +1,6 @@
-# How to organize you own data with JWST
+# How to organize you own data with OctoBase
 
-In JWST, we unify different data structures into the concept of Block, and different Blocks have similar properties.
+In OctoBase, we unify different data structures into the concept of Block, and different Blocks have similar properties.
 
 For example, headings, normal text lines, and Todo all have a text content property in common, but their Flavor is different, while Todo has a clicked property that confirms completion.
 
@@ -38,7 +38,7 @@ To illustrate with a simple example, suppose we have a page with a title, a todo
 
 ![block structure to view](./core_concept_1.jpg)
 
-In JWST, we can define it like this:
+In OctoBase, we can define it like this:
 
 1. We treat a page as a Block
 2. We also treat the title and text line as a Block
@@ -92,7 +92,7 @@ At this point we have reorganized a rich text page into structured data, and now
 -   Change the text line style by adjusting the flavor
 -   Change the actual text content by adjusting the content in the props
 
-In actual use, you do not need to manually edit the data in the structure. JWST provides a series of easy-to-use APIs that allow you:
+In actual use, you do not need to manually edit the data in the structure. OctoBase provides a series of easy-to-use APIs that allow you:
 
 -   Organize parent-child relationship of blocks, front and back order, etc.
 -   Modify the properties with basic data structures such as RichText, Map, Array, String, Number, etc.
