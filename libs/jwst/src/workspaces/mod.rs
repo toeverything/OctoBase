@@ -3,7 +3,7 @@ mod plugins;
 mod transaction;
 mod workspace;
 
-use super::{error, info, trace, Block};
+use super::{debug, error, info, trace, warn, Block};
 use plugins::PluginMap;
 
 pub use metadata::WorkspaceMetadata;
