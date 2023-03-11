@@ -1,6 +1,11 @@
-use super::{debug, trace};
+use super::trace;
 use jwst::{info, sync_encode_update, MapSubscription, Workspace};
-use std::collections::HashMap;
+use lru_time_cache::LruCache;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 use tokio::sync::{broadcast::Sender, RwLock};
 use y_sync::{
     awareness::{Event, Subscription},
@@ -13,7 +18,8 @@ use yrs::{
 
 #[derive(Clone)]
 pub enum BroadcastType {
-    Broadcast(Vec<u8>),
+    BroadcastAwareness(Vec<u8>),
+    BroadcastContent(Vec<u8>),
     CloseUser(String),
     CloseAll,
 }
@@ -31,6 +37,12 @@ pub fn subscribe(workspace: &mut Workspace, sender: Broadcast) -> Subscriptions 
     let awareness = {
         let sender = sender.clone();
         let workspace_id = workspace.id();
+
+        let dedup_cache = Arc::new(Mutex::new(LruCache::with_expiry_duration_and_capacity(
+            Duration::from_micros(100),
+            128,
+        )));
+
         workspace.on_awareness_update(move |awareness, e| {
             trace!(
                 "workspace awareness changed: {}, {:?}",
@@ -45,8 +57,18 @@ pub fn subscribe(workspace: &mut Workspace, sender: Broadcast) -> Subscriptions 
                     encoder.to_vec()
                 })
             {
-                if sender.send(BroadcastType::Broadcast(update)).is_err() {
-                    info!("broadcast channel {workspace_id} has been closed",)
+                let mut dedup_cache = dedup_cache.lock().unwrap_or_else(|e| {
+                    dedup_cache.clear_poison();
+                    e.into_inner()
+                });
+                if !dedup_cache.contains_key(&update) {
+                    if sender
+                        .send(BroadcastType::BroadcastAwareness(update.clone()))
+                        .is_err()
+                    {
+                        info!("broadcast channel {workspace_id} has been closed",)
+                    }
+                    dedup_cache.insert(update, ());
                 }
             }
         })
@@ -54,13 +76,16 @@ pub fn subscribe(workspace: &mut Workspace, sender: Broadcast) -> Subscriptions 
     let doc = {
         let workspace_id = workspace.id();
         workspace.observe(move |_, e| {
-            debug!(
+            trace!(
                 "workspace {} changed: {}bytes",
                 workspace_id,
                 &e.update.len()
             );
             let update = sync_encode_update(&e.update);
-            if sender.send(BroadcastType::Broadcast(update)).is_err() {
+            if sender
+                .send(BroadcastType::BroadcastContent(update))
+                .is_err()
+            {
                 info!("broadcast channel {workspace_id} has been closed",)
             }
         })
