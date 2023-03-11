@@ -141,27 +141,30 @@ pub async fn handle_socket(
                         .expect("workspace not found");
 
                     // TODO: apply is very slow, need to optimize
-                    let message = workspace.sync_decode_message(&binary);
-                    if ts.elapsed().as_micros() > 100 {
-                        debug!("apply remote update cost: {}ms", ts.elapsed().as_micros());
-                    }
-
-                    let ts = Instant::now();
-
-                    for reply in message {
-                        trace!("send pipeline message by {identifier:?}: {}", reply.len());
-                        if pipeline_tx
-                            .send(Message::Binary(reply.clone()))
-                            .await
-                            .is_err()
-                        {
-                            // pipeline was closed
-                            break 'sync;
+                    if let Ok(message) =
+                        tokio::task::spawn_blocking(move || workspace.sync_decode_message(&binary)).await
+                    {
+                        if ts.elapsed().as_micros() > 100 {
+                            debug!("apply remote update cost: {}ms", ts.elapsed().as_micros());
                         }
-                    }
 
-                    if ts.elapsed().as_micros() > 100 {
-                        debug!("send remote update cost: {}ms", ts.elapsed().as_micros());
+                        let ts = Instant::now();
+
+                        for reply in message {
+                            trace!("send pipeline message by {identifier:?}: {}", reply.len());
+                            if pipeline_tx
+                                .send(Message::Binary(reply.clone()))
+                                .await
+                                .is_err()
+                            {
+                                // pipeline was closed
+                                break 'sync;
+                            }
+                        }
+
+                        if ts.elapsed().as_micros() > 100 {
+                            debug!("send remote update cost: {}ms", ts.elapsed().as_micros());
+                        }
                     }
                 }
 

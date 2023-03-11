@@ -3,7 +3,8 @@ use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
     sync::{Arc, RwLock},
-    time::Instant,
+    thread::sleep,
+    time::{Duration, Instant},
 };
 use y_sync::{
     awareness::{Awareness, Event, Subscription as AwarenessSubscription},
@@ -299,7 +300,17 @@ impl Workspace {
 
         let ts = Instant::now();
         if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
-            let mut trx = awareness.doc().transact_mut();
+            let mut retry = 30;
+            let mut trx = loop {
+                if let Ok(trx) = awareness.doc().try_transact_mut() {
+                    break trx;
+                } else if retry > 0 {
+                    retry -= 1;
+                    sleep(Duration::from_micros(100));
+                } else {
+                    return;
+                }
+            };
             for msg in content_msg {
                 if let Some(msg) = {
                     trace!("processing message: {:?}", msg);
