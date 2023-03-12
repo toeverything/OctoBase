@@ -1,12 +1,12 @@
 [book]
-title = "Handbook of JWST"
+title = "Handbook of OctoBase"
 authors = ["DarkSky"]
 language = "en"
 multilingual = false
 src = "src"
 
 [output.html]
-git-repository-url = "https://github.com/toeverything/jwst"
+git-repository-url = "https://github.com/toeverything/octobase"
 git-repository-icon = "fa-github"
-edit-url-template = "https://github.com/toeverything/jwst/edit/master/apps/handbook/{path}"
+edit-url-template = "https://github.com/toeverything/octobase/edit/master/apps/handbook/{path}"
 site-url = "/docs/"
