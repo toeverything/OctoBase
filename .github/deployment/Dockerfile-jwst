@@ -11,7 +11,7 @@ FROM messense/rust-musl-cross:x86_64-musl AS builder-amd64
 ENV CARGO_TERM_COLOR="always"
 COPY . .
 # COPY --from=frontend /app/dist ./dist
-COPY --from=frontend /app/apps/jwst/dist ./dist
+COPY --from=frontend /app/apps/jwt/dist ./dist
 RUN cargo build --profile fast-release --package keck && \
     mv /home/rust/src/target/x86_64-unknown-linux-musl/fast-release/keck /tmp/jwst-amd64
 
