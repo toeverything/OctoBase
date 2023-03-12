@@ -235,7 +235,7 @@ impl Workspace {
     ) -> Option<UpdateSubscription> {
         let doc = self.doc();
         match catch_unwind(AssertUnwindSafe(move || {
-            let mut retry = 3;
+            let mut retry = 10;
             loop {
                 let f = f.clone();
                 match doc.observe_update_v1(move |trx, evt| {

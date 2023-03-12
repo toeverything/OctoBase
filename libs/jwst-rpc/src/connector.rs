@@ -1,6 +1,6 @@
 use super::*;
 use axum::{
-    extract::ws::{Message, WebSocket},
+    extract::ws::{Message as WebSocketMessage, WebSocket},
     Error,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
@@ -16,17 +16,30 @@ fn is_connection_closed(error: Error) -> bool {
     }
 }
 
-pub fn split_socket(socket: WebSocket, workspace_id: &str) -> (Sender<Message>, Receiver<Vec<u8>>) {
+impl From<Message> for WebSocketMessage {
+    fn from(value: Message) -> Self {
+        match value {
+            Message::Binary(data) => WebSocketMessage::Binary(data),
+            Message::Close => WebSocketMessage::Close(None),
+            Message::Ping => WebSocketMessage::Ping(vec![]),
+        }
+    }
+}
+
+pub fn socket_connector(
+    socket: WebSocket,
+    workspace_id: &str,
+) -> (Sender<Message>, Receiver<Vec<u8>>) {
     let (mut socket_tx, mut socket_rx) = socket.split();
 
     // send to remote pipeline
-    let (local_sender, mut local_receiver) = channel(100);
+    let (local_sender, mut local_receiver) = channel::<Message>(100);
     {
         // socket send thread
         let workspace_id = workspace_id.to_owned();
         tokio::spawn(async move {
             while let Some(msg) = local_receiver.recv().await {
-                if let Err(e) = socket_tx.send(msg).await {
+                if let Err(e) = socket_tx.send(msg.into()).await {
                     let error = e.to_string();
                     if is_connection_closed(e) {
                         break;
@@ -45,7 +58,7 @@ pub fn split_socket(socket: WebSocket, workspace_id: &str) -> (Sender<Message>, 
         let workspace_id = workspace_id.to_owned();
         tokio::spawn(async move {
             while let Some(msg) = socket_rx.next().await {
-                if let Ok(Message::Binary(binary)) = msg {
+                if let Ok(WebSocketMessage::Binary(binary)) = msg {
                     trace!("recv from remote: {}bytes", binary.len());
                     if remote_sender.send(binary).await.is_err() {
                         // pipeline was closed
