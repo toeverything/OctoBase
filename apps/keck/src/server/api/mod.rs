@@ -12,7 +12,7 @@ use axum::{
     response::IntoResponse,
     routing::{delete, get, head},
 };
-use jwst_rpc::{BroadcastChannels, ContextImpl};
+use jwst_rpc::{BroadcastChannels, RpcContextImpl};
 use jwst_storage::JwstStorage;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
@@ -62,7 +62,7 @@ impl Context {
     }
 }
 
-impl ContextImpl<'_> for Context {
+impl RpcContextImpl<'_> for Context {
     fn get_storage(&self) -> &JwstStorage {
         &self.storage
     }

@@ -1,11 +1,7 @@
-use super::trace;
-use jwst::{info, sync_encode_update, MapSubscription, Workspace};
+use super::*;
+use jwst::{sync_encode_update, MapSubscription, Workspace};
 use lru_time_cache::LruCache;
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{collections::HashMap, sync::Mutex};
 use tokio::sync::{broadcast::Sender, RwLock};
 use y_sync::{
     awareness::{Event, Subscription},

@@ -1,160 +1,52 @@
-#![feature(mutex_unpoison)]
+#![feature(mutex_unpoison, type_alias_impl_trait)]
 
 mod broadcast;
 mod client;
+mod connector;
+mod context;
 
 pub use broadcast::{BroadcastChannels, BroadcastType};
 pub use client::start_client;
+pub use context::RpcContextImpl;
 
-use axum::{
-    extract::ws::{Message, WebSocket},
-    Error,
-};
-use broadcast::subscribe;
-use futures::{sink::SinkExt, stream::StreamExt};
+use axum::extract::ws::{Message, WebSocket};
+use connector::split_socket;
 use jwst::{debug, error, info, trace, warn};
-use jwst_storage::JwstStorage;
 use std::{collections::hash_map::Entry, sync::Arc, time::Instant};
-use tokio::{
-    sync::{broadcast::channel as broadcast, mpsc::channel},
-    time::{sleep, Duration},
-};
-use tokio_tungstenite::tungstenite::Error as SocketError;
-
-pub trait ContextImpl<'a> {
-    fn get_storage(&self) -> &JwstStorage;
-    fn get_channel(&self) -> &BroadcastChannels;
-}
-
-#[inline]
-fn is_connection_closed(error: Error) -> bool {
-    if let Ok(e) = error.into_inner().downcast::<SocketError>() {
-        matches!(e.as_ref(), SocketError::ConnectionClosed)
-    } else {
-        false
-    }
-}
+use tokio::time::{sleep, Duration};
 
 pub async fn handle_socket(
     socket: WebSocket,
     workspace_id: String,
-    context: Arc<impl ContextImpl<'static> + Send + Sync + 'static>,
+    context: Arc<impl RpcContextImpl<'static> + Send + Sync + 'static>,
     identifier: String,
 ) {
     info!("{} collaborate with workspace {}", identifier, workspace_id);
 
-    let (mut socket_tx, mut socket_rx) = socket.split();
+    let (tx, rx) = split_socket(socket, &workspace_id);
 
-    // send to remote pipeline
-    let (pipeline_tx, mut pipeline_rx) = channel(100);
-    {
-        // socket thread
-        let workspace_id = workspace_id.clone();
-        tokio::spawn(async move {
-            while let Some(msg) = pipeline_rx.recv().await {
-                if let Err(e) = socket_tx.send(msg).await {
-                    let error = e.to_string();
-                    if is_connection_closed(e) {
-                        break;
-                    } else {
-                        error!("socket send error: {}", error);
-                    }
-                }
-            }
-            info!("socket final: {}", workspace_id);
-        });
-    }
+    context
+        .apply_change(&workspace_id, &identifier, tx.clone(), rx)
+        .await;
 
-    // process remote update
-    let (remote_tx, mut remote_rx) = channel::<Vec<u8>>(512);
-    {
-        // collect messages from remote
-        let context = context.clone();
-        let pipeline_tx = pipeline_tx.clone();
-        let identifier = identifier.clone();
-        let workspace_id = workspace_id.clone();
-        tokio::spawn(async move {
-            let mut workspace = context
-                .get_storage()
-                .get_workspace(&workspace_id)
-                .await
-                .expect("workspace not found");
-            while let Some(binary) = remote_rx.recv().await {
-                let ts = Instant::now();
-                let message = workspace.sync_decode_message(&binary).await;
-                if ts.elapsed().as_micros() > 50 {
-                    debug!("apply remote update cost: {}ms", ts.elapsed().as_micros());
-                }
-
-                for reply in message {
-                    trace!("send pipeline message by {identifier:?}: {}", reply.len());
-                    if pipeline_tx
-                        .send(Message::Binary(reply.clone()))
-                        .await
-                        .is_err()
-                    {
-                        // pipeline was closed
-                        break;
-                    }
-                }
-            }
-        });
-    }
-
-    // broadcast channel
-    let (broadcast_tx, mut broadcast_rx) = match context
-        .get_channel()
-        .write()
+    let mut ws = context
+        .get_workspace(&workspace_id)
         .await
-        .entry(workspace_id.clone())
-    {
-        Entry::Occupied(tx) => {
-            let sender = tx.get();
-            (sender.clone(), sender.subscribe())
-        }
-        Entry::Vacant(v) => {
-            let (tx, rx) = broadcast(100);
-            v.insert(tx.clone());
-            (tx, rx)
-        }
-    };
+        .expect("failed to get workspace");
 
-    let mut server_update = match context
-        .get_storage()
-        .docs()
-        .remote()
-        .write()
-        .await
-        .entry(workspace_id.clone())
-    {
-        Entry::Occupied(tx) => tx.get().subscribe(),
-        Entry::Vacant(v) => {
-            let (tx, rx) = broadcast(100);
-            v.insert(tx);
-            rx
-        }
-    };
+    let mut broadcast_update = context.join_broadcast(&mut ws).await;
+    let mut server_update = context.join_server_broadcast(&workspace_id).await;
 
-    if let Ok(init_data) = {
-        let mut ws = context
-            .get_storage()
-            .create_workspace(&workspace_id)
-            .await
-            .expect("create workspace failed, please check if the workspace_id is valid or not");
-
-        subscribe(&mut ws, broadcast_tx).await;
-
-        ws.sync_init_message().await
-    } {
-        if pipeline_tx.send(Message::Binary(init_data)).await.is_err() {
+    if let Ok(init_data) = ws.sync_init_message().await {
+        if tx.send(Message::Binary(init_data)).await.is_err() {
             // client disconnected
-            if let Err(e) = pipeline_tx.send(Message::Close(None)).await {
+            if let Err(e) = tx.send(Message::Close(None)).await {
                 error!("failed to send close event: {}", e);
             }
             return;
         }
     } else {
-        if let Err(e) = pipeline_tx.send(Message::Close(None)).await {
+        if let Err(e) = tx.send(Message::Close(None)).await {
             error!("failed to send close event: {}", e);
         }
         return;
@@ -162,24 +54,11 @@ pub async fn handle_socket(
 
     'sync: loop {
         tokio::select! {
-            Some(msg) = socket_rx.next() => {
-                if let Ok(Message::Binary(binary)) = msg {
-                    trace!("recv from remote: {}bytes", binary.len());
-                    if remote_tx.send(binary).await.is_err() {
-                        // pipeline was closed
-                        break 'sync;
-                    }
-                }
 
-            },
             Ok(msg) = server_update.recv()=> {
                 let ts = Instant::now();
                 trace!("recv from server update: {:?}", msg);
-                if pipeline_tx
-                    .send(Message::Binary(msg.clone()))
-                    .await
-                    .is_err()
-                {
+                if tx.send(Message::Binary(msg.clone())).await.is_err() {
                     // pipeline was closed
                     break 'sync;
                 }
@@ -188,7 +67,7 @@ pub async fn handle_socket(
                 }
 
             },
-            Ok(msg) = broadcast_rx.recv()=> {
+            Ok(msg) = broadcast_update.recv()=> {
                 let ts = Instant::now();
                 match msg {
                     BroadcastType::BroadcastAwareness(data) => {
@@ -197,11 +76,7 @@ pub async fn handle_socket(
                             "recv awareness update from broadcast: {:?}bytes",
                             data.len()
                         );
-                        if pipeline_tx
-                            .send(Message::Binary(data.clone()))
-                            .await
-                            .is_err()
-                        {
+                        if tx.send(Message::Binary(data.clone())).await.is_err() {
                             // pipeline was closed
                             break 'sync;
                         }
@@ -215,11 +90,7 @@ pub async fn handle_socket(
                     BroadcastType::BroadcastContent(data) => {
                         let ts = Instant::now();
                         trace!("recv content update from broadcast: {:?}bytes", data.len());
-                        if pipeline_tx
-                            .send(Message::Binary(data.clone()))
-                            .await
-                            .is_err()
-                        {
+                        if tx.send(Message::Binary(data.clone())).await.is_err() {
                             // pipeline was closed
                             break 'sync;
                         }
@@ -232,7 +103,7 @@ pub async fn handle_socket(
                     }
                     BroadcastType::CloseUser(user) if user == identifier => {
                         let ts = Instant::now();
-                        if pipeline_tx.send(Message::Close(None)).await.is_err() {
+                        if tx.send(Message::Close(None)).await.is_err() {
                             // pipeline was closed
                             break 'sync;
                         }
@@ -244,7 +115,7 @@ pub async fn handle_socket(
                     }
                     BroadcastType::CloseAll => {
                         let ts = Instant::now();
-                        if pipeline_tx.send(Message::Close(None)).await.is_err() {
+                        if tx.send(Message::Close(None)).await.is_err() {
                             // pipeline was closed
                             break 'sync;
                         }
@@ -266,7 +137,7 @@ pub async fn handle_socket(
                     .get_storage()
                     .full_migrate(workspace_id.clone(), None, false)
                     .await;
-                if pipeline_tx.is_closed() || pipeline_tx.send(Message::Ping(vec![])).await.is_err() {
+                if tx.is_closed() || tx.send(Message::Ping(vec![])).await.is_err() {
                     break 'sync;
                 }
             }

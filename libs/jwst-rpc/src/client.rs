@@ -3,17 +3,10 @@ use anyhow::Context;
 use futures::{SinkExt, StreamExt};
 use jwst::{DocStorage, JwstResult, Workspace};
 use jwst_storage::JwstStorage;
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::{
     net::TcpStream,
     sync::broadcast::{channel, Receiver},
-    time::sleep,
 };
 use tokio_tungstenite::{
     connect_async,
