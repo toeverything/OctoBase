@@ -26,10 +26,14 @@ lto = true
 opt-level = 3
 codegen-units = 1
 
-[profile.profiling]
+
+[profile.fast-release]
 inherits = "release"
 codegen-units = 16
 lto = false
+
+[profile.profiling]
+inherits = "fast-release"
 debug = true
 
 [profile.dev.package.sqlx-macros]
