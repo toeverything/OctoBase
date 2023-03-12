@@ -733,6 +733,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4c78c047431fee22c1a7bb92e00ad095a02a983affe4d8a72e2a2c62c1b94f3"
 
 [[package]]
+name = "convert_case"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1880,7 +1889,7 @@ dependencies = [
 
 [[package]]
 name = "jwst"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "assert-json-diff",
@@ -1888,6 +1897,7 @@ dependencies = [
  "bytes",
  "cang-jie",
  "chrono",
+ "convert_case",
  "futures",
  "lib0",
  "log",
@@ -1899,6 +1909,7 @@ dependencies = [
  "tokio",
  "type-map",
  "utoipa 2.4.2",
+ "vergen",
  "y-sync",
  "yrs",
 ]
@@ -1926,14 +1937,12 @@ dependencies = [
 name = "jwst-logger"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "chrono",
  "nu-ansi-term",
  "tracing",
  "tracing-log",
  "tracing-stackdriver",
  "tracing-subscriber",
- "vergen",
 ]
 
 [[package]]
@@ -3630,9 +3639,9 @@ checksum = "1c107b6f4780854c8b126e228ea8869f4d7b71260f962fefb57b996b8959ba6b"
 
 [[package]]
 name = "semver"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58bc9567378fc7690d6b2addae4e60ac2eeea07becb2c64b9f218b53865cba2a"
+checksum = "bebd363326d05ec3e2f532ab7660680f3b02130d780c299bca73469d521bc0ed"
 
 [[package]]
 name = "serde"
