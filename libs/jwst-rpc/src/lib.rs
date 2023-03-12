@@ -1,4 +1,4 @@
-#![feature(mutex_unpoison, type_alias_impl_trait)]
+#![feature(mutex_unpoison)]
 
 mod broadcast;
 mod client;
