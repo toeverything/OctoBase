@@ -1,11 +1,7 @@
-use super::trace;
-use jwst::{info, sync_encode_update, MapSubscription, Workspace};
+use super::*;
+use jwst::{sync_encode_update, MapSubscription, Workspace};
 use lru_time_cache::LruCache;
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{collections::HashMap, sync::Mutex};
 use tokio::sync::{broadcast::Sender, RwLock};
 use y_sync::{
     awareness::{Event, Subscription},
@@ -33,7 +29,7 @@ pub struct Subscriptions {
     _metadata: MapSubscription,
 }
 
-pub fn subscribe(workspace: &mut Workspace, sender: Broadcast) -> Subscriptions {
+pub async fn subscribe(workspace: &mut Workspace, sender: Broadcast) {
     let awareness = {
         let sender = sender.clone();
         let workspace_id = workspace.id();
@@ -43,35 +39,37 @@ pub fn subscribe(workspace: &mut Workspace, sender: Broadcast) -> Subscriptions 
             128,
         )));
 
-        workspace.on_awareness_update(move |awareness, e| {
-            trace!(
-                "workspace awareness changed: {}, {:?}",
-                workspace_id,
-                [e.added(), e.updated(), e.removed()].concat()
-            );
-            if let Ok(update) = awareness
-                .update_with_clients([e.added(), e.updated(), e.removed()].concat())
-                .map(|update| {
-                    let mut encoder = EncoderV1::new();
-                    YMessage::Awareness(update).encode(&mut encoder);
-                    encoder.to_vec()
-                })
-            {
-                let mut dedup_cache = dedup_cache.lock().unwrap_or_else(|e| {
-                    dedup_cache.clear_poison();
-                    e.into_inner()
-                });
-                if !dedup_cache.contains_key(&update) {
-                    if sender
-                        .send(BroadcastType::BroadcastAwareness(update.clone()))
-                        .is_err()
-                    {
-                        info!("broadcast channel {workspace_id} has been closed",)
+        workspace
+            .on_awareness_update(move |awareness, e| {
+                trace!(
+                    "workspace awareness changed: {}, {:?}",
+                    workspace_id,
+                    [e.added(), e.updated(), e.removed()].concat()
+                );
+                if let Ok(update) = awareness
+                    .update_with_clients([e.added(), e.updated(), e.removed()].concat())
+                    .map(|update| {
+                        let mut encoder = EncoderV1::new();
+                        YMessage::Awareness(update).encode(&mut encoder);
+                        encoder.to_vec()
+                    })
+                {
+                    let mut dedup_cache = dedup_cache.lock().unwrap_or_else(|e| {
+                        dedup_cache.clear_poison();
+                        e.into_inner()
+                    });
+                    if !dedup_cache.contains_key(&update) {
+                        if sender
+                            .send(BroadcastType::BroadcastAwareness(update.clone()))
+                            .is_err()
+                        {
+                            info!("broadcast channel {workspace_id} has been closed",)
+                        }
+                        dedup_cache.insert(update, ());
                     }
-                    dedup_cache.insert(update, ());
                 }
-            }
-        })
+            })
+            .await
     };
     let doc = {
         let workspace_id = workspace.id();
@@ -96,9 +94,13 @@ pub fn subscribe(workspace: &mut Workspace, sender: Broadcast) -> Subscriptions 
         //     .update_workspace(ws_id.clone(), context.clone());
     });
 
-    Subscriptions {
+    let sub = Subscriptions {
         _awareness: awareness,
         _doc: doc,
         _metadata: metadata,
-    }
+    };
+
+    // TODO: this is a hack to prevent the subscription from being dropped
+    // just keep the ownership
+    std::mem::forget(sub);
 }

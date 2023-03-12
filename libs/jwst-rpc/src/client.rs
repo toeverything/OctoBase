@@ -3,17 +3,10 @@ use anyhow::Context;
 use futures::{SinkExt, StreamExt};
 use jwst::{DocStorage, JwstResult, Workspace};
 use jwst_storage::JwstStorage;
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::{
     net::TcpStream,
     sync::broadcast::{channel, Receiver},
-    time::sleep,
 };
 use tokio_tungstenite::{
     connect_async,
@@ -47,6 +40,7 @@ async fn init_connection(workspace: &Workspace, remote: &str) -> JwstResult<Sock
     debug!("create init message");
     let init_data = workspace
         .sync_init_message()
+        .await
         .context("failed to create init message")?;
 
     debug!("send init message");
@@ -81,7 +75,7 @@ async fn join_sync_thread(
                             if msg == [0, 2, 2, 0, 0] {
                                 continue;
                             }
-                            let buffer = workspace.sync_decode_message(&msg);
+                            let buffer = workspace.sync_decode_message(&msg).await;
                             first_sync.store(true, Ordering::Release);
                             for update in buffer {
                                 debug!("send differential update to remote: {:?}", update);

@@ -2,10 +2,11 @@ use super::{plugins::setup_plugin, *};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
-    sync::{Arc, RwLock},
+    sync::Arc,
     thread::sleep,
-    time::{Duration, Instant},
+    time::Duration,
 };
+use tokio::sync::RwLock;
 use y_sync::{
     awareness::{Awareness, Event, Subscription as AwarenessSubscription},
     sync::{DefaultProtocol, Error, Message, MessageReader, Protocol, SyncMessage},
@@ -30,6 +31,7 @@ pub type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>
 pub struct Workspace {
     id: String,
     awareness: Arc<RwLock<Awareness>>,
+    doc: Doc,
     pub(crate) blocks: MapRef,
     pub(crate) updated: MapRef,
     pub(crate) metadata: MapRef,
@@ -58,7 +60,8 @@ impl Workspace {
 
         setup_plugin(Self {
             id: id.as_ref().to_string(),
-            awareness: Arc::new(RwLock::new(Awareness::new(doc))),
+            awareness: Arc::new(RwLock::new(Awareness::new(doc.clone()))),
+            doc,
             blocks,
             updated,
             metadata,
@@ -69,6 +72,7 @@ impl Workspace {
     fn from_raw<S: AsRef<str>>(
         id: S,
         awareness: Arc<RwLock<Awareness>>,
+        doc: Doc,
         blocks: MapRef,
         updated: MapRef,
         metadata: MapRef,
@@ -76,6 +80,7 @@ impl Workspace {
         setup_plugin(Self {
             id: id.as_ref().to_string(),
             awareness,
+            doc,
             blocks,
             updated,
             metadata,
@@ -201,20 +206,6 @@ impl Workspace {
         })
     }
 
-    pub fn observe_metadata(
-        &mut self,
-        f: impl Fn(&TransactionMut, &MapEvent) + 'static,
-    ) -> MapSubscription {
-        self.metadata.observe(f)
-    }
-
-    pub fn on_awareness_update(
-        &mut self,
-        f: impl Fn(&Awareness, &Event) + 'static,
-    ) -> AwarenessSubscription<Event> {
-        self.awareness.write().unwrap().on_update(f)
-    }
-
     /// Check if the block exists in this workspace's blocks.
     pub fn exists<T>(&self, trx: &T, block_id: &str) -> bool
     where
@@ -223,22 +214,46 @@ impl Workspace {
         self.blocks.contains_key(trx, block_id.as_ref())
     }
 
+    pub fn observe_metadata(
+        &mut self,
+        f: impl Fn(&TransactionMut, &MapEvent) + 'static,
+    ) -> MapSubscription {
+        self.metadata.observe(f)
+    }
+
+    pub async fn on_awareness_update(
+        &mut self,
+        f: impl Fn(&Awareness, &Event) + 'static,
+    ) -> AwarenessSubscription<Event> {
+        self.awareness.write().await.on_update(f)
+    }
+
     /// Subscribe to update events.
     pub fn observe(
         &mut self,
-        f: impl Fn(&TransactionMut, &UpdateEvent) + 'static,
+        f: impl Fn(&TransactionMut, &UpdateEvent) + Clone + 'static,
     ) -> Option<UpdateSubscription> {
-        let doc = self.awareness.read().unwrap().doc().clone();
-
+        let doc = self.doc();
         match catch_unwind(AssertUnwindSafe(move || {
-            doc.observe_update_v1(move |trx, evt| {
-                if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(trx, evt))) {
-                    error!("panic in observe callback: {:?}", e);
+            let mut retry = 10;
+            loop {
+                let f = f.clone();
+                match doc.observe_update_v1(move |trx, evt| {
+                    if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(trx, evt))) {
+                        error!("panic in observe callback: {:?}", e);
+                    }
+                }) {
+                    Ok(sub) => break Ok(sub),
+                    Err(e) if retry <= 0 => break Err(e),
+                    _ => {
+                        sleep(Duration::from_micros(100));
+                        retry -= 1;
+                        continue;
+                    }
                 }
-            })
-            .ok()
+            }
         })) {
-            Ok(sub) => sub,
+            Ok(sub) => sub.map_err(|e| error!("failed to observe: {:?}", e)).ok(),
             Err(e) => {
                 error!("panic in observe callback: {:?}", e);
                 None
@@ -247,114 +262,108 @@ impl Workspace {
     }
 
     pub fn doc(&self) -> Doc {
-        self.awareness.read().unwrap().doc().clone()
+        self.doc.clone()
     }
 
     pub fn sync_migration(&self) -> Vec<u8> {
-        self.doc()
+        self.doc
             .transact()
             .encode_state_as_update_v1(&StateVector::default())
     }
 
-    pub fn sync_init_message(&self) -> Result<Vec<u8>, Error> {
+    pub async fn sync_init_message(&self) -> Result<Vec<u8>, Error> {
         let mut encoder = EncoderV1::new();
-        PROTOCOL.start(&self.awareness.read().unwrap(), &mut encoder)?;
+        PROTOCOL.start(&*self.awareness.read().await, &mut encoder)?;
         Ok(encoder.to_vec())
     }
 
-    pub fn sync_decode_message(&mut self, binary: &[u8]) -> Vec<Vec<u8>> {
+    pub async fn sync_decode_message(&mut self, binary: &[u8]) -> Vec<Vec<u8>> {
         let mut decoder = DecoderV1::from(binary);
         let mut result = vec![];
-        let mut awareness = self.awareness.write().unwrap();
 
         let (awareness_msg, content_msg): (Vec<_>, Vec<_>) = MessageReader::new(&mut decoder)
             .flatten()
             .partition(|msg| matches!(msg, Message::Awareness(_) | Message::AwarenessQuery));
 
-        let ts = Instant::now();
-        if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
-            for msg in awareness_msg {
-                match msg {
-                    Message::AwarenessQuery => {
-                        if let Ok(update) = awareness.update() {
-                            result.push(Message::Awareness(update).encode_v1());
-                        }
-                    }
-                    Message::Awareness(update) => {
-                        if let Err(e) = awareness.apply_update(update) {
-                            warn!("failed to apply awareness: {:?}", e);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        })) {
-            warn!("failed to apply awareness update: {:?}", e);
-        }
-        if ts.elapsed().as_micros() > 100 {
-            debug!(
-                "apply awareness update cost: {}ms",
-                ts.elapsed().as_micros()
-            );
-        }
-
-        let ts = Instant::now();
-        if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
-            let mut retry = 30;
-            let mut trx = loop {
-                if let Ok(trx) = awareness.doc().try_transact_mut() {
-                    break trx;
-                } else if retry > 0 {
-                    retry -= 1;
-                    sleep(Duration::from_micros(100));
-                } else {
-                    return;
-                }
-            };
-            for msg in content_msg {
-                if let Some(msg) = {
-                    trace!("processing message: {:?}", msg);
+        if !awareness_msg.is_empty() {
+            let mut awareness = self.awareness.write().await;
+            if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
+                for msg in awareness_msg {
                     match msg {
-                        Message::Sync(msg) => match msg {
-                            SyncMessage::SyncStep1(sv) => {
-                                let update = trx.encode_state_as_update_v1(&sv);
-                                Some(Message::Sync(SyncMessage::SyncStep2(update)))
+                        Message::AwarenessQuery => {
+                            if let Ok(update) = awareness.update() {
+                                result.push(Message::Awareness(update).encode_v1());
                             }
-                            SyncMessage::SyncStep2(update) => {
-                                if let Ok(update) = Update::decode_v1(&update) {
-                                    trx.apply_update(update);
+                        }
+                        Message::Awareness(update) => {
+                            if let Err(e) = awareness.apply_update(update) {
+                                warn!("failed to apply awareness: {:?}", e);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            })) {
+                warn!("failed to apply awareness update: {:?}", e);
+            }
+        }
+        if !content_msg.is_empty() {
+            let doc = self.doc();
+            if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
+                let mut retry = 30;
+                let mut trx = loop {
+                    if let Ok(trx) = doc.try_transact_mut() {
+                        break trx;
+                    } else if retry > 0 {
+                        retry -= 1;
+                        sleep(Duration::from_micros(10));
+                    } else {
+                        return;
+                    }
+                };
+                for msg in content_msg {
+                    if let Some(msg) = {
+                        trace!("processing message: {:?}", msg);
+                        match msg {
+                            Message::Sync(msg) => match msg {
+                                SyncMessage::SyncStep1(sv) => {
+                                    let update = trx.encode_state_as_update_v1(&sv);
+                                    Some(Message::Sync(SyncMessage::SyncStep2(update)))
                                 }
-                                None
-                            }
-                            SyncMessage::Update(update) => {
-                                if let Ok(update) = Update::decode_v1(&update) {
-                                    trx.apply_update(update);
-                                    trx.commit();
-                                    trace!(
-                                        "changed_parent_types: {:?}",
-                                        trx.changed_parent_types()
-                                    );
-                                    trace!("before_state: {:?}", trx.before_state());
-                                    trace!("after_state: {:?}", trx.after_state());
-                                    let update = trx.encode_update_v1();
-                                    Some(Message::Sync(SyncMessage::Update(update)))
-                                } else {
+                                SyncMessage::SyncStep2(update) => {
+                                    if let Ok(update) = Update::decode_v1(&update) {
+                                        trx.apply_update(update);
+                                    }
                                     None
                                 }
-                            }
-                        },
-                        _ => None,
+                                SyncMessage::Update(update) => {
+                                    if let Ok(update) = Update::decode_v1(&update) {
+                                        trx.apply_update(update);
+                                        trx.commit();
+                                        if cfg!(debug_assertions) {
+                                            trace!(
+                                                "changed_parent_types: {:?}",
+                                                trx.changed_parent_types()
+                                            );
+                                            trace!("before_state: {:?}", trx.before_state());
+                                            trace!("after_state: {:?}", trx.after_state());
+                                        }
+                                        let update = trx.encode_update_v1();
+                                        Some(Message::Sync(SyncMessage::Update(update)))
+                                    } else {
+                                        None
+                                    }
+                                }
+                            },
+                            _ => None,
+                        }
+                    } {
+                        result.push(msg.encode_v1());
                     }
-                } {
-                    result.push(msg.encode_v1());
                 }
+            })) {
+                warn!("failed to apply update: {:?}", e);
             }
-        })) {
-            warn!("failed to apply update: {:?}", e);
-        }
-
-        if ts.elapsed().as_micros() > 100 {
-            debug!("apply update cost: {}ms", ts.elapsed().as_micros());
         }
 
         result
@@ -380,6 +389,7 @@ impl Clone for Workspace {
         Self::from_raw(
             &self.id,
             self.awareness.clone(),
+            self.doc.clone(),
             self.blocks.clone(),
             self.updated.clone(),
             self.metadata.clone(),

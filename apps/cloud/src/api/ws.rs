@@ -7,7 +7,7 @@ use axum::{
     response::Response,
 };
 use base64::Engine;
-use jwst_rpc::handle_socket;
+use jwst_rpc::{handle_connector, socket_connector};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -77,6 +77,9 @@ async fn ws_handler(
                 return;
             };
 
-            handle_socket(socket, workspace, ctx.clone(), user_id).await
+            handle_connector(ctx.clone(), workspace.clone(), user_id, move || {
+                socket_connector(socket, &workspace)
+            })
+            .await
         })
 }
