@@ -54,10 +54,7 @@ pub async fn subscribe(workspace: &mut Workspace, sender: Broadcast) {
                         encoder.to_vec()
                     })
                 {
-                    let mut dedup_cache = dedup_cache.lock().unwrap_or_else(|e| {
-                        dedup_cache.clear_poison();
-                        e.into_inner()
-                    });
+                    let mut dedup_cache = dedup_cache.lock().unwrap_or_else(|e| e.into_inner());
                     if !dedup_cache.contains_key(&update) {
                         if sender
                             .send(BroadcastType::BroadcastAwareness(update.clone()))

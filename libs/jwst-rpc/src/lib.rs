@@ -1,5 +1,3 @@
-#![feature(mutex_unpoison)]
-
 mod broadcast;
 mod client;
 mod connector;
