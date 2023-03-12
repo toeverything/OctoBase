@@ -65,6 +65,42 @@ pub async fn handle_socket(
         });
     }
 
+    // process remote update
+    let (remote_tx, mut remote_rx) = channel::<Vec<u8>>(512);
+    {
+        // collect messages from remote
+        let context = context.clone();
+        let pipeline_tx = pipeline_tx.clone();
+        let identifier = identifier.clone();
+        let workspace_id = workspace_id.clone();
+        tokio::spawn(async move {
+            let mut workspace = context
+                .get_storage()
+                .get_workspace(&workspace_id)
+                .await
+                .expect("workspace not found");
+            while let Some(binary) = remote_rx.recv().await {
+                let ts = Instant::now();
+                let message = workspace.sync_decode_message(&binary).await;
+                if ts.elapsed().as_micros() > 50 {
+                    debug!("apply remote update cost: {}ms", ts.elapsed().as_micros());
+                }
+
+                for reply in message {
+                    trace!("send pipeline message by {identifier:?}: {}", reply.len());
+                    if pipeline_tx
+                        .send(Message::Binary(reply.clone()))
+                        .await
+                        .is_err()
+                    {
+                        // pipeline was closed
+                        break;
+                    }
+                }
+            }
+        });
+    }
+
     // broadcast channel
     let (broadcast_tx, mut broadcast_rx) = match context
         .get_channel()
@@ -106,11 +142,9 @@ pub async fn handle_socket(
             .await
             .expect("create workspace failed, please check if the workspace_id is valid or not");
 
-        let _sub = subscribe(&mut ws, broadcast_tx);
-        // just keep the ownership
-        std::mem::forget(_sub);
+        subscribe(&mut ws, broadcast_tx).await;
 
-        ws.sync_init_message()
+        ws.sync_init_message().await
     } {
         if pipeline_tx.send(Message::Binary(init_data)).await.is_err() {
             // client disconnected
@@ -129,52 +163,18 @@ pub async fn handle_socket(
     'sync: loop {
         tokio::select! {
             Some(msg) = socket_rx.next() => {
-                let ts = Instant::now();
                 if let Ok(Message::Binary(binary)) = msg {
                     trace!("recv from remote: {}bytes", binary.len());
-
-                    let ts = Instant::now();
-                    let mut workspace = context
-                        .get_storage()
-                        .get_workspace(&workspace_id)
-                        .await
-                        .expect("workspace not found");
-
-                    // TODO: apply is very slow, need to optimize
-                    if let Ok(message) =
-                        tokio::task::spawn_blocking(move || workspace.sync_decode_message(&binary)).await
-                    {
-                        if ts.elapsed().as_micros() > 100 {
-                            debug!("apply remote update cost: {}ms", ts.elapsed().as_micros());
-                        }
-
-                        let ts = Instant::now();
-
-                        for reply in message {
-                            trace!("send pipeline message by {identifier:?}: {}", reply.len());
-                            if pipeline_tx
-                                .send(Message::Binary(reply.clone()))
-                                .await
-                                .is_err()
-                            {
-                                // pipeline was closed
-                                break 'sync;
-                            }
-                        }
-
-                        if ts.elapsed().as_micros() > 100 {
-                            debug!("send remote update cost: {}ms", ts.elapsed().as_micros());
-                        }
+                    if remote_tx.send(binary).await.is_err() {
+                        // pipeline was closed
+                        break 'sync;
                     }
                 }
 
-                if ts.elapsed().as_micros() > 100 {
-                    debug!("process remote update cost: {}ms", ts.elapsed().as_micros());
-                }
             },
             Ok(msg) = server_update.recv()=> {
                 let ts = Instant::now();
-                debug!("recv from server update: {:?}", msg);
+                trace!("recv from server update: {:?}", msg);
                 if pipeline_tx
                     .send(Message::Binary(msg.clone()))
                     .await
