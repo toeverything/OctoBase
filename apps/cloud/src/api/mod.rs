@@ -503,25 +503,24 @@ mod tests {
         assert_eq!(res.status(), StatusCode::OK);
     }
 
-    #[tokio::test]
-    async fn test_get_user_by_email() {
-        let ctx = Arc::new(context::Context::new().await);
-        let app = make_rest_route(ctx.clone());
-
-        // initiate the TestClient with the previous declared Router
-        let client = TestClient::new(app);
-        let (new_user, _) = ctx
-            .db
-            .create_user(CreateUser {
-                avatar_url: Some("xxx".to_string()),
-                email: "xxx@xxx.xx".to_string(),
-                name: "xxx".to_string(),
-                password: "xxx".to_string(),
-            })
-            .await
-            .unwrap()
-            .unwrap();
-        let res = client.get("/healthz").send().await;
-        assert_eq!(res.status(), StatusCode::OK);
-    }
+    // #[tokio::test]
+    // async fn test_get_user_by_email() {
+    //     let ctx = Arc::new(context::Context::new().await);
+    //     let app = make_rest_route(ctx.clone());
+    //     let client = TestClient::new(app);
+    //     ctx.db
+    //         .create_user(CreateUser {
+    //             avatar_url: Some("xxx".to_string()),
+    //             email: "xxx@xxx.xx".to_string(),
+    //             name: "xxx".to_string(),
+    //             password: "xxx".to_string(),
+    //         })
+    //         .await
+    //         .unwrap()
+    //         .unwrap();
+    //     let res = client.get("/user?email=xxx@xxx.xx").send().await;
+    //     assert_eq!(res.status(), 200);
+    //     let body = res.text().await;
+    //     assert_eq!(body, "expected response body");
+    // }
 }

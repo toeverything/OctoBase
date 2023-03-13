@@ -65,6 +65,7 @@ version = "0.1.0"
 dependencies = [
  "aes-gcm",
  "axum",
+ "axum-test-helper",
  "base64 0.21.0",
  "bytes",
  "chrono",
