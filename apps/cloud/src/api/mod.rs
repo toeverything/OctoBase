@@ -488,7 +488,7 @@ mod test {
     use super::*;
     use axum_test_helper::TestClient;
     use cloud_database::{CloudDatabase, CreateUser};
-
+    // use serde_json::{json, Value};
     #[tokio::test]
 
     async fn test_health_check() {
@@ -540,4 +540,30 @@ mod test {
         let resp = client.get("/user?user_name=fake_parameter").send().await;
         assert_eq!(resp.status().is_client_error(), true);
     }
+
+    // #[tokio::test]
+    // async fn test_make_token() {
+    //     let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+    //     let context = Context {
+    //         db: pool,
+    //         ..Context::new().await
+    //     };
+    //     let ctx = Arc::new(context);
+    //     let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+    //     let client = TestClient::new(app);
+    //     let body_data = json!({
+    //         "User": "my_username",
+    //         "Refresh": "my_password",
+    //         "Google": "my_google_token",
+    //     });
+    //     let body_string = serde_json::to_string(&body_data).unwrap();
+    //     let resp = client
+    //         .post("/user/token")
+    //         .header("Content-Type", "application/json")
+    //         .body(body_string)
+    //         .send()
+    //         .await;
+    //     assert_eq!(resp.status(), StatusCode::OK);
+    // }
 }
