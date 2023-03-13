@@ -74,42 +74,38 @@ where
         mut writer: Writer<'_>,
         event: &Event<'_>,
     ) -> Result {
-        if cfg!(debug_assertions) {
-            let normalized_meta = event.normalized_metadata();
-            let meta = normalized_meta.as_ref().unwrap_or_else(|| event.metadata());
+        let normalized_meta = event.normalized_metadata();
+        let meta = normalized_meta.as_ref().unwrap_or_else(|| event.metadata());
 
-            if std::env::var("JWST_DEV").is_err()
-                && (meta.target() == "sqlx::query" || meta.target() == "runtime.spawn")
-            {
-                return Ok(());
-            }
-
-            write!(&mut writer, "{}", Self::write_log(meta))?;
-
-            // Format all the spans in the event's span context.
-            if let Some(scope) = ctx.event_scope() {
-                for span in scope.from_root() {
-                    write!(writer, "{}", span.name())?;
-
-                    let ext = span.extensions();
-                    let fields = &ext
-                        .get::<FormattedFields<N>>()
-                        .expect("will never be `None`");
-
-                    // Skip formatting the fields if the span had no fields.
-                    if !fields.is_empty() {
-                        write!(writer, "{{{fields}}}")?;
-                    }
-                    write!(writer, ": ")?;
-                }
-            }
-
-            // Write fields on the event
-            ctx.field_format().format_fields(writer.by_ref(), event)?;
-
-            writeln!(writer)
-        } else {
-            self.default.format_event(ctx, writer, event)
+        if std::env::var("JWST_DEV").is_err()
+            && (meta.target() == "sqlx::query" || meta.target() == "runtime.spawn")
+        {
+            return Ok(());
         }
+
+        write!(&mut writer, "{}", Self::write_log(meta))?;
+
+        // Format all the spans in the event's span context.
+        if let Some(scope) = ctx.event_scope() {
+            for span in scope.from_root() {
+                write!(writer, "{}", span.name())?;
+
+                let ext = span.extensions();
+                let fields = &ext
+                    .get::<FormattedFields<N>>()
+                    .expect("will never be `None`");
+
+                // Skip formatting the fields if the span had no fields.
+                if !fields.is_empty() {
+                    write!(writer, "{{{fields}}}")?;
+                }
+                write!(writer, ": ")?;
+            }
+        }
+
+        // Write fields on the event
+        ctx.field_format().format_fields(writer.by_ref(), event)?;
+
+        writeln!(writer)
     }
 }
