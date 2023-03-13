@@ -1,165 +1,140 @@
 mod broadcast;
 mod client;
+mod connector;
+mod context;
 
 pub use broadcast::{BroadcastChannels, BroadcastType};
 pub use client::start_client;
+pub use connector::socket_connector;
+pub use context::RpcContextImpl;
 
-use axum::{
-    extract::ws::{Message, WebSocket},
-    Error,
-};
-use broadcast::subscribe;
-use futures::{sink::SinkExt, stream::StreamExt};
 use jwst::{debug, error, info, trace, warn};
-use jwst_storage::JwstStorage;
-use lru_time_cache::LruCache;
-use std::{collections::hash_map::Entry, sync::Arc};
+use std::{collections::hash_map::Entry, sync::Arc, time::Instant};
 use tokio::{
-    sync::broadcast::channel as broadcast,
+    sync::mpsc::{Receiver, Sender},
     time::{sleep, Duration},
 };
-use tokio_tungstenite::tungstenite::Error as SocketError;
 
-pub trait ContextImpl<'a> {
-    fn get_storage(&self) -> &JwstStorage;
-    fn get_channel(&self) -> &BroadcastChannels;
+pub enum Message {
+    Binary(Vec<u8>),
+    Close,
+    Ping,
 }
 
-#[inline]
-fn is_connection_closed(error: Error) -> bool {
-    if let Ok(e) = error.into_inner().downcast::<SocketError>() {
-        matches!(e.as_ref(), SocketError::ConnectionClosed)
-    } else {
-        false
-    }
-}
-
-pub async fn handle_socket(
-    socket: WebSocket,
+pub async fn handle_connector(
+    context: Arc<impl RpcContextImpl<'static> + Send + Sync + 'static>,
     workspace_id: String,
-    context: Arc<impl ContextImpl<'static> + Send + Sync + 'static>,
     identifier: String,
+    get_channel: impl FnOnce() -> (Sender<Message>, Receiver<Vec<u8>>),
 ) {
     info!("{} collaborate with workspace {}", identifier, workspace_id);
 
-    let (mut socket_tx, mut socket_rx) = socket.split();
-    let (tx, mut rx) = match context
-        .get_channel()
-        .write()
+    let (tx, rx) = get_channel();
+
+    context
+        .apply_change(&workspace_id, &identifier, tx.clone(), rx)
+        .await;
+
+    let mut ws = context
+        .get_workspace(&workspace_id)
         .await
-        .entry(workspace_id.clone())
-    {
-        Entry::Occupied(tx) => {
-            let sender = tx.get();
-            (sender.clone(), sender.subscribe())
-        }
-        Entry::Vacant(v) => {
-            let (tx, rx) = broadcast(100);
-            v.insert(tx.clone());
-            (tx, rx)
-        }
-    };
+        .expect("failed to get workspace");
 
-    let mut server_update = match context
-        .get_storage()
-        .docs()
-        .remote()
-        .write()
-        .await
-        .entry(workspace_id.clone())
-    {
-        Entry::Occupied(tx) => tx.get().subscribe(),
-        Entry::Vacant(v) => {
-            let (tx, rx) = broadcast(100);
-            v.insert(tx);
-            rx
-        }
-    };
+    let mut broadcast_update = context.join_broadcast(&mut ws).await;
+    let mut server_update = context.join_server_broadcast(&workspace_id).await;
 
-    if let Ok(init_data) = {
-        let mut ws = context
-            .get_storage()
-            .create_workspace(&workspace_id)
-            .await
-            .expect("create workspace failed, please check if the workspace_id is valid or not");
-
-        let _sub = subscribe(&mut ws, tx);
-        // just keep the ownership
-        std::mem::forget(_sub);
-
-        ws.sync_init_message()
-    } {
-        if socket_tx.send(Message::Binary(init_data)).await.is_err() {
+    if let Ok(init_data) = ws.sync_init_message().await {
+        if tx.send(Message::Binary(init_data)).await.is_err() {
             // client disconnected
-            if let Err(e) = socket_tx.send(Message::Close(None)).await {
+            if let Err(e) = tx.send(Message::Close).await {
                 error!("failed to send close event: {}", e);
             }
             return;
         }
     } else {
-        if let Err(e) = socket_tx.send(Message::Close(None)).await {
+        if let Err(e) = tx.send(Message::Close).await {
             error!("failed to send close event: {}", e);
         }
         return;
     }
 
-    let mut dedup_cache = LruCache::with_expiry_duration_and_capacity(Duration::from_secs(5), 128);
-
-    loop {
+    'sync: loop {
         tokio::select! {
-            Some(msg) = socket_rx.next() => {
-                if let Ok(Message::Binary(binary)) = msg {
-                    debug!("recv from remote: {}bytes", binary.len());
+            Ok(msg) = server_update.recv()=> {
+                let ts = Instant::now();
+                trace!("recv from server update: {:?}", msg);
+                if tx.send(Message::Binary(msg.clone())).await.is_err() {
+                    // pipeline was closed
+                    break 'sync;
+                }
+                if ts.elapsed().as_micros() > 100 {
+                    debug!("process server update cost: {}ms", ts.elapsed().as_micros());
+                }
 
-                    let mut workspace = context
-                        .get_storage()
-                        .get_workspace(&workspace_id)
-                        .await
-                        .expect("workspace not found");
-
-                    let message = workspace.sync_decode_message(&binary);
-
-                    for reply in message {
-                        if !dedup_cache.contains_key(&reply) {
-                            debug!("send pipeline message by {identifier:?}: {}", reply.len());
-                            if let Err(e) = socket_tx.send(Message::Binary(reply.clone())).await {
-                                let error = e.to_string();
-                                if is_connection_closed(e) {
-                                    return;
-                                } else {
-                                    error!("socket send error: {}", error);
-                                }
-                            }
-                            dedup_cache.insert(reply, ());
+            },
+            Ok(msg) = broadcast_update.recv()=> {
+                let ts = Instant::now();
+                match msg {
+                    BroadcastType::BroadcastAwareness(data) => {
+                        let ts = Instant::now();
+                        trace!(
+                            "recv awareness update from broadcast: {:?}bytes",
+                            data.len()
+                        );
+                        if tx.send(Message::Binary(data.clone())).await.is_err() {
+                            // pipeline was closed
+                            break 'sync;
+                        }
+                        if ts.elapsed().as_micros() > 100 {
+                            debug!(
+                                "process broadcast awareness cost: {}ms",
+                                ts.elapsed().as_micros()
+                            );
                         }
                     }
-                }
-            },
-            Ok(msg) = server_update.recv()=> {
-                if !dedup_cache.contains_key(&msg) {
-                    debug!("recv from server update: {:?}", msg);
-                    if let Err(e) = socket_tx.send(Message::Binary(msg.clone())).await {
-                        error!("send error: {}", e);
+                    BroadcastType::BroadcastContent(data) => {
+                        let ts = Instant::now();
+                        trace!("recv content update from broadcast: {:?}bytes", data.len());
+                        if tx.send(Message::Binary(data.clone())).await.is_err() {
+                            // pipeline was closed
+                            break 'sync;
+                        }
+                        if ts.elapsed().as_micros() > 100 {
+                            debug!(
+                                "process broadcast content cost: {}ms",
+                                ts.elapsed().as_micros()
+                            );
+                        }
+                    }
+                    BroadcastType::CloseUser(user) if user == identifier => {
+                        let ts = Instant::now();
+                        if tx.send(Message::Close).await.is_err() {
+                            // pipeline was closed
+                            break 'sync;
+                        }
+                        if ts.elapsed().as_micros() > 100 {
+                            debug!("process close user cost: {}ms", ts.elapsed().as_micros());
+                        }
+
                         break;
                     }
-                    dedup_cache.insert(msg, ());
-                }
-            },
-            Ok(msg) = rx.recv()=> {
-                if let BroadcastType::Broadcast(msg) = msg {
-                    if !dedup_cache.contains_key(&msg) {
-                        debug!("recv from broadcast update: {:?}bytes", msg.len());
-                        if let Err(e) = socket_tx.send(Message::Binary(msg.clone())).await {
-                            error!("send error: {}", e);
-                            break;
+                    BroadcastType::CloseAll => {
+                        let ts = Instant::now();
+                        if tx.send(Message::Close).await.is_err() {
+                            // pipeline was closed
+                            break 'sync;
                         }
-                        dedup_cache.insert(msg, ());
+                        if ts.elapsed().as_micros() > 100 {
+                            debug!("process close all cost: {}ms", ts.elapsed().as_micros());
+                        }
+
+                        break 'sync;
                     }
-                } else if matches!(&msg, BroadcastType::CloseUser(user) if user == &identifier) || matches!(msg, BroadcastType::CloseAll) {
-                    if let Err(e) = socket_tx.send(Message::Close(None)).await {
-                        error!("failed to send close event: {}", e);
-                    }
-                    break;
+                    _ => {}
+                }
+
+                if ts.elapsed().as_micros() > 100 {
+                    debug!("process broadcast cost: {}ms", ts.elapsed().as_micros());
                 }
             },
             _ = sleep(Duration::from_secs(5)) => {
@@ -167,7 +142,20 @@ pub async fn handle_socket(
                     .get_storage()
                     .full_migrate(workspace_id.clone(), None, false)
                     .await;
+                if tx.is_closed() || tx.send(Message::Ping).await.is_err() {
+                    break 'sync;
+                }
             }
         }
     }
+
+    // make a final store
+    context
+        .get_storage()
+        .full_migrate(workspace_id.clone(), None, false)
+        .await;
+    info!(
+        "{} stop collaborate with workspace {}",
+        identifier, workspace_id
+    );
 }

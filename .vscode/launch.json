@@ -16,7 +16,8 @@
 				}
 			},
 			"env": {
-				"DATABASE_URL": "postgresql://affine:affine@localhost:5432/affine"
+				"DATABASE_URL": "postgresql://affine:affine@localhost:5432/affine",
+				"SIGN_KEY": "12345678"
 			},
 			"args": [],
 			"cwd": "${workspaceFolder}"

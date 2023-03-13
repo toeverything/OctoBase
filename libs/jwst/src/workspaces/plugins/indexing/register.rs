@@ -87,22 +87,19 @@ impl PluginRegister for IndexingPluginRegister {
             1,
         ));
 
-        let sub = ws.observe({
-            let queue_reindex = queue_reindex.clone();
-            move |_txn, _e| {
-                // upd.update
-                // let u = yrs::Update::decode_v1(&e.update).unwrap();
-                // let _items = u
-                //     .as_items()
-                //     .into_iter()
-                //     .map(|i| format!("\n  {i:?}"))
-                //     .collect::<String>();
-                // for item in u.as_items() {
-                //     item.id;
-                // }
-
-                queue_reindex.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            }
+        let queue_reindex_clone = queue_reindex.clone();
+        let sub = ws.observe(move |_txn, _e| {
+            // upd.update
+            // let u = yrs::Update::decode_v1(&e.update).unwrap();
+            // let _items = u
+            //     .as_items()
+            //     .into_iter()
+            //     .map(|i| format!("\n  {i:?}"))
+            //     .collect::<String>();
+            // for item in u.as_items() {
+            //     item.id;
+            // }
+            queue_reindex_clone.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         });
 
         Ok(IndexingPluginImpl {
