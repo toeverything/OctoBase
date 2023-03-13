@@ -82,9 +82,7 @@ class MainActivity : AppCompatActivity() {
                 block.set(trx, "index", "this is index")
             }
 
-            val indexFields = JwstVecOfStrings()
-            indexFields.push("title")
-            indexFields.push("text")
+            var indexFields = arrayOf("title", "text")
             workspace.setSearchIndex(indexFields)
             Log.i("jwst",  "search index: " + workspace.getSearchIndex().joinToString(" "))
 
@@ -94,9 +92,9 @@ class MainActivity : AppCompatActivity() {
             val searchResult2 = "search result2: " + workspace.search("this")
             Log.i("jwst", searchResult2)
 
-            val indexFields2 = JwstVecOfStrings()
-            indexFields2.push("index")
+            var indexFields2 = arrayOf("index")
             workspace.setSearchIndex(indexFields2)
+
             Log.i("jwst",  "search index: " + workspace.getSearchIndex().joinToString(" "))
 
             val searchResult3 = "search result3: " + workspace.search("this")

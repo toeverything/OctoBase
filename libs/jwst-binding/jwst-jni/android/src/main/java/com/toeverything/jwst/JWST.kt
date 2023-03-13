@@ -64,8 +64,12 @@ class Workspace(workspace: JwstWorkspace) {
         return this.workspace.getSearchIndex()
     }
 
-    fun setSearchIndex(fields: JwstVecOfStrings): Boolean {
-        return this.workspace.setSearchIndex(fields)
+    fun setSearchIndex(fields: Array<String>): Boolean {
+        val indexFields = JwstVecOfStrings()
+        for (item in fields) {
+            indexFields.push(item)
+        }
+        return this.workspace.setSearchIndex(indexFields)
     }
 }
 
