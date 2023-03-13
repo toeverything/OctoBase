@@ -26,7 +26,7 @@ pub(crate) trait PluginImpl: 'static {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct PluginMap {
     /// We store plugins into the TypeMap, so that their ownership is tied to [Workspace].
     /// This enables us to properly manage lifetimes of observers which will subscribe

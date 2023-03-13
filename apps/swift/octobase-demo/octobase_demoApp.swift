@@ -89,10 +89,35 @@ class JwstWorkspace: ObservableObject {
         let block = self.create(block_id: "search_test", flavor: "search_test_flavor")
         block.set_string("title", "introduction")
         block.set_string("text", "hello every one")
+        block.set_string("index", "this is demo")
+        
+        let index_fields1 = RustVec<RustString>()
+        index_fields1.push(value: "title".intoRustString())
+        index_fields1.push(value: "text".intoRustString())
+        self.workspace.set_search_index(index_fields1)
+        print("search_index: ", terminator: "")
+        for field in self.workspace.get_search_index() {
+            print(field.as_str().toString() + " ", terminator: "");
+        }
+        print("")
+        
         let result1 = self.workspace.search("duc")
-        print(result1.toString())
-        let result2 = self.workspace.search("ver")
-        print(result2.toString())
+        print("search_result1: ", result1.toString())
+        
+        let result2 = self.workspace.search("this")
+        print("search_result2: ", result2.toString())
+        
+        let index_fields2 = RustVec<RustString>()
+        index_fields2.push(value: "index".intoRustString())
+        self.workspace.set_search_index(index_fields2)
+        print("search_index: ", terminator: "")
+        for field in self.workspace.get_search_index() {
+            print(field.as_str().toString() + " ", terminator: "");
+        }
+        print("")
+        
+        let result3 = self.workspace.search("this")
+        print("search_result3: ", result3.toString())
     }
     
     func search_blocks_demo() {

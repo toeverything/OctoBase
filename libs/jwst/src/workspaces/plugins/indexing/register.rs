@@ -49,6 +49,7 @@ impl IndexingPluginRegister {
 impl PluginRegister for IndexingPluginRegister {
     type Plugin = IndexingPluginImpl;
     fn setup(self, ws: &mut Workspace) -> Result<IndexingPluginImpl, Box<dyn std::error::Error>> {
+        let search_index = ws.metadata().search_index;
         let options = TextOptions::default().set_indexing_options(
             TextFieldIndexing::default()
                 .set_tokenizer(GRAM_TOKENIZER)
@@ -57,8 +58,9 @@ impl PluginRegister for IndexingPluginRegister {
 
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("block_id", STRING | STORED);
-        schema_builder.add_text_field("title", options.clone()); // props:title
-        schema_builder.add_text_field("body", options); // props:text
+        search_index.iter().for_each(|field_name| {
+            schema_builder.add_text_field(field_name.as_str(), options.clone());
+        });
         let schema = schema_builder.build();
 
         let index_dir: Box<dyn tantivy::Directory> = match &self.storage_kind {
@@ -74,8 +76,11 @@ impl PluginRegister for IndexingPluginRegister {
             index
         });
 
-        let title = schema.get_field("title").unwrap();
-        let body = schema.get_field("body").unwrap();
+        let mut fields = vec![];
+        search_index.iter().for_each(|field_name| {
+            let body = schema.get_field(field_name.as_str()).unwrap();
+            fields.push(body);
+        });
 
         let queue_reindex = Arc::new(AtomicU32::new(
             // require an initial re-index by setting the default above 0
@@ -99,11 +104,12 @@ impl PluginRegister for IndexingPluginRegister {
 
         Ok(IndexingPluginImpl {
             schema,
-            query_parser: QueryParser::for_index(&index, vec![title, body]),
+            query_parser: QueryParser::for_index(&index, fields),
             index,
             queue_reindex,
             // needs to drop sub with everything else
             _update_sub: sub,
+            search_index,
         })
     }
 }

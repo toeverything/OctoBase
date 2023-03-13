@@ -413,6 +413,14 @@ extension WorkspaceRef {
             RustVec(ptr: __swift_bridge__$Workspace$get_blocks_by_flavour(ptr, flavourAsRustStr))
         })
     }
+
+    public func get_search_index() -> RustVec<RustString> {
+        RustVec(ptr: __swift_bridge__$Workspace$get_search_index(ptr))
+    }
+
+    public func set_search_index<GenericIntoRustString: IntoRustString>(_ fields: RustVec<GenericIntoRustString>) -> Bool {
+        __swift_bridge__$Workspace$set_search_index(ptr, { let val = fields; val.isOwned = false; return val.ptr }())
+    }
 }
 extension Workspace: Vectorizable {
     public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
