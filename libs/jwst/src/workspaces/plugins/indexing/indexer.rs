@@ -29,6 +29,7 @@ pub struct IndexingPluginImpl {
     pub(super) query_parser: QueryParser,
     // need to keep so it gets dropped with this plugin
     pub(super) _update_sub: Option<yrs::UpdateSubscription>,
+    pub(super) search_index: Vec<String>,
 }
 
 impl IndexingPluginImpl {
@@ -37,6 +38,9 @@ impl IndexingPluginImpl {
         query: S,
     ) -> Result<SearchResults, Box<dyn std::error::Error>> {
         let mut items = Vec::new();
+        if self.search_index.is_empty() {
+            return Ok(SearchResults(items));
+        }
 
         let reader = self
             .index
@@ -78,24 +82,24 @@ impl PluginImpl for IndexingPluginImpl {
 
             let re_index_list = ws.with_trx(|t| {
                 ws.blocks(&t.trx, |blocks| {
-                    let mut re_index_list =
-                        HashMap::<String, (Option<String>, Option<String>)>::new();
+                    let mut re_index_list = HashMap::<String, Vec<Option<String>>>::new();
                     for block in blocks {
-                        let title = block.content(&t.trx).get("title").map(ToOwned::to_owned);
-                        let body = block.content(&t.trx).get("text").map(ToOwned::to_owned);
-                        re_index_list.insert(
-                            block.id(),
-                            (
-                                title.and_then(|a| match a {
-                                    Any::String(str) => Some(str.to_string()),
-                                    _ => None,
-                                }),
-                                body.and_then(|a| match a {
-                                    Any::String(str) => Some(str.to_string()),
-                                    _ => None,
-                                }),
-                            ),
-                        );
+                        let index_text = self
+                            .search_index
+                            .clone()
+                            .into_iter()
+                            .map(|field| {
+                                block
+                                    .content(&t.trx)
+                                    .get(&field)
+                                    .map(ToOwned::to_owned)
+                                    .and_then(|a| match a {
+                                        Any::String(str) => Some(str.to_string()),
+                                        _ => None,
+                                    })
+                            })
+                            .collect::<Vec<_>>();
+                        re_index_list.insert(block.id(), index_text);
                     }
 
                     re_index_list
@@ -124,26 +128,31 @@ impl IndexingPluginImpl {
     ) -> Result<(), Box<dyn std::error::Error>>
     where
         // TODO: use a structure with better names than tuples?
-        BlockIdTitleAndTextIter: IntoIterator<Item = (String, (Option<String>, Option<String>))>,
+        BlockIdTitleAndTextIter: IntoIterator<Item = (String, Vec<Option<String>>)>,
     {
         let block_id_field = self.schema.get_field("block_id").unwrap();
-        let title_field = self.schema.get_field("title").unwrap();
-        let body_field = self.schema.get_field("body").unwrap();
 
         let mut writer = self
             .index
             .writer(50_000_000)
             .map_err(|err| format!("Error creating writer: {err:?}"))?;
 
-        for (block_id, (block_title_opt, block_text_opt)) in blocks {
+        let search_index = self
+            .search_index
+            .clone()
+            .into_iter()
+            .map(|filed| self.schema.get_field(&filed).unwrap())
+            .collect::<Vec<_>>();
+
+        for (block_id, fields) in blocks {
             let mut block_doc = Document::new();
             block_doc.add_text(block_id_field, block_id);
-            if let Some(block_title) = block_title_opt {
-                block_doc.add_text(title_field, block_title);
-            }
-            if let Some(block_text) = block_text_opt {
-                block_doc.add_text(body_field, block_text);
-            }
+            fields.iter().enumerate().for_each(|(index, field)| {
+                if let Some(field_text) = field {
+                    let index_field = search_index.get(index).unwrap().to_owned();
+                    block_doc.add_text(index_field, field_text);
+                }
+            });
             writer.add_document(block_doc)?;
         }
 

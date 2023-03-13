@@ -1,25 +1,4 @@
-# FROM ghcr.io/toeverything/affine-self-hosted:latest as frontend
-
-FROM node:16-alpine as frontend
-WORKDIR /app
-RUN apk add git libc6-compat && npm i -g pnpm@7
-COPY . .
-RUN pnpm i --frozen-lockfile --store=node_modules/.pnpm-store --filter @toeverything/jwt* --filter @toeverything/playground && \
-    pnpm build:playground
-
-FROM messense/rust-musl-cross:x86_64-musl AS builder-amd64
-ENV CARGO_TERM_COLOR="always"
-COPY . .
-# COPY --from=frontend /app/dist ./dist
-COPY --from=frontend /app/apps/jwst/dist ./dist
-RUN cargo build --profile fast-release --package keck && \
-    mv /home/rust/src/target/x86_64-unknown-linux-musl/fast-release/keck /tmp/jwst-amd64
-
-FROM alpine:latest as relocate
-WORKDIR /app
-COPY --from=builder-amd64 /tmp/jwst-amd64 ./jwst
-
 FROM alpine:latest as jwst
 WORKDIR /app
-COPY --from=relocate /app .
+COPY target/x86_64-unknown-linux-musl/fast-release/keck ./jwst
 ENTRYPOINT /app/jwst

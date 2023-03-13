@@ -5,6 +5,9 @@ import java.util.*
 import com.toeverything.jwst.lib.Block as JwstBlock
 import com.toeverything.jwst.lib.Workspace as JwstWorkspace
 import com.toeverything.jwst.lib.WorkspaceTransaction as JwstWorkspaceTransaction
+import com.toeverything.jwst.lib.VecOfStrings
+
+typealias JwstVecOfStrings = VecOfStrings
 
 class Workspace(workspace: JwstWorkspace) {
     private var workspace: JwstWorkspace
@@ -55,6 +58,18 @@ class Workspace(workspace: JwstWorkspace) {
 
     fun search(query: String): String {
         return this.workspace.search(query)
+    }
+
+    fun getSearchIndex(): Array<String> {
+        return this.workspace.getSearchIndex()
+    }
+
+    fun setSearchIndex(fields: Array<String>): Boolean {
+        val indexFields = JwstVecOfStrings()
+        for (item in fields) {
+            indexFields.push(item)
+        }
+        return this.workspace.setSearchIndex(indexFields)
     }
 }
 

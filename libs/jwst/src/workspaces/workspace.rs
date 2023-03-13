@@ -1,4 +1,4 @@
-use super::{plugins::setup_plugin, *};
+use super::{metadata::SEARCH_INDEX, plugins::setup_plugin, *};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
@@ -76,16 +76,17 @@ impl Workspace {
         blocks: MapRef,
         updated: MapRef,
         metadata: MapRef,
+        plugins: PluginMap,
     ) -> Workspace {
-        setup_plugin(Self {
+        Self {
             id: id.as_ref().to_string(),
             awareness,
             doc,
             blocks,
             updated,
             metadata,
-            plugins: Default::default(),
-        })
+            plugins,
+        }
     }
 
     /// Allow the plugin to run any necessary updates it could have flagged via observers.
@@ -120,7 +121,22 @@ impl Workspace {
     pub fn search_result(&self, query: String) -> String {
         match self.search(query) {
             Ok(list) => serde_json::to_string(&list).unwrap(),
-            Err(_) => "".to_string(),
+            Err(_) => "[]".to_string(),
+        }
+    }
+
+    pub fn set_search_index(&self, fields: Vec<String>) -> bool {
+        match fields.iter().find(|&field| field.is_empty()) {
+            Some(field) => {
+                error!("field name cannot be empty: {}", field);
+                false
+            }
+            None => {
+                let value = serde_json::to_string(&fields).unwrap();
+                self.with_trx(|mut trx| trx.set_metadata(SEARCH_INDEX, value));
+                setup_plugin(self.clone());
+                true
+            }
         }
     }
 
@@ -393,6 +409,7 @@ impl Clone for Workspace {
             self.blocks.clone(),
             self.updated.clone(),
             self.metadata.clone(),
+            self.plugins.clone(),
         )
     }
 }
