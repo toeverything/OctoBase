@@ -173,8 +173,8 @@ jobs:
                   cp -r apps/jwst/dist ./dist
                   cargo vendor > .cargo/config
                   cargo build --profile fast-release --package keck --target x86_64-unknown-linux-musl
-                  cargo clippy --all-features --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
-                  RUSTDOCFLAGS="-D rustdoc::broken-intra-doc-links" cargo doc --workspace --all-features --no-deps
+                  cargo clippy --all-features --target x86_64-unknown-linux-musl --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+                  RUSTDOCFLAGS="-D rustdoc::broken-intra-doc-links" cargo doc --target x86_64-unknown-linux-musl --workspace --all-features --no-deps
               env:
                   CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: x86_64-linux-musl-gcc
                   CARGO_TERM_COLOR: always
