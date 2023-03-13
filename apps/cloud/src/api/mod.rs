@@ -1,6 +1,11 @@
 pub mod blobs;
 pub mod permissions;
+mod user_channel;
+mod ws;
 
+pub use ws::*;
+
+use crate::{context::Context, error_status::ErrorStatus, layer::make_firebase_auth_layer};
 use axum::{
     extract::{Path, Query},
     http::StatusCode,
@@ -8,7 +13,6 @@ use axum::{
     routing::{delete, get, post, put, Router},
     Extension, Json,
 };
-use base64::Engine;
 use chrono::{Duration, Utc};
 use cloud_database::{
     Claims, MakeToken, RefreshToken, UpdateWorkspace, User, UserQuery, UserToken,
@@ -17,18 +21,8 @@ use cloud_database::{
 use jwst::{error, BlobStorage, JwstError};
 use lib0::any::Any;
 use std::sync::Arc;
-use utoipa::OpenApi;
-
-use crate::{
-    context::Context, error_status::ErrorStatus, layer::make_firebase_auth_layer,
-    utils::URL_SAFE_ENGINE,
-};
-
-mod ws;
-pub use ws::*;
-
-mod user_channel;
 pub use user_channel::*;
+use utoipa::OpenApi;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -163,17 +157,10 @@ pub async fn make_token(
             None,
         ),
         MakeToken::Refresh { token } => {
-            let Ok(input) = URL_SAFE_ENGINE.decode(token.clone()) else {
+            let Ok(data) = ctx.key.decrypt_aes_base64(token.clone()) else {
                 return ErrorStatus::BadRequest.into_response();
-            };
-            let data = match ctx.key.decrypt_aes(input.clone()) {
-                Ok(data) => data,
-                Err(_) => return ErrorStatus::BadRequest.into_response(),
             };
 
-            let Some(data) = data else {
-                return ErrorStatus::BadRequest.into_response();
-            };
             let Ok(data) = serde_json::from_slice::<RefreshToken>(&data) else {
                 return ErrorStatus::BadRequest.into_response();
             };
@@ -188,7 +175,7 @@ pub async fn make_token(
 
     match user {
         Ok(Some(user)) => {
-            let refresh = refresh.unwrap_or_else(|| {
+            let Some(refresh) = refresh.or_else(|| {
                 let refresh = RefreshToken {
                     expires: Utc::now().naive_utc() + Duration::days(180),
                     user_id: user.id.clone(),
@@ -197,10 +184,10 @@ pub async fn make_token(
 
                 let json = serde_json::to_string(&refresh).unwrap();
 
-                let data = ctx.key.encrypt_aes(json.as_bytes());
-
-                URL_SAFE_ENGINE.encode(data)
-            });
+                ctx.key.encrypt_aes_base64(json.as_bytes()).ok()
+            }) else {
+                return ErrorStatus::InternalServerError.into_response();
+            };
 
             let claims = Claims {
                 exp: Utc::now().naive_utc() + Duration::minutes(10),

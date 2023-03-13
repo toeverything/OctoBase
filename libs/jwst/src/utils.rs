@@ -1,6 +1,11 @@
-use std::ops::RangeInclusive;
+pub use base64::{DecodeError as Base64DecodeError, Engine as Base64Engine};
 
+use base64::{
+    alphabet::URL_SAFE,
+    engine::{general_purpose::PAD, GeneralPurpose},
+};
 use lib0::encoding::Write;
+use std::ops::RangeInclusive;
 use yrs::updates::encoder::{Encoder, EncoderV1};
 
 const MSG_SYNC: usize = 0;
@@ -25,3 +30,5 @@ const MAX_JS_INT: i64 = 0x001F_FFFF_FFFF_FFFF;
 // The smallest int in js number.
 const MIN_JS_INT: i64 = -MAX_JS_INT;
 pub const JS_INT_RANGE: RangeInclusive<i64> = MIN_JS_INT..=MAX_JS_INT;
+
+pub const URL_SAFE_ENGINE: GeneralPurpose = GeneralPurpose::new(&URL_SAFE, PAD);

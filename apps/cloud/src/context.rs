@@ -45,7 +45,7 @@ impl Context {
             .await
             .expect("Cannot create storage"),
             // =========== auth ===========
-            key: KeyContext::new(dotenvy::var("SIGN_KEY").ok()),
+            key: KeyContext::new(dotenvy::var("SIGN_KEY").ok()).expect("Cannot create key context"),
             firebase: Mutex::new(FirebaseContext::new(
                 dotenvy::var("FIREBASE_PROJECT_ID")
                     .map(|id| vec![id])

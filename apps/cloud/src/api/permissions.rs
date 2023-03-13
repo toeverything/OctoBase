@@ -1,8 +1,4 @@
-use crate::{
-    context::Context,
-    error_status::ErrorStatus,
-    utils::{Engine, URL_SAFE_ENGINE},
-};
+use crate::{context::Context, error_status::ErrorStatus};
 use axum::{
     extract::Path,
     http::{
@@ -138,7 +134,9 @@ pub async fn invite_member(
             }
         };
 
-        let invite_code = URL_SAFE_ENGINE.encode(ctx.key.encrypt_aes(permission_id.as_bytes()));
+        let Ok(invite_code) = ctx.key.encrypt_aes_base64(permission_id.as_bytes()) else {
+            return ErrorStatus::InternalServerError.into_response();
+        };
 
         if let Err(e) = ctx
             .mail
@@ -173,16 +171,7 @@ pub async fn accept_invitation(
     Extension(ctx): Extension<Arc<Context>>,
     Path(url): Path<String>,
 ) -> Response {
-    let Ok(input) = URL_SAFE_ENGINE.decode(url) else {
-        return ErrorStatus::BadRequest.into_response();
-    };
-
-    let data = match ctx.key.decrypt_aes(input.clone()) {
-        Ok(data) => data,
-        Err(_) => return ErrorStatus::BadRequest.into_response(),
-    };
-
-    let Some(data) = data else {
+    let Ok(data) = ctx.key.decrypt_aes_base64(url) else {
         return ErrorStatus::BadRequest.into_response();
     };
 
