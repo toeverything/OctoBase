@@ -136,9 +136,6 @@ jobs:
             - uses: pnpm/action-setup@v2
               with:
                   version: 7
-            - uses: actions/setup-node@v3
-              with:
-                  cache: 'pnpm'
             - name: Install Rust
               uses: actions-rs/toolchain@v1
               with:
@@ -148,7 +145,7 @@ jobs:
                   target: x86_64-unknown-linux-musl
                   override: true
 
-            - name: Set up cargo cache
+            - name: Set up cache
               uses: actions/cache@v3
               continue-on-error: false
               with:
@@ -159,6 +156,7 @@ jobs:
                       ~/.cargo/git/db/
                       ./vendor
                       ./.cargo/config
+                      ./node_modules/.pnpm-store
                   key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
                   restore-keys: ${{ runner.os }}-cargo-
 
