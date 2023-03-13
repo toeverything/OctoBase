@@ -122,7 +122,7 @@ impl JwstStorage {
         let ts = map.entry(workspace_id.clone()).or_insert(Instant::now());
 
         if ts.elapsed().as_secs() > 5 || force {
-            info!("full migrate: {workspace_id}");
+            debug!("full migrate: {workspace_id}");
             if let Ok(workspace) = self.docs.get(workspace_id.clone()).await {
                 let update = if let Some(update) = update {
                     if let Err(e) = self.docs.delete(workspace_id.clone()).await {

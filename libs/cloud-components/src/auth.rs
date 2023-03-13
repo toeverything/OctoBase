@@ -1,11 +1,11 @@
-use crate::utils::CacheControl;
+use super::*;
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use axum::http::header::CACHE_CONTROL;
 use chrono::{NaiveDateTime, Utc};
 use cloud_database::{Claims, GoogleClaims};
 use jsonwebtoken::{decode, decode_header, encode, DecodingKey, EncodingKey, Header, Validation};
-use jwst_logger::info;
+use pem::{encode as encode_pem, Pem};
 use rand::{thread_rng, Rng};
 use reqwest::{Client, RequestBuilder};
 use sha2::{Digest, Sha256};
@@ -19,7 +19,13 @@ pub struct KeyContext {
 }
 
 impl KeyContext {
-    pub fn new(key: String) -> Self {
+    pub fn new(key: Option<String>) -> Self {
+        let key = key.unwrap_or_else(|| {
+            let key = nanoid!();
+            warn!("!!! no sign key provided, use random key: `{key}` !!!");
+            warn!("!!! please set SIGN_KEY in .env file or environmental variable to save your login status !!!");
+            key
+        });
         let mut hasher = Sha256::new();
         hasher.update(key.as_bytes());
         let hash = hasher.finalize();
@@ -90,7 +96,7 @@ impl Endpoint {
     #[inline]
     fn endpoint(&self) -> String {
         format!(
-            "{}/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
+            "https://{}/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
             self.endpoint.as_deref().unwrap_or("www.googleapis.com")
         )
     }
@@ -139,7 +145,7 @@ impl FirebaseContext {
                 let (_, pem) = parse_x509_pem(value.as_bytes()).expect("decode PEM error");
                 let cert = pem.parse_x509().expect("decode certificate error");
 
-                let pub_key = pem::encode(&pem::Pem {
+                let pub_key = encode_pem(&Pem {
                     tag: String::from("PUBLIC KEY"),
                     contents: cert.public_key().raw.to_vec(),
                 });

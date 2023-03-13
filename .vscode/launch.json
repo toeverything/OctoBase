@@ -17,10 +17,7 @@
 			},
 			"env": {
 				"DATABASE_URL": "postgresql://affine:affine@localhost:5432/affine",
-				"SIGN_KEY": "12345678",
-				"MAIL_ACCOUNT": "example@toeverything.info",
-				"MAIL_PASSWORD": "a",
-				"SITE_URL": "https://dev.affine.live"
+				"SIGN_KEY": "12345678"
 			},
 			"args": [],
 			"cwd": "${workspaceFolder}"

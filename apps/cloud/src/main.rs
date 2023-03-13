@@ -7,7 +7,6 @@ mod api;
 mod context;
 mod error_status;
 mod files;
-mod key;
 mod layer;
 mod utils;
 
@@ -27,10 +26,10 @@ async fn main() {
             Method::DELETE,
             Method::OPTIONS,
         ])
-        // allow requests from any origin
+        // allow requests from specific origin
         .allow_origin([
             "http://localhost:8080".parse().unwrap(),
-            "https://affine-next.vercel.app".parse().unwrap(),
+            "https://affine-preview.vercel.app".parse().unwrap(),
         ])
         .allow_headers(Any);
 

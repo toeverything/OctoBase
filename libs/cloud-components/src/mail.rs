@@ -1,6 +1,6 @@
 pub use lettre::transport::smtp::commands::Mail;
 
-use super::constants::*;
+use super::*;
 use chrono::prelude::*;
 use cloud_database::Claims;
 use handlebars::{Handlebars, RenderError};
@@ -18,6 +18,8 @@ use url::Url;
 
 #[derive(Debug, Error)]
 pub enum MailError {
+    #[error("Mail client not initialized")]
+    ClientNotInitialized,
     #[error("Failed to render mail")]
     RenderMail(#[from] RenderError),
     #[error("Failed to config mail client")]
@@ -44,20 +46,29 @@ struct MailContent {
 }
 
 pub struct MailContext {
-    client: AsyncSmtpTransport<Tokio1Executor>,
+    client: Option<AsyncSmtpTransport<Tokio1Executor>>,
     mail_box: Mailbox,
     template: Handlebars<'static>,
 }
 
 impl MailContext {
-    pub fn new(email: String, password: String) -> Self {
-        let creds = Credentials::new(email, password);
+    pub fn new(email: Option<String>, password: Option<String>) -> Self {
+        let client = email
+            .and_then(|email| password.map(|password| (email, password)))
+            .map(|(email, password)| {
+                let creds = Credentials::new(email, password);
 
-        // Open a remote connection to gmail
-        let client = AsyncSmtpTransport::<Tokio1Executor>::relay(MAIL_PROVIDER)
-            .unwrap()
-            .credentials(creds)
-            .build();
+                // Open a remote connection to gmail
+                AsyncSmtpTransport::<Tokio1Executor>::relay(MAIL_PROVIDER)
+                    .unwrap()
+                    .credentials(creds)
+                    .build()
+            });
+
+        if client.is_none() {
+            warn!("!!! no mail account provided, email will not be sent !!!");
+            warn!("!!! please set MAIL_ACCOUNT and MAIL_PASSWORD in .env file or environmental variable to enable email service !!!");
+        }
 
         let mail_box = MAIL_FROM.parse().expect("should provide valid mail from");
 
@@ -167,25 +178,29 @@ impl MailContext {
         claims: &Claims,
         invite_code: &str,
     ) -> Result<(), MailError> {
-        let email = self
-            .make_invite_email(send_to, metadata, site_url, claims, invite_code)
-            .await?;
+        if let Some(client) = &self.client {
+            let email = self
+                .make_invite_email(send_to, metadata, site_url, claims, invite_code)
+                .await?;
 
-        let mut retry = 3;
-        loop {
-            match self.client.send(email.clone()).await {
-                Ok(_) => return Ok(()),
-                // TODO: https://github.com/lettre/lettre/issues/743
-                Err(e) if e.is_response() => {
-                    if retry >= 0 {
-                        retry -= 1;
-                        continue;
-                    } else {
-                        Err(e)?
+            let mut retry = 3;
+            loop {
+                match client.send(email.clone()).await {
+                    Ok(_) => return Ok(()),
+                    // TODO: https://github.com/lettre/lettre/issues/743
+                    Err(e) if e.is_response() => {
+                        if retry >= 0 {
+                            retry -= 1;
+                            continue;
+                        } else {
+                            Err(e)?
+                        }
                     }
-                }
-                Err(e) => Err(e)?,
-            };
+                    Err(e) => Err(e)?,
+                };
+            }
+        } else {
+            Err(MailError::ClientNotInitialized)
         }
     }
 }
