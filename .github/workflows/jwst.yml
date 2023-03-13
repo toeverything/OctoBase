@@ -70,6 +70,7 @@ jobs:
                       ~/.cargo/git/db/
                       ./vendor
                       ./.cargo/config
+                      ./node_modules/.pnpm-store
                   key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
                   restore-keys: ${{ runner.os }}-cargo-
 
