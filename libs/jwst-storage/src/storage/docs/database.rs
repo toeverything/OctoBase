@@ -209,7 +209,7 @@ impl DocDBStorage {
     {
         trace!("start create doc: {workspace}");
         let mut doc = Doc::with_options(Options {
-            skip_gc: true,
+            // skip_gc: true,
             ..Default::default()
         });
 
