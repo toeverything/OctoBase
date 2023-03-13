@@ -141,7 +141,6 @@ jobs:
               with:
                   profile: minimal
                   toolchain: stable
-                  components: clippy
                   target: x86_64-unknown-linux-musl
                   override: true
 
@@ -160,11 +159,6 @@ jobs:
                   key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
                   restore-keys: ${{ runner.os }}-cargo-
 
-            - name: Install required cargo components
-              uses: taiki-e/install-action@v2
-              with:
-                  tool: clippy-sarif,sarif-fmt
-
             - name: Build & Check
               run: |
                   sudo apt install -yq musl-tools musl-dev
@@ -173,8 +167,6 @@ jobs:
                   cp -r apps/jwst/dist ./dist
                   cargo vendor > .cargo/config
                   cargo build --profile fast-release --package keck --target x86_64-unknown-linux-musl
-                  cargo clippy --all-features --target x86_64-unknown-linux-musl --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
-                  RUSTDOCFLAGS="-D rustdoc::broken-intra-doc-links" cargo doc --target x86_64-unknown-linux-musl --workspace --all-features --no-deps
               env:
                   CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: x86_64-linux-musl-gcc
                   CARGO_TERM_COLOR: always
@@ -210,12 +202,6 @@ jobs:
                   labels: ${{ steps.meta_jwst.outputs.labels }}
                   target: jwst
                   network: host
-
-            - name: Upload analysis results to GitHub
-              uses: github/codeql-action/upload-sarif@v1
-              with:
-                  sarif_file: rust-clippy-results.sarif
-                  wait-for-processing: true
 
     apiproxy:
         if: github.ref == 'refs/heads/master'
@@ -267,7 +253,59 @@ jobs:
               with:
                   command: test
                   args: -p affine-cloud -p keck -p jwst -p jwst-storage --no-fail-fast
-#     lint:
+
+    lint:
+        runs-on: ubuntu-latest
+        environment: development
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+              with:
+                  fetch-depth: 0
+
+            - name: Install Rust
+              uses: actions-rs/toolchain@v1
+              with:
+                  profile: minimal
+                  toolchain: stable
+                  components: clippy
+                  override: true
+
+            - name: Set up cache
+              uses: actions/cache@v3
+              continue-on-error: false
+              with:
+                  path: |
+                      ~/.cargo/bin/
+                      ~/.cargo/registry/index/
+                      ~/.cargo/registry/cache/
+                      ~/.cargo/git/db/
+                      ./vendor
+                      ./.cargo/config
+                      ./node_modules/.pnpm-store
+                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+                  restore-keys: ${{ runner.os }}-cargo-
+
+            - name: Install required cargo components
+              uses: taiki-e/install-action@v2
+              with:
+                  tool: clippy-sarif,sarif-fmt
+
+            - name: Build & Check
+              run: |
+                  cargo vendor > .cargo/config
+                  cargo clippy --all-features --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+                  RUSTDOCFLAGS="-D rustdoc::broken-intra-doc-links" cargo doc --workspace --all-features --no-deps
+              env:
+                  CARGO_TERM_COLOR: always
+
+            - name: Upload analysis results to GitHub
+              uses: github/codeql-action/upload-sarif@v1
+              with:
+                  sarif_file: rust-clippy-results.sarif
+                  wait-for-processing: true
+#     coverage:
 #         runs-on: ubuntu-latest
 #         steps:
 #             - uses: actions/checkout@v1
