@@ -484,43 +484,60 @@ pub async fn search_workspace(
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::context;
-    use axum::http::StatusCode;
-    use axum_test_helper::TestClient;
-    use cloud_database::CreateUser;
-
+mod test {
     use super::*;
+    use axum_test_helper::TestClient;
+    use cloud_database::{CloudDatabase, CreateUser};
 
     #[tokio::test]
-    async fn test_health_check() {
-        let ctx = Arc::new(context::Context::new().await);
-        let app = make_rest_route(ctx.clone());
 
-        // initiate the TestClient with the previous declared Router
+    async fn test_health_check() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context {
+            db: pool,
+            ..Context::new().await
+        };
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
         let client = TestClient::new(app);
-        let res = client.get("/healthz").send().await;
-        assert_eq!(res.status(), StatusCode::OK);
+        let resp = client.get("/healthz").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
     }
 
-    // #[tokio::test]
-    // async fn test_get_user_by_email() {
-    //     let ctx = Arc::new(context::Context::new().await);
-    //     let app = make_rest_route(ctx.clone());
-    //     let client = TestClient::new(app);
-    //     ctx.db
-    //         .create_user(CreateUser {
-    //             avatar_url: Some("xxx".to_string()),
-    //             email: "xxx@xxx.xx".to_string(),
-    //             name: "xxx".to_string(),
-    //             password: "xxx".to_string(),
-    //         })
-    //         .await
-    //         .unwrap()
-    //         .unwrap();
-    //     let res = client.get("/user?email=xxx@xxx.xx").send().await;
-    //     assert_eq!(res.status(), 200);
-    //     let body = res.text().await;
-    //     assert_eq!(body, "expected response body");
-    // }
+    #[tokio::test]
+    async fn test_query_user() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context {
+            db: pool,
+            ..Context::new().await
+        };
+        let (new_user, new_workspace) = context
+            .db
+            .create_user(CreateUser {
+                avatar_url: Some("xxx".to_string()),
+                email: "xxx@xxx.xx".to_string(),
+                name: "xxx".to_string(),
+                password: "xxx".to_string(),
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let url = format!(
+            "/user?email={}&workspace_id={}",
+            new_user.email, new_workspace.id,
+        );
+        let resp = client.get(&url).send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client.get("/user").send().await;
+        assert_eq!(resp.status().is_client_error(), true);
+        let resp = client.get("/user?email=fake_email").send().await;
+        assert_eq!(resp.status().is_client_error(), true);
+        let resp = client.get("/user?user_name=fake_parameter").send().await;
+        assert_eq!(resp.status().is_client_error(), true);
+    }
 }
