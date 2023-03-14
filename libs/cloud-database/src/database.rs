@@ -282,6 +282,7 @@ impl CloudDatabase {
             .filter(Expr::exists(
                 Query::select()
                     .from(Workspaces)
+                    .column(WorkspacesColumn::Id)
                     .and_where(
                         Expr::col((Workspaces, WorkspacesColumn::Id)).eq(workspace_id.clone()),
                     )
@@ -289,6 +290,7 @@ impl CloudDatabase {
                         Expr::col((Workspaces, WorkspacesColumn::Type))
                             .eq(WorkspaceType::Normal as i32),
                     )
+                    .limit(1)
                     .take(),
             ))
             .exec(&trx)
@@ -734,35 +736,35 @@ mod test {
 
     //FIXME: delete workspace not work
 
-    // #[tokio::test]
-    // async fn database_delete_tables() -> anyhow::Result<()> {
-    //     use super::*;
-    //     let pool = CloudDatabase::init_pool("sqlite::memory:").await?;
-    //     // start test
-    //     let (new_user, _) = pool
-    //         .create_user(CreateUser {
-    //             avatar_url: Some("xxx".to_string()),
-    //             email: "xxx@xxx.xx".to_string(),
-    //             name: "xxx".to_string(),
-    //             password: "xxx".to_string(),
-    //         })
-    //         .await
-    //         .unwrap()
-    //         .unwrap();
+    #[tokio::test]
+    async fn database_delete_tables() -> anyhow::Result<()> {
+        use super::*;
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await?;
+        // start test
+        let new_user = pool
+            .create_user(CreateUser {
+                avatar_url: Some("xxx".to_string()),
+                email: "xxx@xxx.xx".to_string(),
+                name: "xxx".to_string(),
+                password: "xxx".to_string(),
+            })
+            .await
+            .unwrap();
 
-    //     let new_workspace = pool
-    //         .create_normal_workspace(new_user.id.clone())
-    //         .await
-    //         .unwrap();
+        let new_workspace = pool
+            .create_normal_workspace(new_user.id.clone())
+            .await
+            .unwrap();
 
-    //     let is_deleted = pool
-    //         .delete_workspace(new_workspace.id.clone())
-    //         .await
-    //         .unwrap();
-    //     assert_eq!(is_deleted, true);
+        let is_deleted = pool
+            .delete_workspace(new_workspace.id.clone())
+            .await
+            .unwrap();
+        assert_eq!(is_deleted, true);
 
-    //     Ok(())
-    // }
+        Ok(())
+    }
+
     #[tokio::test]
     async fn database_permission() -> anyhow::Result<()> {
         use super::*;
@@ -868,11 +870,11 @@ mod test {
             .get_user_workspaces(new_user2.id.clone())
             .await
             .unwrap();
-        assert_eq!(user1_workspace.len(), 2);
-        assert_eq!(user2_workspace.len(), 2);
+        assert_eq!(user1_workspace.len(), 1);
+        assert_eq!(user2_workspace.len(), 1);
         assert_eq!(
-            user1_workspace.get(1).unwrap().id,
-            user2_workspace.get(1).unwrap().id
+            user1_workspace.get(0).unwrap().id,
+            user2_workspace.get(0).unwrap().id
         );
 
         //get workspace members
@@ -914,23 +916,21 @@ mod test {
         assert!(!user3_not_in_workspace.in_workspace);
 
         //can read workspace
-
-        //FIXME: can_read_workspace is not work
-        // let owner_can_read_workspace = pool
-        //     .can_read_workspace(new_user.id.clone(), new_workspace.id.clone())
-        //     .await
-        //     .unwrap();
-        // let member_can_read_workspace = pool
-        //     .can_read_workspace(new_user2.id.clone(), new_workspace.id.clone())
-        //     .await
-        //     .unwrap();
-        // let another_can_not_read_workspace = pool
-        //     .can_read_workspace(new_user3.id.clone(), new_workspace.id.clone())
-        //     .await
-        //     .unwrap();
-        // assert_eq!(owner_can_read_workspace, true);
-        // assert_eq!(member_can_read_workspace, true);
-        // assert_eq!(another_can_not_read_workspace, false);
+        let owner_can_read_workspace = pool
+            .can_read_workspace(new_user.id.clone(), new_workspace.id.clone())
+            .await
+            .unwrap();
+        let member_can_read_workspace = pool
+            .can_read_workspace(new_user2.id.clone(), new_workspace.id.clone())
+            .await
+            .unwrap();
+        let another_can_not_read_workspace = pool
+            .can_read_workspace(new_user3.id.clone(), new_workspace.id.clone())
+            .await
+            .unwrap();
+        assert_eq!(owner_can_read_workspace, true);
+        assert_eq!(member_can_read_workspace, true);
+        assert_eq!(another_can_not_read_workspace, false);
 
         //delete permission
         let is_deleted = pool
@@ -985,23 +985,21 @@ mod test {
         assert!(!user3_not_in_workspace.in_workspace);
 
         //can read workspace after delete permission
-
-        //FIXME: can_read_workspace is not work
-        // let user1_can_read_workspace = pool
-        //     .can_read_workspace(new_user.id.clone(), new_workspace.id.clone())
-        //     .await
-        //     .unwrap();
-        // let user2_can_read_workspace = pool
-        //     .can_read_workspace(new_user2.id.clone(), new_workspace.id.clone())
-        //     .await
-        //     .unwrap();
-        // let user3_can_not_read_workspace = pool
-        //     .can_read_workspace(new_user3.id.clone(), new_workspace.id.clone())
-        //     .await
-        //     .unwrap();
-        // assert_eq!(user1_can_read_workspace, true);
-        // assert_eq!(user2_can_read_workspace, false);
-        // assert_eq!(user3_can_not_read_workspace, false);
+        let user1_can_read_workspace = pool
+            .can_read_workspace(new_user.id.clone(), new_workspace.id.clone())
+            .await
+            .unwrap();
+        let user2_can_read_workspace = pool
+            .can_read_workspace(new_user2.id.clone(), new_workspace.id.clone())
+            .await
+            .unwrap();
+        let user3_can_not_read_workspace = pool
+            .can_read_workspace(new_user3.id.clone(), new_workspace.id.clone())
+            .await
+            .unwrap();
+        assert_eq!(user1_can_read_workspace, true);
+        assert_eq!(user2_can_read_workspace, false);
+        assert_eq!(user3_can_not_read_workspace, false);
         Ok(())
     }
 }
