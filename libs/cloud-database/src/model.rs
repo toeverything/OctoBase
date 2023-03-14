@@ -62,6 +62,7 @@ pub struct Claims {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type")]
 pub enum MakeToken {
+    CreateUser(CreateUser),
     User(UserLogin),
     Refresh { token: String },
     Google { token: String },

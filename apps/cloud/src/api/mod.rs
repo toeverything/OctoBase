@@ -146,8 +146,26 @@ pub async fn make_token(
     Extension(ctx): Extension<Arc<Context>>,
     Json(payload): Json<MakeToken>,
 ) -> Response {
+    // TODO: too complex type, need to refactor
     let (user, refresh) = match payload {
-        MakeToken::User(user) => (ctx.db.user_login(user).await, None),
+        MakeToken::CreateUser(user) => {
+            if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
+                if let Ok(Some((model, _))) = ctx.db.create_user(user).await {
+                    (Ok(Some(model)), None)
+                } else {
+                    return ErrorStatus::BadRequest.into_response();
+                }
+            } else {
+                return ErrorStatus::BadRequest.into_response();
+            }
+        }
+        MakeToken::User(user) => {
+            if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
+                (ctx.db.user_login(user).await, None)
+            } else {
+                return ErrorStatus::BadRequest.into_response();
+            }
+        }
         MakeToken::Google { token } => (
             if let Some(claims) = ctx.firebase.lock().await.decode_google_token(token).await {
                 ctx.db.google_user_login(&claims).await.map(Some)
