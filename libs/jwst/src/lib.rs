@@ -12,7 +12,7 @@ pub use history::{
 };
 pub use log::{debug, error, info, trace, warn};
 pub use types::{BlobMetadata, BlobStorage, DocStorage, JwstError, JwstResult};
-pub use utils::sync_encode_update;
+pub use utils::{sync_encode_update, Base64DecodeError, Base64Engine, URL_SAFE_ENGINE};
 pub use workspaces::{MapSubscription, Workspace, WorkspaceMetadata, WorkspaceTransaction};
 #[cfg(feature = "workspace-search")]
 pub use workspaces::{SearchResult, SearchResults};

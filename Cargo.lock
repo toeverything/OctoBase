@@ -64,7 +64,6 @@ name = "affine-cloud"
 version = "0.1.0"
 dependencies = [
  "axum",
- "base64 0.21.0",
  "bytes",
  "chrono",
  "cloud-components",
@@ -1894,6 +1893,7 @@ dependencies = [
  "anyhow",
  "assert-json-diff",
  "async-trait",
+ "base64 0.21.0",
  "bytes",
  "cang-jie",
  "chrono",
@@ -1982,7 +1982,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "base64 0.21.0",
  "bytes",
  "chrono",
  "futures",

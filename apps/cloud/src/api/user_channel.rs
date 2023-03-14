@@ -3,7 +3,6 @@ use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     response::Response,
 };
-use base64::Engine;
 use cloud_database::{WorkspaceDetail, WorkspaceWithPermission};
 use futures::{sink::SinkExt, stream::StreamExt};
 use jwst_logger::error;
@@ -162,13 +161,10 @@ pub async fn global_ws_handler(
     Query(Param { token }): Query<Param>,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let user: Option<RefreshToken> = URL_SAFE_ENGINE
-        .decode(token)
+    let user: Option<RefreshToken> = context
+        .key
+        .decrypt_aes_base64(token)
         .ok()
-        .and_then(|byte| match context.key.decrypt_aes(byte) {
-            Ok(data) => data,
-            Err(_) => None,
-        })
         .and_then(|data| serde_json::from_slice(&data).ok());
 
     let user = if let Some(user) = user {
