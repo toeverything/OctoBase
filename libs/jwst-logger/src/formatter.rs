@@ -4,14 +4,12 @@ use tracing::{Event, Level, Metadata, Subscriber};
 use tracing_log::NormalizeEvent;
 use tracing_subscriber::{
     fmt::{
-        format::{Format, Full, Writer},
-        time::FormatTime,
-        FmtContext, FormatEvent, FormatFields, FormattedFields,
+        format::Writer, time::FormatTime, FmtContext, FormatEvent, FormatFields, FormattedFields,
     },
     registry::LookupSpan,
 };
 
-pub struct LogTime;
+struct LogTime;
 
 impl LogTime {
     fn get_time() -> String {
@@ -29,9 +27,7 @@ impl FormatTime for LogTime {
     }
 }
 
-pub struct JWSTFormatter {
-    pub(super) default: Format<Full, LogTime>,
-}
+pub struct JWSTFormatter;
 
 impl JWSTFormatter {
     fn format_level(level: &Level) -> AnsiGenericString<str> {

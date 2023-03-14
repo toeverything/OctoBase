@@ -17,9 +17,7 @@ pub fn init_logger() {
         .with(
             tracing_subscriber::fmt::layer()
                 .map_writer(move |_| writer)
-                .map_event_format(|e| JWSTFormatter {
-                    default: e.with_timer(LogTime),
-                })
+                .map_event_format(|_| JWSTFormatter)
                 .with_filter(GeneralFilter),
         )
         // .with(tracing_stackdriver::layer().with_filter(GeneralFilter))

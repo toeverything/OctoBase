@@ -9,4 +9,4 @@ pub use tracing::{
 };
 
 use filter::GeneralFilter;
-use formatter::{JWSTFormatter, LogTime};
+use formatter::JWSTFormatter;
