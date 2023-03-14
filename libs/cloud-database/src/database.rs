@@ -734,8 +734,6 @@ mod test {
         Ok(())
     }
 
-    //FIXME: delete workspace not work
-
     #[tokio::test]
     async fn database_delete_tables() -> anyhow::Result<()> {
         use super::*;
