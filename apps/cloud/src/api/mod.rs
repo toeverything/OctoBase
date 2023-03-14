@@ -148,9 +148,9 @@ pub async fn make_token(
 ) -> Response {
     // TODO: too complex type, need to refactor
     let (user, refresh) = match payload {
-        MakeToken::CreateUser(user) => {
+        MakeToken::DebugCreateUser(user) => {
             if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
-                if let Ok(Some((model, _))) = ctx.db.create_user(user).await {
+                if let Ok(model) = ctx.db.create_user(user).await {
                     (Ok(Some(model)), None)
                 } else {
                     return ErrorStatus::BadRequest.into_response();
@@ -159,7 +159,7 @@ pub async fn make_token(
                 return ErrorStatus::BadRequest.into_response();
             }
         }
-        MakeToken::User(user) => {
+        MakeToken::DebugLoginUser(user) => {
             if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
                 (ctx.db.user_login(user).await, None)
             } else {

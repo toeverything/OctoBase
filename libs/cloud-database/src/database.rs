@@ -114,10 +114,7 @@ impl CloudDatabase {
         .map(|_| Some(()))
     }
 
-    pub async fn create_user(
-        &self,
-        user: CreateUser,
-    ) -> Result<Option<(UsersModel, Workspace)>, DbErr> {
+    pub async fn create_user(&self, user: CreateUser) -> Result<UsersModel, DbErr> {
         let trx = self.pool.begin().await?;
 
         let id = nanoid!();
@@ -131,18 +128,15 @@ impl CloudDatabase {
         })
         .exec_with_returning(&trx)
         .await else {
-            return Ok(None);
+            trx.rollback().await?;
+            return Err(DbErr::RecordNotUpdated)
         };
-
-        let new_workspace = self
-            .create_workspace(&trx, id.clone(), WorkspaceType::Private)
-            .await?;
 
         Self::update_cred(&trx, id, &user.email).await?;
 
         trx.commit().await?;
 
-        Ok(Some((user, new_workspace)))
+        Ok(user)
     }
 
     pub async fn get_workspace_by_id(
@@ -650,7 +644,7 @@ mod test {
         use super::*;
         let pool = CloudDatabase::init_pool("sqlite::memory:").await?;
         // start test
-        let (new_user, _) = pool
+        let new_user = pool
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
                 email: "xxx@xxx.xx".to_string(),
@@ -658,7 +652,6 @@ mod test {
                 password: "xxx".to_string(),
             })
             .await
-            .unwrap()
             .unwrap();
         let new_workspace = pool
             .create_normal_workspace(new_user.id.clone())
@@ -698,7 +691,7 @@ mod test {
         use super::*;
         let pool = CloudDatabase::init_pool("sqlite::memory:").await?;
         // start test
-        let (new_user, _) = pool
+        let new_user = pool
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
                 email: "xxx@xxx.xx".to_string(),
@@ -706,7 +699,6 @@ mod test {
                 password: "xxx".to_string(),
             })
             .await
-            .unwrap()
             .unwrap();
 
         let mut new_workspace = pool
@@ -776,7 +768,7 @@ mod test {
         use super::*;
         let pool = CloudDatabase::init_pool("sqlite::memory:").await?;
         // start test
-        let (new_user, _) = pool
+        let new_user = pool
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
                 email: "xxx@xxx.xx".to_string(),
@@ -784,9 +776,8 @@ mod test {
                 password: "xxx".to_string(),
             })
             .await
-            .unwrap()
             .unwrap();
-        let (new_user2, _) = pool
+        let new_user2 = pool
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
                 email: "xxx2@xxx.xx".to_string(),
@@ -794,9 +785,8 @@ mod test {
                 password: "xxx".to_string(),
             })
             .await
-            .unwrap()
             .unwrap();
-        let (new_user3, _) = pool
+        let new_user3 = pool
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
                 email: "xxx3@xxx.xx".to_string(),
@@ -804,7 +794,6 @@ mod test {
                 password: "xxx".to_string(),
             })
             .await
-            .unwrap()
             .unwrap();
 
         let new_workspace = pool
