@@ -419,11 +419,13 @@ impl CloudDatabase {
                     .or(Expr::exists(
                         Query::select()
                             .from(Workspaces)
+                            .column(WorkspacesColumn::Id)
                             .and_where(
                                 Expr::col((Workspaces, WorkspacesColumn::Id))
                                     .eq(workspace_id.clone()),
                             )
                             .and_where(Expr::col((Workspaces, WorkspacesColumn::Public)).eq(true))
+                            .limit(1)
                             .take(),
                     )),
             )
