@@ -42,7 +42,47 @@ r#"foreign_callback!(
         self_type OnWorkspaceTransaction;
         onTrx = OnWorkspaceTransaction::on_trx(& self , trx : WorkspaceTransaction);
     }
-);"#].iter())
+);"#,
+r#"
+pub type VecOfStrings = Vec<String>;
+foreign_class!(
+    class VecOfStrings {
+        self_type VecOfStrings;
+
+        constructor default() -> VecOfStrings {
+            Vec::<String>::default()
+        }
+
+        fn at(&self, i: usize) -> &str {
+            this[i].as_str()
+        }
+
+        fn len(&self) -> usize {
+            this.len()
+        }
+
+        fn push(&mut self, s: String) {
+            this.push(s);
+        }
+
+        fn insert(&mut self, i: usize, s: String) {
+            this.insert(i, s);
+        }
+
+        fn clear(&mut self) {
+            this.clear();
+        }
+
+        fn remove(&mut self, i: usize) {
+            this.remove(i);
+        }
+
+        fn remove_item(&mut self, s: String) {
+            this.retain(|x| x != &s);
+        }
+    }
+);"#,
+].iter())
         .chain(template.iter().skip(1))
         .cloned()
         .collect::<Vec<_>>()

@@ -28,6 +28,45 @@ foreign_callback!(
     }
 );
 
+pub type VecOfStrings = Vec<String>;
+foreign_class!(
+    class VecOfStrings {
+        self_type VecOfStrings;
+
+        constructor default() -> VecOfStrings {
+            Vec::<String>::default()
+        }
+
+        fn at(&self, i: usize) -> &str {
+            this[i].as_str()
+        }
+
+        fn len(&self) -> usize {
+            this.len()
+        }
+
+        fn push(&mut self, s: String) {
+            this.push(s);
+        }
+
+        fn insert(&mut self, i: usize, s: String) {
+            this.insert(i, s);
+        }
+
+        fn clear(&mut self) {
+            this.clear();
+        }
+
+        fn remove(&mut self, i: usize) {
+            this.remove(i);
+        }
+
+        fn remove_item(&mut self, s: String) {
+            this.retain(|x| x != &s);
+        }
+    }
+);
+
 foreign_class!(
 	class Block {
 		self_type Block;
@@ -71,5 +110,7 @@ foreign_class!(
 		fn Workspace::with_trx(& self , on_trx : Box < dyn OnWorkspaceTransaction >)->bool; alias withTrx;
 		fn Workspace::drop_trx(& self , trx : WorkspaceTransaction); alias dropTrx;
 		fn Workspace::search(& self , query : String)->String; alias search;
+		fn Workspace::get_search_index(& self)->Vec<String>; alias getSearchIndex;
+		fn Workspace::set_search_index(& self , fields : VecOfStrings)->bool; alias setSearchIndex;
 	}
 );

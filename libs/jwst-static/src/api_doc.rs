@@ -1,7 +1,7 @@
 use axum::{
     extract::Path, http::StatusCode, response::IntoResponse, routing::get, Extension, Json, Router,
 };
-use std::sync::Arc;
+use std::{env, sync::Arc};
 use utoipa_swagger_ui::{serve, Config, Url};
 
 async fn serve_swagger_ui(
@@ -25,11 +25,12 @@ async fn serve_swagger_ui(
 
 pub fn with_api_doc_v2(
     router: Router,
-    openapi: utoipa_v2::openapi::OpenApi,
+    mut openapi: utoipa_v2::openapi::OpenApi,
     title: &'static str,
 ) -> Router {
     let config = Url::new(title, "/api/jwst.json");
     let config = Config::new(vec![config]);
+    openapi.info.license = Some(utoipa_v2::openapi::License::new(env!("CARGO_PKG_LICENSE")));
     router
         .route("/jwst.json", get(move || async { Json(openapi) }))
         .route("/docs/", get(serve_swagger_ui))
@@ -39,14 +40,18 @@ pub fn with_api_doc_v2(
 
 pub fn with_api_doc_v3(
     router: Router,
-    openapi: utoipa_v3::openapi::OpenApi,
-    title: &'static str,
+    mut openapi: utoipa_v3::openapi::OpenApi,
+    name: &'static str,
 ) -> Router {
     if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
-        let config = Url::new(title, "/api/jwst.json");
+        let config = Url::from(format!("/api/{name}.json"));
         let config = Config::new(vec![config]);
+        openapi.info.license = Some(utoipa_v3::openapi::License::new(env!("CARGO_PKG_LICENSE")));
         router
-            .route("/jwst.json", get(move || async { Json(openapi) }))
+            .route(
+                &format!("/{name}.json"),
+                get(move || async { Json(openapi) }),
+            )
             .route("/docs/", get(serve_swagger_ui))
             .route("/docs/*tail", get(serve_swagger_ui))
             .layer(Extension(Arc::new(config)))

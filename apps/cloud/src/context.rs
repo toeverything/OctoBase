@@ -2,7 +2,7 @@ use cloud_components::{FirebaseContext, KeyContext, MailContext};
 use cloud_database::CloudDatabase;
 use jwst::SearchResults;
 use jwst_logger::{error, warn};
-use jwst_rpc::{BroadcastChannels, BroadcastType, ContextImpl};
+use jwst_rpc::{BroadcastChannels, BroadcastType, RpcContextImpl};
 use jwst_storage::JwstStorage;
 use std::collections::HashMap;
 use tokio::sync::{Mutex, RwLock};
@@ -45,7 +45,7 @@ impl Context {
             .await
             .expect("Cannot create storage"),
             // =========== auth ===========
-            key: KeyContext::new(dotenvy::var("SIGN_KEY").ok()),
+            key: KeyContext::new(dotenvy::var("SIGN_KEY").ok()).expect("Cannot create key context"),
             firebase: Mutex::new(FirebaseContext::new(
                 dotenvy::var("FIREBASE_PROJECT_ID")
                     .map(|id| vec![id])
@@ -115,7 +115,7 @@ impl Context {
     }
 }
 
-impl ContextImpl<'_> for Context {
+impl RpcContextImpl<'_> for Context {
     fn get_storage(&self) -> &JwstStorage {
         &self.storage
     }

@@ -58,4 +58,12 @@ impl Workspace {
             })
             .collect()
     }
+
+    pub fn get_search_index(self: &Workspace) -> Vec<String> {
+        self.workspace.metadata().search_index
+    }
+
+    pub fn set_search_index(self: &Workspace, fields: Vec<String>) -> bool {
+        self.workspace.set_search_index(fields)
+    }
 }

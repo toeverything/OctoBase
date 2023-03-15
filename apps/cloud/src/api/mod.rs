@@ -1,6 +1,11 @@
 pub mod blobs;
 pub mod permissions;
+mod user_channel;
+mod ws;
 
+pub use ws::*;
+
+use crate::{context::Context, error_status::ErrorStatus, layer::make_firebase_auth_layer};
 use axum::{
     extract::{Path, Query},
     http::StatusCode,
@@ -8,7 +13,6 @@ use axum::{
     routing::{delete, get, post, put, Router},
     Extension, Json,
 };
-use base64::Engine;
 use chrono::{Duration, Utc};
 use cloud_database::{
     Claims, MakeToken, RefreshToken, UpdateWorkspace, User, UserQuery, UserToken,
@@ -18,18 +22,8 @@ use jwst::{error, BlobStorage, JwstError};
 use jwst_logger::{instrument, info, tracing};
 use lib0::any::Any;
 use std::sync::Arc;
-use utoipa::OpenApi;
-
-use crate::{
-    context::Context, error_status::ErrorStatus, layer::make_firebase_auth_layer,
-    utils::URL_SAFE_ENGINE,
-};
-
-mod ws;
-pub use ws::*;
-
-mod user_channel;
 pub use user_channel::*;
+use utoipa::OpenApi;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -64,7 +58,7 @@ pub use user_channel::*;
 struct ApiDoc;
 
 pub fn make_api_doc_route(route: Router) -> Router {
-    jwst_static::with_api_doc_v3(route, ApiDoc::openapi(), "AFFiNE Cloud Api Docs")
+    jwst_static::with_api_doc_v3(route, ApiDoc::openapi(), env!("CARGO_PKG_NAME"))
 }
 
 pub fn make_rest_route(ctx: Arc<Context>) -> Router {
@@ -153,8 +147,26 @@ pub async fn make_token(
     Extension(ctx): Extension<Arc<Context>>,
     Json(payload): Json<MakeToken>,
 ) -> Response {
+    // TODO: too complex type, need to refactor
     let (user, refresh) = match payload {
-        MakeToken::User(user) => (ctx.db.user_login(user).await, None),
+        MakeToken::DebugCreateUser(user) => {
+            if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
+                if let Ok(model) = ctx.db.create_user(user).await {
+                    (Ok(Some(model)), None)
+                } else {
+                    return ErrorStatus::BadRequest.into_response();
+                }
+            } else {
+                return ErrorStatus::BadRequest.into_response();
+            }
+        }
+        MakeToken::DebugLoginUser(user) => {
+            if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
+                (ctx.db.user_login(user).await, None)
+            } else {
+                return ErrorStatus::BadRequest.into_response();
+            }
+        }
         MakeToken::Google { token } => (
             if let Some(claims) = ctx.firebase.lock().await.decode_google_token(token).await {
                 ctx.db.google_user_login(&claims).await.map(Some)
@@ -164,17 +176,10 @@ pub async fn make_token(
             None,
         ),
         MakeToken::Refresh { token } => {
-            let Ok(input) = URL_SAFE_ENGINE.decode(token.clone()) else {
+            let Ok(data) = ctx.key.decrypt_aes_base64(token.clone()) else {
                 return ErrorStatus::BadRequest.into_response();
-            };
-            let data = match ctx.key.decrypt_aes(input.clone()) {
-                Ok(data) => data,
-                Err(_) => return ErrorStatus::BadRequest.into_response(),
             };
 
-            let Some(data) = data else {
-                return ErrorStatus::BadRequest.into_response();
-            };
             let Ok(data) = serde_json::from_slice::<RefreshToken>(&data) else {
                 return ErrorStatus::BadRequest.into_response();
             };
@@ -189,7 +194,7 @@ pub async fn make_token(
 
     match user {
         Ok(Some(user)) => {
-            let refresh = refresh.unwrap_or_else(|| {
+            let Some(refresh) = refresh.or_else(|| {
                 let refresh = RefreshToken {
                     expires: Utc::now().naive_utc() + Duration::days(180),
                     user_id: user.id.clone(),
@@ -198,10 +203,10 @@ pub async fn make_token(
 
                 let json = serde_json::to_string(&refresh).unwrap();
 
-                let data = ctx.key.encrypt_aes(json.as_bytes());
-
-                URL_SAFE_ENGINE.encode(data)
-            });
+                ctx.key.encrypt_aes_base64(json.as_bytes()).ok()
+            }) else {
+                return ErrorStatus::InternalServerError.into_response();
+            };
 
             let claims = Claims {
                 exp: Utc::now().naive_utc() + Duration::minutes(10),

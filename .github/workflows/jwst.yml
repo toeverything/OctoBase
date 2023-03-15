@@ -70,6 +70,7 @@ jobs:
                       ~/.cargo/git/db/
                       ./vendor
                       ./.cargo/config
+                      ./node_modules/.pnpm-store
                   key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
                   restore-keys: ${{ runner.os }}-cargo-
 
@@ -84,13 +85,17 @@ jobs:
                   username: ${{ github.actor }}
                   password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
 
+            - name: Get current time
+              id: time
+              run: echo "::set-output name=time::$(date +'%H%M')"
+
             - name: Extract metadata (tags, labels) for Docker (cloud)
               id: meta_cloud
               uses: docker/metadata-action@v4
               with:
                   images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.CLOUD_IMAGE_NAME }}
                   tags: |
-                      ${{ env.IMAGE_TAG }}
+                      ${{ env.IMAGE_TAG }}-${{ steps.time.outputs.time }}
                       ${{ env.IMAGE_TAG_LATEST }}
 
             - name: Build Docker image (pull request)
@@ -117,7 +122,7 @@ jobs:
                   target: cloud
 
     jwst:
-        runs-on: self-hosted
+        runs-on: ubuntu-latest
         environment: development
         permissions:
             contents: read
@@ -126,15 +131,21 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v2
+              with:
+                  fetch-depth: 0
 
+            - uses: pnpm/action-setup@v2
+              with:
+                  version: 7
             - name: Install Rust
               uses: actions-rs/toolchain@v1
               with:
                   profile: minimal
                   toolchain: stable
+                  target: x86_64-unknown-linux-musl
                   override: true
 
-            - name: Set up cargo cache
+            - name: Set up cache
               uses: actions/cache@v3
               continue-on-error: false
               with:
@@ -145,11 +156,21 @@ jobs:
                       ~/.cargo/git/db/
                       ./vendor
                       ./.cargo/config
+                      ./node_modules/.pnpm-store
                   key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
                   restore-keys: ${{ runner.os }}-cargo-
 
-            - name: Cargo Vendor
-              run: cargo vendor > .cargo/config
+            - name: Build & Check
+              run: |
+                  sudo apt install -yq musl-tools musl-dev
+                  pnpm i --frozen-lockfile --store=node_modules/.pnpm-store --filter @toeverything/jwt* --filter @toeverything/playground
+                  pnpm build:playground
+                  cp -r apps/jwt/dist ./dist
+                  cargo vendor > .cargo/config
+                  cargo build --profile fast-release --package keck --target x86_64-unknown-linux-musl
+              env:
+                  CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: x86_64-linux-musl-gcc
+                  CARGO_TERM_COLOR: always
 
             - name: Log in to the Container registry
               if: github.ref == 'refs/heads/master'
@@ -159,13 +180,17 @@ jobs:
                   username: ${{ github.actor }}
                   password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
 
+            - name: Get current time
+              id: time
+              run: echo "::set-output name=time::$(date +'%H%M')"
+
             - name: Extract metadata (tags, labels) for Docker
               id: meta_jwst
               uses: docker/metadata-action@v4
               with:
                   images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}
                   tags: |
-                      ${{ env.IMAGE_TAG }}
+                      ${{ env.IMAGE_TAG }}-${{ steps.time.outputs.time }}
                       ${{ env.IMAGE_TAG_LATEST }}
 
             - name: Build and push Docker image (jwst)
@@ -223,19 +248,71 @@ jobs:
             - uses: actions/checkout@v1
             - uses: actions-rs/toolchain@v1
               with:
-                  toolchain: nightly-2023-01-09
+                  toolchain: stable
                   override: true
             - uses: actions-rs/cargo@v1
               with:
                   command: test
                   args: -p affine-cloud -p keck -p jwst -p jwst-storage --no-fail-fast
-#     lint:
+
+    lint:
+        runs-on: ubuntu-latest
+        environment: development
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+              with:
+                  fetch-depth: 0
+
+            - name: Install Rust
+              uses: actions-rs/toolchain@v1
+              with:
+                  profile: minimal
+                  toolchain: stable
+                  components: clippy
+                  override: true
+
+            - name: Set up cache
+              uses: actions/cache@v3
+              continue-on-error: false
+              with:
+                  path: |
+                      ~/.cargo/bin/
+                      ~/.cargo/registry/index/
+                      ~/.cargo/registry/cache/
+                      ~/.cargo/git/db/
+                      ./vendor
+                      ./.cargo/config
+                      ./node_modules/.pnpm-store
+                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+                  restore-keys: ${{ runner.os }}-cargo-
+
+            - name: Install required cargo components
+              uses: taiki-e/install-action@v2
+              with:
+                  tool: clippy-sarif,sarif-fmt
+
+            - name: Build & Check
+              run: |
+                  cargo vendor > .cargo/config
+                  cargo clippy --all-features --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+                  RUSTDOCFLAGS="-D rustdoc::broken-intra-doc-links" cargo doc --workspace --all-features --no-deps
+              env:
+                  CARGO_TERM_COLOR: always
+
+            - name: Upload analysis results to GitHub
+              uses: github/codeql-action/upload-sarif@v1
+              with:
+                  sarif_file: rust-clippy-results.sarif
+                  wait-for-processing: true
+#     coverage:
 #         runs-on: ubuntu-latest
 #         steps:
 #             - uses: actions/checkout@v1
 #             - uses: actions-rs/toolchain@v1
 #               with:
-#                   toolchain: nightly-2023-01-09
+#                   toolchain: stable
 #                   override: true
 #             - name: Run cargo-tarpaulin
 #               uses: actions-rs/tarpaulin@v0.1

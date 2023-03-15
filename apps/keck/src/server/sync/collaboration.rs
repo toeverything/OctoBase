@@ -4,7 +4,7 @@ use axum::{
     response::Response,
     Json,
 };
-use jwst_rpc::handle_socket;
+use jwst_rpc::{handle_connector, socket_connector};
 use serde::Serialize;
 use std::sync::Arc;
 
@@ -26,7 +26,9 @@ pub async fn upgrade_handler(
     ws: WebSocketUpgrade,
 ) -> Response {
     let identifier = nanoid!();
-    ws.protocols(["AFFiNE"]).on_upgrade(|socket| async move {
-        handle_socket(socket, workspace, context.clone(), identifier).await
+    ws.protocols(["AFFiNE"]).on_upgrade(move |socket| {
+        handle_connector(context.clone(), workspace.clone(), identifier, move || {
+            socket_connector(socket, &workspace)
+        })
     })
 }

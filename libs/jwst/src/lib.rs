@@ -12,7 +12,25 @@ pub use history::{
 };
 pub use tracing::{debug, error, info, log::LevelFilter, trace, warn};
 pub use types::{BlobMetadata, BlobStorage, DocStorage, JwstError, JwstResult};
-pub use utils::sync_encode_update;
+pub use utils::{sync_encode_update, Base64DecodeError, Base64Engine, URL_SAFE_ENGINE};
 pub use workspaces::{MapSubscription, Workspace, WorkspaceMetadata, WorkspaceTransaction};
 #[cfg(feature = "workspace-search")]
 pub use workspaces::{SearchResult, SearchResults};
+
+#[inline]
+pub fn print_versions(pkg_name: &str, pkg_version: &str) {
+    use convert_case::{Case, Casing};
+    info!("{}-{}", pkg_name.to_case(Case::Pascal), pkg_version);
+    info!(
+        "Based on OctoBase-{}-{}-{}",
+        env!("CARGO_PKG_VERSION"),
+        &env!("VERGEN_GIT_COMMIT_TIMESTAMP")[0..10],
+        &env!("VERGEN_GIT_SHA")[0..7]
+    );
+    info!(
+        "Built with rust {}-{}-{}",
+        env!("VERGEN_RUSTC_SEMVER"),
+        env!("VERGEN_RUSTC_COMMIT_DATE"),
+        &env!("VERGEN_RUSTC_COMMIT_HASH")[0..7],
+    );
+}

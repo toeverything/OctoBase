@@ -193,13 +193,13 @@ impl DocDBStorage {
     where
         C: ConnectionTrait,
     {
-        info!("start full migrate: {table}");
+        trace!("start full migrate: {table}");
         if Self::count(conn, table).await? > 0 {
             Self::replace_with(conn, table, blob).await?;
         } else {
             Self::insert(conn, table, &blob).await?;
         }
-        info!("end full migrate: {table}");
+        trace!("end full migrate: {table}");
         Ok(())
     }
 
@@ -209,7 +209,7 @@ impl DocDBStorage {
     {
         trace!("start create doc: {workspace}");
         let mut doc = Doc::with_options(Options {
-            skip_gc: true,
+            // skip_gc: true,
             ..Default::default()
         });
 
@@ -269,7 +269,7 @@ impl DocStorage for DocDBStorage {
     }
 
     async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> JwstResult<()> {
-        debug!("write_full_update: get lock");
+        trace!("write_full_update: get lock");
         let _lock = self.bucket.get_lock().await;
 
         trace!("write_doc: {:?}", data);

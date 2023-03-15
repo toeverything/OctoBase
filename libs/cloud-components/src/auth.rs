@@ -4,13 +4,30 @@ use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use axum::http::header::CACHE_CONTROL;
 use chrono::{NaiveDateTime, Utc};
 use cloud_database::{Claims, GoogleClaims};
-use jsonwebtoken::{decode, decode_header, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{
+    decode, decode_header, encode, errors::Error as JwtError, DecodingKey, EncodingKey, Header,
+    Validation,
+};
+use jwst::{Base64DecodeError, Base64Engine, URL_SAFE_ENGINE};
 use pem::{encode as encode_pem, Pem};
 use rand::{thread_rng, Rng};
 use reqwest::{Client, RequestBuilder};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use thiserror::Error;
 use x509_parser::prelude::parse_x509_pem;
+
+#[derive(Debug, Error)]
+pub enum KeyError {
+    #[error("base64 error")]
+    Base64Error(#[from] Base64DecodeError),
+    #[error("jwt error")]
+    JwtError(#[from] JwtError),
+    #[error("invalid data")]
+    InvalidData,
+}
+
+pub type KeyResult<T> = Result<T, KeyError>;
 
 pub struct KeyContext {
     jwt_encode: EncodingKey,
@@ -19,7 +36,7 @@ pub struct KeyContext {
 }
 
 impl KeyContext {
-    pub fn new(key: Option<String>) -> Self {
+    pub fn new(key: Option<String>) -> KeyResult<Self> {
         let key = key.unwrap_or_else(|| {
             let key = nanoid!();
             warn!("!!! no sign key provided, use random key: `{key}` !!!");
@@ -30,15 +47,15 @@ impl KeyContext {
         hasher.update(key.as_bytes());
         let hash = hasher.finalize();
 
-        let aes = Aes256Gcm::new_from_slice(&hash[..]).unwrap();
+        let aes = Aes256Gcm::new_from_slice(&hash[..]).map_err(|_| KeyError::InvalidData)?;
 
         let jwt_encode = EncodingKey::from_secret(key.as_bytes());
         let jwt_decode = DecodingKey::from_secret(key.as_bytes());
-        Self {
+        Ok(Self {
             jwt_encode,
             jwt_decode,
             aes,
-        }
+        })
     }
 
     pub fn sign_jwt(&self, user: &Claims) -> String {
@@ -46,35 +63,47 @@ impl KeyContext {
     }
 
     #[allow(unused)]
-    pub fn decode_jwt(&self, token: &str) -> Option<Claims> {
-        if let Ok(res) = decode::<Claims>(token, &self.jwt_decode, &Validation::default()) {
-            Some(res.claims)
-        } else {
-            None
-        }
+    pub fn decode_jwt(&self, token: &str) -> KeyResult<Claims> {
+        let res = decode::<Claims>(token, &self.jwt_decode, &Validation::default())?;
+        Ok(res.claims)
     }
 
-    pub fn encrypt_aes(&self, input: &[u8]) -> Vec<u8> {
+    pub fn encrypt_aes(&self, input: &[u8]) -> KeyResult<Vec<u8>> {
         let rand_data: [u8; 12] = thread_rng().gen();
         let nonce = Nonce::from_slice(&rand_data);
 
-        let mut encrypted = self.aes.encrypt(nonce, input).unwrap();
+        let mut encrypted = self
+            .aes
+            .encrypt(nonce, input)
+            .map_err(|_| KeyError::InvalidData)?;
         encrypted.extend(nonce);
 
-        encrypted
+        Ok(encrypted)
     }
 
-    pub fn decrypt_aes(&self, input: Vec<u8>) -> Result<Option<Vec<u8>>, &'static str> {
+    pub fn encrypt_aes_base64(&self, input: &[u8]) -> KeyResult<String> {
+        let encrypted = self.encrypt_aes(input)?;
+        Ok(URL_SAFE_ENGINE.encode(encrypted))
+    }
+
+    pub fn decrypt_aes(&self, input: Vec<u8>) -> KeyResult<Vec<u8>> {
         if input.len() < 12 {
-            return Err("an unexpected value");
+            return Err(KeyError::InvalidData);
         }
         let (content, nonce) = input.split_at(input.len() - 12);
 
         let Some(nonce) = nonce.try_into().ok() else {
-            return Err("an unexpected value");
+            return Err(KeyError::InvalidData);
         };
 
-        Ok(self.aes.decrypt(nonce, content).ok())
+        self.aes
+            .decrypt(nonce, content)
+            .map_err(|_| KeyError::InvalidData)
+    }
+
+    pub fn decrypt_aes_base64(&self, input: String) -> KeyResult<Vec<u8>> {
+        let input = URL_SAFE_ENGINE.decode(input)?;
+        self.decrypt_aes(input)
     }
 }
 

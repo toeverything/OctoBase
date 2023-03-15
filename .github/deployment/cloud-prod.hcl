@@ -2,7 +2,6 @@ job "affine-cloud-prod" {
   region       = "global"
   datacenters  = ["production"]
   namespace    = "production"
-  consul_token = "adb57abd-4e84-5299-45f9-5f914a20ce7e"
 
   type = "service"
 

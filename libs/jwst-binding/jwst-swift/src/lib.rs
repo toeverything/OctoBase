@@ -107,6 +107,10 @@ mod ffi {
         fn search(self: &Workspace, query: String) -> String;
 
         fn get_blocks_by_flavour(self: &Workspace, flavour: &str) -> Vec<Block>;
+
+        fn get_search_index(self: &Workspace) -> Vec<String>;
+
+        fn set_search_index(self: &Workspace, fields: Vec<String>) -> bool;
     }
 
     extern "Rust" {
