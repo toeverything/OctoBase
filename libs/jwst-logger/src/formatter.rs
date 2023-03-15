@@ -4,9 +4,7 @@ use tracing::{Event, Level, Metadata, Subscriber};
 use tracing_log::NormalizeEvent;
 use tracing_subscriber::{
     fmt::{
-        format::{Format, Full, Writer},
-        time::FormatTime,
-        FmtContext, FormatEvent, FormatFields, FormattedFields,
+        format::Writer, time::FormatTime, FmtContext, FormatEvent, FormatFields, FormattedFields,
     },
     registry::LookupSpan,
 };
@@ -29,9 +27,7 @@ impl FormatTime for LogTime {
     }
 }
 
-pub struct JWSTFormatter {
-    pub(super) default: Format<Full, LogTime>,
-}
+pub struct JWSTFormatter;
 
 impl JWSTFormatter {
     fn format_level(level: &Level) -> AnsiGenericString<str> {
@@ -75,42 +71,38 @@ where
         mut writer: Writer<'_>,
         event: &Event<'_>,
     ) -> Result {
-        if cfg!(debug_assertions) {
-            let normalized_meta = event.normalized_metadata();
-            let meta = normalized_meta.as_ref().unwrap_or_else(|| event.metadata());
+        let normalized_meta = event.normalized_metadata();
+        let meta = normalized_meta.as_ref().unwrap_or_else(|| event.metadata());
 
-            if std::env::var("JWST_DEV").is_err()
-                && (meta.target() == "sqlx::query" || meta.target() == "runtime.spawn")
-            {
-                return Ok(());
-            }
-
-            write!(&mut writer, "{}", Self::render_log(meta))?;
-
-            // Format all the spans in the event's span context.
-            if let Some(scope) = ctx.event_scope() {
-                for span in scope.from_root() {
-                    let ext = span.extensions();
-                    let fields = &ext
-                        .get::<FormattedFields<N>>()
-                        .expect("will never be `None`");
-
-                    // Skip formatting the fields if the span had no fields.
-                    write!(
-                        writer,
-                        "[{}:{}] ",
-                        span.name(),
-                        if fields.is_empty() { "none" } else { fields }.to_string()
-                    )?;
-                }
-            }
-
-            // Write fields on the event
-            ctx.field_format().format_fields(writer.by_ref(), event)?;
-
-            writeln!(writer)
-        } else {
-            self.default.format_event(ctx, writer, event)
+        if std::env::var("JWST_DEV").is_err()
+            && (meta.target() == "sqlx::query" || meta.target() == "runtime.spawn")
+        {
+            return Ok(());
         }
+
+        write!(&mut writer, "{}", Self::render_log(meta))?;
+
+        // Format all the spans in the event's span context.
+        if let Some(scope) = ctx.event_scope() {
+            for span in scope.from_root() {
+                let ext = span.extensions();
+                let fields = &ext
+                    .get::<FormattedFields<N>>()
+                    .expect("will never be `None`");
+
+                // Skip formatting the fields if the span had no fields.
+                write!(
+                    writer,
+                    "[{}:{}] ",
+                    span.name(),
+                    if fields.is_empty() { "none" } else { fields }.to_string()
+                )?;
+            }
+        }
+
+        // Write fields on the event
+        ctx.field_format().format_fields(writer.by_ref(), event)?;
+
+        writeln!(writer)
     }
 }
