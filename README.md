@@ -78,7 +78,6 @@ This is a simple http interface binding, which allows you to modify the data in 
     ├── jwst-logger ## logger plugins for OctoBase
     ├── jwst-rpc ## sync plugins for OctoBase
     ├── jwst-storage ## storage plugins for OctoBase
-    └── jwst-storage ## multiple platform storage plugins for OctoBase
 ```
 
 In the process of project development, there are many software development concepts that have influenced us. Thank you very much for these excellent software:
