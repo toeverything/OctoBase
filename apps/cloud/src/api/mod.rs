@@ -15,6 +15,7 @@ use cloud_database::{
     WorkspaceSearchInput,
 };
 use jwst::{error, BlobStorage, JwstError};
+use jwst_logger::{instrument, info, tracing};
 use lib0::any::Any;
 use std::sync::Arc;
 use utoipa::OpenApi;
@@ -226,6 +227,13 @@ pub async fn make_token(
 /// Get user's `Workspace` .
 /// - Return `Workspace`'s data.
 #[utoipa::path(get, tag = "Workspace", context_path = "/api", path = "/workspace")]
+#[instrument(
+    name = "get_workspaces",
+    skip(ctx, claims),
+    fields(
+        user_id = %claims.user.id,
+    )
+)]
 pub async fn get_workspaces(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
@@ -382,11 +390,20 @@ pub async fn delete_workspace(
         ("workspace_id", description = "workspace id"),
     )
 )]
+#[instrument(
+    name = "get_doc", 
+    skip(ctx, claims, workspace_id), 
+    fields(
+        user_id = %claims.user.id,
+        workspace_id = %workspace_id,
+    )
+)]
 pub async fn get_doc(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
 ) -> Response {
+    info!("get_doc enter");
     match ctx
         .db
         .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
