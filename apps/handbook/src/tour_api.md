@@ -1,6 +1,6 @@
 # Tour of the API
 
-See how JWST API fit together and learn best practices for combining them.
+See how OctoBase API fit together and learn best practices for combining them.
 
 ## Workspace
 
@@ -32,7 +32,7 @@ curl -X 'DELETE' 'http://localhost:3000/api/block/AFFiNE'
 
 ## Block
 
-The block is the basic data structure of JWST, you can use below apis to manipulate the block itself.
+The block is the basic data structure of OctoBase, you can use below apis to manipulate the block itself.
 
 #### Get Block
 
