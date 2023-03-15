@@ -10,6 +10,7 @@ use axum::{
 };
 use cloud_database::{Claims, CreatePermission, PermissionType, UserCred};
 use jwst::error;
+use jwst_logger::{info, instrument, tracing};
 use lettre::message::Mailbox;
 use std::sync::Arc;
 
@@ -24,11 +25,13 @@ use std::sync::Arc;
         ("workspace_id", description = "workspace id"),
     )
 )]
+#[instrument(skip(ctx, claims), fields(user_id = %claims.user.id))]
 pub async fn get_members(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
 ) -> Response {
+    info!("get_members enter");
     match ctx
         .db
         .get_permission(claims.user.id.clone(), workspace_id.clone())
@@ -65,6 +68,7 @@ pub async fn get_members(
         (status = 200, description = "Invite member successfully")
     )
 )]
+#[instrument(skip(ctx, claims, headers), fields(user_id = %claims.user.id))]
 pub async fn invite_member(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
@@ -72,6 +76,7 @@ pub async fn invite_member(
     Path(workspace_id): Path<String>,
     Json(data): Json<CreatePermission>,
 ) -> Response {
+    info!("invite_member enter");
     if let Some(site_url) = headers
         .get(REFERER)
         .or_else(|| headers.get(HOST))
@@ -167,10 +172,12 @@ pub async fn invite_member(
         ("path", description = "invite code"),
     ),
 )]
+#[instrument(skip(ctx))]
 pub async fn accept_invitation(
     Extension(ctx): Extension<Arc<Context>>,
     Path(url): Path<String>,
 ) -> Response {
+    info!("accept_invitation enter");
     let Ok(data) = ctx.key.decrypt_aes_base64(url) else {
         return ErrorStatus::BadRequest.into_response();
     };
@@ -213,11 +220,13 @@ pub async fn accept_invitation(
         (status = 200, description = "Leave workspace successfully")
     )
 )]
+#[instrument(skip(ctx, claims), fields(user_id = %claims.user.id))]
 pub async fn leave_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(id): Path<String>,
 ) -> Response {
+    info!("leave_workspace enter");
     match ctx
         .db
         .delete_permission_by_query(claims.user.id.clone(), id.clone())
@@ -253,11 +262,13 @@ pub async fn leave_workspace(
         (status = 200, description = "Remove member successfully")
     )
 )]
+#[instrument(skip(ctx, claims), fields(user_id = %claims.user.id))]
 pub async fn remove_user(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(id): Path<String>,
 ) -> Response {
+    info!("remove_user enter");
     match ctx
         .db
         .get_permission_by_permission_id(claims.user.id.clone(), id.clone())

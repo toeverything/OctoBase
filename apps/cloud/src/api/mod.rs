@@ -114,17 +114,21 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         (status = 200, description = "Healthy")
     )
 )]
+#[instrument]
 pub async fn health_check() -> Response {
+    info!("Health check enter");
     StatusCode::OK.into_response()
 }
 
 ///  Get `user`'s data by email.
 /// - Return `user`'s data.
 #[utoipa::path(get, tag = "Workspace", context_path = "/api", path = "/user")]
+#[instrument(skip(ctx))]
 pub async fn query_user(
     Extension(ctx): Extension<Arc<Context>>,
     Query(payload): Query<UserQuery>,
 ) -> Response {
+    info!("query_user enter");
     if let (Some(email), Some(workspace_id)) = (payload.email, payload.workspace_id) {
         if let Ok(user) = ctx
             .db
@@ -143,10 +147,12 @@ pub async fn query_user(
 ///  create `token` for user.
 /// - Return `token`.
 #[utoipa::path(post, tag = "Workspace", context_path = "/api/user", path = "/token")]
+#[instrument(skip(ctx, payload))]  // payload need to be safe
 pub async fn make_token(
     Extension(ctx): Extension<Arc<Context>>,
     Json(payload): Json<MakeToken>,
 ) -> Response {
+    info!("make_token enter");
     // TODO: too complex type, need to refactor
     let (user, refresh) = match payload {
         MakeToken::DebugCreateUser(user) => {
@@ -233,7 +239,6 @@ pub async fn make_token(
 /// - Return `Workspace`'s data.
 #[utoipa::path(get, tag = "Workspace", context_path = "/api", path = "/workspace")]
 #[instrument(
-    name = "get_workspaces",
     skip(ctx, claims),
     fields(
         user_id = %claims.user.id,
@@ -243,6 +248,7 @@ pub async fn get_workspaces(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
 ) -> Response {
+    info!("get_workspaces enter");
     // TODO should print error
     match ctx.db.get_user_workspaces(claims.user.id.clone()).await {
         Ok(data) => Json(data).into_response(),
@@ -264,11 +270,18 @@ pub async fn get_workspaces(
         ("workspace_id", description = "workspace id"),
     )
 )]
+#[instrument(
+    skip(ctx, claims),
+    fields(
+        user_id = %claims.user.id,
+    )
+)]
 pub async fn get_workspace_by_id(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
 ) -> Response {
+    info!("get_workspace_by_id enter");
     match ctx
         .db
         .get_permission(claims.user.id.clone(), workspace_id.clone())
@@ -303,12 +316,20 @@ pub async fn get_workspace_by_id(
         ("workspace_id", description = "workspace id"),
     ),
 )]
+#[instrument(
+    name = "update_workspace",
+    skip(ctx, claims),
+    fields(
+        user_id = %claims.user.id,
+    )
+)]
 pub async fn update_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
     Json(payload): Json<UpdateWorkspace>,
 ) -> Response {
+    info!("update_workspace enter");
     match ctx
         .db
         .get_permission(claims.user.id.clone(), workspace_id.clone())
@@ -348,11 +369,19 @@ pub async fn update_workspace(
         ("workspace_id", description = "workspace id"),
     )
 )]
+#[instrument(
+    name = "delete_workspace",
+    skip(ctx, claims),
+    fields(
+        user_id = %claims.user.id,
+    )
+)]
 pub async fn delete_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
 ) -> Response {
+    info!("delete_workspace enter");
     match ctx
         .db
         .get_permission(claims.user.id.clone(), workspace_id.clone())
@@ -396,11 +425,9 @@ pub async fn delete_workspace(
     )
 )]
 #[instrument(
-    name = "get_doc", 
-    skip(ctx, claims, workspace_id), 
+    skip(ctx, claims), 
     fields(
-        user_id = %claims.user.id,
-        workspace_id = %workspace_id,
+        user_id = %claims.user.id
     )
 )]
 pub async fn get_doc(
@@ -436,10 +463,12 @@ pub async fn get_doc(
         ("workspace_id", description = "workspace id"),
     )
 )]
+#[instrument(skip(ctx))]
 pub async fn get_public_doc(
     Extension(ctx): Extension<Arc<Context>>,
     Path(workspace_id): Path<String>,
 ) -> Response {
+    info!("get_public_doc enter");
     match ctx.db.is_public_workspace(workspace_id.clone()).await {
         Ok(true) => (),
         Ok(false) => return ErrorStatus::Forbidden.into_response(),
@@ -478,12 +507,19 @@ async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response 
         ("workspace_id", description = "workspace id"),
     )
 )]
+#[instrument(
+    skip(ctx, claims),
+    fields(
+        user_id = %claims.user.id,
+    )
+)]
 pub async fn search_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     Path(workspace_id): Path<String>,
     Json(payload): Json<WorkspaceSearchInput>,
 ) -> Response {
+    info!("search_workspace enter");
     match ctx
         .db
         .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
