@@ -44,7 +44,8 @@ impl JWSTFormatter {
         }
     }
 
-    fn write_log(meta: &Metadata<'_>) -> String {
+    #[inline]
+    fn render_log(meta: &Metadata<'_>) -> String {
         if std::env::var("JWST_COLORFUL_LOGS").is_ok() || cfg!(debug_assertions) {
             format!(
                 "\r[{}][{}][{}] ",
@@ -84,23 +85,23 @@ where
                 return Ok(());
             }
 
-            write!(&mut writer, "{}", Self::write_log(meta))?;
+            write!(&mut writer, "{}", Self::render_log(meta))?;
 
             // Format all the spans in the event's span context.
             if let Some(scope) = ctx.event_scope() {
                 for span in scope.from_root() {
-                    write!(writer, "{}", span.name())?;
-
                     let ext = span.extensions();
                     let fields = &ext
                         .get::<FormattedFields<N>>()
                         .expect("will never be `None`");
 
                     // Skip formatting the fields if the span had no fields.
-                    if !fields.is_empty() {
-                        write!(writer, "{{{fields}}}")?;
-                    }
-                    write!(writer, ": ")?;
+                    write!(
+                        writer,
+                        "[{}:{}] ",
+                        span.name(),
+                        if fields.is_empty() { "none" } else { fields }.to_string()
+                    )?;
                 }
             }
 

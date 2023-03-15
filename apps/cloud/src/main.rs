@@ -3,7 +3,6 @@ mod context;
 mod error_status;
 mod files;
 mod layer;
-mod tracing;
 mod utils;
 
 use axum::{http::Method, Extension, Router, Server};
@@ -37,7 +36,7 @@ async fn main() {
 
     let context = Arc::new(context::Context::new().await);
 
-    let app = tracing::make_tracing_layer(files::static_files(
+    let app = layer::make_tracing_layer(files::static_files(
         Router::new()
             .nest(
                 "/api",
