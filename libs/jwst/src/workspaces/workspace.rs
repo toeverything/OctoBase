@@ -334,7 +334,7 @@ impl Clone for Workspace {
 #[cfg(test)]
 mod test {
     use super::*;
-    use log::info;
+    use tracing::info;
     use yrs::{updates::decoder::Decode, Doc, StateVector, Update};
 
     #[test]

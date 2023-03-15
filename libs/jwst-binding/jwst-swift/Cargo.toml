@@ -9,7 +9,6 @@ edition = "2021"
 lib0 = "0.16.3"
 swift-bridge = "0.1.48"
 tokio = "1.24.2"
-log = "^0.4.17"
 yrs = "0.16.3"
 
 # ======= workspace dependencies =======

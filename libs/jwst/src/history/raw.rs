@@ -1,6 +1,6 @@
-use log::{debug, info};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet, VecDeque};
+use tracing::{debug, info};
 use utoipa::ToSchema;
 use yrs::{
     block::{Item, ItemContent, ID},
