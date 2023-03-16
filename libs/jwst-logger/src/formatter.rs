@@ -95,7 +95,7 @@ where
                     true => "none",
                     false => fields,
                 };
-                write!(writer, "[{}:{}] ", span.name(), fields_name.to_string())?;
+                write!(writer, "[{}:{}] ", span.name(), fields_name)?;
             }
         }
 
