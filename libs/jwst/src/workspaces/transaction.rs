@@ -12,34 +12,8 @@ pub struct WorkspaceTransaction<'a> {
 unsafe impl Send for WorkspaceTransaction<'_> {}
 
 impl WorkspaceTransaction<'_> {
-    pub fn remove<S: AsRef<str>>(&mut self, block_id: S) -> bool {
-        info!("remove block: {}", block_id.as_ref());
-        self.ws
-            .blocks
-            .remove(&mut self.trx, block_id.as_ref())
-            .is_some()
-            && self
-                .ws
-                .updated
-                .remove(&mut self.trx, block_id.as_ref())
-                .is_some()
-    }
-
-    // create a block with specified flavor
-    // if block exists, return the exists block
-    pub fn create<B, F>(&mut self, block_id: B, flavor: F) -> Block
-    where
-        B: AsRef<str>,
-        F: AsRef<str>,
-    {
-        info!("create block: {}, flavour: {}", block_id.as_ref(), flavor.as_ref());
-        Block::new(
-            &mut self.trx,
-            self.ws,
-            block_id,
-            flavor,
-            self.ws.client_id(),
-        )
+    pub fn get_space(&mut self, space_id: String) -> Space {
+        Space::new(&mut self.trx, self.ws.doc(), self.ws.id(), space_id)
     }
 
     pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) {

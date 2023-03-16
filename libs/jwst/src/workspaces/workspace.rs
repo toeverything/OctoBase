@@ -32,7 +32,6 @@ pub struct Workspace {
     id: String,
     awareness: Arc<RwLock<Awareness>>,
     doc: Doc,
-    pub(crate) blocks: MapRef,
     pub(crate) updated: MapRef,
     pub(crate) metadata: MapRef,
     /// We store plugins so that their ownership is tied to [Workspace].
@@ -54,15 +53,13 @@ impl Workspace {
     }
 
     pub fn from_doc<S: AsRef<str>>(doc: Doc, id: S) -> Workspace {
-        let blocks = doc.get_or_insert_map("blocks");
-        let updated = doc.get_or_insert_map("updated");
+        let updated = doc.get_or_insert_map("space:updated");
         let metadata = doc.get_or_insert_map("space:meta");
 
         setup_plugin(Self {
             id: id.as_ref().to_string(),
             awareness: Arc::new(RwLock::new(Awareness::new(doc.clone()))),
             doc,
-            blocks,
             updated,
             metadata,
             plugins: Default::default(),
@@ -73,7 +70,6 @@ impl Workspace {
         id: S,
         awareness: Arc<RwLock<Awareness>>,
         doc: Doc,
-        blocks: MapRef,
         updated: MapRef,
         metadata: MapRef,
         plugins: PluginMap,
@@ -82,7 +78,6 @@ impl Workspace {
             id: id.as_ref().to_string(),
             awareness,
             doc,
-            blocks,
             updated,
             metadata,
             plugins,
@@ -169,65 +164,6 @@ impl Workspace {
 
     pub fn metadata(&self) -> WorkspaceMetadata {
         (&self.doc().transact(), self.metadata.clone()).into()
-    }
-
-    pub fn client_id(&self) -> u64 {
-        self.doc().client_id()
-    }
-
-    // get a block if exists
-    pub fn get<T, S>(&self, trx: &T, block_id: S) -> Option<Block>
-    where
-        T: ReadTxn,
-        S: AsRef<str>,
-    {
-        Block::from(trx, self, block_id, self.client_id())
-    }
-
-    pub fn block_count(&self) -> u32 {
-        self.blocks.len(&self.doc().transact())
-    }
-
-    #[inline]
-    pub fn blocks<T, R>(&self, trx: &T, cb: impl Fn(Box<dyn Iterator<Item = Block> + '_>) -> R) -> R
-    where
-        T: ReadTxn,
-    {
-        let iterator =
-            self.blocks
-                .iter(trx)
-                .zip(self.updated.iter(trx))
-                .map(|((id, block), (_, updated))| {
-                    Block::from_raw_parts(
-                        trx,
-                        id.to_owned(),
-                        &self.doc(),
-                        block.to_ymap().unwrap(),
-                        updated.to_yarray().unwrap(),
-                        self.client_id(),
-                    )
-                });
-
-        cb(Box::new(iterator))
-    }
-
-    pub fn get_blocks_by_flavour<T>(&self, trx: &T, flavour: &str) -> Vec<Block>
-    where
-        T: ReadTxn,
-    {
-        self.blocks(trx, |blocks| {
-            blocks
-                .filter(|block| block.flavor(trx) == flavour)
-                .collect::<Vec<_>>()
-        })
-    }
-
-    /// Check if the block exists in this workspace's blocks.
-    pub fn exists<T>(&self, trx: &T, block_id: &str) -> bool
-    where
-        T: ReadTxn,
-    {
-        self.blocks.contains_key(trx, block_id.as_ref())
     }
 
     pub fn observe_metadata(
@@ -394,8 +330,9 @@ impl Serialize for Workspace {
         let doc = self.doc();
         let trx = doc.transact();
         let mut map = serializer.serialize_map(Some(2))?;
-        map.serialize_entry("blocks", &self.blocks.to_json(&trx))?;
-        map.serialize_entry("updated", &self.updated.to_json(&trx))?;
+        // TODO: scan exists spaces
+        // map.serialize_entry("blocks", &self.blocks.to_json(&trx))?;
+        map.serialize_entry("space:updated", &self.updated.to_json(&trx))?;
         map.end()
     }
 }
@@ -406,7 +343,6 @@ impl Clone for Workspace {
             &self.id,
             self.awareness.clone(),
             self.doc.clone(),
-            self.blocks.clone(),
             self.updated.clone(),
             self.metadata.clone(),
             self.plugins.clone(),
@@ -448,14 +384,17 @@ mod test {
         };
 
         assert_json_diff::assert_json_eq!(
-            doc.get_or_insert_map("blocks").to_json(&doc.transact()),
-            new_doc.get_or_insert_map("blocks").to_json(&doc.transact())
+            doc.get_or_insert_map("space:meta").to_json(&doc.transact()),
+            new_doc
+                .get_or_insert_map("space:meta")
+                .to_json(&doc.transact())
         );
 
         assert_json_diff::assert_json_eq!(
-            doc.get_or_insert_map("updated").to_json(&doc.transact()),
+            doc.get_or_insert_map("space:updated")
+                .to_json(&doc.transact()),
             new_doc
-                .get_or_insert_map("updated")
+                .get_or_insert_map("space:updated")
                 .to_json(&doc.transact())
         );
     }

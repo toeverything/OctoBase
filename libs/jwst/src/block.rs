@@ -29,7 +29,7 @@ impl Block {
     // Create a new block, skip create if block is already created.
     pub fn new<B, F>(
         trx: &mut TransactionMut<'_>,
-        workspace: &Workspace,
+        space: &Space,
         block_id: B,
         flavor: F,
         operator: u64,
@@ -40,14 +40,12 @@ impl Block {
     {
         let block_id = block_id.as_ref();
 
-        if let Some(block) = Self::from(trx, workspace, block_id, operator) {
+        if let Some(block) = Self::from(trx, space, block_id, operator) {
             block
         } else {
             // init base struct
-            workspace
-                .blocks
-                .insert(trx, block_id, MapPrelim::<Any>::new());
-            let block = workspace
+            space.blocks.insert(trx, block_id, MapPrelim::<Any>::new());
+            let block = space
                 .blocks
                 .get(trx, block_id)
                 .and_then(|b| b.to_ymap())
@@ -67,7 +65,7 @@ impl Block {
                 chrono::Utc::now().timestamp_millis() as f64,
             );
 
-            workspace
+            space
                 .updated
                 .insert(trx, block_id, ArrayPrelim::<_, Any>::from([]));
 
@@ -75,14 +73,14 @@ impl Block {
                 .get(trx, sys::CHILDREN)
                 .and_then(|c| c.to_yarray())
                 .unwrap();
-            let updated = workspace
+            let updated = space
                 .updated
                 .get(trx, block_id)
                 .and_then(|c| c.to_yarray())
                 .unwrap();
 
             let block = Self {
-                doc: workspace.doc(),
+                doc: space.doc(),
                 id: block_id.to_string(),
                 operator,
                 block,
@@ -96,19 +94,19 @@ impl Block {
         }
     }
 
-    pub fn from<T, B>(trx: &T, workspace: &Workspace, block_id: B, operator: u64) -> Option<Block>
+    pub fn from<T, B>(trx: &T, space: &Space, block_id: B, operator: u64) -> Option<Block>
     where
         T: ReadTxn,
         B: AsRef<str>,
     {
-        let block = workspace.blocks.get(trx, block_id.as_ref())?.to_ymap()?;
-        let updated = workspace.updated.get(trx, block_id.as_ref())?.to_yarray()?;
+        let block = space.blocks.get(trx, block_id.as_ref())?.to_ymap()?;
+        let updated = space.updated.get(trx, block_id.as_ref())?.to_yarray()?;
 
         let children = block.get(trx, sys::CHILDREN)?.to_yarray()?;
 
         Some(Self {
             id: block_id.as_ref().to_string(),
-            doc: workspace.doc(),
+            doc: space.doc(),
             operator,
             block,
             children,

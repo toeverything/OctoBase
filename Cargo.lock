@@ -2107,7 +2107,7 @@ checksum = "0c2cdeb66e45e9f36bfad5bbdb4d2384e70936afbee843c6f6543f0c551ebb25"
 [[package]]
 name = "lib0"
 version = "0.16.3"
-source = "git+https://github.com/toeverything/y-crdt?rev=bab10df#bab10df09fa86c8dcc757b5d15efa2e8d324e4d4"
+source = "git+https://github.com/toeverything/y-crdt?rev=a8a3041#a8a30418c3495f9dc42d306ecd2682d10f43d2fe"
 dependencies = [
  "serde",
  "serde_json",
@@ -5142,7 +5142,7 @@ dependencies = [
 [[package]]
 name = "yrs"
 version = "0.16.3"
-source = "git+https://github.com/toeverything/y-crdt?rev=bab10df#bab10df09fa86c8dcc757b5d15efa2e8d324e4d4"
+source = "git+https://github.com/toeverything/y-crdt?rev=a8a3041#a8a30418c3495f9dc42d306ecd2682d10f43d2fe"
 dependencies = [
  "atomic_refcell",
  "lib0",

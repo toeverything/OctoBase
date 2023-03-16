@@ -1,5 +1,6 @@
 mod block;
 mod history;
+mod space;
 mod types;
 mod utils;
 mod workspaces;
@@ -10,6 +11,7 @@ pub use block::Block;
 pub use history::{
     parse_history, parse_history_client, BlockHistory, HistoryOperation, RawHistory,
 };
+pub use space::Space;
 pub use tracing::{debug, error, info, log::LevelFilter, trace, warn};
 pub use types::{BlobMetadata, BlobStorage, DocStorage, JwstError, JwstResult};
 pub use utils::{sync_encode_update, Base64DecodeError, Base64Engine, URL_SAFE_ENGINE};
