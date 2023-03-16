@@ -13,14 +13,19 @@ pub struct Space {
 }
 
 impl Space {
-    pub fn new(trx: &mut TransactionMut, doc: Doc, id: String, space_id: String) -> Self {
+    pub fn new<I, S>(trx: &mut TransactionMut, doc: Doc, id: I, space_id: S) -> Self
+    where
+        I: AsRef<str>,
+        S: AsRef<str>,
+    {
         let mut store = trx.store_mut();
-        let blocks = doc.get_or_insert_map_with_trx(&mut store, &format!("space:{}", space_id));
+        let blocks =
+            doc.get_or_insert_map_with_trx(&mut store, &format!("space:{}", space_id.as_ref()));
         let updated = doc.get_or_insert_map_with_trx(&mut store, "space:updated");
         let metadata = doc.get_or_insert_map_with_trx(&mut store, "space:meta");
 
         Self {
-            id,
+            id: id.as_ref().into(),
             doc,
             blocks,
             updated,
@@ -99,6 +104,25 @@ impl Space {
         cb(Box::new(iterator))
     }
 
+    pub fn create<B, F>(&self, trx: &mut TransactionMut, block_id: B, flavor: F) -> Block
+    where
+        B: AsRef<str>,
+        F: AsRef<str>,
+    {
+        info!(
+            "create block: {}, flavour: {}",
+            block_id.as_ref(),
+            flavor.as_ref()
+        );
+        Block::new(trx, self, block_id, flavor, self.client_id())
+    }
+
+    pub fn remove<S: AsRef<str>>(&self, trx: &mut TransactionMut, block_id: S) -> bool {
+        info!("remove block: {}", block_id.as_ref());
+        self.blocks.remove(trx, block_id.as_ref()).is_some()
+            && self.updated.remove(trx, block_id.as_ref()).is_some()
+    }
+
     pub fn get_blocks_by_flavour<T>(&self, trx: &T, flavour: &str) -> Vec<Block>
     where
         T: ReadTxn,
@@ -132,7 +156,7 @@ mod test {
 
         let doc = Doc::new();
         let mut trx = doc.transact_mut();
-        let space = Space::new(&mut trx, doc, "workspace".into(), space_id.into());
+        let space = Space::new(&mut trx, doc.clone(), "workspace", space_id);
         space.with_trx(|mut t| {
             let block = t.create("test", "text");
 
@@ -178,7 +202,7 @@ mod test {
     fn space() {
         let doc = Doc::new();
         let mut trx = doc.transact_mut();
-        let space = Space::new(&mut trx, doc, "workspace".into(), "space".into());
+        let space = Space::new(&mut trx, doc.clone(), "workspace", "space");
 
         space.with_trx(|t| {
             assert_eq!(space.id(), "test");
@@ -217,7 +241,7 @@ mod test {
 
         let doc = Doc::with_client_id(123);
         let mut trx = doc.transact_mut();
-        let space = Space::new(&mut trx, doc, "space".into(), "test".into());
+        let space = Space::new(&mut trx, doc.clone(), "space", "test");
         assert_eq!(space.client_id(), 123);
     }
 }

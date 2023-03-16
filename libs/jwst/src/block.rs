@@ -438,7 +438,9 @@ mod test {
 
         // new block
         workspace.with_trx(|mut t| {
-            let block = t.create("test", "affine:text");
+            let space = t.get_space("space");
+
+            let block = space.create(&mut t.trx, "test", "affine:text");
 
             assert_eq!(block.id(), "test");
             assert_eq!(block.flavor(&t.trx), "affine:text");
@@ -446,8 +448,10 @@ mod test {
         });
 
         // get exist block
-        workspace.with_trx(|t| {
-            let block = workspace.get(&t.trx, "test").unwrap();
+        workspace.with_trx(|mut t| {
+            let space = t.get_space("space");
+
+            let block = space.get(&t.trx, "test").unwrap();
 
             assert_eq!(block.flavor(&t.trx), "affine:text");
             assert_eq!(block.version(&t.trx), [1, 0]);
@@ -459,7 +463,9 @@ mod test {
         let workspace = Workspace::new("test");
 
         workspace.with_trx(|mut t| {
-            let block = t.create("test", "affine:text");
+            let space = t.get_space("space");
+
+            let block = space.create(&mut t.trx, "test", "affine:text");
 
             // normal type set
             block.set(&mut t.trx, "bool", true);
@@ -504,12 +510,14 @@ mod test {
         let workspace = Workspace::new("text");
 
         workspace.with_trx(|mut t| {
-            let block = t.create("a", "affine:text");
-            let b = t.create("b", "affine:text");
-            let c = t.create("c", "affine:text");
-            let d = t.create("d", "affine:text");
-            let e = t.create("e", "affine:text");
-            let f = t.create("f", "affine:text");
+            let space = t.get_space("space");
+
+            let block = space.create(&mut t.trx, "a", "affine:text");
+            let b = space.create(&mut t.trx, "b", "affine:text");
+            let c = space.create(&mut t.trx, "c", "affine:text");
+            let d = space.create(&mut t.trx, "d", "affine:text");
+            let e = space.create(&mut t.trx, "e", "affine:text");
+            let f = space.create(&mut t.trx, "f", "affine:text");
 
             block.push_children(&mut t.trx, &b);
             block.insert_children_at(&mut t.trx, &c, 0);
@@ -547,7 +555,9 @@ mod test {
         let workspace = Workspace::new("test");
 
         workspace.with_trx(|mut t| {
-            let block = t.create("a", "affine:text");
+            let space = t.get_space("space");
+
+            let block = space.create(&mut t.trx, "a", "affine:text");
 
             block.set(&mut t.trx, "test", 1);
 
@@ -564,8 +574,9 @@ mod test {
         let workspace = Workspace::from_doc(doc, "test");
 
         let (block, b, history) = workspace.with_trx(|mut t| {
-            let block = t.create("a", "affine:text");
-            let b = t.create("b", "affine:text");
+            let space = t.get_space("space");
+            let block = space.create(&mut t.trx, "a", "affine:text");
+            let b = space.create(&mut t.trx, "b", "affine:text");
 
             block.set(&mut t.trx, "test", 1);
 

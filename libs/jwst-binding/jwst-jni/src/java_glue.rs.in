@@ -70,7 +70,7 @@ foreign_class!(
 foreign_class!(
 	class Block {
 		self_type Block;
-		constructor Block::new(trx : & mut WorkspaceTransaction , workspace : & Workspace , block_id : String , flavor : String , operator : u64 ,)->Block;
+		constructor Block::new(trx : & mut WorkspaceTransaction , block_id : String , flavor : String , operator : u64 ,)->Block;
 		fn Block::set_bool(& self , trx : & mut WorkspaceTransaction , key : String , value : bool); alias setBool;
 		fn Block::set_string(& self , trx : & mut WorkspaceTransaction , key : String , value : String); alias setString;
 		fn Block::set_float(& self , trx : & mut WorkspaceTransaction , key : String , value : f64); alias setFloat;
@@ -105,8 +105,8 @@ foreign_class!(
 		constructor Workspace::new(_id : String)->Workspace;
 		fn Workspace::id(& self)->String; alias id;
 		fn Workspace::client_id(& self)->u64; alias clientId;
-		fn Workspace::get(& self , trx : & WorkspaceTransaction , block_id : String)->Option<Block>; alias get;
-		fn Workspace::exists(& self , trx : & WorkspaceTransaction , block_id : & str)->bool; alias exists;
+		fn Workspace::get(& self , trx : & mut WorkspaceTransaction , block_id : String)->Option<Block>; alias get;
+		fn Workspace::exists(& self , trx : & mut WorkspaceTransaction , block_id : & str)->bool; alias exists;
 		fn Workspace::with_trx(& self , on_trx : Box < dyn OnWorkspaceTransaction >)->bool; alias withTrx;
 		fn Workspace::drop_trx(& self , trx : WorkspaceTransaction); alias dropTrx;
 		fn Workspace::search(& self , query : String)->String; alias search;

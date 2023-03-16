@@ -13,16 +13,7 @@ unsafe impl Send for SpaceTransaction<'_> {}
 
 impl SpaceTransaction<'_> {
     pub fn remove<S: AsRef<str>>(&mut self, block_id: S) -> bool {
-        info!("remove block: {}", block_id.as_ref());
-        self.space
-            .blocks
-            .remove(&mut self.trx, block_id.as_ref())
-            .is_some()
-            && self
-                .space
-                .updated
-                .remove(&mut self.trx, block_id.as_ref())
-                .is_some()
+        self.space.remove(&mut self.trx, block_id)
     }
 
     // create a block with specified flavor
@@ -32,18 +23,7 @@ impl SpaceTransaction<'_> {
         B: AsRef<str>,
         F: AsRef<str>,
     {
-        info!(
-            "create block: {}, flavour: {}",
-            block_id.as_ref(),
-            flavor.as_ref()
-        );
-        Block::new(
-            &mut self.trx,
-            self.space,
-            block_id,
-            flavor,
-            self.space.client_id(),
-        )
+        self.space.create(&mut self.trx, block_id, flavor)
     }
 
     pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) {

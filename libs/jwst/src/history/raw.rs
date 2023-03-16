@@ -134,13 +134,15 @@ pub fn parse_history(doc: &Doc, client: u64) -> Option<Vec<RawHistory>> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::Workspace;
+    use crate::{space, Workspace};
 
     #[test]
     fn parse_history_client_test() {
         let workspace = Workspace::new("test");
         workspace.with_trx(|mut t| {
-            let block = t.create("test", "text");
+            let space = t.get_space("test");
+
+            let block = space.create(&mut t.trx, "test", "text");
             block.set(&mut t.trx, "test", "test");
         });
 
@@ -155,7 +157,7 @@ mod test {
     fn parse_history_test() {
         let workspace = Workspace::new("test");
         workspace.with_trx(|mut t| {
-            t.create("test", "text");
+            t.get_space("test").create(&mut t.trx, "test", "text");
         });
         let doc = workspace.doc();
 

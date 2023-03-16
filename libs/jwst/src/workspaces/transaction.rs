@@ -12,7 +12,7 @@ pub struct WorkspaceTransaction<'a> {
 unsafe impl Send for WorkspaceTransaction<'_> {}
 
 impl WorkspaceTransaction<'_> {
-    pub fn get_space(&mut self, space_id: String) -> Space {
+    pub fn get_space<S: AsRef<str>>(&mut self, space_id: S) -> Space {
         Space::new(&mut self.trx, self.ws.doc(), self.ws.id(), space_id)
     }
 

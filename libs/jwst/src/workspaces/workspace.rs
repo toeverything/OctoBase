@@ -17,8 +17,8 @@ use yrs::{
         decoder::{Decode, DecoderV1},
         encoder::{Encode, Encoder, EncoderV1},
     },
-    Doc, Map, MapRef, Observable, ReadTxn, StateVector, Subscription, Transact, TransactionMut,
-    Update, UpdateEvent, UpdateSubscription,
+    Doc, MapRef, Observable, ReadTxn, StateVector, Subscription, Transact, TransactionMut, Update,
+    UpdateEvent, UpdateSubscription,
 };
 
 static PROTOCOL: DefaultProtocol = DefaultProtocol;
@@ -160,6 +160,10 @@ impl Workspace {
 
     pub fn id(&self) -> String {
         self.id.clone()
+    }
+
+    pub fn client_id(&self) -> u64 {
+        self.doc.client_id()
     }
 
     pub fn metadata(&self) -> WorkspaceMetadata {
@@ -352,15 +356,17 @@ impl Clone for Workspace {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use super::{super::super::Block, *};
     use tracing::info;
-    use yrs::{updates::decoder::Decode, Doc, StateVector, Update};
+    use yrs::{updates::decoder::Decode, Doc, Map, StateVector, Update};
 
     #[test]
     fn doc_load_test() {
         let workspace = Workspace::new("test");
         workspace.with_trx(|mut t| {
-            let block = t.create("test", "text");
+            let space = t.get_space("test");
+
+            let block = space.create(&mut t.trx, "test", "text");
 
             block.set(&mut t.trx, "test", "test");
         });
@@ -405,36 +411,39 @@ mod test {
 
         workspace.with_trx(|t| {
             assert_eq!(workspace.id(), "test");
-            assert_eq!(workspace.blocks.len(&t.trx), 0);
             assert_eq!(workspace.updated.len(&t.trx), 0);
         });
 
         workspace.with_trx(|mut t| {
-            let block = t.create("block", "text");
+            let space = t.get_space("test");
 
-            assert_eq!(workspace.blocks.len(&t.trx), 1);
+            let block = space.create(&mut t.trx, "block", "text");
+
+            assert_eq!(space.blocks.len(&t.trx), 1);
             assert_eq!(workspace.updated.len(&t.trx), 1);
             assert_eq!(block.id(), "block");
             assert_eq!(block.flavor(&t.trx), "text");
 
             assert_eq!(
-                workspace.get(&t.trx, "block").map(|b| b.id()),
+                space.get(&t.trx, "block").map(|b| b.id()),
                 Some("block".to_owned())
             );
 
-            assert!(workspace.exists(&t.trx, "block"));
+            assert!(space.exists(&t.trx, "block"));
 
-            assert!(t.remove("block"));
+            assert!(space.remove(&mut t.trx, "block"));
 
-            assert_eq!(workspace.blocks.len(&t.trx), 0);
+            assert_eq!(space.blocks.len(&t.trx), 0);
             assert_eq!(workspace.updated.len(&t.trx), 0);
-            assert_eq!(workspace.get(&t.trx, "block"), None);
-            assert!(!workspace.exists(&t.trx, "block"));
+            assert_eq!(space.get(&t.trx, "block"), None);
+            assert!(!space.exists(&t.trx, "block"));
         });
 
         workspace.with_trx(|mut t| {
-            Block::new(&mut t.trx, &workspace, "test", "test", 1);
-            let vec = workspace.get_blocks_by_flavour(&t.trx, "test");
+            let space = t.get_space("test");
+
+            Block::new(&mut t.trx, &space, "test", "test", 1);
+            let vec = space.get_blocks_by_flavour(&t.trx, "test");
             assert_eq!(vec.len(), 1);
         });
 

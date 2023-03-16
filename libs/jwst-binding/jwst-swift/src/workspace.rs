@@ -25,9 +25,9 @@ impl Workspace {
 
     pub fn get(&self, block_id: String) -> Option<Block> {
         let workspace = self.workspace.clone();
-        self.workspace.with_trx(|trx| {
-            let block = self
-                .workspace
+        self.workspace.with_trx(|mut trx| {
+            let block = trx
+                .get_space("blocks")
                 .get(&trx.trx, &block_id)
                 .map(|b| Block::new(workspace, b));
             drop(trx);
@@ -38,7 +38,11 @@ impl Workspace {
     pub fn create(&self, block_id: String, flavor: String) -> Block {
         let workspace = self.workspace.clone();
         self.workspace.with_trx(|mut trx| {
-            let block = Block::new(workspace, trx.create(block_id, flavor));
+            let block = Block::new(
+                workspace,
+                trx.get_space("blocks")
+                    .create(&mut trx.trx, block_id, flavor),
+            );
             drop(trx);
             block
         })
@@ -50,7 +54,10 @@ impl Workspace {
 
     pub fn get_blocks_by_flavour(&self, flavour: &str) -> Vec<Block> {
         self.workspace
-            .with_trx(|trx| self.workspace.get_blocks_by_flavour(&trx.trx, flavour))
+            .with_trx(|mut trx| {
+                trx.get_space("blocks")
+                    .get_blocks_by_flavour(&trx.trx, flavour)
+            })
             .iter()
             .map(|block| Block {
                 workspace: self.workspace.clone(),

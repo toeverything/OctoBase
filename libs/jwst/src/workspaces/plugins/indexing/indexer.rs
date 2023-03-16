@@ -81,29 +81,30 @@ impl PluginImpl for IndexingPluginImpl {
             // TODO: reindex
 
             let re_index_list = ws.with_trx(|t| {
-                ws.blocks(&t.trx, |blocks| {
-                    let mut re_index_list = HashMap::<String, Vec<Option<String>>>::new();
-                    for block in blocks {
-                        let index_text = self
-                            .search_index
-                            .clone()
-                            .into_iter()
-                            .map(|field| {
-                                block
-                                    .content(&t.trx)
-                                    .get(&field)
-                                    .map(ToOwned::to_owned)
-                                    .and_then(|a| match a {
-                                        Any::String(str) => Some(str.to_string()),
-                                        _ => None,
-                                    })
-                            })
-                            .collect::<Vec<_>>();
-                        re_index_list.insert(block.id(), index_text);
-                    }
+                // ws.blocks(&t.trx, |blocks| {
+                //     let mut re_index_list = HashMap::<String, Vec<Option<String>>>::new();
+                //     for block in blocks {
+                //         let index_text = self
+                //             .search_index
+                //             .clone()
+                //             .into_iter()
+                //             .map(|field| {
+                //                 block
+                //                     .content(&t.trx)
+                //                     .get(&field)
+                //                     .map(ToOwned::to_owned)
+                //                     .and_then(|a| match a {
+                //                         Any::String(str) => Some(str.to_string()),
+                //                         _ => None,
+                //                     })
+                //             })
+                //             .collect::<Vec<_>>();
+                //         re_index_list.insert(block.id(), index_text);
+                //     }
 
-                    re_index_list
-                })
+                //     re_index_list
+                // })
+                vec![]
             });
 
             // dbg!((txn, upd));
@@ -209,16 +210,18 @@ mod test {
         };
 
         workspace.with_trx(|mut t| {
-            let block = t.create("b1", "text");
+            let space = t.get_space("test");
+
+            let block = space.create(&mut t.trx, "b1", "text");
 
             block.set(&mut t.trx, "test", "test");
 
-            let block = t.create("a", "affine:text");
-            let b = t.create("b", "affine:text");
-            let c = t.create("c", "affine:text");
-            let d = t.create("d", "affine:text");
-            let e = t.create("e", "affine:text");
-            let f = t.create("f", "affine:text");
+            let block = space.create(&mut t.trx, "a", "affine:text");
+            let b = space.create(&mut t.trx, "b", "affine:text");
+            let c = space.create(&mut t.trx, "c", "affine:text");
+            let d = space.create(&mut t.trx, "d", "affine:text");
+            let e = space.create(&mut t.trx, "e", "affine:text");
+            let f = space.create(&mut t.trx, "f", "affine:text");
 
             b.set(&mut t.trx, "title", "Title B content");
             b.set(&mut t.trx, "text", "Text B content bbb xxx");
@@ -256,9 +259,9 @@ mod test {
             // Question: Is this supposed to indicate that since this block is detached, then we should not be indexing it?
             // For example, should we walk up the parent tree to check if each block is actually attached?
             block.remove_children(&mut t.trx, &d);
-        });
 
-        println!("Blocks: {:#?}", workspace.blocks); // shown if there is an issue running the test.
+            println!("Blocks: {:#?}", space.blocks); // shown if there is an issue running the test.
+        });
 
         workspace
             .update_plugin::<IndexingPluginImpl>()

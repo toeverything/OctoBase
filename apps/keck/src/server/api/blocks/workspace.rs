@@ -276,12 +276,15 @@ pub async fn get_workspace_block(
     let Pagination { offset, limit } = pagination;
     info!("get_workspace_block: {ws_id:?}");
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        let total = workspace.block_count() as usize;
+        let (total, data) = workspace.with_trx(|mut t| {
+            let space = t.get_space("blocks");
 
-        let data = workspace.with_trx(|t| {
-            workspace.blocks(&t.trx, |blocks| {
+            let total = space.block_count() as usize;
+            let data = space.blocks(&t.trx, |blocks| {
                 blocks.skip(offset).take(limit).collect::<Vec<_>>()
-            })
+            });
+
+            (total, data)
         });
 
         let status = if data.is_empty() {
