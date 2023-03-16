@@ -1929,6 +1929,7 @@ dependencies = [
  "rifgen",
  "sqlx",
  "tokio",
+ "tracing",
  "yrs",
 ]
 
