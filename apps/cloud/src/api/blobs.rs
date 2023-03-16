@@ -17,14 +17,12 @@ use chrono::{DateTime, Utc};
 use cloud_database::Claims;
 use futures::{future, StreamExt};
 use jwst::{error, BlobStorage};
-use jwst_logger::{
-    instrument,
-    tracing::{self, log::info},
-};
+use jwst_logger::{info, instrument, tracing};
 use mime::APPLICATION_OCTET_STREAM;
 use std::sync::Arc;
 
 impl Context {
+    #[instrument(skip(self, method, headers))]
     async fn get_blob(
         &self,
         workspace: Option<String>,
@@ -32,6 +30,7 @@ impl Context {
         method: Method,
         headers: HeaderMap,
     ) -> Response {
+        info!("get_blob enter");
         if let Some(etag) = headers.get(IF_NONE_MATCH).and_then(|h| h.to_str().ok()) {
             if etag == id {
                 return ErrorStatus::NotModify.into_response();
@@ -83,7 +82,9 @@ impl Context {
         (header, StreamBody::new(file)).into_response()
     }
 
+    #[instrument(skip(self, stream))]
     async fn upload_blob(&self, stream: BodyStream, workspace: Option<String>) -> Response {
+        info!("upload_blob enter");
         // TODO: cancel
         let mut has_error = false;
         let stream = stream
@@ -110,7 +111,9 @@ impl Context {
         }
     }
 
+    #[instrument(skip(self, stream))]
     async fn upload_workspace(&self, stream: BodyStream) -> Vec<u8> {
+        info!("upload_workspace enter");
         let mut has_error = false;
         let stream = stream
             .take_while(|x| {

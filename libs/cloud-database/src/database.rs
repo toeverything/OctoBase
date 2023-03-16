@@ -7,6 +7,7 @@ use super::{
     *,
 };
 use affine_cloud_migration::{Expr, JoinType, Migrator, MigratorTrait, Query};
+use jwst_logger::{info, instrument, tracing};
 use nanoid::nanoid;
 use sea_orm::{
     prelude::*, ConnectionTrait, Database, DatabaseTransaction, QuerySelect, Set, TransactionTrait,
@@ -29,17 +30,21 @@ impl CloudDatabase {
         Ok(Self { pool })
     }
 
+    #[instrument(skip(self))]
     pub async fn get_user_by_email(&self, email: &str) -> Result<Option<UsersModel>, DbErr> {
+        info!("database get_user_by_email enter");
         Users::find()
             .filter(UsersColumn::Email.eq(email))
             .one(&self.pool)
             .await
     }
 
+    #[instrument(skip(self))]
     pub async fn get_workspace_owner(
         &self,
         workspace_id: String,
     ) -> Result<Option<UsersModel>, DbErr> {
+        info!("database get_workspace_owner enter");
         Permissions::find()
             .column(UsersColumn::Id)
             .column(UsersColumn::Name)
@@ -62,7 +67,9 @@ impl CloudDatabase {
             .await
     }
 
+    #[instrument(skip(self))]
     pub async fn user_login(&self, login: UserLogin) -> Result<Option<UsersModel>, DbErr> {
+        info!("database user_login enter");
         Users::find()
             .filter(UsersColumn::Email.eq(login.email))
             .filter(UsersColumn::Password.eq(login.password))
@@ -70,7 +77,9 @@ impl CloudDatabase {
             .await
     }
 
+    #[instrument(skip(self, token))]
     pub async fn refresh_token(&self, token: RefreshToken) -> Result<Option<UsersModel>, DbErr> {
+        info!("database refresh_token enter");
         Users::find()
             .filter(UsersColumn::Id.eq(token.user_id))
             .filter(UsersColumn::TokenNonce.eq(token.token_nonce))
@@ -78,7 +87,9 @@ impl CloudDatabase {
             .await
     }
 
+    #[instrument(skip(self, token))]
     pub async fn verify_refresh_token(&self, token: &RefreshToken) -> Result<bool, DbErr> {
+        info!("database verify_refresh_token enter");
         Users::find()
             .column(UsersColumn::Id)
             .filter(UsersColumn::Id.eq(token.user_id.clone()))
@@ -88,11 +99,13 @@ impl CloudDatabase {
             .map(|r| r.is_some())
     }
 
+    #[instrument(skip(trx))]
     pub async fn update_cred(
         trx: &DatabaseTransaction,
         user_id: String,
         user_email: &str,
     ) -> Result<Option<()>, DbErr> {
+        info!("database update_cred enter");
         let model = Permissions::find()
             .filter(PermissionColumn::UserEmail.eq(user_email))
             .one(trx)
@@ -114,7 +127,9 @@ impl CloudDatabase {
         .map(|_| Some(()))
     }
 
+    #[instrument(skip(self))]
     pub async fn create_user(&self, user: CreateUser) -> Result<UsersModel, DbErr> {
+        info!("database create_user enter");
         let trx = self.pool.begin().await?;
 
         let id = nanoid!();
@@ -139,10 +154,12 @@ impl CloudDatabase {
         Ok(user)
     }
 
+    #[instrument(skip(self))]
     pub async fn get_workspace_by_id(
         &self,
         workspace_id: String,
     ) -> Result<Option<WorkspaceDetail>, DbErr> {
+        info!("database get_workspace_by_id enter");
         let workspace = Workspaces::find()
             .filter(WorkspacesColumn::Id.eq(workspace_id.clone()))
             .one(&self.pool)
@@ -194,12 +211,14 @@ impl CloudDatabase {
         }))
     }
 
+    #[instrument(skip(self, trx))]
     pub async fn create_workspace<C: ConnectionTrait>(
         &self,
         trx: &C,
         user_id: String,
         ws_type: WorkspaceType,
     ) -> Result<Workspace, DbErr> {
+        info!("database create_workspace enter");
         let id = nanoid!();
         let workspace = Workspaces::insert(WorkspacesActiveModel {
             id: Set(id),
@@ -231,7 +250,9 @@ impl CloudDatabase {
         Ok(workspace)
     }
 
+    #[instrument(skip(self))]
     pub async fn create_normal_workspace(&self, user_id: String) -> Result<Workspace, DbErr> {
+        info!("database create_normal_workspace enter");
         let trx = self.pool.begin().await?;
         let workspace = self
             .create_workspace(&trx, user_id, WorkspaceType::Normal)
@@ -242,11 +263,13 @@ impl CloudDatabase {
         Ok(workspace)
     }
 
+    #[instrument(skip(self))]
     pub async fn update_workspace(
         &self,
         workspace_id: String,
         data: UpdateWorkspace,
     ) -> Result<Option<Workspace>, DbErr> {
+        info!("database update_workspace enter");
         let model = Workspaces::find()
             .filter(WorkspacesColumn::Id.eq(workspace_id.clone()))
             .filter(WorkspacesColumn::Type.eq(WorkspaceType::Normal as i32))
@@ -274,7 +297,9 @@ impl CloudDatabase {
         Ok(Some(workspace))
     }
 
+    #[instrument(skip(self))]
     pub async fn delete_workspace(&self, workspace_id: String) -> Result<bool, DbErr> {
+        info!("database delete_workspace enter");
         let trx = self.pool.begin().await?;
 
         Permissions::delete_many()
@@ -307,10 +332,12 @@ impl CloudDatabase {
         Ok(success)
     }
 
+    #[instrument(skip(self))]
     pub async fn get_user_workspaces(
         &self,
         user_id: String,
     ) -> Result<Vec<WorkspaceWithPermission>, DbErr> {
+        info!("database get_user_workspaces enter");
         Permissions::find()
             .column_as(WorkspacesColumn::Id, "id")
             .column_as(WorkspacesColumn::Public, "public")
@@ -331,7 +358,9 @@ impl CloudDatabase {
             .await
     }
 
+    #[instrument(skip(self))]
     pub async fn get_workspace_members(&self, workspace_id: String) -> Result<Vec<Member>, DbErr> {
+        info!("database get_workspace_members enter");
         Permissions::find()
             .column_as(PermissionColumn::Id, "id")
             .column_as(PermissionColumn::Type, "type")
@@ -357,11 +386,13 @@ impl CloudDatabase {
             .map(|m| m.iter().map(|m| m.into()).collect())
     }
 
+    #[instrument(skip(self))]
     pub async fn get_permission(
         &self,
         user_id: String,
         workspace_id: String,
     ) -> Result<Option<PermissionType>, DbErr> {
+        info!("database get_permission enter");
         Permissions::find()
             .filter(PermissionColumn::UserId.eq(user_id))
             .filter(PermissionColumn::WorkspaceId.eq(workspace_id))
@@ -370,11 +401,13 @@ impl CloudDatabase {
             .map(|p| p.map(|p| p.r#type.into()))
     }
 
+    #[instrument(skip(self))]
     pub async fn get_permission_by_permission_id(
         &self,
         user_id: String,
         permission_id: String,
     ) -> Result<Option<PermissionType>, DbErr> {
+        info!("database get_permission_by_permission_id enter");
         Permissions::find()
             .filter(PermissionColumn::UserId.eq(user_id))
             .filter(
@@ -391,21 +424,25 @@ impl CloudDatabase {
             .map(|p| p.map(|p| p.r#type.into()))
     }
 
+    #[instrument(skip(self))]
     pub async fn get_permission_by_id(
         &self,
         permission_id: String,
     ) -> Result<Option<PermissionModel>, DbErr> {
+        info!("database get_permission_by_id enter");
         Permissions::find()
             .filter(PermissionColumn::Id.eq(permission_id))
             .one(&self.pool)
             .await
     }
 
+    #[instrument(skip(self))]
     pub async fn can_read_workspace(
         &self,
         user_id: String,
         workspace_id: String,
     ) -> Result<bool, DbErr> {
+        info!("database can_read_workspace enter");
         Permissions::find()
             .filter(
                 PermissionColumn::UserId
@@ -430,7 +467,9 @@ impl CloudDatabase {
             .map(|p| p.is_some())
     }
 
+    #[instrument(skip(self))]
     pub async fn is_public_workspace(&self, workspace_id: String) -> Result<bool, DbErr> {
+        info!("database is_public_workspace enter");
         Workspaces::find()
             .filter(WorkspacesColumn::Id.eq(workspace_id.clone()))
             .filter(WorkspacesColumn::Public.eq(true))
@@ -439,12 +478,14 @@ impl CloudDatabase {
             .map(|p| p.is_some())
     }
 
+    #[instrument(skip(self))]
     pub async fn create_permission(
         &self,
         email: &str,
         workspace_id: String,
         permission_type: PermissionType,
     ) -> Result<Option<(String, UserCred)>, DbErr> {
+        info!("database create_permission enter");
         let workspace = Workspaces::find()
             .filter(WorkspacesColumn::Id.eq(workspace_id.clone()))
             .filter(WorkspacesColumn::Type.eq(WorkspaceType::Normal as i32))
@@ -483,10 +524,12 @@ impl CloudDatabase {
         Ok(Some((id, user)))
     }
 
+    #[instrument(skip(self))]
     pub async fn accept_permission(
         &self,
         permission_id: String,
     ) -> Result<Option<Permission>, DbErr> {
+        info!("database accept_permission enter");
         let p = Permissions::find()
             .filter(PermissionColumn::Id.eq(permission_id.clone()))
             .one(&self.pool)
@@ -517,7 +560,9 @@ impl CloudDatabase {
         ))
     }
 
+    #[instrument(skip(self))]
     pub async fn delete_permission(&self, permission_id: String) -> Result<bool, DbErr> {
+        info!("database delete_permission enter");
         Permissions::delete_many()
             .filter(PermissionColumn::Id.eq(permission_id))
             .exec(&self.pool)
@@ -525,11 +570,13 @@ impl CloudDatabase {
             .map(|q| q.rows_affected > 0)
     }
 
+    #[instrument(skip(self))]
     pub async fn delete_permission_by_query(
         &self,
         user_id: String,
         workspace_id: String,
     ) -> Result<bool, DbErr> {
+        info!("database delete_permission_by_query enter");
         Permissions::delete_many()
             .filter(PermissionColumn::UserId.eq(user_id))
             .filter(PermissionColumn::WorkspaceId.eq(workspace_id.clone()))
@@ -538,11 +585,13 @@ impl CloudDatabase {
             .map(|q| q.rows_affected > 0)
     }
 
+    #[instrument(skip(self))]
     pub async fn get_user_in_workspace_by_email(
         &self,
         workspace_id: String,
         email: &str,
     ) -> Result<UserInWorkspace, DbErr> {
+        info!("database get_user_in_workspace_by_email enter");
         let user: Option<UsersModel> = Users::find()
             .filter(UsersColumn::Email.eq(email))
             .one(&self.pool)
@@ -583,7 +632,9 @@ impl CloudDatabase {
         })
     }
 
+    #[instrument(skip(self))]
     pub async fn google_user_login(&self, claims: &GoogleClaims) -> Result<UsersModel, DbErr> {
+        info!("database google_user_login enter");
         let google_user: Option<GoogleUsersModel> = GoogleUsers::find()
             .filter(GoogleUsersColumn::GoogleId.eq(claims.user_id.clone()))
             .one(&self.pool)
