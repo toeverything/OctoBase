@@ -1,9 +1,8 @@
 use crate::Workspace;
 use android_logger::Config;
-use jwst::{error, DocStorage, JwstError, JwstResult};
+use jwst::{error, info, DocStorage, JwstError, JwstResult, LevelFilter};
 use jwst_rpc::start_client;
 use jwst_storage::JwstStorage as AutoStorage;
-use log::LevelFilter;
 use std::sync::Arc;
 use tokio::{runtime::Runtime, sync::RwLock};
 
@@ -67,7 +66,7 @@ impl JwstStorage {
                     let id = id.clone();
                     if let Some(storage) = storage.clone() {
                         let rt = Runtime::new().unwrap();
-                        log::info!("update: {:?}", &e.update);
+                        info!("update: {:?}", &e.update);
                         if let Err(e) = rt.block_on(async move {
                             let storage = storage.write().await;
                             storage.docs().write_update(id, &e.update).await
