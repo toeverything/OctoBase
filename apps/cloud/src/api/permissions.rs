@@ -14,7 +14,10 @@ use lettre::message::Mailbox;
 use std::sync::Arc;
 
 /// Get workspace's `Members`
-/// - Return `Members`.
+/// - Return 200 ok and `Members`.
+/// - Return 400 if request parameter error.
+/// - Return 403 if user do not have permission.
+/// - Return 500 if server error.
 #[utoipa::path(
     get,
     tag = "Permission",
@@ -22,6 +25,26 @@ use std::sync::Arc;
     path = "/{workspace_id}/permission",
     params(
         ("workspace_id", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Return member", body = [Vec<Member>],
+        example=json!([{ 
+        "id": "xxxxx", 
+        "user":  { 
+            "id": "xxx", 
+            "name": "xxx", 
+            "email": "xxx@xxx.xx", 
+            "avatar_url": "xxx", 
+            "created_at": "2023-03-16T08:51:08" }, 
+        "accepted": "true", 
+        "type": "Owner", 
+        "created_at": "2023-03-16T08:51:08" 
+        }])
+       
+       ),
+        (status = 400, description = "Request parameter error."),
+        (status = 403, description = "Sorry, you do not have permission."),
+        (status = 500, description = "Server error, please try again later.")
     )
 )]
 pub async fn get_members(
@@ -61,8 +84,15 @@ pub async fn get_members(
     params(
         ("workspace_id", description = "workspace id"),
     ),
+    request_body(content = CreatePermission, description = "Request body for invite member",content_type = "application/json",example = json!({
+        "email": "toeverything@toeverything.info"
+    }
+    )),
     responses(
-        (status = 200, description = "Invite member successfully")
+        (status = 200, description = "Invite member successfully"),
+        (status = 400, description = "Request parameter error."),
+        (status = 409, description = "Invitation failed."),
+        (status = 500, description = "Server error, please try again later.")
     )
 )]
 pub async fn invite_member(
@@ -157,7 +187,11 @@ pub async fn invite_member(
 }
 
 /// Accept invitation
-/// - Return permission.
+/// - Return 200 ok and permission.
+/// - Return 400 bad request.
+/// - Return 401 unauthorized.
+/// - Return 404 invitation link has expired.
+/// - Return 500 server error.
 #[utoipa::path(
     post,
     tag = "Permission",
@@ -166,6 +200,22 @@ pub async fn invite_member(
     params(
         ("path", description = "invite code"),
     ),
+    responses(
+        (status = 200, description = "Return permission", body = Permission,
+        example=json!({ 
+            "id": "xxxxx", 
+            "type": "Admin", 
+            "workspace_id": "xxxx", 
+            "user_id": ("xxx"),
+            "user_email": ("xxx2@xxx.xx"), 
+            "accepted": "true", 
+            "created_at": "2023-03-16T09:29:28" }
+        )),
+        (status = 400, description = "Request parameter error."),
+        (status = 401, description = "Unauthorized."),
+        (status = 404, description = "Invitation link has expired."),
+        (status = 500, description = "Server error, please try again later.")
+    )
 )]
 pub async fn accept_invitation(
     Extension(ctx): Extension<Arc<Context>>,
@@ -210,7 +260,8 @@ pub async fn accept_invitation(
         ("workspace_id", description = "workspace id"),
     ),
     responses(
-        (status = 200, description = "Leave workspace successfully")
+        (status = 200, description = "Leave workspace successfully"),
+        (status = 500, description = "Server error, please try again later.")
     )
 )]
 pub async fn leave_workspace(
@@ -240,7 +291,9 @@ pub async fn leave_workspace(
 }
 
 /// Remove user from workspace
-/// - Return 200 ok.
+/// - Return 200 Ok.
+/// - Return 403 Sorry, you do not have permission.
+/// - Return 500 server error.
 #[utoipa::path(
     delete,
     tag = "Permission",
@@ -250,7 +303,9 @@ pub async fn leave_workspace(
         ("id", description = "permission id"),
     ),
     responses(
-        (status = 200, description = "Remove member successfully")
+        (status = 200, description = "Remove member successfully"),
+        (status = 403, description = "Sorry, you do not have permission."),
+        (status = 500, description = "Server error, please try again later.")
     )
 )]
 pub async fn remove_user(
