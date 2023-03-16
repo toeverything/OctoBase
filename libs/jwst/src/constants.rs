@@ -9,6 +9,9 @@ pub mod sys {
     /// `sys:flavor`
     pub const FLAVOR: &str = "sys:flavor";
 
+    /// `sys:flavor`
+    pub const FLAVOUR: &str = "sys:flavour";
+
     /// `sys:parent`
     pub const PARENT: &str = "sys:parent";
 

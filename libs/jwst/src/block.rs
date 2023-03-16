@@ -96,8 +96,10 @@ impl Block {
         B: AsRef<str>,
     {
         let block = space.blocks.get(trx, block_id.as_ref())?.to_ymap()?;
-        let updated = space.updated.get(trx, block_id.as_ref())?.to_yarray()?;
-
+        let updated = space
+            .updated
+            .get(trx, block_id.as_ref())
+            .and_then(|a| a.to_yarray());
         let children = block.get(trx, sys::CHILDREN)?.to_yarray()?;
 
         Some(Self {
@@ -106,7 +108,7 @@ impl Block {
             operator,
             block,
             children,
-            updated: Some(updated),
+            updated,
         })
     }
 
@@ -201,6 +203,7 @@ impl Block {
     {
         self.block
             .get(trx, sys::FLAVOR)
+            .or_else(|| self.block.get(trx, sys::FLAVOUR))
             .unwrap_or_default()
             .to_string(trx)
     }
@@ -293,7 +296,10 @@ impl Block {
     }
 
     #[inline]
-    pub fn children_iter<T>(&self, cb: impl Fn(Box<dyn Iterator<Item = String> + '_>) -> T) -> T {
+    pub fn children_iter<T>(
+        &self,
+        cb: impl FnOnce(Box<dyn Iterator<Item = String> + '_>) -> T,
+    ) -> T {
         let trx = self.doc.transact();
         let iterator = self.children.iter(&trx).map(|v| v.to_string(&trx));
 
@@ -416,6 +422,17 @@ impl Block {
         self.children
             .iter(trx)
             .position(|c| c.to_string(trx) == block_id)
+    }
+
+    pub fn to_markdown<T>(&self, trx: &T) -> Option<String>
+    where
+        T: ReadTxn,
+    {
+        if let Some(text) = self.get(trx, "text") {
+            Some(text.to_string())
+        } else {
+            None
+        }
     }
 }
 

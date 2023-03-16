@@ -8,7 +8,7 @@ pub use ws::*;
 use crate::{context::Context, error_status::ErrorStatus, layer::make_firebase_auth_layer};
 use axum::{
     extract::{Path, Query},
-    http::StatusCode,
+    http::{StatusCode,header::CONTENT_TYPE, HeaderMap},
     response::{IntoResponse, Response},
     routing::{delete, get, post, put, Router},
     Extension, Json,
@@ -475,6 +475,7 @@ pub async fn get_doc(
 pub async fn get_page(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
+    headers: HeaderMap,
     Path((workspace_id, page_id)): Path<(String, String)>,
 ) -> Response {
     info!("get_page enter");
@@ -493,12 +494,28 @@ pub async fn get_page(
 
     match ctx.storage.get_workspace(workspace_id).await {
         Ok(workspace) => {
-            if let Some(space) = workspace.with_trx(|t| t.get_exists_space(page_id)) {
-                Json(space).into_response()
+            if headers
+                .get(CONTENT_TYPE)
+                .and_then(|c| c.to_str().ok())
+                .map(|s| s.contains("json"))
+                .unwrap_or(false)
+            {
+                if let Some(space) = workspace.with_trx(|t| t.get_exists_space(page_id)) {
+                    Json(space).into_response()
+                } else {
+                    ErrorStatus::NotFound.into_response()
+                }
             } else {
-                ErrorStatus::NotFound.into_response()
+                if let Some(markdown) = workspace.with_trx(|t| {
+                    t.get_exists_space(page_id)
+                        .and_then(|page| page.to_markdown(&t.trx))
+                }) {
+                    markdown.into_response()
+                } else {
+                    ErrorStatus::NotFound.into_response()
+                }
             }
-        },
+        }
         Err(JwstError::WorkspaceNotFound(_)) => ErrorStatus::NotFound.into_response(),
         Err(e) => {
             error!("Failed to get workspace: {:?}", e);

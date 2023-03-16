@@ -172,6 +172,39 @@ impl Space {
     {
         self.blocks.contains_key(trx, block_id.as_ref())
     }
+
+    pub fn to_markdown<T>(&self, trx: &T) -> Option<String>
+    where
+        T: ReadTxn,
+    {
+        if let Some(title) = self.get_blocks_by_flavour(trx, "affine:page").first() {
+            let mut markdown = String::new();
+
+            title.get(trx, "title").map(|title| {
+                markdown.push_str(&format!("# {}", title.to_string()));
+                markdown.push('\n');
+            });
+
+            for frame in title.children(trx) {
+                if let Some(frame) = self.get(trx, &frame) {
+                    for child in frame.children(trx) {
+                        println!("child: {child}");
+                        if let Some(text) = self
+                            .get(trx, &child)
+                            .and_then(|child| child.to_markdown(trx))
+                        {
+                            markdown.push_str(&text);
+                            markdown.push('\n');
+                        }
+                    }
+                }
+            }
+
+            Some(markdown)
+        } else {
+            None
+        }
+    }
 }
 
 impl Serialize for Space {
