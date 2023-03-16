@@ -9,20 +9,4 @@ pub use tracing::{
 };
 
 use filter::GeneralFilter;
-use formatter::{JWSTFormatter, LogTime};
-
-#[inline]
-pub fn print_versions(pkv_version: &str) {
-    info!(
-        "OctoBase {}-{}-{}",
-        pkv_version,
-        &env!("VERGEN_GIT_COMMIT_TIMESTAMP")[0..10],
-        &env!("VERGEN_GIT_SHA")[0..7]
-    );
-    info!(
-        "Built with rust {}-{}-{}",
-        env!("VERGEN_RUSTC_SEMVER"),
-        env!("VERGEN_RUSTC_COMMIT_DATE"),
-        &env!("VERGEN_RUSTC_COMMIT_HASH")[0..7],
-    );
-}
+use formatter::JWSTFormatter;

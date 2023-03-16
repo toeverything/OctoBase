@@ -6,7 +6,6 @@ use axum::{
     },
     response::Response,
 };
-use base64::Engine;
 use jwst_rpc::{handle_connector, socket_connector};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -31,13 +30,10 @@ async fn ws_handler(
     Query(Param { token }): Query<Param>,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let user: Option<RefreshToken> = URL_SAFE_ENGINE
-        .decode(token)
+    let user: Option<RefreshToken> = ctx
+        .key
+        .decrypt_aes_base64(token)
         .ok()
-        .and_then(|byte| match ctx.key.decrypt_aes(byte) {
-            Ok(data) => data,
-            Err(_) => None,
-        })
         .and_then(|data| serde_json::from_slice(&data).ok());
 
     let user = if let Some(user) = user {

@@ -7,7 +7,7 @@
 
 OctoBase is an offline-available, scalable, self-contained collaborative database, which was originally designed for AFFiNE. AFFiNE is a local-first open source knowledge base that provides full functionality in any network environment.
 
-Based on OctoBase, you can not only implement a rich text editor for offline writing, but also implement richer offline collaboration functions based on OctoBase's data abstraction, such as: multidimensional tables, drawing boards, chat software, etc.
+Based on OctoBase, you can not only implement a rich text editor for offline writing, but also implement richer offline collaboration functions based on OctoBase's data abstraction, such as: multidimensional tables, drawing boards, etc.
 
 As an offline collaborative data database, OctoBase has the following characteristics:
 
@@ -74,11 +74,10 @@ This is a simple http interface binding, which allows you to modify the data in 
 │   └── keck ## collaboration backend
 └── libs ##
     ├── jwst  ## OctoBase core library
-    ├── jwst-binding/jwst-ffi ## OctoBase binging for C ffi
-    ├── jwst-binding/jwst-jni# ## OctoBase binding for JNI
-    ├── jwst-binding/jwst-wasm ## OctoBase binding for WASM
+    ├── jwst-binding ## Multilingual FFI bindings for OctoBase
     ├── jwst-logger ## logger plugins for OctoBase
-    └── jwst-storage ## multiple platform storage plugins for OctoBase
+    ├── jwst-rpc ## sync plugins for OctoBase
+    ├── jwst-storage ## storage plugins for OctoBase
 ```
 
 In the process of project development, there are many software development concepts that have influenced us. Thank you very much for these excellent software:

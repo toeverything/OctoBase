@@ -23,7 +23,7 @@ impl Context {
     pub async fn new() -> Context {
         let database_url = dotenvy::var("DATABASE_URL");
         if database_url.is_err() {
-            warn!("!!! no database url provided, use affine.db/affine.binary.db !!!");
+            warn!("!!! no database url provided, use memory database !!!");
             warn!("!!! please set DATABASE_URL in .env file or environmental variable to save your data !!!");
         }
 
@@ -32,7 +32,7 @@ impl Context {
             db: CloudDatabase::init_pool(
                 database_url
                     .as_deref()
-                    .unwrap_or("sqlite://affine.db?mode=rwc"),
+                    .unwrap_or("sqlite::memory:?cache=shared"),
             )
             .await
             .expect("Cannot create cloud database"),
@@ -40,12 +40,12 @@ impl Context {
                 database_url
                     .map(|db| format!("{db}_binary"))
                     .as_deref()
-                    .unwrap_or("sqlite://affine.binary.db?mode=rwc"),
+                    .unwrap_or("sqlite::memory:?cache=shared"),
             )
             .await
             .expect("Cannot create storage"),
             // =========== auth ===========
-            key: KeyContext::new(dotenvy::var("SIGN_KEY").ok()),
+            key: KeyContext::new(dotenvy::var("SIGN_KEY").ok()).expect("Cannot create key context"),
             firebase: Mutex::new(FirebaseContext::new(
                 dotenvy::var("FIREBASE_PROJECT_ID")
                     .map(|id| vec![id])

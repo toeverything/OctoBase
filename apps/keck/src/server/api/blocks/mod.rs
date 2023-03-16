@@ -104,13 +104,17 @@ fn workspace_apis(router: Router) -> Router {
         )
         .route(
             "/block/:workspace/flavour/:flavour",
-            get(block::get_block_by_flavour)
+            get(block::get_block_by_flavour),
         )
         .route(
             "/block/:workspace/blocks",
             get(workspace::get_workspace_block),
         )
         .route("/search/:workspace", get(workspace::workspace_search))
+        .route(
+            "/search/:workspace/index",
+            get(workspace::get_search_index).post(workspace::set_search_index),
+        )
 }
 
 pub fn blocks_apis(router: Router) -> Router {

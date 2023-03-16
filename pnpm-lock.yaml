@@ -55,7 +55,7 @@ importers:
       '@toeverything/jwt-react': link:../../libs/jwt-react
       jotai: 2.0.3
 
-  apps/jwst:
+  apps/jwt:
     specifiers:
       '@toeverything/jwt-react': workspace:^0.1.0
       jotai: ^2.0.3

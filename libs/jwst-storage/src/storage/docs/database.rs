@@ -209,7 +209,7 @@ impl DocDBStorage {
     {
         trace!("start create doc: {workspace}");
         let mut doc = Doc::with_options(Options {
-            skip_gc: true,
+            // skip_gc: true,
             ..Default::default()
         });
 
@@ -255,9 +255,8 @@ impl DocStorage for DocDBStorage {
                 let _lock = self.bucket.get_lock().await;
 
                 info!("init workspace cache: {workspace_id}");
-                let pool = self.pool.clone();
                 let id = workspace_id.clone();
-                let doc = Self::create_doc(&pool, &id)
+                let doc = Self::create_doc(&self.pool, &id)
                     .await
                     .context("failed to create workspace")
                     .map_err(JwstError::StorageError)?;
@@ -303,7 +302,7 @@ impl DocStorage for DocDBStorage {
         self.workspaces.write().await.remove(&workspace_id);
         DocDBStorage::drop(&self.pool, &workspace_id)
             .await
-            .context("Failed to delete workspace")
+            .context("failed to delete workspace")
             .map_err(JwstError::StorageError)?;
 
         Ok(())

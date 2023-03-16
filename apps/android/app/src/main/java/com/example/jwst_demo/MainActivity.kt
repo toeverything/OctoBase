@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.toeverything.jwst.Storage
 import java.io.File
 import java.util.*
+import com.toeverything.jwst.JwstVecOfStrings
 
 fun <T> Optional<T>.unwrap(): T? = orElse(null)
 
@@ -78,11 +79,26 @@ class MainActivity : AppCompatActivity() {
                 val block = trx.create("search_test", "search_test_flavor")
                 block.set(trx, "title", "introduction")
                 block.set(trx, "text", "hello every one")
+                block.set(trx, "index", "this is index")
             }
-            val searchResult1 = "search result: " + workspace.search("duc")
+
+            var indexFields = arrayOf("title", "text")
+            workspace.setSearchIndex(indexFields)
+            Log.i("jwst",  "search index: " + workspace.getSearchIndex().joinToString(" "))
+
+            val searchResult1 = "search result1: " + workspace.search("duc")
             Log.i("jwst",  searchResult1)
-            val searchResult2 = "search result: " + workspace.search("ver")
+
+            val searchResult2 = "search result2: " + workspace.search("this")
             Log.i("jwst", searchResult2)
+
+            var indexFields2 = arrayOf("index")
+            workspace.setSearchIndex(indexFields2)
+
+            Log.i("jwst",  "search index: " + workspace.getSearchIndex().joinToString(" "))
+
+            val searchResult3 = "search result3: " + workspace.search("this")
+            Log.i("jwst", searchResult3)
 
             while (true) {
                 workspace.withTrx { trx ->

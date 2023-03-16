@@ -1,5 +1,5 @@
 use axum::{http::Method, Extension, Router, Server};
-use jwst_logger::{error, info, init_logger, print_versions};
+use jwst_logger::{error, info, init_logger};
 use std::{net::SocketAddr, sync::Arc};
 use tower_http::cors::{Any, CorsLayer};
 
@@ -16,7 +16,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 #[tokio::main]
 async fn main() {
     init_logger();
-    print_versions(env!("CARGO_PKG_VERSION"));
+    jwst::print_versions(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
     let cors = CorsLayer::new()
         // allow `GET` and `POST` when accessing the resource
