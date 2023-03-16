@@ -1,8 +1,9 @@
 mod transaction;
 
 use super::*;
+use serde::{ser::SerializeMap, Serialize, Serializer};
 use transaction::SpaceTransaction;
-use yrs::{Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn};
+use yrs::{types::ToJson, Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn};
 
 pub struct Space {
     id: String,
@@ -170,6 +171,22 @@ impl Space {
         T: ReadTxn,
     {
         self.blocks.contains_key(trx, block_id.as_ref())
+    }
+}
+
+impl Serialize for Space {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let doc = self.doc();
+        let trx = doc.transact();
+        let mut map = serializer.serialize_map(Some(2))?;
+        map.serialize_entry(
+            &format!("space:{}", self.space_id),
+            &self.blocks.to_json(&trx),
+        )?;
+        map.end()
     }
 }
 

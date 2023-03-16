@@ -96,6 +96,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
                         .delete(permissions::leave_workspace),
                 )
                 .route("/workspace/:id/doc", get(get_doc))
+                .route("/workspace/:id/page/:page_id", get(get_page))
                 .route("/workspace/:id/search", post(search_workspace))
                 .route("/workspace/:id/blob", put(blobs::upload_blob_in_workspace))
                 .route("/permission/:id", delete(permissions::remove_user))
@@ -451,6 +452,61 @@ pub async fn get_doc(
 
     get_workspace_doc(ctx, workspace_id).await
 }
+
+
+/// Get a exists `page` json by page id
+/// - Return `page` json.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/workspace",
+    path = "/{workspace_id}/page/{page_id}",
+    params(
+        ("workspace_id", description = "workspace id"),
+        ("page_id", description = "page id")
+    )
+)]
+#[instrument(
+    skip(ctx, claims), 
+    fields(
+        user_id = %claims.user.id
+    )
+)]
+pub async fn get_page(
+    Extension(ctx): Extension<Arc<Context>>,
+    Extension(claims): Extension<Arc<Claims>>,
+    Path((workspace_id, page_id)): Path<(String, String)>,
+) -> Response {
+    info!("get_page enter");
+    match ctx
+        .db
+        .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
+        .await
+    {
+        Ok(true) => (),
+        Ok(false) => return ErrorStatus::Forbidden.into_response(),
+        Err(e) => {
+            error!("Failed to get permission: {:?}", e);
+            return ErrorStatus::InternalServerError.into_response();
+        }
+    }
+
+    match ctx.storage.get_workspace(workspace_id).await {
+        Ok(workspace) => {
+            if let Some(space) = workspace.with_trx(|t| t.get_exists_space(page_id)) {
+                Json(space).into_response()
+            } else {
+                ErrorStatus::NotFound.into_response()
+            }
+        },
+        Err(JwstError::WorkspaceNotFound(_)) => ErrorStatus::NotFound.into_response(),
+        Err(e) => {
+            error!("Failed to get workspace: {:?}", e);
+            ErrorStatus::InternalServerError.into_response()
+        }
+    }
+}
+
 
 /// Get a exists `public doc` by workspace id
 /// - Return `public doc` .

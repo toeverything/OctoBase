@@ -18,6 +18,10 @@ impl WorkspaceTransaction<'_> {
         Space::new(&mut self.trx, self.ws.doc(), self.ws.id(), space_id)
     }
 
+    pub fn get_exists_space<S: AsRef<str>>(&self, space_id: S) -> Option<Space> {
+        Space::from_exists(&self.trx, self.ws.doc(), self.ws.id(), space_id)
+    }
+
     /// The compatibility interface for keck/jni/swift, this api was outdated.
     pub fn get_blocks(&mut self) -> Space {
         self.get_space("blocks")
