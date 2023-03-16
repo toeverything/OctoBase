@@ -91,12 +91,11 @@ where
                     .expect("will never be `None`");
 
                 // Skip formatting the fields if the span had no fields.
-                write!(
-                    writer,
-                    "[{}:{}] ",
-                    span.name(),
-                    if fields.is_empty() { "none" } else { fields }.to_string()
-                )?;
+                let fields_name = match fields.is_empty() {
+                    true => "none",
+                    false => fields,
+                };
+                write!(writer, "[{}:{}] ", span.name(), fields_name.to_string())?;
             }
         }
 
