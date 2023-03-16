@@ -35,6 +35,30 @@ impl Space {
         }
     }
 
+    pub fn from_exists<I, S>(trx: &TransactionMut, doc: Doc, id: I, space_id: S) -> Option<Self>
+    where
+        I: AsRef<str>,
+        S: AsRef<str>,
+    {
+        let space_id = space_id.as_ref().into();
+        let blocks = trx.get_map(&format!("space:{}", space_id));
+        let updated = trx.get_map(constants::space::UPDATED);
+        let metadata = trx.get_map(constants::space::META);
+
+        blocks.and_then(|blocks| {
+            updated.and_then(|updated| {
+                metadata.map(|metadata| Self {
+                    id: id.as_ref().into(),
+                    space_id,
+                    doc,
+                    blocks,
+                    updated,
+                    metadata,
+                })
+            })
+        })
+    }
+
     pub fn id(&self) -> String {
         self.id.clone()
     }

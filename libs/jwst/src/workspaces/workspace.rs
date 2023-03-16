@@ -451,4 +451,21 @@ mod test {
         let workspace = Workspace::from_doc(doc, "test");
         assert_eq!(workspace.client_id(), 123);
     }
+
+    #[test]
+    fn scan_doc() {
+        let doc = Doc::new();
+        let map = doc.get_or_insert_map("test");
+        map.insert(&mut doc.transact_mut(), "test", "aaa");
+
+        let data = doc
+            .transact()
+            .encode_state_as_update_v1(&StateVector::default());
+
+        let doc = Doc::new();
+        doc.transact_mut()
+            .apply_update(Update::decode_v1(&data).unwrap());
+
+        assert_eq!(doc.transact().store().root_keys(), vec!["test"]);
+    }
 }
