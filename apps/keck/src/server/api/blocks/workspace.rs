@@ -277,7 +277,7 @@ pub async fn get_workspace_block(
     info!("get_workspace_block: {ws_id:?}");
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         let (total, data) = workspace.with_trx(|mut t| {
-            let space = t.get_space("blocks");
+            let space = t.get_blocks();
 
             let total = space.block_count() as usize;
             let data = space.blocks(&t.trx, |blocks| {

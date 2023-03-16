@@ -11,7 +11,7 @@ impl Block {
         flavor: String,
         operator: u64,
     ) -> Block {
-        let space = trx.0.get_space("blocks");
+        let space = trx.0.get_blocks();
         Self(JwstBlock::new(
             &mut trx.0.trx,
             &space,

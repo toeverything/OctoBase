@@ -15,3 +15,11 @@ pub mod sys {
     /// `sys:version`
     pub const VERSION: &str = "sys:version";
 }
+
+pub mod space {
+    /// `space:updated`
+    pub const UPDATED: &str = "space:updated";
+
+    /// `space:meta`
+    pub const META: &str = "space:meta";
+}

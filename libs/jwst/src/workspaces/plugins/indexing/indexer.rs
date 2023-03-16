@@ -82,7 +82,7 @@ impl PluginImpl for IndexingPluginImpl {
 
             let re_index_list = ws.with_trx(|mut t| {
                 // TODO: scan maps to index all spaces
-                t.get_space("blocks").blocks(&t.trx, |blocks| {
+                t.get_blocks().blocks(&t.trx, |blocks| {
                     let mut re_index_list = HashMap::<String, Vec<Option<String>>>::new();
                     for block in blocks {
                         let index_text = self
@@ -210,7 +210,7 @@ mod test {
         };
 
         workspace.with_trx(|mut t| {
-            let space = t.get_space("blocks");
+            let space = t.get_blocks();
 
             let block = space.create(&mut t.trx, "b1", "text");
 

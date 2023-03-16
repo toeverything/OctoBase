@@ -28,7 +28,7 @@ pub async fn get_block(
     let (ws_id, block) = params;
     info!("get_block: {}, {}", ws_id, block);
     if let Ok(workspace) = context.storage.get_workspace(ws_id).await {
-        if let Some(block) = workspace.with_trx(|mut t| t.get_space("blocks").get(&t.trx, block)) {
+        if let Some(block) = workspace.with_trx(|mut t| t.get_blocks().get(&t.trx, block)) {
             Json(block).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
@@ -72,7 +72,7 @@ pub async fn set_block(
 
         // set block content
         let block = workspace.with_trx(|mut t| {
-            let block = t.get_space("blocks").create(&mut t.trx, &block_id, "text");
+            let block = t.get_blocks().create(&mut t.trx, &block_id, "text");
 
             // set block content
             if let Some(block_content) = payload.as_object() {
@@ -157,7 +157,7 @@ pub async fn set_block_with_flavour(
     let mut update = None;
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         let block = workspace.with_trx(|mut t| {
-            let created_block = t.get_space("blocks").create(&mut t.trx, block_id, flavour);
+            let created_block = t.get_blocks().create(&mut t.trx, block_id, flavour);
             update = Some(t.trx.encode_update_v1());
             created_block
         });
@@ -204,10 +204,9 @@ pub async fn get_block_by_flavour(
         ws_id, flavour
     );
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        match workspace.try_with_trx(|mut trx| {
-            trx.get_space("blocks")
-                .get_blocks_by_flavour(&trx.trx, &flavour)
-        }) {
+        match workspace
+            .try_with_trx(|mut trx| trx.get_blocks().get_blocks_by_flavour(&trx.trx, &flavour))
+        {
             Some(blocks) => Json(blocks).into_response(),
             None => (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -249,7 +248,7 @@ pub async fn get_block_history(
     info!("get_block_history: {}, {}", ws_id, block);
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         workspace.with_trx(|mut t| {
-            if let Some(block) = t.get_space("blocks").get(&t.trx, block) {
+            if let Some(block) = t.get_blocks().get(&t.trx, block) {
                 Json(&block.history(&t.trx)).into_response()
             } else {
                 StatusCode::NOT_FOUND.into_response()
@@ -285,7 +284,7 @@ pub async fn delete_block(
     info!("delete_block: {}, {}", ws_id, block);
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         if let Some(update) = workspace.with_trx(|mut t| {
-            if t.get_space("blocks").remove(&mut t.trx, &block) {
+            if t.get_blocks().remove(&mut t.trx, &block) {
                 Some(t.trx.encode_update_v1())
             } else {
                 None
@@ -327,7 +326,7 @@ pub async fn get_block_children(
     let Pagination { offset, limit } = pagination;
     info!("get_block_children: {}, {}", ws_id, block);
     if let Ok(workspace) = context.storage.get_workspace(ws_id).await {
-        if let Some(block) = workspace.with_trx(|mut t| t.get_space("blocks").get(&t.trx, &block)) {
+        if let Some(block) = workspace.with_trx(|mut t| t.get_blocks().get(&t.trx, &block)) {
             let data: Vec<String> =
                 block.children_iter(|children| children.skip(offset).take(limit).collect());
 
@@ -386,9 +385,9 @@ pub async fn insert_block_children(
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         let mut update = None;
 
-        if let Some(block) = workspace.with_trx(|mut t| t.get_space("blocks").get(&t.trx, block)) {
+        if let Some(block) = workspace.with_trx(|mut t| t.get_blocks().get(&t.trx, block)) {
             let block = workspace.with_trx(|mut t| {
-                let space = t.get_space("blocks");
+                let space = t.get_blocks();
                 let mut changed = false;
                 match payload {
                     InsertChildren::Push(block_id) => {
@@ -465,7 +464,7 @@ pub async fn remove_block_children(
     info!("insert_block: {}, {}", ws_id, block);
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         if let Some(update) = workspace.with_trx(|mut t| {
-            let space = t.get_space("blocks");
+            let space = t.get_blocks();
             if let Some(block) = space.get(&t.trx, &block) {
                 if block.children_exists(&t.trx, &child_id) {
                     if let Some(child) = space.get(&t.trx, &child_id) {

@@ -22,8 +22,8 @@ impl Space {
         let space_id = space_id.as_ref().into();
         let mut store = trx.store_mut();
         let blocks = doc.get_or_insert_map_with_trx(&mut store, &format!("space:{}", space_id));
-        let updated = doc.get_or_insert_map_with_trx(&mut store, "space:updated");
-        let metadata = doc.get_or_insert_map_with_trx(&mut store, "space:meta");
+        let updated = doc.get_or_insert_map_with_trx(&mut store, constants::space::UPDATED);
+        let metadata = doc.get_or_insert_map_with_trx(&mut store, constants::space::META);
 
         Self {
             id: id.as_ref().into(),

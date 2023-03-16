@@ -16,6 +16,11 @@ impl WorkspaceTransaction<'_> {
         Space::new(&mut self.trx, self.ws.doc(), self.ws.id(), space_id)
     }
 
+    /// The compatibility interface for keck/jni/swift, this api was outdated.
+    pub fn get_blocks(&mut self) -> Space {
+        self.get_space("blocks")
+    }
+
     pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) {
         info!("set metadata: {}", key);
         let key = key.to_string();
