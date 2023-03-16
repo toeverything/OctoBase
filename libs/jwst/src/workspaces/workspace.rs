@@ -334,8 +334,15 @@ impl Serialize for Workspace {
         let doc = self.doc();
         let trx = doc.transact();
         let mut map = serializer.serialize_map(Some(2))?;
-        // TODO: scan exists spaces
-        // map.serialize_entry("blocks", &self.blocks.to_json(&trx))?;
+        for (key, map_ref) in trx
+            .store()
+            .root_keys()
+            .iter()
+            .map(|key| trx.get_map(key).map(|map| (key, map)))
+            .flatten()
+        {
+            map.serialize_entry(key, &map_ref.to_json(&trx))?;
+        }
         map.serialize_entry("space:updated", &self.updated.to_json(&trx))?;
         map.end()
     }
@@ -358,7 +365,7 @@ impl Clone for Workspace {
 mod test {
     use super::{super::super::Block, *};
     use tracing::info;
-    use yrs::{updates::decoder::Decode, Doc, Map, StateVector, Update};
+    use yrs::{updates::decoder::Decode, Array, Doc, Map, StateVector, Update};
 
     #[test]
     fn doc_load_test() {
@@ -450,6 +457,65 @@ mod test {
         let doc = Doc::with_client_id(123);
         let workspace = Workspace::from_doc(doc, "test");
         assert_eq!(workspace.client_id(), 123);
+    }
+
+    #[test]
+    fn workspace_struct() {
+        use assert_json_diff::assert_json_include;
+
+        let workspace = Workspace::new("workspace");
+
+        let client = workspace.client_id() as f64;
+        let now = chrono::Utc::now().timestamp_millis() as f64;
+        let (b1updated, b2updated) = workspace.with_trx(|mut t| {
+            let space = t.get_space("space1");
+            space.create(&mut t.trx, "block1", "text");
+
+            let space = t.get_space("space2");
+            space.create(&mut t.trx, "block2", "text");
+
+            (
+                workspace
+                    .updated
+                    .get(&t.trx, "block1")
+                    .and_then(|u| u.to_yarray())
+                    .and_then(|u| u.get(&t.trx, 1))
+                    .and_then(|v| v.to_string(&t.trx).parse().ok())
+                    .unwrap_or(now),
+                workspace
+                    .updated
+                    .get(&t.trx, "block1")
+                    .and_then(|u| u.to_yarray())
+                    .and_then(|u| u.get(&t.trx, 1))
+                    .and_then(|v| v.to_string(&t.trx).parse().ok())
+                    .unwrap_or(now),
+            )
+        });
+
+        assert_json_include!(
+            actual: serde_json::to_value(&workspace).unwrap(),
+            expected: serde_json::json!({
+                "space:space1": {
+                    "block1": {
+                        "sys:children": [],
+                        "sys:flavor": "text",
+                        "sys:version": [1.0, 0.0],
+                    }
+                },
+                "space:space2": {
+                    "block2": {
+                        "sys:children": [],
+                        "sys:flavor": "text",
+                        "sys:version": [1.0, 0.0],
+                    }
+                },
+                "space:updated": {
+                    "block1": [[client, b1updated, "add"]],
+                    "block2": [[client, b2updated, "add"]],
+                },
+                "space:meta": {}
+            })
+        );
     }
 
     #[test]
