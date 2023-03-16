@@ -78,7 +78,6 @@ impl Context {
         let Ok(file) = self.storage.blobs().get_blob(workspace, id).await else {
             return ErrorStatus::NotFound.into_response();
         };
-
         (header, StreamBody::new(file)).into_response()
     }
 
@@ -132,7 +131,9 @@ impl Context {
 }
 
 ///  Get `blob`.
-/// - Return `blob`.
+/// - Return 200 ok and `blob`.
+/// - Return 304 the file is not modified.
+/// - Return 404 the file does not exist.
 #[utoipa::path(
     get,
     tag = "Blob",
@@ -140,6 +141,11 @@ impl Context {
     path = "/{name}",
     params(
         ("name", description = "hash of blob"),
+    ),
+    responses(
+        (status = 200, description = "Successfully get blob",body=BodyStream),
+        (status = 304, description = "The file is not modified"),
+        (status = 404, description = "The file does not exist"),
     )
 )]
 #[instrument(skip(ctx, method, headers))]
@@ -154,8 +160,14 @@ pub async fn get_blob(
 }
 
 ///  Upload `blob`.
-/// - Return `hash`.
-#[utoipa::path(put, tag = "Blob", context_path = "/api", path = "/blob")]
+/// - Return 200 and `hash`.
+/// - Return 413 upload file size exceeds 10MB.
+#[utoipa::path(put, tag = "Blob", context_path = "/api", path = "/blob",
+request_body(content=BodyStream, description="file size needs to be less than 10MB", content_type="application/octet-stream"),
+    responses(
+        (status = 200, description = "Successfully upload blob",body=String),
+        (status = 413, description = "Upload file size exceeds 10MB"),
+    ))]
 #[instrument(skip(ctx, length, stream))]
 pub async fn upload_blob(
     Extension(ctx): Extension<Arc<Context>>,
@@ -171,7 +183,9 @@ pub async fn upload_blob(
 }
 
 ///  Get `blob` by workspace_id and hash.
-/// - Return `blob`.
+/// - Return 200 and `blob`.
+/// - Return 304 the file is not modified.
+/// - Return 404 the file or workspace does not exist.
 #[utoipa::path(
     get,
     tag = "Blob",
@@ -180,6 +194,11 @@ pub async fn upload_blob(
     params(
         ("workspace_id", description = "id of workspace"),
         ("name", description = "hash of blob"),
+    ),
+    responses(
+        (status = 200, description = "Successfully get blob",body=BodyStream),
+        (status = 304, description = "The file is not modified"),
+        (status = 404, description = "The file or workspace does not exist"),
     )
 )]
 #[instrument(skip(ctx, method, headers))]
@@ -205,7 +224,11 @@ pub async fn get_blob_in_workspace(
 }
 
 ///  Upload `blob` by workspace_id.
-/// - Return `hash`.
+/// - Return 200 and `hash`.
+/// - Return 403 sorry, you do not have permission.
+/// - Return 404 the workspace does not exist.
+/// - Return 413 upload file size exceeds 10MB.
+/// - Return 500 internal server error.
 #[utoipa::path(
     put,
     tag = "Blob",
@@ -213,6 +236,14 @@ pub async fn get_blob_in_workspace(
     path = "/{workspace_id}/blob",
     params(
         ("workspace_id", description = "id of workspace"),
+    ),
+    request_body(content=BodyStream, description="file size needs to be less than 10MB", content_type="application/octet-stream"),
+    responses(
+        (status = 200, description = "Successfully upload blob",body=String),
+        (status = 403, description = "Sorry, you do not have permission."),
+        (status = 404, description = "The workspace does not exist"),
+        (status = 413, description = "Upload file size exceeds 10MB"),
+        (status = 500, description = "Internal server error"),
     )
 )]
 #[instrument(skip(ctx, claims, length, stream), fields(user_id = %claims.user.id))]
@@ -245,8 +276,21 @@ pub async fn upload_blob_in_workspace(
 }
 
 /// Create `Workspace` .
-/// - Return  `Workspace`'s data.
-#[utoipa::path(post, tag = "Workspace", context_path = "/api", path = "/workspace")]
+/// - Return 200 ok and `Workspace`'s data.
+/// - Return 500 internal server error.
+#[utoipa::path(post, tag = "Workspace", context_path = "/api", path = "/workspace",
+request_body(content = BodyStream, description = "Request body for updateWorkspace",content_type="application/octet-stream"),
+    responses(
+        (status = 200, description = "Successfully create workspace",body=Workspace,example=json!({
+            "id": "xxx",
+            "public": false,
+            "type": 1,
+            "created_at": "1677122059817"
+        }
+        )),
+        (status = 500, description = "Internal server error"),
+    ),
+)]
 #[instrument(skip(ctx, claims, _length, stream), fields(user_id = %claims.user.id))]
 pub async fn create_workspace(
     Extension(ctx): Extension<Arc<Context>>,
