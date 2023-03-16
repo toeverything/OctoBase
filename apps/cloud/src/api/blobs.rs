@@ -17,10 +17,12 @@ use chrono::{DateTime, Utc};
 use cloud_database::Claims;
 use futures::{future, StreamExt};
 use jwst::{error, BlobStorage};
+use jwst_logger::{info, instrument, tracing};
 use mime::APPLICATION_OCTET_STREAM;
 use std::sync::Arc;
 
 impl Context {
+    #[instrument(skip(self, method, headers))]
     async fn get_blob(
         &self,
         workspace: Option<String>,
@@ -28,6 +30,7 @@ impl Context {
         method: Method,
         headers: HeaderMap,
     ) -> Response {
+        info!("get_blob enter");
         if let Some(etag) = headers.get(IF_NONE_MATCH).and_then(|h| h.to_str().ok()) {
             if etag == id {
                 return ErrorStatus::NotModify.into_response();
@@ -79,7 +82,9 @@ impl Context {
         (header, StreamBody::new(file)).into_response()
     }
 
+    #[instrument(skip(self, stream))]
     async fn upload_blob(&self, stream: BodyStream, workspace: Option<String>) -> Response {
+        info!("upload_blob enter");
         // TODO: cancel
         let mut has_error = false;
         let stream = stream
@@ -106,7 +111,9 @@ impl Context {
         }
     }
 
+    #[instrument(skip(self, stream))]
     async fn upload_workspace(&self, stream: BodyStream) -> Vec<u8> {
+        info!("upload_workspace enter");
         let mut has_error = false;
         let stream = stream
             .take_while(|x| {
@@ -135,23 +142,27 @@ impl Context {
         ("name", description = "hash of blob"),
     )
 )]
+#[instrument(skip(ctx, method, headers))]
 pub async fn get_blob(
     Extension(ctx): Extension<Arc<Context>>,
     Path(id): Path<String>,
     method: Method,
     headers: HeaderMap,
 ) -> Response {
+    info!("get_blob enter");
     ctx.get_blob(None, id, method, headers).await
 }
 
 ///  Upload `blob`.
 /// - Return `hash`.
 #[utoipa::path(put, tag = "Blob", context_path = "/api", path = "/blob")]
+#[instrument(skip(ctx, length, stream))]
 pub async fn upload_blob(
     Extension(ctx): Extension<Arc<Context>>,
     TypedHeader(length): TypedHeader<ContentLength>,
     stream: BodyStream,
 ) -> Response {
+    info!("upload_blob enter");
     if length.0 > 10 * 1024 * 1024 {
         return ErrorStatus::PayloadTooLarge.into_response();
     }
@@ -171,6 +182,7 @@ pub async fn upload_blob(
         ("name", description = "hash of blob"),
     )
 )]
+#[instrument(skip(ctx, method, headers))]
 pub async fn get_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     // Extension(claims): Extension<Arc<Claims>>,
@@ -178,6 +190,7 @@ pub async fn get_blob_in_workspace(
     method: Method,
     headers: HeaderMap,
 ) -> Response {
+    info!("get_blob_in_workspace enter");
     // match ctx
     //     .db
     //     .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
@@ -202,6 +215,7 @@ pub async fn get_blob_in_workspace(
         ("workspace_id", description = "id of workspace"),
     )
 )]
+#[instrument(skip(ctx, claims, length, stream), fields(user_id = %claims.user.id))]
 pub async fn upload_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
@@ -209,6 +223,7 @@ pub async fn upload_blob_in_workspace(
     TypedHeader(length): TypedHeader<ContentLength>,
     stream: BodyStream,
 ) -> Response {
+    info!("upload_blob_in_workspace enter");
     if length.0 > 10 * 1024 * 1024 {
         return ErrorStatus::PayloadTooLarge.into_response();
     }
@@ -232,12 +247,14 @@ pub async fn upload_blob_in_workspace(
 /// Create `Workspace` .
 /// - Return  `Workspace`'s data.
 #[utoipa::path(post, tag = "Workspace", context_path = "/api", path = "/workspace")]
+#[instrument(skip(ctx, claims, _length, stream), fields(user_id = %claims.user.id))]
 pub async fn create_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     TypedHeader(_length): TypedHeader<ContentLength>,
     stream: BodyStream,
 ) -> Response {
+    info!("create_workspace enter");
     match ctx.db.create_normal_workspace(claims.user.id.clone()).await {
         Ok(data) => {
             let id = data.id.to_string();

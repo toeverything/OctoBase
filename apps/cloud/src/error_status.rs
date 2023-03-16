@@ -3,6 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use jwst_logger::{info, instrument, tracing};
 use serde::Serialize;
 
 pub enum ErrorStatus {
@@ -23,7 +24,9 @@ struct ErrorInfo {
     message: String,
 }
 
+#[instrument()]
 fn error_response(status: StatusCode, message: &str) -> Response {
+    info!("error_response enter");
     (
         status,
         Json(ErrorInfo {

@@ -1,14 +1,14 @@
-use axum::{http::Method, Extension, Router, Server};
-use jwst_logger::{error, info, init_logger};
-use std::{net::SocketAddr, sync::Arc};
-use tower_http::cors::{Any, CorsLayer};
-
 mod api;
 mod context;
 mod error_status;
 mod files;
 mod layer;
 mod utils;
+
+use axum::{http::Method, Extension, Router, Server};
+use jwst_logger::{error, info, info_span, init_logger};
+use std::{net::SocketAddr, sync::Arc};
+use tower_http::cors::{Any, CorsLayer};
 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
@@ -35,7 +35,7 @@ async fn main() {
 
     let context = Arc::new(context::Context::new().await);
 
-    let app = files::static_files(
+    let app = layer::make_tracing_layer(files::static_files(
         Router::new()
             .nest(
                 "/api",
@@ -45,7 +45,7 @@ async fn main() {
             )
             .layer(Extension(context.clone()))
             .layer(cors),
-    );
+    ));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("listening on {}", addr);
