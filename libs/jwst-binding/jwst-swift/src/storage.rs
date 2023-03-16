@@ -1,8 +1,8 @@
 use crate::Workspace;
-use jwst::{DocStorage, error, JwstError, JwstResult};
+use jwst::{error, info, DocStorage, JwstError, JwstResult};
 use jwst_rpc::start_client;
 use jwst_storage::JwstStorage as AutoStorage;
-use std::sync::{Arc};
+use std::sync::Arc;
 use tokio::{runtime::Runtime, sync::RwLock};
 
 #[derive(Clone)]
@@ -59,7 +59,7 @@ impl Storage {
                     let id = id.clone();
                     if let Some(storage) = storage.clone() {
                         let rt = Runtime::new().unwrap();
-                        log::info!("update: {:?}", &e.update);
+                        info!("update: {:?}", &e.update);
                         if let Err(e) = rt.block_on(async move {
                             let storage = storage.write().await;
                             storage.docs().write_update(id, &e.update).await

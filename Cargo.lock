@@ -1900,13 +1900,13 @@ dependencies = [
  "convert_case",
  "futures",
  "lib0",
- "log",
  "schemars",
  "serde",
  "serde_json",
  "tantivy",
  "thiserror",
  "tokio",
+ "tracing",
  "type-map",
  "utoipa 2.4.2",
  "vergen",
@@ -1925,11 +1925,11 @@ dependencies = [
  "jwst-rpc",
  "jwst-storage",
  "lib0",
- "log",
  "log-panics",
  "rifgen",
  "sqlx",
  "tokio",
+ "tracing",
  "yrs",
 ]
 
@@ -2016,7 +2016,6 @@ dependencies = [
  "jwst-rpc",
  "jwst-storage",
  "lib0",
- "log",
  "swift-bridge",
  "swift-bridge-build",
  "tokio",
@@ -4447,6 +4446,8 @@ dependencies = [
  "tower",
  "tower-layer",
  "tower-service",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
