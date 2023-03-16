@@ -20,7 +20,7 @@ pub struct Block {
     operator: u64,
     block: MapRef,
     children: ArrayRef,
-    updated: ArrayRef,
+    updated: Option<ArrayRef>,
 }
 
 unsafe impl Send for Block {}
@@ -73,11 +73,7 @@ impl Block {
                 .get(trx, sys::CHILDREN)
                 .and_then(|c| c.to_yarray())
                 .unwrap();
-            let updated = space
-                .updated
-                .get(trx, block_id)
-                .and_then(|c| c.to_yarray())
-                .unwrap();
+            let updated = space.updated.get(trx, block_id).and_then(|c| c.to_yarray());
 
             let block = Self {
                 doc: space.doc(),
@@ -110,7 +106,7 @@ impl Block {
             operator,
             block,
             children,
-            updated,
+            updated: Some(updated),
         })
     }
 
@@ -119,7 +115,7 @@ impl Block {
         id: String,
         doc: &Doc,
         block: MapRef,
-        updated: ArrayRef,
+        updated: Option<ArrayRef>,
         operator: u64,
     ) -> Block {
         let children = block.get(trx, sys::CHILDREN).unwrap().to_yarray().unwrap();
@@ -140,7 +136,7 @@ impl Block {
             Any::String(Box::from(action.to_string())),
         ]);
 
-        self.updated.push_back(trx, array);
+        self.updated.as_ref().map(|a| a.push_back(trx, array));
     }
 
     pub fn get<T>(&self, trx: &T, key: &str) -> Option<Any>
@@ -247,14 +243,17 @@ impl Block {
         T: ReadTxn,
     {
         self.updated
-            .iter(trx)
-            .filter_map(|v| v.to_yarray())
-            .last()
+            .as_ref()
             .and_then(|a| {
-                a.get(trx, 1).and_then(|i| match i.to_json(trx) {
-                    Any::Number(n) => Some(n as u64),
-                    _ => None,
-                })
+                a.iter(trx)
+                    .filter_map(|v| v.to_yarray())
+                    .last()
+                    .and_then(|a| {
+                        a.get(trx, 1).and_then(|i| match i.to_json(trx) {
+                            Any::Number(n) => Some(n as u64),
+                            _ => None,
+                        })
+                    })
             })
             .unwrap_or_else(|| self.created(trx))
     }
@@ -264,10 +263,14 @@ impl Block {
         T: ReadTxn,
     {
         self.updated
-            .iter(trx)
-            .filter_map(|v| v.to_yarray())
-            .map(|v| (trx, v, self.id.clone()).into())
-            .collect()
+            .as_ref()
+            .map(|a| {
+                a.iter(trx)
+                    .filter_map(|v| v.to_yarray())
+                    .map(|v| (trx, v, self.id.clone()).into())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
     }
 
     pub fn parent<T>(&self, trx: &T) -> Option<String>

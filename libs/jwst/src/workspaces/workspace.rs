@@ -331,19 +331,16 @@ impl Serialize for Workspace {
     where
         S: Serializer,
     {
-        let doc = self.doc();
-        let trx = doc.transact();
-        let mut map = serializer.serialize_map(Some(2))?;
-        for (key, map_ref) in trx
-            .store()
-            .root_keys()
-            .iter()
-            .map(|key| trx.get_map(key).map(|map| (key, map)))
-            .flatten()
-        {
-            map.serialize_entry(key, &map_ref.to_json(&trx))?;
+        let mut map = serializer.serialize_map(None)?;
+
+        for space in self.with_trx(|t| t.spaces(|spaces| spaces.collect::<Vec<_>>())) {
+            map.serialize_entry(&format!("space:{}", space.space_id()), &space)?;
         }
+
+        let trx = self.doc.transact();
+        map.serialize_entry("space:meta", &self.metadata.to_json(&trx))?;
         map.serialize_entry("space:updated", &self.updated.to_json(&trx))?;
+
         map.end()
     }
 }

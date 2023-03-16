@@ -3,7 +3,7 @@ mod transaction;
 use super::*;
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use transaction::SpaceTransaction;
-use yrs::{types::ToJson, Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn};
+use yrs::{Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn};
 
 pub struct Space {
     id: String,
@@ -113,24 +113,24 @@ impl Space {
     }
 
     #[inline]
-    pub fn blocks<T, R>(&self, trx: &T, cb: impl Fn(Box<dyn Iterator<Item = Block> + '_>) -> R) -> R
+    pub fn blocks<T, R>(
+        &self,
+        trx: &T,
+        cb: impl FnOnce(Box<dyn Iterator<Item = Block> + '_>) -> R,
+    ) -> R
     where
         T: ReadTxn,
     {
-        let iterator =
-            self.blocks
-                .iter(trx)
-                .zip(self.updated.iter(trx))
-                .map(|((id, block), (_, updated))| {
-                    Block::from_raw_parts(
-                        trx,
-                        id.to_owned(),
-                        &self.doc,
-                        block.to_ymap().unwrap(),
-                        updated.to_yarray().unwrap(),
-                        self.client_id(),
-                    )
-                });
+        let iterator = self.blocks.iter(trx).map(|(id, block)| {
+            Block::from_raw_parts(
+                trx,
+                id.to_owned(),
+                &self.doc,
+                block.to_ymap().unwrap(),
+                self.updated.get(trx, id).and_then(|u| u.to_yarray()),
+                self.client_id(),
+            )
+        });
 
         cb(Box::new(iterator))
     }
@@ -181,11 +181,15 @@ impl Serialize for Space {
     {
         let doc = self.doc();
         let trx = doc.transact();
-        let mut map = serializer.serialize_map(Some(2))?;
-        map.serialize_entry(
-            &format!("space:{}", self.space_id),
-            &self.blocks.to_json(&trx),
-        )?;
+        let mut map = serializer.serialize_map(None)?;
+        self.blocks(&trx, |blocks| {
+            let blocks = blocks.collect::<Vec<_>>();
+            for block in blocks {
+                map.serialize_entry(&block.id(), &block)?;
+            }
+            Ok(())
+        })?;
+
         map.end()
     }
 }

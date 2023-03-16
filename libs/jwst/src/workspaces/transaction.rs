@@ -28,11 +28,9 @@ impl WorkspaceTransaction<'_> {
     }
 
     #[inline]
-    pub fn spaces<R>(&self, cb: impl Fn(Box<dyn Iterator<Item = Space> + '_>) -> R) -> R {
+    pub fn spaces<R>(&self, cb: impl FnOnce(Box<dyn Iterator<Item = Space> + '_>) -> R) -> R {
         let keys = self.trx.store().root_keys();
-        println!("keys: {keys:?}");
         let iterator = keys.iter().filter_map(|key| {
-            println!("{key}");
             if key.starts_with("space:") && !RESERVE_SPACE.contains(&key.as_str()) {
                 Space::from_exists(&self.trx, self.ws.doc(), self.ws.id(), &key[6..])
             } else {
