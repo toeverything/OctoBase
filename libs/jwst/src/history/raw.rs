@@ -134,7 +134,7 @@ pub fn parse_history(doc: &Doc, client: u64) -> Option<Vec<RawHistory>> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{space, Workspace};
+    use crate::Workspace;
 
     #[test]
     fn parse_history_client_test() {

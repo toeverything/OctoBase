@@ -6,6 +6,7 @@ use yrs::{Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn};
 
 pub struct Space {
     id: String,
+    space_id: String,
     doc: Doc,
     pub(super) blocks: MapRef,
     pub(super) updated: MapRef,
@@ -18,14 +19,15 @@ impl Space {
         I: AsRef<str>,
         S: AsRef<str>,
     {
+        let space_id = space_id.as_ref().into();
         let mut store = trx.store_mut();
-        let blocks =
-            doc.get_or_insert_map_with_trx(&mut store, &format!("space:{}", space_id.as_ref()));
+        let blocks = doc.get_or_insert_map_with_trx(&mut store, &format!("space:{}", space_id));
         let updated = doc.get_or_insert_map_with_trx(&mut store, "space:updated");
         let metadata = doc.get_or_insert_map_with_trx(&mut store, "space:meta");
 
         Self {
             id: id.as_ref().into(),
+            space_id,
             doc,
             blocks,
             updated,
@@ -35,6 +37,10 @@ impl Space {
 
     pub fn id(&self) -> String {
         self.id.clone()
+    }
+
+    pub fn space_id(&self) -> String {
+        self.space_id.clone()
     }
 
     pub fn client_id(&self) -> u64 {
@@ -155,8 +161,11 @@ mod test {
         let space_string = format!("space:{}", space_id);
 
         let doc = Doc::new();
-        let mut trx = doc.transact_mut();
-        let space = Space::new(&mut trx, doc.clone(), "workspace", space_id);
+
+        let space = {
+            let mut trx = doc.transact_mut();
+            Space::new(&mut trx, doc.clone(), "workspace", space_id)
+        };
         space.with_trx(|mut t| {
             let block = t.create("test", "text");
 
@@ -201,11 +210,14 @@ mod test {
     #[test]
     fn space() {
         let doc = Doc::new();
-        let mut trx = doc.transact_mut();
-        let space = Space::new(&mut trx, doc.clone(), "workspace", "space");
+        let space = {
+            let mut trx = doc.transact_mut();
+            Space::new(&mut trx, doc.clone(), "workspace", "space")
+        };
 
         space.with_trx(|t| {
-            assert_eq!(space.id(), "test");
+            assert_eq!(space.id(), "workspace");
+            assert_eq!(space.space_id(), "space");
             assert_eq!(space.blocks.len(&t.trx), 0);
             assert_eq!(space.updated.len(&t.trx), 0);
         });

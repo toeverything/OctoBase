@@ -730,8 +730,7 @@ mod test {
             pool.get_user_workspaces(new_user.id)
                 .await
                 .unwrap()
-                // when create user, will auto create a private workspace, our created will be second one
-                .get(1)
+                .get(0)
                 .unwrap()
                 .id
         );

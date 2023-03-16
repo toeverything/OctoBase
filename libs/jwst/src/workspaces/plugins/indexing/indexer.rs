@@ -80,31 +80,31 @@ impl PluginImpl for IndexingPluginImpl {
         if curr > 0 {
             // TODO: reindex
 
-            let re_index_list = ws.with_trx(|t| {
-                // ws.blocks(&t.trx, |blocks| {
-                //     let mut re_index_list = HashMap::<String, Vec<Option<String>>>::new();
-                //     for block in blocks {
-                //         let index_text = self
-                //             .search_index
-                //             .clone()
-                //             .into_iter()
-                //             .map(|field| {
-                //                 block
-                //                     .content(&t.trx)
-                //                     .get(&field)
-                //                     .map(ToOwned::to_owned)
-                //                     .and_then(|a| match a {
-                //                         Any::String(str) => Some(str.to_string()),
-                //                         _ => None,
-                //                     })
-                //             })
-                //             .collect::<Vec<_>>();
-                //         re_index_list.insert(block.id(), index_text);
-                //     }
+            let re_index_list = ws.with_trx(|mut t| {
+                // TODO: scan maps to index all spaces
+                t.get_space("blocks").blocks(&t.trx, |blocks| {
+                    let mut re_index_list = HashMap::<String, Vec<Option<String>>>::new();
+                    for block in blocks {
+                        let index_text = self
+                            .search_index
+                            .clone()
+                            .into_iter()
+                            .map(|field| {
+                                block
+                                    .content(&t.trx)
+                                    .get(&field)
+                                    .map(ToOwned::to_owned)
+                                    .and_then(|a| match a {
+                                        Any::String(str) => Some(str.to_string()),
+                                        _ => None,
+                                    })
+                            })
+                            .collect::<Vec<_>>();
+                        re_index_list.insert(block.id(), index_text);
+                    }
 
-                //     re_index_list
-                // })
-                vec![]
+                    re_index_list
+                })
             });
 
             // dbg!((txn, upd));
@@ -210,7 +210,7 @@ mod test {
         };
 
         workspace.with_trx(|mut t| {
-            let space = t.get_space("test");
+            let space = t.get_space("blocks");
 
             let block = space.create(&mut t.trx, "b1", "text");
 
