@@ -71,6 +71,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/invitation/:path", post(permissions::accept_invitation))
         .nest_service("/global/sync", get(global_ws_handler))
         .route("/public/doc/:id", get(get_public_doc))
+        .route("/public/page/:id/:page_id", get(get_page))
         // TODO: Will consider this permission in the future
         .route(
             "/workspace/:id/blob/:name",
@@ -96,7 +97,6 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
                         .delete(permissions::leave_workspace),
                 )
                 .route("/workspace/:id/doc", get(get_doc))
-                .route("/workspace/:id/page/:page_id", get(get_page))
                 .route("/workspace/:id/search", post(search_workspace))
                 .route("/workspace/:id/blob", put(blobs::upload_blob_in_workspace))
                 .route("/permission/:id", delete(permissions::remove_user))
@@ -564,18 +564,14 @@ pub async fn get_doc(
         user_id = %claims.user.id
     )
 )]
-pub async fn get_page(
+pub async fn get_public_page(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     headers: HeaderMap,
     Path((workspace_id, page_id)): Path<(String, String)>,
 ) -> Response {
     info!("get_page enter");
-    match ctx
-        .db
-        .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
-        .await
-    {
+    match ctx.db.is_public_workspace(workspace_id.clone()).await {
         Ok(true) => (),
         Ok(false) => return ErrorStatus::Forbidden.into_response(),
         Err(e) => {
