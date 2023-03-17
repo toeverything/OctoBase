@@ -121,8 +121,26 @@ pub async fn health_check() -> Response {
 }
 
 ///  Get `user`'s data by email.
-/// - Return `user`'s data.
-#[utoipa::path(get, tag = "Workspace", context_path = "/api", path = "/user")]
+/// - Return 200 ok and `user`'s data.
+/// - Return 400 bad request if `email` or `workspace_id` is not provided.
+/// - Return 500 internal server error if database error.
+#[utoipa::path(get, tag = "Workspace", context_path = "/api", path = "/user",
+params(
+    ("email",Query, description = "email of user" ),
+    ( "workspace_id",Query, description = "workspace id of user")),
+    responses(
+        (status = 200, description = "Return workspace data", body = [UserInWorkspace],example = json!([
+            {
+              "type": "UnRegistered",
+              "email": "toeverything@toeverything.info",
+              "in_workspace": false
+            }
+          ])),
+        (status = 400, description = "Request parameter error."),
+        (status = 500, description = "Server error, please try again later.")
+    )
+    
+)]
 #[instrument(skip(ctx))]
 pub async fn query_user(
     Extension(ctx): Extension<Arc<Context>>,
@@ -145,8 +163,28 @@ pub async fn query_user(
 }
 
 ///  create `token` for user.
-/// - Return `token`.
-#[utoipa::path(post, tag = "Workspace", context_path = "/api/user", path = "/token")]
+/// - Return 200 ok and `token`.
+/// - Return 400 bad request if request parameter error.
+/// - Return 401 unauthorized if user unauthorized.
+/// - Return 500 internal server error if database error.
+#[utoipa::path(post, tag = "Workspace", context_path = "/api/user", path = "/token",
+request_body(content = MakeToken, description = "Request body for make token",content_type = "application/json",example = json!({
+    "type": "Google",
+    "token": "google token",
+}
+)),
+responses(
+    (status = 200, description = "Return token", body = UserToken,
+    example=json!({
+        "refresh":"refresh token",
+        "token":"token",
+    }
+    )),
+    (status = 400, description = "Request parameter error."),
+    (status = 401, description = "Unauthorized."),
+    (status = 500, description = "Server error, please try again later.")
+)
+)]
 #[instrument(skip(ctx, payload))]  // payload need to be safe
 pub async fn make_token(
     Extension(ctx): Extension<Arc<Context>>,
@@ -235,9 +273,21 @@ pub async fn make_token(
         }
     }
 }
+
 /// Get user's `Workspace` .
-/// - Return `Workspace`'s data.
-#[utoipa::path(get, tag = "Workspace", context_path = "/api", path = "/workspace")]
+/// - Return 200 ok and `Workspace`'s data.
+/// - Return 500 internal server error if database error.
+#[utoipa::path(get, tag = "Workspace", context_path = "/api", path = "/workspace", responses(
+    (status = 200, description = "Workspace's data", body = Vec<WorkspaceWithPermission>,
+    example=json!([{
+        "permission": 1,
+        "id": "xxxx",
+        "public": true,
+        "type": 1
+    }]
+    )),
+    (status = 500, description = "Server error, please try again later.")
+))]
 #[instrument(
     skip(ctx, claims),
     fields(
@@ -258,9 +308,10 @@ pub async fn get_workspaces(
         }
     }
 }
-
 /// Get a exists `Workspace` by id
-/// - Return `Workspace`'s data.
+/// - Return 200 Ok and `Workspace`'s data if `Workspace` is exists.
+/// - Return 403 Forbidden if you do not have permission.
+/// - Return 500 Internal Server Error if database error.
 #[utoipa::path(
     get,
     tag = "Workspace",
@@ -268,6 +319,11 @@ pub async fn get_workspaces(
     path = "/{workspace_id}",
     params(
         ("workspace_id", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Get workspace data", body = WorkspaceDetail),
+        (status = 403, description = "Sorry, you do not have permission."),
+        (status = 500, description = "Server error, please try again later.")
     )
 )]
 #[instrument(
@@ -306,7 +362,10 @@ pub async fn get_workspace_by_id(
 }
 
 /// update a exists `Workspace` by id
-/// - Return `Workspace`'s data.
+/// - Return 200 ok and `Workspace`'s data.
+/// - Return 403 Forbidden if you do not have permission.
+/// - Return 404 Not Found if `Workspace` is not exists.
+/// - Return 500 Internal Server Error if database error.
 #[utoipa::path(
     post,
     tag = "Workspace",
@@ -315,6 +374,21 @@ pub async fn get_workspace_by_id(
     params(
         ("workspace_id", description = "workspace id"),
     ),
+    request_body(content = UpdateWorkspace, description = "Request body for updateWorkspace",content_type = "application/json",example = json!({
+        "public":true})),
+    responses(
+        (status = 200, description = "Return Workspace", body = Workspace,
+        example=json!({
+            "id": "xxx",
+            "public": true,
+            "type": 1,
+            "created_at": "1677122059817"
+        }
+        )),
+        (status = 403, description = "Sorry, you do not have permission."),
+        (status = 404, description = "Workspace not found."),
+        (status = 500, description = "Server error, please try again later.")
+    )
 )]
 #[instrument(
     name = "update_workspace",
@@ -360,6 +434,9 @@ pub async fn update_workspace(
 
 /// Delete a exists `Workspace` by id
 /// - Return 200 ok.
+/// - Return 403 Forbidden if you do not have permission.
+/// - Return 404 Not Found if `Workspace` is not exists.
+/// - Return 500 Internal Server Error if database error.
 #[utoipa::path(
     delete,
     tag = "Workspace",
@@ -367,6 +444,12 @@ pub async fn update_workspace(
     path = "/{workspace_id}",
     params(
         ("workspace_id", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Successfully deleted workspace."),
+        (status = 403, description = "Sorry, you do not have permission."),
+        (status = 404, description = "Workspace not found."),
+        (status = 500, description = "Server error, please try again later.")
     )
 )]
 #[instrument(
@@ -414,7 +497,10 @@ pub async fn delete_workspace(
 }
 
 /// Get a exists `doc` by workspace id
-/// - Return `doc` .
+/// - Return 200 ok and `doc` .
+/// - Return 403 Forbidden if you do not have permission.
+/// - Return 404 Not Found if `Workspace` is not exists.
+/// - Return 500 Internal Server Error if database error.
 #[utoipa::path(
     get,
     tag = "Workspace",
@@ -422,6 +508,12 @@ pub async fn delete_workspace(
     path = "/{workspace_id}/doc",
     params(
         ("workspace_id", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Successfully get doc.", body =Vec<u8>,),
+        (status = 403, description = "Sorry, you do not have permission."),
+        (status = 404, description = "Workspace not found."),
+        (status = 500, description = "Server error, please try again later.")
     )
 )]
 #[instrument(
@@ -453,7 +545,10 @@ pub async fn get_doc(
 }
 
 /// Get a exists `public doc` by workspace id
-/// - Return `public doc` .
+/// - Return 200 ok and `public doc` .
+/// - Return 403 Forbidden if you do not have permission.
+/// - Return 404 Not Found if `Workspace` is not exists.
+/// - Return 500 Internal Server Error if database error.
 #[utoipa::path(
     get,
     tag = "Workspace",
@@ -461,6 +556,12 @@ pub async fn get_doc(
     path = "/doc/{workspace_id}",
     params(
         ("workspace_id", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Successfully get public doc.", body =Vec<u8>,),
+        (status = 403, description = "Sorry, you do not have permission."),
+        (status = 404, description = "Workspace not found."),
+        (status = 500, description = "Server error, please try again later.")
     )
 )]
 #[instrument(skip(ctx))]
@@ -503,8 +604,23 @@ async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response 
     tag = "Workspace",
     context_path = "/api/workspace",
     path = "/{workspace_id}/search",
+    request_body(content = WorkspaceSearchInput, description = "Request body for search workspace",content_type = "application/json",example = json!({
+        "query": "string",
+    }
+    )),
     params(
         ("workspace_id", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Workspace's data", body = SearchResults,
+        example=json!([{
+         "block_id": "xxxx",
+         "score": "f32",
+        }]
+        )),
+        (status = 400, description = "Request parameter error."),
+        (status = 401, description = "Unauthorized."),
+        (status = 500, description = "Server error, please try again later.")
     )
 )]
 #[instrument(
