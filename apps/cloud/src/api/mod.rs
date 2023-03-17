@@ -71,7 +71,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/invitation/:path", post(permissions::accept_invitation))
         .nest_service("/global/sync", get(global_ws_handler))
         .route("/public/doc/:id", get(get_public_doc))
-        .route("/public/page/:id/:page_id", get(get_page))
+        .route("/public/page/:id/:page_id", get(get_public_page))
         // TODO: Will consider this permission in the future
         .route(
             "/workspace/:id/blob/:name",
