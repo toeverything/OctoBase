@@ -597,15 +597,13 @@ pub async fn get_page(
                 } else {
                     ErrorStatus::NotFound.into_response()
                 }
+            } else if let Some(markdown) = workspace.with_trx(|t| {
+                t.get_exists_space(page_id)
+                    .and_then(|page| page.to_markdown(&t.trx))
+            }) {
+                markdown.into_response()
             } else {
-                if let Some(markdown) = workspace.with_trx(|t| {
-                    t.get_exists_space(page_id)
-                        .and_then(|page| page.to_markdown(&t.trx))
-                }) {
-                    markdown.into_response()
-                } else {
-                    ErrorStatus::NotFound.into_response()
-                }
+                ErrorStatus::NotFound.into_response()
             }
         }
         Err(JwstError::WorkspaceNotFound(_)) => ErrorStatus::NotFound.into_response(),

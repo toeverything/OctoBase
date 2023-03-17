@@ -428,11 +428,7 @@ impl Block {
     where
         T: ReadTxn,
     {
-        if let Some(text) = self.get(trx, "text") {
-            Some(text.to_string())
-        } else {
-            None
-        }
+        self.get(trx, "text").map(|t| t.to_string())
     }
 }
 

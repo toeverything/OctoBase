@@ -21,10 +21,10 @@ impl Space {
         S: AsRef<str>,
     {
         let space_id = space_id.as_ref().into();
-        let mut store = trx.store_mut();
-        let blocks = doc.get_or_insert_map_with_trx(&mut store, &format!("space:{}", space_id));
-        let updated = doc.get_or_insert_map_with_trx(&mut store, constants::space::UPDATED);
-        let metadata = doc.get_or_insert_map_with_trx(&mut store, constants::space::META);
+        let store = trx.store_mut();
+        let blocks = doc.get_or_insert_map_with_trx(store, &format!("space:{}", space_id));
+        let updated = doc.get_or_insert_map_with_trx(store, constants::space::UPDATED);
+        let metadata = doc.get_or_insert_map_with_trx(store, constants::space::META);
 
         Self {
             id: id.as_ref().into(),
@@ -180,10 +180,10 @@ impl Space {
         if let Some(title) = self.get_blocks_by_flavour(trx, "affine:page").first() {
             let mut markdown = String::new();
 
-            title.get(trx, "title").map(|title| {
-                markdown.push_str(&format!("# {}", title.to_string()));
+            if let Some(title) = title.get(trx, "title") {
+                markdown.push_str(&format!("# {title}"));
                 markdown.push('\n');
-            });
+            }
 
             for frame in title.children(trx) {
                 if let Some(frame) = self.get(trx, &frame) {
