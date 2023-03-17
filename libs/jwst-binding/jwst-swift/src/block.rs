@@ -69,7 +69,7 @@ impl Block {
     }
 
     pub fn id(&self) -> String {
-        self.block.id()
+        self.block.block_id()
     }
 
     pub fn flavor(&self) -> String {

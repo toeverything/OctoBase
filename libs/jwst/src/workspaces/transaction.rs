@@ -2,7 +2,7 @@ use crate::utils::JS_INT_RANGE;
 
 use super::*;
 use lib0::any::Any;
-use yrs::{Map, TransactionMut};
+use yrs::{Map, ReadTxn, TransactionMut};
 
 pub struct WorkspaceTransaction<'a> {
     pub ws: &'a Workspace,
@@ -11,35 +11,34 @@ pub struct WorkspaceTransaction<'a> {
 
 unsafe impl Send for WorkspaceTransaction<'_> {}
 
+const RESERVE_SPACE: [&str; 2] = [constants::space::META, constants::space::UPDATED];
+
 impl WorkspaceTransaction<'_> {
-    pub fn remove<S: AsRef<str>>(&mut self, block_id: S) -> bool {
-        info!("remove block: {}", block_id.as_ref());
-        self.ws
-            .blocks
-            .remove(&mut self.trx, block_id.as_ref())
-            .is_some()
-            && self
-                .ws
-                .updated
-                .remove(&mut self.trx, block_id.as_ref())
-                .is_some()
+    pub fn get_space<S: AsRef<str>>(&mut self, space_id: S) -> Space {
+        Space::new(&mut self.trx, self.ws.doc(), self.ws.id(), space_id)
     }
 
-    // create a block with specified flavor
-    // if block exists, return the exists block
-    pub fn create<B, F>(&mut self, block_id: B, flavor: F) -> Block
-    where
-        B: AsRef<str>,
-        F: AsRef<str>,
-    {
-        info!("create block: {}, flavour: {}", block_id.as_ref(), flavor.as_ref());
-        Block::new(
-            &mut self.trx,
-            self.ws,
-            block_id,
-            flavor,
-            self.ws.client_id(),
-        )
+    pub fn get_exists_space<S: AsRef<str>>(&self, space_id: S) -> Option<Space> {
+        Space::from_exists(&self.trx, self.ws.doc(), self.ws.id(), space_id)
+    }
+
+    /// The compatibility interface for keck/jni/swift, this api was outdated.
+    pub fn get_blocks(&mut self) -> Space {
+        self.get_space("blocks")
+    }
+
+    #[inline]
+    pub fn spaces<R>(&self, cb: impl FnOnce(Box<dyn Iterator<Item = Space> + '_>) -> R) -> R {
+        let keys = self.trx.store().root_keys();
+        let iterator = keys.iter().filter_map(|key| {
+            if key.starts_with("space:") && !RESERVE_SPACE.contains(&key.as_str()) {
+                Space::from_exists(&self.trx, self.ws.doc(), self.ws.id(), &key[6..])
+            } else {
+                None
+            }
+        });
+
+        cb(Box::new(iterator))
     }
 
     pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) {
