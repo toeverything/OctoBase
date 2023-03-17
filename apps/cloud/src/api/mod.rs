@@ -558,15 +558,9 @@ pub async fn get_doc(
         ("page_id", description = "page id")
     )
 )]
-#[instrument(
-    skip(ctx, claims, headers), 
-    fields(
-        user_id = %claims.user.id
-    )
-)]
+#[instrument(skip(ctx, headers))]
 pub async fn get_public_page(
     Extension(ctx): Extension<Arc<Context>>,
-    Extension(claims): Extension<Arc<Claims>>,
     headers: HeaderMap,
     Path((workspace_id, page_id)): Path<(String, String)>,
 ) -> Response {
