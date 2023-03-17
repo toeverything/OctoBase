@@ -13,6 +13,7 @@ WORKDIR /app
 COPY --from=builder-amd64 /tmp/cloud-amd64 ./cloud
 
 FROM alpine:latest as cloud
+EXPOSE 3000
 WORKDIR /app
 COPY --from=relocate /app .
 ENTRYPOINT /app/cloud
