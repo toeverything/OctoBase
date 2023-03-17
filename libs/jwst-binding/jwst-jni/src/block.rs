@@ -112,7 +112,7 @@ impl Block {
 
     #[generate_interface]
     pub fn id(&self) -> String {
-        self.0.id()
+        self.0.block_id()
     }
 
     #[generate_interface]

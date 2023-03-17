@@ -112,6 +112,7 @@ impl Block {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn from_raw_parts<T: ReadTxn>(
         trx: &T,
         id: String,
@@ -501,14 +502,14 @@ impl Block {
             None => match self.flavor(trx).as_str() {
                 "affine:divider" => {
                     state.numbered_count = 0;
-                    Some(format!("---\n"))
+                    Some("---\n".into())
                 }
                 "affine:embed" => {
                     state.numbered_count = 0;
                     match self.get(trx, "type").map(|v| v.to_string()).as_deref() {
-                        Some("image") => self.get(trx, "sourceId").map(|v| {
-                            format!("![](/api/workspace/{}/blob/{})\n", self.id, v.to_string())
-                        }),
+                        Some("image") => self
+                            .get(trx, "sourceId")
+                            .map(|v| format!("![](/api/workspace/{}/blob/{})\n", self.id, v)),
                         _ => None,
                     }
                 }
