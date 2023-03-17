@@ -1,6 +1,6 @@
 mod transaction;
 
-use super::*;
+use super::{block::MarkdownState, *};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use transaction::SpaceTransaction;
 use yrs::{Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn};
@@ -124,6 +124,8 @@ impl Space {
         let iterator = self.blocks.iter(trx).map(|(id, block)| {
             Block::from_raw_parts(
                 trx,
+                self.id(),
+                self.space_id(),
                 id.to_owned(),
                 &self.doc,
                 block.to_ymap().unwrap(),
@@ -187,11 +189,11 @@ impl Space {
 
             for frame in title.children(trx) {
                 if let Some(frame) = self.get(trx, &frame) {
+                    let mut state = MarkdownState::default();
                     for child in frame.children(trx) {
-                        println!("child: {child}");
                         if let Some(text) = self
                             .get(trx, &child)
-                            .and_then(|child| child.to_markdown(trx))
+                            .and_then(|child| child.to_markdown(trx, &mut state))
                         {
                             markdown.push_str(&text);
                             markdown.push('\n');
@@ -218,7 +220,7 @@ impl Serialize for Space {
         self.blocks(&trx, |blocks| {
             let blocks = blocks.collect::<Vec<_>>();
             for block in blocks {
-                map.serialize_entry(&block.id(), &block)?;
+                map.serialize_entry(&block.block_id(), &block)?;
             }
             Ok(())
         })?;
@@ -305,11 +307,11 @@ mod test {
 
             assert_eq!(space.blocks.len(&t.trx), 1);
             assert_eq!(space.updated.len(&t.trx), 1);
-            assert_eq!(block.id(), "block");
+            assert_eq!(block.block_id(), "block");
             assert_eq!(block.flavor(&t.trx), "text");
 
             assert_eq!(
-                space.get(&t.trx, "block").map(|b| b.id()),
+                space.get(&t.trx, "block").map(|b| b.block_id()),
                 Some("block".to_owned())
             );
 

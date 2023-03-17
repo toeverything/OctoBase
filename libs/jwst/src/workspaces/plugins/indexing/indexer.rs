@@ -88,7 +88,7 @@ impl PluginImpl for IndexingPluginImpl {
                                 blocks
                                     .map(|block| {
                                         (
-                                            format!("{}:{}", space.space_id(), block.id()),
+                                            format!("{}:{}", space.space_id(), block.block_id()),
                                             self.search_index
                                                 .iter()
                                                 .map(|field| {

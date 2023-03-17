@@ -559,7 +559,7 @@ pub async fn get_doc(
     )
 )]
 #[instrument(
-    skip(ctx, claims), 
+    skip(ctx, claims, headers), 
     fields(
         user_id = %claims.user.id
     )
