@@ -425,11 +425,11 @@ mod test {
 
             assert_eq!(space.blocks.len(&t.trx), 1);
             assert_eq!(workspace.updated.len(&t.trx), 1);
-            assert_eq!(block.id(), "block");
+            assert_eq!(block.block_id(), "block");
             assert_eq!(block.flavor(&t.trx), "text");
 
             assert_eq!(
-                space.get(&t.trx, "block").map(|b| b.id()),
+                space.get(&t.trx, "block").map(|b| b.block_id()),
                 Some("block".to_owned())
             );
 
