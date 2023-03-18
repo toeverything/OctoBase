@@ -5,7 +5,7 @@ use std::{
     collections::hash_map::Entry,
     panic::{catch_unwind, AssertUnwindSafe},
 };
-use yrs::{updates::decoder::Decode, Doc, Options, ReadTxn, StateVector, Transact, Update};
+use yrs::{updates::decoder::Decode, Doc, ReadTxn, StateVector, Transact, Update};
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
 
@@ -159,7 +159,9 @@ impl DocDBStorage {
         C: ConnectionTrait,
     {
         trace!("start update: {table}");
-        if Self::count(conn, table).await? > MAX_TRIM_UPDATE_LIMIT - 1 {
+        let update_size = Self::count(conn, table).await?;
+        if update_size > MAX_TRIM_UPDATE_LIMIT - 1 {
+            trace!("full migrate update: {table}, {update_size}");
             let data = Self::all(conn, table).await?;
 
             let data = tokio::task::spawn_blocking(move || {
@@ -173,11 +175,12 @@ impl DocDBStorage {
 
             Self::replace_with(conn, table, data).await?;
         } else {
+            trace!("insert update: {table}, {update_size}");
             Self::insert(conn, table, &blob).await?;
         }
         trace!("end update: {table}");
 
-        debug!("update {}bytes to {}", blob.len(), table);
+        trace!("update {}bytes to {}", blob.len(), table);
         if let Entry::Occupied(remote) = self.remote.write().await.entry(table.into()) {
             let broadcast = &remote.get();
             if let Err(e) = broadcast.send(sync_encode_update(&blob)) {
@@ -208,10 +211,7 @@ impl DocDBStorage {
         C: ConnectionTrait,
     {
         trace!("start create doc: {workspace}");
-        let mut doc = Doc::with_options(Options {
-            // skip_gc: true,
-            ..Default::default()
-        });
+        let mut doc = Doc::new();
 
         let all_data = Self::all(conn, workspace).await?;
 
@@ -239,7 +239,7 @@ impl DocStorage for DocDBStorage {
             || Self::count(&self.pool, &workspace_id)
                 .await
                 .map(|c| c > 0)
-                .context("Failed to check workspace")
+                .context("failed to check workspace")
                 .map_err(JwstError::StorageError)?)
     }
 
@@ -278,6 +278,8 @@ impl DocStorage for DocDBStorage {
             .context("Failed to store workspace")
             .map_err(JwstError::StorageError)?;
 
+        debug_assert_eq!(Self::count(&self.pool, &workspace_id).await?, 1u64);
+
         Ok(())
     }
 
@@ -288,7 +290,7 @@ impl DocStorage for DocDBStorage {
         trace!("write_update: {:?}", data);
         self.update(&self.pool, &workspace_id, data.into())
             .await
-            .context("Failed to store update workspace")
+            .context("failed to store update workspace")
             .map_err(JwstError::StorageError)?;
 
         Ok(())
