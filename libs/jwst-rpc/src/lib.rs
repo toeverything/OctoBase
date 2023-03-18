@@ -5,7 +5,7 @@ mod context;
 
 pub use broadcast::{BroadcastChannels, BroadcastType};
 pub use client::start_client;
-pub use connector::socket_connector;
+pub use connector::{memory_connector, socket_connector};
 pub use context::RpcContextImpl;
 
 use jwst::{debug, error, info, trace, warn};
@@ -15,6 +15,7 @@ use tokio::{
     time::{sleep, Duration},
 };
 
+#[derive(Debug)]
 pub enum Message {
     Binary(Vec<u8>),
     Close,
@@ -158,4 +159,117 @@ pub async fn handle_connector(
         "{} stop collaborate with workspace {}",
         identifier, workspace_id
     );
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+
+    use super::*;
+    use jwst::{JwstResult, Workspace};
+    use jwst_storage::JwstStorage;
+    use nanoid::nanoid;
+    use tokio::sync::RwLock;
+    use yrs::{updates::decoder::Decode, Doc, ReadTxn, StateVector, Transact, Update};
+
+    struct ServerContext {
+        channel: BroadcastChannels,
+        storage: JwstStorage,
+    }
+
+    impl ServerContext {
+        pub async fn new() -> Arc<Self> {
+            let storage = JwstStorage::new("postgresql://affine:affine@localhost:5432/affine")
+                .await
+                .unwrap();
+
+            Arc::new(Self {
+                channel: RwLock::new(HashMap::new()),
+                storage,
+            })
+        }
+    }
+
+    impl RpcContextImpl<'_> for ServerContext {
+        fn get_storage(&self) -> &JwstStorage {
+            &self.storage
+        }
+
+        fn get_channel(&self) -> &BroadcastChannels {
+            &self.channel
+        }
+    }
+
+    async fn create_broadcasting_workspace(
+        init_state: &[u8],
+        server: Arc<ServerContext>,
+        id: &str,
+    ) -> (Workspace, Sender<Message>) {
+        let doc = Doc::new();
+        doc.transact_mut()
+            .apply_update(Update::decode_v1(init_state).unwrap());
+        let workspace = Workspace::from_doc(doc, id);
+
+        let doc = workspace.doc();
+
+        let (tx, rx) = memory_connector(doc, rand::random::<usize>());
+        {
+            let tx = tx.clone();
+            tokio::spawn(handle_connector(
+                server,
+                "test".into(),
+                nanoid!(),
+                move || (tx, rx),
+            ));
+        }
+
+        (workspace, tx)
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 64)]
+    async fn sync_test() -> JwstResult<()> {
+        jwst_logger::init_logger();
+        let server = ServerContext::new().await;
+        let ws = server.get_workspace("test").await.unwrap();
+
+        let init_state = ws
+            .doc()
+            .transact()
+            .encode_state_as_update_v1(&StateVector::default());
+
+        let (doc1, doc1_tx) =
+            create_broadcasting_workspace(&init_state, server.clone(), "test").await;
+        let (doc2, doc2_tx) =
+            create_broadcasting_workspace(&init_state, server.clone(), "test").await;
+
+        doc1.with_trx(|mut t| {
+            let space = t.get_space("space");
+            let block1 = space.create(&mut t.trx, "block1", "flavor1");
+            block1.set(&mut t.trx, "key1", "val1");
+        });
+
+        // await the task to make sure the doc1 is broadcasted before check doc2
+        sleep(Duration::from_millis(1)).await;
+
+        doc2.with_trx(|mut t| {
+            let space = t.get_space("space");
+            let block1 = space.get(&mut t.trx, "block1").unwrap();
+
+            assert_eq!(block1.flavor(&t.trx), "flavor1");
+            assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
+        });
+
+        ws.with_trx(|mut t| {
+            let space = t.get_space("space");
+            let block1 = space.get(&mut t.trx, "block1").unwrap();
+
+            assert_eq!(block1.flavor(&t.trx), "flavor1");
+            assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
+        });
+
+        doc1_tx.send(Message::Close).await.unwrap();
+        doc2_tx.send(Message::Close).await.unwrap();
+
+        Ok(())
+    }
 }
