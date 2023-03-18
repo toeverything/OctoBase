@@ -7,7 +7,6 @@ use super::{
 
 #[tokio::test]
 async fn sqlite_storage_test() -> anyhow::Result<()> {
-    jwst_logger::init_logger();
     let storage = JwstStorage::new("sqlite::memory:").await?;
 
     blobs_storage_test(storage.blobs()).await?;

@@ -21,6 +21,12 @@ impl JwstStorage {
         let pool = create_connection(database, is_sqlite).await?;
         let bucket = get_bucket(is_sqlite);
 
+        if is_sqlite {
+            pool.execute_unprepared("PRAGMA journal_mode=WAL;")
+                .await
+                .unwrap();
+        }
+
         let blobs = BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone())
             .await
             .context("Failed to init blobs")?;
@@ -98,7 +104,7 @@ impl JwstStorage {
             .exists(workspace_id.as_ref().into())
             .await
             .context(format!(
-                "Failed to check workspace {}",
+                "failed to check workspace {}",
                 workspace_id.as_ref()
             ))?
         {
@@ -123,32 +129,36 @@ impl JwstStorage {
 
         if ts.elapsed().as_secs() > 5 || force {
             debug!("full migrate: {workspace_id}");
-            if let Ok(workspace) = self.docs.get(workspace_id.clone()).await {
-                let update = if let Some(update) = update {
-                    if let Err(e) = self.docs.delete(workspace_id.clone()).await {
-                        error!("full_migrate write error: {}", e.to_string());
-                        return false;
+            match self.docs.get(workspace_id.clone()).await {
+                Ok(workspace) => {
+                    let update = if let Some(update) = update {
+                        if let Err(e) = self.docs.delete(workspace_id.clone()).await {
+                            error!("full_migrate write error: {}", e.to_string());
+                            return false;
+                        };
+                        update
+                    } else {
+                        workspace.sync_migration()
                     };
-                    update
-                } else {
-                    workspace.sync_migration()
-                };
-                if let Err(e) = self
-                    .docs
-                    .write_full_update(workspace_id.clone(), update)
-                    .await
-                {
-                    error!("db write error: {}", e.to_string());
-                    return false;
+                    if let Err(e) = self
+                        .docs
+                        .write_full_update(workspace_id.clone(), update)
+                        .await
+                    {
+                        error!("db write error: {}", e.to_string());
+                        return false;
+                    }
+
+                    *ts = Instant::now();
+
+                    info!("full migrate final: {workspace_id}");
+                    true
                 }
-
-                *ts = Instant::now();
-
-                info!("full migrate final: {workspace_id}");
-                return true;
+                Err(e) => {
+                    warn!("workspace {workspace_id} not exists in cache: {e:?}");
+                    false
+                }
             }
-            warn!("workspace {workspace_id} not exists in cache");
-            false
         } else {
             true
         }
