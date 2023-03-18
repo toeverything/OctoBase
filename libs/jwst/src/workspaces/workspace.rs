@@ -481,7 +481,7 @@ mod test {
                     .unwrap_or(now),
                 workspace
                     .updated
-                    .get(&t.trx, "block1")
+                    .get(&t.trx, "block2")
                     .and_then(|u| u.to_yarray())
                     .and_then(|u| u.get(&t.trx, 1))
                     .and_then(|v| v.to_string(&t.trx).parse().ok())
