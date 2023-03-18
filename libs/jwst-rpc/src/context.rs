@@ -104,7 +104,7 @@ pub trait RpcContextImpl<'a> {
                             }
                         } else {
                             for update in updates.as_slice() {
-                                if let Err(e) = docs.write_update(id.clone(), &update).await {
+                                if let Err(e) = docs.write_update(id.clone(), update).await {
                                     error!("failed to save update of {}: {}", id, e);
                                 }
                             }
