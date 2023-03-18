@@ -179,9 +179,7 @@ mod test {
 
     impl ServerContext {
         pub async fn new() -> Arc<Self> {
-            let storage = JwstStorage::new("postgresql://affine:affine@localhost:5432/affine")
-                .await
-                .unwrap();
+            let storage = JwstStorage::new("sqlite::memory:").await.unwrap();
 
             Arc::new(Self {
                 channel: RwLock::new(HashMap::new()),
@@ -249,7 +247,7 @@ mod test {
         });
 
         // await the task to make sure the doc1 is broadcasted before check doc2
-        sleep(Duration::from_millis(1)).await;
+        sleep(Duration::from_millis(4000)).await;
 
         doc2.with_trx(|mut t| {
             let space = t.get_space("space");
