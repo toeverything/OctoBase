@@ -3,12 +3,34 @@ use super::{
     *,
 };
 use async_trait::async_trait;
-use jwst::{JwstResult, Workspace};
+use jwst::{DocStorage, JwstResult, Workspace};
 use jwst_storage::JwstStorage;
+use std::ops::Deref;
 use tokio::sync::{
     broadcast::{channel as broadcast, Receiver as BroadcastReceiver},
     mpsc::{Receiver as MpscReceiver, Sender as MpscSender},
+    Mutex,
 };
+use yrs::merge_updates_v1;
+
+fn merge_updates(id: &str, updates: &[Vec<u8>]) -> Option<Vec<u8>> {
+    match merge_updates_v1(
+        updates
+            .iter()
+            .map(Deref::deref)
+            .collect::<Vec<_>>()
+            .as_slice(),
+    ) {
+        Ok(update) => {
+            info!("merge {} updates", updates.len());
+            Some(update)
+        }
+        Err(e) => {
+            error!("failed to merge update of {}: {}", id, e);
+            None
+        }
+    }
+}
 
 #[async_trait]
 pub trait RpcContextImpl<'a> {
@@ -32,23 +54,69 @@ pub trait RpcContextImpl<'a> {
     }
 
     async fn join_broadcast(&self, workspace: &mut Workspace) -> BroadcastReceiver<BroadcastType> {
+        let id = workspace.id();
         // broadcast channel
-        let (broadcast_tx, broadcast_rx) =
-            match self.get_channel().write().await.entry(workspace.id()) {
-                Entry::Occupied(tx) => {
-                    let sender = tx.get();
-                    (sender.clone(), sender.subscribe())
-                }
-                Entry::Vacant(v) => {
-                    let (tx, rx) = broadcast(100);
-                    v.insert(tx.clone());
-                    (tx, rx)
-                }
+        let broadcast_tx = match self.get_channel().write().await.entry(id.clone()) {
+            Entry::Occupied(tx) => tx.get().clone(),
+            Entry::Vacant(v) => {
+                let (tx, _) = broadcast(100);
+                v.insert(tx.clone());
+                tx.clone()
+            }
+        };
+
+        subscribe(workspace, broadcast_tx.clone()).await;
+
+        // save update thread
+        self.save_update(&id, broadcast_tx.subscribe()).await;
+
+        broadcast_tx.subscribe()
+    }
+
+    async fn save_update(&self, id: &str, mut broadcast: BroadcastReceiver<BroadcastType>) {
+        let docs = self.get_storage().docs().clone();
+        let id = id.to_string();
+
+        tokio::spawn(async move {
+            let updates = Arc::new(Mutex::new(vec![]));
+
+            let handler = {
+                let updates = updates.clone();
+                tokio::spawn(async move {
+                    while let Ok(data) = broadcast.recv().await {
+                        if let BroadcastType::BroadcastRawContent(update) = data {
+                            info!("receive update: {}", update.len());
+                            updates.lock().await.push(update);
+                        }
+                    }
+                    info!("broadcast channel closed");
+                })
             };
 
-        subscribe(workspace, broadcast_tx).await;
-
-        broadcast_rx
+            loop {
+                {
+                    let mut updates = updates.lock().await;
+                    if updates.len() > 0 {
+                        info!("save {} updates", updates.len());
+                        if let Some(update) = merge_updates(&id, &updates) {
+                            if let Err(e) = docs.write_update(id.clone(), &update).await {
+                                error!("failed to save update of {}: {}", id, e);
+                            }
+                        } else {
+                            for update in updates.as_slice() {
+                                if let Err(e) = docs.write_update(id.clone(), &update).await {
+                                    error!("failed to save update of {}: {}", id, e);
+                                }
+                            }
+                        }
+                        updates.clear();
+                    } else if handler.is_finished() {
+                        break;
+                    }
+                }
+                sleep(Duration::from_secs(1)).await;
+            }
+        });
     }
 
     async fn apply_change(
