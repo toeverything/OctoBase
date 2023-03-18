@@ -11,15 +11,15 @@ Based on OctoBase, you can not only implement a rich text editor for offline wri
 
 As an offline collaborative data database, OctoBase has the following characteristics:
 
--   📚 **Multi-platform available** offline collaboration, Schemaless, structured/unstructured/rich text data storage .
+- 📚 **Multi-platform available** offline collaboration, Schemaless, structured/unstructured/rich text data storage .
 
--   🗃️ **Binary storage** that supports data deduplication and rich media editing.
+- 🗃️ **Binary storage** that supports data deduplication and rich media editing.
 
--   🔍 **High-performance real-time full-text indexing** with high-quality multilingual word segmentation support.
+- 🔍 **High-performance real-time full-text indexing** with high-quality multilingual word segmentation support.
 
--   🌐 **Point-to-point / central server synchronization** with rich multi-platform native support.
+- 🌐 **Point-to-point / central server synchronization** with rich multi-platform native support.
 
--   🔒 **Fine-grained permission control** with advanced permission management.
+- 🔒 **Fine-grained permission control** with advanced permission management.
 
 By providing native offline collaboration, full-text indexing, and binary storage, OctoBase enables you to easily build secure, high-performance local-first collaborative applications using the same set of data abstractions on multiple platforms.
 
@@ -42,11 +42,11 @@ We gladly accept contributions via GitHub pull requests, you can go to [contribu
 OctoBase aims to make it easy for developers to build local-first applications
 on all common platforms. In order to achieve this goal, we will strive to do these things:
 
--   Make it easy to build on all supported platforms.
--   Implement basic data types that support collaboration.
--   Support peer-to-peer synchronization.
--   Self-contained library distribution.
--   Minimize external dependencies.
+- Make it easy to build on all supported platforms.
+- Implement basic data types that support collaboration.
+- Support peer-to-peer synchronization.
+- Self-contained library distribution.
+- Minimize external dependencies.
 
 ## Building
 
@@ -59,7 +59,7 @@ git clone https://github.com/toeverything/octobase/
 cargo run --bin keck
 ```
 
-Now you can access http://localhost:3000/api/docs/ through the browser.
+Now you can access <http://localhost:3000/api/docs/> through the browser.
 
 This is a simple http interface binding, which allows you to modify the data in octobase with the http interface; you can also statically link octobase to your program, modify the data through native api, and synchronize with other clients.
 
@@ -82,12 +82,12 @@ This is a simple http interface binding, which allows you to modify the data in 
 
 In the process of project development, there are many software development concepts that have influenced us. Thank you very much for these excellent software:
 
--   [Fossil] -- Source code management tool made with CRDTs which inspired our design on block data structure.
--   [SQLite] -- "Small. Fast. Reliable. Choose any three." We like this idea very much.
+- [Fossil] -- Source code management tool made with CRDTs which inspired our design on block data structure.
+- [SQLite] -- "Small. Fast. Reliable. Choose any three." We like this idea very much.
 
 ## Hiring
 
-Some amazing companies including OctoBase are looking for developers! Are you interested in helping build with OctoBase and/or its partners? Check out some of the latest [jobs available](https://github.com/toeverything/AFFiNE/blob/master/docs/jobs/summary.md).
+Some amazing companies including OctoBase are looking for developers! Are you interested in helping build with OctoBase and/or its partners? Check out some of the latest [jobs available](https://github.com/toeverything/AFFiNE/blob/master/docs/jobs.md).
 
 ## License
 
@@ -97,10 +97,6 @@ Currently, this repository is under **active development** and most components a
 [contributing]: .github/CONTRIBUTING.md
 [telegram group]: https://t.me/affineworkos
 [mpl 2.0]: https://www.mozilla.org/en-US/MPL/2.0/
-[document]: https://crdts.cloud/docs/index.html
-[roadmap]: https://github.com/toeverything/OctoBase/issues/9
 [fossil]: https://www2.fossil-scm.org/home/doc/trunk/www/index.wiki
 [sqlite]: https://sqlite.org/index.html
 [contributor license agreement]: https://github.com/toeverything/octobase/edit/master/.github/CLA.md
-[jobs available]: https://github.com/toeverything/AFFiNE/blob/master/docs/jobs/summary.md
-[building.md]: docs/BUILDING.md
