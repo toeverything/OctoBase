@@ -359,7 +359,7 @@ pub async fn docs_storage_test(pool: &DocDBStorage) -> anyhow::Result<()> {
 
 #[cfg(test)]
 #[cfg(feature = "postgres")]
-pub async fn full_migration_test(pool: &DocDBStorage) -> anyhow::Result<()> {
+pub async fn full_migration_stress_test(pool: &DocDBStorage) -> anyhow::Result<()> {
     let final_bytes: Vec<u8> = (0..1024 * 100).map(|_| rand::random::<u8>()).collect();
     for i in 0..=50 {
         let random_bytes: Vec<u8> = if i == 50 {
@@ -418,6 +418,80 @@ pub async fn full_migration_test(pool: &DocDBStorage) -> anyhow::Result<()> {
             .collect::<Vec<_>>(),
         vec![final_bytes]
     );
+
+    Ok(())
+}
+
+#[cfg(test)]
+pub async fn docs_storage_partial_test(pool: &DocDBStorage) -> anyhow::Result<()> {
+    use tokio::sync::mpsc::channel;
+
+    let conn = &pool.pool;
+
+    DocDBStorage::drop(conn, "basic").await?;
+
+    // empty table
+    assert_eq!(DocDBStorage::count(conn, "basic").await?, 0);
+
+    {
+        let ws = pool.get("basic".into()).await.unwrap();
+
+        let (tx, mut rx) = channel(100);
+
+        let sub = ws
+            .doc()
+            .observe_update_v1(move |_, e| {
+                futures::executor::block_on(async {
+                    tx.send(e.update.clone()).await.unwrap();
+                });
+            })
+            .unwrap();
+
+        ws.with_trx(|mut t| {
+            let space = t.get_space("test");
+            let block = space.create(&mut t.trx, "block1", "text");
+            block.set(&mut t.trx, "test1", "value1");
+        });
+
+        ws.with_trx(|mut t| {
+            let space = t.get_space("test");
+            let block = space.get(&mut t.trx, "block1").unwrap();
+            block.set(&mut t.trx, "test2", "value2");
+        });
+
+        ws.with_trx(|mut t| {
+            let space = t.get_space("test");
+            let block = space.create(&mut t.trx, "block2", "block2");
+            block.set(&mut t.trx, "test3", "value3");
+        });
+
+        drop(sub);
+
+        while let Some(update) = rx.recv().await {
+            info!("recv: {}", update.len());
+            pool.write_update("basic".into(), &update).await.unwrap();
+        }
+
+        assert_eq!(DocDBStorage::count(conn, "basic").await?, 4);
+    }
+
+    pool.workspaces.write().await.clear();
+
+    {
+        let ws = pool.get("basic".into()).await.unwrap();
+        ws.with_trx(|mut t| {
+            let space = t.get_space("test");
+
+            let block = space.get(&mut t.trx, "block1").unwrap();
+            assert_eq!(block.flavor(&t.trx), "text");
+            assert_eq!(block.get(&t.trx, "test1"), Some("value1".into()));
+            assert_eq!(block.get(&t.trx, "test2"), Some("value2".into()));
+
+            let block = space.get(&mut t.trx, "block2").unwrap();
+            assert_eq!(block.flavor(&t.trx), "block2");
+            assert_eq!(block.get(&t.trx, "test3"), Some("value3".into()));
+        });
+    }
 
     Ok(())
 }
