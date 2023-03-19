@@ -41,8 +41,9 @@ pub async fn handle_connector(
         .await
         .expect("failed to get workspace");
 
-    let mut broadcast_update = context.join_broadcast(&mut ws).await;
-    let mut server_update = context.join_server_broadcast(&workspace_id).await;
+    let broadcast_tx = context.join_broadcast(&mut ws, identifier.clone()).await;
+    let mut broadcast_rx = broadcast_tx.subscribe();
+    let mut server_rx = context.join_server_broadcast(&workspace_id).await;
 
     if let Ok(init_data) = ws.sync_init_message().await {
         if tx.send(Message::Binary(init_data)).await.is_err() {
@@ -61,7 +62,7 @@ pub async fn handle_connector(
 
     'sync: loop {
         tokio::select! {
-            Ok(msg) = server_update.recv()=> {
+            Ok(msg) = server_rx.recv()=> {
                 let ts = Instant::now();
                 trace!("recv from server update: {:?}", msg);
                 if tx.send(Message::Binary(msg.clone())).await.is_err() {
@@ -73,7 +74,7 @@ pub async fn handle_connector(
                 }
 
             },
-            Ok(msg) = broadcast_update.recv()=> {
+            Ok(msg) = broadcast_rx.recv()=> {
                 let ts = Instant::now();
                 match msg {
                     BroadcastType::BroadcastAwareness(data) => {
@@ -151,6 +152,7 @@ pub async fn handle_connector(
         .get_storage()
         .full_migrate(workspace_id.clone(), None, false)
         .await;
+    let _ = broadcast_tx.send(BroadcastType::CloseUser(identifier.clone()));
     info!(
         "{} stop collaborate with workspace {}",
         identifier, workspace_id
