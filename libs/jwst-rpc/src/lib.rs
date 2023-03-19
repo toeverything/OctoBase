@@ -163,8 +163,8 @@ mod test {
     use jwst::{JwstResult, Workspace};
     use jwst_storage::JwstStorage;
     use nanoid::nanoid;
-    use std::collections::HashMap;
-    use tokio::sync::RwLock;
+    use std::{collections::HashMap, thread::JoinHandle as StdJoinHandler};
+    use tokio::{sync::RwLock, task::JoinHandle as TokioJoinHandler};
     use yrs::{updates::decoder::Decode, Doc, ReadTxn, StateVector, Transact, Update};
 
     struct ServerContext {
@@ -201,7 +201,12 @@ mod test {
         init_state: &[u8],
         server: Arc<ServerContext>,
         id: &str,
-    ) -> (Workspace, Sender<Message>) {
+    ) -> (
+        Workspace,
+        Sender<Message>,
+        TokioJoinHandler<()>,
+        StdJoinHandler<()>,
+    ) {
         let doc = Doc::new();
         doc.transact_mut()
             .apply_update(Update::decode_v1(init_state).unwrap());
@@ -209,7 +214,7 @@ mod test {
 
         let doc = workspace.doc();
 
-        let (tx, rx) = memory_connector(doc, rand::random::<usize>());
+        let (tx, rx, tx_handler, rx_handler) = memory_connector(doc, rand::random::<usize>());
         {
             let tx = tx.clone();
             tokio::spawn(handle_connector(
@@ -220,7 +225,7 @@ mod test {
             ));
         }
 
-        (workspace, tx)
+        (workspace, tx, tx_handler, rx_handler)
     }
 
     async fn start_server() -> (Arc<ServerContext>, Workspace, Vec<u8>) {
@@ -235,16 +240,25 @@ mod test {
         (server, ws, init_state)
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 64)]
+    #[tokio::test]
     async fn sync_test() -> JwstResult<()> {
         jwst_logger::init_logger();
 
         let (server, ws, init_state) = start_server().await;
 
-        let (doc1, doc1_tx) =
+        let (doc1, _, _, _) =
             create_broadcasting_workspace(&init_state, server.clone(), "test").await;
-        let (doc2, doc2_tx) =
+        let (mut doc2, tx2, send_handler2, recv_handler2) =
             create_broadcasting_workspace(&init_state, server.clone(), "test").await;
+
+        // close connection after doc1 is broadcasted
+        let sub = doc2
+            .observe(move |_, _| {
+                futures::executor::block_on(async {
+                    tx2.send(Message::Close).await.unwrap();
+                });
+            })
+            .unwrap();
 
         doc1.with_trx(|mut t| {
             let space = t.get_space("space");
@@ -253,8 +267,10 @@ mod test {
         });
 
         // await the task to make sure the doc1 is broadcasted before check doc2
-        // TODO: at present, the client and server are placed in the same tokio runtime, and they need to be run in different threads to avoid waiting
-        sleep(Duration::from_millis(4000)).await;
+        send_handler2.await.unwrap();
+        recv_handler2.join().unwrap();
+
+        drop(sub);
 
         doc2.with_trx(|mut t| {
             let space = t.get_space("space");
@@ -272,9 +288,6 @@ mod test {
             assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
         });
 
-        doc1_tx.send(Message::Close).await.unwrap();
-        doc2_tx.send(Message::Close).await.unwrap();
-
         Ok(())
     }
 
@@ -291,7 +304,7 @@ mod test {
             let init_state = init_state.clone();
             let server = server.clone();
 
-            let (doc, doc_tx) =
+            let (doc, doc_tx, tx_handler, rx_handler) =
                 create_broadcasting_workspace(&init_state, server.clone(), "test").await;
 
             let handler = std::thread::spawn(move || {
