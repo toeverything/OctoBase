@@ -138,11 +138,7 @@ pub async fn handle_connector(
                     debug!("process broadcast cost: {}ms", ts.elapsed().as_micros());
                 }
             },
-            _ = sleep(Duration::from_secs(5)) => {
-                context
-                    .get_storage()
-                    .full_migrate(workspace_id.clone(), None, false)
-                    .await;
+            _ = sleep(Duration::from_secs(1)) => {
                 if tx.is_closed() || tx.send(Message::Ping).await.is_err() {
                     break 'sync;
                 }

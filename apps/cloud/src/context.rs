@@ -5,6 +5,7 @@ use jwst_logger::{error, warn};
 use jwst_rpc::{BroadcastChannels, BroadcastType, RpcContextImpl};
 use jwst_storage::JwstStorage;
 use std::collections::HashMap;
+use tempfile::{tempdir, TempDir};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::api::UserChannel;
@@ -17,33 +18,37 @@ pub struct Context {
     pub storage: JwstStorage,
     pub user_channel: UserChannel,
     pub channel: BroadcastChannels,
+    _dir: Option<TempDir>,
 }
 
 impl Context {
     pub async fn new() -> Context {
-        let database_url = dotenvy::var("DATABASE_URL");
-        if database_url.is_err() {
-            warn!("!!! no database url provided, use memory database !!!");
+        let (_dir, cloud, storage) = if let Ok(url) = dotenvy::var("DATABASE_URL") {
+            (None, url.clone(), format!("{url}_binary"))
+        } else {
+            let dir = tempdir().unwrap();
+            let path = dir.path();
+
+            warn!(
+                "!!! no database url provided, store in {} !!!",
+                path.display()
+            );
             warn!("!!! please set DATABASE_URL in .env file or environmental variable to save your data !!!");
-        }
+            let cloud = format!("sqlite:{}?mode=rwc", path.join("cloud.db").display());
+            let storage = format!("sqlite:{}?mode=rwc", path.join("storage.db").display());
+
+            (Some(dir), cloud, storage)
+        };
 
         Self {
+            _dir,
             // =========== database ===========
-            db: CloudDatabase::init_pool(
-                database_url
-                    .as_deref()
-                    .unwrap_or("sqlite::memory:?cache=shared"),
-            )
-            .await
-            .expect("Cannot create cloud database"),
-            storage: JwstStorage::new(
-                database_url
-                    .map(|db| format!("{db}_binary"))
-                    .as_deref()
-                    .unwrap_or("sqlite::memory:?cache=shared"),
-            )
-            .await
-            .expect("Cannot create storage"),
+            db: CloudDatabase::init_pool(&cloud)
+                .await
+                .expect("Cannot create cloud database"),
+            storage: JwstStorage::new(&storage)
+                .await
+                .expect("Cannot create storage"),
             // =========== auth ===========
             key: KeyContext::new(dotenvy::var("SIGN_KEY").ok()).expect("Cannot create key context"),
             firebase: Mutex::new(FirebaseContext::new(
