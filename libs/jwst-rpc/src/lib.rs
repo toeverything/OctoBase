@@ -306,7 +306,7 @@ mod test {
             let init_state = init_state.clone();
             let server = server.clone();
 
-            let (doc, doc_tx, tx_handler, rx_handler) =
+            let (doc, doc_tx, _, _) =
                 create_broadcasting_workspace(&init_state, server.clone(), "test").await;
 
             let handler = std::thread::spawn(move || {
