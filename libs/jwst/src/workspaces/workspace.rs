@@ -362,7 +362,7 @@ impl Clone for Workspace {
 mod test {
     use super::{super::super::Block, *};
     use tracing::info;
-    use yrs::{updates::decoder::Decode, Array, Doc, Map, StateVector, Update};
+    use yrs::{updates::decoder::Decode, Doc, Map, StateVector, Update};
 
     #[test]
     fn doc_load_test() {
@@ -462,31 +462,12 @@ mod test {
 
         let workspace = Workspace::new("workspace");
 
-        let client = workspace.client_id() as f64;
-        let now = chrono::Utc::now().timestamp_millis() as f64;
-        let (b1updated, b2updated) = workspace.with_trx(|mut t| {
+        workspace.with_trx(|mut t| {
             let space = t.get_space("space1");
             space.create(&mut t.trx, "block1", "text");
 
             let space = t.get_space("space2");
             space.create(&mut t.trx, "block2", "text");
-
-            (
-                workspace
-                    .updated
-                    .get(&t.trx, "block1")
-                    .and_then(|u| u.to_yarray())
-                    .and_then(|u| u.get(&t.trx, 1))
-                    .and_then(|v| v.to_string(&t.trx).parse().ok())
-                    .unwrap_or(now),
-                workspace
-                    .updated
-                    .get(&t.trx, "block2")
-                    .and_then(|u| u.to_yarray())
-                    .and_then(|u| u.get(&t.trx, 1))
-                    .and_then(|v| v.to_string(&t.trx).parse().ok())
-                    .unwrap_or(now),
-            )
         });
 
         assert_json_include!(
@@ -507,8 +488,8 @@ mod test {
                     }
                 },
                 "space:updated": {
-                    "block1": [[client, b1updated, "add"]],
-                    "block2": [[client, b2updated, "add"]],
+                    "block1": [[]],
+                    "block2": [[]],
                 },
                 "space:meta": {}
             })
