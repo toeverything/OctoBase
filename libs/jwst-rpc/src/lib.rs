@@ -163,12 +163,11 @@ pub async fn handle_connector(
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-
     use super::*;
     use jwst::{JwstResult, Workspace};
     use jwst_storage::JwstStorage;
     use nanoid::nanoid;
+    use std::collections::HashMap;
     use tokio::sync::RwLock;
     use yrs::{updates::decoder::Decode, Doc, ReadTxn, StateVector, Transact, Update};
 
@@ -179,7 +178,11 @@ mod test {
 
     impl ServerContext {
         pub async fn new() -> Arc<Self> {
-            let storage = JwstStorage::new("sqlite::memory:").await.unwrap();
+            let storage = JwstStorage::new(
+                &std::env::var("DATABASE_URL").unwrap_or("sqlite::memory:".into()),
+            )
+            .await
+            .unwrap();
 
             Arc::new(Self {
                 channel: RwLock::new(HashMap::new()),
@@ -224,9 +227,7 @@ mod test {
         (workspace, tx)
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 64)]
-    async fn sync_test() -> JwstResult<()> {
-        jwst_logger::init_logger();
+    async fn start_server() -> (Arc<ServerContext>, Workspace, Vec<u8>) {
         let server = ServerContext::new().await;
         let ws = server.get_workspace("test").await.unwrap();
 
@@ -234,6 +235,15 @@ mod test {
             .doc()
             .transact()
             .encode_state_as_update_v1(&StateVector::default());
+
+        (server, ws, init_state)
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 64)]
+    async fn sync_test() -> JwstResult<()> {
+        jwst_logger::init_logger();
+
+        let (server, ws, init_state) = start_server().await;
 
         let (doc1, doc1_tx) =
             create_broadcasting_workspace(&init_state, server.clone(), "test").await;
@@ -247,6 +257,7 @@ mod test {
         });
 
         // await the task to make sure the doc1 is broadcasted before check doc2
+        // TODO: at present, the client and server are placed in the same tokio runtime, and they need to be run in different threads to avoid waiting
         sleep(Duration::from_millis(4000)).await;
 
         doc2.with_trx(|mut t| {
@@ -267,6 +278,70 @@ mod test {
 
         doc1_tx.send(Message::Close).await.unwrap();
         doc2_tx.send(Message::Close).await.unwrap();
+
+        Ok(())
+    }
+
+    #[ignore = "not finish yet"]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 64)]
+    async fn sync_stress_test() -> JwstResult<()> {
+        jwst_logger::init_logger();
+
+        let (server, ws, init_state) = start_server().await;
+
+        let mut jobs = vec![];
+
+        for i in 0..10 {
+            let init_state = init_state.clone();
+            let server = server.clone();
+
+            let (doc, doc_tx) =
+                create_broadcasting_workspace(&init_state, server.clone(), "test").await;
+
+            let handler = std::thread::spawn(move || {
+                doc.with_trx(|mut t| {
+                    let space = t.get_space("space");
+                    let block1 = space.create(&mut t.trx, "block1", "flavor1");
+                    block1.set(&mut t.trx, &format!("key{}", i), format!("val{}", i));
+                });
+
+                doc.with_trx(|mut t| {
+                    let space = t.get_space("space");
+                    let block1 = space.get(&mut t.trx, "block1").unwrap();
+
+                    assert_eq!(block1.flavor(&t.trx), "flavor1");
+                    assert_eq!(
+                        block1
+                            .get(&t.trx, &format!("key{}", i))
+                            .unwrap()
+                            .to_string(),
+                        format!("val{}", i)
+                    );
+                });
+
+                futures::executor::block_on(doc_tx.send(Message::Close)).unwrap();
+            });
+            jobs.push(handler);
+        }
+
+        for handler in jobs {
+            if let Err(e) = handler.join() {
+                panic!("{:?}", e);
+            }
+        }
+
+        // await the task to make sure the doc1 is broadcasted before check doc2
+        sleep(Duration::from_millis(4000)).await;
+
+        info!("check the workspace");
+
+        ws.with_trx(|mut t| {
+            let space = t.get_space("space");
+            let block1 = space.get(&mut t.trx, "block1").unwrap();
+
+            assert_eq!(block1.flavor(&t.trx), "flavor1");
+            assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
+        });
 
         Ok(())
     }
