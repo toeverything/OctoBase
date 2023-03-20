@@ -880,4 +880,44 @@ mod test {
         .await;
         assert_eq!(resp.status(), StatusCode::PAYLOAD_TOO_LARGE);
     }
+    #[tokio::test]
+    async fn test_get_blob() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context {
+            db: pool,
+            ..Context::new().await
+        };
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
+        let body_stream = Body::wrap_stream(test_data_stream);
+
+        let resp = client
+            .put("/blob")
+            .header("Content-Length", test_data_len.to_string())
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let blob_name=resp.text().await;
+        let url = format!(
+            "/blob/{}",
+            blob_name
+        );
+        let resp = client
+            .get(&url)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client
+            .get( "/blob/mock_id",)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+ 
 }
