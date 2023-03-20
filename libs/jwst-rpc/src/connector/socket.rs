@@ -75,13 +75,10 @@ pub fn socket_connector(
         // init notify thread
         let workspace_id = workspace_id.to_owned();
         tokio::spawn(async move {
-            while let Some(success) = first_init_rx.recv().await {
-                if success {
-                    info!("socket init success: {}", workspace_id);
-                } else {
-                    error!("socket init failed: {}", workspace_id);
-                }
-                break;
+            if let Some(true) = first_init_rx.recv().await {
+                info!("socket init success: {}", workspace_id);
+            } else {
+                error!("socket init failed: {}", workspace_id);
             }
         });
     }

@@ -79,12 +79,12 @@ pub async fn connect_memory_workspace(
         let workspace_id = id.to_string();
         std::thread::spawn(move || {
             let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async {
-                handle_connector(server, workspace_id, nanoid!(), move || {
-                    (tx, rx, first_init_tx)
-                })
-                .await
-            });
+            rt.block_on(handle_connector(
+                server,
+                workspace_id,
+                nanoid!(),
+                move || (tx, rx, first_init_tx),
+            ));
         });
         // tokio::spawn(handle_connector(server, id.into(), nanoid!(), move || {
         //     (tx, rx, first_init_tx)
