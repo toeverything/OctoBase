@@ -144,7 +144,7 @@ export class YBlockManager {
 			// @ts-ignore
 			this._blocks = this._doc.getMap('blocks')
 			// @ts-ignore
-			this._blockUpdated = this._doc.getMap('updated')
+			this._blockUpdated = this._doc.getMap('space:updated')
 			this._blockMap.clear()
 			// @ts-ignore
 			this._binaries = new RemoteBinaries(providers.binaries.getMap(), providers.remoteToken)

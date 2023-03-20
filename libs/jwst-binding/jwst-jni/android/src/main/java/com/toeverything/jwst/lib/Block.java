@@ -5,12 +5,12 @@ import androidx.annotation.Nullable;
 
 public final class Block {
 
-    public Block(@NonNull WorkspaceTransaction trx, @NonNull Workspace workspace, @NonNull String block_id, @NonNull String flavor, long operator) {
-        long a0 = trx.mNativeObj;        long a1 = workspace.mNativeObj;
-        mNativeObj = init(a0, a1, block_id, flavor, operator);
-        JNIReachabilityFence.reachabilityFence2(trx, workspace);
+    public Block(@NonNull WorkspaceTransaction trx, @NonNull String block_id, @NonNull String flavor, long operator) {
+        long a0 = trx.mNativeObj;
+        mNativeObj = init(a0, block_id, flavor, operator);
+        JNIReachabilityFence.reachabilityFence1(trx);
     }
-    private static native long init(long trx, long workspace, @NonNull String block_id, @NonNull String flavor, long operator);
+    private static native long init(long trx, @NonNull String block_id, @NonNull String flavor, long operator);
 
     public final void setBool(@NonNull WorkspaceTransaction trx, @NonNull String key, boolean value) {
         long a0 = trx.mNativeObj;

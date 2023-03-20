@@ -1,4 +1,4 @@
-use super::{generate_interface, JwstBlock, Workspace, WorkspaceTransaction};
+use super::{generate_interface, JwstBlock, WorkspaceTransaction};
 use lib0::any::Any;
 
 pub struct Block(pub(crate) JwstBlock);
@@ -7,14 +7,14 @@ impl Block {
     #[generate_interface(constructor)]
     pub fn new(
         trx: &mut WorkspaceTransaction,
-        workspace: &Workspace,
         block_id: String,
         flavor: String,
         operator: u64,
     ) -> Block {
+        let space = trx.0.get_blocks();
         Self(JwstBlock::new(
             &mut trx.0.trx,
-            &workspace.workspace,
+            &space,
             block_id,
             flavor,
             operator,
@@ -112,7 +112,7 @@ impl Block {
 
     #[generate_interface]
     pub fn id(&self) -> String {
-        self.0.id()
+        self.0.block_id()
     }
 
     #[generate_interface]

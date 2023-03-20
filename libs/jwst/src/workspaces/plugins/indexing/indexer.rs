@@ -81,28 +81,35 @@ impl PluginImpl for IndexingPluginImpl {
             // TODO: reindex
 
             let re_index_list = ws.with_trx(|t| {
-                ws.blocks(&t.trx, |blocks| {
-                    let mut re_index_list = HashMap::<String, Vec<Option<String>>>::new();
-                    for block in blocks {
-                        let index_text = self
-                            .search_index
-                            .clone()
-                            .into_iter()
-                            .map(|field| {
-                                block
-                                    .content(&t.trx)
-                                    .get(&field)
-                                    .map(ToOwned::to_owned)
-                                    .and_then(|a| match a {
-                                        Any::String(str) => Some(str.to_string()),
-                                        _ => None,
+                t.spaces(|spaces| {
+                    spaces
+                        .flat_map(|space| {
+                            space.blocks(&t.trx, |blocks| {
+                                blocks
+                                    .map(|block| {
+                                        (
+                                            format!("{}:{}", space.space_id(), block.block_id()),
+                                            self.search_index
+                                                .iter()
+                                                .map(|field| {
+                                                    block
+                                                        .content(&t.trx)
+                                                        .get(field)
+                                                        .map(ToOwned::to_owned)
+                                                        .and_then(|a| match a {
+                                                            Any::String(str) => {
+                                                                Some(str.to_string())
+                                                            }
+                                                            _ => None,
+                                                        })
+                                                })
+                                                .collect(),
+                                        )
                                     })
+                                    .collect::<Vec<_>>()
                             })
-                            .collect::<Vec<_>>();
-                        re_index_list.insert(block.id(), index_text);
-                    }
-
-                    re_index_list
+                        })
+                        .collect::<HashMap<_, _>>()
                 })
             });
 
@@ -139,9 +146,8 @@ impl IndexingPluginImpl {
 
         let search_index = self
             .search_index
-            .clone()
-            .into_iter()
-            .map(|filed| self.schema.get_field(&filed).unwrap())
+            .iter()
+            .map(|filed| self.schema.get_field(filed).unwrap())
             .collect::<Vec<_>>();
 
         for (block_id, fields) in blocks {
@@ -209,16 +215,18 @@ mod test {
         };
 
         workspace.with_trx(|mut t| {
-            let block = t.create("b1", "text");
+            let space1 = t.get_space("space1");
+
+            let block = space1.create(&mut t.trx, "b1", "text");
 
             block.set(&mut t.trx, "test", "test");
 
-            let block = t.create("a", "affine:text");
-            let b = t.create("b", "affine:text");
-            let c = t.create("c", "affine:text");
-            let d = t.create("d", "affine:text");
-            let e = t.create("e", "affine:text");
-            let f = t.create("f", "affine:text");
+            let block = space1.create(&mut t.trx, "a", "affine:text");
+            let b = space1.create(&mut t.trx, "b", "affine:text");
+            let c = space1.create(&mut t.trx, "c", "affine:text");
+            let d = space1.create(&mut t.trx, "d", "affine:text");
+            let e = space1.create(&mut t.trx, "e", "affine:text");
+            let f = space1.create(&mut t.trx, "f", "affine:text");
 
             b.set(&mut t.trx, "title", "Title B content");
             b.set(&mut t.trx, "text", "Text B content bbb xxx");
@@ -256,9 +264,63 @@ mod test {
             // Question: Is this supposed to indicate that since this block is detached, then we should not be indexing it?
             // For example, should we walk up the parent tree to check if each block is actually attached?
             block.remove_children(&mut t.trx, &d);
+
+            println!("Blocks: {:#?}", space1.blocks); // shown if there is an issue running the test.
         });
 
-        println!("Blocks: {:#?}", workspace.blocks); // shown if there is an issue running the test.
+        workspace.with_trx(|mut t| {
+            let space2 = t.get_space("space2");
+
+            let block = space2.create(&mut t.trx, "b1", "text");
+
+            block.set(&mut t.trx, "test", "test");
+
+            let block = space2.create(&mut t.trx, "a1", "affine:text");
+            let b = space2.create(&mut t.trx, "b1", "affine:text");
+            let c = space2.create(&mut t.trx, "c1", "affine:text");
+            let d = space2.create(&mut t.trx, "d1", "affine:text");
+            let e = space2.create(&mut t.trx, "e1", "affine:text");
+            let f = space2.create(&mut t.trx, "f1", "affine:text");
+
+            b.set(&mut t.trx, "title", "Title B content");
+            b.set(&mut t.trx, "text", "Text B content bbb xxx");
+
+            c.set(&mut t.trx, "title", "Title C content");
+            c.set(&mut t.trx, "text", "Text C content ccc xxx yyy");
+
+            d.set(&mut t.trx, "title", "Title D content");
+            d.set(&mut t.trx, "text", "Text D content ddd yyy");
+
+            e.set(&mut t.trx, "title", "人民日报");
+            e.set(&mut t.trx,"text", "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途");
+
+            f.set(&mut t.trx, "title", "美国首次成功在核聚变反应中实现“净能量增益”");
+            f.set(&mut t.trx, "text", "当地时间13日，美国能源部官员宣布，由美国政府资助的加州劳伦斯·利弗莫尔国家实验室（LLNL），首次成功在核聚变反应中实现“净能量增益”，即聚变反应产生的能量大于促发该反应的镭射能量。");
+
+            // pushing blocks in
+            block.push_children(&mut t.trx, &b);
+            block.insert_children_at(&mut t.trx, &c, 0);
+            block.insert_children_before(&mut t.trx, &d, "b1");
+            block.insert_children_after(&mut t.trx, &e, "b1");
+            block.insert_children_after(&mut t.trx, &f, "c1");
+
+            assert_eq!(
+                block.children(&t.trx),
+                vec![
+                    "c1".to_owned(),
+                    "f1".to_owned(),
+                    "d1".to_owned(),
+                    "b1".to_owned(),
+                    "e1".to_owned()
+                ]
+            );
+
+            // Question: Is this supposed to indicate that since this block is detached, then we should not be indexing it?
+            // For example, should we walk up the parent tree to check if each block is actually attached?
+            block.remove_children(&mut t.trx, &d);
+
+            println!("Blocks: {:#?}", space2.blocks); // shown if there is an issue running the test.
+        });
 
         workspace
             .update_plugin::<IndexingPluginImpl>()
@@ -266,17 +328,36 @@ mod test {
 
         assert!(workspace
             .with_plugin::<IndexingPluginImpl, ()>(|search_plugin| {
-                expect_search_gives_ids!(search_plugin, "content", &["b", "c", "d"]);
-                expect_search_gives_ids!(search_plugin, "bbb", &["b"]);
-                expect_search_gives_ids!(search_plugin, "ccc", &["c"]);
-                expect_search_gives_ids!(search_plugin, "xxx", &["b", "c"]);
-                expect_search_gives_ids!(search_plugin, "yyy", &["c", "d"]);
+                expect_search_gives_ids!(
+                    search_plugin,
+                    "content",
+                    &[
+                        "space1:b",
+                        "space1:c",
+                        "space1:d",
+                        "space2:b1",
+                        "space2:c1",
+                        "space2:d1"
+                    ]
+                );
+                expect_search_gives_ids!(search_plugin, "bbb", &["space1:b", "space2:b1",]);
+                expect_search_gives_ids!(search_plugin, "ccc", &["space1:c", "space2:c1"]);
+                expect_search_gives_ids!(
+                    search_plugin,
+                    "xxx",
+                    &["space1:b", "space1:c", "space2:b1", "space2:c1"]
+                );
+                expect_search_gives_ids!(
+                    search_plugin,
+                    "yyy",
+                    &["space1:c", "space1:d", "space2:c1", "space2:d1"]
+                );
 
-                expect_search_gives_ids!(search_plugin, "人民日报", &["e"]);
-                expect_search_gives_ids!(search_plugin, "技术学校", &["e"]);
+                expect_search_gives_ids!(search_plugin, "人民日报", &["space1:e", "space2:e1"]);
+                expect_search_gives_ids!(search_plugin, "技术学校", &["space1:e", "space2:e1"]);
 
-                expect_search_gives_ids!(search_plugin, "核聚变反应", &["f"]);
-                expect_search_gives_ids!(search_plugin, "镭射能量", &["f"]);
+                expect_search_gives_ids!(search_plugin, "核聚变反应", &["space1:f", "space2:f1"]);
+                expect_search_gives_ids!(search_plugin, "镭射能量", &["space1:f", "space2:f1"]);
             })
             .is_some());
     }

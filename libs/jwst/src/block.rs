@@ -9,18 +9,14 @@ use yrs::{
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Block {
-    // block schema
-    // for example: {
-    //     title: {type: 'string', default: ''}
-    //     description: {type: 'string', default: ''}
-    // }
-    // default_props: HashMap<String, BlockField>,
     id: String,
+    space_id: String,
+    block_id: String,
     doc: Doc,
     operator: u64,
     block: MapRef,
     children: ArrayRef,
-    updated: ArrayRef,
+    updated: Option<ArrayRef>,
 }
 
 unsafe impl Send for Block {}
@@ -29,7 +25,7 @@ impl Block {
     // Create a new block, skip create if block is already created.
     pub fn new<B, F>(
         trx: &mut TransactionMut<'_>,
-        workspace: &Workspace,
+        space: &Space,
         block_id: B,
         flavor: F,
         operator: u64,
@@ -40,14 +36,12 @@ impl Block {
     {
         let block_id = block_id.as_ref();
 
-        if let Some(block) = Self::from(trx, workspace, block_id, operator) {
+        if let Some(block) = Self::from(trx, space, block_id, operator) {
             block
         } else {
             // init base struct
-            workspace
-                .blocks
-                .insert(trx, block_id, MapPrelim::<Any>::new());
-            let block = workspace
+            space.blocks.insert(trx, block_id, MapPrelim::<Any>::new());
+            let block = space
                 .blocks
                 .get(trx, block_id)
                 .and_then(|b| b.to_ymap())
@@ -67,7 +61,7 @@ impl Block {
                 chrono::Utc::now().timestamp_millis() as f64,
             );
 
-            workspace
+            space
                 .updated
                 .insert(trx, block_id, ArrayPrelim::<_, Any>::from([]));
 
@@ -75,15 +69,13 @@ impl Block {
                 .get(trx, sys::CHILDREN)
                 .and_then(|c| c.to_yarray())
                 .unwrap();
-            let updated = workspace
-                .updated
-                .get(trx, block_id)
-                .and_then(|c| c.to_yarray())
-                .unwrap();
+            let updated = space.updated.get(trx, block_id).and_then(|c| c.to_yarray());
 
             let block = Self {
-                doc: workspace.doc(),
-                id: block_id.to_string(),
+                id: space.id(),
+                space_id: space.space_id(),
+                doc: space.doc(),
+                block_id: block_id.to_string(),
                 operator,
                 block,
                 children,
@@ -96,19 +88,23 @@ impl Block {
         }
     }
 
-    pub fn from<T, B>(trx: &T, workspace: &Workspace, block_id: B, operator: u64) -> Option<Block>
+    pub fn from<T, B>(trx: &T, space: &Space, block_id: B, operator: u64) -> Option<Block>
     where
         T: ReadTxn,
         B: AsRef<str>,
     {
-        let block = workspace.blocks.get(trx, block_id.as_ref())?.to_ymap()?;
-        let updated = workspace.updated.get(trx, block_id.as_ref())?.to_yarray()?;
-
+        let block = space.blocks.get(trx, block_id.as_ref())?.to_ymap()?;
+        let updated = space
+            .updated
+            .get(trx, block_id.as_ref())
+            .and_then(|a| a.to_yarray());
         let children = block.get(trx, sys::CHILDREN)?.to_yarray()?;
 
         Some(Self {
-            id: block_id.as_ref().to_string(),
-            doc: workspace.doc(),
+            id: space.id(),
+            space_id: space.space_id(),
+            block_id: block_id.as_ref().to_string(),
+            doc: space.doc(),
             operator,
             block,
             children,
@@ -116,17 +112,22 @@ impl Block {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn from_raw_parts<T: ReadTxn>(
         trx: &T,
         id: String,
+        space_id: String,
+        block_id: String,
         doc: &Doc,
         block: MapRef,
-        updated: ArrayRef,
+        updated: Option<ArrayRef>,
         operator: u64,
     ) -> Block {
         let children = block.get(trx, sys::CHILDREN).unwrap().to_yarray().unwrap();
         Self {
             id,
+            space_id,
+            block_id,
             doc: doc.clone(),
             operator,
             block,
@@ -142,7 +143,7 @@ impl Block {
             Any::String(Box::from(action.to_string())),
         ]);
 
-        self.updated.push_back(trx, array);
+        self.updated.as_ref().map(|a| a.push_back(trx, array));
     }
 
     pub fn get<T>(&self, trx: &T, key: &str) -> Option<Any>
@@ -195,8 +196,8 @@ impl Block {
         }
     }
 
-    pub fn id(&self) -> String {
-        self.id.clone()
+    pub fn block_id(&self) -> String {
+        self.block_id.clone()
     }
 
     // start with a namespace
@@ -207,6 +208,7 @@ impl Block {
     {
         self.block
             .get(trx, sys::FLAVOR)
+            .or_else(|| self.block.get(trx, sys::FLAVOUR))
             .unwrap_or_default()
             .to_string(trx)
     }
@@ -249,14 +251,17 @@ impl Block {
         T: ReadTxn,
     {
         self.updated
-            .iter(trx)
-            .filter_map(|v| v.to_yarray())
-            .last()
+            .as_ref()
             .and_then(|a| {
-                a.get(trx, 1).and_then(|i| match i.to_json(trx) {
-                    Any::Number(n) => Some(n as u64),
-                    _ => None,
-                })
+                a.iter(trx)
+                    .filter_map(|v| v.to_yarray())
+                    .last()
+                    .and_then(|a| {
+                        a.get(trx, 1).and_then(|i| match i.to_json(trx) {
+                            Any::Number(n) => Some(n as u64),
+                            _ => None,
+                        })
+                    })
             })
             .unwrap_or_else(|| self.created(trx))
     }
@@ -266,10 +271,14 @@ impl Block {
         T: ReadTxn,
     {
         self.updated
-            .iter(trx)
-            .filter_map(|v| v.to_yarray())
-            .map(|v| (trx, v, self.id.clone()).into())
-            .collect()
+            .as_ref()
+            .map(|a| {
+                a.iter(trx)
+                    .filter_map(|v| v.to_yarray())
+                    .map(|v| (trx, v, self.block_id.clone()).into())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
     }
 
     pub fn parent<T>(&self, trx: &T) -> Option<String>
@@ -292,7 +301,10 @@ impl Block {
     }
 
     #[inline]
-    pub fn children_iter<T>(&self, cb: impl Fn(Box<dyn Iterator<Item = String> + '_>) -> T) -> T {
+    pub fn children_iter<T>(
+        &self,
+        cb: impl FnOnce(Box<dyn Iterator<Item = String> + '_>) -> T,
+    ) -> T {
         let trx = self.doc.transact();
         let iterator = self.children.iter(&trx).map(|v| v.to_string(&trx));
 
@@ -334,23 +346,23 @@ impl Block {
 
     pub fn push_children(&self, trx: &mut TransactionMut, block: &Block) {
         self.remove_children(trx, block);
-        block.set_parent(trx, self.id.clone());
+        block.set_parent(trx, self.block_id.clone());
 
-        self.children.push_back(trx, block.id.clone());
+        self.children.push_back(trx, block.block_id.clone());
 
         self.log_update(trx, HistoryOperation::Add);
     }
 
     pub fn insert_children_at(&self, trx: &mut TransactionMut, block: &Block, pos: u32) {
         self.remove_children(trx, block);
-        block.set_parent(trx, self.id.clone());
+        block.set_parent(trx, self.block_id.clone());
 
         let children = &self.children;
 
         if children.len(trx) > pos {
-            children.insert(trx, pos, block.id.clone());
+            children.insert(trx, pos, block.block_id.clone());
         } else {
-            children.push_back(trx, block.id.clone());
+            children.push_back(trx, block.block_id.clone());
         }
 
         self.log_update(trx, HistoryOperation::Add);
@@ -358,7 +370,7 @@ impl Block {
 
     pub fn insert_children_before(&self, trx: &mut TransactionMut, block: &Block, reference: &str) {
         self.remove_children(trx, block);
-        block.set_parent(trx, self.id.clone());
+        block.set_parent(trx, self.block_id.clone());
 
         let children = &self.children;
 
@@ -366,9 +378,9 @@ impl Block {
             .iter(trx)
             .position(|c| c.to_string(trx) == reference)
         {
-            children.insert(trx, pos as u32, block.id.clone());
+            children.insert(trx, pos as u32, block.block_id.clone());
         } else {
-            children.push_back(trx, block.id.clone());
+            children.push_back(trx, block.block_id.clone());
         }
 
         self.log_update(trx, HistoryOperation::Add);
@@ -376,7 +388,7 @@ impl Block {
 
     pub fn insert_children_after(&self, trx: &mut TransactionMut, block: &Block, reference: &str) {
         self.remove_children(trx, block);
-        block.set_parent(trx, self.id.clone());
+        block.set_parent(trx, self.block_id.clone());
 
         let children = &self.children;
 
@@ -385,10 +397,10 @@ impl Block {
             .position(|c| c.to_string(trx) == reference)
         {
             Some(pos) if (pos as u32) < children.len(trx) => {
-                children.insert(trx, pos as u32 + 1, block.id.clone());
+                children.insert(trx, pos as u32 + 1, block.block_id.clone());
             }
             _ => {
-                children.push_back(trx, block.id.clone());
+                children.push_back(trx, block.block_id.clone());
             }
         }
 
@@ -397,11 +409,11 @@ impl Block {
 
     pub fn remove_children(&self, trx: &mut TransactionMut, block: &Block) {
         let children = &self.children;
-        block.set_parent(trx, self.id.clone());
+        block.set_parent(trx, self.block_id.clone());
 
         if let Some(current_pos) = children
             .iter(trx)
-            .position(|c| c.to_string(trx) == block.id)
+            .position(|c| c.to_string(trx) == block.block_id)
         {
             children.remove(trx, current_pos as u32);
             self.log_update(trx, HistoryOperation::Delete);
@@ -416,6 +428,104 @@ impl Block {
             .iter(trx)
             .position(|c| c.to_string(trx) == block_id)
     }
+
+    pub fn to_markdown<T>(&self, trx: &T, state: &mut MarkdownState) -> Option<String>
+    where
+        T: ReadTxn,
+    {
+        match self.get(trx, "text").map(|t| t.to_string()) {
+            Some(text) => match self.flavor(trx).as_str() {
+                "affine:code" => {
+                    state.numbered_count = 0;
+                    match self.get(trx, "language").map(|v| v.to_string()).as_deref() {
+                        Some(language) => Some(format!("``` {}\n{}\n```\n", language, text)),
+                        None => Some(format!("```\n{}\n```\n", text)),
+                    }
+                }
+                format @ "affine:paragraph" => {
+                    state.numbered_count = 0;
+                    match self.get(trx, "type").map(|v| v.to_string()).as_deref() {
+                        Some(
+                            head @ "h1" | head @ "h2" | head @ "h3" | head @ "h4" | head @ "h5",
+                        ) => Some(format!(
+                            "{} {}\n",
+                            "#".repeat(head[1..].parse().unwrap()),
+                            text
+                        )),
+                        Some("quote") => Some(format!("> {text}\n")),
+                        Some("text") => Some(format!("{text}\n")),
+                        r#type @ Some(_) | r#type @ None => {
+                            if let Some(r#type) = r#type {
+                                warn!("Unprocessed format: {format}, {}", r#type);
+                            } else {
+                                warn!("Unprocessed format: {format}");
+                            }
+                            Some(text)
+                        }
+                    }
+                }
+                format @ "affine:list" => {
+                    match self.get(trx, "type").map(|v| v.to_string()).as_deref() {
+                        Some("numbered") => {
+                            state.numbered_count += 1;
+                            Some(format!("{}. {text}\n", state.numbered_count))
+                        }
+                        Some("todo") => {
+                            state.numbered_count += 1;
+                            let clicked = self
+                                .get(trx, "checked")
+                                .map(|v| v.to_string() == "true")
+                                .unwrap_or(false);
+                            Some(format!("[{}] {text}\n", if clicked { "x" } else { " " }))
+                        }
+                        Some("bulleted") => {
+                            state.numbered_count += 1;
+                            Some(format!("- {text}\n"))
+                        }
+                        r#type @ Some("text") | r#type @ Some(_) | r#type @ None => {
+                            state.numbered_count = 0;
+                            if let Some(r#type) = r#type {
+                                warn!("Unprocessed format: {format}, {}", r#type);
+                            } else {
+                                warn!("Unprocessed format: {format}");
+                            }
+                            Some(text)
+                        }
+                    }
+                }
+                format => {
+                    state.numbered_count = 0;
+                    warn!("Unprocessed format: {format}");
+                    Some(text)
+                }
+            },
+            None => match self.flavor(trx).as_str() {
+                "affine:divider" => {
+                    state.numbered_count = 0;
+                    Some("---\n".into())
+                }
+                "affine:embed" => {
+                    state.numbered_count = 0;
+                    match self.get(trx, "type").map(|v| v.to_string()).as_deref() {
+                        Some("image") => self
+                            .get(trx, "sourceId")
+                            .map(|v| format!("![](/api/workspace/{}/blob/{})\n", self.id, v)),
+                        _ => None,
+                    }
+                }
+                format => {
+                    state.numbered_count = 0;
+                    warn!("Unprocessed format: {format}");
+                    None
+                }
+            },
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct MarkdownState {
+    numbered_count: usize,
 }
 
 impl Serialize for Block {
@@ -436,20 +546,26 @@ mod test {
 
     #[test]
     fn init_block() {
-        let workspace = Workspace::new("test");
+        let workspace = Workspace::new("workspace");
 
         // new block
         workspace.with_trx(|mut t| {
-            let block = t.create("test", "affine:text");
+            let space = t.get_space("space");
 
-            assert_eq!(block.id(), "test");
+            let block = space.create(&mut t.trx, "test", "affine:text");
+
+            assert_eq!(block.id, "workspace");
+            assert_eq!(block.space_id, "space");
+            assert_eq!(block.block_id(), "test");
             assert_eq!(block.flavor(&t.trx), "affine:text");
             assert_eq!(block.version(&t.trx), [1, 0]);
         });
 
         // get exist block
-        workspace.with_trx(|t| {
-            let block = workspace.get(&t.trx, "test").unwrap();
+        workspace.with_trx(|mut t| {
+            let space = t.get_space("space");
+
+            let block = space.get(&t.trx, "test").unwrap();
 
             assert_eq!(block.flavor(&t.trx), "affine:text");
             assert_eq!(block.version(&t.trx), [1, 0]);
@@ -461,7 +577,9 @@ mod test {
         let workspace = Workspace::new("test");
 
         workspace.with_trx(|mut t| {
-            let block = t.create("test", "affine:text");
+            let space = t.get_space("space");
+
+            let block = space.create(&mut t.trx, "test", "affine:text");
 
             // normal type set
             block.set(&mut t.trx, "bool", true);
@@ -506,12 +624,14 @@ mod test {
         let workspace = Workspace::new("text");
 
         workspace.with_trx(|mut t| {
-            let block = t.create("a", "affine:text");
-            let b = t.create("b", "affine:text");
-            let c = t.create("c", "affine:text");
-            let d = t.create("d", "affine:text");
-            let e = t.create("e", "affine:text");
-            let f = t.create("f", "affine:text");
+            let space = t.get_space("space");
+
+            let block = space.create(&mut t.trx, "a", "affine:text");
+            let b = space.create(&mut t.trx, "b", "affine:text");
+            let c = space.create(&mut t.trx, "c", "affine:text");
+            let d = space.create(&mut t.trx, "d", "affine:text");
+            let e = space.create(&mut t.trx, "e", "affine:text");
+            let f = space.create(&mut t.trx, "f", "affine:text");
 
             block.push_children(&mut t.trx, &b);
             block.insert_children_at(&mut t.trx, &c, 0);
@@ -549,7 +669,9 @@ mod test {
         let workspace = Workspace::new("test");
 
         workspace.with_trx(|mut t| {
-            let block = t.create("a", "affine:text");
+            let space = t.get_space("space");
+
+            let block = space.create(&mut t.trx, "a", "affine:text");
 
             block.set(&mut t.trx, "test", 1);
 
@@ -566,8 +688,9 @@ mod test {
         let workspace = Workspace::from_doc(doc, "test");
 
         let (block, b, history) = workspace.with_trx(|mut t| {
-            let block = t.create("a", "affine:text");
-            let b = t.create("b", "affine:text");
+            let space = t.get_space("space");
+            let block = space.create(&mut t.trx, "a", "affine:text");
+            let b = space.create(&mut t.trx, "b", "affine:text");
 
             block.set(&mut t.trx, "test", 1);
 

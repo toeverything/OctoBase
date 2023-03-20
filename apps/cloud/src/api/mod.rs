@@ -8,7 +8,7 @@ pub use ws::*;
 use crate::{context::Context, error_status::ErrorStatus, layer::make_firebase_auth_layer};
 use axum::{
     extract::{Path, Query},
-    http::StatusCode,
+    http::{StatusCode,header::CONTENT_TYPE, HeaderMap},
     response::{IntoResponse, Response},
     routing::{delete, get, post, put, Router},
     Extension, Json,
@@ -71,6 +71,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/invitation/:path", post(permissions::accept_invitation))
         .nest_service("/global/sync", get(global_ws_handler))
         .route("/public/doc/:id", get(get_public_doc))
+        .route("/public/page/:id/:page_id", get(get_public_page))
         // TODO: Will consider this permission in the future
         .route(
             "/workspace/:id/blob/:name",
@@ -543,6 +544,66 @@ pub async fn get_doc(
 
     get_workspace_doc(ctx, workspace_id).await
 }
+
+
+/// Get a exists `page` json by page id
+/// - Return `page` json.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/workspace",
+    path = "/{workspace_id}/page/{page_id}",
+    params(
+        ("workspace_id", description = "workspace id"),
+        ("page_id", description = "page id")
+    )
+)]
+#[instrument(skip(ctx, headers))]
+pub async fn get_public_page(
+    Extension(ctx): Extension<Arc<Context>>,
+    headers: HeaderMap,
+    Path((workspace_id, page_id)): Path<(String, String)>,
+) -> Response {
+    info!("get_page enter");
+    match ctx.db.is_public_workspace(workspace_id.clone()).await {
+        Ok(true) => (),
+        Ok(false) => return ErrorStatus::Forbidden.into_response(),
+        Err(e) => {
+            error!("Failed to get permission: {:?}", e);
+            return ErrorStatus::InternalServerError.into_response();
+        }
+    }
+
+    match ctx.storage.get_workspace(workspace_id).await {
+        Ok(workspace) => {
+            if headers
+                .get(CONTENT_TYPE)
+                .and_then(|c| c.to_str().ok())
+                .map(|s| s.contains("json"))
+                .unwrap_or(false)
+            {
+                if let Some(space) = workspace.with_trx(|t| t.get_exists_space(page_id)) {
+                    Json(space).into_response()
+                } else {
+                    ErrorStatus::NotFound.into_response()
+                }
+            } else if let Some(markdown) = workspace.with_trx(|t| {
+                t.get_exists_space(page_id)
+                    .and_then(|page| page.to_markdown(&t.trx))
+            }) {
+                markdown.into_response()
+            } else {
+                ErrorStatus::NotFound.into_response()
+            }
+        }
+        Err(JwstError::WorkspaceNotFound(_)) => ErrorStatus::NotFound.into_response(),
+        Err(e) => {
+            error!("Failed to get workspace: {:?}", e);
+            ErrorStatus::InternalServerError.into_response()
+        }
+    }
+}
+
 
 /// Get a exists `public doc` by workspace id
 /// - Return 200 ok and `public doc` .

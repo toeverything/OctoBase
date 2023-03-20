@@ -26,13 +26,13 @@ impl Workspace {
     }
 
     #[generate_interface]
-    pub fn get(&self, trx: &WorkspaceTransaction, block_id: String) -> Option<Block> {
-        self.workspace.get(&trx.0.trx, block_id).map(Block)
+    pub fn get(&self, trx: &mut WorkspaceTransaction, block_id: String) -> Option<Block> {
+        trx.0.get_blocks().get(&trx.0.trx, block_id).map(Block)
     }
 
     #[generate_interface]
-    pub fn exists(&self, trx: &WorkspaceTransaction, block_id: &str) -> bool {
-        self.workspace.exists(&trx.0.trx, block_id)
+    pub fn exists(&self, trx: &mut WorkspaceTransaction, block_id: &str) -> bool {
+        trx.0.get_blocks().exists(&trx.0.trx, block_id)
     }
 
     #[generate_interface]

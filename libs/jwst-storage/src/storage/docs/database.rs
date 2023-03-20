@@ -5,7 +5,7 @@ use std::{
     collections::hash_map::Entry,
     panic::{catch_unwind, AssertUnwindSafe},
 };
-use yrs::{updates::decoder::Decode, Doc, Options, ReadTxn, StateVector, Transact, Update};
+use yrs::{updates::decoder::Decode, Doc, ReadTxn, StateVector, Transact, Update};
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
 
@@ -159,7 +159,9 @@ impl DocDBStorage {
         C: ConnectionTrait,
     {
         trace!("start update: {table}");
-        if Self::count(conn, table).await? > MAX_TRIM_UPDATE_LIMIT - 1 {
+        let update_size = Self::count(conn, table).await?;
+        if update_size > MAX_TRIM_UPDATE_LIMIT - 1 {
+            trace!("full migrate update: {table}, {update_size}");
             let data = Self::all(conn, table).await?;
 
             let data = tokio::task::spawn_blocking(move || {
@@ -173,11 +175,12 @@ impl DocDBStorage {
 
             Self::replace_with(conn, table, data).await?;
         } else {
+            trace!("insert update: {table}, {update_size}");
             Self::insert(conn, table, &blob).await?;
         }
         trace!("end update: {table}");
 
-        debug!("update {}bytes to {}", blob.len(), table);
+        trace!("update {}bytes to {}", blob.len(), table);
         if let Entry::Occupied(remote) = self.remote.write().await.entry(table.into()) {
             let broadcast = &remote.get();
             if let Err(e) = broadcast.send(sync_encode_update(&blob)) {
@@ -208,10 +211,7 @@ impl DocDBStorage {
         C: ConnectionTrait,
     {
         trace!("start create doc: {workspace}");
-        let mut doc = Doc::with_options(Options {
-            // skip_gc: true,
-            ..Default::default()
-        });
+        let mut doc = Doc::new();
 
         let all_data = Self::all(conn, workspace).await?;
 
@@ -239,7 +239,7 @@ impl DocStorage for DocDBStorage {
             || Self::count(&self.pool, &workspace_id)
                 .await
                 .map(|c| c > 0)
-                .context("Failed to check workspace")
+                .context("failed to check workspace")
                 .map_err(JwstError::StorageError)?)
     }
 
@@ -278,6 +278,8 @@ impl DocStorage for DocDBStorage {
             .context("Failed to store workspace")
             .map_err(JwstError::StorageError)?;
 
+        debug_assert_eq!(Self::count(&self.pool, &workspace_id).await?, 1u64);
+
         Ok(())
     }
 
@@ -288,7 +290,7 @@ impl DocStorage for DocDBStorage {
         trace!("write_update: {:?}", data);
         self.update(&self.pool, &workspace_id, data.into())
             .await
-            .context("Failed to store update workspace")
+            .context("failed to store update workspace")
             .map_err(JwstError::StorageError)?;
 
         Ok(())
@@ -359,7 +361,7 @@ pub async fn docs_storage_test(pool: &DocDBStorage) -> anyhow::Result<()> {
 
 #[cfg(test)]
 #[cfg(feature = "postgres")]
-pub async fn full_migration_test(pool: &DocDBStorage) -> anyhow::Result<()> {
+pub async fn full_migration_stress_test(pool: &DocDBStorage) -> anyhow::Result<()> {
     let final_bytes: Vec<u8> = (0..1024 * 100).map(|_| rand::random::<u8>()).collect();
     for i in 0..=50 {
         let random_bytes: Vec<u8> = if i == 50 {
@@ -418,6 +420,80 @@ pub async fn full_migration_test(pool: &DocDBStorage) -> anyhow::Result<()> {
             .collect::<Vec<_>>(),
         vec![final_bytes]
     );
+
+    Ok(())
+}
+
+#[cfg(test)]
+pub async fn docs_storage_partial_test(pool: &DocDBStorage) -> anyhow::Result<()> {
+    use tokio::sync::mpsc::channel;
+
+    let conn = &pool.pool;
+
+    DocDBStorage::drop(conn, "basic").await?;
+
+    // empty table
+    assert_eq!(DocDBStorage::count(conn, "basic").await?, 0);
+
+    {
+        let ws = pool.get("basic".into()).await.unwrap();
+
+        let (tx, mut rx) = channel(100);
+
+        let sub = ws
+            .doc()
+            .observe_update_v1(move |_, e| {
+                futures::executor::block_on(async {
+                    tx.send(e.update.clone()).await.unwrap();
+                });
+            })
+            .unwrap();
+
+        ws.with_trx(|mut t| {
+            let space = t.get_space("test");
+            let block = space.create(&mut t.trx, "block1", "text");
+            block.set(&mut t.trx, "test1", "value1");
+        });
+
+        ws.with_trx(|mut t| {
+            let space = t.get_space("test");
+            let block = space.get(&mut t.trx, "block1").unwrap();
+            block.set(&mut t.trx, "test2", "value2");
+        });
+
+        ws.with_trx(|mut t| {
+            let space = t.get_space("test");
+            let block = space.create(&mut t.trx, "block2", "block2");
+            block.set(&mut t.trx, "test3", "value3");
+        });
+
+        drop(sub);
+
+        while let Some(update) = rx.recv().await {
+            info!("recv: {}", update.len());
+            pool.write_update("basic".into(), &update).await.unwrap();
+        }
+
+        assert_eq!(DocDBStorage::count(conn, "basic").await?, 4);
+    }
+
+    pool.workspaces.write().await.clear();
+
+    {
+        let ws = pool.get("basic".into()).await.unwrap();
+        ws.with_trx(|mut t| {
+            let space = t.get_space("test");
+
+            let block = space.get(&mut t.trx, "block1").unwrap();
+            assert_eq!(block.flavor(&t.trx), "text");
+            assert_eq!(block.get(&t.trx, "test1"), Some("value1".into()));
+            assert_eq!(block.get(&t.trx, "test2"), Some("value2".into()));
+
+            let block = space.get(&mut t.trx, "block2").unwrap();
+            assert_eq!(block.flavor(&t.trx), "block2");
+            assert_eq!(block.get(&t.trx, "test3"), Some("value3".into()));
+        });
+    }
 
     Ok(())
 }

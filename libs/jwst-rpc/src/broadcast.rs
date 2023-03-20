@@ -16,6 +16,7 @@ use yrs::{
 pub enum BroadcastType {
     BroadcastAwareness(Vec<u8>),
     BroadcastContent(Vec<u8>),
+    BroadcastRawContent(Vec<u8>),
     CloseUser(String),
     CloseAll,
 }
@@ -76,6 +77,13 @@ pub async fn subscribe(workspace: &mut Workspace, sender: Broadcast) {
                 workspace_id,
                 &e.update.len()
             );
+
+            if sender
+                .send(BroadcastType::BroadcastRawContent(e.update.clone()))
+                .is_err()
+            {
+                info!("broadcast channel {workspace_id} has been closed",)
+            }
             let update = sync_encode_update(&e.update);
             if sender
                 .send(BroadcastType::BroadcastContent(update))

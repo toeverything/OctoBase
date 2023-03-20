@@ -5,10 +5,10 @@ use database::DocDBStorage;
 use tokio::sync::{broadcast::Sender, RwLock};
 
 #[cfg(test)]
-pub(super) use database::docs_storage_test;
-#[cfg(test)]
 #[cfg(feature = "postgres")]
-pub(super) use database::full_migration_test;
+pub(super) use database::full_migration_stress_test;
+#[cfg(test)]
+pub(super) use database::{docs_storage_partial_test, docs_storage_test};
 
 #[derive(Clone)]
 pub struct DocAutoStorage(pub(super) Arc<DocDBStorage>);
