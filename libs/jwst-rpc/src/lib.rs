@@ -2,11 +2,13 @@ mod broadcast;
 mod client;
 mod connector;
 mod context;
+mod utils;
 
 pub use broadcast::{BroadcastChannels, BroadcastType};
 pub use client::start_client;
 pub use connector::{memory_connector, socket_connector};
 pub use context::RpcContextImpl;
+pub use utils::{connect_memory_workspace, MinimumServerContext};
 
 use jwst::{debug, error, info, trace, warn};
 use std::{collections::hash_map::Entry, sync::Arc, time::Instant};
@@ -26,11 +28,11 @@ pub async fn handle_connector(
     context: Arc<impl RpcContextImpl<'static> + Send + Sync + 'static>,
     workspace_id: String,
     identifier: String,
-    get_channel: impl FnOnce() -> (Sender<Message>, Receiver<Vec<u8>>),
+    get_channel: impl FnOnce() -> (Sender<Message>, Receiver<Vec<u8>>, Sender<bool>),
 ) {
     info!("{} collaborate with workspace {}", identifier, workspace_id);
 
-    let (tx, rx) = get_channel();
+    let (tx, rx, first_init) = get_channel();
 
     context
         .apply_change(&workspace_id, &identifier, tx.clone(), rx)
@@ -51,14 +53,18 @@ pub async fn handle_connector(
             if let Err(e) = tx.send(Message::Close).await {
                 error!("failed to send close event: {}", e);
             }
+            first_init.send(false).await.unwrap();
             return;
         }
     } else {
         if let Err(e) = tx.send(Message::Close).await {
             error!("failed to send close event: {}", e);
         }
+        first_init.send(false).await.unwrap();
         return;
     }
+
+    first_init.send(true).await.unwrap();
 
     'sync: loop {
         tokio::select! {
@@ -162,96 +168,22 @@ pub async fn handle_connector(
 #[cfg(test)]
 mod test {
     use super::*;
-    use jwst::{JwstResult, Workspace};
-    use jwst_storage::JwstStorage;
-    use nanoid::nanoid;
-    use std::{collections::HashMap, thread::JoinHandle as StdJoinHandler};
-    use tokio::{sync::RwLock, task::JoinHandle as TokioJoinHandler};
-    use yrs::{updates::decoder::Decode, Doc, ReadTxn, StateVector, Transact, Update};
-
-    struct ServerContext {
-        channel: BroadcastChannels,
-        storage: JwstStorage,
-    }
-
-    impl ServerContext {
-        pub async fn new() -> Arc<Self> {
-            let storage = JwstStorage::new(
-                &std::env::var("DATABASE_URL").unwrap_or("sqlite::memory:".into()),
-            )
-            .await
-            .unwrap();
-
-            Arc::new(Self {
-                channel: RwLock::new(HashMap::new()),
-                storage,
-            })
-        }
-    }
-
-    impl RpcContextImpl<'_> for ServerContext {
-        fn get_storage(&self) -> &JwstStorage {
-            &self.storage
-        }
-
-        fn get_channel(&self) -> &BroadcastChannels {
-            &self.channel
-        }
-    }
-
-    async fn create_broadcasting_workspace(
-        init_state: &[u8],
-        server: Arc<ServerContext>,
-        id: &str,
-    ) -> (
-        Workspace,
-        Sender<Message>,
-        TokioJoinHandler<()>,
-        StdJoinHandler<()>,
-    ) {
-        let doc = Doc::new();
-        doc.transact_mut()
-            .apply_update(Update::decode_v1(init_state).unwrap());
-        let workspace = Workspace::from_doc(doc, id);
-
-        let doc = workspace.doc();
-
-        let (tx, rx, tx_handler, rx_handler) = memory_connector(doc, rand::random::<usize>());
-        {
-            let tx = tx.clone();
-            tokio::spawn(handle_connector(
-                server,
-                "test".into(),
-                nanoid!(),
-                move || (tx, rx),
-            ));
-        }
-
-        (workspace, tx, tx_handler, rx_handler)
-    }
-
-    async fn start_server() -> (Arc<ServerContext>, Workspace, Vec<u8>) {
-        let server = ServerContext::new().await;
-        let ws = server.get_workspace("test").await.unwrap();
-
-        let init_state = ws
-            .doc()
-            .transact()
-            .encode_state_as_update_v1(&StateVector::default());
-
-        (server, ws, init_state)
-    }
+    use jwst::JwstResult;
+    use yrs::Map;
 
     #[tokio::test]
     async fn sync_test() -> JwstResult<()> {
         jwst_logger::init_logger();
 
-        let (server, ws, init_state) = start_server().await;
+        let workspace_id = format!("test{}", rand::random::<usize>());
+
+        let (server, ws, init_state) =
+            MinimumServerContext::new_with_workspace(&workspace_id).await;
 
         let (doc1, _, _, _) =
-            create_broadcasting_workspace(&init_state, server.clone(), "test").await;
-        let (mut doc2, tx2, send_handler2, recv_handler2) =
-            create_broadcasting_workspace(&init_state, server.clone(), "test").await;
+            connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
+        let (mut doc2, tx2, tx_handler, rx_handler) =
+            connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
 
         // close connection after doc1 is broadcasted
         let sub = doc2
@@ -269,8 +201,8 @@ mod test {
         });
 
         // await the task to make sure the doc1 is broadcasted before check doc2
-        send_handler2.await.unwrap();
-        recv_handler2.join().unwrap();
+        tx_handler.await.unwrap();
+        rx_handler.join().unwrap();
 
         drop(sub);
 
@@ -293,34 +225,67 @@ mod test {
         Ok(())
     }
 
-    #[ignore = "not finish yet"]
-    #[tokio::test(flavor = "multi_thread", worker_threads = 64)]
+    #[ignore = "somewhat slow, only natively tested"]
+    #[tokio::test(flavor = "multi_thread")]
     async fn sync_stress_test() -> JwstResult<()> {
-        jwst_logger::init_logger();
+        // jwst_logger::init_logger();
 
-        let (server, ws, init_state) = start_server().await;
+        let workspace_id = format!("test{}", rand::random::<usize>());
+
+        let (server, ws, init_state) =
+            MinimumServerContext::new_with_workspace(&workspace_id).await;
 
         let mut jobs = vec![];
 
-        for i in 0..10 {
+        for i in 0..1000 {
             let init_state = init_state.clone();
             let server = server.clone();
 
-            let (doc, doc_tx, _, _) =
-                create_broadcasting_workspace(&init_state, server.clone(), "test").await;
+            let (mut doc, doc_tx, tx_handler, rx_handler) =
+                connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
 
             let handler = std::thread::spawn(move || {
+                // close connection after doc1 is broadcasted
+                let block_id = format!("block{}", i);
+                let sub = {
+                    let block_id = block_id.clone();
+                    let doc_tx = doc_tx.clone();
+                    doc.observe(move |t, _| {
+                        let block_changed = t
+                            .changed_parent_types()
+                            .iter()
+                            .filter_map(|ptr| {
+                                let value: yrs::types::Value = (*ptr).into();
+                                value.to_ymap()
+                            })
+                            .flat_map(|map| map.keys(t).map(|k| k.to_string()).collect::<Vec<_>>())
+                            .any(|key| key == block_id);
+
+                        if block_changed {
+                            let _ = futures::executor::block_on(doc_tx.send(Message::Close));
+                        }
+                    })
+                    .unwrap()
+                };
+
                 doc.with_trx(|mut t| {
                     let space = t.get_space("space");
-                    let block1 = space.create(&mut t.trx, "block1", "flavor1");
+                    let block1 = space.create(&mut t.trx, block_id.clone(), format!("flavor{}", i));
                     block1.set(&mut t.trx, &format!("key{}", i), format!("val{}", i));
+                    println!("write {block_id}");
+                });
+
+                futures::executor::block_on(async move {
+                    // await the task to make sure the doc1 is broadcasted before check doc2
+                    tx_handler.await.unwrap();
+                    rx_handler.join().unwrap();
                 });
 
                 doc.with_trx(|mut t| {
                     let space = t.get_space("space");
-                    let block1 = space.get(&mut t.trx, "block1").unwrap();
+                    let block1 = space.get(&mut t.trx, format!("block{}", i)).unwrap();
 
-                    assert_eq!(block1.flavor(&t.trx), "flavor1");
+                    assert_eq!(block1.flavor(&t.trx), format!("flavor{}", i));
                     assert_eq!(
                         block1
                             .get(&t.trx, &format!("key{}", i))
@@ -328,9 +293,11 @@ mod test {
                             .to_string(),
                         format!("val{}", i)
                     );
+
+                    println!("check {block_id}");
                 });
 
-                futures::executor::block_on(doc_tx.send(Message::Close)).unwrap();
+                drop(sub);
             });
             jobs.push(handler);
         }
@@ -341,17 +308,24 @@ mod test {
             }
         }
 
-        // await the task to make sure the doc1 is broadcasted before check doc2
-        sleep(Duration::from_millis(4000)).await;
-
         info!("check the workspace");
 
         ws.with_trx(|mut t| {
             let space = t.get_space("space");
-            let block1 = space.get(&mut t.trx, "block1").unwrap();
+            for i in 0..1000 {
+                let block1 = space.get(&mut t.trx, format!("block{}", i)).unwrap();
 
-            assert_eq!(block1.flavor(&t.trx), "flavor1");
-            assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
+                assert_eq!(block1.flavor(&t.trx), format!("flavor{}", i));
+                assert_eq!(
+                    block1
+                        .get(&t.trx, &format!("key{}", i))
+                        .unwrap()
+                        .to_string(),
+                    format!("val{}", i)
+                );
+
+                println!("final check {}", format!("block{}", i));
+            }
         });
 
         Ok(())
