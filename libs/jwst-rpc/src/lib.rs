@@ -268,12 +268,16 @@ mod test {
                     .unwrap()
                 };
 
-                doc.with_trx(|mut t| {
-                    let space = t.get_space("space");
-                    let block1 = space.create(&mut t.trx, block_id.clone(), format!("flavor{}", i));
-                    block1.set(&mut t.trx, &format!("key{}", i), format!("val{}", i));
-                    println!("write {block_id}");
-                });
+                doc.retry_with_trx(
+                    |mut t| {
+                        let space = t.get_space("space");
+                        let block1 =
+                            space.create(&mut t.trx, block_id.clone(), format!("flavor{}", i));
+                        block1.set(&mut t.trx, &format!("key{}", i), format!("val{}", i));
+                        println!("write {block_id}");
+                    },
+                    50,
+                );
 
                 futures::executor::block_on(async move {
                     // await the task to make sure the doc1 is broadcasted before check doc2
@@ -281,21 +285,24 @@ mod test {
                     rx_handler.join().unwrap();
                 });
 
-                doc.with_trx(|mut t| {
-                    let space = t.get_space("space");
-                    let block1 = space.get(&mut t.trx, format!("block{}", i)).unwrap();
+                doc.retry_with_trx(
+                    |mut t| {
+                        let space = t.get_space("space");
+                        let block1 = space.get(&mut t.trx, format!("block{}", i)).unwrap();
 
-                    assert_eq!(block1.flavor(&t.trx), format!("flavor{}", i));
-                    assert_eq!(
-                        block1
-                            .get(&t.trx, &format!("key{}", i))
-                            .unwrap()
-                            .to_string(),
-                        format!("val{}", i)
-                    );
+                        assert_eq!(block1.flavor(&t.trx), format!("flavor{}", i));
+                        assert_eq!(
+                            block1
+                                .get(&t.trx, &format!("key{}", i))
+                                .unwrap()
+                                .to_string(),
+                            format!("val{}", i)
+                        );
 
-                    println!("check {block_id}");
-                });
+                        println!("check {block_id}");
+                    },
+                    50,
+                );
 
                 drop(sub);
             });

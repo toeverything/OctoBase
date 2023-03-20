@@ -87,7 +87,7 @@ pub async fn connect_memory_workspace(
             });
         });
         // tokio::spawn(handle_connector(server, id.into(), nanoid!(), move || {
-        //     (tx, rx)
+        //     (tx, rx, first_init_tx)
         // }));
 
         let success = first_init_rx.recv().await;

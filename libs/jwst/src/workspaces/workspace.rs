@@ -158,6 +158,26 @@ impl Workspace {
         }
     }
 
+    pub fn retry_with_trx<T>(
+        &self,
+        f: impl FnOnce(WorkspaceTransaction) -> T,
+        mut retry: i32,
+    ) -> Option<T> {
+        let trx = loop {
+            if let Ok(trx) = self.doc.try_transact_mut() {
+                break trx;
+            } else if retry > 0 {
+                retry -= 1;
+                sleep(Duration::from_micros(10));
+            } else {
+                info!("retry_with_trx error");
+                return None;
+            }
+        };
+
+        Some(f(WorkspaceTransaction { trx, ws: self }))
+    }
+
     pub fn id(&self) -> String {
         self.id.clone()
     }
