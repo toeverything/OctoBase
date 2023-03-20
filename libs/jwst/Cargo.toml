@@ -32,6 +32,7 @@ tantivy = { version = "0.19.2", optional = true }
 tokio = { version = "1.26.0", features = ["sync"] }
 y-sync = "0.2.0"
 yrs = "0.16.3"
+backtrace = "0.3.67"
 
 [dev-dependencies]
 assert-json-diff = "2.0.2"

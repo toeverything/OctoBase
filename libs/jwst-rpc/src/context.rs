@@ -59,6 +59,7 @@ pub trait RpcContextImpl<'a> {
         identifier: String,
     ) -> BroadcastSender<BroadcastType> {
         let id = workspace.id();
+        info!("join_broadcast, {:?}", workspace.id());
         // broadcast channel
         let broadcast_tx = match self.get_channel().write().await.entry(id.clone()) {
             Entry::Occupied(tx) => tx.get().clone(),
@@ -69,12 +70,15 @@ pub trait RpcContextImpl<'a> {
             }
         };
 
+        // Listen to changes of the local workspace, encode changes in awareness and Doc, and broadcast them.
+        // It returns the 'broadcast_rx' object to receive the content that was sent
         subscribe(workspace, identifier.clone(), broadcast_tx.clone()).await;
 
         // save update thread
         self.save_update(&id, identifier, broadcast_tx.subscribe())
             .await;
 
+        // returns the 'broadcast_tx' which can be subscribed later, to receive local workspace changes
         broadcast_tx
     }
 
@@ -151,6 +155,7 @@ pub trait RpcContextImpl<'a> {
             .expect("workspace not found");
         tokio::spawn(async move {
             while let Some(binary) = remote_rx.recv().await {
+                println!("apply_change: recv binary: {:?}", binary);
                 let ts = Instant::now();
                 let message = workspace.sync_decode_message(&binary).await;
                 if ts.elapsed().as_micros() > 50 {

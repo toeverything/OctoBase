@@ -6,6 +6,7 @@ use std::{
     thread::sleep,
     time::Duration,
 };
+use backtrace::Backtrace;
 use tokio::sync::RwLock;
 use y_sync::{
     awareness::{Awareness, Event, Subscription as AwarenessSubscription},
@@ -209,12 +210,14 @@ impl Workspace {
         &mut self,
         f: impl Fn(&TransactionMut, &UpdateEvent) + Clone + 'static,
     ) -> Option<UpdateSubscription> {
+        info!("workspace observe enter");
         let doc = self.doc();
         match catch_unwind(AssertUnwindSafe(move || {
             let mut retry = 10;
             loop {
                 let f = f.clone();
                 match doc.observe_update_v1(move |trx, evt| {
+                    // println!("workspace observe: observe_update_v1, {:?}", &evt.update);
                     if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(trx, evt))) {
                         error!("panic in observe callback: {:?}", e);
                     }

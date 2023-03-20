@@ -60,6 +60,7 @@ pub fn socket_connector(
             while let Some(msg) = socket_rx.next().await {
                 if let Ok(WebSocketMessage::Binary(binary)) = msg {
                     trace!("recv from remote: {}bytes", binary.len());
+                    println!("recv from remote: {}bytes", binary.len());
                     if remote_sender.send(binary).await.is_err() {
                         // pipeline was closed
                         break;

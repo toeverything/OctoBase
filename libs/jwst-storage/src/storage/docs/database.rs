@@ -18,6 +18,7 @@ fn migrate_update(updates: Vec<<Docs as EntityTrait>::Model>, doc: Doc) -> Doc {
                 Ok(update) => {
                     if let Err(e) = catch_unwind(AssertUnwindSafe(|| trx.apply_update(update))) {
                         warn!("update {} merge failed, skip it: {:?}", id, e);
+                        // println!("This is all about writeupdate----  update {} merge failed, skip it: {:?}", id, e);
                     }
                 }
                 Err(err) => warn!("failed to decode update: {:?}", err),
@@ -96,6 +97,7 @@ impl DocDBStorage {
             .await
             .context("failed to count update")?;
         trace!("end count: {table}, {count}");
+        // println!("This is all about writeupdate---- end count: {table}, {count}");
         Ok(count)
     }
 
@@ -159,9 +161,11 @@ impl DocDBStorage {
         C: ConnectionTrait,
     {
         trace!("start update: {table}");
+        // println!("This is all about writeupdate---- start update: {table}");
         let update_size = Self::count(conn, table).await?;
         if update_size > MAX_TRIM_UPDATE_LIMIT - 1 {
             trace!("full migrate update: {table}, {update_size}");
+            // println!("This is all about writeupdate---- enter Self::count(conn, table).await? > MAX_TRIM_UPDATE_LIMIT - 1");
             let data = Self::all(conn, table).await?;
 
             let data = tokio::task::spawn_blocking(move || {
@@ -173,20 +177,26 @@ impl DocDBStorage {
             .await
             .context("failed to merge update")?;
 
+            // println!("This is all about writeupdate---- migrate_update finished");
             Self::replace_with(conn, table, data).await?;
         } else {
             trace!("insert update: {table}, {update_size}");
+            // println!("This is all about writeupdate---- enter **else** Self::count(conn, table).await? > MAX_TRIM_UPDATE_LIMIT - 1");
             Self::insert(conn, table, &blob).await?;
         }
         trace!("end update: {table}");
+        // println!("This is all about writeupdate---- end update: {table}");
 
         trace!("update {}bytes to {}", blob.len(), table);
         if let Entry::Occupied(remote) = self.remote.write().await.entry(table.into()) {
             let broadcast = &remote.get();
+            // println!("This is all about writeupdate----  start broadcast");
             if broadcast.send(sync_encode_update(&blob)).is_err() {
+                // println!("This is all about writeupdate----  failed boradcast");
                 // broadcast failures are not fatal errors, only warnings are required
                 warn!("send {table} update to pipeline failed");
             }
+            // println!("This is all about writeupdate---- broadcast end");
         }
         trace!("end update broadcast: {table}");
 
@@ -286,6 +296,7 @@ impl DocStorage for DocDBStorage {
 
     async fn write_update(&self, workspace_id: String, data: &[u8]) -> JwstResult<()> {
         debug!("write_update: get lock");
+        // println!("This is all about writeupdate---- write_update: get lock");
         let _lock = self.bucket.get_lock().await;
 
         trace!("write_update: {:?}", data);

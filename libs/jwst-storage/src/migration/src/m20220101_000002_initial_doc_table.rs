@@ -13,6 +13,7 @@ impl MigrationName for Migration {
 impl MigrationTrait for Migration {
     // Define how to apply this migration: Create the Bakery table.
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        println!("Migration: create docs table");
         manager
             .create_table(
                 Table::create()
@@ -44,6 +45,7 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        println!("Migration: create docs table finished");
         Ok(())
     }
 

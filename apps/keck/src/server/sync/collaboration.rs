@@ -25,6 +25,7 @@ pub async fn upgrade_handler(
     Path(workspace): Path<String>,
     ws: WebSocketUpgrade,
 ) -> Response {
+    println!("upgrade");
     let identifier = nanoid!();
     ws.protocols(["AFFiNE"]).on_upgrade(move |socket| {
         handle_connector(context.clone(), workspace.clone(), identifier, move || {

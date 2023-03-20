@@ -1,5 +1,6 @@
 mod transaction;
 
+use futures::stream::iter;
 use super::{block::MarkdownState, *};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use transaction::SpaceTransaction;

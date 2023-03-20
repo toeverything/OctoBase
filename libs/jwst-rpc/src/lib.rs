@@ -10,12 +10,14 @@ pub use connector::{memory_connector, socket_connector};
 pub use context::RpcContextImpl;
 pub use utils::{connect_memory_workspace, MinimumServerContext};
 
-use jwst::{debug, error, info, trace, warn};
+use jwst::{Block, debug, error, info, trace, warn};
 use std::{collections::hash_map::Entry, sync::Arc, time::Instant};
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     time::{sleep, Duration},
 };
+use yrs::Map;
+use jwst_storage::JwstStorage;
 
 #[derive(Debug)]
 pub enum Message {
@@ -32,8 +34,10 @@ pub async fn handle_connector(
 ) {
     info!("{} collaborate with workspace {}", identifier, workspace_id);
 
+    // 这里是对建立的 socket 连接的 tx，rx 抽象。可以认为可以通过 tx 给远端发消息，通过 rx 接收远端的消息
     let (tx, rx, first_init) = get_channel();
 
+    // 不停地接收远端 socket 的信息，应用到本地的 workspace，并且将编码后的 update 通过 socket 发送回远端
     context
         .apply_change(&workspace_id, &identifier, tx.clone(), rx)
         .await;
@@ -43,10 +47,17 @@ pub async fn handle_connector(
         .await
         .expect("failed to get workspace");
 
+    // Both of broadcast_update and server_update are sent to the remote socket through 'tx'
+    // The 'broadcast_update' is the receiver for updates to the awareness and Doc of the local workspace.
+    // It uses channel, which is owned by the server itself and is stored in the server's memory (not persisted)."
     let broadcast_tx = context.join_broadcast(&mut ws, identifier.clone()).await;
     let mut broadcast_rx = broadcast_tx.subscribe();
+    // Obtaining the receiver corresponding to DocAutoStorage in storage. The sender is used in the
+    // doc::write_update(). The remote used is the one belonging to DocAutoStorage and is owned by
+    // the server itself, stored in the server's memory (not persisted).
     let mut server_rx = context.join_server_broadcast(&workspace_id).await;
 
+    // Send initialization message.
     if let Ok(init_data) = ws.sync_init_message().await {
         if tx.send(Message::Binary(init_data)).await.is_err() {
             // client disconnected
@@ -69,9 +80,11 @@ pub async fn handle_connector(
     'sync: loop {
         tokio::select! {
             Ok(msg) = server_rx.recv()=> {
+                info!("server_rx.recv()");
                 let ts = Instant::now();
                 trace!("recv from server update: {:?}", msg);
                 if tx.send(Message::Binary(msg.clone())).await.is_err() {
+                    println!("send(Message::Binary(msg.clone()))");
                     // pipeline was closed
                     break 'sync;
                 }
@@ -81,6 +94,7 @@ pub async fn handle_connector(
 
             },
             Ok(msg) = broadcast_rx.recv()=> {
+                info!("broadcast_rx.recv()");
                 let ts = Instant::now();
                 match msg {
                     BroadcastType::BroadcastAwareness(data) => {
@@ -90,6 +104,7 @@ pub async fn handle_connector(
                             data.len()
                         );
                         if tx.send(Message::Binary(data.clone())).await.is_err() {
+                            println!("AAAAA");
                             // pipeline was closed
                             break 'sync;
                         }
@@ -104,6 +119,7 @@ pub async fn handle_connector(
                         let ts = Instant::now();
                         trace!("recv content update from broadcast: {:?}bytes", data.len());
                         if tx.send(Message::Binary(data.clone())).await.is_err() {
+                            println!("BBBBB");
                             // pipeline was closed
                             break 'sync;
                         }
@@ -117,6 +133,7 @@ pub async fn handle_connector(
                     BroadcastType::CloseUser(user) if user == identifier => {
                         let ts = Instant::now();
                         if tx.send(Message::Close).await.is_err() {
+                            println!("CCCCC");
                             // pipeline was closed
                             break 'sync;
                         }
@@ -124,11 +141,13 @@ pub async fn handle_connector(
                             debug!("process close user cost: {}ms", ts.elapsed().as_micros());
                         }
 
+                        println!("DDDDD");
                         break;
                     }
                     BroadcastType::CloseAll => {
                         let ts = Instant::now();
                         if tx.send(Message::Close).await.is_err() {
+                            println!("EEEEE");
                             // pipeline was closed
                             break 'sync;
                         }
@@ -136,6 +155,7 @@ pub async fn handle_connector(
                             debug!("process close all cost: {}ms", ts.elapsed().as_micros());
                         }
 
+                        println!("FFFFF");
                         break 'sync;
                     }
                     _ => {}
@@ -147,12 +167,14 @@ pub async fn handle_connector(
             },
             _ = sleep(Duration::from_secs(1)) => {
                 if tx.is_closed() || tx.send(Message::Ping).await.is_err() {
+                    println!("GGGGG");
                     break 'sync;
                 }
             }
         }
     }
 
+    info!("exited");
     // make a final store
     context
         .get_storage()
@@ -265,7 +287,7 @@ mod test {
                             let _ = futures::executor::block_on(doc_tx.send(Message::Close));
                         }
                     })
-                    .unwrap()
+                        .unwrap()
                 };
 
                 doc.retry_with_trx(
