@@ -136,9 +136,14 @@ impl JwstStorage {
                             error!("full_migrate write error: {}", e.to_string());
                             return false;
                         };
-                        update
+                        Some(update)
                     } else {
-                        workspace.sync_migration()
+                        workspace.sync_migration(50)
+                    };
+
+                    let Some(update) = update else {
+                        error!("full migrate failed: wait transact timeout");
+                        return false;
                     };
                     if let Err(e) = self
                         .docs
