@@ -221,10 +221,18 @@ impl Workspace {
         self.doc.clone()
     }
 
-    pub fn sync_migration(&self) -> Vec<u8> {
-        self.doc
-            .transact()
-            .encode_state_as_update_v1(&StateVector::default())
+    pub fn sync_migration(&self, mut retry: i32) -> Option<Vec<u8>> {
+        let trx = loop {
+            if let Ok(trx) = self.doc.try_transact() {
+                break trx;
+            } else if retry > 0 {
+                retry -= 1;
+                sleep(Duration::from_micros(10));
+            } else {
+                return None;
+            }
+        };
+        Some(trx.encode_state_as_update_v1(&StateVector::default()))
     }
 
     pub async fn sync_init_message(&self) -> Result<Vec<u8>, Error> {
