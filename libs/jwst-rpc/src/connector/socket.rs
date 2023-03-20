@@ -29,7 +29,7 @@ impl From<Message> for WebSocketMessage {
 pub fn socket_connector(
     socket: WebSocket,
     workspace_id: &str,
-) -> (Sender<Message>, Receiver<Vec<u8>>) {
+) -> (Sender<Message>, Receiver<Vec<u8>>, Sender<bool>) {
     let (mut socket_tx, mut socket_rx) = socket.split();
 
     // send to remote pipeline
@@ -70,5 +70,21 @@ pub fn socket_connector(
         });
     }
 
-    (local_sender, remote_receiver)
+    let (first_init_tx, mut first_init_rx) = channel::<bool>(10);
+    {
+        // init notify thread
+        let workspace_id = workspace_id.to_owned();
+        tokio::spawn(async move {
+            while let Some(success) = first_init_rx.recv().await {
+                if success {
+                    info!("socket init success: {}", workspace_id);
+                } else {
+                    error!("socket init failed: {}", workspace_id);
+                }
+                break;
+            }
+        });
+    }
+
+    (local_sender, remote_receiver, first_init_tx)
 }
