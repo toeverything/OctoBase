@@ -721,11 +721,14 @@ pub async fn search_workspace(
 #[cfg(test)]
 mod test {
     use super::*;
+    use axum:: body::Body;
     use axum_test_helper::TestClient;
+    use bytes::Bytes;
     use cloud_database::{CloudDatabase, CreateUser};
-    // use serde_json::{json, Value};
+    use futures::{stream, StreamExt};
+    use serde_json::json;
+    use std::sync::Arc;
     #[tokio::test]
-
     async fn test_health_check() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
         let context = Context {
@@ -747,7 +750,7 @@ mod test {
             db: pool,
             ..Context::new().await
         };
-        let (new_user, new_workspace) = context
+        let new_user = context
             .db
             .create_user(CreateUser {
                 avatar_url: Some("xxx".to_string()),
@@ -756,15 +759,14 @@ mod test {
                 password: "xxx".to_string(),
             })
             .await
-            .unwrap()
             .unwrap();
         let ctx = Arc::new(context);
         let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
         let client = TestClient::new(app);
         let url = format!(
-            "/user?email={}&workspace_id={}",
-            new_user.email, new_workspace.id,
+            "/user?email={}&workspace_id=212312",
+            new_user.email
         );
         let resp = client.get(&url).send().await;
         assert_eq!(resp.status(), StatusCode::OK);
@@ -776,29 +778,106 @@ mod test {
         assert_eq!(resp.status().is_client_error(), true);
     }
 
-    // #[tokio::test]
-    // async fn test_make_token() {
-    //     let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-    //     let context = Context {
-    //         db: pool,
-    //         ..Context::new().await
-    //     };
-    //     let ctx = Arc::new(context);
-    //     let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+    #[tokio::test]
+    async fn test_make_token() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context {
+            db: pool,
+            ..Context::new().await
+        };
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
-    //     let client = TestClient::new(app);
-    //     let body_data = json!({
-    //         "User": "my_username",
-    //         "Refresh": "my_password",
-    //         "Google": "my_google_token",
-    //     });
-    //     let body_string = serde_json::to_string(&body_data).unwrap();
-    //     let resp = client
-    //         .post("/user/token")
-    //         .header("Content-Type", "application/json")
-    //         .body(body_string)
-    //         .send()
-    //         .await;
-    //     assert_eq!(resp.status(), StatusCode::OK);
-    // }
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "Refresh",
+            "token": "my_token",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status().is_client_error(), true);
+        let body_data = json!({
+            "type": "Google",
+            "token": "my_token",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status().is_client_error(), true);
+    }
+    #[tokio::test]
+    async fn test_upload_blob() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context {
+            db: pool,
+            ..Context::new().await
+        };
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
+        let body_stream = Body::wrap_stream(test_data_stream);
+
+        let resp = client
+            .put("/blob")
+            .header("Content-Length", test_data_len.to_string())
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes_per_chunk = 1024;
+        let num_chunks = 10 * 1024 + 1; 
+        let large_stream = stream::repeat(Bytes::from(vec![0; bytes_per_chunk]))
+            .take(num_chunks).map(Ok::<_, std::io::Error>);
+    
+        let body_stream = Body::wrap_stream(large_stream);
+        let content_length = (bytes_per_chunk * num_chunks).to_string();
+        let resp = client
+        .put("/blob")
+        .header("Content-Length", content_length)
+        .body(body_stream)
+        .send()
+        .await;
+        assert_eq!(resp.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    }
 }
