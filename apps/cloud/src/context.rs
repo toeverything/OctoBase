@@ -18,7 +18,7 @@ pub struct Context {
     pub storage: JwstStorage,
     pub user_channel: UserChannel,
     pub channel: BroadcastChannels,
-    _dir: Option<TempDir>,
+    pub _dir: Option<TempDir>,
 }
 
 impl Context {
