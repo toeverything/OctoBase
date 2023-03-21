@@ -19,7 +19,7 @@ use futures::{future, StreamExt};
 use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
 use mime::APPLICATION_OCTET_STREAM;
-use std::sync::Arc;
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 impl Context {
     #[instrument(skip(self, method, headers))]
@@ -31,6 +31,20 @@ impl Context {
         headers: HeaderMap,
     ) -> Response {
         info!("get_blob enter");
+
+        let (id, params) = {
+            let path = PathBuf::from(id.clone());
+            let ext = path
+                .extension()
+                .and_then(|s| s.to_str().map(|s| s.to_string()));
+            let id = path
+                .file_stem()
+                .and_then(|s| s.to_str().map(|s| s.to_string()))
+                .unwrap_or(id);
+
+            (id, ext.map(|ext| HashMap::from([("format".into(), ext)])))
+        };
+
         if let Some(etag) = headers.get(IF_NONE_MATCH).and_then(|h| h.to_str().ok()) {
             if etag == id {
                 return ErrorStatus::NotModify.into_response();
@@ -75,7 +89,7 @@ impl Context {
             return header.into_response();
         };
 
-        let Ok(file) = self.storage.blobs().get_blob(workspace, id).await else {
+        let Ok(file) = self.storage.blobs().get_blob(workspace, id, params).await else {
             return ErrorStatus::NotFound.into_response();
         };
         (header, StreamBody::new(file)).into_response()

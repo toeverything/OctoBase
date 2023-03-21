@@ -1,20 +1,17 @@
-use super::{entities::prelude::*, utils::get_hash, *};
-use bytes::Bytes;
-use jwst::{BlobMetadata, BlobStorage};
+use super::{utils::get_hash, *};
 use jwst_storage_migration::{Migrator, MigratorTrait};
-use tokio_util::io::ReaderStream;
 
 pub(super) type BlobModel = <Blobs as EntityTrait>::Model;
 type BlobActiveModel = super::entities::blobs::ActiveModel;
 type BlobColumn = <Blobs as EntityTrait>::Column;
 
 #[derive(Clone)]
-pub struct BlobAutoStorage {
+pub struct BlobDBStorage {
     bucket: Arc<Bucket>,
-    pool: DatabaseConnection,
+    pub(super) pool: DatabaseConnection,
 }
 
-impl BlobAutoStorage {
+impl BlobDBStorage {
     pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstResult<Self> {
         Migrator::up(&pool, None)
             .await
@@ -90,11 +87,12 @@ impl BlobAutoStorage {
         Ok(())
     }
 
-    async fn get(&self, table: &str, hash: &str) -> Result<BlobModel, DbErr> {
+    pub(super) async fn get(&self, table: &str, hash: &str) -> JwstBlobResult<BlobModel> {
         Blobs::find_by_id((table.into(), hash.into()))
             .one(&self.pool)
             .await
-            .and_then(|r| r.ok_or(DbErr::Query(RuntimeErr::Internal("blob not exists".into()))))
+            .map_err(|e| e.into())
+            .and_then(|r| r.ok_or(JwstBlobError::BlobNotFound(hash.into())))
     }
 
     async fn delete(&self, table: &str, hash: &str) -> Result<bool, DbErr> {
@@ -115,7 +113,7 @@ impl BlobAutoStorage {
 }
 
 #[async_trait]
-impl BlobStorage for BlobAutoStorage {
+impl BlobStorage for BlobDBStorage {
     type Read = ReaderStream<Cursor<Vec<u8>>>;
 
     async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool> {
@@ -128,7 +126,12 @@ impl BlobStorage for BlobAutoStorage {
         Err(JwstError::WorkspaceNotFound(workspace))
     }
 
-    async fn get_blob(&self, workspace: Option<String>, id: String) -> JwstResult<Self::Read> {
+    async fn get_blob(
+        &self,
+        workspace: Option<String>,
+        id: String,
+        _params: Option<HashMap<String, String>>,
+    ) -> JwstResult<Self::Read> {
         let _lock = self.bucket.get_lock().await;
         let workspace = workspace.unwrap_or("__default__".into());
         if let Ok(blob) = self.get(&workspace, &id).await {
@@ -190,7 +193,7 @@ impl BlobStorage for BlobAutoStorage {
 }
 
 #[cfg(test)]
-pub async fn blobs_storage_test(pool: &BlobAutoStorage) -> anyhow::Result<()> {
+pub async fn blobs_storage_test(pool: &BlobDBStorage) -> anyhow::Result<()> {
     // empty table
     assert_eq!(pool.count("basic").await?, 0);
 

@@ -78,7 +78,7 @@ pub async fn get_blob(
     if let Ok(blob) = context
         .storage
         .blobs()
-        .get_blob(Some(workspace), hash)
+        .get_blob(Some(workspace), hash, None)
         .await
     {
         StreamBody::new(blob).into_response()

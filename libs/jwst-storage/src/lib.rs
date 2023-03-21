@@ -1,6 +1,5 @@
 mod entities;
 mod storage;
-mod utils;
 
 use anyhow::Context;
 use async_trait::async_trait;

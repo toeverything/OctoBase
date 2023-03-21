@@ -82,7 +82,7 @@ impl Context {
             return header.into_response();
         };
 
-        let Ok(file) = self.storage.blobs().get_blob(workspace, id).await else {
+        let Ok(file) = self.storage.blobs().get_blob(workspace, id, None).await else {
             return StatusCode::NOT_FOUND.into_response()
         };
 
