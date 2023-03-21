@@ -183,8 +183,9 @@ impl DocDBStorage {
         trace!("update {}bytes to {}", blob.len(), table);
         if let Entry::Occupied(remote) = self.remote.write().await.entry(table.into()) {
             let broadcast = &remote.get();
-            if let Err(e) = broadcast.send(sync_encode_update(&blob)) {
-                warn!("send update to pipeline failed: {:?}", e);
+            if broadcast.send(sync_encode_update(&blob)).is_err() {
+                // broadcast failures are not fatal errors, only warnings are required
+                warn!("send {table} update to pipeline failed");
             }
         }
         trace!("end update broadcast: {table}");

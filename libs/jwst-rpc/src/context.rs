@@ -7,7 +7,7 @@ use jwst::{DocStorage, JwstResult, Workspace};
 use jwst_storage::JwstStorage;
 use std::ops::Deref;
 use tokio::sync::{
-    broadcast::{channel as broadcast, Receiver as BroadcastReceiver},
+    broadcast::{channel as broadcast, Receiver as BroadcastReceiver, Sender as BroadcastSender},
     mpsc::{Receiver as MpscReceiver, Sender as MpscSender},
     Mutex,
 };
@@ -53,7 +53,11 @@ pub trait RpcContextImpl<'a> {
         }
     }
 
-    async fn join_broadcast(&self, workspace: &mut Workspace) -> BroadcastReceiver<BroadcastType> {
+    async fn join_broadcast(
+        &self,
+        workspace: &mut Workspace,
+        identifier: String,
+    ) -> BroadcastSender<BroadcastType> {
         let id = workspace.id();
         // broadcast channel
         let broadcast_tx = match self.get_channel().write().await.entry(id.clone()) {
@@ -65,15 +69,21 @@ pub trait RpcContextImpl<'a> {
             }
         };
 
-        subscribe(workspace, broadcast_tx.clone()).await;
+        subscribe(workspace, identifier.clone(), broadcast_tx.clone()).await;
 
         // save update thread
-        self.save_update(&id, broadcast_tx.subscribe()).await;
+        self.save_update(&id, identifier, broadcast_tx.subscribe())
+            .await;
 
-        broadcast_tx.subscribe()
+        broadcast_tx
     }
 
-    async fn save_update(&self, id: &str, mut broadcast: BroadcastReceiver<BroadcastType>) {
+    async fn save_update(
+        &self,
+        id: &str,
+        identifier: String,
+        mut broadcast: BroadcastReceiver<BroadcastType>,
+    ) {
         let docs = self.get_storage().docs().clone();
         let id = id.to_string();
 
@@ -81,15 +91,21 @@ pub trait RpcContextImpl<'a> {
             let updates = Arc::new(Mutex::new(vec![]));
 
             let handler = {
+                let id = id.clone();
                 let updates = updates.clone();
                 tokio::spawn(async move {
                     while let Ok(data) = broadcast.recv().await {
-                        if let BroadcastType::BroadcastRawContent(update) = data {
-                            info!("receive update: {}", update.len());
-                            updates.lock().await.push(update);
+                        match data {
+                            BroadcastType::BroadcastRawContent(update) => {
+                                trace!("receive update: {}", update.len());
+                                updates.lock().await.push(update);
+                            }
+                            BroadcastType::CloseUser(user) if user == identifier => break,
+                            BroadcastType::CloseAll => break,
+                            _ => {}
                         }
                     }
-                    info!("broadcast channel closed");
+                    debug!("save update thread {id}-{identifier} closed");
                 })
             };
 
@@ -97,7 +113,7 @@ pub trait RpcContextImpl<'a> {
                 {
                     let mut updates = updates.lock().await;
                     if updates.len() > 0 {
-                        info!("save {} updates", updates.len());
+                        debug!("save {} updates", updates.len());
                         if let Some(update) = merge_updates(&id, &updates) {
                             if let Err(e) = docs.write_update(id.clone(), &update).await {
                                 error!("failed to save update of {}: {}", id, e);

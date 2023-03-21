@@ -1,16 +1,10 @@
 use super::*;
-use jwst::{sync_encode_update, MapSubscription, Workspace};
+use jwst::{sync_encode_update, Workspace};
 use lru_time_cache::LruCache;
 use std::{collections::HashMap, sync::Mutex};
 use tokio::sync::{broadcast::Sender, RwLock};
-use y_sync::{
-    awareness::{Event, Subscription},
-    sync::Message as YMessage,
-};
-use yrs::{
-    updates::encoder::{Encode, Encoder, EncoderV1},
-    UpdateSubscription,
-};
+use y_sync::sync::Message as YMessage;
+use yrs::updates::encoder::{Encode, Encoder, EncoderV1};
 
 #[derive(Clone)]
 pub enum BroadcastType {
@@ -24,13 +18,7 @@ pub enum BroadcastType {
 type Broadcast = Sender<BroadcastType>;
 pub type BroadcastChannels = RwLock<HashMap<String, Broadcast>>;
 
-pub struct Subscriptions {
-    _doc: Option<UpdateSubscription>,
-    _awareness: Subscription<Event>,
-    _metadata: MapSubscription,
-}
-
-pub async fn subscribe(workspace: &mut Workspace, sender: Broadcast) {
+pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Broadcast) {
     let awareness = {
         let sender = sender.clone();
         let workspace_id = workspace.id();
@@ -70,28 +58,31 @@ pub async fn subscribe(workspace: &mut Workspace, sender: Broadcast) {
             .await
     };
     let doc = {
+        let sender = sender.clone();
         let workspace_id = workspace.id();
-        workspace.observe(move |_, e| {
-            trace!(
-                "workspace {} changed: {}bytes",
-                workspace_id,
-                &e.update.len()
-            );
+        workspace
+            .observe(move |_, e| {
+                trace!(
+                    "workspace {} changed: {}bytes",
+                    workspace_id,
+                    &e.update.len()
+                );
 
-            if sender
-                .send(BroadcastType::BroadcastRawContent(e.update.clone()))
-                .is_err()
-            {
-                info!("broadcast channel {workspace_id} has been closed",)
-            }
-            let update = sync_encode_update(&e.update);
-            if sender
-                .send(BroadcastType::BroadcastContent(update))
-                .is_err()
-            {
-                info!("broadcast channel {workspace_id} has been closed",)
-            }
-        })
+                if sender
+                    .send(BroadcastType::BroadcastRawContent(e.update.clone()))
+                    .is_err()
+                {
+                    info!("broadcast channel {workspace_id} has been closed",)
+                }
+                let update = sync_encode_update(&e.update);
+                if sender
+                    .send(BroadcastType::BroadcastContent(update))
+                    .is_err()
+                {
+                    info!("broadcast channel {workspace_id} has been closed",)
+                }
+            })
+            .unwrap()
     };
     let metadata = workspace.observe_metadata(move |_, _e| {
         // context
@@ -99,13 +90,32 @@ pub async fn subscribe(workspace: &mut Workspace, sender: Broadcast) {
         //     .update_workspace(ws_id.clone(), context.clone());
     });
 
-    let sub = Subscriptions {
-        _awareness: awareness,
-        _doc: doc,
-        _metadata: metadata,
-    };
+    let workspace_id = workspace.id();
+    tokio::spawn(async move {
+        let mut rx = sender.subscribe();
+        loop {
+            tokio::select! {
+                Ok(msg) = rx.recv()=> {
+                    match msg {
+                        BroadcastType::CloseUser(user) if user == identifier => break,
+                        BroadcastType::CloseAll => break,
+                        _ => {}
+                    }
+                },
+                _ = sleep(Duration::from_millis(100)) => {
+                    let count = sender.receiver_count();
+                    if count < 1 {
+                        break;
+                    }
+                }
+            }
+        }
+        drop(doc);
+        drop(metadata);
+        info!("broadcast channel {workspace_id} has been closed");
+    });
 
     // TODO: this is a hack to prevent the subscription from being dropped
     // just keep the ownership
-    std::mem::forget(sub);
+    std::mem::forget(awareness);
 }
