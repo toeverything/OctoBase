@@ -1,18 +1,17 @@
-mod blobs;
+mod database;
 mod utils;
 
 #[cfg(test)]
-pub use blobs::blobs_storage_test;
+pub use database::blobs_storage_test;
 
 use super::{entities::prelude::*, *};
-use blobs::BlobDBStorage;
 use bytes::Bytes;
+use database::BlobDBStorage;
 use image::ImageError;
 use jwst::{BlobMetadata, BlobStorage};
 use thiserror::Error;
 use tokio::task::JoinError;
-use tokio_util::io::ReaderStream;
-use utils::ImageParams;
+use utils::{ImageParams, InternalBlobMetadata};
 
 #[derive(Debug, Error)]
 pub enum JwstBlobError {
@@ -52,11 +51,13 @@ impl BlobAutoStorage {
         Ok(Self { db, pool })
     }
 
-    async fn exists(&self, table: &str, hash: &str) -> JwstBlobResult<bool> {
-        Ok(Blobs::find_by_id((table.into(), hash.into()))
-            .count(&self.pool)
-            .await
-            .map(|c| c > 0)?)
+    async fn exists(&self, table: &str, hash: &str, params: &str) -> JwstBlobResult<bool> {
+        Ok(
+            OptimizedBlobs::find_by_id((table.into(), hash.into(), params.into()))
+                .count(&self.pool)
+                .await
+                .map(|c| c > 0)?,
+        )
     }
 
     async fn insert(
@@ -66,7 +67,7 @@ impl BlobAutoStorage {
         params: &str,
         blob: &[u8],
     ) -> JwstBlobResult<()> {
-        if !self.exists(table, hash).await? {
+        if !self.exists(table, hash, params).await? {
             OptimizedBlobs::insert(OptimizedBlobActiveModel {
                 workspace: Set(table.into()),
                 hash: Set(hash.into()),
@@ -91,8 +92,52 @@ impl BlobAutoStorage {
         OptimizedBlobs::find_by_id((table.into(), hash.into(), params.into()))
             .one(&self.pool)
             .await
-            .map_err(JwstBlobError::Database)
+            .map_err(|e| e.into())
             .and_then(|r| r.ok_or(JwstBlobError::BlobNotFound(hash.into())))
+    }
+
+    async fn metadata(
+        &self,
+        table: &str,
+        hash: &str,
+        params: &str,
+    ) -> JwstBlobResult<InternalBlobMetadata> {
+        OptimizedBlobs::find_by_id((table.into(), hash.into(), params.into()))
+            .select_only()
+            .column_as(OptimizedBlobColumn::Length, "size")
+            .column_as(OptimizedBlobColumn::Timestamp, "created_at")
+            .into_model::<InternalBlobMetadata>()
+            .one(&self.pool)
+            .await
+            .map_err(|e| e.into())
+            .and_then(|r| r.ok_or(JwstBlobError::BlobNotFound(hash.into())))
+    }
+
+    async fn get_metadata_auto(
+        &self,
+        workspace: Option<String>,
+        id: String,
+        params: Option<HashMap<String, String>>,
+    ) -> JwstBlobResult<BlobMetadata> {
+        let workspace_id = workspace.as_deref().unwrap_or("__default__");
+        if let Some(params) = params {
+            if let Ok(params) = ImageParams::try_from(&params) {
+                let params_token = params.to_string();
+                if self.exists(workspace_id, &id, &params_token).await? {
+                    let metadata = self.metadata(workspace_id, &id, &params_token).await?;
+                    Ok(BlobMetadata {
+                        content_type: format!("image/{}", params.format()),
+                        ..metadata.into()
+                    })
+                } else {
+                    self.db.metadata(workspace_id, &id).await.map(Into::into)
+                }
+            } else {
+                Err(JwstBlobError::Params(params))
+            }
+        } else {
+            self.db.metadata(workspace_id, &id).await.map(Into::into)
+        }
     }
 
     async fn get_auto(
@@ -121,7 +166,7 @@ impl BlobAutoStorage {
                     let image =
                         tokio::task::spawn_blocking(move || params.optimize_image(&blob.blob))
                             .await??;
-                    self.insert(&workspace_id, &id, &params_token, &image)
+                    self.insert(workspace_id, &id, &params_token, &image)
                         .await?;
                     info!(
                         "optimized image: {} {} {}, {}bytes -> {}bytes",
@@ -141,15 +186,20 @@ impl BlobAutoStorage {
         }
     }
 
-    async fn delete(&self, table: &str, hash: &str) -> JwstBlobResult<bool> {
-        Ok(Blobs::delete_by_id((table.into(), hash.into()))
+    async fn delete(&self, table: &str, hash: &str) -> JwstBlobResult<u64> {
+        Ok(OptimizedBlobs::delete_many()
+            .filter(
+                OptimizedBlobColumn::Workspace
+                    .eq(table)
+                    .and(OptimizedBlobColumn::Hash.eq(hash)),
+            )
             .exec(&self.pool)
             .await
-            .map(|r| r.rows_affected == 1)?)
+            .map(|r| r.rows_affected)?)
     }
 
     async fn drop(&self, table: &str) -> Result<(), DbErr> {
-        Blobs::delete_many()
+        OptimizedBlobs::delete_many()
             .filter(OptimizedBlobColumn::Workspace.eq(table))
             .exec(&self.pool)
             .await?;
@@ -160,8 +210,6 @@ impl BlobAutoStorage {
 
 #[async_trait]
 impl BlobStorage for BlobAutoStorage {
-    type Read = ReaderStream<Cursor<Vec<u8>>>;
-
     async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool> {
         self.db.check_blob(workspace, id).await
     }
@@ -171,20 +219,25 @@ impl BlobStorage for BlobAutoStorage {
         workspace: Option<String>,
         id: String,
         params: Option<HashMap<String, String>>,
-    ) -> JwstResult<Self::Read> {
+    ) -> JwstResult<Vec<u8>> {
         let blob = self
             .get_auto(workspace, id, params)
             .await
             .context("failed to get blob")?;
-        Ok(ReaderStream::new(Cursor::new(blob)))
+        Ok(blob)
     }
 
     async fn get_metadata(
         &self,
         workspace: Option<String>,
         id: String,
+        params: Option<HashMap<String, String>>,
     ) -> JwstResult<BlobMetadata> {
-        self.db.get_metadata(workspace, id).await
+        let metadata = self
+            .get_metadata_auto(workspace, id, params)
+            .await
+            .context("failed to get blob metadata")?;
+        Ok(metadata)
     }
 
     async fn put_blob(
@@ -201,14 +254,14 @@ impl BlobStorage for BlobAutoStorage {
             .db
             .delete_blob(workspace_id.clone(), id.clone())
             .await?;
-
-        // delete optimized blobs
-        let workspace_id = workspace_id.unwrap_or("__default__".into());
-        Ok(self
-            .delete(&workspace_id, &id)
-            .await
-            .context("failed to delete optimized blob")?
-            && success)
+        if success {
+            // delete optimized blobs
+            let workspace_id = workspace_id.unwrap_or("__default__".into());
+            self.delete(&workspace_id, &id)
+                .await
+                .context("failed to delete optimized blob")?;
+        }
+        Ok(success)
     }
 
     async fn delete_workspace(&self, workspace_id: String) -> JwstResult<()> {

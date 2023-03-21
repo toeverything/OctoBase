@@ -36,23 +36,26 @@ pub trait DocStorage {
 
 #[derive(Debug)]
 pub struct BlobMetadata {
-    pub size: u64,
+    pub content_type: String,
     pub last_modified: NaiveDateTime,
+    pub size: u64,
 }
 
 #[async_trait]
 pub trait BlobStorage {
-    type Read: Stream + Send;
-
     async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool>;
     async fn get_blob(
         &self,
         workspace: Option<String>,
         id: String,
         params: Option<HashMap<String, String>>,
-    ) -> JwstResult<Self::Read>;
-    async fn get_metadata(&self, workspace: Option<String>, id: String)
-        -> JwstResult<BlobMetadata>;
+    ) -> JwstResult<Vec<u8>>;
+    async fn get_metadata(
+        &self,
+        workspace: Option<String>,
+        id: String,
+        params: Option<HashMap<String, String>>,
+    ) -> JwstResult<BlobMetadata>;
     async fn put_blob(
         &self,
         workspace: Option<String>,

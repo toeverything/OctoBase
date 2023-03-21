@@ -1,6 +1,5 @@
 use crate::{context::Context, error_status::ErrorStatus};
 use axum::{
-    body::StreamBody,
     extract::{BodyStream, Path},
     headers::ContentLength,
     http::{
@@ -51,7 +50,7 @@ impl Context {
             }
         }
 
-        let Ok(meta) = self.storage.blobs().get_metadata(workspace.clone(), id.clone()).await else {
+        let Ok(meta) = self.storage.blobs().get_metadata(workspace.clone(), id.clone(), params.clone()).await else {
             return ErrorStatus::NotFound.into_response();
         };
 
@@ -69,7 +68,9 @@ impl Context {
         header.insert(ETAG, HeaderValue::from_str(&id).unwrap());
         header.insert(
             CONTENT_TYPE,
-            HeaderValue::from_static(APPLICATION_OCTET_STREAM.essence_str()),
+            HeaderValue::from_str(&meta.content_type).unwrap_or(HeaderValue::from_static(
+                APPLICATION_OCTET_STREAM.essence_str(),
+            )),
         );
         header.insert(
             LAST_MODIFIED,
@@ -89,10 +90,29 @@ impl Context {
             return header.into_response();
         };
 
-        let Ok(file) = self.storage.blobs().get_blob(workspace, id, params).await else {
+        let Ok(file) = self.storage.blobs().get_blob(workspace, id, params.clone()).await else {
             return ErrorStatus::NotFound.into_response();
         };
-        (header, StreamBody::new(file)).into_response()
+
+        if meta.size != file.len() as u64 {
+            header.insert(
+                CONTENT_LENGTH,
+                HeaderValue::from_str(&file.len().to_string()).unwrap(),
+            );
+
+            if let Some(params) = params {
+                if let Some(format) = params.get("format") {
+                    header.insert(
+                        CONTENT_TYPE,
+                        HeaderValue::from_str(&format!("image/{format}")).unwrap_or(
+                            HeaderValue::from_static(APPLICATION_OCTET_STREAM.essence_str()),
+                        ),
+                    );
+                }
+            }
+        }
+
+        (header, file).into_response()
     }
 
     #[instrument(skip(self, stream))]

@@ -49,26 +49,20 @@ impl BlobDBStorage {
             .map(|c| c > 0)
     }
 
-    async fn metadata(&self, table: &str, hash: &str) -> Result<BlobMetadata, DbErr> {
-        #[derive(FromQueryResult)]
-        struct Metadata {
-            size: i64,
-            created_at: DateTime<Utc>,
-        }
-
-        let ret = Blobs::find_by_id((table.into(), hash.into()))
+    pub(super) async fn metadata(
+        &self,
+        table: &str,
+        hash: &str,
+    ) -> JwstBlobResult<InternalBlobMetadata> {
+        Blobs::find_by_id((table.into(), hash.into()))
             .select_only()
             .column_as(BlobColumn::Length, "size")
             .column_as(BlobColumn::Timestamp, "created_at")
-            .into_model::<Metadata>()
+            .into_model::<InternalBlobMetadata>()
             .one(&self.pool)
             .await
-            .and_then(|r| r.ok_or(DbErr::Query(RuntimeErr::Internal("blob not exists".into()))))?;
-
-        Ok(BlobMetadata {
-            size: ret.size as u64,
-            last_modified: ret.created_at.naive_local(),
-        })
+            .map_err(|e| e.into())
+            .and_then(|r| r.ok_or(JwstBlobError::BlobNotFound(hash.into())))
     }
 
     async fn insert(&self, table: &str, hash: &str, blob: &[u8]) -> Result<(), DbErr> {
@@ -114,8 +108,6 @@ impl BlobDBStorage {
 
 #[async_trait]
 impl BlobStorage for BlobDBStorage {
-    type Read = ReaderStream<Cursor<Vec<u8>>>;
-
     async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool> {
         let _lock = self.bucket.get_lock().await;
         let workspace = workspace.unwrap_or("__default__".into());
@@ -131,11 +123,11 @@ impl BlobStorage for BlobDBStorage {
         workspace: Option<String>,
         id: String,
         _params: Option<HashMap<String, String>>,
-    ) -> JwstResult<Self::Read> {
+    ) -> JwstResult<Vec<u8>> {
         let _lock = self.bucket.get_lock().await;
         let workspace = workspace.unwrap_or("__default__".into());
         if let Ok(blob) = self.get(&workspace, &id).await {
-            return Ok(ReaderStream::new(Cursor::new(blob.blob)));
+            return Ok(blob.blob);
         }
 
         Err(JwstError::WorkspaceNotFound(workspace))
@@ -145,11 +137,12 @@ impl BlobStorage for BlobDBStorage {
         &self,
         workspace: Option<String>,
         id: String,
+        _params: Option<HashMap<String, String>>,
     ) -> JwstResult<BlobMetadata> {
         let _lock = self.bucket.get_lock().await;
         let workspace = workspace.unwrap_or("__default__".into());
         if let Ok(metadata) = self.metadata(&workspace, &id).await {
-            Ok(metadata)
+            Ok(metadata.into())
         } else {
             Err(JwstError::WorkspaceNotFound(workspace))
         }
@@ -234,7 +227,7 @@ pub async fn blobs_storage_test(pool: &BlobDBStorage) -> anyhow::Result<()> {
     let metadata = pool.metadata("basic", "test1").await?;
 
     assert_eq!(metadata.size, 4);
-    assert!((metadata.last_modified.timestamp() - Utc::now().timestamp()).abs() < 2);
+    assert!((metadata.created_at.timestamp() - Utc::now().timestamp()).abs() < 2);
 
     pool.drop("basic").await?;
 

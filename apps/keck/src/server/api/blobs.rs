@@ -1,6 +1,6 @@
 use super::*;
 
-use axum::{body::StreamBody, extract::BodyStream, response::Response};
+use axum::{extract::BodyStream, response::Response};
 use futures::{future, StreamExt};
 use jwst::BlobStorage;
 use utoipa::ToSchema;
@@ -81,7 +81,7 @@ pub async fn get_blob(
         .get_blob(Some(workspace), hash, None)
         .await
     {
-        StreamBody::new(blob).into_response()
+        blob.into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }

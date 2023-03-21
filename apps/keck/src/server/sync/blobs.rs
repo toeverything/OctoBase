@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use super::*;
 use axum::{
-    body::StreamBody,
     extract::{BodyStream, Path},
     headers::ContentLength,
     http::{
@@ -39,7 +38,7 @@ impl Context {
             }
         }
 
-        let Ok(meta) = self.storage.blobs().get_metadata(workspace.clone(), id.clone()).await else {
+        let Ok(meta) = self.storage.blobs().get_metadata(workspace.clone(), id.clone(), None).await else {
             return StatusCode::NOT_FOUND.into_response()
         };
 
@@ -86,7 +85,14 @@ impl Context {
             return StatusCode::NOT_FOUND.into_response()
         };
 
-        (header, StreamBody::new(file)).into_response()
+        if meta.size != file.len() as u64 {
+            header.insert(
+                CONTENT_LENGTH,
+                HeaderValue::from_str(&file.len().to_string()).unwrap(),
+            );
+        }
+
+        (header, file).into_response()
     }
 
     async fn upload_blob(&self, stream: BodyStream, workspace: Option<String>) -> Response {
