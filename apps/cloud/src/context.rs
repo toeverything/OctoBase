@@ -18,7 +18,7 @@ pub struct Context {
     pub storage: JwstStorage,
     pub user_channel: UserChannel,
     pub channel: BroadcastChannels,
-    pub _dir: Option<TempDir>,
+    _dir: Option<TempDir>,
 }
 
 impl Context {
@@ -116,6 +116,14 @@ impl Context {
         }
         for channel in closed {
             self.channel.write().await.remove(&channel);
+        }
+    }
+
+    pub async fn new_test(db: CloudDatabase) -> Self {
+        Self {
+            // =========== database ===========
+            db,
+            ..Self::new().await
         }
     }
 }
