@@ -2,7 +2,6 @@ pub mod blobs;
 pub mod permissions;
 mod user_channel;
 mod ws;
-
 pub use ws::*;
 
 use crate::{context::Context, error_status::ErrorStatus, layer::make_firebase_auth_layer};
@@ -737,10 +736,7 @@ mod test {
     #[tokio::test]
     async fn test_health_check() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context {
-            db: pool,
-            ..Context::new().await
-        };
+        let context = Context::new_test(pool).await;
         let ctx = Arc::new(context);
         let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
@@ -752,10 +748,7 @@ mod test {
     #[tokio::test]
     async fn test_query_user() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context {
-            db: pool,
-            ..Context::new().await
-        };
+        let context = Context::new_test(pool).await;
         let new_user = context
             .db
             .create_user(CreateUser {
@@ -775,7 +768,13 @@ mod test {
             new_user.email
         );
         let resp = client.get(&url).send().await;
+      
         assert_eq!(resp.status(), StatusCode::OK);
+        let resp_text = resp.text().await;
+        assert!(resp_text.contains(new_user.id.as_str()));
+        assert!(resp_text.contains(new_user.name.as_str()));
+        assert!(resp_text.contains(new_user.email.as_str()));
+
         let resp = client.get("/user").send().await;
         assert_eq!(resp.status().is_client_error(), true);
         let resp = client.get("/user?email=fake_email").send().await;
@@ -787,10 +786,7 @@ mod test {
     #[tokio::test]
     async fn test_make_token() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context {
-            db: pool,
-            ..Context::new().await
-        };
+        let context = Context::new_test(pool).await;
         let ctx = Arc::new(context);
         let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
@@ -851,10 +847,7 @@ mod test {
     #[tokio::test]
     async fn test_upload_blob() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context {
-            db: pool,
-            ..Context::new().await
-        };
+        let context = Context::new_test(pool).await;
         let ctx = Arc::new(context);
         let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
@@ -889,10 +882,7 @@ mod test {
     #[tokio::test]
     async fn test_get_blob() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context {
-            db: pool,
-            ..Context::new().await
-        };
+        let context = Context::new_test(pool).await;
         let ctx = Arc::new(context);
         let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
