@@ -1007,16 +1007,24 @@ mod test {
         let test_data: Vec<u8> = (0..=255).collect();
         let test_data_len = test_data.len();
         let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
-        let body_stream = Body::wrap_stream(test_data_stream);
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+        let body_clone = Body::wrap_stream(test_data_stream.clone());
 
         let resp = client
             .post("/workspace")
             .header("Content-Length", test_data_len.to_string())
-            .header("authorization", format!("{}", access_token))
+            .header("authorization", format!("{}", access_token.clone()))
             .body(body_stream)
             .send()
             .await;
         assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .body(body_clone)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     }
  
 }
