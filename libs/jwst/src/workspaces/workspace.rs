@@ -6,7 +6,6 @@ use std::{
     thread::sleep,
     time::Duration,
 };
-use backtrace::Backtrace;
 use tokio::sync::RwLock;
 use y_sync::{
     awareness::{Awareness, Event, Subscription as AwarenessSubscription},

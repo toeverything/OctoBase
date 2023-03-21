@@ -2,7 +2,7 @@ use std::collections::hash_map::Entry;
 use crate::Workspace;
 use jwst::{DocStorage, error, info, JwstError, JwstResult};
 use jwst_rpc::start_client;
-use jwst_storage::{JwstStorage as AutoStorage, JwstStorage};
+use jwst_storage::{JwstStorage as AutoStorage};
 use std::sync::Arc;
 use tokio::{runtime::Runtime, sync::RwLock};
 use tokio::sync::broadcast::channel;

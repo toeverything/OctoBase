@@ -2,8 +2,7 @@ use jwst::{Block, DocStorage, error, Workspace};
 use jwst_rpc::start_client;
 use jwst_storage::JwstStorage;
 use std::collections::hash_map::Entry;
-use std::sync::{Arc, RwLock};
-use std::thread;
+use std::sync::{Arc};
 use std::thread::sleep;
 use std::time::Duration;
 use reqwest::Response;
@@ -34,7 +33,7 @@ fn main() {
             entry.insert(tx);
         };
 
-        let mut workspace = start_client(&storage, workspace_id.clone(), remote)
+        let workspace = start_client(&storage, workspace_id.clone(), remote)
             .await
             .unwrap();
 
@@ -46,7 +45,6 @@ fn main() {
         let storage = storage.clone();
         let sub = workspace.observe(move |_, e| {
             let id = id.clone();
-            let storage = storage.clone();
             let rt = Runtime::new().unwrap();
             // println!("update in rpc main: {:?}", &e.update);
             if let Err(e) = rt.block_on(async {
@@ -113,13 +111,12 @@ async fn create_workspace_with_api(workspace_id: String) {
 
 async fn get_block_with_api(workspace_id: String, block_id: String) -> Response {
     let client = reqwest::Client::new();
-    let resp = client
+
+    client
         .get(format!("http://localhost:3000/api/block/{}/{}", workspace_id, block_id))
         .send()
         .await
-        .unwrap();
-
-    resp
+        .unwrap()
 }
 
 fn get_block_with_api_sync(workspace_id: String, block_id: String) -> String {
@@ -133,7 +130,7 @@ fn get_block_with_api_sync(workspace_id: String, block_id: String) -> String {
 fn create_block(workspace: &Workspace, block_id: String, block_flavour: String) -> Block {
     workspace.with_trx(|mut trx| {
         let space = trx.get_space("blocks");
-        space.create(&mut trx.trx, block_id.to_string(), block_flavour)
+        space.create(&mut trx.trx, block_id, block_flavour)
     })
 }
 

@@ -10,14 +10,12 @@ pub use connector::{memory_connector, socket_connector};
 pub use context::RpcContextImpl;
 pub use utils::{connect_memory_workspace, MinimumServerContext};
 
-use jwst::{Block, debug, error, info, trace, warn};
+use jwst::{debug, error, info, trace, warn};
 use std::{collections::hash_map::Entry, sync::Arc, time::Instant};
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     time::{sleep, Duration},
 };
-use yrs::Map;
-use jwst_storage::JwstStorage;
 
 #[derive(Debug)]
 pub enum Message {
