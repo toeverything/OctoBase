@@ -32,10 +32,11 @@ pub async fn handle_connector(
 ) {
     info!("{} collaborate with workspace {}", identifier, workspace_id);
 
-    // 这里是对建立的 socket 连接的 tx，rx 抽象。可以认为可以通过 tx 给远端发消息，通过 rx 接收远端的消息
+    // An abstraction of the established socket connection. Use tx to broadcast and rx to receive.
     let (tx, rx, first_init) = get_channel();
 
-    // 不停地接收远端 socket 的信息，应用到本地的 workspace，并且将编码后的 update 通过 socket 发送回远端
+    // Continuously receive information from the remote socket, apply it to the local workspace, and
+    // send the encoded updates back to the remote end through the socket.
     context
         .apply_change(&workspace_id, &identifier, tx.clone(), rx)
         .await;
