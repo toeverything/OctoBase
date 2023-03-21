@@ -1003,7 +1003,7 @@ mod test {
             .await;
         assert_eq!(resp.status(), StatusCode::OK);
         let resp_json: serde_json::Value = resp.json().await;
-    let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
         let test_data: Vec<u8> = (0..=255).collect();
         let test_data_len = test_data.len();
         let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
