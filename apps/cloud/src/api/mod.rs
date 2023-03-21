@@ -784,13 +784,13 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_make_token() {
-        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test(pool).await;
-        let ctx = Arc::new(context);
-        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+    async fn test_make_token_with_valid_request() {
+    let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+    let context = Context::new_test(pool).await;
+    let ctx = Arc::new(context);
+    let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
-        let client = TestClient::new(app);
+    let client = TestClient::new(app);
         let body_data = json!({
             "type": "DebugCreateUser",
             "name": "my_username",
@@ -819,6 +819,56 @@ mod test {
             .send()
             .await;
         assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+    let refresh_token = resp_json["refresh"].as_str().unwrap().to_string();
+        let body_data = json!({
+            "type": "Refresh",
+            "token": refresh_token,
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_make_token_with_invalid_request() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+    
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+             assert_eq!(resp.status().is_client_error(), true);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+             assert_eq!(resp.status().is_client_error(), true);
         let body_data = json!({
             "type": "Refresh",
             "token": "my_token",
