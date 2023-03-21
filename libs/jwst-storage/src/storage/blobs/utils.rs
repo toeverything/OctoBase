@@ -12,7 +12,6 @@ use std::{collections::HashMap, io::Cursor};
 
 enum ImageFormat {
     Jpeg,
-    Png,
     WebP,
 }
 
@@ -41,7 +40,6 @@ impl ImageParams {
     pub(super) fn format(&self) -> String {
         match self.format {
             ImageFormat::Jpeg => "jpeg".to_string(),
-            ImageFormat::Png => "png".to_string(),
             ImageFormat::WebP => "webp".to_string(),
         }
     }
@@ -49,7 +47,6 @@ impl ImageParams {
     fn output_format(&self) -> ImageOutputFormat {
         match self.format {
             ImageFormat::Jpeg => ImageOutputFormat::Jpeg(80),
-            ImageFormat::Png => ImageOutputFormat::Png,
             ImageFormat::WebP => ImageOutputFormat::WebP,
         }
     }
@@ -74,7 +71,6 @@ impl TryFrom<&HashMap<String, String>> for ImageParams {
                 "format" => {
                     format = match value.as_str() {
                         "jpeg" => Some(ImageFormat::Jpeg),
-                        "png" => Some(ImageFormat::Png),
                         "webp" => Some(ImageFormat::WebP),
                         _ => return Err(()),
                     }
