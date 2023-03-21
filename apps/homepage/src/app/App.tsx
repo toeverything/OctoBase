@@ -1,4 +1,5 @@
-import React, { Route, Routes } from 'react-router-dom'
+import React from 'react'
+import { Route, Routes } from 'react-router-dom'
 import { HomePage } from './home'
 
 export function App() {
