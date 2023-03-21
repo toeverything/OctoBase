@@ -83,7 +83,6 @@ pub async fn handle_connector(
                 let ts = Instant::now();
                 trace!("recv from server update: {:?}", msg);
                 if tx.send(Message::Binary(msg.clone())).await.is_err() {
-                    println!("send(Message::Binary(msg.clone()))");
                     // pipeline was closed
                     break 'sync;
                 }
@@ -117,7 +116,6 @@ pub async fn handle_connector(
                         let ts = Instant::now();
                         trace!("recv content update from broadcast: {:?}bytes", data.len());
                         if tx.send(Message::Binary(data.clone())).await.is_err() {
-                            println!("BBBBB");
                             // pipeline was closed
                             break 'sync;
                         }
@@ -131,7 +129,6 @@ pub async fn handle_connector(
                     BroadcastType::CloseUser(user) if user == identifier => {
                         let ts = Instant::now();
                         if tx.send(Message::Close).await.is_err() {
-                            println!("CCCCC");
                             // pipeline was closed
                             break 'sync;
                         }
@@ -139,13 +136,11 @@ pub async fn handle_connector(
                             debug!("process close user cost: {}ms", ts.elapsed().as_micros());
                         }
 
-                        println!("DDDDD");
                         break;
                     }
                     BroadcastType::CloseAll => {
                         let ts = Instant::now();
                         if tx.send(Message::Close).await.is_err() {
-                            println!("EEEEE");
                             // pipeline was closed
                             break 'sync;
                         }
@@ -153,7 +148,6 @@ pub async fn handle_connector(
                             debug!("process close all cost: {}ms", ts.elapsed().as_micros());
                         }
 
-                        println!("FFFFF");
                         break 'sync;
                     }
                     _ => {}
@@ -165,7 +159,6 @@ pub async fn handle_connector(
             },
             _ = sleep(Duration::from_secs(1)) => {
                 if tx.is_closed() || tx.send(Message::Ping).await.is_err() {
-                    println!("GGGGG");
                     break 'sync;
                 }
             }
