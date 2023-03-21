@@ -216,7 +216,7 @@ impl Workspace {
             loop {
                 let f = f.clone();
                 match doc.observe_update_v1(move |trx, evt| {
-                    // println!("workspace observe: observe_update_v1, {:?}", &evt.update);
+                    trace!("workspace observe: observe_update_v1, {:?}", &evt.update);
                     if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(trx, evt))) {
                         error!("panic in observe callback: {:?}", e);
                     }

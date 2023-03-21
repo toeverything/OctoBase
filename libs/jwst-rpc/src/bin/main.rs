@@ -42,16 +42,13 @@ fn main() {
 
     let workspace = {
         let id = workspace_id.clone();
-        let storage = storage.clone();
         let sub = workspace.observe(move |_, e| {
             let id = id.clone();
             let rt = Runtime::new().unwrap();
-            // println!("update in rpc main: {:?}", &e.update);
             if let Err(e) = rt.block_on(async {
                 storage.docs().write_update(id, &e.update).await
             }) {
                 error!("Failed to write update to storage: {}", e);
-                println!("Failed to write update to storage: {}", e);
             }
         });
         std::mem::forget(sub);
@@ -60,7 +57,7 @@ fn main() {
     };
 
     let block = create_block(&workspace, "7".to_string(), "list".to_string());
-    println!("from main thread, create a block: {:?}", block);
+    println!("from main thread, create a block: {:?}", block.block_id());
     println!("get block 7 from server: {}", get_block_with_api_sync( workspace_id.clone(), "7".to_string()));
 
     sleep(Duration::from_secs(4));
@@ -108,6 +105,16 @@ async fn create_workspace_with_api(workspace_id: String) {
         .await
         .unwrap();
 }
+
+// #[tokio::test]
+// async fn create_worksdfspace_with_api() {
+//     let client = reqwest::Client::new();
+//     client
+//         .post(format!("http://localhost:3000/api/block/{}", "2"))
+//         .send()
+//         .await
+//         .unwrap();
+// }
 
 async fn get_block_with_api(workspace_id: String, block_id: String) -> Response {
     let client = reqwest::Client::new();

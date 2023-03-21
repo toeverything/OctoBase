@@ -102,7 +102,6 @@ pub async fn handle_connector(
                             data.len()
                         );
                         if tx.send(Message::Binary(data.clone())).await.is_err() {
-                            println!("AAAAA");
                             // pipeline was closed
                             break 'sync;
                         }
