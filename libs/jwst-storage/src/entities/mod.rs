@@ -4,3 +4,4 @@ pub mod prelude;
 
 pub mod blobs;
 pub mod docs;
+pub mod optimized_blobs;

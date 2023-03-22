@@ -18,3 +18,14 @@ pub enum Docs {
     Timestamp,
     Blob,
 }
+
+#[derive(Iden)]
+pub enum OptimizedBlobs {
+    Table,
+    Workspace,
+    Hash,
+    Blob,
+    Length,
+    Timestamp,
+    Params,
+}
