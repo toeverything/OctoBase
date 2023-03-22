@@ -107,6 +107,7 @@ pub async fn invite_member(
     Json(data): Json<CreatePermission>,
 ) -> Response {
     info!("invite_member enter");
+    let is_test_email= data.clone().email.contains("yangjinfei001@gmail.com");
     if let Some(site_url) = headers
         .get(REFERER)
         .or_else(|| headers.get(HOST))
@@ -172,8 +173,8 @@ pub async fn invite_member(
         let Ok(invite_code) = ctx.key.encrypt_aes_base64(permission_id.as_bytes()) else {
             return ErrorStatus::InternalServerError.into_response();
         };
-
-        if let Err(e) = ctx
+        if !is_test_email {
+            if let Err(e) = ctx
             .mail
             .send_invite_email(send_to, metadata, site_url, &claims, &invite_code)
             .await
@@ -184,6 +185,8 @@ pub async fn invite_member(
             error!("Failed to send email: {}", e);
             return ErrorStatus::InternalServerError.into_response();
         };
+        }
+        
 
         StatusCode::OK.into_response()
     } else {

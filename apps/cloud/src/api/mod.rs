@@ -1535,7 +1535,11 @@ mod test {
         let workspace_id = resp_json["id"].as_str().unwrap().to_string();
         let url = format!(
             "/workspace/{}/permission",
-            workspace_id
+            workspace_id.clone()
+        );
+        let referer_url= format!(
+            "https://nightly.affine.pro/workspace/{}",
+            workspace_id.clone()
         );
         let body_data = json!({
             "email": "yangjinfei001@gmail.com",
@@ -1545,22 +1549,29 @@ mod test {
             .post(&url)
             .header("authorization", format!("{}", access_token.clone()))
             .header("Content-Type", "application/json")
-            .body(body_string)
+            .header("referer", &referer_url)
+            .body(body_string.clone())
             .send()
             .await;
-        println!("{:?}", resp.text().await);
-        // assert_eq!(resp.status(), StatusCode::OK);
-        // let resp_text = resp.text().await;
-        // let resp_json: serde_json::Value = serde_json::from_str(&resp_text).unwrap(); 
-        // let first_object = resp_json[0].as_object().unwrap(); 
-        // let permission = first_object["type"].as_i64().unwrap(); 
-        // assert_eq!(permission, 99);
-        // let resp = client
-        //     .post("/workspace/mock_id/permission")
-        //     .header("authorization", format!("{}", access_token.clone()))
-        //     .send()
-        //     .await;
-        // assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client
+            .post(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .header("Content-Type", "application/json")
+            .header("referer", &referer_url)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let resp = client
+            .post("/workspace/mock_id/permission")
+            .header("authorization", format!("{}", access_token.clone()))
+            .header("Content-Type", "application/json")
+            .header("referer", &referer_url)
+            .body(body_string.clone())
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     }
 
 }
