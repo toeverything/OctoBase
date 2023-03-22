@@ -46,3 +46,6 @@ jwst-logger = { path = "../../libs/jwst-logger" }
 jwst-rpc = { path = "../../libs/jwst-rpc" }
 jwst-static = { path = "../../libs/jwst-static" }
 jwst-storage = { path = "../../libs/jwst-storage" }
+
+[dev-dependencies]
+axum-test-helper = "0.2.0"

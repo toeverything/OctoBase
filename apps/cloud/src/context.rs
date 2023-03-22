@@ -118,6 +118,14 @@ impl Context {
             self.channel.write().await.remove(&channel);
         }
     }
+
+    pub async fn new_test(db: CloudDatabase) -> Self {
+        Self {
+            // =========== database ===========
+            db,
+            ..Self::new().await
+        }
+    }
 }
 
 impl RpcContextImpl<'_> for Context {

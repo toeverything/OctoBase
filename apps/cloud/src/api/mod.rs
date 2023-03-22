@@ -2,7 +2,6 @@ pub mod blobs;
 pub mod permissions;
 mod user_channel;
 mod ws;
-
 pub use ws::*;
 
 use crate::{context::Context, error_status::ErrorStatus, layer::make_firebase_auth_layer};
@@ -722,4 +721,857 @@ pub async fn search_workspace(
     };
 
     Json(search_results).into_response()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use axum:: body::Body;
+    use axum_test_helper::TestClient;
+    use bytes::Bytes;
+    use cloud_database::{CloudDatabase, CreateUser};
+    use futures::{stream, StreamExt};
+    use serde_json::json;
+    use std::sync::Arc;
+    #[tokio::test]
+    async fn test_health_check() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let resp = client.get("/healthz").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_query_user() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let new_user = context
+            .db
+            .create_user(CreateUser {
+                avatar_url: Some("xxx".to_string()),
+                email: "xxx@xxx.xx".to_string(),
+                name: "xxx".to_string(),
+                password: "xxx".to_string(),
+            })
+            .await
+            .unwrap();
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let url = format!(
+            "/user?email={}&workspace_id=212312",
+            new_user.email
+        );
+        let resp = client.get(&url).send().await;
+      
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_text = resp.text().await;
+        assert!(resp_text.contains(new_user.id.as_str()));
+        assert!(resp_text.contains(new_user.name.as_str()));
+        assert!(resp_text.contains(new_user.email.as_str()));
+
+        let resp = client.get("/user").send().await;
+        assert_eq!(resp.status().is_client_error(), true);
+        let resp = client.get("/user?email=fake_email").send().await;
+        assert_eq!(resp.status().is_client_error(), true);
+        let resp = client.get("/user?user_name=fake_parameter").send().await;
+        assert_eq!(resp.status().is_client_error(), true);
+    }
+
+    #[tokio::test]
+    async fn test_make_token_with_valid_request() {
+    let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+    let context = Context::new_test(pool).await;
+    let ctx = Arc::new(context);
+    let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+    let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+    let refresh_token = resp_json["refresh"].as_str().unwrap().to_string();
+        let body_data = json!({
+            "type": "Refresh",
+            "token": refresh_token,
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_make_token_with_invalid_request() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+    
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+             assert_eq!(resp.status().is_client_error(), true);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+             assert_eq!(resp.status().is_client_error(), true);
+        let body_data = json!({
+            "type": "Refresh",
+            "token": "my_token",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status().is_client_error(), true);
+        let body_data = json!({
+            "type": "Google",
+            "token": "my_token",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status().is_client_error(), true);
+    }
+    #[tokio::test]
+    async fn test_upload_blob() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
+        let body_stream = Body::wrap_stream(test_data_stream);
+
+        let resp = client
+            .put("/blob")
+            .header("Content-Length", test_data_len.to_string())
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes_per_chunk = 1024;
+        let num_chunks = 10 * 1024 + 1; 
+        let large_stream = stream::repeat(Bytes::from(vec![0; bytes_per_chunk]))
+            .take(num_chunks).map(Ok::<_, std::io::Error>);
+    
+        let body_stream = Body::wrap_stream(large_stream);
+        let content_length = (bytes_per_chunk * num_chunks).to_string();
+        let resp = client
+        .put("/blob")
+        .header("Content-Length", content_length)
+        .body(body_stream)
+        .send()
+        .await;
+        assert_eq!(resp.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    }
+    #[tokio::test]
+    async fn test_get_blob() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
+        let body_stream = Body::wrap_stream(test_data_stream);
+
+        let resp = client
+            .put("/blob")
+            .header("Content-Length", test_data_len.to_string())
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let blob_name=resp.text().await;
+        let url = format!(
+            "/blob/{}",
+            blob_name
+        );
+        let resp = client
+            .get(&url)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client
+            .get( "/blob/mock_id",)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_create_workspace() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+        let body_clone = Body::wrap_stream(test_data_stream.clone());
+
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .header("authorization", format!("{}", access_token.clone()))
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .body(body_clone)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+ 
+    #[tokio::test]
+    async fn test_get_workspace() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .header("authorization", format!("{}", access_token.clone()))
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let create_workspace_id = resp_json["id"].as_str().unwrap().to_string();
+        let resp = client
+            .get("/workspace")
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_text = resp.text().await;
+        assert!(resp_text.contains(&create_workspace_id));
+        let resp_json: serde_json::Value = serde_json::from_str(&resp_text).unwrap(); 
+        let first_object = resp_json[0].as_object().unwrap(); 
+        let permission = first_object["permission"].as_i64().unwrap(); 
+        assert_eq!(permission, 99);
+        let resp = client
+            .get("/workspace")
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_get_workspace_by_id() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .header("authorization", format!("{}", access_token.clone()))
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let create_workspace_id = resp_json["id"].as_str().unwrap().to_string();
+        let url = format!(
+            "/workspace/{}",
+            create_workspace_id
+        );
+        let resp = client
+            .get(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert!(resp.text().await.contains(&create_workspace_id));
+        let resp = client
+            .get("/workspace/invalid_id")
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn test_update_workspace() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .header("authorization", format!("{}", access_token.clone()))
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let create_workspace_id = resp_json["id"].as_str().unwrap().to_string();
+        let url = format!(
+            "/workspace/{}",
+            create_workspace_id
+        );
+        let body_data = json!({
+            "public": true,
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .header("Content-Type", "application/json")
+            .body(body_string.clone())
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let post_workspace_id = resp_json["id"].as_str().unwrap().to_string();
+        assert_eq!(create_workspace_id, post_workspace_id);
+        let workspace_public = resp_json["public"].as_bool().unwrap();
+        assert_eq!(workspace_public, true);
+        let resp = client
+            .post("/workspace/mock_id")
+            .header("authorization", format!("{}", access_token.clone()))
+            .header("Content-Type", "application/json")
+            .body(body_string.clone())
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        let resp = client
+            .post("/workspace/mock_id")
+            .header("authorization", format!("{}", access_token.clone()))
+            .header("Content-Type", "application/json")
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_delete_workspace() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .header("authorization", format!("{}", access_token.clone()))
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let create_workspace_id = resp_json["id"].as_str().unwrap().to_string();
+        let url = format!(
+            "/workspace/{}",
+            create_workspace_id
+        );
+        let resp = client
+            .delete(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client
+            .get(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn test_get_doc() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .header("authorization", format!("{}", access_token.clone()))
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let workspace_id = resp_json["id"].as_str().unwrap().to_string();
+        let url = format!(
+            "/workspace/{}/doc",
+            workspace_id
+        );
+        let resp = client
+            .get(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client
+            .get("/workspace/mock_id/doc")
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+       
+    #[tokio::test]
+    async fn test_get_member() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .header("authorization", format!("{}", access_token.clone()))
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let workspace_id = resp_json["id"].as_str().unwrap().to_string();
+        let url = format!(
+            "/workspace/{}/permission",
+            workspace_id
+        );
+        let resp = client
+            .get(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_text = resp.text().await;
+        let resp_json: serde_json::Value = serde_json::from_str(&resp_text).unwrap(); 
+        let first_object = resp_json[0].as_object().unwrap(); 
+        let permission = first_object["type"].as_i64().unwrap(); 
+        assert_eq!(permission, 99);
+        let resp = client
+            .get("/workspace/mock_id/permission")
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn test_invite_member() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "yang.jinfei@toeverything.info",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "yang.jinfei@toeverything.info",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .header("authorization", format!("{}", access_token.clone()))
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let workspace_id = resp_json["id"].as_str().unwrap().to_string();
+        let url = format!(
+            "/workspace/{}/permission",
+            workspace_id.clone()
+        );
+        let referer_url= format!(
+            "https://nightly.affine.pro/workspace/{}",
+            workspace_id.clone()
+        );
+        let body_data = json!({
+            "email": "yangjinfei001@gmail.com",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .header("Content-Type", "application/json")
+            .header("referer", &referer_url)
+            .body(body_string.clone())
+            .send()
+            .await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client
+            .post(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .header("Content-Type", "application/json")
+            .header("referer", &referer_url)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let resp = client
+            .post("/workspace/mock_id/permission")
+            .header("authorization", format!("{}", access_token.clone()))
+            .header("Content-Type", "application/json")
+            .header("referer", &referer_url)
+            .body(body_string.clone())
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
 }
