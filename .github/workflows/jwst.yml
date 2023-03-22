@@ -162,8 +162,7 @@ jobs:
 
             - name: Build & Check
               run: |
-                  sudo apt install -yq musl-tools musl-dev pkg-config libssl-dev
-                  export OPENSSL_DIR=/usr
+                  sudo apt install -yq musl-tools musl-dev
                   pnpm i --frozen-lockfile --store=node_modules/.pnpm-store --filter @toeverything/jwt* --filter @toeverything/playground
                   pnpm build:playground
                   cp -r apps/jwt/dist ./dist

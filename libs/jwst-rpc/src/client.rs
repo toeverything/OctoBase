@@ -232,6 +232,7 @@ mod test {
     use tokio::runtime::Runtime;
 
     #[test]
+    #[ignore = "need to start keck server first"]
     fn client_collaboration_with_server() {
         create_db_dir();
 
@@ -324,6 +325,7 @@ mod test {
     }
 
     #[test]
+    #[ignore = "need to start keck server first"]
     fn client_collaboration_with_server_with_poor_connection() {
         create_db_dir();
 
