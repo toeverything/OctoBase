@@ -26,7 +26,6 @@ impl ParentMap {
 
     fn from(items: &[&Item]) -> Self {
         let mut name_map: HashMap<ID, String> = HashMap::new();
-        // println!("{:?}", items);
         let mut padding_ptr: VecDeque<(&Item, usize)> = VecDeque::from(
             items
                 .iter()

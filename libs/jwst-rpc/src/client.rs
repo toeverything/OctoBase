@@ -148,7 +148,7 @@ fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec
                     remote.clone(),
                     &mut rx,
                 )
-                .await
+                    .await
                 {
                     Ok(true) => {
                         debug!("sync thread finished");
@@ -187,13 +187,23 @@ pub async fn start_client(
     let workspace = storage.docs().get(id.clone()).await?;
 
     if !remote.is_empty() {
-        if let Entry::Vacant(entry) = storage.docs().remote().write().await.entry(id.clone()) {
-            let (tx, rx) = channel(100);
+        // get the receiver corresponding to DocAutoStorage, the sender is used in the doc::write_update() method.
+        let rx = match storage.docs().remote().write().await.entry(id.clone()) {
+            Entry::Occupied(tx) => tx.get().subscribe(),
+            Entry::Vacant(entry) => {
+                let (tx, rx) = channel(100);
+                entry.insert(tx);
+                rx
+            }
+        };
 
-            start_sync_thread(&workspace, remote, rx);
-
-            entry.insert(tx);
-        }
+        // Responsible for
+        // 1. sending local workspace modifications to the 'remote' end through a socket. It is
+        // necessary to manually listen for changes in the workspace using workspace.observe(), and
+        // manually trigger the 'tx.send()'.
+        // 2. synchronizing 'remote' modifications from the 'remote' to the local workspace, and
+        // encoding the updates before sending them back to the 'remote'
+        start_sync_thread(&workspace, remote, rx);
     }
 
     Ok(workspace)

@@ -8,3 +8,7 @@ target
 **/node_modules
 **/stats.html
 .npmrc
+**/.idea
+**/.swiftpm
+**/*.xcodeproj
+**/*.xcworkspace

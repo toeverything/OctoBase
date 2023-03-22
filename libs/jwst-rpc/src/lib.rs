@@ -32,8 +32,11 @@ pub async fn handle_connector(
 ) {
     info!("{} collaborate with workspace {}", identifier, workspace_id);
 
+    // An abstraction of the established socket connection. Use tx to broadcast and rx to receive.
     let (tx, rx, first_init) = get_channel();
 
+    // Continuously receive information from the remote socket, apply it to the local workspace, and
+    // send the encoded updates back to the remote end through the socket.
     context
         .apply_change(&workspace_id, &identifier, tx.clone(), rx)
         .await;
@@ -43,10 +46,17 @@ pub async fn handle_connector(
         .await
         .expect("failed to get workspace");
 
+    // Both of broadcast_update and server_update are sent to the remote socket through 'tx'
+    // The 'broadcast_update' is the receiver for updates to the awareness and Doc of the local workspace.
+    // It uses channel, which is owned by the server itself and is stored in the server's memory (not persisted)."
     let broadcast_tx = context.join_broadcast(&mut ws, identifier.clone()).await;
     let mut broadcast_rx = broadcast_tx.subscribe();
+    // Obtaining the receiver corresponding to DocAutoStorage in storage. The sender is used in the
+    // doc::write_update(). The remote used is the one belonging to DocAutoStorage and is owned by
+    // the server itself, stored in the server's memory (not persisted).
     let mut server_rx = context.join_server_broadcast(&workspace_id).await;
 
+    // Send initialization message.
     if let Ok(init_data) = ws.sync_init_message().await {
         if tx.send(Message::Binary(init_data)).await.is_err() {
             // client disconnected
@@ -69,6 +79,7 @@ pub async fn handle_connector(
     'sync: loop {
         tokio::select! {
             Ok(msg) = server_rx.recv()=> {
+                info!("server_rx.recv()");
                 let ts = Instant::now();
                 trace!("recv from server update: {:?}", msg);
                 if tx.send(Message::Binary(msg.clone())).await.is_err() {
@@ -81,6 +92,7 @@ pub async fn handle_connector(
 
             },
             Ok(msg) = broadcast_rx.recv()=> {
+                info!("broadcast_rx.recv()");
                 let ts = Instant::now();
                 match msg {
                     BroadcastType::BroadcastAwareness(data) => {
@@ -153,6 +165,7 @@ pub async fn handle_connector(
         }
     }
 
+    info!("exited");
     // make a final store
     context
         .get_storage()
@@ -265,7 +278,7 @@ mod test {
                             let _ = futures::executor::block_on(doc_tx.send(Message::Close));
                         }
                     })
-                    .unwrap()
+                        .unwrap()
                 };
 
                 doc.retry_with_trx(
