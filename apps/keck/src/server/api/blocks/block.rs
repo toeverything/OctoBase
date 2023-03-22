@@ -11,10 +11,10 @@ use serde_json::Value as JsonValue;
     get,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}",
+    path = "/{workspace_id}/{block_id}",
     params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
+        ("workspace_id", description = "workspace id"),
+        ("block_id", description = "block id"),
     ),
     responses(
         (status = 200, description = "Get block", body = Block),
@@ -46,10 +46,10 @@ pub async fn get_block(
     post,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}/?flavor={flavor}",
+    path = "/{workspace_id}/{block_id}/?flavor={flavor}",
     params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
+        ("workspace_id", description = "workspace id"),
+        ("block_id", description = "block id"),
         ("flavor", description = "block flavor, default flavor is text. Optional", Query),
     ),
     request_body(
@@ -118,9 +118,9 @@ pub async fn set_block(
     get,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/flavour/{flavour}",
+    path = "/{workspace_id}/flavour/{flavour}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
         ("flavour", description = "block flavour"),
     ),
     responses(
@@ -164,10 +164,10 @@ pub async fn get_block_by_flavour(
     get,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}/history",
+    path = "/{workspace_id}/{block_id}/history",
     params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
+        ("workspace_id", description = "workspace id"),
+        ("block_id", description = "block id"),
     ),
     responses(
         (status = 200, description = "Get block history", body = [BlockHistory]),
@@ -200,10 +200,10 @@ pub async fn get_block_history(
     delete,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}",
+    path = "/{workspace_id}/{block_id}",
     params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
+        ("workspace_id", description = "workspace id"),
+        ("block_id", description = "block id"),
     ),
     responses(
         (status = 204, description = "Block successfully deleted"),
@@ -240,10 +240,10 @@ pub async fn delete_block(
     get,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}/children",
+    path = "/{workspace_id}/{block_id}/children",
     params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
+        ("workspace_id", description = "workspace id"),
+        ("block_id", description = "block id"),
         Pagination
     ),
     responses(
@@ -293,10 +293,10 @@ pub async fn get_block_children(
     post,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}/children",
+    path = "/{workspace_id}/{block_id}/children",
     params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
+        ("workspace_id", description = "workspace id"),
+        ("block_id", description = "block id"),
     ),
     request_body(
         content = InsertChildren,
@@ -380,10 +380,10 @@ pub async fn insert_block_children(
     delete,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}/children/{children}",
+    path = "/{workspace_id}/{block_id}/children/{children}",
     params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
+        ("workspace_id", description = "workspace id"),
+        ("block_id", description = "block id"),
     ),
     responses(
         (status = 200, description = "Block children removed", body = Block),
