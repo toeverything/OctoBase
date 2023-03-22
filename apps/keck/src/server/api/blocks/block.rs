@@ -69,15 +69,20 @@ pub async fn set_block(
     info!("set_block: {}, {}", ws_id, block_id);
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         let mut update = None;
-
-        // set block content
         let block = workspace.with_trx(|mut t| {
-            let block = t.get_blocks().create(&mut t.trx, &block_id, "text");
+            let flavour = if let Some(JsonValue::String(flavour)) = payload.get("sys:flavor") {
+                flavour
+            } else {
+                "text"
+            };
+
+            let block = t.get_blocks().create(&mut t.trx, &block_id, flavour);
 
             // set block content
             if let Some(block_content) = payload.as_object() {
                 let mut changed = false;
                 for (key, value) in block_content.iter() {
+                    if key == "sys:flavor" { continue; }
                     changed = true;
                     if let Ok(value) = serde_json::from_value::<Any>(value.clone()) {
                         block.set(&mut t.trx, key, value);
@@ -102,78 +107,6 @@ pub async fn set_block(
         Json(block).into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
-    }
-}
-
-/// Create or set `Block` with id and flavour
-/// - Return 200 and `Block`'s data if `Block`'s created successful.
-/// - Return 404 Not Found if `Workspace` not exists.
-#[utoipa::path(
-    patch,
-    tag = "Blocks",
-    context_path = "/api/block",
-    path = "/{workspace}/{block}/",
-    params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
-    ),
-    request_body(
-        content = String,
-        description = "json",
-        content_type = "application/json"
-    ),
-    responses(
-        (status = 200, description = "Block created", body = Block),
-        (status = 404, description = "Workspace not found"),
-    )
-)]
-pub async fn set_block_with_flavour(
-    Extension(context): Extension<Arc<Context>>,
-    Path(params): Path<(String, String)>,
-    Json(payload): Json<JsonValue>,
-) -> Response {
-    let (ws_id, block_id) = params;
-
-    let flavour = payload.as_object().map_or_else(
-        || "text",
-        |block_props_map| {
-            block_props_map.get("flavour").map_or_else(
-                || "text",
-                |req_flavour| {
-                    req_flavour.as_str().unwrap_or_else(|| {
-                        warn!("Haven't find flavour in request body, use default flavour: text");
-                        "text"
-                    })
-                },
-            )
-        },
-    );
-
-    info!(
-        "set_block_by_flavour: ws_id, {}, block_id, {}, flavour, {}",
-        ws_id, block_id, flavour
-    );
-
-    let mut update = None;
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        let block = workspace.with_trx(|mut t| {
-            let created_block = t.get_blocks().create(&mut t.trx, block_id, flavour);
-            update = Some(t.trx.encode_update_v1());
-            created_block
-        });
-        if let Some(update) = update {
-            if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
-                error!("db write error: {}", e.to_string());
-            }
-        }
-
-        Json(block).into_response()
-    } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
-        )
-            .into_response()
     }
 }
 
