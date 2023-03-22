@@ -2141,6 +2141,7 @@ dependencies = [
  "mdbook",
  "mimalloc",
  "nanoid",
+ "reqwest",
  "serde",
  "serde_json",
  "sqlx",
