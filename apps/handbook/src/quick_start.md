@@ -97,7 +97,3 @@ For cloud:
 For keck:
 
 -   Use `/api/jwst.json` to import the keck API into Postman.
-
-## Conclusion
-
-That's it! You should now have OctoBase up and running with either a Sqlite or a Postgres database. For more information, please check out the [official documentation](https://github.com/toeverything/OctoBase).

@@ -36,7 +36,7 @@ const todoBlock = {
 
 To illustrate with a simple example, suppose we have a page with a title, a todo list, and a normal text line, as shown in the following image:
 
-![block structure to view](./core_concept_1.jpg)
+![block structure to view](./how_to_organize_your_data_1.jpg)
 
 In OctoBase, we can define it like this:
 
