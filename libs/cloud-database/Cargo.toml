@@ -11,7 +11,6 @@ postgres = ["sqlx/postgres", "sea-orm/sqlx-postgres"]
 sqlite = ["sqlx/sqlite", "sea-orm/sqlx-sqlite"]
 
 [dependencies]
-anyhow = "1.0.69"
 async-trait = "0.1.64"
 chrono = { version = "0.4.23", features = ["serde"] }
 nanoid = "0.4.0"
@@ -32,3 +31,6 @@ yrs = "0.16.3"
 affine-cloud-migration = { path = "./migration" }
 jwst = { path = "../jwst" }
 jwst-logger = { path = "../jwst-logger" }
+
+[dev-dependencies]
+anyhow = "1.0.69"
