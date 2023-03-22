@@ -2,23 +2,22 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use jwst_logger::{info, instrument, tracing};
+use jwst_logger::{instrument, tracing};
 
 ///  Health check.
-/// - Return 200 Ok.
+/// - Return 204 No Content.
 #[utoipa::path(
     get,
     tag = "Workspace",
     context_path = "/api",
     path = "/healthz",
     responses(
-        (status = 200, description = "Healthy")
+        (status = 204, description = "Healthy")
     )
 )]
 #[instrument]
 pub async fn health_check() -> Response {
-    info!("Health check enter");
-    StatusCode::OK.into_response()
+    StatusCode::NO_CONTENT.into_response()
 }
 
 #[cfg(test)]

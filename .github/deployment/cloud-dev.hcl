@@ -67,6 +67,7 @@ DATABASE_URL        = "postgresql://affine:{{ key "service/development/affine-cl
 SIGN_KEY            = "{{ key "service/development/affine-cloud/sign_key" }}"
 MAIL_ACCOUNT        = "{{ key "service/development/affine-cloud/mail_account" }}"
 MAIL_PASSWORD       = "{{ key "service/development/affine-cloud/mail_password" }}"
+JWST_DEV            = "1"
 EOH
 
         destination = "secrets/.env"
