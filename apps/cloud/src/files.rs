@@ -42,7 +42,7 @@ struct JwstDocs;
 
 async fn jwst_docs_handler(uri: Uri) -> Response<BoxBody> {
     info!("get doc {:?}", uri);
-    fetch_static_response(uri.clone(), false, Some(Frontend::get))
+    fetch_static_response(uri.clone(), false, Some(JwstDocs::get))
         .await
         .into_response()
 }
