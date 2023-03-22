@@ -223,27 +223,17 @@ mod test {
     use reqwest::Response;
     use std::collections::hash_map::Entry;
     use std::fs;
+    use std::io::{BufRead, BufReader};
     use std::path::Path;
-    use std::process::Command;
+    use std::process::{Child, Command, Stdio};
     use std::string::String;
     use std::sync::Arc;
-    use std::thread::{self};
-    use std::time::Duration;
     use tokio::runtime::Runtime;
 
     #[test]
-    #[ignore = "need to start keck server first"]
     fn client_collaboration_with_server() {
         create_db_dir();
-
-        let mut child = Command::new("cargo")
-            .arg("run")
-            .arg("-p")
-            .arg("keck")
-            .spawn()
-            .expect("Failed to execute 'cargo run --target keck'");
-
-        thread::sleep(Duration::from_secs(10));
+        let child = start_collaboration_server();
 
         let rt = Runtime::new().unwrap();
         let (workspace_id, mut workspace, storage) = rt.block_on(async move {
@@ -319,24 +309,15 @@ mod test {
             }
         });
 
-        child.kill().expect("failed to terminate the command");
         fs::remove_dir_all("./data").unwrap();
-        child.wait().expect("command wasn't running");
+        close_collaboration_server(child);
     }
 
     #[test]
-    #[ignore = "need to start keck server first"]
+    #[ignore="client_collaboration_with_server cannot close websocket gracefully, causing this fails"]
     fn client_collaboration_with_server_with_poor_connection() {
         create_db_dir();
-
-        let mut child = Command::new("cargo")
-            .arg("run")
-            .arg("-p")
-            .arg("keck")
-            .spawn()
-            .expect("Failed to execute 'cargo run --target keck'");
-
-        thread::sleep(Duration::from_secs(10));
+        let child = start_collaboration_server();
 
         let rt = Runtime::new().unwrap();
         let workspace_id = String::from("1");
@@ -445,9 +426,8 @@ mod test {
             }
         });
 
-        child.kill().expect("Failed to terminate the command");
         fs::remove_dir_all("./data").unwrap();
-        child.wait().expect("command wasn't running");
+        close_collaboration_server(child);
     }
 
     fn create_db_dir() {
@@ -496,5 +476,39 @@ mod test {
             let space = trx.get_space("blocks");
             space.create(&mut trx.trx, block_id, block_flavour)
         })
+    }
+
+    fn start_collaboration_server() -> Child {
+        let mut child = Command::new("cargo")
+            .args(&["run", "-p", "keck"])
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to run command");
+
+        if let Some(ref mut stdout) = child.stdout {
+            let reader = BufReader::new(stdout);
+
+            for line in reader.lines() {
+                let line = line.expect("Failed to read line");
+                println!("{}", line);
+
+                if line.contains("listening on 0.0.0.0:3000") {
+                    println!("Keck server started");
+                    break;
+                }
+            }
+        }
+
+        child
+    }
+
+    fn close_collaboration_server(mut child: Child) {
+        child.kill().expect("failed to terminate the command");
+        let exit_status = child.wait().expect("Failed to wait on child");
+        if exit_status.success() {
+            println!("Child process exited successfully");
+        } else {
+            eprintln!("Child process exited with an error: {:?}", exit_status.to_string());
+        }
     }
 }
