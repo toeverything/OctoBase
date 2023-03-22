@@ -38,17 +38,19 @@ pub async fn get_block(
     }
 }
 
-/// Create or set `Block` with id
+/// Create or modify `Block` if block exists with specific id.
+/// Note that flavor can only be set when creating a block.
 /// - Return 200 and `Block`'s data if `Block`'s content set successful.
 /// - Return 404 Not Found if `Workspace` not exists.
 #[utoipa::path(
     post,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}",
+    path = "/{workspace}/{block}/?flavor={flavor}",
     params(
         ("workspace", description = "workspace id"),
         ("block", description = "block id"),
+        ("flavor", description = "block flavor, default flavor is text. Optional", Query),
     ),
     request_body(
         content = String,
@@ -63,6 +65,7 @@ pub async fn get_block(
 pub async fn set_block(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
+    query_param: Option<Query<HashMap<String, String>>>,
     Json(payload): Json<JsonValue>,
 ) -> Response {
     let (ws_id, block_id) = params;
@@ -70,13 +73,11 @@ pub async fn set_block(
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         let mut update = None;
         let block = workspace.with_trx(|mut t| {
-            let flavour = if let Some(JsonValue::String(flavour)) = payload.get("sys:flavor") {
-                flavour
-            } else {
-                "text"
-            };
+            let flavor = if let Some(query_map) = query_param {
+                query_map.get("flavor").map_or_else(|| String::from("text"), |v| v.clone())
+            } else { String::from("text") };
 
-            let block = t.get_blocks().create(&mut t.trx, &block_id, flavour);
+            let block = t.get_blocks().create(&mut t.trx, &block_id, flavor);
 
             // set block content
             if let Some(block_content) = payload.as_object() {
