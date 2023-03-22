@@ -1404,5 +1404,81 @@ mod test {
         assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     }
        
+    #[tokio::test]
+    async fn test_get_member() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(test_data.into_iter().map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))));
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .header("authorization", format!("{}", access_token.clone()))
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let workspace_id = resp_json["id"].as_str().unwrap().to_string();
+        let url = format!(
+            "/workspace/{}/permission",
+            workspace_id
+        );
+        let resp = client
+            .get(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_text = resp.text().await;
+        let resp_json: serde_json::Value = serde_json::from_str(&resp_text).unwrap(); 
+        let first_object = resp_json[0].as_object().unwrap(); 
+        let permission = first_object["type"].as_i64().unwrap(); 
+        assert_eq!(permission, 99);
+        let resp = client
+            .get("/workspace/mock_id/permission")
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+       
 
 }
