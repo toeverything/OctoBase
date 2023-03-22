@@ -39,7 +39,7 @@ mod test {
     use jwst_rpc::start_client;
     use jwst::DocStorage;
     use jwst::{Block, Workspace};
-    use jwst_logger::error;
+    use jwst_logger::{error, info};
     use jwst_storage::JwstStorage;
     use reqwest::Response;
     use std::collections::hash_map::Entry;
@@ -54,6 +54,7 @@ mod test {
     #[test]
     fn client_collaboration_with_server() {
         create_db_dir();
+        jwst_logger::init_logger();
         let child = start_collaboration_server();
 
         let rt = Runtime::new().unwrap();
@@ -96,7 +97,6 @@ mod test {
                     rt.block_on(async { storage.docs().write_update(id, &e.update).await })
                 {
                     error!("Failed to write update to storage: {}", e);
-                    println!("Failed to write update to storage: {}", e);
                 }
             });
             std::mem::forget(sub);
@@ -106,13 +106,13 @@ mod test {
 
         for block_id in 0..3 {
             let block = create_block(&workspace, block_id.to_string(), "list".to_string());
-            println!("from client, create a block: {:?}", block);
+            info!("from client, create a block: {:?}", block);
         }
 
-        println!("------------------after sync------------------");
+        info!("------------------after sync------------------");
 
         for block_id in 0..3 {
-            println!(
+            info!(
                 "get block {block_id} from server: {}",
                 get_block_with_api_sync(workspace_id.clone(), block_id.to_string())
             );
@@ -124,9 +124,9 @@ mod test {
             let blocks = space.get_blocks_by_flavour(&trx.trx, "list");
             let mut ids: Vec<_> = blocks.iter().map(|block| block.block_id()).collect();
             assert_eq!(ids.sort(), vec!["7", "8", "9"].sort());
-            println!("blocks from local storage:");
+            info!("blocks from local storage:");
             for block in blocks {
-                println!("block: {:?}", block);
+                info!("block: {:?}", block);
             }
         });
 
@@ -138,6 +138,7 @@ mod test {
     #[ignore="client_collaboration_with_server cannot close websocket gracefully, causing this fails"]
     fn client_collaboration_with_server_with_poor_connection() {
         create_db_dir();
+        jwst_logger::init_logger();
         let child = start_collaboration_server();
 
         let rt = Runtime::new().unwrap();
@@ -151,8 +152,8 @@ mod test {
 
         // simulate creating a block in offline environment
         let block = create_block(&workspace, "0".to_string(), "list".to_string());
-        println!("from client, create a block: {:?}", block);
-        println!(
+        info!("from client, create a block: {:?}", block);
+        info!(
             "get block 0 from server: {}",
             get_block_with_api_sync(workspace_id.clone(), "0".to_string())
         );
@@ -195,7 +196,7 @@ mod test {
                     rt.block_on(async { storage.docs().write_update(id, &e.update).await })
                 {
                     error!("Failed to write update to storage: {}", e);
-                    println!("Failed to write update to storage: {}", e);
+                    info!("Failed to write update to storage: {}", e);
                 }
             });
             std::mem::forget(sub);
@@ -203,12 +204,12 @@ mod test {
             workspace
         };
 
-        println!("----------------start syncing from start_sync_thread()----------------");
+        info!("----------------start syncing from start_sync_thread()----------------");
 
         for block_id in 1..3 {
             let block = create_block(&workspace, block_id.to_string(), "list".to_string());
-            println!("from client, create a block: {:?}", block);
-            println!(
+            info!("from client, create a block: {:?}", block);
+            info!(
                 "get block {block_id} from server: {}",
                 get_block_with_api_sync(workspace_id.clone(), block_id.to_string())
             );
@@ -220,16 +221,16 @@ mod test {
             let blocks = space.get_blocks_by_flavour(&trx.trx, "list");
             let mut ids: Vec<_> = blocks.iter().map(|block| block.block_id()).collect();
             assert_eq!(ids.sort(), vec!["0", "1", "2"].sort());
-            println!("blocks from local storage:");
+            info!("blocks from local storage:");
             for block in blocks {
-                println!("block: {:?}", block);
+                info!("block: {:?}", block);
             }
         });
 
-        println!("------------------after sync------------------");
+        info!("------------------after sync------------------");
 
         for block_id in 0..3 {
-            println!(
+            info!(
                 "get block {block_id} from server: {}",
                 get_block_with_api_sync(workspace_id.clone(), block_id.to_string())
             );
@@ -241,9 +242,9 @@ mod test {
             let blocks = space.get_blocks_by_flavour(&trx.trx, "list");
             let mut ids: Vec<_> = blocks.iter().map(|block| block.block_id()).collect();
             assert_eq!(ids.sort(), vec!["0", "1", "2"].sort());
-            println!("blocks from local storage:");
+            info!("blocks from local storage:");
             for block in blocks {
-                println!("block: {:?}", block);
+                info!("block: {:?}", block);
             }
         });
 
@@ -257,8 +258,8 @@ mod test {
             fs::remove_dir_all("./data").unwrap();
         }
         match fs::create_dir(&dir_path) {
-            Ok(_) => println!("Directory created: {:?}", dir_path),
-            Err(err) => eprintln!("Failed to create directory: {}", err),
+            Ok(_) => info!("Directory created: {:?}", dir_path),
+            Err(err) => error!("Failed to create directory: {}", err),
         }
     }
 
@@ -311,10 +312,10 @@ mod test {
 
             for line in reader.lines() {
                 let line = line.expect("Failed to read line");
-                println!("{}", line);
+                info!("{}", line);
 
                 if line.contains("listening on 0.0.0.0:3000") {
-                    println!("Keck server started");
+                    info!("Keck server started");
                     break;
                 }
             }
@@ -327,9 +328,9 @@ mod test {
         child.kill().expect("failed to terminate the command");
         let exit_status = child.wait().expect("Failed to wait on child");
         if exit_status.success() {
-            println!("Child process exited successfully");
+            info!("Child process exited successfully");
         } else {
-            eprintln!("Child process exited with an error: {:?}", exit_status.to_string());
+            error!("Child process exited with an error: {:?}", exit_status.to_string());
         }
     }
 }
