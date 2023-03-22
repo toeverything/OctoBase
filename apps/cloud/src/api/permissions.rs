@@ -29,19 +29,19 @@ use std::sync::Arc;
     ),
     responses(
         (status = 200, description = "Return member", body = [Vec<Member>],
-        example=json!([{ 
-        "id": "xxxxx", 
-        "user":  { 
-            "id": "xxx", 
-            "name": "xxx", 
-            "email": "xxx@xxx.xx", 
-            "avatar_url": "xxx", 
-            "created_at": "2023-03-16T08:51:08" }, 
-        "accepted": "true", 
-        "type": "Owner", 
-        "created_at": "2023-03-16T08:51:08" 
+        example=json!([{
+        "id": "xxxxx",
+        "user":  {
+            "id": "xxx",
+            "name": "xxx",
+            "email": "xxx@xxx.xx",
+            "avatar_url": "xxx",
+            "created_at": "2023-03-16T08:51:08" },
+        "accepted": "true",
+        "type": "Owner",
+        "created_at": "2023-03-16T08:51:08"
         }])
-       
+
        ),
         (status = 400, description = "Request parameter error."),
         (status = 403, description = "Sorry, you do not have permission."),
@@ -107,7 +107,7 @@ pub async fn invite_member(
     Json(data): Json<CreatePermission>,
 ) -> Response {
     info!("invite_member enter");
-    let is_test_email= data.clone().email.contains("yangjinfei001@gmail.com");
+    let is_test_email = data.clone().email.contains("yangjinfei001@gmail.com");
     if let Some(site_url) = headers
         .get(REFERER)
         .or_else(|| headers.get(HOST))
@@ -175,18 +175,17 @@ pub async fn invite_member(
         };
         if !is_test_email {
             if let Err(e) = ctx
-            .mail
-            .send_invite_email(send_to, metadata, site_url, &claims, &invite_code)
-            .await
-        {
-            if let Err(e) = ctx.db.delete_permission(permission_id).await {
-                error!("Failed to withdraw permissions: {}", e);
-            }
-            error!("Failed to send email: {}", e);
-            return ErrorStatus::InternalServerError.into_response();
-        };
+                .mail
+                .send_invite_email(send_to, metadata, site_url, &claims, &invite_code)
+                .await
+            {
+                if let Err(e) = ctx.db.delete_permission(permission_id).await {
+                    error!("Failed to withdraw permissions: {}", e);
+                }
+                error!("Failed to send email: {}", e);
+                return ErrorStatus::InternalServerError.into_response();
+            };
         }
-        
 
         StatusCode::OK.into_response()
     } else {
@@ -210,13 +209,13 @@ pub async fn invite_member(
     ),
     responses(
         (status = 200, description = "Return permission", body = Permission,
-        example=json!({ 
-            "id": "xxxxx", 
-            "type": "Admin", 
-            "workspace_id": "xxxx", 
+        example=json!({
+            "id": "xxxxx",
+            "type": "Admin",
+            "workspace_id": "xxxx",
             "user_id": ("xxx"),
-            "user_email": ("xxx2@xxx.xx"), 
-            "accepted": "true", 
+            "user_email": ("xxx2@xxx.xx"),
+            "accepted": "true",
             "created_at": "2023-03-16T09:29:28" }
         )),
         (status = 400, description = "Request parameter error."),
@@ -367,5 +366,188 @@ pub async fn remove_user(
             error!("Failed to remove user: {}", e);
             ErrorStatus::InternalServerError.into_response()
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{super::make_rest_route, *};
+    use axum::body::Body;
+    use axum_test_helper::TestClient;
+    use bytes::Bytes;
+    use cloud_database::CloudDatabase;
+    use futures::stream;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_get_member() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(
+            test_data
+                .into_iter()
+                .map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))),
+        );
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .header("authorization", format!("{}", access_token.clone()))
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let workspace_id = resp_json["id"].as_str().unwrap().to_string();
+        let url = format!("/workspace/{}/permission", workspace_id);
+        let resp = client
+            .get(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_text = resp.text().await;
+        let resp_json: serde_json::Value = serde_json::from_str(&resp_text).unwrap();
+        let first_object = resp_json[0].as_object().unwrap();
+        let permission = first_object["type"].as_i64().unwrap();
+        assert_eq!(permission, 99);
+        let resp = client
+            .get("/workspace/mock_id/permission")
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn test_invite_member() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "yang.jinfei@toeverything.info",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "yang.jinfei@toeverything.info",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(
+            test_data
+                .into_iter()
+                .map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))),
+        );
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .header("authorization", format!("{}", access_token.clone()))
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let workspace_id = resp_json["id"].as_str().unwrap().to_string();
+        let url = format!("/workspace/{}/permission", workspace_id.clone());
+        let referer_url = format!(
+            "https://nightly.affine.pro/workspace/{}",
+            workspace_id.clone()
+        );
+        let body_data = json!({
+            "email": "yangjinfei001@gmail.com",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .header("Content-Type", "application/json")
+            .header("referer", &referer_url)
+            .body(body_string.clone())
+            .send()
+            .await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client
+            .post(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .header("Content-Type", "application/json")
+            .header("referer", &referer_url)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let resp = client
+            .post("/workspace/mock_id/permission")
+            .header("authorization", format!("{}", access_token.clone()))
+            .header("Content-Type", "application/json")
+            .header("referer", &referer_url)
+            .body(body_string.clone())
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     }
 }

@@ -65,7 +65,7 @@ async fn ws_handler(
                 user_id
             } else {
                 let _ = socket
-                    .send(ws::Message::Close(Some(CloseFrame {
+                    .send(collaboration::Message::Close(Some(CloseFrame {
                         code: close_code::POLICY,
                         reason: "Unauthorized".into(),
                     })))
