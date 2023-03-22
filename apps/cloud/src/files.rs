@@ -33,6 +33,25 @@ async fn frontend_handler(uri: Uri) -> Response<BoxBody> {
         .into_response()
 }
 
+#[derive(RustEmbed)]
+#[folder = "../handbook/book"]
+#[include = "*"]
+#[exclude = "*.txt"]
+#[exclude = "*.map"]
+struct JwstDocs;
+
+async fn jwst_docs_handler(uri: Uri) -> Response<BoxBody> {
+    info!("get doc {:?}", uri);
+    fetch_static_response(uri.clone(), false, Some(Frontend::get))
+        .await
+        .into_response()
+}
+
 pub fn static_files(router: Router) -> Router {
-    router.fallback_service(get(frontend_handler))
+    if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
+        router.nest_service("/docs/", get(jwst_docs_handler))
+    } else {
+        router
+    }
+    .fallback_service(get(frontend_handler))
 }

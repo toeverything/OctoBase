@@ -81,6 +81,7 @@ dependencies = [
  "jwst-storage",
  "lettre",
  "lib0",
+ "mdbook",
  "mimalloc",
  "mime",
  "nanoid",
