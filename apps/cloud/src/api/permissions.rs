@@ -107,7 +107,7 @@ pub async fn invite_member(
     Json(data): Json<CreatePermission>,
 ) -> Response {
     info!("invite_member enter");
-    let is_test_email = data.clone().email.contains("yangjinfei001@gmail.com");
+    let is_test_email = data.clone().email.contains("example@toeverything.info");
     if let Some(site_url) = headers
         .get(REFERER)
         .or_else(|| headers.get(HOST))
@@ -468,7 +468,7 @@ mod test {
             "type": "DebugCreateUser",
             "name": "my_username",
             "avatar_url": "my_avatar_url",
-            "email": "yang.jinfei@toeverything.info",
+            "email": "api_test@toeverything.info",
             "password": "my_password",
         });
         let body_string = serde_json::to_string(&body_data).unwrap();
@@ -481,7 +481,7 @@ mod test {
         assert_eq!(resp.status(), StatusCode::OK);
         let body_data = json!({
             "type": "DebugLoginUser",
-            "email": "yang.jinfei@toeverything.info",
+            "email": "api_test@toeverything.info",
             "password": "my_password",
         });
         let body_string = serde_json::to_string(&body_data).unwrap();
@@ -519,7 +519,7 @@ mod test {
             workspace_id.clone()
         );
         let body_data = json!({
-            "email": "yangjinfei001@gmail.com",
+            "email": "example@toeverything.info",
         });
         let body_string = serde_json::to_string(&body_data).unwrap();
         let resp = client
