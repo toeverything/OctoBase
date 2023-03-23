@@ -2,7 +2,6 @@ use super::{constants::sys, utils::JS_INT_RANGE, *};
 use lib0::any::Any;
 use serde::{Serialize, Serializer};
 use std::collections::HashMap;
-use serde::ser::{SerializeSeq, SerializeStruct};
 use serde_json::Value;
 use yrs::{
     types::ToJson, Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, ReadTxn, Transact,
