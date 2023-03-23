@@ -11,10 +11,10 @@ use serde_json::Value as JsonValue;
     get,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}",
+    path = "/{workspace_id}/{block_id}",
     params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
+        ("workspace_id", description = "workspace id"),
+        ("block_id", description = "block id"),
     ),
     responses(
         (status = 200, description = "Get block", body = Block),
@@ -38,17 +38,19 @@ pub async fn get_block(
     }
 }
 
-/// Create or set `Block` with id
+/// Create or modify `Block` if block exists with specific id.
+/// Note that flavor can only be set when creating a block.
 /// - Return 200 and `Block`'s data if `Block`'s content set successful.
 /// - Return 404 Not Found if `Workspace` not exists.
 #[utoipa::path(
     post,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}",
+    path = "/{workspace_id}/{block_id}/?flavor={flavor}",
     params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
+        ("workspace_id", description = "workspace id"),
+        ("block_id", description = "block id"),
+        ("flavor", description = "block flavor, default flavor is text. Optional", Query),
     ),
     request_body(
         content = String,
@@ -63,21 +65,25 @@ pub async fn get_block(
 pub async fn set_block(
     Extension(context): Extension<Arc<Context>>,
     Path(params): Path<(String, String)>,
+    query_param: Option<Query<HashMap<String, String>>>,
     Json(payload): Json<JsonValue>,
 ) -> Response {
     let (ws_id, block_id) = params;
     info!("set_block: {}, {}", ws_id, block_id);
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         let mut update = None;
-
-        // set block content
         let block = workspace.with_trx(|mut t| {
-            let block = t.get_blocks().create(&mut t.trx, &block_id, "text");
+            let flavor = if let Some(query_map) = query_param {
+                query_map.get("flavor").map_or_else(|| String::from("text"), |v| v.clone())
+            } else { String::from("text") };
+
+            let block = t.get_blocks().create(&mut t.trx, &block_id, flavor);
 
             // set block content
             if let Some(block_content) = payload.as_object() {
                 let mut changed = false;
                 for (key, value) in block_content.iter() {
+                    if key == "sys:flavor" { continue; }
                     changed = true;
                     if let Ok(value) = serde_json::from_value::<Any>(value.clone()) {
                         block.set(&mut t.trx, key, value);
@@ -105,78 +111,6 @@ pub async fn set_block(
     }
 }
 
-/// Create or set `Block` with id and flavour
-/// - Return 200 and `Block`'s data if `Block`'s created successful.
-/// - Return 404 Not Found if `Workspace` not exists.
-#[utoipa::path(
-    patch,
-    tag = "Blocks",
-    context_path = "/api/block",
-    path = "/{workspace}/{block}/",
-    params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
-    ),
-    request_body(
-        content = String,
-        description = "json",
-        content_type = "application/json"
-    ),
-    responses(
-        (status = 200, description = "Block created", body = Block),
-        (status = 404, description = "Workspace not found"),
-    )
-)]
-pub async fn set_block_with_flavour(
-    Extension(context): Extension<Arc<Context>>,
-    Path(params): Path<(String, String)>,
-    Json(payload): Json<JsonValue>,
-) -> Response {
-    let (ws_id, block_id) = params;
-
-    let flavour = payload.as_object().map_or_else(
-        || "text",
-        |block_props_map| {
-            block_props_map.get("flavour").map_or_else(
-                || "text",
-                |req_flavour| {
-                    req_flavour.as_str().unwrap_or_else(|| {
-                        warn!("Haven't find flavour in request body, use default flavour: text");
-                        "text"
-                    })
-                },
-            )
-        },
-    );
-
-    info!(
-        "set_block_by_flavour: ws_id, {}, block_id, {}, flavour, {}",
-        ws_id, block_id, flavour
-    );
-
-    let mut update = None;
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        let block = workspace.with_trx(|mut t| {
-            let created_block = t.get_blocks().create(&mut t.trx, block_id, flavour);
-            update = Some(t.trx.encode_update_v1());
-            created_block
-        });
-        if let Some(update) = update {
-            if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
-                error!("db write error: {}", e.to_string());
-            }
-        }
-
-        Json(block).into_response()
-    } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
-        )
-            .into_response()
-    }
-}
-
 /// Get exists `Blocks` in certain `Workspace` by flavour
 /// - Return 200 Ok and `Blocks`'s data if `Blocks` is exists.
 /// - Return 404 Not Found if `Workspace` not exists or 500 Internal Server Error when transaction init fails.
@@ -184,9 +118,9 @@ pub async fn set_block_with_flavour(
     get,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/flavour/{flavour}",
+    path = "/{workspace_id}/flavour/{flavour}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
         ("flavour", description = "block flavour"),
     ),
     responses(
@@ -230,10 +164,10 @@ pub async fn get_block_by_flavour(
     get,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}/history",
+    path = "/{workspace_id}/{block_id}/history",
     params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
+        ("workspace_id", description = "workspace id"),
+        ("block_id", description = "block id"),
     ),
     responses(
         (status = 200, description = "Get block history", body = [BlockHistory]),
@@ -266,10 +200,10 @@ pub async fn get_block_history(
     delete,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}",
+    path = "/{workspace_id}/{block_id}",
     params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
+        ("workspace_id", description = "workspace id"),
+        ("block_id", description = "block id"),
     ),
     responses(
         (status = 204, description = "Block successfully deleted"),
@@ -306,10 +240,10 @@ pub async fn delete_block(
     get,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}/children",
+    path = "/{workspace_id}/{block_id}/children",
     params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
+        ("workspace_id", description = "workspace id"),
+        ("block_id", description = "block id"),
         Pagination
     ),
     responses(
@@ -359,10 +293,10 @@ pub async fn get_block_children(
     post,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}/children",
+    path = "/{workspace_id}/{block_id}/children",
     params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
+        ("workspace_id", description = "workspace id"),
+        ("block_id", description = "block id"),
     ),
     request_body(
         content = InsertChildren,
@@ -446,10 +380,10 @@ pub async fn insert_block_children(
     delete,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace}/{block}/children/{children}",
+    path = "/{workspace_id}/{block_id}/children/{children}",
     params(
-        ("workspace", description = "workspace id"),
-        ("block", description = "block id"),
+        ("workspace_id", description = "workspace id"),
+        ("block_id", description = "block id"),
     ),
     responses(
         (status = 200, description = "Block children removed", body = Block),

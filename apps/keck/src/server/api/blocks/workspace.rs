@@ -14,9 +14,9 @@ use utoipa::IntoParams;
     get,
     tag = "Workspace",
     context_path = "/api/block",
-    path = "/{workspace}",
+    path = "/{workspace_id}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "Get workspace data", body = Workspace),
@@ -46,9 +46,9 @@ pub async fn get_workspace(
     post,
     tag = "Workspace",
     context_path = "/api/block",
-    path = "/{workspace}",
+    path = "/{workspace_id}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "Return workspace data", body = Workspace),
@@ -78,9 +78,9 @@ pub async fn set_workspace(
     delete,
     tag = "Workspace",
     context_path = "/api/block",
-    path = "/{workspace}",
+    path = "/{workspace_id}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
     ),
     responses(
         (status = 204, description = "Workspace data deleted"),
@@ -110,9 +110,9 @@ pub async fn delete_workspace(
     get,
     tag = "Workspace",
     context_path = "/api/block",
-    path = "/{workspace}/client",
+    path = "/{workspace_id}/client",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "Get workspace client id", body = u64),
@@ -149,9 +149,9 @@ pub struct BlockSearchQuery {
     get,
     tag = "Workspace",
     context_path = "/api/search",
-    path = "/{workspace}",
+    path = "/{workspace_id}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
         BlockSearchQuery,
     ),
     responses(
@@ -189,9 +189,9 @@ pub async fn workspace_search(
     get,
     tag = "Workspace",
     context_path = "/api/search",
-    path = "/{workspace}/index",
+    path = "/{workspace_id}/index",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "result", body = Vec<String>),
@@ -219,9 +219,9 @@ pub async fn get_search_index(
     post,
     tag = "Workspace",
     context_path = "/api/search",
-    path = "/{workspace}/index",
+    path = "/{workspace_id}/index",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "success"),
@@ -258,9 +258,9 @@ pub async fn set_search_index(
     get,
     tag = "Workspace",
     context_path = "/api/block",
-    path = "/{workspace}/blocks",
+    path = "/{workspace_id}/blocks",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
         Pagination
     ),
     responses(
@@ -318,9 +318,9 @@ pub async fn get_workspace_block(
     get,
     tag = "Workspace",
     context_path = "/api/block",
-    path = "/{workspace}/history",
+    path = "/{workspace_id}/history",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "Get workspace history client ids", body = [u64]),
@@ -353,9 +353,9 @@ pub async fn history_workspace_clients(
     get,
     tag = "Workspace",
     context_path = "/api/block",
-    path = "/{workspace}/history/{client}",
+    path = "/{workspace_id}/history/{client}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
         ("client", description = "client id, is give 0 then return all clients histories"),
     ),
     responses(

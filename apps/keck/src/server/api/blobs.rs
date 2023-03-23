@@ -18,9 +18,9 @@ struct BlobStatus {
     head,
     tag = "Blobs",
     context_path = "/api/blobs",
-    path = "/{workspace}/{hash}",
+    path = "/{workspace_id}/{hash}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
         ("hash", description = "blob hash"),
     ),
     responses(
@@ -59,9 +59,9 @@ pub async fn check_blob(
     get,
     tag = "Blobs",
     context_path = "/api/blobs",
-    path = "/{workspace}/{hash}",
+    path = "/{workspace_id}/{hash}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
         ("hash", description = "blob hash"),
     ),
     responses(
@@ -94,9 +94,9 @@ pub async fn get_blob(
     post,
     tag = "Blobs",
     context_path = "/api/blobs",
-    path = "/{workspace}/{hash}",
+    path = "/{workspace_id}/{hash}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
         ("hash", description = "blob hash"),
     ),
     request_body(
@@ -158,9 +158,9 @@ pub async fn set_blob(
     delete,
     tag = "Blobs",
     context_path = "/api/blobs",
-    path = "/{workspace}/{hash}",
+    path = "/{workspace_id}/{hash}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
         ("hash", description = "blob hash"),
     ),
     responses(
