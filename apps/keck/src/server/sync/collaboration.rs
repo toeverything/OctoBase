@@ -41,7 +41,6 @@ mod test {
     use jwst::{Block, Workspace};
     use jwst_logger::{error, info};
     use jwst_storage::JwstStorage;
-    use reqwest::Response;
     use std::collections::hash_map::Entry;
     use std::fs;
     use std::io::{BufRead, BufReader};
@@ -112,9 +111,9 @@ mod test {
         for block_id in 0..3 {
             info!(
                 "get block {block_id} from server: {}",
-                get_block_with_api_sync(workspace_id.clone(), block_id.to_string())
+                get_block_from_server(workspace_id.clone(), block_id.to_string())
             );
-            assert!(!get_block_with_api_sync(workspace_id.clone(), block_id.to_string()).is_empty());
+            assert!(!get_block_from_server(workspace_id.clone(), block_id.to_string()).is_empty());
         }
 
         workspace.with_trx(|mut trx| {
@@ -153,9 +152,9 @@ mod test {
         info!("from client, create a block: {:?}", block);
         info!(
             "get block 0 from server: {}",
-            get_block_with_api_sync(workspace_id.clone(), "0".to_string())
+            get_block_from_server(workspace_id.clone(), "0".to_string())
         );
-        assert!(get_block_with_api_sync(workspace_id.clone(), "0".to_string()).is_empty());
+        assert!(get_block_from_server(workspace_id.clone(), "0".to_string()).is_empty());
 
         let (workspace_id, mut workspace, storage) = rt.block_on(async move {
             let workspace_id = String::from("1");
@@ -207,9 +206,9 @@ mod test {
             info!("from client, create a block: {:?}", block);
             info!(
                 "get block {block_id} from server: {}",
-                get_block_with_api_sync(workspace_id.clone(), block_id.to_string())
+                get_block_from_server(workspace_id.clone(), block_id.to_string())
             );
-            assert!(!get_block_with_api_sync(workspace_id.clone(), block_id.to_string()).is_empty());
+            assert!(!get_block_from_server(workspace_id.clone(), block_id.to_string()).is_empty());
         }
 
         workspace.with_trx(|mut trx| {
@@ -228,9 +227,9 @@ mod test {
         for block_id in 0..3 {
             info!(
                 "get block {block_id} from server: {}",
-                get_block_with_api_sync(workspace_id.clone(), block_id.to_string())
+                get_block_from_server(workspace_id.clone(), block_id.to_string())
             );
-            assert!(!get_block_with_api_sync(workspace_id.clone(), block_id.to_string()).is_empty());
+            assert!(!get_block_from_server(workspace_id.clone(), block_id.to_string()).is_empty());
         }
 
         workspace.with_trx(|mut trx| {
@@ -259,23 +258,18 @@ mod test {
         }
     }
 
-    async fn get_block_with_api(workspace_id: String, block_id: String) -> Response {
-        let client = reqwest::Client::new();
-
-        client
-            .get(format!(
-                "http://localhost:3000/api/block/{}/{}",
-                workspace_id, block_id
-            ))
-            .send()
-            .await
-            .unwrap()
-    }
-
-    fn get_block_with_api_sync(workspace_id: String, block_id: String) -> String {
+    fn get_block_from_server(workspace_id: String, block_id: String) -> String {
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
-            let resp = get_block_with_api(workspace_id.clone(), block_id.to_string()).await;
+            let client = reqwest::Client::new();
+            let resp = client
+                .get(format!(
+                    "http://localhost:3000/api/block/{}/{}",
+                    workspace_id, block_id
+                ))
+                .send()
+                .await
+                .unwrap();
             resp.text().await.unwrap()
         })
     }

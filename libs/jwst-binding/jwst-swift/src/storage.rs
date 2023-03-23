@@ -86,3 +86,45 @@ impl Storage {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use tokio::runtime::Runtime;
+    use jwst_storage::{JwstStorage as AutoStorage};
+    use crate::Storage;
+
+    #[tokio::test]
+    async fn get_storage() {
+        let storage = AutoStorage::new(&format!("sqlite::memory?mode=rwc")).await.unwrap();
+        let workspace = storage.create_workspace("1").await.unwrap();
+        assert_eq!(workspace.id(), "1");
+    }
+
+    #[test]
+    #[ignore = "need manually start keck server"]
+    fn collaboration_test() {
+        let mut storage = Storage::new("memory".to_string());
+        let workspace_id = "1";
+        let block_id = "1";
+        let workspace = storage.connect(workspace_id.to_string(), format!("ws://localhost:3000/collaboration/{workspace_id}").to_string()).unwrap();
+        let block = workspace.create(block_id.to_string(), "list".to_string());
+        let resp = get_block_from_server(workspace_id.to_string(), block.id().to_string());
+        assert!(!resp.is_empty());
+    }
+
+    fn get_block_from_server(workspace_id: String, block_id: String) -> String {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let client = reqwest::Client::new();
+            let resp = client
+                .get(format!(
+                    "http://localhost:3000/api/block/{}/{}",
+                    workspace_id, block_id
+                ))
+                .send()
+                .await
+                .unwrap();
+            resp.text().await.unwrap()
+        })
+    }
+}
