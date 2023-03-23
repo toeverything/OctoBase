@@ -542,8 +542,7 @@ impl Serialize for Block {
         let any: Value = serde_json::from_str(&buffer).unwrap();
 
         let mut block = any.as_object().unwrap().clone();
-        block.insert("block_id".to_string(), Value::String(self.block_id.clone()));
-        block.insert("space_id".to_string(), Value::String(self.space_id.clone()));
+        block.insert("sys:id".to_string(), Value::String(self.block_id.clone()));
 
         Value::Object(block).serialize(serializer)
     }
