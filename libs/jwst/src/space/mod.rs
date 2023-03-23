@@ -5,8 +5,13 @@ use serde::{ser::SerializeMap, Serialize, Serializer};
 use transaction::SpaceTransaction;
 use yrs::{Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn};
 
+//         Workspace
+//         /       \
+//     Space ... Space
+//   /  |  \      /    \
+//Block .. Block Block ..Block
 pub struct Space {
-    id: String,
+    workspace_id: String,
     space_id: String,
     doc: Doc,
     pub(super) blocks: MapRef,
@@ -15,7 +20,7 @@ pub struct Space {
 }
 
 impl Space {
-    pub fn new<I, S>(trx: &mut TransactionMut, doc: Doc, id: I, space_id: S) -> Self
+    pub fn new<I, S>(trx: &mut TransactionMut, doc: Doc, workspace_id: I, space_id: S) -> Self
     where
         I: AsRef<str>,
         S: AsRef<str>,
@@ -27,7 +32,7 @@ impl Space {
         let metadata = doc.get_or_insert_map_with_trx(store, constants::space::META);
 
         Self {
-            id: id.as_ref().into(),
+            workspace_id: workspace_id.as_ref().into(),
             space_id,
             doc,
             blocks,
@@ -36,7 +41,7 @@ impl Space {
         }
     }
 
-    pub fn from_exists<I, S>(trx: &TransactionMut, doc: Doc, id: I, space_id: S) -> Option<Self>
+    pub fn from_exists<I, S>(trx: &TransactionMut, doc: Doc, workspace_id: I, space_id: S) -> Option<Self>
     where
         I: AsRef<str>,
         S: AsRef<str>,
@@ -49,7 +54,7 @@ impl Space {
         blocks.and_then(|blocks| {
             updated.and_then(|updated| {
                 metadata.map(|metadata| Self {
-                    id: id.as_ref().into(),
+                    workspace_id: workspace_id.as_ref().into(),
                     space_id,
                     doc,
                     blocks,
@@ -61,7 +66,7 @@ impl Space {
     }
 
     pub fn id(&self) -> String {
-        self.id.clone()
+        self.workspace_id.clone()
     }
 
     pub fn space_id(&self) -> String {
