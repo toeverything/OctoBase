@@ -40,6 +40,6 @@ mod test {
 
         let client = TestClient::new(app);
         let resp = client.get("/healthz").send().await;
-        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
     }
 }
