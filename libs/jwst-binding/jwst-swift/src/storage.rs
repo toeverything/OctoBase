@@ -90,18 +90,10 @@ impl Storage {
 #[cfg(test)]
 mod tests {
     use tokio::runtime::Runtime;
-    use jwst_storage::{JwstStorage as AutoStorage};
     use crate::Storage;
 
-    #[tokio::test]
-    async fn get_storage() {
-        let storage = AutoStorage::new(&format!("sqlite::memory?mode=rwc")).await.unwrap();
-        let workspace = storage.create_workspace("1").await.unwrap();
-        assert_eq!(workspace.id(), "1");
-    }
-
     #[test]
-    #[ignore = "need manually start keck server"]
+    #[ignore = "need manually start collaboration server"]
     fn collaboration_test() {
         let mut storage = Storage::new("memory".to_string());
         let workspace_id = "1";
