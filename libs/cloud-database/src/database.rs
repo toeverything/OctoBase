@@ -1,6 +1,6 @@
 use super::{
     model::{
-        CreateUser, GoogleClaims, Member, MemberResult, PermissionType, RefreshToken,
+        CreateUser, FirebaseClaims, Member, MemberResult, PermissionType, RefreshToken,
         UpdateWorkspace, User, UserCred, UserInWorkspace, UserLogin, Workspace, WorkspaceDetail,
         WorkspaceType, WorkspaceWithPermission,
     },
@@ -633,58 +633,64 @@ impl CloudDatabase {
     }
 
     #[instrument(skip(self))]
-    pub async fn google_user_login(&self, claims: &GoogleClaims) -> Result<UsersModel, DbErr> {
-        info!("database google_user_login enter");
-        let google_user: Option<GoogleUsersModel> = GoogleUsers::find()
+    pub async fn firebase_user_login(&self, claims: &FirebaseClaims) -> Result<UsersModel, DbErr> {
+        info!("database firebase_user_login enter");
+        let firebase_user: Option<GoogleUsersModel> = GoogleUsers::find()
             .filter(GoogleUsersColumn::GoogleId.eq(claims.user_id.clone()))
             .one(&self.pool)
             .await?;
-        if let Some(google_user) = google_user {
-            let model = Users::find()
-                .filter(UsersColumn::Id.eq(google_user.user_id))
-                .one(&self.pool)
-                .await?
-                .unwrap();
-            let id = model.id;
-            let user = Users::update(UsersActiveModel {
-                id: Set(id.clone()),
-                name: Set(claims.name.clone()),
-                email: Set(claims.email.clone()),
-                avatar_url: Set(Some(claims.picture.clone())),
-                ..Default::default()
-            })
-            .filter(UsersColumn::Id.eq(id))
-            .exec(&self.pool)
-            .await?;
-            Ok(user)
-        } else {
-            let id = nanoid!();
-            let user = Users::insert(UsersActiveModel {
-                id: Set(id),
-                name: Set(claims.name.clone()),
-                email: Set(claims.email.clone()),
-                avatar_url: Set(Some(claims.picture.clone())),
-                ..Default::default()
-            })
-            .exec_with_returning(&self.pool)
-            .await?;
-            let google_user_id = nanoid!();
-            GoogleUsers::insert(GoogleUsersActiveModel {
-                id: Set(google_user_id),
-                user_id: Set(user.id.clone()),
-                google_id: Set(claims.user_id.clone()),
-            })
-            .exec_with_returning(&self.pool)
-            .await?;
-            Permissions::update_many()
-                .set(PermissionActiveModel {
-                    user_id: Set(Some(user.id.clone())),
+
+        if let Some(user_info) = &claims.user_info {
+            if let Some(firebase_user) = firebase_user {
+                let model = Users::find()
+                    .filter(UsersColumn::Id.eq(firebase_user.user_id))
+                    .one(&self.pool)
+                    .await?
+                    .unwrap();
+                let id = model.id;
+
+                let user = Users::update(UsersActiveModel {
+                    id: Set(id.clone()),
+                    name: Set(user_info.name.clone().unwrap_or("Uname".into())),
+                    email: Set(user_info.email.clone()),
+                    avatar_url: Set(user_info.picture.clone()),
                     ..Default::default()
                 })
-                .filter(PermissionColumn::UserEmail.eq(claims.email.clone()))
+                .filter(UsersColumn::Id.eq(id))
                 .exec(&self.pool)
                 .await?;
-            Ok(user)
+                Ok(user)
+            } else {
+                let id = nanoid!();
+                let user = Users::insert(UsersActiveModel {
+                    id: Set(id),
+                    name: Set(user_info.name.clone().unwrap_or("Uname".into())),
+                    email: Set(user_info.email.clone()),
+                    avatar_url: Set(user_info.picture.clone()),
+                    ..Default::default()
+                })
+                .exec_with_returning(&self.pool)
+                .await?;
+                let google_user_id = nanoid!();
+                GoogleUsers::insert(GoogleUsersActiveModel {
+                    id: Set(google_user_id),
+                    user_id: Set(user.id.clone()),
+                    google_id: Set(claims.user_id.clone()),
+                })
+                .exec_with_returning(&self.pool)
+                .await?;
+                Permissions::update_many()
+                    .set(PermissionActiveModel {
+                        user_id: Set(Some(user.id.clone())),
+                        ..Default::default()
+                    })
+                    .filter(PermissionColumn::UserEmail.eq(user_info.email.clone()))
+                    .exec(&self.pool)
+                    .await?;
+                Ok(user)
+            }
+        } else {
+            Err(DbErr::RecordNotInserted)
         }
     }
 }

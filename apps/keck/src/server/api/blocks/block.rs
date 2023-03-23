@@ -74,8 +74,12 @@ pub async fn set_block(
         let mut update = None;
         let block = workspace.with_trx(|mut t| {
             let flavor = if let Some(query_map) = query_param {
-                query_map.get("flavor").map_or_else(|| String::from("text"), |v| v.clone())
-            } else { String::from("text") };
+                query_map
+                    .get("flavor")
+                    .map_or_else(|| String::from("text"), |v| v.clone())
+            } else {
+                String::from("text")
+            };
 
             let block = t.get_blocks().create(&mut t.trx, &block_id, flavor);
 
@@ -83,7 +87,9 @@ pub async fn set_block(
             if let Some(block_content) = payload.as_object() {
                 let mut changed = false;
                 for (key, value) in block_content.iter() {
-                    if key == "sys:flavor" { continue; }
+                    if key == "sys:flavor" {
+                        continue;
+                    }
                     changed = true;
                     if let Ok(value) = serde_json::from_value::<Any>(value.clone()) {
                         block.set(&mut t.trx, key, value);
