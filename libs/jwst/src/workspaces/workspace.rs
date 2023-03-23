@@ -29,7 +29,7 @@ use plugins::PluginImpl;
 pub type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>;
 
 pub struct Workspace {
-    id: String,
+    workspace_id: String,
     awareness: Arc<RwLock<Awareness>>,
     doc: Doc,
     pub(crate) updated: MapRef,
@@ -52,12 +52,12 @@ impl Workspace {
         Self::from_doc(doc, id)
     }
 
-    pub fn from_doc<S: AsRef<str>>(doc: Doc, id: S) -> Workspace {
+    pub fn from_doc<S: AsRef<str>>(doc: Doc, workspace_id: S) -> Workspace {
         let updated = doc.get_or_insert_map("space:updated");
         let metadata = doc.get_or_insert_map("space:meta");
 
         setup_plugin(Self {
-            id: id.as_ref().to_string(),
+            workspace_id: workspace_id.as_ref().to_string(),
             awareness: Arc::new(RwLock::new(Awareness::new(doc.clone()))),
             doc,
             updated,
@@ -67,7 +67,7 @@ impl Workspace {
     }
 
     fn from_raw<S: AsRef<str>>(
-        id: S,
+        workspace_id: S,
         awareness: Arc<RwLock<Awareness>>,
         doc: Doc,
         updated: MapRef,
@@ -75,7 +75,7 @@ impl Workspace {
         plugins: PluginMap,
     ) -> Workspace {
         Self {
-            id: id.as_ref().to_string(),
+            workspace_id: workspace_id.as_ref().to_string(),
             awareness,
             doc,
             updated,
@@ -179,7 +179,7 @@ impl Workspace {
     }
 
     pub fn id(&self) -> String {
-        self.id.clone()
+        self.workspace_id.clone()
     }
 
     pub fn client_id(&self) -> u64 {
@@ -378,7 +378,7 @@ impl Serialize for Workspace {
 impl Clone for Workspace {
     fn clone(&self) -> Self {
         Self::from_raw(
-            &self.id,
+            &self.workspace_id,
             self.awareness.clone(),
             self.doc.clone(),
             self.updated.clone(),
