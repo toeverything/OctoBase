@@ -68,8 +68,6 @@ mod test {
                 .await
                 .unwrap();
 
-            create_workspace_with_api(workspace_id.clone()).await;
-
             if let Entry::Vacant(entry) = storage
                 .docs()
                 .remote()
@@ -167,8 +165,6 @@ mod test {
                 .await
                 .unwrap();
 
-            create_workspace_with_api(workspace_id.clone()).await;
-
             if let Entry::Vacant(entry) = storage
                 .docs()
                 .remote()
@@ -261,15 +257,6 @@ mod test {
             Ok(_) => info!("Directory created: {:?}", dir_path),
             Err(err) => error!("Failed to create directory: {}", err),
         }
-    }
-
-    async fn create_workspace_with_api(workspace_id: String) {
-        let client = reqwest::Client::new();
-        client
-            .post(format!("http://localhost:3000/api/block/{}", workspace_id))
-            .send()
-            .await
-            .unwrap();
     }
 
     async fn get_block_with_api(workspace_id: String, block_id: String) -> Response {
