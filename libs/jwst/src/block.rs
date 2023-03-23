@@ -2,6 +2,8 @@ use super::{constants::sys, utils::JS_INT_RANGE, *};
 use lib0::any::Any;
 use serde::{Serialize, Serializer};
 use std::collections::HashMap;
+use serde::ser::{SerializeSeq, SerializeStruct};
+use serde_json::Value;
 use yrs::{
     types::ToJson, Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, ReadTxn, Transact,
     TransactionMut,
@@ -535,7 +537,16 @@ impl Serialize for Block {
     {
         let trx = self.doc.transact();
         let any = self.block.to_json(&trx);
-        any.serialize(serializer)
+
+        let mut buffer = String::new();
+        any.to_json(&mut buffer);
+        let any: Value = serde_json::from_str(&buffer).unwrap();
+
+        let mut block = any.as_object().unwrap().clone();
+        block.insert("block_id".to_string(), Value::String(self.block_id.clone()));
+        block.insert("space_id".to_string(), Value::String(self.space_id.clone()));
+
+        Value::Object(block).serialize(serializer)
     }
 }
 
