@@ -37,6 +37,7 @@ tower-http = { version = "0.4.0", features = [
     "trace",
 ] }
 utoipa = { version = "3.0.3", features = ["axum_extras"] }
+yrs = "0.16.3"
 
 # ======= workspace dependencies =======
 cloud-components = { path = "../../libs/cloud-components" }

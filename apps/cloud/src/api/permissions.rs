@@ -382,7 +382,7 @@ mod test {
     #[tokio::test]
     async fn test_get_member() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test(pool).await;
+        let context = Context::new_test_client(pool).await;
         let ctx = Arc::new(context);
         let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
@@ -459,7 +459,7 @@ mod test {
     #[tokio::test]
     async fn test_invite_member() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test(pool).await;
+        let context = Context::new_test_client(pool).await;
         let ctx = Arc::new(context);
         let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 

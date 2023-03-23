@@ -91,6 +91,7 @@ dependencies = [
  "tokio",
  "tower-http",
  "utoipa 3.1.0",
+ "yrs",
 ]
 
 [[package]]
@@ -2207,8 +2208,9 @@ checksum = "0c2cdeb66e45e9f36bfad5bbdb4d2384e70936afbee843c6f6543f0c551ebb25"
 
 [[package]]
 name = "lib0"
-version = "0.16.3"
-source = "git+https://github.com/toeverything/y-crdt?rev=a3f7263#a3f7263c7425822938de87dc3cca169ccdfab9a4"
+version = "0.16.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3994538ae0215990b1c3df6dc45bb5afad77abce3a6ba3335512c5f5d9bfb1d4"
 dependencies = [
  "serde",
  "serde_json",
@@ -5321,8 +5323,9 @@ dependencies = [
 
 [[package]]
 name = "yrs"
-version = "0.16.3"
-source = "git+https://github.com/toeverything/y-crdt?rev=a3f7263#a3f7263c7425822938de87dc3cca169ccdfab9a4"
+version = "0.16.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b2b23ac465bed6c0ffbb9fbd80ec808bd89b37b823a420b16917d1806d76d75"
 dependencies = [
  "atomic_refcell",
  "lib0",
@@ -5358,3 +5361,13 @@ checksum = "a01728b79fb9b7e28a8c11f715e1cd8dc2cda7416a007d66cac55cebb3a8ac6b"
 dependencies = [
  "simd-adler32",
 ]
+
+[[patch.unused]]
+name = "lib0"
+version = "0.16.3"
+source = "git+https://github.com/toeverything/y-crdt?rev=a3f7263#a3f7263c7425822938de87dc3cca169ccdfab9a4"
+
+[[patch.unused]]
+name = "yrs"
+version = "0.16.3"
+source = "git+https://github.com/toeverything/y-crdt?rev=a3f7263#a3f7263c7425822938de87dc3cca169ccdfab9a4"

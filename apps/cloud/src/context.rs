@@ -40,12 +40,16 @@ impl Context {
             (Some(dir), cloud, storage)
         };
 
+        let db = CloudDatabase::init_pool(&cloud)
+            .await
+            .expect("Cannot create cloud database");
+
+        if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {}
+
         Self {
             _dir,
             // =========== database ===========
-            db: CloudDatabase::init_pool(&cloud)
-                .await
-                .expect("Cannot create cloud database"),
+            db,
             storage: JwstStorage::new(&storage)
                 .await
                 .expect("Cannot create storage"),
@@ -66,6 +70,15 @@ impl Context {
             // =========== sync channel ===========
             channel: RwLock::new(HashMap::new()),
             user_channel: UserChannel::new(),
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) async fn new_test_client(db: CloudDatabase) -> Self {
+        Self {
+            // =========== database ===========
+            db,
+            ..Self::new().await
         }
     }
 
@@ -116,14 +129,6 @@ impl Context {
         }
         for channel in closed {
             self.channel.write().await.remove(&channel);
-        }
-    }
-
-    pub async fn new_test(db: CloudDatabase) -> Self {
-        Self {
-            // =========== database ===========
-            db,
-            ..Self::new().await
         }
     }
 }

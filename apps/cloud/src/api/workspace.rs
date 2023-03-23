@@ -536,7 +536,7 @@ mod test {
     #[tokio::test]
     async fn test_create_workspace() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test(pool).await;
+        let context = Context::new_test_client(pool).await;
         let ctx = Arc::new(context);
         let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
@@ -601,7 +601,7 @@ mod test {
     #[tokio::test]
     async fn test_get_workspace() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test(pool).await;
+        let context = Context::new_test_client(pool).await;
         let ctx = Arc::new(context);
         let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
@@ -674,7 +674,7 @@ mod test {
     #[tokio::test]
     async fn test_get_workspace_by_id() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test(pool).await;
+        let context = Context::new_test_client(pool).await;
         let ctx = Arc::new(context);
         let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
@@ -747,7 +747,7 @@ mod test {
     #[tokio::test]
     async fn test_update_workspace() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test(pool).await;
+        let context = Context::new_test_client(pool).await;
         let ctx = Arc::new(context);
         let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
@@ -839,7 +839,7 @@ mod test {
     #[tokio::test]
     async fn test_delete_workspace() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test(pool).await;
+        let context = Context::new_test_client(pool).await;
         let ctx = Arc::new(context);
         let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
@@ -911,7 +911,7 @@ mod test {
     #[tokio::test]
     async fn test_get_doc() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test(pool).await;
+        let context = Context::new_test_client(pool).await;
         let ctx = Arc::new(context);
         let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 

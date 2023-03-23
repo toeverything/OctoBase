@@ -267,7 +267,7 @@ mod test {
     #[tokio::test]
     async fn test_query_user() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test(pool).await;
+        let context = Context::new_test_client(pool).await;
         let new_user = context
             .db
             .create_user(CreateUser {
@@ -302,7 +302,7 @@ mod test {
     #[tokio::test]
     async fn test_make_token_with_valid_request() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test(pool).await;
+        let context = Context::new_test_client(pool).await;
         let ctx = Arc::new(context);
         let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
@@ -354,7 +354,7 @@ mod test {
     #[tokio::test]
     async fn test_make_token_with_invalid_request() {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test(pool).await;
+        let context = Context::new_test_client(pool).await;
         let ctx = Arc::new(context);
         let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
