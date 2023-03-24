@@ -613,6 +613,13 @@ mod test {
         let resp_json: serde_json::Value = resp.json().await;
         let workspace_id = resp_json["id"].as_str().unwrap().to_string();
         let url = format!("/workspace/{}/permission", workspace_id.clone());
+        let workspace_url = format!("/workspace/{}", workspace_id);
+        let resp = client
+            .get(&workspace_url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
         let referer_url = format!(
             "https://nightly.affine.pro/workspace/{}",
             workspace_id.clone()
@@ -666,25 +673,22 @@ mod test {
         assert_eq!(resp.status(), StatusCode::OK);
         let resp_json: serde_json::Value = resp.json().await;
         let access_token = resp_json["token"].as_str().unwrap().to_string();
-        // let url = format!("/invitation/{}", invite_code);
-        let workspace_url = format!("/workspace/{}", workspace_id);
+        let url = format!("/invitation/{}", invite_code);
         let resp = client
             .get(&workspace_url)
             .header("authorization", format!("{}", access_token.clone()))
             .send()
             .await;
-        println!("{:?}", resp.status());
-        println!("{:?}", resp.text().await);
-        // assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
         // accept invitation
-        // let resp = client.post(&url).send().await;
-        // assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client.post(&url).send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
 
-        // let resp = client
-        //     .get(&workspace_url)
-        //     .header("authorization", format!("{}", access_token.clone()))
-        //     .send()
-        //     .await;
-        // assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client
+            .get(&workspace_url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
     }
 }
