@@ -217,16 +217,25 @@ pub async fn make_token(
         }
     };
 
-    let seconds = match std::env::var("JWT_EXPIRE_SECONDS") {
-        Ok(val) => val.parse::<i64>().unwrap_or(10 * 60),
-        Err(_) => 10 * 60,
-    };
+    let expire_time = std::env::var("JWT_EXPIRE_DAY")
+        .ok()
+        .and_then(|day| day.parse::<i64>().ok())
+        .map(|day| {
+            if day > 0 {
+                Duration::days(day)
+            } else {
+                // if day is 0, set expire time to 1 second
+                // that means token will expire immediately
+                Duration::seconds(1)
+            }
+        })
+        .unwrap_or_else(|| Duration::days(180));
 
     match user {
         Ok(Some(user)) => {
             let Some(refresh) = refresh.or_else(|| {
                 let refresh = RefreshToken {
-                    expires: Utc::now().naive_utc() + Duration::days(180),
+                    expires: Utc::now().naive_utc() + expire_time,
                     user_id: user.id.clone(),
                     token_nonce: user.token_nonce.unwrap(),
                 };
@@ -239,7 +248,7 @@ pub async fn make_token(
             };
 
             let claims = Claims {
-                exp: Utc::now().naive_utc() + Duration::seconds(seconds),
+                exp: Utc::now().naive_utc() + Duration::minutes(10),
                 user: User {
                     id: user.id,
                     name: user.name,
@@ -306,7 +315,7 @@ mod test {
 
     #[tokio::test]
     async fn test_with_token_expire() {
-        std::env::set_var("JWT_EXPIRE_SECONDS", "1");
+        std::env::set_var("JWT_EXPIRE_DAY", "0");
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
         let context = Context::new_test(pool).await;
         let ctx = Arc::new(context);
@@ -330,14 +339,18 @@ mod test {
         let resp_json: serde_json::Value = resp.json().await;
         let token = resp_json["token"].as_str().unwrap().to_string();
 
-        let resp = client.get("/workspace")
+        let resp = client
+            .get("/workspace")
             .header("authorization", format!("{}", token))
-            .send().await;
+            .send()
+            .await;
         assert_eq!(resp.status(), StatusCode::OK);
         std::thread::sleep(std::time::Duration::from_secs(2));
-        let resp = client.get("/workspace")
+        let resp = client
+            .get("/workspace")
             .header("authorization", format!("{}", token))
-            .send().await;
+            .send()
+            .await;
         assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     }
 
