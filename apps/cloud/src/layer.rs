@@ -72,6 +72,8 @@ impl MakeRequestId for MakeRequestUuid {
     }
 }
 
+const EXCLUDED_URIS: [&str; 1] = ["/api/healthz"];
+
 pub fn make_tracing_layer(router: Router) -> Router {
     router
         .layer(
@@ -85,13 +87,17 @@ pub fn make_tracing_layer(router: Router) -> Router {
                     "HTTP",
                     %request_id,
                 );
-                info!(
-                    "[HTTP:request_id={}] {:?} {} {}",
-                    request_id,
-                    request.version(),
-                    request.method(),
-                    request.uri(),
-                );
+                let uri = request.uri();
+                if !EXCLUDED_URIS.contains(&uri.path()) {
+                    info!(
+                        "[HTTP:request_id={}] {:?} {} {}",
+                        request_id,
+                        request.version(),
+                        request.method(),
+                        request.uri(),
+                    );
+                }
+
                 span
             }),
         )

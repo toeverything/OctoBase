@@ -35,7 +35,7 @@ async fn main() {
 
     let context = Arc::new(context::Context::new().await);
 
-    let app = layer::make_tracing_layer(files::static_files(
+    let app = layer::make_tracing_layer(files::self_hosted_routers(
         Router::new()
             .nest(
                 "/api",

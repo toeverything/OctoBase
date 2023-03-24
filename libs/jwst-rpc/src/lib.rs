@@ -35,16 +35,16 @@ pub async fn handle_connector(
     // An abstraction of the established socket connection. Use tx to broadcast and rx to receive.
     let (tx, rx, first_init) = get_channel();
 
+    let mut ws = context
+        .get_workspace(&workspace_id)
+        .await
+        .expect("failed to get workspace");
+
     // Continuously receive information from the remote socket, apply it to the local workspace, and
     // send the encoded updates back to the remote end through the socket.
     context
         .apply_change(&workspace_id, &identifier, tx.clone(), rx)
         .await;
-
-    let mut ws = context
-        .get_workspace(&workspace_id)
-        .await
-        .expect("failed to get workspace");
 
     // Both of broadcast_update and server_update are sent to the remote socket through 'tx'
     // The 'broadcast_update' is the receiver for updates to the awareness and Doc of the local workspace.
@@ -79,7 +79,7 @@ pub async fn handle_connector(
     'sync: loop {
         tokio::select! {
             Ok(msg) = server_rx.recv()=> {
-                info!("server_rx.recv()");
+                debug!("server_rx.recv()");
                 let ts = Instant::now();
                 trace!("recv from server update: {:?}", msg);
                 if tx.send(Message::Binary(msg.clone())).await.is_err() {
@@ -92,7 +92,7 @@ pub async fn handle_connector(
 
             },
             Ok(msg) = broadcast_rx.recv()=> {
-                info!("broadcast_rx.recv()");
+                debug!("broadcast_rx.recv()");
                 let ts = Instant::now();
                 match msg {
                     BroadcastType::BroadcastAwareness(data) => {
@@ -165,7 +165,6 @@ pub async fn handle_connector(
         }
     }
 
-    info!("exited");
     // make a final store
     context
         .get_storage()
@@ -278,7 +277,7 @@ mod test {
                             let _ = futures::executor::block_on(doc_tx.send(Message::Close));
                         }
                     })
-                        .unwrap()
+                    .unwrap()
                 };
 
                 doc.retry_with_trx(
