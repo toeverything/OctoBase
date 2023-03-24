@@ -35,16 +35,17 @@ pub async fn handle_connector(
     // An abstraction of the established socket connection. Use tx to broadcast and rx to receive.
     let (tx, rx, first_init) = get_channel();
 
-    // Continuously receive information from the remote socket, apply it to the local workspace, and
-    // send the encoded updates back to the remote end through the socket.
-    context
-        .apply_change(&workspace_id, &identifier, tx.clone(), rx)
-        .await;
 
     let mut ws = context
         .get_workspace(&workspace_id)
         .await
         .expect("failed to get workspace");
+
+    // Continuously receive information from the remote socket, apply it to the local workspace, and
+    // send the encoded updates back to the remote end through the socket.
+    context
+        .apply_change(&workspace_id, &identifier, tx.clone(), rx)
+        .await;
 
     // Both of broadcast_update and server_update are sent to the remote socket through 'tx'
     // The 'broadcast_update' is the receiver for updates to the awareness and Doc of the local workspace.
