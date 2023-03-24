@@ -217,7 +217,7 @@ pub async fn make_token(
         }
     };
 
-    let expire_time = std::env::var("JWT_EXPIRE_DAY")
+    let refresh_token_expire_time = std::env::var("JWT_REFRESH_TOKEN_EXPIRE_DAY")
         .ok()
         .and_then(|day| day.parse::<i64>().ok())
         .map(|day| {
@@ -231,11 +231,25 @@ pub async fn make_token(
         })
         .unwrap_or_else(|| Duration::days(180));
 
+    let access_token_expire_time = std::env::var("JWT_ACCESS_TOKEN_EXPIRE_SECONDS")
+        .ok()
+        .and_then(|seconds| seconds.parse::<i64>().ok())
+        .map(|seconds| {
+            if seconds > 0 {
+                Duration::seconds(seconds)
+            } else {
+                // if day is 0, set expire time to 1 second
+                // that means token will expire immediately
+                Duration::seconds(1)
+            }
+        })
+        .unwrap_or_else(|| Duration::minutes(10));
+
     match user {
         Ok(Some(user)) => {
             let Some(refresh) = refresh.or_else(|| {
                 let refresh = RefreshToken {
-                    expires: Utc::now().naive_utc() + expire_time,
+                    expires: Utc::now().naive_utc() + refresh_token_expire_time,
                     user_id: user.id.clone(),
                     token_nonce: user.token_nonce.unwrap(),
                 };
@@ -248,7 +262,7 @@ pub async fn make_token(
             };
 
             let claims = Claims {
-                exp: Utc::now().naive_utc() + Duration::minutes(10),
+                exp: Utc::now().naive_utc() + access_token_expire_time,
                 user: User {
                     id: user.id,
                     name: user.name,
@@ -315,7 +329,8 @@ mod test {
 
     #[tokio::test]
     async fn test_with_token_expire() {
-        std::env::set_var("JWT_EXPIRE_DAY", "0");
+        std::env::set_var("JWT_REFRESH_TOKEN_EXPIRE_DAY", "0");
+        std::env::set_var("JWT_ACCESS_TOKEN_EXPIRE_SECONDS", "1");
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
         let context = Context::new_test(pool).await;
         let ctx = Arc::new(context);
@@ -337,18 +352,32 @@ mod test {
             .send()
             .await;
         let resp_json: serde_json::Value = resp.json().await;
-        let token = resp_json["token"].as_str().unwrap().to_string();
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let refresh_token = resp_json["refresh"].as_str().unwrap().to_string();
 
         let resp = client
             .get("/workspace")
-            .header("authorization", format!("{}", token))
+            .header("authorization", format!("{}", access_token))
             .send()
             .await;
         assert_eq!(resp.status(), StatusCode::OK);
         std::thread::sleep(std::time::Duration::from_secs(2));
+
+        let body_data = json!({
+            "type": "Refresh",
+            "token": refresh_token
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
         let resp = client
             .get("/workspace")
-            .header("authorization", format!("{}", token))
+            .header("authorization", format!("{}", access_token))
             .send()
             .await;
         assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
