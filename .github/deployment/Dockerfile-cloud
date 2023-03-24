@@ -1,4 +1,4 @@
-ARG BASE_STATIC_IMAGE=ghcr.io/toeverything/affine-pathfinder:canary-aae10d44e8893f9ee7fc45dfd72b7689b177ef88
+ARG BASE_STATIC_IMAGE=ghcr.io/toeverything/affine-pathfinder:nightly-latest
 FROM ${BASE_STATIC_IMAGE} as frontend
 
 FROM messense/rust-musl-cross:x86_64-musl AS builder-amd64

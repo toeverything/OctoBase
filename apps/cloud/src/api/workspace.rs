@@ -142,11 +142,11 @@ pub async fn get_workspace_by_id(
     info!("get_workspace_by_id enter");
     match ctx
         .db
-        .get_permission(claims.user.id.clone(), workspace_id.clone())
+        .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
         .await
     {
-        Ok(Some(_)) => (),
-        Ok(None) => return ErrorStatus::Forbidden.into_response(),
+        Ok(true) => (),
+        Ok(false) => return ErrorStatus::Forbidden.into_response(),
         Err(e) => {
             error!("Failed to get permission: {:?}", e);
             return ErrorStatus::InternalServerError.into_response();
