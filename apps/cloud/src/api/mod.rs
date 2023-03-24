@@ -243,7 +243,7 @@ pub async fn make_token(
                 Duration::seconds(1)
             }
         })
-        .unwrap_or_else(|| Duration::minutes(10));
+        .unwrap_or_else(|| Duration::minutes(60));
 
     match user {
         Ok(Some(user)) => {
