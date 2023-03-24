@@ -27,7 +27,6 @@ struct Frontend;
 struct Frontend;
 
 async fn frontend_handler(uri: Uri) -> Response<BoxBody> {
-    info!("get static {:?}", uri);
     fetch_static_response(uri.clone(), true, Some(Frontend::get))
         .await
         .into_response()
@@ -41,13 +40,12 @@ async fn frontend_handler(uri: Uri) -> Response<BoxBody> {
 struct JwstDocs;
 
 async fn jwst_docs_handler(uri: Uri) -> Response<BoxBody> {
-    info!("get doc {:?}", uri);
     fetch_static_response(uri.clone(), false, Some(JwstDocs::get))
         .await
         .into_response()
 }
 
-pub fn static_files(router: Router) -> Router {
+pub fn self_hosted_routers(router: Router) -> Router {
     if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
         router.nest_service("/docs/", get(jwst_docs_handler))
     } else {
