@@ -25,4 +25,4 @@ swift-bridge-build = "0.1.48"
 
 [dev-dependencies]
 reqwest = { version = "0.11.14", default-features = false, features = ["json", "rustls-tls"] }
-
+regex = "1.7.2"

@@ -90,24 +90,37 @@ impl Storage {
 #[cfg(test)]
 mod tests {
     use tokio::runtime::Runtime;
-    use crate::Storage;
+    use crate::{Storage, Workspace};
 
     #[test]
     #[ignore = "need manually start collaboration server"]
     fn collaboration_test() {
-        let mut storage = Storage::new("memory".to_string());
-        let workspace_id = "1";
-        let block_id = "1";
-        let workspace = storage.connect(workspace_id.to_string(), format!("ws://localhost:3000/collaboration/{workspace_id}").to_string()).unwrap();
+        let (workspace_id, block_id) = ("32", "1");
+        let workspace = get_workspace(workspace_id, block_id);
         let block = workspace.create(block_id.to_string(), "list".to_string());
+        block.set_bool("bool_prop".to_string(), true);
+        block.set_float("float_prop".to_string(), 1.0);
+        block.push_children(&workspace.create("2".to_string(), "list".to_string()));
+
         let resp = get_block_from_server(workspace_id.to_string(), block.id().to_string());
         assert!(!resp.is_empty());
+        let prop_extractor = r#"("prop:bool_prop":true)|("prop:float_prop":1\.0)|("sys:children":\["2"\])"#;
+        let re = regex::Regex::new(prop_extractor).unwrap();
+        assert_eq!(re.find_iter(resp.as_str()).count(), 3);
+    }
+
+    fn get_workspace(workspace_id: &str, block_id: &str) -> Workspace {
+        let mut storage = Storage::new("memory".to_string());
+        storage.connect(workspace_id.to_string(), format!("ws://localhost:3000/collaboration/{workspace_id}").to_string()).unwrap()
     }
 
     fn get_block_from_server(workspace_id: String, block_id: String) -> String {
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
-            let client = reqwest::Client::new();
+            let client = reqwest::Client::builder()
+                .no_proxy()
+                .build()
+                .unwrap();
             let resp = client
                 .get(format!(
                     "http://localhost:3000/api/block/{}/{}",
