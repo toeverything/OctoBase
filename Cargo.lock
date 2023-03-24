@@ -2110,6 +2110,7 @@ dependencies = [
  "jwst-rpc",
  "jwst-storage",
  "lib0",
+ "reqwest",
  "swift-bridge",
  "swift-bridge-build",
  "tokio",
