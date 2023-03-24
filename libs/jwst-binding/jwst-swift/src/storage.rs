@@ -95,8 +95,8 @@ mod tests {
     #[test]
     #[ignore = "need manually start collaboration server"]
     fn collaboration_test() {
-        let (workspace_id, block_id) = ("32", "1");
-        let workspace = get_workspace(workspace_id, block_id);
+        let (workspace_id, block_id) = ("1", "1");
+        let workspace = get_workspace(workspace_id);
         let block = workspace.create(block_id.to_string(), "list".to_string());
         block.set_bool("bool_prop".to_string(), true);
         block.set_float("float_prop".to_string(), 1.0);
@@ -109,7 +109,7 @@ mod tests {
         assert_eq!(re.find_iter(resp.as_str()).count(), 3);
     }
 
-    fn get_workspace(workspace_id: &str, block_id: &str) -> Workspace {
+    fn get_workspace(workspace_id: &str) -> Workspace {
         let mut storage = Storage::new("memory".to_string());
         storage.connect(workspace_id.to_string(), format!("ws://localhost:3000/collaboration/{workspace_id}").to_string()).unwrap()
     }
