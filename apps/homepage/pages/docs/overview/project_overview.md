@@ -14,7 +14,7 @@ The original meaning of `Keck` is `WM Keck Observatory`, and it was the largest 
 
 `Keck` is the first synchronous server prototype developed by affine. Its first version was written in `node.js` and then ported to rust. Currently its synchronization logic is abstracted and moved to `jwst-rpc`, which currently provides high-performance data synchronization service and is compatible with yjs, and a RESTful API that can read and modifies BlockSchema create by AFFiNE/BlockSuite/OctoBase client.
 
-![keck](./project_overview_keck.jpg)
+![keck](./assets/project_overview_keck.jpg)
 
 ### Cloud
 
@@ -22,7 +22,7 @@ The original meaning of `Keck` is `WM Keck Observatory`, and it was the largest 
 
 `Cloud` server can be used as the backend of AFFiNE and supports a variety of storage backends.
 
-![keck](./project_overview_cloud.jpg)
+![keck](./assets/project_overview_cloud.jpg)
 
 ## Binding
 
@@ -30,10 +30,6 @@ The `android` and `swift` folders are the bindings of OctoBase to `Android` and 
 
 The folders contain corresponding example projects. Users can use `kotlin` or `swift` to call OctoBase to read and write data that compatible with AFFiNE/BlockSuite/OctoBase clients.
 
-## Docs
+## Homepage
 
-The document you are currently viewing is placed in the `handbook`.
-
-## Frontend
-
-`homepage` and `jwt` are examples of OctoBase's home page and TypeScript version of OctoBase respectively, which are still under development.
+`homepage` is OctoBase's home page and documentation, which are still under development.

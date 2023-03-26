@@ -8,11 +8,11 @@
 
 -   Next, install NDK to compile Rust code on an Android device. After starting the project, select Tools > SDK Manager from the top toolbar in Android Studio. On the SDK Platforms tab, find the Android version that is suitable for your device (Android 12.0 is recommended) and install the corresponding NDK.
 
-    ![android studio setting](./binding_as_setting.png)
+    ![android studio setting](./assets/binding_as_setting.png)
 
 -   Create an ADV virtual machine: You can create an ADV virtual machine using the AVD Manager.
 
-    ![android studio adv setting](./binding_as_adv.png)
+    ![android studio adv setting](./assets/binding_as_adv.png)
 
 ### Run OctoBase demo app
 
@@ -28,7 +28,7 @@ Use Android Studio to select and launch project in `apps/android`.
 
 Then, select the app and launch OctoBase Demo App.
 
-![android studio start app](./binding_as_start.png)
+![android studio start app](./assets/binding_as_start.png)
 
 ### Export Interfaces
 
@@ -60,7 +60,7 @@ To export interfaces, modify two files:
 
 -   Make sure the compilation target is iOS/iPadOS
 
-    ![xcode target](./binding_xcode_target.jpg)
+    ![xcode target](./assets/binding_xcode_target.jpg)
 
 -   Launch the project in the IDE at apps/swift.
 

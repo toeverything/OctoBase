@@ -51,8 +51,8 @@ use utoipa::OpenApi;
 )]
 struct ApiDoc;
 
-const README: &str = include_str!("../../../../../handbook/src/README.md");
-const CORE_CONCEPT: &str = include_str!("../../../../../handbook/src/core_concept.md");
+const README: &str = include_str!("../../../../../homepage/pages/docs/introduction.md");
+const CORE_CONCEPT: &str = include_str!("../../../../../homepage/docs/overview/core_concept.md");
 
 fn doc_apis(router: Router) -> Router {
     if cfg!(feature = "schema") {
