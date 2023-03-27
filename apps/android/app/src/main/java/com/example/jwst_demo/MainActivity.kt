@@ -76,9 +76,10 @@ class MainActivity : AppCompatActivity() {
             workspace.withTrx { trx ->
                 trx.create("test", "list")
                 trx.create("test2", "list")
-                val blocks = workspace.getBlocksByFlavour("list")
-                Log.i("getBlocksByFlavour", blocks.toString())
             }
+
+            val blocks = workspace.getBlocksByFlavour("list")
+            Log.i("getBlocksByFlavour", blocks.toString())
 
             // search demo
             Log.i("jwst", "search demo")
