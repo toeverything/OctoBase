@@ -6,6 +6,7 @@ use axum::{
     Router,
 };
 use bytes::Bytes;
+use chrono::Utc;
 use cloud_database::Claims;
 use futures_util::future::BoxFuture;
 use http_body::combinators::UnsyncBoxBody;
@@ -51,8 +52,12 @@ where
         let key = self.decoding_key.clone();
         Box::pin(async move {
             if let Some(claims) = Self::check_auth(key, &request) {
-                request.extensions_mut().insert(Arc::new(claims));
-                Ok(request)
+                if claims.exp > Utc::now().naive_utc() {
+                    request.extensions_mut().insert(Arc::new(claims));
+                    Ok(request)
+                } else {
+                    Err(ErrorStatus::Unauthorized.into_response())
+                }
             } else {
                 Err(ErrorStatus::Unauthorized.into_response())
             }
@@ -74,6 +79,8 @@ impl MakeRequestId for MakeRequestUuid {
     }
 }
 
+const EXCLUDED_URIS: [&str; 1] = ["/api/healthz"];
+
 pub fn make_tracing_layer(router: Router) -> Router {
     router
         .layer(
@@ -87,13 +94,17 @@ pub fn make_tracing_layer(router: Router) -> Router {
                     "HTTP",
                     %request_id,
                 );
-                info!(
-                    "[HTTP:request_id={}] {:?} {} {}",
-                    request_id,
-                    request.version(),
-                    request.method(),
-                    request.uri(),
-                );
+                let uri = request.uri();
+                if !EXCLUDED_URIS.contains(&uri.path()) {
+                    info!(
+                        "[HTTP:request_id={}] {:?} {} {}",
+                        request_id,
+                        request.version(),
+                        request.method(),
+                        request.uri(),
+                    );
+                }
+
                 span
             }),
         )

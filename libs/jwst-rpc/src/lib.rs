@@ -35,7 +35,6 @@ pub async fn handle_connector(
     // An abstraction of the established socket connection. Use tx to broadcast and rx to receive.
     let (tx, rx, first_init) = get_channel();
 
-
     let mut ws = context
         .get_workspace(&workspace_id)
         .await
@@ -80,7 +79,7 @@ pub async fn handle_connector(
     'sync: loop {
         tokio::select! {
             Ok(msg) = server_rx.recv()=> {
-                info!("server_rx.recv()");
+                debug!("server_rx.recv()");
                 let ts = Instant::now();
                 trace!("recv from server update: {:?}", msg);
                 if tx.send(Message::Binary(msg.clone())).await.is_err() {
@@ -93,7 +92,7 @@ pub async fn handle_connector(
 
             },
             Ok(msg) = broadcast_rx.recv()=> {
-                info!("broadcast_rx.recv()");
+                debug!("broadcast_rx.recv()");
                 let ts = Instant::now();
                 match msg {
                     BroadcastType::BroadcastAwareness(data) => {
@@ -166,7 +165,6 @@ pub async fn handle_connector(
         }
     }
 
-    info!("exited");
     // make a final store
     context
         .get_storage()
@@ -279,7 +277,7 @@ mod test {
                             let _ = futures::executor::block_on(doc_tx.send(Message::Close));
                         }
                     })
-                        .unwrap()
+                    .unwrap()
                 };
 
                 doc.retry_with_trx(
