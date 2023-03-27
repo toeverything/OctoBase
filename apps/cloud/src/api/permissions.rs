@@ -107,7 +107,7 @@ pub async fn invite_member(
     Json(data): Json<CreatePermission>,
 ) -> Response {
     info!("invite_member enter");
-    let is_test_email = data.clone().email.contains("yangjinfei001@gmail.com");
+    let is_test_email = data.clone().email.contains("example@toeverything.info");
     if let Some(site_url) = headers
         .get(REFERER)
         .or_else(|| headers.get(HOST))
@@ -185,6 +185,8 @@ pub async fn invite_member(
                 error!("Failed to send email: {}", e);
                 return ErrorStatus::InternalServerError.into_response();
             };
+        } else if is_test_email {
+            return Json(&invite_code).into_response();
         }
 
         StatusCode::OK.into_response()
@@ -468,7 +470,7 @@ mod test {
             "type": "DebugCreateUser",
             "name": "my_username",
             "avatar_url": "my_avatar_url",
-            "email": "yang.jinfei@toeverything.info",
+            "email": "api_test@toeverything.info",
             "password": "my_password",
         });
         let body_string = serde_json::to_string(&body_data).unwrap();
@@ -481,7 +483,7 @@ mod test {
         assert_eq!(resp.status(), StatusCode::OK);
         let body_data = json!({
             "type": "DebugLoginUser",
-            "email": "yang.jinfei@toeverything.info",
+            "email": "api_test@toeverything.info",
             "password": "my_password",
         });
         let body_string = serde_json::to_string(&body_data).unwrap();
@@ -519,7 +521,7 @@ mod test {
             workspace_id.clone()
         );
         let body_data = json!({
-            "email": "yangjinfei001@gmail.com",
+            "email": "example@toeverything.info",
         });
         let body_string = serde_json::to_string(&body_data).unwrap();
         let resp = client
@@ -546,6 +548,460 @@ mod test {
             .header("Content-Type", "application/json")
             .header("referer", &referer_url)
             .body(body_string.clone())
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn test_accept_invitation() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        // create user 1th
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "api_test@toeverything.info",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        // login user 1th
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "api_test@toeverything.info",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(
+            test_data
+                .into_iter()
+                .map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))),
+        );
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+        // create workspace
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .header("authorization", format!("{}", access_token.clone()))
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let workspace_id = resp_json["id"].as_str().unwrap().to_string();
+        let url = format!("/workspace/{}/permission", workspace_id.clone());
+        let workspace_url = format!("/workspace/{}", workspace_id);
+        let resp = client
+            .get(&workspace_url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let referer_url = format!(
+            "https://nightly.affine.pro/workspace/{}",
+            workspace_id.clone()
+        );
+        let body_data = json!({
+            "email": "example@toeverything.info",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        // create invitation
+        let resp = client
+            .post(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .header("Content-Type", "application/json")
+            .header("referer", &referer_url)
+            .body(body_string.clone())
+            .send()
+            .await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_text = resp.text().await;
+        let invite_code = resp_text.trim_matches('\"').to_string();
+        // create user 2th
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "new_username",
+            "avatar_url": "new_avatar_url",
+            "email": "example@toeverything.info",
+            "password": "new_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        // login user 2th
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "example@toeverything.info",
+            "password": "new_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string.clone())
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let url = format!("/invitation/{}", invite_code);
+        let resp = client
+            .get(&workspace_url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        // accept invitation
+        let resp = client.post(&url).send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = client
+            .get(&workspace_url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_leave_workspace() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        // create user 1th
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "api_test@toeverything.info",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        // login user 1th
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "api_test@toeverything.info",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(
+            test_data
+                .into_iter()
+                .map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))),
+        );
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+        // create workspace
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .header("authorization", format!("{}", access_token.clone()))
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let workspace_id = resp_json["id"].as_str().unwrap().to_string();
+        let url = format!("/workspace/{}/permission", workspace_id.clone());
+        let workspace_url = format!("/workspace/{}", workspace_id);
+        let resp = client
+            .get(&workspace_url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let referer_url = format!(
+            "https://nightly.affine.pro/workspace/{}",
+            workspace_id.clone()
+        );
+        let body_data = json!({
+            "email": "example@toeverything.info",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        // create invitation
+        let resp = client
+            .post(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .header("Content-Type", "application/json")
+            .header("referer", &referer_url)
+            .body(body_string.clone())
+            .send()
+            .await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_text = resp.text().await;
+        let invite_code = resp_text.trim_matches('\"').to_string();
+        // create user 2th
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "new_username",
+            "avatar_url": "new_avatar_url",
+            "email": "example@toeverything.info",
+            "password": "new_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        // login user 2th
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "example@toeverything.info",
+            "password": "new_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string.clone())
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let url = format!("/invitation/{}", invite_code);
+        let resp = client
+            .get(&workspace_url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        // accept invitation
+        let resp = client.post(&url).send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = client
+            .get(&workspace_url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        //leave workspace
+        let url = format!("/workspace/{}/permission", workspace_id.clone());
+        let resp = client
+            .delete(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = client
+            .get(&workspace_url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn test_remove_user() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test(pool).await;
+        let ctx = Arc::new(context);
+        let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        // create user 1th
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "api_test@toeverything.info",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        // login user 1th
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "api_test@toeverything.info",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token_owner = resp_json["token"].as_str().unwrap().to_string();
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(
+            test_data
+                .into_iter()
+                .map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))),
+        );
+        let body_stream = Body::wrap_stream(test_data_stream.clone());
+        // create workspace
+        let resp = client
+            .post("/workspace")
+            .header("Content-Length", test_data_len.to_string())
+            .header("authorization", format!("{}", access_token_owner.clone()))
+            .body(body_stream)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let workspace_id = resp_json["id"].as_str().unwrap().to_string();
+        let url = format!("/workspace/{}/permission", workspace_id.clone());
+        let workspace_url = format!("/workspace/{}", workspace_id);
+        let resp = client
+            .get(&workspace_url)
+            .header("authorization", format!("{}", access_token_owner.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let referer_url = format!(
+            "https://nightly.affine.pro/workspace/{}",
+            workspace_id.clone()
+        );
+        let body_data = json!({
+            "email": "example@toeverything.info",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        // create invitation
+        let resp = client
+            .post(&url)
+            .header("authorization", format!("{}", access_token_owner.clone()))
+            .header("Content-Type", "application/json")
+            .header("referer", &referer_url)
+            .body(body_string.clone())
+            .send()
+            .await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_text = resp.text().await;
+        let invite_code = resp_text.trim_matches('\"').to_string();
+        // create user 2th
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "new_username",
+            "avatar_url": "new_avatar_url",
+            "email": "example@toeverything.info",
+            "password": "new_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        // login user 2th
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "example@toeverything.info",
+            "password": "new_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string.clone())
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token_member = resp_json["token"].as_str().unwrap().to_string();
+        let url = format!("/invitation/{}", invite_code);
+        let resp = client
+            .get(&workspace_url)
+            .header("authorization", format!("{}", access_token_member.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        // accept invitation
+        let resp = client.post(&url).send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let permission_id = resp_json["id"].as_str().unwrap().to_string();
+
+        let resp = client
+            .get(&workspace_url)
+            .header("authorization", format!("{}", access_token_member.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        //leave workspace
+        let url = format!("/permission/{}", permission_id.clone());
+        let resp = client
+            .delete(&url)
+            .header("authorization", format!("{}", access_token_member.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        let resp = client
+            .delete(&url)
+            .header("authorization", format!("{}", access_token_owner.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client
+            .get(&workspace_url)
+            .header("authorization", format!("{}", access_token_member.clone()))
             .send()
             .await;
         assert_eq!(resp.status(), StatusCode::FORBIDDEN);

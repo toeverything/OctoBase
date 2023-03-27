@@ -38,6 +38,10 @@ class Workspace(workspace: JwstWorkspace) {
         return this.workspace.exists(trx.trx, block_id)
     }
 
+    fun getBlocksByFlavour(flavour: String) : List<Block> {
+        return this.workspace.getBlocksByFlavour(flavour).map { block -> Block(block) }
+    }
+
     fun <T> withTrx(callback: (trx: WorkspaceTransaction) -> T): T? {
         var ret: T? = null
         for (i in 0..5) {
