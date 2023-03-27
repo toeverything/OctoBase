@@ -976,6 +976,8 @@ mod test {
         // accept invitation
         let resp = client.post(&url).send().await;
         assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let permission_id = resp_json["id"].as_str().unwrap().to_string();
 
         let resp = client
             .get(&workspace_url)
@@ -984,10 +986,10 @@ mod test {
             .await;
         assert_eq!(resp.status(), StatusCode::OK);
         //leave workspace
-        let url = format!("/workspace/{}/permission", workspace_id.clone());
+        let url = format!("/permission/{}", permission_id.clone());
         let resp = client
             .delete(&url)
-            .header("authorization", format!("{}", access_token_member.clone()))
+            .header("authorization", format!("{}", access_token_owner.clone()))
             .send()
             .await;
         assert_eq!(resp.status(), StatusCode::OK);
