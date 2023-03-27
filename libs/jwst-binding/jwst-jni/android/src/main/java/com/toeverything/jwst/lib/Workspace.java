@@ -56,6 +56,13 @@ public final class Workspace {
     }
     private static native boolean do_withTrx(long self, OnWorkspaceTransaction on_trx);
 
+    public final @NonNull Block [] getBlocksByFlavour(@NonNull String flavour) {
+        Block [] ret = do_getBlocksByFlavour(mNativeObj, flavour);
+
+        return ret;
+    }
+    private static native @NonNull Block [] do_getBlocksByFlavour(long self, @NonNull String flavour);
+
     public final void dropTrx(@NonNull WorkspaceTransaction trx) {
         long a0 = trx.mNativeObj;
         trx.mNativeObj = 0;

@@ -1,4 +1,3 @@
-use std::collections::hash_map::Entry;
 use crate::Workspace;
 use android_logger::Config;
 use jwst::{error, info, DocStorage, JwstError, JwstResult, LevelFilter};
@@ -6,7 +5,6 @@ use jwst_rpc::{get_workspace, start_sync_thread};
 use jwst_storage::JwstStorage as AutoStorage;
 use std::sync::Arc;
 use tokio::{runtime::Runtime, sync::RwLock};
-use tokio::sync::broadcast::channel;
 
 #[derive(Clone)]
 pub struct JwstStorage {
