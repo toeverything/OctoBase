@@ -35,7 +35,7 @@ env:
     REGISTRY: ghcr.io
     NAMESPACE: toeverything
     APIPROXY_IMAGE_NAME: apiproxy
-    CLOUD_IMAGE_NAME: cloud
+    CLOUD_IMAGE_NAME: cloud-self-hosted
     JWST_IMAGE_NAME: jwst
     IMAGE_TAG: canary-${{ github.sha }}
     IMAGE_TAG_LATEST: nightly-latest
