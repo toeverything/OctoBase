@@ -989,6 +989,12 @@ mod test {
         let url = format!("/permission/{}", permission_id.clone());
         let resp = client
             .delete(&url)
+            .header("authorization", format!("{}", access_token_member.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        let resp = client
+            .delete(&url)
             .header("authorization", format!("{}", access_token_owner.clone()))
             .send()
             .await;
