@@ -9,6 +9,7 @@ importers:
       '@types/react': ^18.0.28
       '@types/react-dom': ^18.0.11
       '@vitejs/plugin-react-swc': ^3.2.0
+      nanoid: ^4.0.1
       prettier: ^2.8.4
       react: ^18.2.0
       react-dom: ^18.2.0
@@ -22,6 +23,7 @@ importers:
       vite-plugin-html: ^3.2.0
       vite-plugin-singlefile: ^0.13.3
     dependencies:
+      nanoid: 4.0.1
       prettier: 2.8.4
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
@@ -60,14 +62,6 @@ importers:
       next: 13.2.4
       nextra: 2.2.20_next@13.2.4
       nextra-theme-docs: 2.2.20_next@13.2.4+nextra@2.2.20
-
-  apps/jwt:
-    specifiers:
-      '@toeverything/jwt-react': workspace:^0.1.0
-      jotai: ^2.0.3
-    dependencies:
-      '@toeverything/jwt-react': link:../../libs/jwt-react
-      jotai: 2.0.3
 
   libs/jwt:
     specifiers:

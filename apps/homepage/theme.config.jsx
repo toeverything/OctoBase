@@ -1,6 +1,6 @@
 import { useRouter } from 'next/router'
 
-import Logo from './src/Logo'
+import Logo from './components/Logo'
 
 export default {
 	logo: <Logo />,
