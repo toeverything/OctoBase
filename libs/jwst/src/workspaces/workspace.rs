@@ -11,15 +11,10 @@ use y_sync::{
     awareness::{Awareness, Event, Subscription as AwarenessSubscription},
     sync::{DefaultProtocol, Error, Message, MessageReader, Protocol, SyncMessage},
 };
-use yrs::{
-    types::{map::MapEvent, ToJson},
-    updates::{
-        decoder::{Decode, DecoderV1},
-        encoder::{Encode, Encoder, EncoderV1},
-    },
-    Doc, MapRef, Observable, ReadTxn, StateVector, Subscription, Transact, TransactionMut, Update,
-    UpdateEvent, UpdateSubscription,
-};
+use yrs::{types::{map::MapEvent, ToJson}, updates::{
+    decoder::{Decode, DecoderV1},
+    encoder::{Encode, Encoder, EncoderV1},
+}, Doc, MapRef, Observable, ReadTxn, StateVector, Subscription, Transact, TransactionMut, Update, UpdateEvent, UpdateSubscription, Map};
 
 static PROTOCOL: DefaultProtocol = DefaultProtocol;
 
@@ -82,6 +77,12 @@ impl Workspace {
             metadata,
             plugins,
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        let doc = self.doc();
+        let trx = doc.transact();
+        self.updated.len(&trx) == 0
     }
 
     /// Allow the plugin to run any necessary updates it could have flagged via observers.
