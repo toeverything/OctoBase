@@ -126,7 +126,13 @@ async fn run_sync(
     join_sync_thread(first_sync, workspace, socket, rx).await
 }
 
-fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec<u8>>) {
+/// Responsible for
+/// 1. sending local workspace modifications to the 'remote' end through a socket. It is
+/// necessary to manually listen for changes in the workspace using workspace.observe(), and
+/// manually trigger the 'tx.send()'.
+/// 2. synchronizing 'remote' modifications from the 'remote' to the local workspace, and
+/// encoding the updates before sending them back to the 'remote'
+pub fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec<u8>>) {
     debug!("spawn sync thread");
     let first_sync = Arc::new(AtomicBool::new(false));
     let first_sync_cloned = first_sync.clone();
@@ -136,11 +142,16 @@ fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec
             return error!("Failed to create runtime");
         };
         rt.block_on(async move {
-            let first_sync_cloned_2 = first_sync_cloned.clone();
-            tokio::spawn(async move {
-                sleep(Duration::from_secs(2)).await;
-                first_sync_cloned_2.store(true, Ordering::Release);
-            });
+            if !workspace.is_empty() {
+                info!("Workspace not empty, starting async remote connection");
+                let first_sync_cloned_2 = first_sync_cloned.clone();
+                tokio::spawn(async move {
+                    sleep(Duration::from_secs(2)).await;
+                    first_sync_cloned_2.store(true, Ordering::Release);
+                });
+            } else {
+                info!("Workspace empty, starting sync remote connection");
+            }
             loop {
                 match run_sync(
                     first_sync_cloned.clone(),
@@ -179,7 +190,25 @@ fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec
     }
 }
 
-pub async fn start_client(
+pub async fn get_workspace(
+    storage: &JwstStorage,
+    id: String,
+) -> JwstResult<(Workspace, Receiver<Vec<u8>>)> {
+    let workspace = storage.docs().get(id.clone()).await?;
+    // get the receiver corresponding to DocAutoStorage, the sender is used in the doc::write_update() method.
+    let rx = match storage.docs().remote().write().await.entry(id.clone()) {
+        Entry::Occupied(tx) => tx.get().subscribe(),
+        Entry::Vacant(entry) => {
+            let (tx, rx) = channel(100);
+            entry.insert(tx);
+            rx
+        }
+    };
+
+    Ok((workspace, rx))
+}
+
+pub async fn get_collaborating_worksapce(
     storage: &JwstStorage,
     id: String,
     remote: String,
@@ -197,12 +226,6 @@ pub async fn start_client(
             }
         };
 
-        // Responsible for
-        // 1. sending local workspace modifications to the 'remote' end through a socket. It is
-        // necessary to manually listen for changes in the workspace using workspace.observe(), and
-        // manually trigger the 'tx.send()'.
-        // 2. synchronizing 'remote' modifications from the 'remote' to the local workspace, and
-        // encoding the updates before sending them back to the 'remote'
         start_sync_thread(&workspace, remote, rx);
     }
 
