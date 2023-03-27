@@ -10,7 +10,7 @@ You can see the source code directory of all executable programs in the `apps` f
 
 ### Keck
 
-The original meaning of `Keck` is `WM Keck Observatory`, and it was the largest astronomical telescope in the world when it was built.
+The original meaning of `Keck` is [WM Keck Observatory], and it was the largest astronomical telescope in the world when it was built.
 
 `Keck` is the first synchronous server prototype developed by affine. Its first version was written in `node.js` and then ported to rust. Currently its synchronization logic is abstracted and moved to `jwst-rpc`, which currently provides high-performance data synchronization service and is compatible with yjs, and a RESTful API that can read and modifies BlockSchema create by AFFiNE/BlockSuite/OctoBase client.
 
@@ -32,4 +32,7 @@ The folders contain corresponding example projects. Users can use `kotlin` or `s
 
 ## Homepage
 
-`homepage` is OctoBase's home page and documentation, which are still under development.
+`homepage` is OctoBase's home page and documentation, Welcome to GitHub to submit pr to this [document].
+
+[WM Keck Observatory]: https://en.wikipedia.org/wiki/W._M._Keck_Observatory
+[document]: https://github.com/toeverything/OctoBase/tree/master/apps/homepage/pages/docs
