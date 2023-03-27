@@ -161,6 +161,7 @@ jobs:
             - name: Build & Check
               run: |
                   sudo apt install -yq musl-tools musl-dev
+                  pnpm i -g next
                   pnpm i --frozen-lockfile --store=node_modules/.pnpm-store --filter @toeverything/jwt* --filter @toeverything/homepage
                   pnpm build
                   cargo vendor > .cargo/config
