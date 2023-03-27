@@ -1,6 +1,7 @@
 {
 	"how_to_organize_your_data": "Organize your data",
-	"make_todo_mvc": "Make a collaborative Todo MVC",
+	"make_todo_mvc": "Make collaborative TodoMVC",
+	"make_server_side_todo": "Make server-side TodoMVC",
 	"building_guide": "Development OctoBase",
 	"binding_guide": "Development binding"
 }
