@@ -41,15 +41,16 @@ impl Workspace {
             .try_with_trx(|trx| on_trx.on_trx(WorkspaceTransaction(trx)))
             .is_some()
     }
+
     #[generate_interface]
     pub fn get_blocks_by_flavour(&self, flavour: &str) -> Vec<Block> {
         self.workspace.with_trx(|mut trx| {
             trx.get_blocks().get_blocks_by_flavour(&trx.trx, flavour)
                 .iter()
                 .map(|item| {
-                Block(item.clone())
-            })
-            .collect()
+                    Block(item.clone())
+                })
+                .collect()
         })
     }
 
