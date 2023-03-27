@@ -1,36 +1,30 @@
-# How to organize you own data with OctoBase
+# How to organize data with OctoBase
 
 In OctoBase, we unify different data structures into the concept of Block, and different Blocks have similar properties.
 
-For example, headings, normal text lines, and Todo all have a text content property in common, but their Flavor is different, while Todo has a clicked property that confirms completion.
+For example, headings, normal text lines, and Todo all have a text content property in common, but their flavour is different, while Todo has a clicked property that confirms completion.
 
-In this way, we can define different Block Flavors to represent different data types, for example:
+In this way, we can define different Block flavours to represent different data types, for example:
 
 ```js
 const titleBlock = {
-	flavor: 'affine:title',
-	created: 1666158236651,
-	children: [],
-	props: {
-		text: 'This is a Title',
-	},
+	'sys:flavour': 'affine:title',
+	'sys:created': 1666158236651,
+	'sys:children': [],
+	'prop:text': 'This is a Title',
 }
 const textBlock = {
-	flavor: 'affine:text',
-	created: 1666158236651,
-	children: [],
-	props: {
-		text: 'This is a normal line',
-	},
+	'sys:flavour': 'affine:text',
+	'sys:created': 1666158236651,
+	'sys:children': [],
+	'prop:text': 'This is a normal line',
 }
 const todoBlock = {
-	flavor: 'affine:todo',
-	created: 1666158236651,
-	children: [],
-	props: {
-		text: 'This is a todo',
-		clicked: false,
-	},
+	'sys:flavour': 'affine:todo',
+	'sys:created': 1666158236651,
+	'sys:children': [],
+	'prop:text': 'This is a todo',
+	'prop:clicked': false,
 }
 ```
 
@@ -48,39 +42,31 @@ Then we can reorganize the data shown in the figure above with Block:
 
 ```js
 const title = {
-	flavor: 'affine:title',
-	created: 1666158236651,
-	children: [],
-	props: {
-		text: 'Welcome to the AFFiNE Alpha',
-	},
+	'sys:flavour': 'affine:title',
+	'sys:created': 1666158236651,
+	'sys:children': [],
+	'prop:text': 'Welcome to the AFFiNE Alpha',
 }
 const text = {
-	flavor: 'affine:text',
-	created: 1666158236651,
-	children: [],
-	props: {
-		// Here we ignore how to express rich text Link
-		text: 'The AFFiNE Alpha is here! You can also view our Official Website!',
-	},
+	'sys:flavour': 'affine:text',
+	'sys:created': 1666158236651,
+	'sys:children': [],
+	// Here we ignore how to express rich text Link
+	'prop:text': 'The AFFiNE Alpha is here! You can also view our Official Website!',
 }
 const todo1 = {
-	flavor: 'affine:todo',
-	created: 1666158236651,
-	children: [],
-	props: {
-		text: 'Try AFFiNE Alpha',
-		clicked: true,
-	},
+	'sys:flavour': 'affine:todo',
+	'sys:created': 1666158236651,
+	'sys:children': [],
+	'prop:text': 'Try AFFiNE Alpha',
+	'prop:clicked': true,
 }
 const todo2 = {
-	flavor: 'affine:todo',
-	created: 1666158236651,
-	children: [],
-	props: {
-		text: 'Have a good night',
-		clicked: false,
-	},
+	'sys:flavour': 'affine:todo',
+	'sys:created': 1666158236651,
+	'sys:children': [],
+	'prop:text': 'Have a good night',
+	'prop:clicked': false,
 }
 
 title.children = [text, todo1, todo2]
@@ -89,7 +75,7 @@ title.children = [text, todo1, todo2]
 At this point we have reorganized a rich text page into structured data, and now we can:
 
 -   Change the order of text lines by adjusting the order of children
--   Change the text line style by adjusting the flavor
+-   Change the text line style by adjusting the flavour
 -   Change the actual text content by adjusting the content in the props
 
 In actual use, you do not need to manually edit the data in the structure. OctoBase provides a series of easy-to-use APIs that allow you:

@@ -1,4 +1,4 @@
-# Start develop OctoBase
+# How to development OctoBase
 
 Welcome to OctoBase, a local-first, yet collaborative database! This document will guide you through the steps of building and running OctoBase.
 
