@@ -1,4 +1,4 @@
-# Quick Start
+# How to development OctoBase
 
 Welcome to OctoBase, a local-first, yet collaborative database! This document will guide you through the steps of building and running OctoBase.
 
@@ -88,7 +88,7 @@ If you encounter any issues, check the official documentation or contact the dev
 
 ### Use the api doc in postman
 
-![postman](./quick_start_1.jpg)
+![postman](./assets/building_guide_1.jpg)
 
 For cloud:
 

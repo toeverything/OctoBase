@@ -93,7 +93,7 @@ export const useBlock = (workspace?: string | undefined, blockId?: string) => {
 				setBlock(
 					client.dispatchOperation({
 						type: 'InsertBlockOperation',
-						content: { flavor: 'text' },
+						content: { flavor: 'text', id: blockId },
 					}) as Block
 				)
 			}

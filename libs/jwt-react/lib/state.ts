@@ -32,6 +32,7 @@ export const useSyncedState = <T extends BasicBlockData>(name: string, options: 
 
 	const setContent = useCallback(
 		(value: T) => {
+			console.log(value)
 			setValue({ [key]: value })
 		},
 		[setValue, key]
