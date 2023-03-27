@@ -1,10 +1,6 @@
-ARG BASE_STATIC_IMAGE=ghcr.io/toeverything/affine-pathfinder:nightly-latest
-FROM ${BASE_STATIC_IMAGE} as frontend
-
 FROM messense/rust-musl-cross:x86_64-musl AS builder-amd64
 ENV CARGO_TERM_COLOR="always"
 COPY . .
-COPY --from=frontend /app/dist ./dist
 RUN cargo build --release --no-default-features --features affine --package affine-cloud && \
     mv /home/rust/src/target/x86_64-unknown-linux-musl/release/affine-cloud /tmp/cloud-amd64
 

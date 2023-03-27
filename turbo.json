@@ -5,13 +5,13 @@
 			"dependsOn": ["@toeverything/jwt-react#build"]
 		},
 		"build": {
-			"outputs": ["dist/**"]
+			"outputs": ["dist/**", ".next/**", "out/**"]
 		},
 		"lint": {},
 		"@toeverything/jwt-react#build": {
 			"dependsOn": ["@toeverything/jwt#build"]
 		},
-		"@toeverything/playground#build": {
+		"@toeverything/octobase#build": {
 			"dependsOn": ["@toeverything/jwt-react#build"]
 		}
 	}
