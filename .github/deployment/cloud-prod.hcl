@@ -1,7 +1,7 @@
 job "affine-cloud-prod" {
-  region       = "global"
-  datacenters  = ["production"]
-  namespace    = "production"
+  region      = "global"
+  datacenters = ["production"]
+  namespace   = "production"
 
   type = "service"
 
@@ -33,7 +33,7 @@ job "affine-cloud-prod" {
     }
 
     service {
-      tags = ["urlprefix-app.affine.pro/"]
+      tags = ["urlprefix-api.affine.pro/api/"]
       port = "affine-cloud"
       check {
         name     = "Affine Cloud Production Check"

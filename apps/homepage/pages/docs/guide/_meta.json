@@ -1,0 +1,15 @@
+{
+	"how_to_organize_your_data": "Organize your data",
+	"how_to_storage": "🚧 Storage data",
+	"how_to_sync": "🚧 Sync to Remote",
+	"make_todo_mvc_wip": "🚧 Make collaborative TodoMVC",
+	"make_server_side_todo_wip": "🚧 Make server-side TodoMVC",
+	"make_todo_mvc": {
+		"title": "🚧 Make collaborative TodoMVC",
+		"display": "hidden"
+	},
+	"make_server_side_todo": {
+		"title": "🚧 Make server-side TodoMVC",
+		"display": "hidden"
+	}
+}

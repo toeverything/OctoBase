@@ -5,7 +5,7 @@ mod context;
 mod utils;
 
 pub use broadcast::{BroadcastChannels, BroadcastType};
-pub use client::start_client;
+pub use client::{start_sync_thread, get_workspace, get_collaborating_worksapce};
 pub use connector::{memory_connector, socket_connector};
 pub use context::RpcContextImpl;
 pub use utils::{connect_memory_workspace, MinimumServerContext};

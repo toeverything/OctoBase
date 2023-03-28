@@ -51,13 +51,14 @@ use utoipa::OpenApi;
 )]
 struct ApiDoc;
 
-const README: &str = include_str!("../../../../../handbook/src/README.md");
-const CORE_CONCEPT: &str = include_str!("../../../../../handbook/src/core_concept.md");
+const README: &str = include_str!("../../../../../homepage/pages/docs/introduction.md");
+const DISTINCTIVE_FEATURES: &str =
+    include_str!("../../../../../homepage/pages/docs/overview/distinctive_features.md");
 
 fn doc_apis(router: Router) -> Router {
     if cfg!(feature = "schema") {
         let mut openapi = ApiDoc::openapi();
-        openapi.info.description = Some(vec![README, CORE_CONCEPT].join("\n"));
+        openapi.info.description = Some(vec![README, DISTINCTIVE_FEATURES].join("\n"));
         with_api_doc_v2(router, openapi, "JWST Api Docs")
     } else {
         router

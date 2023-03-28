@@ -1,16 +1,17 @@
-#[cfg(feature = "docs")]
-use std::path::PathBuf;
+use std::{fs::create_dir_all, process::Command};
 
 fn main() {
-    #[cfg(feature = "docs")]
+    if !Command::new("pnpm")
+        .args(["i"])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+        || !Command::new("pnpm")
+            .args(["run", "build"])
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
     {
-        let root_dir = "../handbook";
-
-        let md = mdbook::MDBook::load(root_dir).expect("Unable to load the book");
-        md.build().expect("Building failed");
-        println!(
-            "cargo:rerun-if-changed={}",
-            PathBuf::from(root_dir).join("src").display()
-        );
+        create_dir_all("../homepage/out").unwrap();
     }
 }

@@ -1,7 +1,6 @@
 mod api;
 mod context;
 mod error_status;
-mod files;
 mod layer;
 mod utils;
 
@@ -35,7 +34,7 @@ async fn main() {
 
     let context = Arc::new(context::Context::new().await);
 
-    let app = layer::make_tracing_layer(files::self_hosted_routers(
+    let app = layer::make_tracing_layer(
         Router::new()
             .nest(
                 "/api",
@@ -45,7 +44,7 @@ async fn main() {
             )
             .layer(Extension(context.clone()))
             .layer(cors),
-    ));
+    );
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("listening on {}", addr);

@@ -23,8 +23,8 @@
 		"build": "vite build"
 	},
 	"dependencies": {
-		"jotai": "^1.13.1",
-		"nanoid": "^4.0.1"
+		"jotai": "^2.0.3",
+		"nanoid": "^4.0.2"
 	},
 	"peerDependencies": {
 		"react": "^18"

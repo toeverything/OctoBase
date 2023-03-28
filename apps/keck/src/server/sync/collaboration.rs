@@ -36,7 +36,7 @@ pub async fn upgrade_handler(
 
 #[cfg(test)]
 mod test {
-    use jwst_rpc::start_client;
+    use jwst_rpc::{get_workspace, start_sync_thread};
     use jwst::DocStorage;
     use jwst::{Block, Workspace};
     use jwst_logger::{error, info};
@@ -78,9 +78,10 @@ mod test {
                 entry.insert(tx);
             };
 
-            let workspace = start_client(&storage, workspace_id.clone(), remote)
-                .await
-                .unwrap();
+            let (workspace, rx) = get_workspace(&storage, workspace_id.clone()).await.unwrap();
+            if !remote.is_empty() {
+                start_sync_thread(&workspace, remote, rx);
+            }
 
             (workspace_id, workspace, storage)
         });
@@ -175,9 +176,10 @@ mod test {
                 entry.insert(tx);
             };
 
-            let workspace = start_client(&storage, workspace_id.clone(), remote)
-                .await
-                .unwrap();
+            let (workspace, rx) = get_workspace(&storage, workspace_id.clone()).await.unwrap();
+            if !remote.is_empty() {
+                start_sync_thread(&workspace, remote, rx);
+            }
 
             (workspace_id, workspace, storage)
         });

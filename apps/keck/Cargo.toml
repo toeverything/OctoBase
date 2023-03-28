@@ -11,13 +11,11 @@ affine = ["jwst-storage/sqlite"]
 jwst = [
   "api",
   "schema",
-  "docs",
   "jwst-storage/sqlite",
   "jwst-storage/mysql",
   "jwst-storage/postgres",
 ]
 api = ["utoipa"]
-docs = ["mdbook"]
 schema = ["utoipa-swagger-ui"]
 
 [dependencies]
@@ -64,7 +62,7 @@ jwst-storage = { path = "../../libs/jwst-storage" }
 
 [dev-dependencies]
 axum-test-helper = "0.2.0"
-reqwest = { version = "0.11.14", default-features = false, features = ["json", "rustls-tls"] }
-
-[build-dependencies]
-mdbook = { version = "0.4.27", default-features = false, optional = true }
+reqwest = { version = "0.11.14", default-features = false, features = [
+  "json",
+  "rustls-tls",
+] }

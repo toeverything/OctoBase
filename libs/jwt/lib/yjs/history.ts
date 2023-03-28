@@ -42,7 +42,10 @@ export class HistoryManager {
 	}
 
 	undo<T = unknown>(): Map<string, T> | undefined {
-		return this._historyManager.undo()?.meta
+		if (this._historyManager.undoStack.length) {
+			return this._historyManager.undo()?.meta
+		}
+		return undefined
 	}
 
 	redo<T = unknown>(): Map<string, T> | undefined {

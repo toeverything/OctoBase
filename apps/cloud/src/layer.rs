@@ -6,6 +6,7 @@ use axum::{
     Router,
 };
 use bytes::Bytes;
+use chrono::Utc;
 use cloud_database::Claims;
 use futures_util::future::BoxFuture;
 use http_body::combinators::UnsyncBoxBody;
@@ -49,8 +50,12 @@ where
         let key = self.decoding_key.clone();
         Box::pin(async move {
             if let Some(claims) = Self::check_auth(key, &request) {
-                request.extensions_mut().insert(Arc::new(claims));
-                Ok(request)
+                if claims.exp > Utc::now().naive_utc() {
+                    request.extensions_mut().insert(Arc::new(claims));
+                    Ok(request)
+                } else {
+                    Err(ErrorStatus::Unauthorized.into_response())
+                }
             } else {
                 Err(ErrorStatus::Unauthorized.into_response())
             }

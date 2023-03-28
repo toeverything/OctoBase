@@ -35,7 +35,7 @@ env:
     REGISTRY: ghcr.io
     NAMESPACE: toeverything
     APIPROXY_IMAGE_NAME: apiproxy
-    CLOUD_IMAGE_NAME: cloud
+    CLOUD_IMAGE_NAME: cloud-self-hosted
     JWST_IMAGE_NAME: jwst
     IMAGE_TAG: canary-${{ github.sha }}
     IMAGE_TAG_LATEST: nightly-latest
@@ -107,8 +107,6 @@ jobs:
                   tags: ${{ steps.meta_cloud.outputs.tags }}
                   labels: ${{ steps.meta_cloud.outputs.labels }}
                   target: cloud
-                  build-args: |
-                      BASE_STATIC_IMAGE=ghcr.io/toeverything/affine-self-hosted:latest
 
             - name: Build and push Docker image (cloud)
               uses: docker/build-push-action@v3
@@ -163,9 +161,7 @@ jobs:
             - name: Build & Check
               run: |
                   sudo apt install -yq musl-tools musl-dev
-                  pnpm i --frozen-lockfile --store=node_modules/.pnpm-store --filter @toeverything/jwt* --filter @toeverything/playground
-                  pnpm build:playground
-                  cp -r apps/jwt/dist ./dist
+                  pnpm i --frozen-lockfile --store=node_modules/.pnpm-store
                   cargo vendor > .cargo/config
                   cargo build --profile fast-release --package keck --target x86_64-unknown-linux-musl
               env:
