@@ -63,4 +63,5 @@ pub trait BlobStorage {
     ) -> JwstResult<String>;
     async fn delete_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool>;
     async fn delete_workspace(&self, workspace_id: String) -> JwstResult<()>;
+    async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64>;
 }

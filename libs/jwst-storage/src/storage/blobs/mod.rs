@@ -275,4 +275,14 @@ impl BlobStorage for BlobAutoStorage {
 
         Ok(())
     }
+
+    async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64> {
+        let size = self
+            .db
+            .get_blobs_size(&workspace_id)
+            .await
+            .context("failed to get blobs size")?;
+
+        return Ok(size.unwrap_or(0));
+    }
 }

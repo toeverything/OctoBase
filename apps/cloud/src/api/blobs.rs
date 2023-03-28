@@ -10,7 +10,7 @@ use axum::{
         HeaderMap, HeaderValue, Method,
     },
     response::{IntoResponse, Response},
-    Extension, TypedHeader,
+    Extension, Json, TypedHeader,
 };
 use chrono::{DateTime, Utc};
 use cloud_database::Claims;
@@ -18,7 +18,19 @@ use futures::{future, StreamExt};
 use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
 use mime::APPLICATION_OCTET_STREAM;
+use serde::Serialize;
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
+
+#[derive(Serialize)]
+struct Usage {
+    blob_usage: BlobUsage,
+}
+
+#[derive(Serialize)]
+struct BlobUsage {
+    usage: i64,
+    max_usage: i64,
+}
 
 impl Context {
     #[instrument(skip(self, method, headers))]
@@ -288,6 +300,50 @@ pub async fn upload_blob_in_workspace(
     }
 
     ctx.upload_blob(stream, Some(workspace_id)).await
+}
+
+/// Get workspace's `usage`
+/// - Return 200 ok and `usage`.
+#[utoipa::path(
+    get,
+    tag = "resource",
+    context_path = "/api/user",
+    path = "/recourse",
+    responses(
+        (status = 200, description = "Return usage", body = [Usage]),
+    )
+)]
+#[instrument(skip(ctx, claims), fields(user_id = %claims.user.id))]
+pub async fn get_user_resource_usage(
+    Extension(ctx): Extension<Arc<Context>>,
+    Extension(claims): Extension<Arc<Claims>>,
+) -> Response {
+    info!("get_user_resource enter");
+    if let Ok(workspace_id_list) = ctx
+        .db
+        .get_user_owner_workspaces(claims.user.id.clone())
+        .await
+    {
+        let mut total_size = 0;
+        for workspace_id in workspace_id_list {
+            let Ok(size) = ctx
+                .storage
+                .blobs()
+                .get_blobs_size(workspace_id.to_string())
+                .await else {
+                    return ErrorStatus::InternalServerError.into_response();
+                };
+            total_size += size;
+        }
+        let blob_usage = BlobUsage {
+            usage: total_size,
+            max_usage: 10 * 1024 * 1024 * 1024,
+        };
+        let usage = Usage { blob_usage };
+        Json(usage).into_response()
+    } else {
+        return ErrorStatus::InternalServerError.into_response();
+    }
 }
 
 #[cfg(test)]
