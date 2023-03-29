@@ -10,6 +10,11 @@ public final class JwstStorage {
     }
     private static native long init(@NonNull String path);
 
+    public JwstStorage(@NonNull String path, @NonNull String level) {
+        mNativeObj = init(path, level);
+    }
+    private static native long init(@NonNull String path, @NonNull String level);
+
     public final @NonNull java.util.Optional<String> error() {
         String ret = do_error(mNativeObj);
         java.util.Optional<String> convRet = java.util.Optional.ofNullable(ret);

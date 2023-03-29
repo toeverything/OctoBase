@@ -22,6 +22,7 @@ r#"foreign_class!(
     class JwstStorage {
         self_type JwstStorage;
         constructor JwstStorage::new(path: String) -> JwstStorage;
+        constructor JwstStorage::new_with_logger_level(path: String, level: String) -> JwstStorage;
         fn JwstStorage::error(&self) -> Option<String>; alias error;
         fn JwstStorage::connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace>; alias connect;
     }
