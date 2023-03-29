@@ -1,8 +1,9 @@
 use cloud_database::{CloudDatabase, CreateUser, PermissionType};
+use jwst::Workspace;
 use jwst_logger::info;
 use jwst_storage::JwstStorage;
 use tokio::signal;
-use yrs::{Doc, ReadTxn, StateVector, Transact};
+use yrs::{ReadTxn, StateVector, Transact};
 
 pub async fn shutdown_signal() {
     let ctrl_c = async {
@@ -59,8 +60,8 @@ pub async fn create_debug_collaboration_workspace(db: &CloudDatabase, storage: &
         .await
         .expect("failed to create workspace");
 
-    let doc = Doc::new();
-    let update = doc
+    let update = Workspace::new(ws.id.clone())
+        .doc()
         .transact()
         .encode_state_as_update_v1(&StateVector::default());
 

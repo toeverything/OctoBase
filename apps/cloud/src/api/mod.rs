@@ -332,7 +332,7 @@ mod test {
         std::env::set_var("JWT_REFRESH_TOKEN_EXPIRE_DAY", "0");
         std::env::set_var("JWT_ACCESS_TOKEN_EXPIRE_SECONDS", "10");
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test(pool).await;
+        let context = Context::new_test_client(pool).await;
         let ctx = Arc::new(context);
         let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
