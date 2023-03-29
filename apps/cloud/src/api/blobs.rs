@@ -28,8 +28,8 @@ struct Usage {
 
 #[derive(Serialize)]
 struct BlobUsage {
-    usage: i64,
-    max_usage: i64,
+    usage: u64,
+    max_usage: u64,
 }
 
 impl Context {
@@ -153,6 +153,32 @@ impl Context {
             }
         } else {
             ErrorStatus::InternalServerError.into_response()
+        }
+    }
+
+    #[instrument(skip(self))]
+    async fn get_user_resource_usage(&self, user_id: String) -> Result<Usage, ErrorStatus> {
+        info!("get_user_resource enter");
+        if let Ok(workspace_id_list) = self.db.get_user_owner_workspaces(user_id).await {
+            let mut total_size = 0;
+            for workspace_id in workspace_id_list {
+                let Ok(size) = self
+                    .storage
+                    .blobs()
+                    .get_blobs_size(workspace_id.to_string())
+                    .await else {
+                        return Err(ErrorStatus::InternalServerError);
+                    };
+                total_size += size as u64;
+            }
+            let blob_usage = BlobUsage {
+                usage: total_size,
+                max_usage: 10 * 1024 * 1024 * 1024,
+            };
+            let usage = Usage { blob_usage };
+            Ok(usage)
+        } else {
+            return Err(ErrorStatus::InternalServerError);
         }
     }
 }
@@ -286,6 +312,13 @@ pub async fn upload_blob_in_workspace(
         return ErrorStatus::PayloadTooLarge.into_response();
     }
 
+    let Ok(usage) = ctx.get_user_resource_usage(claims.user.id.clone()).await else {
+        return ErrorStatus::InternalServerError.into_response();
+    };
+    if usage.blob_usage.usage + length.0 > usage.blob_usage.max_usage {
+        return ErrorStatus::PayloadExceedsLimit("10GB".to_string()).into_response();
+    }
+
     match ctx
         .db
         .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
@@ -319,31 +352,10 @@ pub async fn get_user_resource_usage(
     Extension(claims): Extension<Arc<Claims>>,
 ) -> Response {
     info!("get_user_resource enter");
-    if let Ok(workspace_id_list) = ctx
-        .db
-        .get_user_owner_workspaces(claims.user.id.clone())
-        .await
-    {
-        let mut total_size = 0;
-        for workspace_id in workspace_id_list {
-            let Ok(size) = ctx
-                .storage
-                .blobs()
-                .get_blobs_size(workspace_id.to_string())
-                .await else {
-                    return ErrorStatus::InternalServerError.into_response();
-                };
-            total_size += size;
-        }
-        let blob_usage = BlobUsage {
-            usage: total_size,
-            max_usage: 10 * 1024 * 1024 * 1024,
-        };
-        let usage = Usage { blob_usage };
-        Json(usage).into_response()
-    } else {
+    let Ok(usage) = ctx.get_user_resource_usage(claims.user.id.clone()).await else {
         return ErrorStatus::InternalServerError.into_response();
-    }
+    };
+    Json(usage).into_response()
 }
 
 #[cfg(test)]
