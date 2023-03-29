@@ -73,8 +73,7 @@ impl BlobDBStorage {
             .into_model::<InternalBlobMetadata>()
             .all(&self.pool)
             .await
-            .map_err(|e| e.into())
-            .and_then(|r| Ok(r.into_iter().map(|f| f.size).reduce(|a, b| a + b)))
+            .map(|r| r.into_iter().map(|f| f.size).reduce(|a, b| a + b))
     }
 
     async fn insert(&self, table: &str, hash: &str, blob: &[u8]) -> Result<(), DbErr> {

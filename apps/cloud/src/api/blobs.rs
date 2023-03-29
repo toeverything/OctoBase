@@ -159,27 +159,26 @@ impl Context {
     #[instrument(skip(self))]
     async fn get_user_resource_usage(&self, user_id: String) -> Result<Usage, ErrorStatus> {
         info!("get_user_resource enter");
-        if let Ok(workspace_id_list) = self.db.get_user_owner_workspaces(user_id).await {
-            let mut total_size = 0;
-            for workspace_id in workspace_id_list {
-                let Ok(size) = self
+        let Ok(workspace_id_list) = self.db.get_user_owner_workspaces(user_id).await else {
+            return Err(ErrorStatus::InternalServerError);
+        };
+        let mut total_size = 0;
+        for workspace_id in workspace_id_list {
+            let Ok(size) = self
                     .storage
                     .blobs()
                     .get_blobs_size(workspace_id.to_string())
                     .await else {
                         return Err(ErrorStatus::InternalServerError);
                     };
-                total_size += size as u64;
-            }
-            let blob_usage = BlobUsage {
-                usage: total_size,
-                max_usage: 10 * 1024 * 1024 * 1024,
-            };
-            let usage = Usage { blob_usage };
-            Ok(usage)
-        } else {
-            return Err(ErrorStatus::InternalServerError);
+            total_size += size as u64;
         }
+        let blob_usage = BlobUsage {
+            usage: total_size,
+            max_usage: 10 * 1024 * 1024 * 1024,
+        };
+        let usage = Usage { blob_usage };
+        Ok(usage)
     }
 }
 
