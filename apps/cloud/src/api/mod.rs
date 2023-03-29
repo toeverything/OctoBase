@@ -64,8 +64,6 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/healthz", get(common::health_check))
         .route("/user", get(query_user))
         .route("/user/token", post(make_token))
-        .route("/blob", put(blobs::upload_blob))
-        .route("/blob/:name", get(blobs::get_blob))
         .route("/invitation/:path", post(permissions::accept_invitation))
         .nest_service("/global/sync", get(global_ws_handler))
         .route("/public/doc/:id", get(workspace::get_public_doc))
