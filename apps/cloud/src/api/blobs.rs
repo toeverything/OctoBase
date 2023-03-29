@@ -32,6 +32,8 @@ struct BlobUsage {
     max_usage: u64,
 }
 
+const MAX_USAGE: u64 = 10 * 1024 * 1024 * 1024;
+
 impl Context {
     #[instrument(skip(self, method, headers))]
     async fn get_blob(
@@ -164,18 +166,17 @@ impl Context {
         };
         let mut total_size = 0;
         for workspace_id in workspace_id_list {
-            let Ok(size) = self
-                    .storage
-                    .blobs()
-                    .get_blobs_size(workspace_id.to_string())
-                    .await else {
-                        return Err(ErrorStatus::InternalServerError);
-                    };
+            let size = self
+                .storage
+                .blobs()
+                .get_blobs_size(workspace_id.to_string())
+                .await
+                .map_err(|_| ErrorStatus::InternalServerError)?;
             total_size += size as u64;
         }
         let blob_usage = BlobUsage {
             usage: total_size,
-            max_usage: 10 * 1024 * 1024 * 1024,
+            max_usage: MAX_USAGE,
         };
         let usage = Usage { blob_usage };
         Ok(usage)
