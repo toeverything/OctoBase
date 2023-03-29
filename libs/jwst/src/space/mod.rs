@@ -41,7 +41,12 @@ impl Space {
         }
     }
 
-    pub fn from_exists<I, S>(trx: &TransactionMut, doc: Doc, workspace_id: I, space_id: S) -> Option<Self>
+    pub fn from_exists<I, S>(
+        trx: &TransactionMut,
+        doc: Doc,
+        workspace_id: I,
+        space_id: S,
+    ) -> Option<Self>
     where
         I: AsRef<str>,
         S: AsRef<str>,
@@ -262,11 +267,12 @@ mod test {
         let new_doc = {
             let update = doc
                 .transact()
-                .encode_state_as_update_v1(&StateVector::default());
+                .encode_state_as_update_v1(&StateVector::default())
+                .and_then(|update| Update::decode_v1(&update));
             let doc = Doc::default();
             {
                 let mut trx = doc.transact_mut();
-                match Update::decode_v1(&update) {
+                match update {
                     Ok(update) => trx.apply_update(update),
                     Err(err) => info!("failed to decode update: {:?}", err),
                 }

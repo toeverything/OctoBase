@@ -97,7 +97,7 @@ pub async fn set_block(
                 }
 
                 if changed {
-                    update = Some(t.trx.encode_update_v1());
+                    update = t.trx.encode_update_v1().ok();
                 }
             }
 
@@ -225,7 +225,7 @@ pub async fn delete_block(
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         if let Some(update) = workspace.with_trx(|mut t| {
             if t.get_blocks().remove(&mut t.trx, &block) {
-                Some(t.trx.encode_update_v1())
+                t.trx.encode_update_v1().ok()
             } else {
                 None
             }
@@ -357,7 +357,7 @@ pub async fn insert_block_children(
                 }
 
                 if changed {
-                    update = Some(t.trx.encode_update_v1());
+                    update = t.trx.encode_update_v1().ok();
                 }
 
                 block
@@ -409,7 +409,7 @@ pub async fn remove_block_children(
                 if block.children_exists(&t.trx, &child_id) {
                     if let Some(child) = space.get(&t.trx, &child_id) {
                         block.remove_children(&mut t.trx, &child);
-                        return Some(t.trx.encode_update_v1());
+                        return t.trx.encode_update_v1().ok();
                     }
                 }
             }

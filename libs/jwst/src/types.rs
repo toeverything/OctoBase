@@ -16,6 +16,8 @@ pub enum JwstError {
     StorageError(anyhow::Error),
     #[error("io error")]
     Io(#[from] std::io::Error),
+    #[error("doc codec error")]
+    DocCodec(#[from] lib0::error::Error),
     #[error("workspace {0} not initialized")]
     WorkspaceNotInitialized(String),
     #[error("workspace {0} not found")]

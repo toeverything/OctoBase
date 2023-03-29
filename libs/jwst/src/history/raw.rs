@@ -85,8 +85,9 @@ pub struct RawHistory {
 pub fn parse_history_client(doc: &Doc) -> Option<Vec<u64>> {
     let update = doc
         .transact()
-        .encode_state_as_update_v1(&StateVector::default());
-    let update = Update::decode_v1(&update).ok()?;
+        .encode_state_as_update_v1(&StateVector::default())
+        .and_then(|update| Update::decode_v1(&update))
+        .ok()?;
 
     Some(
         update
@@ -102,8 +103,9 @@ pub fn parse_history_client(doc: &Doc) -> Option<Vec<u64>> {
 pub fn parse_history(doc: &Doc, client: u64) -> Option<Vec<RawHistory>> {
     let update = doc
         .transact()
-        .encode_state_as_update_v1(&StateVector::default());
-    let update = Update::decode_v1(&update).ok()?;
+        .encode_state_as_update_v1(&StateVector::default())
+        .and_then(|update| Update::decode_v1(&update))
+        .ok()?;
     let items = update.as_items();
 
     let mut histories = vec![];
@@ -164,7 +166,8 @@ mod test {
 
         let update = doc
             .transact()
-            .encode_state_as_update_v1(&StateVector::default());
+            .encode_state_as_update_v1(&StateVector::default())
+            .unwrap();
         let update = Update::decode_v1(&update).unwrap();
         let items = update.as_items();
 

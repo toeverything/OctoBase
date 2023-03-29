@@ -11,10 +11,15 @@ use y_sync::{
     awareness::{Awareness, Event, Subscription as AwarenessSubscription},
     sync::{DefaultProtocol, Error, Message, MessageReader, Protocol, SyncMessage},
 };
-use yrs::{types::{map::MapEvent, ToJson}, updates::{
-    decoder::{Decode, DecoderV1},
-    encoder::{Encode, Encoder, EncoderV1},
-}, Doc, MapRef, Observable, ReadTxn, StateVector, Subscription, Transact, TransactionMut, Update, UpdateEvent, UpdateSubscription, Map};
+use yrs::{
+    types::{map::MapEvent, ToJson},
+    updates::{
+        decoder::{Decode, DecoderV1},
+        encoder::{Encode, Encoder, EncoderV1},
+    },
+    Doc, Map, MapRef, Observable, ReadTxn, StateVector, Subscription, Transact, TransactionMut,
+    Update, UpdateEvent, UpdateSubscription,
+};
 
 static PROTOCOL: DefaultProtocol = DefaultProtocol;
 
@@ -255,7 +260,7 @@ impl Workspace {
                 return None;
             }
         };
-        Some(trx.encode_state_as_update_v1(&StateVector::default()))
+        trx.encode_state_as_update_v1(&StateVector::default()).ok()
     }
 
     pub async fn sync_init_message(&self) -> Result<Vec<u8>, Error> {
@@ -279,7 +284,10 @@ impl Workspace {
                     match msg {
                         Message::AwarenessQuery => {
                             if let Ok(update) = awareness.update() {
-                                result.push(Message::Awareness(update).encode_v1());
+                                match Message::Awareness(update).encode_v1() {
+                                    Ok(msg) => result.push(msg),
+                                    Err(e) => warn!("failed to encode awareness update: {:?}", e),
+                                }
                             }
                         }
                         Message::Awareness(update) => {
@@ -313,10 +321,10 @@ impl Workspace {
                         trace!("processing message: {:?}", msg);
                         match msg {
                             Message::Sync(msg) => match msg {
-                                SyncMessage::SyncStep1(sv) => {
-                                    let update = trx.encode_state_as_update_v1(&sv);
-                                    Some(Message::Sync(SyncMessage::SyncStep2(update)))
-                                }
+                                SyncMessage::SyncStep1(sv) => trx
+                                    .encode_state_as_update_v1(&sv)
+                                    .map(|update| Message::Sync(SyncMessage::SyncStep2(update)))
+                                    .ok(),
                                 SyncMessage::SyncStep2(update) => {
                                     if let Ok(update) = Update::decode_v1(&update) {
                                         trx.apply_update(update);
@@ -335,8 +343,11 @@ impl Workspace {
                                             trace!("before_state: {:?}", trx.before_state());
                                             trace!("after_state: {:?}", trx.after_state());
                                         }
-                                        let update = trx.encode_update_v1();
-                                        Some(Message::Sync(SyncMessage::Update(update)))
+                                        trx.encode_update_v1()
+                                            .map(|update| {
+                                                Message::Sync(SyncMessage::Update(update))
+                                            })
+                                            .ok()
                                     } else {
                                         None
                                     }
@@ -345,7 +356,10 @@ impl Workspace {
                             _ => None,
                         }
                     } {
-                        result.push(msg.encode_v1());
+                        match msg.encode_v1() {
+                            Ok(msg) => result.push(msg),
+                            Err(e) => warn!("failed to encode message: {:?}", e),
+                        }
                     }
                 }
             })) {
@@ -415,7 +429,7 @@ mod test {
             let doc = Doc::default();
             {
                 let mut trx = doc.transact_mut();
-                match Update::decode_v1(&update) {
+                match update.and_then(|update| Update::decode_v1(&update)) {
                     Ok(update) => trx.apply_update(update),
                     Err(err) => info!("failed to decode update: {:?}", err),
                 }
@@ -535,7 +549,8 @@ mod test {
 
         let data = doc
             .transact()
-            .encode_state_as_update_v1(&StateVector::default());
+            .encode_state_as_update_v1(&StateVector::default())
+            .unwrap();
 
         let doc = Doc::new();
         doc.transact_mut()

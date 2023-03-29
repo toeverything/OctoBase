@@ -63,11 +63,10 @@ pub async fn create_debug_collaboration_workspace(db: &CloudDatabase, storage: &
     let update = Workspace::new(ws.id.clone())
         .doc()
         .transact()
-        .encode_state_as_update_v1(&StateVector::default());
+        .encode_state_as_update_v1(&StateVector::default())
+        .ok();
 
-    storage
-        .full_migrate(ws.id.clone(), Some(update), true)
-        .await;
+    storage.full_migrate(ws.id.clone(), update, true).await;
 
     let (permission_id, _) = db
         .create_permission(&user_model2.email, ws.id.clone(), PermissionType::Write)

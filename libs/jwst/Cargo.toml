@@ -30,7 +30,7 @@ tracing = { version = "0.1.37", features = ["log"] }
 type-map = "0.5.0"
 tantivy = { version = "0.19.2", optional = true }
 tokio = { version = "1.26.0", features = ["sync"] }
-y-sync = "0.2.0"
+y-sync = "0.3.0"
 yrs = "0.16.5"
 
 [dev-dependencies]
