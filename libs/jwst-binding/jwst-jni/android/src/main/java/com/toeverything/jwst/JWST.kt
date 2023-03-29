@@ -185,14 +185,14 @@ class Block constructor(private var block: JwstBlock) {
     }
 }
 
-class Storage constructor(path: String, private val remote: String = "") {
+class Storage constructor(path: String, private val remote: String = "", private val logLevel: String = "debug") {
     companion object {
         init {
             System.loadLibrary("jwst")
         }
     }
 
-    private var storage = JwstStorage(path)
+    private var storage = JwstStorage(path, logLevel)
 
     val failed get() = this.storage.error().isPresent
 

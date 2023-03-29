@@ -14,9 +14,21 @@ pub struct JwstStorage {
 
 impl JwstStorage {
     pub fn new(path: String) -> Self {
+        Self::new_with_logger_level(path, "debug".to_string())
+    }
+
+    pub fn new_with_logger_level(path: String, level: String) -> Self {
+        let level = match level.to_lowercase().as_str() {
+            "trace" => LevelFilter::Trace,
+            "debug" => LevelFilter::Debug,
+            "info" => LevelFilter::Info,
+            "warn" => LevelFilter::Warn,
+            "error" => LevelFilter::Error,
+            _ => LevelFilter::Debug
+        };
         android_logger::init_once(
             Config::default()
-                .with_max_level(LevelFilter::Debug)
+                .with_max_level(level)
                 .with_tag("jwst"),
         );
 
@@ -39,6 +51,7 @@ impl JwstStorage {
     }
 
     pub fn connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace> {
+        // JwstStorage::new_with_logger_level("pasdkfl".to_string(), LevelFilter::Debug);
         match self.sync(workspace_id, remote) {
             Ok(workspace) => Some(workspace),
             Err(e) => {
