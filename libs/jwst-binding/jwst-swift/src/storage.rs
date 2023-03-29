@@ -41,9 +41,6 @@ impl Storage {
         }
     }
 
-    pub fn error2(&self) -> Option<String> {
-        self.error.clone()
-    }
     pub fn error(&self) -> Option<String> {
         self.error.clone()
     }
