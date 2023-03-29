@@ -23,7 +23,7 @@ anyhow = "1.0.69"
 axum = { version = "0.6.10", features = ["headers", "ws"] }
 cfg-if = "1.0.0"
 futures = "0.3.26"
-lib0 = { version = "0.16.3", features = ["lib0-serde"] }
+lib0 = { version = "0.16.5", features = ["lib0-serde"] }
 log = { version = "0.4.17", features = [
   "max_level_trace",
   "release_max_level_info",
@@ -50,7 +50,7 @@ tokio = { version = "1.26.0", features = [
 ] }
 utoipa = { version = "2.4.2", features = ["axum_extras"], optional = true }
 utoipa-swagger-ui = { version = "3.0.2", features = ["axum"], optional = true }
-yrs = "0.16.3"
+yrs = "0.16.5"
 
 # ======= workspace dependencies =======
 

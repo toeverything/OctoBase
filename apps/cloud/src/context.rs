@@ -1,3 +1,4 @@
+use super::{api::UserChannel, utils::create_debug_collaboration_workspace};
 use cloud_components::{FirebaseContext, KeyContext, MailContext};
 use cloud_database::CloudDatabase;
 use jwst::SearchResults;
@@ -7,8 +8,6 @@ use jwst_storage::JwstStorage;
 use std::collections::HashMap;
 use tempfile::{tempdir, TempDir};
 use tokio::sync::{Mutex, RwLock};
-
-use crate::api::UserChannel;
 
 pub struct Context {
     pub key: KeyContext,
@@ -43,16 +42,19 @@ impl Context {
         let db = CloudDatabase::init_pool(&cloud)
             .await
             .expect("Cannot create cloud database");
+        let storage = JwstStorage::new(&storage)
+            .await
+            .expect("Cannot create storage");
 
-        if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {}
+        if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
+            create_debug_collaboration_workspace(&db, &storage).await;
+        }
 
         Self {
             _dir,
             // =========== database ===========
             db,
-            storage: JwstStorage::new(&storage)
-                .await
-                .expect("Cannot create storage"),
+            storage,
             // =========== auth ===========
             key: KeyContext::new(dotenvy::var("SIGN_KEY").ok()).expect("Cannot create key context"),
             firebase: Mutex::new(FirebaseContext::new(

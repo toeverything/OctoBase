@@ -1,8 +1,6 @@
-use chrono::Utc;
-use cloud_database::{CloudDatabase, CreateUser, User};
-use jwst::{JwstError, JwstResult};
+use cloud_database::{CloudDatabase, CreateUser, PermissionType};
 use jwst_logger::info;
-use nanoid::nanoid;
+use jwst_storage::JwstStorage;
 use tokio::signal;
 use yrs::{Doc, ReadTxn, StateVector, Transact};
 
@@ -32,32 +30,51 @@ pub async fn shutdown_signal() {
     info!("Shutdown signal received, starting graceful shutdown");
 }
 
-pub async fn create_debug_collaboration_workspace(db: &CloudDatabase, name: String) -> Option<()> {
+pub async fn create_debug_collaboration_workspace(db: &CloudDatabase, storage: &JwstStorage) {
     let user1 = CreateUser {
         name: "debug1".into(),
-        email: "debug2@toeverything.info".into(),
+        email: "debug1@toeverything.info".into(),
         avatar_url: None,
-        password: nanoid!(),
+        password: "debug1".into(),
     };
 
     let user2 = CreateUser {
         name: "debug1".into(),
         email: "debug2@toeverything.info".into(),
         avatar_url: None,
-        password: nanoid!(),
+        password: "debug2".into(),
     };
 
-    let user_model1 = db.create_user(user1.clone()).await.ok()?;
-    let user_model2 = db.create_user(user2.clone()).await.ok()?;
-
-    db.create_normal_workspace(user_model1.id.clone())
+    let user_model1 = db
+        .create_user(user1.clone())
         .await
-        .ok()?;
+        .expect("failed to create user1");
+    let user_model2 = db
+        .create_user(user2.clone())
+        .await
+        .expect("failed to create user2");
+
+    let ws = db
+        .create_normal_workspace(user_model1.id.clone())
+        .await
+        .expect("failed to create workspace");
 
     let doc = Doc::new();
-    let doc_data = doc
+    let update = doc
         .transact()
         .encode_state_as_update_v1(&StateVector::default());
 
-    Some(())
+    storage
+        .full_migrate(ws.id.clone(), Some(update), true)
+        .await;
+
+    let (permission_id, _) = db
+        .create_permission(&user_model2.email, ws.id.clone(), PermissionType::Write)
+        .await
+        .expect("failed to create permission")
+        .expect("test workspace not exists");
+
+    db.accept_permission(permission_id)
+        .await
+        .expect("failed to accept permission");
 }

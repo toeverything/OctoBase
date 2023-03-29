@@ -20,7 +20,7 @@ cang-jie = "0.15.0"
 chrono = "0.4.23"
 convert_case = "0.6.0"
 futures = "0.3.26"
-lib0 = { version = "0.16.3", features = ["lib0-serde"] }
+lib0 = { version = "0.16.5", features = ["lib0-serde"] }
 utoipa = "2.4.2"
 schemars = "0.8.11"
 serde = { version = "1.0.152", features = ["derive"] }
@@ -31,7 +31,7 @@ type-map = "0.5.0"
 tantivy = { version = "0.19.2", optional = true }
 tokio = { version = "1.26.0", features = ["sync"] }
 y-sync = "0.2.0"
-yrs = "0.16.3"
+yrs = "0.16.5"
 
 [dev-dependencies]
 assert-json-diff = "2.0.2"

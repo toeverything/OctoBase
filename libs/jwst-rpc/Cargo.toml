@@ -13,7 +13,10 @@ futures = "0.3.26"
 lru_time_cache = "0.11.11"
 nanoid = "0.4.0"
 rand = "0.8.5"
-reqwest = { version = "0.11.14", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.11.14", default-features = false, features = [
+    "json",
+    "rustls-tls",
+] }
 tokio = { version = "1.26.0", features = [
     "macros",
     "rt-multi-thread",
@@ -24,7 +27,7 @@ tokio-tungstenite = { version = "0.18.0", features = [
 ] }
 url = "2.3.1"
 y-sync = "0.2.0"
-yrs = "0.16.3"
+yrs = "0.16.5"
 
 # ======= workspace dependencies =======
 jwst = { path = "../jwst" }

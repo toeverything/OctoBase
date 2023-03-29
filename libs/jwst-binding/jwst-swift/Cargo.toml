@@ -6,10 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lib0 = "0.16.3"
+lib0 = "0.16.5"
 swift-bridge = "0.1.48"
 tokio = "1.24.2"
-yrs = "0.16.3"
+yrs = "0.16.5"
 
 # ======= workspace dependencies =======
 jwst = { path = "../../jwst" }
@@ -24,5 +24,8 @@ crate-type = ["staticlib"]
 swift-bridge-build = "0.1.48"
 
 [dev-dependencies]
-reqwest = { version = "0.11.14", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.11.14", default-features = false, features = [
+    "json",
+    "rustls-tls",
+] }
 regex = "1.7.2"
