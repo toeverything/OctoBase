@@ -33,6 +33,7 @@ struct BlobUsage {
 }
 
 const MAX_USAGE: u64 = 10 * 1024 * 1024 * 1024;
+const MAX_BLOB_SIZE: u64 = 10 * 1024 * 1024;
 
 impl Context {
     #[instrument(skip(self, method, headers))]
@@ -228,7 +229,7 @@ pub async fn upload_blob(
     stream: BodyStream,
 ) -> Response {
     info!("upload_blob enter");
-    if length.0 > 10 * 1024 * 1024 {
+    if length.0 > MAX_BLOB_SIZE {
         return ErrorStatus::PayloadTooLarge.into_response();
     }
 
@@ -308,7 +309,7 @@ pub async fn upload_blob_in_workspace(
     stream: BodyStream,
 ) -> Response {
     info!("upload_blob_in_workspace enter");
-    if length.0 > 10 * 1024 * 1024 {
+    if length.0 > MAX_BLOB_SIZE {
         return ErrorStatus::PayloadTooLarge.into_response();
     }
 
