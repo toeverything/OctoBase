@@ -98,7 +98,7 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
                 )
                 .route("/workspace/:id/blob", put(blobs::upload_blob_in_workspace))
                 .route("/permission/:id", delete(permissions::remove_user))
-                .route("/user/resource_usage", get(blobs::get_user_resource_usage))
+                .route("/resource/usage", get(blobs::get_user_resource_usage))
                 .layer(make_firebase_auth_layer(ctx.key.jwt_decode.clone())),
         )
 }
