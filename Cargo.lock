@@ -2045,6 +2045,7 @@ name = "jwst-swift"
 version = "0.1.0"
 dependencies = [
  "jwst",
+ "jwst-logger",
  "jwst-rpc",
  "jwst-storage",
  "lib0",

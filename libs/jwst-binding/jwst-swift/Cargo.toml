@@ -15,6 +15,7 @@ yrs = "0.16.5"
 jwst = { path = "../../jwst" }
 jwst-rpc = { path = "../../jwst-rpc" }
 jwst-storage = { path = "../../jwst-storage", features = ["sqlite"] }
+jwst-logger = { path = "../../jwst-logger" }
 
 [lib]
 name = "octobase"

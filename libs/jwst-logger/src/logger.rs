@@ -5,12 +5,17 @@ use tracing_subscriber::prelude::*;
 
 #[inline]
 pub fn init_logger() {
+    init_logger_with_level(Level::INFO);
+}
+
+#[inline]
+pub fn init_logger_with_level(level: Level) {
     let writer = stderr
         .with_max_level(Level::WARN)
         .or_else(stdout.with_max_level(if cfg!(debug_assertions) {
             Level::DEBUG
         } else {
-            Level::INFO
+            level
         }));
 
     tracing_subscriber::registry()
