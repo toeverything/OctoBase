@@ -51,7 +51,6 @@ impl JwstStorage {
     }
 
     pub fn connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace> {
-        // JwstStorage::new_with_logger_level("pasdkfl".to_string(), LevelFilter::Debug);
         match self.sync(workspace_id, remote) {
             Ok(workspace) => Some(workspace),
             Err(e) => {
