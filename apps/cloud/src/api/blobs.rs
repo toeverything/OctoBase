@@ -10,7 +10,7 @@ use axum::{
         HeaderMap, HeaderValue, Method,
     },
     response::{IntoResponse, Response},
-    Extension, TypedHeader,
+    Extension, Json, TypedHeader,
 };
 use chrono::{DateTime, Utc};
 use cloud_database::Claims;
@@ -18,7 +18,22 @@ use futures::{future, StreamExt};
 use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
 use mime::APPLICATION_OCTET_STREAM;
+use serde::Serialize;
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
+
+#[derive(Serialize)]
+struct Usage {
+    blob_usage: BlobUsage,
+}
+
+#[derive(Serialize)]
+struct BlobUsage {
+    usage: u64,
+    max_usage: u64,
+}
+
+const MAX_USAGE: u64 = 10 * 1024 * 1024 * 1024;
+const MAX_BLOB_SIZE: u64 = 10 * 1024 * 1024;
 
 impl Context {
     #[instrument(skip(self, method, headers))]
@@ -143,6 +158,30 @@ impl Context {
             ErrorStatus::InternalServerError.into_response()
         }
     }
+
+    #[instrument(skip(self))]
+    async fn get_user_resource_usage(&self, user_id: String) -> Result<Usage, ErrorStatus> {
+        info!("get_user_resource enter");
+        let Ok(workspace_id_list) = self.db.get_user_owner_workspaces(user_id).await else {
+            return Err(ErrorStatus::InternalServerError);
+        };
+        let mut total_size = 0;
+        for workspace_id in workspace_id_list {
+            let size = self
+                .storage
+                .blobs()
+                .get_blobs_size(workspace_id.to_string())
+                .await
+                .map_err(|_| ErrorStatus::InternalServerError)?;
+            total_size += size as u64;
+        }
+        let blob_usage = BlobUsage {
+            usage: total_size,
+            max_usage: MAX_USAGE,
+        };
+        let usage = Usage { blob_usage };
+        Ok(usage)
+    }
 }
 
 ///  Get `blob`.
@@ -190,7 +229,7 @@ pub async fn upload_blob(
     stream: BodyStream,
 ) -> Response {
     info!("upload_blob enter");
-    if length.0 > 10 * 1024 * 1024 {
+    if length.0 > MAX_BLOB_SIZE {
         return ErrorStatus::PayloadTooLarge.into_response();
     }
 
@@ -270,8 +309,15 @@ pub async fn upload_blob_in_workspace(
     stream: BodyStream,
 ) -> Response {
     info!("upload_blob_in_workspace enter");
-    if length.0 > 10 * 1024 * 1024 {
+    if length.0 > MAX_BLOB_SIZE {
         return ErrorStatus::PayloadTooLarge.into_response();
+    }
+
+    let Ok(usage) = ctx.get_user_resource_usage(claims.user.id.clone()).await else {
+        return ErrorStatus::InternalServerError.into_response();
+    };
+    if usage.blob_usage.usage + length.0 > usage.blob_usage.max_usage {
+        return ErrorStatus::PayloadExceedsLimit("10GB".to_string()).into_response();
     }
 
     match ctx
@@ -288,6 +334,29 @@ pub async fn upload_blob_in_workspace(
     }
 
     ctx.upload_blob(stream, Some(workspace_id)).await
+}
+
+/// Get workspace's `usage`
+/// - Return 200 ok and `usage`.
+#[utoipa::path(
+    get,
+    tag = "resource",
+    context_path = "/api/user",
+    path = "/recourse",
+    responses(
+        (status = 200, description = "Return usage", body = [Usage]),
+    )
+)]
+#[instrument(skip(ctx, claims), fields(user_id = %claims.user.id))]
+pub async fn get_user_resource_usage(
+    Extension(ctx): Extension<Arc<Context>>,
+    Extension(claims): Extension<Arc<Claims>>,
+) -> Response {
+    info!("get_user_resource enter");
+    let Ok(usage) = ctx.get_user_resource_usage(claims.user.id.clone()).await else {
+        return ErrorStatus::InternalServerError.into_response();
+    };
+    Json(usage).into_response()
 }
 
 #[cfg(test)]

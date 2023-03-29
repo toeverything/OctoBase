@@ -65,6 +65,17 @@ impl BlobDBStorage {
             .and_then(|r| r.ok_or(JwstBlobError::BlobNotFound(hash.into())))
     }
 
+    pub(super) async fn get_blobs_size(&self, workspace: &str) -> Result<Option<i64>, DbErr> {
+        Blobs::find()
+            .filter(BlobColumn::Workspace.eq(workspace))
+            .column_as(BlobColumn::Length, "size")
+            .column_as(BlobColumn::Timestamp, "created_at")
+            .into_model::<InternalBlobMetadata>()
+            .all(&self.pool)
+            .await
+            .map(|r| r.into_iter().map(|f| f.size).reduce(|a, b| a + b))
+    }
+
     async fn insert(&self, table: &str, hash: &str, blob: &[u8]) -> Result<(), DbErr> {
         if !self.exists(table, hash).await? {
             Blobs::insert(BlobActiveModel {
@@ -182,6 +193,15 @@ impl BlobStorage for BlobDBStorage {
         } else {
             Err(JwstError::WorkspaceNotFound(workspace_id))
         }
+    }
+
+    async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64> {
+        let _lock = self.bucket.get_lock().await;
+        let size = self
+            .get_blobs_size(&workspace_id)
+            .await
+            .context("Failed to get blobs size")?;
+        return Ok(size.unwrap_or(0));
     }
 }
 

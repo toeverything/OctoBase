@@ -17,6 +17,7 @@ pub enum ErrorStatus {
     Forbidden,
     Unauthorized,
     ConflictInvitation,
+    PayloadExceedsLimit(String),
 }
 
 #[derive(Serialize)]
@@ -70,6 +71,10 @@ impl IntoResponse for ErrorStatus {
             ErrorStatus::ConflictInvitation => {
                 error_response(StatusCode::CONFLICT, "Invitation failed.")
             }
+            ErrorStatus::PayloadExceedsLimit(limit) => error_response(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                &format!("Upload file size exceeds {}", limit),
+            ),
         }
     }
 }

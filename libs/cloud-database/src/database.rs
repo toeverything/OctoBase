@@ -687,6 +687,17 @@ impl CloudDatabase {
             Ok(user)
         }
     }
+
+    #[instrument(skip(self))]
+    pub async fn get_user_owner_workspaces(&self, user_id: String) -> Result<Vec<String>, DbErr> {
+        info!("database get_user_owner_workspaces enter");
+        Permissions::find()
+            .filter(PermissionColumn::UserId.eq(user_id))
+            .filter(PermissionColumn::Type.eq(PermissionType::Owner as i16))
+            .all(&self.pool)
+            .await
+            .map(|m| m.iter().map(|m| m.workspace_id.clone()).collect())
+    }
 }
 
 #[cfg(test)]
