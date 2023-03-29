@@ -4,6 +4,7 @@ use jwst_rpc::{get_workspace, start_sync_thread};
 use jwst_storage::JwstStorage as AutoStorage;
 use std::sync::Arc;
 use tokio::{runtime::Runtime, sync::RwLock};
+use jwst_logger::{init_logger_with_level, Level};
 
 #[derive(Clone)]
 pub struct Storage {
@@ -13,6 +14,19 @@ pub struct Storage {
 
 impl Storage {
     pub fn new(path: String) -> Self {
+        Self::new_with_log_level(path, "info".to_string())
+    }
+
+    pub fn new_with_log_level(path: String, level: String) -> Self {
+        let level = match level.to_lowercase().as_str() {
+            "trace" => Level::TRACE,
+            "debug" => Level::DEBUG,
+            "info" => Level::INFO,
+            "warn" => Level::WARN,
+            "error" => Level::ERROR,
+            _ => Level::DEBUG
+        };
+        init_logger_with_level(level);
         let rt = Runtime::new().unwrap();
 
         match rt.block_on(AutoStorage::new(&format!("sqlite:{path}?mode=rwc"))) {
@@ -27,6 +41,9 @@ impl Storage {
         }
     }
 
+    pub fn error2(&self) -> Option<String> {
+        self.error.clone()
+    }
     pub fn error(&self) -> Option<String> {
         self.error.clone()
     }

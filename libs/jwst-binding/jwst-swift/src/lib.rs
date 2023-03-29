@@ -123,6 +123,9 @@ mod ffi {
         #[swift_bridge(init)]
         fn new(path: String) -> Storage;
 
+        #[swift_bridge(init)]
+        fn new_with_log_level(path: String, level: String) -> Storage;
+
         fn error(self: &Storage) -> Option<String>;
 
         fn connect(self: &mut Storage, workspace_id: String, remote: String) -> Option<Workspace>;
