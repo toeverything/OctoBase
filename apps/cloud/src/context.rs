@@ -1,3 +1,4 @@
+use super::{api::UserChannel, utils::create_debug_collaboration_workspace};
 use cloud_components::{FirebaseContext, KeyContext, MailContext};
 use cloud_database::CloudDatabase;
 use jwst::SearchResults;
@@ -7,8 +8,6 @@ use jwst_storage::JwstStorage;
 use std::collections::HashMap;
 use tempfile::{tempdir, TempDir};
 use tokio::sync::{Mutex, RwLock};
-
-use crate::api::UserChannel;
 
 pub struct Context {
     pub key: KeyContext,
@@ -40,15 +39,22 @@ impl Context {
             (Some(dir), cloud, storage)
         };
 
+        let db = CloudDatabase::init_pool(&cloud)
+            .await
+            .expect("Cannot create cloud database");
+        let storage = JwstStorage::new(&storage)
+            .await
+            .expect("Cannot create storage");
+
+        if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
+            create_debug_collaboration_workspace(&db, &storage).await;
+        }
+
         Self {
             _dir,
             // =========== database ===========
-            db: CloudDatabase::init_pool(&cloud)
-                .await
-                .expect("Cannot create cloud database"),
-            storage: JwstStorage::new(&storage)
-                .await
-                .expect("Cannot create storage"),
+            db,
+            storage,
             // =========== auth ===========
             key: KeyContext::new(dotenvy::var("SIGN_KEY").ok()).expect("Cannot create key context"),
             firebase: Mutex::new(FirebaseContext::new(
@@ -66,6 +72,15 @@ impl Context {
             // =========== sync channel ===========
             channel: RwLock::new(HashMap::new()),
             user_channel: UserChannel::new(),
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) async fn new_test_client(db: CloudDatabase) -> Self {
+        Self {
+            // =========== database ===========
+            db,
+            ..Self::new().await
         }
     }
 
@@ -116,14 +131,6 @@ impl Context {
         }
         for channel in closed {
             self.channel.write().await.remove(&channel);
-        }
-    }
-
-    pub async fn new_test(db: CloudDatabase) -> Self {
-        Self {
-            // =========== database ===========
-            db,
-            ..Self::new().await
         }
     }
 }

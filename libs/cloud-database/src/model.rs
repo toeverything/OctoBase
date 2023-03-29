@@ -11,20 +11,26 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use sqlx::{self, types::chrono::NaiveDateTime, FromRow, Type};
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct GoogleClaims {
+pub struct UserInfo {
+    pub email: String,
+    pub email_verified: bool,
+    pub name: Option<String>,
+    // picture of avatar
+    pub picture: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct FirebaseClaims {
     // name of project
     pub aud: String,
     pub auth_time: usize,
-    pub email: String,
-    pub email_verified: bool,
     pub exp: usize,
     pub iat: usize,
     pub iss: String,
-    pub name: String,
-    // picture of avatar
-    pub picture: String,
     pub sub: String,
     pub user_id: String,
+    #[serde(flatten)]
+    pub user_info: Option<UserInfo>,
 }
 
 #[derive(FromRow, Debug, Clone, Serialize, Deserialize, JsonSchema)]

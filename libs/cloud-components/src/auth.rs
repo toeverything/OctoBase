@@ -3,7 +3,7 @@ use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use axum::http::header::CACHE_CONTROL;
 use chrono::{NaiveDateTime, Utc};
-use cloud_database::{Claims, GoogleClaims};
+use cloud_database::{Claims, FirebaseClaims};
 use jsonwebtoken::{
     decode, decode_header, encode, errors::Error as JwtError, DecodingKey, EncodingKey, Header,
     Validation,
@@ -188,7 +188,7 @@ impl FirebaseContext {
         self.pub_key = pub_key;
     }
 
-    pub async fn decode_google_token(&mut self, token: String) -> Option<GoogleClaims> {
+    pub async fn decode_google_token(&mut self, token: String) -> Option<FirebaseClaims> {
         let header = decode_header(&token).ok()?;
 
         if self.expires < Utc::now().naive_utc() {
@@ -200,7 +200,7 @@ impl FirebaseContext {
 
         validation.set_audience(&self.project_ids);
 
-        match decode::<GoogleClaims>(&token, key, &validation).map(|d| d.claims) {
+        match decode(&token, key, &validation).map(|d| d.claims) {
             Ok(c) => Some(c),
             Err(e) => {
                 info!("invalid token {}", e);

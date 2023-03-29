@@ -1,4 +1,4 @@
-use super::*;
+use super::{error_status::ErrorStatus, *};
 use axum::{
     body::Body,
     http::{Request, Response},
@@ -18,8 +18,6 @@ use tower_http::{
     request_id::{MakeRequestId, PropagateRequestIdLayer, RequestId, SetRequestIdLayer},
     trace::TraceLayer,
 };
-
-use crate::error_status::ErrorStatus;
 
 #[derive(Clone)]
 pub struct Auth {

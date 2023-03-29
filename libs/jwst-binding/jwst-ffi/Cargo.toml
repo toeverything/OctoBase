@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lib0 = "0.16.3"
-yrs = "0.16.3"
+lib0 = "0.16.5"
+yrs = "0.16.5"
 
 # ======= workspace dependencies =======
 jwst = { path = "../../jwst" }
