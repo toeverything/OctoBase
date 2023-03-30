@@ -18,7 +18,7 @@ impl SpaceTransaction<'_> {
 
     // create a block with specified flavor
     // if block exists, return the exists block
-    pub fn create<B, F>(&mut self, block_id: B, flavor: F) -> Block
+    pub fn create<B, F>(&mut self, block_id: B, flavor: F) -> JwstResult<Block>
     where
         B: AsRef<str>,
         F: AsRef<str>,
@@ -26,28 +26,28 @@ impl SpaceTransaction<'_> {
         self.space.create(&mut self.trx, block_id, flavor)
     }
 
-    pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) {
+    pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) -> JwstResult<()> {
         info!("set metadata: {}", key);
         let key = key.to_string();
         match value.into() {
             Any::Bool(bool) => {
-                self.space.metadata.insert(&mut self.trx, key, bool);
+                self.space.metadata.insert(&mut self.trx, key, bool)?;
             }
             Any::String(text) => {
                 self.space
                     .metadata
-                    .insert(&mut self.trx, key, text.to_string());
+                    .insert(&mut self.trx, key, text.to_string())?;
             }
             Any::Number(number) => {
-                self.space.metadata.insert(&mut self.trx, key, number);
+                self.space.metadata.insert(&mut self.trx, key, number)?;
             }
             Any::BigInt(number) => {
                 if JS_INT_RANGE.contains(&number) {
                     self.space
                         .metadata
-                        .insert(&mut self.trx, key, number as f64);
+                        .insert(&mut self.trx, key, number as f64)?;
                 } else {
-                    self.space.metadata.insert(&mut self.trx, key, number);
+                    self.space.metadata.insert(&mut self.trx, key, number)?;
                 }
             }
             Any::Null | Any::Undefined => {
@@ -55,6 +55,8 @@ impl SpaceTransaction<'_> {
             }
             Any::Buffer(_) | Any::Array(_) | Any::Map(_) => {}
         }
+
+        Ok(())
     }
 
     pub fn commit(&mut self) {

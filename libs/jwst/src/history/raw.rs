@@ -143,8 +143,8 @@ mod test {
         workspace.with_trx(|mut t| {
             let space = t.get_space("test");
 
-            let block = space.create(&mut t.trx, "test", "text");
-            block.set(&mut t.trx, "test", "test");
+            let block = space.create(&mut t.trx, "test", "text").unwrap();
+            block.set(&mut t.trx, "test", "test").unwrap();
         });
 
         let doc = workspace.doc();
@@ -158,7 +158,9 @@ mod test {
     fn parse_history_test() {
         let workspace = Workspace::new("test");
         workspace.with_trx(|mut t| {
-            t.get_space("test").create(&mut t.trx, "test", "text");
+            t.get_space("test")
+                .create(&mut t.trx, "test", "text")
+                .unwrap();
         });
         let doc = workspace.doc();
 

@@ -147,7 +147,12 @@ impl Space {
         cb(Box::new(iterator))
     }
 
-    pub fn create<B, F>(&self, trx: &mut TransactionMut, block_id: B, flavor: F) -> Block
+    pub fn create<B, F>(
+        &self,
+        trx: &mut TransactionMut,
+        block_id: B,
+        flavor: F,
+    ) -> JwstResult<Block>
     where
         B: AsRef<str>,
         F: AsRef<str>,
@@ -257,9 +262,9 @@ mod test {
             Space::new(&mut trx, doc.clone(), "workspace", space_id)
         };
         space.with_trx(|mut t| {
-            let block = t.create("test", "text");
+            let block = t.create("test", "text").unwrap();
 
-            block.set(&mut t.trx, "test", "test");
+            block.set(&mut t.trx, "test", "test").unwrap();
         });
 
         let doc = space.doc();
@@ -314,7 +319,7 @@ mod test {
         });
 
         space.with_trx(|mut t| {
-            let block = t.create("block", "text");
+            let block = t.create("block", "text").unwrap();
 
             assert_eq!(space.blocks.len(&t.trx), 1);
             assert_eq!(space.updated.len(&t.trx), 1);
@@ -337,7 +342,7 @@ mod test {
         });
 
         space.with_trx(|mut t| {
-            Block::new(&mut t.trx, &space, "test", "test", 1);
+            Block::new(&mut t.trx, &space, "test", "test", 1).unwrap();
             let vec = space.get_blocks_by_flavour(&t.trx, "test");
             assert_eq!(vec.len(), 1);
         });

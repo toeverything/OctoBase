@@ -126,17 +126,17 @@ impl Workspace {
         }
     }
 
-    pub fn set_search_index(&self, fields: Vec<String>) -> bool {
+    pub fn set_search_index(&self, fields: Vec<String>) -> JwstResult<bool> {
         match fields.iter().find(|&field| field.is_empty()) {
             Some(field) => {
                 error!("field name cannot be empty: {}", field);
-                false
+                Ok(false)
             }
             None => {
                 let value = serde_json::to_string(&fields).unwrap();
-                self.with_trx(|mut trx| trx.set_metadata(SEARCH_INDEX, value));
+                self.with_trx(|mut trx| trx.set_metadata(SEARCH_INDEX, value))?;
                 setup_plugin(self.clone());
-                true
+                Ok(true)
             }
         }
     }
@@ -415,9 +415,9 @@ mod test {
         workspace.with_trx(|mut t| {
             let space = t.get_space("test");
 
-            let block = space.create(&mut t.trx, "test", "text");
+            let block = space.create(&mut t.trx, "test", "text").unwrap();
 
-            block.set(&mut t.trx, "test", "test");
+            block.set(&mut t.trx, "test", "test").unwrap();
         });
 
         let doc = workspace.doc();
@@ -466,7 +466,7 @@ mod test {
         workspace.with_trx(|mut t| {
             let space = t.get_space("test");
 
-            let block = space.create(&mut t.trx, "block", "text");
+            let block = space.create(&mut t.trx, "block", "text").unwrap();
 
             assert_eq!(space.blocks.len(&t.trx), 1);
             assert_eq!(workspace.updated.len(&t.trx), 1);
@@ -491,7 +491,7 @@ mod test {
         workspace.with_trx(|mut t| {
             let space = t.get_space("test");
 
-            Block::new(&mut t.trx, &space, "test", "test", 1);
+            Block::new(&mut t.trx, &space, "test", "test", 1).unwrap();
             let vec = space.get_blocks_by_flavour(&t.trx, "test");
             assert_eq!(vec.len(), 1);
         });
@@ -509,10 +509,10 @@ mod test {
 
         workspace.with_trx(|mut t| {
             let space = t.get_space("space1");
-            space.create(&mut t.trx, "block1", "text");
+            space.create(&mut t.trx, "block1", "text").unwrap();
 
             let space = t.get_space("space2");
-            space.create(&mut t.trx, "block2", "text");
+            space.create(&mut t.trx, "block2", "text").unwrap();
         });
 
         assert_json_include!(
@@ -545,7 +545,7 @@ mod test {
     fn scan_doc() {
         let doc = Doc::new();
         let map = doc.get_or_insert_map("test");
-        map.insert(&mut doc.transact_mut(), "test", "aaa");
+        map.insert(&mut doc.transact_mut(), "test", "aaa").unwrap();
 
         let data = doc
             .transact()

@@ -33,13 +33,12 @@ pub async fn upgrade_handler(
     })
 }
 
-
 #[cfg(test)]
 mod test {
-    use jwst_rpc::{get_workspace, start_sync_thread};
     use jwst::DocStorage;
     use jwst::{Block, Workspace};
     use jwst_logger::{error, info};
+    use jwst_rpc::{get_workspace, start_sync_thread};
     use jwst_storage::JwstStorage;
     use std::collections::hash_map::Entry;
     use std::fs;
@@ -133,7 +132,7 @@ mod test {
     }
 
     #[test]
-    #[ignore="client_collaboration_with_server cannot close websocket gracefully, causing this fails"]
+    #[ignore = "client_collaboration_with_server cannot close websocket gracefully, causing this fails"]
     fn client_collaboration_with_server_with_poor_connection() {
         create_db_dir();
         jwst_logger::init_logger();
@@ -142,9 +141,16 @@ mod test {
         let rt = Runtime::new().unwrap();
         let workspace_id = String::from("1");
         let (storage, workspace) = rt.block_on(async {
-            let storage: Arc<JwstStorage> =
-                Arc::new(JwstStorage::new_with_sqlite("jwst_client").await.expect("get storage: jwst_client.db failed"));
-            let workspace = storage.docs().get(workspace_id.clone()).await.expect("get workspace: {workspace_id} failed");
+            let storage: Arc<JwstStorage> = Arc::new(
+                JwstStorage::new_with_sqlite("jwst_client")
+                    .await
+                    .expect("get storage: jwst_client.db failed"),
+            );
+            let workspace = storage
+                .docs()
+                .get(workspace_id.clone())
+                .await
+                .expect("get workspace: {workspace_id} failed");
             (storage, workspace)
         });
 
@@ -279,7 +285,9 @@ mod test {
     fn create_block(workspace: &Workspace, block_id: String, block_flavour: String) -> Block {
         workspace.with_trx(|mut trx| {
             let space = trx.get_space("blocks");
-            space.create(&mut trx.trx, block_id, block_flavour)
+            space
+                .create(&mut trx.trx, block_id, block_flavour)
+                .expect("failed to create block")
         })
     }
 
@@ -313,7 +321,10 @@ mod test {
         if exit_status.success() {
             info!("Child process exited successfully");
         } else {
-            error!("Child process exited with an error: {:?}", exit_status.to_string());
+            error!(
+                "Child process exited with an error: {:?}",
+                exit_status.to_string()
+            );
         }
     }
 }

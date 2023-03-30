@@ -454,20 +454,20 @@ pub async fn docs_storage_partial_test(pool: &DocDBStorage) -> anyhow::Result<()
 
         ws.with_trx(|mut t| {
             let space = t.get_space("test");
-            let block = space.create(&mut t.trx, "block1", "text");
-            block.set(&mut t.trx, "test1", "value1");
+            let block = space.create(&mut t.trx, "block1", "text").unwrap();
+            block.set(&mut t.trx, "test1", "value1").unwrap();
         });
 
         ws.with_trx(|mut t| {
             let space = t.get_space("test");
             let block = space.get(&mut t.trx, "block1").unwrap();
-            block.set(&mut t.trx, "test2", "value2");
+            block.set(&mut t.trx, "test2", "value2").unwrap();
         });
 
         ws.with_trx(|mut t| {
             let space = t.get_space("test");
-            let block = space.create(&mut t.trx, "block2", "block2");
-            block.set(&mut t.trx, "test3", "value3");
+            let block = space.create(&mut t.trx, "block2", "block2").unwrap();
+            block.set(&mut t.trx, "test3", "value3").unwrap();
         });
 
         drop(sub);
