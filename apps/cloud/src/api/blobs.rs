@@ -184,58 +184,6 @@ impl Context {
     }
 }
 
-///  Get `blob`.
-/// - Return 200 ok and `blob`.
-/// - Return 304 the file is not modified.
-/// - Return 404 the file does not exist.
-#[utoipa::path(
-    get,
-    tag = "Blob",
-    context_path = "/api/blob",
-    path = "/{name}",
-    params(
-        ("name", description = "hash of blob"),
-    ),
-    responses(
-        (status = 200, description = "Successfully get blob",body=BodyStream),
-        (status = 304, description = "The file is not modified"),
-        (status = 404, description = "The file does not exist"),
-    )
-)]
-#[instrument(skip(ctx, method, headers))]
-pub async fn get_blob(
-    Extension(ctx): Extension<Arc<Context>>,
-    Path(id): Path<String>,
-    method: Method,
-    headers: HeaderMap,
-) -> Response {
-    info!("get_blob enter");
-    ctx.get_blob(None, id, method, headers).await
-}
-
-///  Upload `blob`.
-/// - Return 200 and `hash`.
-/// - Return 413 upload file size exceeds 10MB.
-#[utoipa::path(put, tag = "Blob", context_path = "/api", path = "/blob",
-request_body(content=BodyStream, description="file size needs to be less than 10MB", content_type="application/octet-stream"),
-    responses(
-        (status = 200, description = "Successfully upload blob",body=String),
-        (status = 413, description = "Upload file size exceeds 10MB"),
-    ))]
-#[instrument(skip(ctx, length, stream))]
-pub async fn upload_blob(
-    Extension(ctx): Extension<Arc<Context>>,
-    TypedHeader(length): TypedHeader<ContentLength>,
-    stream: BodyStream,
-) -> Response {
-    info!("upload_blob enter");
-    if length.0 > MAX_BLOB_SIZE {
-        return ErrorStatus::PayloadTooLarge.into_response();
-    }
-
-    ctx.upload_blob(stream, None).await
-}
-
 ///  Get `blob` by workspace_id and hash.
 /// - Return 200 and `blob`.
 /// - Return 304 the file is not modified.
@@ -341,10 +289,16 @@ pub async fn upload_blob_in_workspace(
 #[utoipa::path(
     get,
     tag = "resource",
-    context_path = "/api/user",
-    path = "/recourse",
+    context_path = "/api/resource",
+    path = "/usage",
     responses(
-        (status = 200, description = "Return usage", body = [Usage]),
+        (status = 200, description = "Return usage", body = Usage,
+        example=json!({
+            "blob_usage":  {
+                "usage": 10,
+                "max_usage": 100,
+            }
+        })),
     )
 )]
 #[instrument(skip(ctx, claims), fields(user_id = %claims.user.id))]
@@ -372,79 +326,6 @@ mod test {
         super::{make_rest_route, Context},
         *,
     };
-
-    #[tokio::test]
-    async fn test_upload_blob() {
-        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test_client(pool).await;
-        let ctx = Arc::new(context);
-        let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
-
-        let client = TestClient::new(app);
-        let test_data: Vec<u8> = (0..=255).collect();
-        let test_data_len = test_data.len();
-        let test_data_stream = stream::iter(
-            test_data
-                .into_iter()
-                .map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))),
-        );
-        let body_stream = Body::wrap_stream(test_data_stream);
-
-        let resp = client
-            .put("/blob")
-            .header("Content-Length", test_data_len.to_string())
-            .body(body_stream)
-            .send()
-            .await;
-        assert_eq!(resp.status(), StatusCode::OK);
-        let bytes_per_chunk = 1024;
-        let num_chunks = 10 * 1024 + 1;
-        let large_stream = stream::repeat(Bytes::from(vec![0; bytes_per_chunk]))
-            .take(num_chunks)
-            .map(Ok::<_, std::io::Error>);
-
-        let body_stream = Body::wrap_stream(large_stream);
-        let content_length = (bytes_per_chunk * num_chunks).to_string();
-        let resp = client
-            .put("/blob")
-            .header("Content-Length", content_length)
-            .body(body_stream)
-            .send()
-            .await;
-        assert_eq!(resp.status(), StatusCode::PAYLOAD_TOO_LARGE);
-    }
-
-    #[tokio::test]
-    async fn test_get_blob() {
-        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
-        let context = Context::new_test_client(pool).await;
-        let ctx = Arc::new(context);
-        let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
-
-        let client = TestClient::new(app);
-        let test_data: Vec<u8> = (0..=255).collect();
-        let test_data_len = test_data.len();
-        let test_data_stream = stream::iter(
-            test_data
-                .into_iter()
-                .map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))),
-        );
-        let body_stream = Body::wrap_stream(test_data_stream);
-
-        let resp = client
-            .put("/blob")
-            .header("Content-Length", test_data_len.to_string())
-            .body(body_stream)
-            .send()
-            .await;
-        assert_eq!(resp.status(), StatusCode::OK);
-        let blob_name = resp.text().await;
-        let url = format!("/blob/{}", blob_name);
-        let resp = client.get(&url).send().await;
-        assert_eq!(resp.status(), StatusCode::OK);
-        let resp = client.get("/blob/mock_id").send().await;
-        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
-    }
 
     #[tokio::test]
     async fn test_upload_blob_in_workspace() {
