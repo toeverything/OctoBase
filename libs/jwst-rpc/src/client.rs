@@ -8,6 +8,7 @@ use tokio::{
     net::TcpStream,
     sync::broadcast::{channel, Receiver},
 };
+use tokio::sync::RwLock;
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
@@ -54,6 +55,7 @@ async fn init_connection(workspace: &Workspace, remote: &str) -> JwstResult<Sock
 
 async fn join_sync_thread(
     first_sync: Arc<AtomicBool>,
+    sync_state: Option<Arc<RwLock<SyncState>>>,
     workspace: &Workspace,
     socket: Socket,
     rx: &mut Receiver<Vec<u8>>,
@@ -77,6 +79,15 @@ async fn join_sync_thread(
                             }
                             let buffer = workspace.sync_decode_message(&msg).await;
                             first_sync.store(true, Ordering::Release);
+                            if let Some(state) = sync_state.clone() {
+                                let mut state = state.write().await;
+                                match *state {
+                                    SyncState::Offline => { *state = SyncState::Initialized },
+                                    SyncState::Initialized => { *state = SyncState::Syncing },
+                                    SyncState::Error(_) => { *state = SyncState::Syncing },
+                                    _ => {}
+                                }
+                            }
                             for update in buffer {
                                 debug!("send differential update to remote: {:?}", update);
                                 if let Err(e) = socket_tx.send(Message::binary(update)).await {
@@ -118,12 +129,13 @@ async fn join_sync_thread(
 
 async fn run_sync(
     first_sync: Arc<AtomicBool>,
+    sync_state: Option<Arc<RwLock<SyncState>>>,
     workspace: &Workspace,
     remote: String,
     rx: &mut Receiver<Vec<u8>>,
 ) -> JwstResult<bool> {
     let socket = init_connection(workspace, &remote).await?;
-    join_sync_thread(first_sync, workspace, socket, rx).await
+    join_sync_thread(first_sync, sync_state, workspace, socket, rx).await
 }
 
 /// Responsible for
@@ -132,7 +144,7 @@ async fn run_sync(
 /// manually trigger the 'tx.send()'.
 /// 2. synchronizing 'remote' modifications from the 'remote' to the local workspace, and
 /// encoding the updates before sending them back to the 'remote'
-pub fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec<u8>>) {
+pub fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec<u8>>, sync_state: Option<Arc<RwLock<SyncState>>>) {
     debug!("spawn sync thread");
     let first_sync = Arc::new(AtomicBool::new(false));
     let first_sync_cloned = first_sync.clone();
@@ -155,6 +167,7 @@ pub fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver
             loop {
                 match run_sync(
                     first_sync_cloned.clone(),
+                    sync_state.clone(),
                     &workspace,
                     remote.clone(),
                     &mut rx,
@@ -164,15 +177,27 @@ pub fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver
                     Ok(true) => {
                         debug!("sync thread finished");
                         first_sync_cloned.store(true, Ordering::Release);
+                        if let Some(state) = sync_state.clone() {
+                            let mut state = state.write().await;
+                            *state = SyncState::Finished;
+                        }
                         break;
                     }
                     Ok(false) => {
                         first_sync_cloned.store(true, Ordering::Release);
+                        if let Some(state) = sync_state.clone() {
+                            let mut state = state.write().await;
+                            *state = SyncState::Error("Remote sync connection disconnected".to_string());
+                        }
                         warn!("Remote sync connection disconnected, try again in 2 seconds");
                         sleep(Duration::from_secs(3)).await;
                     }
                     Err(e) => {
                         first_sync_cloned.store(true, Ordering::Release);
+                        if let Some(state) = sync_state.clone() {
+                            let mut state = state.write().await;
+                            *state = SyncState::Error("Remote sync error".to_string());
+                        }
                         warn!("Remote sync error, try again in 3 seconds: {}", e);
                         sleep(Duration::from_secs(1)).await;
                     }
@@ -226,7 +251,7 @@ pub async fn get_collaborating_workspace(
             }
         };
 
-        start_sync_thread(&workspace, remote, rx);
+        start_sync_thread(&workspace, remote, rx, None);
     }
 
     Ok(workspace)

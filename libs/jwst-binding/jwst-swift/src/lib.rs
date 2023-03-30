@@ -128,6 +128,18 @@ mod ffi {
 
         fn error(self: &Storage) -> Option<String>;
 
+        fn is_offline(self: &Storage) -> bool;
+
+        fn is_initialized(self: &Storage) -> bool;
+
+        fn is_syncing(self: &Storage) -> bool;
+
+        fn is_finished(self: &Storage) -> bool;
+
+        fn is_error(self: &Storage) -> bool;
+
+        fn get_sync_state(self: &Storage) -> String;
+
         fn connect(self: &mut Storage, workspace_id: String, remote: String) -> Option<Workspace>;
 
         fn sync(self: &Storage, workspace_id: String, remote: String) -> JwstWorkSpaceResult;

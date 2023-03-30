@@ -17,6 +17,15 @@ use tokio::{
     time::{sleep, Duration},
 };
 
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum SyncState {
+    Offline,
+    Initialized,
+    Syncing,
+    Finished,
+    Error(String)
+}
+
 #[derive(Debug)]
 pub enum Message {
     Binary(Vec<u8>),
