@@ -6,6 +6,7 @@ use axum::{
     },
     response::Response,
 };
+use jsonwebtoken::{decode, Validation};
 use jwst_rpc::{handle_connector, socket_connector};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -30,20 +31,13 @@ async fn ws_handler(
     Query(Param { token }): Query<Param>,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let user: Option<RefreshToken> = ctx
-        .key
-        .decrypt_aes_base64(token)
-        .ok()
-        .and_then(|data| serde_json::from_slice(&data).ok());
-
-    let user = if let Some(user) = user {
-        if let Ok(true) = ctx.db.verify_refresh_token(&user).await {
-            Some(user.user_id)
-        } else {
-            None
-        }
-    } else {
-        None
+    let key = ctx.key.jwt_decode.clone();
+    let claims = decode::<Claims>(&token, &key, &Validation::default())
+        .map(|d| d.claims)
+        .ok();
+    let user = match claims {
+        Some(claims) => Some(claims.user.id),
+        None => None,
     };
 
     ws.protocols(["AFFiNE"])
