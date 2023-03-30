@@ -289,10 +289,16 @@ pub async fn upload_blob_in_workspace(
 #[utoipa::path(
     get,
     tag = "resource",
-    context_path = "/api/user",
-    path = "/recourse",
+    context_path = "/api/resource",
+    path = "/usage",
     responses(
-        (status = 200, description = "Return usage", body = [Usage]),
+        (status = 200, description = "Return usage", body = Usage,
+        example=json!({
+            "blob_usage":  {
+                "usage": 10,
+                "max_usage": 100,
+            }
+        })),
     )
 )]
 #[instrument(skip(ctx, claims), fields(user_id = %claims.user.id))]
