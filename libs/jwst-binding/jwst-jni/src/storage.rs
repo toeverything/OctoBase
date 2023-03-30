@@ -57,10 +57,7 @@ impl JwstStorage {
         let rt = Runtime::new().unwrap();
         rt.block_on(async move {
             let sync_state = self.sync_state.read().await;
-            match *sync_state {
-                SyncState::Offline => true,
-                _ => false
-            }
+            matches!(*sync_state, SyncState::Offline)
         })
     }
 
@@ -68,10 +65,7 @@ impl JwstStorage {
         let rt = Runtime::new().unwrap();
         rt.block_on(async move {
             let sync_state = self.sync_state.read().await;
-            match *sync_state {
-                SyncState::Initialized => true,
-                _ => false
-            }
+            matches!(*sync_state, SyncState::Initialized)
         })
     }
 
@@ -79,10 +73,7 @@ impl JwstStorage {
         let rt = Runtime::new().unwrap();
         rt.block_on(async move {
             let sync_state = self.sync_state.read().await;
-            match *sync_state {
-                SyncState::Syncing => true,
-                _ => false
-            }
+            matches!(*sync_state, SyncState::Syncing)
         })
     }
 
@@ -90,10 +81,7 @@ impl JwstStorage {
         let rt = Runtime::new().unwrap();
         rt.block_on(async move {
             let sync_state = self.sync_state.read().await;
-            match *sync_state {
-                SyncState::Finished => true,
-                _ => false
-            }
+            matches!(*sync_state, SyncState::Finished)
         })
     }
 
@@ -101,10 +89,7 @@ impl JwstStorage {
         let rt = Runtime::new().unwrap();
         rt.block_on(async move {
             let sync_state = self.sync_state.read().await;
-            match *sync_state {
-                SyncState::Error(_) => true,
-                _ => false
-            }
+            matches!(*sync_state, SyncState::Error(_))
         })
     }
 
