@@ -5,6 +5,7 @@ use axum::{
 };
 use cloud_database::{WorkspaceDetail, WorkspaceWithPermission};
 use futures::{sink::SinkExt, stream::StreamExt};
+use jsonwebtoken::{decode, Validation};
 use jwst_logger::error;
 use nanoid::nanoid;
 use serde::Deserialize;
@@ -161,21 +162,12 @@ pub async fn global_ws_handler(
     Query(Param { token }): Query<Param>,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let user: Option<RefreshToken> = context
-        .key
-        .decrypt_aes_base64(token)
-        .ok()
-        .and_then(|data| serde_json::from_slice(&data).ok());
-
-    let user = if let Some(user) = user {
-        if let Ok(true) = context.db.verify_refresh_token(&user).await {
-            Some(user.user_id.clone())
-        } else {
-            None
-        }
-    } else {
-        None
+    let key = context.key.jwt_decode.clone();
+    let user = match decode::<Claims>(&token, &key, &Validation::default()).map(|d| d.claims) {
+        Ok(claims) => Some(claims.user.id),
+        Err(_) => None,
     };
+
     ws.protocols(["AFFiNE"])
         .on_upgrade(move |socket| handle_socket(socket, user, context))
 }

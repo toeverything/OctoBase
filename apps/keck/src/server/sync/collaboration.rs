@@ -80,7 +80,7 @@ mod test {
 
             let (workspace, rx) = get_workspace(&storage, workspace_id.clone()).await.unwrap();
             if !remote.is_empty() {
-                start_sync_thread(&workspace, remote, rx);
+                start_sync_thread(&workspace, remote, rx, None);
             }
 
             (workspace_id, workspace, storage)
@@ -178,7 +178,7 @@ mod test {
 
             let (workspace, rx) = get_workspace(&storage, workspace_id.clone()).await.unwrap();
             if !remote.is_empty() {
-                start_sync_thread(&workspace, remote, rx);
+                start_sync_thread(&workspace, remote, rx, None);
             }
 
             (workspace_id, workspace, storage)

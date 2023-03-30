@@ -8,6 +8,12 @@ foreign_class!(
         constructor JwstStorage::new(path: String) -> JwstStorage;
         constructor JwstStorage::new_with_logger_level(path: String, level: String) -> JwstStorage;
         fn JwstStorage::error(&self) -> Option<String>; alias error;
+        fn JwstStorage::is_offline(&self) -> bool;
+        fn JwstStorage::is_initialized(&self) -> bool;
+        fn JwstStorage::is_syncing(&self) -> bool;
+        fn JwstStorage::is_finished(&self) -> bool;
+        fn JwstStorage::is_error(&self) -> bool;
+        fn JwstStorage::get_sync_state(&self) -> String;
         fn JwstStorage::connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace>; alias connect;
     }
 );
