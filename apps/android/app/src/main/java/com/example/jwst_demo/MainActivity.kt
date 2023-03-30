@@ -73,6 +73,14 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            println("getSyncState" + storage.getSyncState())
+            println("isOffline " + storage.isOffline())
+            println("isInitialized " + storage.isInitialized())
+            println("isSyncing " + storage.isSyncing())
+            println("isFinished " + storage.isFinished())
+            println("isError " + storage.isError())
+
+
             workspace.withTrx { trx ->
                 trx.create("test", "list")
                 trx.create("test2", "list")

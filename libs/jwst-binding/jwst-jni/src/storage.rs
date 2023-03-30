@@ -1,15 +1,16 @@
 use crate::Workspace;
 use android_logger::Config;
 use jwst::{error, info, DocStorage, JwstError, JwstResult, LevelFilter};
-use jwst_rpc::{get_workspace, start_sync_thread};
+use jwst_rpc::{get_workspace, start_sync_thread, SyncState};
 use jwst_storage::JwstStorage as AutoStorage;
-use std::sync::Arc;
+use std::sync::{Arc};
 use tokio::{runtime::Runtime, sync::RwLock};
 
 #[derive(Clone)]
 pub struct JwstStorage {
     storage: Option<Arc<RwLock<AutoStorage>>>,
     error: Option<String>,
+    pub(crate) sync_state: Arc<RwLock<SyncState>>,
 }
 
 impl JwstStorage {
@@ -38,16 +39,72 @@ impl JwstStorage {
             Ok(pool) => Self {
                 storage: Some(Arc::new(RwLock::new(pool))),
                 error: None,
+                sync_state: Arc::new(RwLock::new(SyncState::Offline)),
             },
             Err(e) => Self {
                 storage: None,
                 error: Some(e.to_string()),
+                sync_state: Arc::new(RwLock::new(SyncState::Offline)),
             },
         }
     }
 
     pub fn error(&self) -> Option<String> {
         self.error.clone()
+    }
+
+    pub fn is_offline(&self) -> bool {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async move {
+            let sync_state = self.sync_state.read().await;
+            matches!(*sync_state, SyncState::Offline)
+        })
+    }
+
+    pub fn is_initialized(&self) -> bool {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async move {
+            let sync_state = self.sync_state.read().await;
+            matches!(*sync_state, SyncState::Initialized)
+        })
+    }
+
+    pub fn is_syncing(&self) -> bool {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async move {
+            let sync_state = self.sync_state.read().await;
+            matches!(*sync_state, SyncState::Syncing)
+        })
+    }
+
+    pub fn is_finished(&self) -> bool {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async move {
+            let sync_state = self.sync_state.read().await;
+            matches!(*sync_state, SyncState::Finished)
+        })
+    }
+
+    pub fn is_error(&self) -> bool {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async move {
+            let sync_state = self.sync_state.read().await;
+            matches!(*sync_state, SyncState::Error(_))
+        })
+    }
+
+    pub fn get_sync_state(&self) -> String {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async move {
+            let sync_state = self.sync_state.read().await;
+            match *sync_state {
+                SyncState::Offline => "offline".to_string(),
+                SyncState::Syncing => "syncing".to_string(),
+                SyncState::Initialized => "initialized".to_string(),
+                SyncState::Finished => "finished".to_string(),
+                SyncState::Error(_) => "Error".to_string(),
+            }
+        })
     }
 
     pub fn connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace> {
@@ -71,7 +128,7 @@ impl JwstStorage {
             });
 
             if !remote.is_empty() {
-                start_sync_thread(&workspace, remote, rx);
+                start_sync_thread(&workspace, remote, rx, Some(self.sync_state.clone()));
             }
 
             let (sub, workspace) = {

@@ -37,10 +37,9 @@ use utoipa::OpenApi;
         workspace::update_workspace,
         workspace::delete_workspace,
         workspace::search_workspace,
-        blobs::get_blob,
-        blobs::upload_blob,
         blobs::get_blob_in_workspace,
         blobs::upload_blob_in_workspace,
+        blobs::get_user_resource_usage,
         permissions::get_members,
         permissions::invite_member,
         permissions::accept_invitation,
@@ -64,8 +63,6 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/healthz", get(common::health_check))
         .route("/user", get(query_user))
         .route("/user/token", post(make_token))
-        .route("/blob", put(blobs::upload_blob))
-        .route("/blob/:name", get(blobs::get_blob))
         .route("/invitation/:path", post(permissions::accept_invitation))
         .nest_service("/global/sync", get(global_ws_handler))
         .route("/public/doc/:id", get(workspace::get_public_doc))
