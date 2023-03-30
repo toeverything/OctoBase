@@ -36,21 +36,19 @@ pub async fn upgrade_handler(
 
 #[cfg(test)]
 mod test {
-    use jwst_rpc::{get_workspace, start_sync_thread, SyncState};
+    use jwst_rpc::{get_workspace, start_sync_thread};
     use jwst::DocStorage;
     use jwst::{Block, Workspace};
     use jwst_logger::{error, info};
     use jwst_storage::JwstStorage;
     use std::collections::hash_map::Entry;
-    use std::{fs, thread};
+    use std::fs;
     use std::io::{BufRead, BufReader};
     use std::path::Path;
     use std::process::{Child, Command, Stdio};
     use std::string::String;
     use std::sync::Arc;
-    use std::thread::sleep;
     use tokio::runtime::Runtime;
-    use tokio::sync::RwLock;
 
     #[test]
     fn client_collaboration_with_server() {
@@ -59,18 +57,6 @@ mod test {
         let child = start_collaboration_server();
 
         let rt = Runtime::new().unwrap();
-        let sync_state = Arc::new(RwLock::new(SyncState::Offline));
-        let sync_state_cloned = sync_state.clone();
-        thread::spawn(move || {
-            let rt = Runtime::new().unwrap();
-            rt.block_on(async move {
-                loop {
-                    let state = sync_state.read().await;
-                    println!("sync state: {:?}", state);
-                    sleep(std::time::Duration::from_millis(400));
-                }
-            });
-        });
         let (workspace_id, mut workspace, storage) = rt.block_on(async move {
             let workspace_id = String::from("1");
             let storage: Arc<JwstStorage> =
@@ -94,7 +80,7 @@ mod test {
 
             let (workspace, rx) = get_workspace(&storage, workspace_id.clone()).await.unwrap();
             if !remote.is_empty() {
-                start_sync_thread(&workspace, remote, rx, Some(sync_state_cloned));
+                start_sync_thread(&workspace, remote, rx, None);
             }
 
             (workspace_id, workspace, storage)

@@ -128,16 +128,10 @@ class JwstWorkspace: ObservableObject {
     
     func storage_demo() {
         let fileManager = FileManager.default
-            
-        // Get the document directory path
+
         if let documentDirectory = try? fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false) {
-            
-            // Create the file URL by appending the file name
             let fileURL = documentDirectory.appendingPathComponent("jwst.db")
-            
-            // Check if the file already exists
             if !fileManager.fileExists(atPath: fileURL.path) {
-                // Create the file
                 fileManager.createFile(atPath: fileURL.path, contents: nil, attributes: nil)
             }
             let storage = Storage(fileURL.description.intoRustString())
