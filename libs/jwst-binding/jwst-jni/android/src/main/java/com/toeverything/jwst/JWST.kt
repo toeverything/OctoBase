@@ -201,4 +201,28 @@ class Storage constructor(path: String, private val remote: String = "", private
     fun getWorkspace(id: String): Optional<Workspace> {
         return  this.storage.connect(id, this.remote + "/" + id).map { Workspace(it) }
     }
+
+    fun isOffline(): Boolean {
+        return this.storage.is_offline
+    }
+
+    fun isInitialized(): Boolean {
+        return this.storage.is_initialized
+    }
+
+    fun isSyncing(): Boolean {
+        return this.storage.is_syncing
+    }
+
+    fun isFinished(): Boolean {
+        return this.storage.is_finished
+    }
+
+    fun isError(): Boolean {
+        return this.storage.is_error
+    }
+
+    fun getSyncState(): String {
+        return this.storage._sync_state
+    }
 }

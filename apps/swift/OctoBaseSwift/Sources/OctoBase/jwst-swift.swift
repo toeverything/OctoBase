@@ -556,6 +556,10 @@ extension Storage {
     public convenience init<GenericIntoRustString: IntoRustString>(_ path: GenericIntoRustString) {
         self.init(ptr: __swift_bridge__$Storage$new({ let rustString = path.intoRustString(); rustString.isOwned = false; return rustString.ptr }()))
     }
+
+    public convenience init<GenericIntoRustString: IntoRustString>(_ path: GenericIntoRustString, _ level: GenericIntoRustString) {
+        self.init(ptr: __swift_bridge__$Storage$new_with_log_level({ let rustString = path.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = level.intoRustString(); rustString.isOwned = false; return rustString.ptr }()))
+    }
 }
 public class StorageRefMut: StorageRef {
     public override init(ptr: UnsafeMutableRawPointer) {
@@ -577,6 +581,30 @@ public class StorageRef {
 extension StorageRef {
     public func error() -> Optional<RustString> {
         { let val = __swift_bridge__$Storage$error(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
+    }
+
+    public func is_offline() -> Bool {
+        __swift_bridge__$Storage$is_offline(ptr)
+    }
+
+    public func is_initialized() -> Bool {
+        __swift_bridge__$Storage$is_initialized(ptr)
+    }
+
+    public func is_syncing() -> Bool {
+        __swift_bridge__$Storage$is_syncing(ptr)
+    }
+
+    public func is_finished() -> Bool {
+        __swift_bridge__$Storage$is_finished(ptr)
+    }
+
+    public func is_error() -> Bool {
+        __swift_bridge__$Storage$is_error(ptr)
+    }
+
+    public func get_sync_state() -> RustString {
+        RustString(ptr: __swift_bridge__$Storage$get_sync_state(ptr))
     }
 
     public func sync<GenericIntoRustString: IntoRustString>(_ workspace_id: GenericIntoRustString, _ remote: GenericIntoRustString) -> JwstWorkSpaceResult {
