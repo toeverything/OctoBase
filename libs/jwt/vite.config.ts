@@ -18,18 +18,32 @@ export default defineConfig({
 			enforce: 'pre',
 		},
 		replace({
+			preventAssignment: true,
 			JWT_DEV: true,
 		}),
 		visualizer(),
 	],
 	build: {
+		emptyOutDir: true,
 		lib: {
-			entry: resolve(__dirname, 'lib/index.ts'),
+			entry: {
+				'index': resolve(__dirname, 'lib/index.ts'),
+				'rpc/keck': resolve(__dirname, 'lib/rpc/keck.ts'),
+			},
 			name: '@toeverything/jwt',
-			fileName: 'index',
 		},
 		rollupOptions: {
-			external: [],
+			external: [
+				'y-protocols',
+				'yjs',
+				'uuid',
+				'debug',
+				'flexsearch',
+				'fast-sort',
+				'ts-debounce',
+				'sift',
+				/^lib0/
+			],
 			output: {
 				globals: {},
 				format: 'es',
