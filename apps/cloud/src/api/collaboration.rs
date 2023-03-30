@@ -32,12 +32,9 @@ async fn ws_handler(
     ws: WebSocketUpgrade,
 ) -> Response {
     let key = ctx.key.jwt_decode.clone();
-    let claims = decode::<Claims>(&token, &key, &Validation::default())
-        .map(|d| d.claims)
-        .ok();
-    let user = match claims {
-        Some(claims) => Some(claims.user.id),
-        None => None,
+    let user = match decode::<Claims>(&token, &key, &Validation::default()).map(|d| d.claims) {
+        Ok(claims) => Some(claims.user.id),
+        Err(_) => None,
     };
 
     ws.protocols(["AFFiNE"])
