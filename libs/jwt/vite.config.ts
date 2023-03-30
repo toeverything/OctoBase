@@ -24,7 +24,6 @@ export default defineConfig({
 		visualizer(),
 	],
 	build: {
-		emptyOutDir: true,
 		lib: {
 			entry: {
 				'index': resolve(__dirname, 'lib/index.ts'),
