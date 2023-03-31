@@ -17,12 +17,6 @@ importers:
         specifier: ^18.2.0
         version: 18.2.0(react@18.2.0)
     devDependencies:
-      '@rollup/plugin-replace':
-        specifier: ^5.0.2
-        version: 5.0.2
-      '@types/node':
-        specifier: ^18.15.10
-        version: 18.15.10
       '@types/react':
         specifier: ^18.0.29
         version: 18.0.29
@@ -49,7 +43,7 @@ importers:
         version: 5.0.2
       vite:
         specifier: ^4.2.1
-        version: 4.2.1(@types/node@18.15.10)(terser@5.16.8)
+        version: 4.2.1(terser@5.16.8)
       vite-plugin-html:
         specifier: ^3.2.0
         version: 3.2.0(vite@4.2.1)
@@ -130,12 +124,18 @@ importers:
         specifier: ^13.5.51
         version: 13.5.51
     devDependencies:
+      '@rollup/plugin-replace':
+        specifier: ^5.0.2
+        version: 5.0.2
       '@types/debug':
         specifier: ^4.1.7
         version: 4.1.7
       '@types/flexsearch':
         specifier: ^0.7.3
         version: 0.7.3
+      '@types/node':
+        specifier: ^18.15.10
+        version: 18.15.10
       '@types/uuid':
         specifier: ^9.0.1
         version: 9.0.1
@@ -155,6 +155,9 @@ importers:
       '@toeverything/jwt':
         specifier: workspace:*
         version: link:../jwt
+      '@types/node':
+        specifier: ^18.15.10
+        version: 18.15.10
 
 packages:
 
@@ -1311,7 +1314,7 @@ packages:
         optional: true
     dependencies:
       '@swc/core': 1.3.42
-      vite: 4.2.1(@types/node@18.15.10)(terser@5.16.8)
+      vite: 4.2.1(terser@5.16.8)
     dev: true
 
   /acorn-jsx@5.3.2(acorn@8.8.2):
@@ -4114,7 +4117,7 @@ packages:
       html-minifier-terser: 6.1.0
       node-html-parser: 5.4.2
       pathe: 0.2.0
-      vite: 4.2.1(@types/node@18.15.10)(terser@5.16.8)
+      vite: 4.2.1(terser@5.16.8)
     dev: true
 
   /vite-plugin-singlefile@0.13.3(vite@4.2.1):
@@ -4130,10 +4133,10 @@ packages:
         optional: true
     dependencies:
       micromatch: 4.0.5
-      vite: 4.2.1(@types/node@18.15.10)(terser@5.16.8)
+      vite: 4.2.1(terser@5.16.8)
     dev: true
 
-  /vite@4.2.1(@types/node@18.15.10)(terser@5.16.8):
+  /vite@4.2.1(terser@5.16.8):
     resolution: {integrity: sha512-7MKhqdy0ISo4wnvwtqZkjke6XN4taqQ2TBaTccLIpOKv7Vp2h4Y+NpmWCnGDeSvvn45KxvWgGyb0MkHvY1vgbg==}
     engines: {node: ^14.18.0 || >=16.0.0}
     hasBin: true
@@ -4158,7 +4161,6 @@ packages:
       terser:
         optional: true
     dependencies:
-      '@types/node': 18.15.10
       esbuild: 0.17.14
       postcss: 8.4.21
       resolve: 1.22.1

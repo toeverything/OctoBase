@@ -26,23 +26,13 @@ export default defineConfig({
 	build: {
 		lib: {
 			entry: {
-				'index': resolve(__dirname, 'lib/index.ts'),
+				index: resolve(__dirname, 'lib/index.ts'),
 				'rpc/keck': resolve(__dirname, 'lib/rpc/keck.ts'),
 			},
 			name: '@toeverything/jwt',
 		},
 		rollupOptions: {
-			external: [
-				'y-protocols',
-				'yjs',
-				'uuid',
-				'debug',
-				'flexsearch',
-				'fast-sort',
-				'ts-debounce',
-				'sift',
-				/^lib0/
-			],
+			external: ['y-protocols', 'yjs', 'flexsearch', 'sift', /^lib0/],
 			output: {
 				globals: {},
 				format: 'es',

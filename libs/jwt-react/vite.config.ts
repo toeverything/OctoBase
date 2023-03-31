@@ -25,7 +25,7 @@ export default defineConfig({
 			fileName: 'index',
 		},
 		rollupOptions: {
-			external: ['react'],
+			external: ['jotai', 'react', 'y-protocols', 'yjs', 'flexsearch', 'sift', /^lib0/],
 			output: {
 				globals: {
 					'@toeverything/jwt': '@toeverything/jwt',

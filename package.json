@@ -25,8 +25,6 @@
 		"react-dom": "^18.2.0"
 	},
 	"devDependencies": {
-		"@rollup/plugin-replace": "^5.0.2",
-		"@types/node": "^18.15.10",
 		"@types/react": "^18.0.29",
 		"@types/react-dom": "^18.0.11",
 		"@vitejs/plugin-react-swc": "^3.2.0",

@@ -40,8 +40,10 @@
 		"yjs": "^13.5.51"
 	},
 	"devDependencies": {
+		"@rollup/plugin-replace": "^5.0.2",
 		"@types/debug": "^4.1.7",
 		"@types/flexsearch": "^0.7.3",
+		"@types/node": "^18.15.10",
 		"@types/uuid": "^9.0.1"
 	}
 }
