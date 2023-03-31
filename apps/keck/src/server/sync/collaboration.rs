@@ -135,13 +135,9 @@ mod test {
         });
 
         close_collaboration_server(child);
-
-        // workaround to disable parallel running with following test, which will
-        // cause memory sqlite db data incorrect
-        client_collaboration_with_server_with_poor_connection();
     }
 
-    // #[test]
+    #[test]
     fn client_collaboration_with_server_with_poor_connection() {
         let mut rng = thread_rng();
         let server_port = rng.gen_range(30001..=65535);
