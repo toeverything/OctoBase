@@ -2081,6 +2081,7 @@ dependencies = [
  "jwst-static",
  "jwst-storage",
  "lib0",
+ "libc",
  "log",
  "mimalloc",
  "nanoid",
