@@ -1,8 +1,8 @@
 use super::*;
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
-use axum::http::header::CACHE_CONTROL;
-use chrono::{NaiveDateTime, Utc};
+use axum::headers::{CacheControl, HeaderMapExt};
+use chrono::{Duration, NaiveDateTime, Utc};
 use cloud_database::{Claims, FirebaseClaims};
 use jsonwebtoken::{
     decode, decode_header, encode, errors::Error as JwtError, DecodingKey, EncodingKey, Header,
@@ -15,7 +15,7 @@ use reqwest::{Client, RequestBuilder};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use thiserror::Error;
-use x509_parser::prelude::parse_x509_pem;
+use x509_parser::prelude::{nom::Err as NomErr, parse_x509_pem, PEMError, X509Error};
 
 #[derive(Debug, Error)]
 pub enum KeyError {
@@ -141,6 +141,24 @@ impl Endpoint {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum FirebaseAuthError {
+    #[error("missing cache-control header")]
+    HeaderError,
+    #[error("missing public key")]
+    MissingPubKey,
+    #[error("cannot find decoding key")]
+    NotFound,
+    #[error(transparent)]
+    ReqwestError(#[from] reqwest::Error),
+    #[error(transparent)]
+    JWTError(#[from] jsonwebtoken::errors::Error),
+    #[error(transparent)]
+    DecodePEMError(#[from] NomErr<PEMError>),
+    #[error(transparent)]
+    DecodeX509Error(#[from] NomErr<X509Error>),
+}
+
 pub struct FirebaseContext {
     endpoint: Endpoint,
     project_ids: Vec<String>,
@@ -158,54 +176,64 @@ impl FirebaseContext {
         }
     }
 
-    async fn init_from_firebase(&mut self) {
-        let resp = self.endpoint.connect().send().await.unwrap();
+    async fn init_from_firebase(&mut self) -> Result<(), FirebaseAuthError> {
+        let resp = self.endpoint.connect().send().await?;
 
+        let cache = resp
+            .headers()
+            .typed_get::<CacheControl>()
+            .ok_or(FirebaseAuthError::HeaderError)?;
         let now = Utc::now().naive_utc();
-        let cache = resp.headers().get(CACHE_CONTROL).unwrap().to_str().unwrap();
-        let cache = CacheControl::parse(cache).unwrap();
-        let expires = now + cache.max_age.unwrap();
+        // 1 hour
+        let expires = now
+            + cache
+                .max_age()
+                .and_then(|d| Duration::from_std(d).ok())
+                .unwrap_or(Duration::seconds(60 * 60));
 
-        let body: HashMap<String, String> = resp.json().await.unwrap();
+        let body = resp.json::<HashMap<String, String>>().await?;
 
-        let pub_key = body
-            .into_iter()
-            .map(|(key, value)| {
-                let (_, pem) = parse_x509_pem(value.as_bytes()).expect("decode PEM error");
-                let cert = pem.parse_x509().expect("decode certificate error");
+        let mut pub_key = HashMap::new();
 
-                let pub_key = encode_pem(&Pem {
-                    tag: String::from("PUBLIC KEY"),
-                    contents: cert.public_key().raw.to_vec(),
-                });
-                let decode = DecodingKey::from_rsa_pem(pub_key.as_bytes()).unwrap();
+        for (key, value) in body {
+            let (_, pem) = parse_x509_pem(value.as_bytes())?;
+            let cert = pem.parse_x509()?;
 
-                (key, decode)
-            })
-            .collect();
+            let pbk = encode_pem(&Pem {
+                tag: String::from("PUBLIC KEY"),
+                contents: cert.public_key().raw.to_vec(),
+            });
+            let decode = DecodingKey::from_rsa_pem(pbk.as_bytes())?;
+
+            pub_key.insert(key, decode);
+        }
 
         self.expires = expires;
         self.pub_key = pub_key;
+
+        Ok(())
     }
 
-    pub async fn decode_google_token(&mut self, token: String) -> Option<FirebaseClaims> {
-        let header = decode_header(&token).ok()?;
+    pub async fn decode_google_token(
+        &mut self,
+        token: String,
+    ) -> Result<FirebaseClaims, FirebaseAuthError> {
+        let header = decode_header(&token)?;
 
         if self.expires < Utc::now().naive_utc() {
-            self.init_from_firebase().await;
+            self.init_from_firebase().await?;
         }
-        let key = self.pub_key.get(&header.kid?)?;
+
+        let kid = header.kid.ok_or(FirebaseAuthError::MissingPubKey)?;
+
+        let key = self.pub_key.get(&kid).ok_or(FirebaseAuthError::NotFound)?;
 
         let mut validation = Validation::new(header.alg);
 
         validation.set_audience(&self.project_ids);
 
-        match decode(&token, key, &validation).map(|d| d.claims) {
-            Ok(c) => Some(c),
-            Err(e) => {
-                info!("invalid token {}", e);
-                None
-            }
-        }
+        let token = decode(&token, key, &validation)?;
+
+        Ok(token.claims)
     }
 }

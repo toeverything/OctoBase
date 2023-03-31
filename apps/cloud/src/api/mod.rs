@@ -191,7 +191,7 @@ pub async fn make_token(
             }
         }
         MakeToken::Google { token } => (
-            if let Some(claims) = ctx.firebase.lock().await.decode_google_token(token).await {
+            if let Ok(claims) = ctx.firebase.lock().await.decode_google_token(token).await {
                 ctx.db.firebase_user_login(&claims).await.map(Some)
             } else {
                 Ok(None)
