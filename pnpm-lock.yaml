@@ -144,10 +144,13 @@ importers:
     dependencies:
       jotai:
         specifier: ^2.0.3
-        version: 2.0.3
+        version: 2.0.3(react@18.2.0)
       nanoid:
         specifier: ^4.0.2
         version: 4.0.2
+      react:
+        specifier: ^18
+        version: 18.2.0
     devDependencies:
       '@toeverything/jwt':
         specifier: workspace:*
@@ -2246,16 +2249,6 @@ packages:
       filelist: 1.0.4
       minimatch: 3.1.2
     dev: true
-
-  /jotai@2.0.3:
-    resolution: {integrity: sha512-MMjhSPAL3RoeZD9WbObufRT2quThEAEknHHridf2ma8Ml7ZVQmUiHk0ssdbR3F0h3kcwhYqSGJ59OjhPge7RRg==}
-    engines: {node: '>=12.20.0'}
-    peerDependencies:
-      react: '>=17.0.0'
-    peerDependenciesMeta:
-      react:
-        optional: true
-    dev: false
 
   /jotai@2.0.3(react@18.2.0):
     resolution: {integrity: sha512-MMjhSPAL3RoeZD9WbObufRT2quThEAEknHHridf2ma8Ml7ZVQmUiHk0ssdbR3F0h3kcwhYqSGJ59OjhPge7RRg==}
