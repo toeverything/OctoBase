@@ -237,7 +237,7 @@ pub async fn set_search_index(
     info!("set_search_index: {ws_id:?} fields = {fields:?}");
 
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
-        if workspace.set_search_index(fields) {
+        if let Ok(true) = workspace.set_search_index(fields) {
             StatusCode::OK.into_response()
         } else {
             StatusCode::BAD_REQUEST.into_response()

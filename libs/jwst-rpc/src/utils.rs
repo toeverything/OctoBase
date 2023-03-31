@@ -14,6 +14,7 @@ pub struct MinimumServerContext {
     storage: JwstStorage,
 }
 
+// just for test
 impl MinimumServerContext {
     pub async fn new() -> Arc<Self> {
         let storage = JwstStorage::new(
@@ -39,7 +40,8 @@ impl MinimumServerContext {
         let init_state = ws
             .doc()
             .transact()
-            .encode_state_as_update_v1(&StateVector::default());
+            .encode_state_as_update_v1(&StateVector::default())
+            .expect("encode_state_as_update_v1 failed");
 
         (server, ws, init_state)
     }

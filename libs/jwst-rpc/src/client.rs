@@ -148,7 +148,7 @@ fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec
                     remote.clone(),
                     &mut rx,
                 )
-                    .await
+                .await
                 {
                     Ok(true) => {
                         debug!("sync thread finished");
@@ -179,7 +179,25 @@ fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec
     }
 }
 
-pub async fn start_client(
+pub async fn get_workspace(
+    storage: &JwstStorage,
+    id: String,
+) -> JwstResult<(Workspace, Receiver<Vec<u8>>)> {
+    let workspace = storage.docs().get(id.clone()).await?;
+    // get the receiver corresponding to DocAutoStorage, the sender is used in the doc::write_update() method.
+    let rx = match storage.docs().remote().write().await.entry(id.clone()) {
+        Entry::Occupied(tx) => tx.get().subscribe(),
+        Entry::Vacant(entry) => {
+            let (tx, rx) = channel(100);
+            entry.insert(tx);
+            rx
+        }
+    };
+
+    Ok((workspace, rx))
+}
+
+pub async fn get_collaborating_workspace(
     storage: &JwstStorage,
     id: String,
     remote: String,

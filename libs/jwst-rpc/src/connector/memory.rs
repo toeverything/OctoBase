@@ -12,6 +12,7 @@ use yrs::{
     Doc, Transact, Update,
 };
 
+// just for test
 pub fn memory_connector(
     doc: Doc,
     id: usize,
@@ -38,8 +39,11 @@ pub fn memory_connector(
 
                 debug!("send change: {}", e.update.len());
                 if futures::executor::block_on(
-                    remote_sender
-                        .send(Message::Sync(SyncMessage::Update(e.update.clone())).encode_v1()),
+                    remote_sender.send(
+                        Message::Sync(SyncMessage::Update(e.update.clone()))
+                            .encode_v1()
+                            .expect("failed to encode update"),
+                    ),
                 )
                 .is_err()
                 {

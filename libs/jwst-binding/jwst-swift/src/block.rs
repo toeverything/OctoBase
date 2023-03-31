@@ -23,33 +23,41 @@ impl Block {
 
     pub fn push_children(&self, block: &Block) {
         self.workspace
-            .with_trx(|mut trx| self.block.push_children(&mut trx.trx, &block.block));
+            .with_trx(|mut trx| self.block.push_children(&mut trx.trx, &block.block))
+            .expect("failed to push children");
     }
 
     pub fn insert_children_at(&self, block: &Block, pos: u32) {
-        self.workspace.with_trx(|mut trx| {
-            self.block
-                .insert_children_at(&mut trx.trx, &block.block, pos)
-        });
+        self.workspace
+            .with_trx(|mut trx| {
+                self.block
+                    .insert_children_at(&mut trx.trx, &block.block, pos)
+            })
+            .expect("failed to insert children at position");
     }
 
     pub fn insert_children_before(&self, block: &Block, reference: &str) {
-        self.workspace.with_trx(|mut trx| {
-            self.block
-                .insert_children_before(&mut trx.trx, &block.block, reference)
-        });
+        self.workspace
+            .with_trx(|mut trx| {
+                self.block
+                    .insert_children_before(&mut trx.trx, &block.block, reference)
+            })
+            .expect("failed to insert children before");
     }
 
     pub fn insert_children_after(&self, block: &Block, reference: &str) {
-        self.workspace.with_trx(|mut trx| {
-            self.block
-                .insert_children_after(&mut trx.trx, &block.block, reference)
-        });
+        self.workspace
+            .with_trx(|mut trx| {
+                self.block
+                    .insert_children_after(&mut trx.trx, &block.block, reference)
+            })
+            .expect("failed to insert children after");
     }
 
     pub fn remove_children(&self, block: &Block) {
         self.workspace
-            .with_trx(|mut trx| self.block.remove_children(&mut trx.trx, &block.block));
+            .with_trx(|mut trx| self.block.remove_children(&mut trx.trx, &block.block))
+            .expect("failed to remove children");
     }
 
     pub fn exists_children(&self, block_id: &str) -> i32 {
@@ -89,27 +97,32 @@ impl Block {
 
     pub fn set_bool(&self, key: String, value: bool) {
         self.workspace
-            .with_trx(|mut trx| self.block.set(&mut trx.trx, &key, value));
+            .with_trx(|mut trx| self.block.set(&mut trx.trx, &key, value))
+            .expect("failed to set bool");
     }
 
     pub fn set_string(&self, key: String, value: String) {
         self.workspace
-            .with_trx(|mut trx| self.block.set(&mut trx.trx, &key, value));
+            .with_trx(|mut trx| self.block.set(&mut trx.trx, &key, value))
+            .expect("failed to set string");
     }
 
     pub fn set_float(&self, key: String, value: f64) {
         self.workspace
-            .with_trx(|mut trx| self.block.set(&mut trx.trx, &key, value));
+            .with_trx(|mut trx| self.block.set(&mut trx.trx, &key, value))
+            .expect("failed to set float");
     }
 
     pub fn set_integer(&self, key: String, value: i64) {
         self.workspace
-            .with_trx(|mut trx| self.block.set(&mut trx.trx, &key, value));
+            .with_trx(|mut trx| self.block.set(&mut trx.trx, &key, value))
+            .expect("failed to set integer");
     }
 
     pub fn set_null(&self, key: String) {
         self.workspace
-            .with_trx(|mut trx| self.block.set(&mut trx.trx, &key, Any::Null));
+            .with_trx(|mut trx| self.block.set(&mut trx.trx, &key, Any::Null))
+            .expect("failed to set null");
     }
 
     pub fn is_bool(&self, key: String) -> bool {

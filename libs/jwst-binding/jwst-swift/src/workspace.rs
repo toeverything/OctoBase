@@ -40,7 +40,9 @@ impl Workspace {
         self.workspace.with_trx(|mut trx| {
             let block = Block::new(
                 workspace,
-                trx.get_blocks().create(&mut trx.trx, block_id, flavor),
+                trx.get_blocks()
+                    .create(&mut trx.trx, block_id, flavor)
+                    .expect("failed to create block"),
             );
             drop(trx);
             block
@@ -67,6 +69,8 @@ impl Workspace {
     }
 
     pub fn set_search_index(self: &Workspace, fields: Vec<String>) -> bool {
-        self.workspace.set_search_index(fields)
+        self.workspace
+            .set_search_index(fields)
+            .expect("failed to set search index")
     }
 }

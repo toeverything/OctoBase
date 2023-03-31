@@ -3,7 +3,7 @@ name: Build Jwst
 on:
     workflow_dispatch:
     push:
-        branches: [master]
+        branches: [master, legacy/patch_merge_update]
         paths:
             - 'apps/cloud/**'
             - 'apps/handbook/**'

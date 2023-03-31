@@ -5,7 +5,7 @@ mod context;
 mod utils;
 
 pub use broadcast::{BroadcastChannels, BroadcastType};
-pub use client::start_client;
+pub use client::{get_collaborating_workspace, get_workspace, start_sync_thread};
 pub use connector::{memory_connector, socket_connector};
 pub use context::RpcContextImpl;
 pub use utils::{connect_memory_workspace, MinimumServerContext};
@@ -208,8 +208,8 @@ mod test {
 
         doc1.with_trx(|mut t| {
             let space = t.get_space("space");
-            let block1 = space.create(&mut t.trx, "block1", "flavor1");
-            block1.set(&mut t.trx, "key1", "val1");
+            let block1 = space.create(&mut t.trx, "block1", "flavor1").unwrap();
+            block1.set(&mut t.trx, "key1", "val1").unwrap();
         });
 
         // await the task to make sure the doc1 is broadcasted before check doc2
@@ -283,9 +283,12 @@ mod test {
                 doc.retry_with_trx(
                     |mut t| {
                         let space = t.get_space("space");
-                        let block1 =
-                            space.create(&mut t.trx, block_id.clone(), format!("flavor{}", i));
-                        block1.set(&mut t.trx, &format!("key{}", i), format!("val{}", i));
+                        let block1 = space
+                            .create(&mut t.trx, block_id.clone(), format!("flavor{}", i))
+                            .unwrap();
+                        block1
+                            .set(&mut t.trx, &format!("key{}", i), format!("val{}", i))
+                            .unwrap();
                         println!("write {block_id}");
                     },
                     50,

@@ -43,6 +43,17 @@ impl Workspace {
     }
 
     #[generate_interface]
+    pub fn get_blocks_by_flavour(&self, flavour: &str) -> Vec<Block> {
+        self.workspace.with_trx(|mut trx| {
+            trx.get_blocks()
+                .get_blocks_by_flavour(&trx.trx, flavour)
+                .iter()
+                .map(|item| Block(item.clone()))
+                .collect()
+        })
+    }
+
+    #[generate_interface]
     pub fn drop_trx(&self, trx: WorkspaceTransaction) {
         drop(trx)
     }
@@ -59,6 +70,8 @@ impl Workspace {
 
     #[generate_interface]
     pub fn set_search_index(&self, fields: VecOfStrings) -> bool {
-        self.workspace.set_search_index(fields)
+        self.workspace
+            .set_search_index(fields)
+            .expect("failed to set search index")
     }
 }

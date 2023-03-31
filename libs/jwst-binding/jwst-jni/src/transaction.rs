@@ -15,7 +15,8 @@ impl WorkspaceTransaction<'_> {
         Block(
             self.0
                 .get_blocks()
-                .create(&mut self.0.trx, block_id, flavor),
+                .create(&mut self.0.trx, block_id, flavor)
+                .expect("failed to create block"),
         )
     }
 
