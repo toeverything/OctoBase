@@ -14,7 +14,7 @@ const messageReconnectTimeout = 30000
 
 const setupWS = (provider: KeckProvider) => {
 	if (provider.shouldConnect && provider.ws === null) {
-		const websocket = new WebSocket(provider.url)
+		const websocket = new provider.WebSocketCtor(provider.url)
 		websocket.binaryType = 'arraybuffer'
 		provider.ws = websocket
 		provider.wsconnecting = true
@@ -95,6 +95,7 @@ const broadcastMessage = (provider: KeckProvider, buf: ArrayBuffer) => {
 }
 
 export class KeckProvider extends Observable<string> {
+	WebSocketCtor: typeof WebSocket
 	doc: Y.Doc
 	awareness: awarenessProtocol.Awareness
 	url: any
@@ -120,6 +121,7 @@ export class KeckProvider extends Observable<string> {
 		roomName: string,
 		doc: Y.Doc,
 		{
+			WebSocketCtor = WebSocket,
 			connect = true,
 			awareness = new awarenessProtocol.Awareness(doc),
 			params = {},
@@ -133,6 +135,7 @@ export class KeckProvider extends Observable<string> {
 		while (serverUrl[serverUrl.length - 1] === '/') {
 			serverUrl = serverUrl.slice(0, serverUrl.length - 1)
 		}
+		this.WebSocketCtor = WebSocketCtor
 		const encodedParams = url.encodeQueryParams(params)
 		this.maxBackOffTime = maxBackOffTime
 		this.extraToleranceTime = extraToleranceTime

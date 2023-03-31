@@ -2,6 +2,7 @@
 	"name": "jwt",
 	"version": "0.1.0",
 	"private": true,
+	"packageManager": "pnpm@8.1.0",
 	"scripts": {
 		"dev": "turbo --filter @toeverything/octobase dev",
 		"build": "turbo --filter @toeverything/octobase build",
