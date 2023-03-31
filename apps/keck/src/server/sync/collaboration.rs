@@ -55,7 +55,6 @@ mod test {
 
     #[test]
     fn client_collaboration_with_server() {
-        create_db_dir();
         if let Ok(_) = dotenvy::var("KECK_DEBUG") {
             jwst_logger::init_logger();
         }
@@ -67,7 +66,7 @@ mod test {
         let (workspace_id, mut workspace, storage) = rt.block_on(async move {
             let workspace_id = String::from("1");
             let storage: Arc<JwstStorage> =
-                Arc::new(JwstStorage::new_with_sqlite("jwst_client").await.unwrap());
+                Arc::new(JwstStorage::new("sqlite:memory?mode=rwc").await.expect("get storage: memory sqlite failed"));
             let remote = String::from(format!("ws://localhost:{server_port}/collaboration/1"));
             storage
                 .create_workspace(workspace_id.clone())
@@ -135,7 +134,6 @@ mod test {
             }
         });
 
-        fs::remove_dir_all("./data").unwrap();
         close_collaboration_server(child);
 
         // workaround to disable parallel running with following test, which will
@@ -145,7 +143,6 @@ mod test {
 
     // #[test]
     fn client_collaboration_with_server_with_poor_connection() {
-        create_db_dir();
         let mut rng = thread_rng();
         let server_port = rng.gen_range(30001..=65535);
         let child = start_collaboration_server(server_port);
@@ -154,7 +151,7 @@ mod test {
         let workspace_id = String::from("1");
         let (storage, workspace) = rt.block_on(async {
             let storage: Arc<JwstStorage> =
-                Arc::new(JwstStorage::new_with_sqlite("jwst_client").await.expect("get storage: jwst_client.db failed"));
+                Arc::new(JwstStorage::new("sqlite:memory?mode=rwc").await.expect("get storage: memory sqlite failed"));
             let workspace = storage.docs().get(workspace_id.clone()).await.expect("get workspace: {workspace_id} failed");
             (storage, workspace)
         });
@@ -256,19 +253,7 @@ mod test {
             }
         });
 
-        fs::remove_dir_all("./data").unwrap();
         close_collaboration_server(child);
-    }
-
-    fn create_db_dir() {
-        let dir_path = Path::new("./data");
-        if dir_path.exists() {
-            fs::remove_dir_all("./data").unwrap();
-        }
-        match fs::create_dir(&dir_path) {
-            Ok(_) => info!("Directory created: {:?}", dir_path),
-            Err(err) => error!("Failed to create directory: {}", err),
-        }
     }
 
     fn get_block_from_server(workspace_id: String, block_id: String, server_port: u16) -> String {
@@ -300,6 +285,7 @@ mod test {
         let mut child = Command::new("cargo")
             .args(&["run", "-p", "keck"])
             .env("KECK_PORT", port.to_string())
+            .env("USE_MEMORY_SQLITE", "true")
             .stdout(Stdio::piped())
             .spawn()
             .expect("Failed to run command");
