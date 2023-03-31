@@ -341,11 +341,14 @@ pub async fn remove_user(
         }
     };
 
-    let permission_result = ctx.db.get_permission_by_id(id.clone()).await;
-    if permission_result.is_err() || permission_result.as_ref().unwrap().is_none() {
-        return ErrorStatus::InternalServerError.into_response();
-    }
-    let permission_model = permission_result.unwrap().unwrap();
+    let permission_result = match ctx.db.get_permission_by_id(id.clone()).await {
+        Ok(result) => result,
+        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+    };
+    let permission_model = match permission_result {
+        Some(model) => model,
+        None => return ErrorStatus::InternalServerError.into_response(),
+    };
 
     match ctx.db.delete_permission(id).await {
         Ok(true) => {

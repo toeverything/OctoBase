@@ -642,14 +642,12 @@ impl CloudDatabase {
 
         if let Some(user_info) = &claims.user_info {
             if let Some(firebase_user) = firebase_user {
-                let model = Users::find()
+                let id = Users::find()
                     .filter(UsersColumn::Id.eq(firebase_user.user_id.clone()))
                     .one(&self.pool)
-                    .await?;
-                if model.is_none() {
-                    return Err(DbErr::RecordNotFound(firebase_user.user_id));
-                }
-                let id = model.unwrap().id;
+                    .await?
+                    .ok_or_else(|| DbErr::RecordNotFound(firebase_user.user_id.clone()))?
+                    .id;
 
                 let user = Users::update(UsersActiveModel {
                     id: Set(id.clone()),
