@@ -51,6 +51,8 @@ tokio = { version = "1.26.0", features = [
 utoipa = { version = "2.4.2", features = ["axum_extras"], optional = true }
 utoipa-swagger-ui = { version = "3.0.2", features = ["axum"], optional = true }
 yrs = "0.16.5"
+libc = "0.2.140"
+rand = "0.8.5"
 
 # ======= workspace dependencies =======
 
