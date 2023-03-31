@@ -172,7 +172,7 @@ pub fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver
                     remote.clone(),
                     &mut rx,
                 )
-                    .await
+                .await
                 {
                     Ok(true) => {
                         debug!("sync thread finished");
@@ -233,7 +233,7 @@ pub async fn get_workspace(
     Ok((workspace, rx))
 }
 
-pub async fn get_collaborating_worksapce(
+pub async fn get_collaborating_workspace(
     storage: &JwstStorage,
     id: String,
     remote: String,

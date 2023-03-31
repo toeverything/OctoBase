@@ -41,26 +41,26 @@ impl WorkspaceTransaction<'_> {
         cb(Box::new(iterator))
     }
 
-    pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) {
+    pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) -> JwstResult<()> {
         info!("set metadata: {}", key);
         let key = key.to_string();
         match value.into() {
             Any::Bool(bool) => {
-                self.ws.metadata.insert(&mut self.trx, key, bool);
+                self.ws.metadata.insert(&mut self.trx, key, bool)?;
             }
             Any::String(text) => {
                 self.ws
                     .metadata
-                    .insert(&mut self.trx, key, text.to_string());
+                    .insert(&mut self.trx, key, text.to_string())?;
             }
             Any::Number(number) => {
-                self.ws.metadata.insert(&mut self.trx, key, number);
+                self.ws.metadata.insert(&mut self.trx, key, number)?;
             }
             Any::BigInt(number) => {
                 if JS_INT_RANGE.contains(&number) {
-                    self.ws.metadata.insert(&mut self.trx, key, number as f64);
+                    self.ws.metadata.insert(&mut self.trx, key, number as f64)?;
                 } else {
-                    self.ws.metadata.insert(&mut self.trx, key, number);
+                    self.ws.metadata.insert(&mut self.trx, key, number)?;
                 }
             }
             Any::Null | Any::Undefined => {
@@ -68,6 +68,8 @@ impl WorkspaceTransaction<'_> {
             }
             Any::Buffer(_) | Any::Array(_) | Any::Map(_) => {}
         }
+
+        Ok(())
     }
 
     pub fn commit(&mut self) {

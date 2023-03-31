@@ -3,7 +3,7 @@ mod plugins;
 mod transaction;
 mod workspace;
 
-use super::{constants, error, info, trace, warn, Space};
+use super::{constants, error, info, trace, warn, JwstResult, Space};
 use plugins::PluginMap;
 
 pub use metadata::WorkspaceMetadata;

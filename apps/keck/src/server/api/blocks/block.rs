@@ -72,7 +72,7 @@ pub async fn set_block(
     info!("set_block: {}, {}", ws_id, block_id);
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         let mut update = None;
-        let block = workspace.with_trx(|mut t| {
+        if let Some(block) = workspace.with_trx(|mut t| {
             let flavor = if let Some(query_map) = query_param {
                 query_map
                     .get("flavor")
@@ -81,37 +81,53 @@ pub async fn set_block(
                 String::from("text")
             };
 
-            let block = t.get_blocks().create(&mut t.trx, &block_id, flavor);
-
-            // set block content
-            if let Some(block_content) = payload.as_object() {
-                let mut changed = false;
-                for (key, value) in block_content.iter() {
-                    if key == "sys:flavor" {
-                        continue;
+            if let Ok(block) = t
+                .get_blocks()
+                .create(&mut t.trx, &block_id, flavor)
+                .map_err(|e| error!("failed to create block: {}", e.to_string()))
+            {
+                // set block content
+                if let Some(block_content) = payload.as_object() {
+                    let mut changed = false;
+                    for (key, value) in block_content.iter() {
+                        if key == "sys:flavor" {
+                            continue;
+                        }
+                        changed = true;
+                        if let Ok(value) = serde_json::from_value::<Any>(value.clone()) {
+                            if let Err(e) = block.set(&mut t.trx, key, value.clone()) {
+                                error!(
+                                    "failed to set block {} content: {}, {}, {}",
+                                    block_id,
+                                    key,
+                                    value,
+                                    e.to_string()
+                                );
+                            }
+                        }
                     }
-                    changed = true;
-                    if let Ok(value) = serde_json::from_value::<Any>(value.clone()) {
-                        block.set(&mut t.trx, key, value);
+
+                    if changed {
+                        update = t.trx.encode_update_v1().ok();
                     }
                 }
 
-                if changed {
-                    update = Some(t.trx.encode_update_v1());
+                Some(block)
+            } else {
+                None
+            }
+        }) {
+            if let Some(update) = update {
+                if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
+                    error!("db write error: {}", e.to_string());
                 }
             }
 
-            block
-        });
-
-        if let Some(update) = update {
-            if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
-                error!("db write error: {}", e.to_string());
-            }
+            // response block content
+            Json(block).into_response()
+        } else {
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
-
-        // response block content
-        Json(block).into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
@@ -225,7 +241,7 @@ pub async fn delete_block(
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         if let Some(update) = workspace.with_trx(|mut t| {
             if t.get_blocks().remove(&mut t.trx, &block) {
-                Some(t.trx.encode_update_v1())
+                t.trx.encode_update_v1().ok()
             } else {
                 None
             }
@@ -326,51 +342,72 @@ pub async fn insert_block_children(
         let mut update = None;
 
         if let Some(block) = workspace.with_trx(|mut t| t.get_blocks().get(&t.trx, block)) {
-            let block = workspace.with_trx(|mut t| {
+            if let Some(block) = workspace.with_trx(|mut t| {
                 let space = t.get_blocks();
                 let mut changed = false;
                 match payload {
                     InsertChildren::Push(block_id) => {
                         if let Some(child) = space.get(&t.trx, block_id) {
                             changed = true;
-                            block.push_children(&mut t.trx, &child)
+                            if let Err(e) = block.push_children(&mut t.trx, &child) {
+                                // TODO: handle error correctly
+                                error!("failed to insert block: {}", e.to_string());
+                                return None;
+                            }
                         }
                     }
                     InsertChildren::InsertBefore { id, before } => {
                         if let Some(child) = space.get(&t.trx, id) {
                             changed = true;
-                            block.insert_children_before(&mut t.trx, &child, &before)
+                            if let Err(e) =
+                                block.insert_children_before(&mut t.trx, &child, &before)
+                            {
+                                // TODO: handle error correctly
+                                error!("failed to insert children before: {}", e.to_string());
+                                return None;
+                            }
                         }
                     }
                     InsertChildren::InsertAfter { id, after } => {
                         if let Some(child) = space.get(&t.trx, id) {
                             changed = true;
-                            block.insert_children_after(&mut t.trx, &child, &after)
+                            if let Err(e) = block.insert_children_after(&mut t.trx, &child, &after)
+                            {
+                                // TODO: handle error correctly
+                                error!("failed to insert children after: {}", e.to_string());
+                                return None;
+                            }
                         }
                     }
                     InsertChildren::InsertAt { id, pos } => {
                         if let Some(child) = space.get(&t.trx, id) {
                             changed = true;
-                            block.insert_children_at(&mut t.trx, &child, pos)
+                            if let Err(e) = block.insert_children_at(&mut t.trx, &child, pos) {
+                                // TODO: handle error correctly
+                                error!("failed to insert children at: {}", e.to_string());
+                                return None;
+                            }
                         }
+                    }
+                };
+
+                if changed {
+                    update = t.trx.encode_update_v1().ok();
+                }
+
+                Some(block)
+            }) {
+                if let Some(update) = update {
+                    if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
+                        error!("db write error: {}", e.to_string());
                     }
                 }
 
-                if changed {
-                    update = Some(t.trx.encode_update_v1());
-                }
-
-                block
-            });
-
-            if let Some(update) = update {
-                if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
-                    error!("db write error: {}", e.to_string());
-                }
+                // response block content
+                Json(block).into_response()
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
             }
-
-            // response block content
-            Json(block).into_response()
         } else {
             StatusCode::NOT_FOUND.into_response()
         }
@@ -408,8 +445,10 @@ pub async fn remove_block_children(
             if let Some(block) = space.get(&t.trx, &block) {
                 if block.children_exists(&t.trx, &child_id) {
                     if let Some(child) = space.get(&t.trx, &child_id) {
-                        block.remove_children(&mut t.trx, &child);
-                        return Some(t.trx.encode_update_v1());
+                        return block
+                            .remove_children(&mut t.trx, &child)
+                            .and_then(|_| Ok(t.trx.encode_update_v1()?))
+                            .ok();
                     }
                 }
             }

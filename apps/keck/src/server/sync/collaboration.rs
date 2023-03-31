@@ -279,7 +279,9 @@ mod test {
     fn create_block(workspace: &Workspace, block_id: String, block_flavour: String) -> Block {
         workspace.with_trx(|mut trx| {
             let space = trx.get_space("blocks");
-            space.create(&mut trx.trx, block_id, block_flavour)
+            space
+                .create(&mut trx.trx, block_id, block_flavour)
+                .expect("failed to create block")
         })
     }
 

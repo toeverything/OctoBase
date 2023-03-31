@@ -2020,6 +2020,7 @@ dependencies = [
  "jwst",
  "jwst-logger",
  "jwst-storage-migration",
+ "lib0",
  "path-ext",
  "rand 0.8.5",
  "sea-orm",
@@ -2148,7 +2149,7 @@ checksum = "0c2cdeb66e45e9f36bfad5bbdb4d2384e70936afbee843c6f6543f0c551ebb25"
 [[package]]
 name = "lib0"
 version = "0.16.5"
-source = "git+https://github.com/toeverything/y-crdt?rev=bbefd5c#bbefd5c0a51aa3f7a7b0233a25caa1baa5e58504"
+source = "git+https://github.com/toeverything/y-crdt?rev=a97a144#a97a1444eb059378475466ac05a3187c1d5367b7"
 dependencies = [
  "serde",
  "serde_json",
@@ -5175,9 +5176,8 @@ dependencies = [
 
 [[package]]
 name = "y-sync"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57b05ee3c166fe347adc9b90dd75362df1bd661615baa11c29ca1c7ef1545073"
+version = "0.3.0"
+source = "git+https://github.com/toeverything/y-sync?rev=71657b2#71657b2c154fa4e784478703bd117ba63f621e7d"
 dependencies = [
  "lib0",
  "thiserror",
@@ -5187,7 +5187,7 @@ dependencies = [
 [[package]]
 name = "yrs"
 version = "0.16.5"
-source = "git+https://github.com/toeverything/y-crdt?rev=bbefd5c#bbefd5c0a51aa3f7a7b0233a25caa1baa5e58504"
+source = "git+https://github.com/toeverything/y-crdt?rev=a97a144#a97a1444eb059378475466ac05a3187c1d5367b7"
 dependencies = [
  "atomic_refcell",
  "lib0",

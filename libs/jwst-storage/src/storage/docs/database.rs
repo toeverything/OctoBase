@@ -9,7 +9,7 @@ use yrs::{updates::decoder::Decode, Doc, ReadTxn, StateVector, Transact, Update}
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
 
-fn migrate_update(updates: Vec<<Docs as EntityTrait>::Model>, doc: Doc) -> Doc {
+fn migrate_update(updates: Vec<<Docs as EntityTrait>::Model>, doc: Doc) -> JwstResult<Doc> {
     {
         let mut trx = doc.transact_mut();
         for update in updates {
@@ -29,10 +29,10 @@ fn migrate_update(updates: Vec<<Docs as EntityTrait>::Model>, doc: Doc) -> Doc {
     trace!(
         "migrate_update: {:?}",
         doc.transact()
-            .encode_state_as_update_v1(&StateVector::default())
+            .encode_state_as_update_v1(&StateVector::default())?
     );
 
-    doc
+    Ok(doc)
 }
 
 type DocsModel = <Docs as EntityTrait>::Model;
@@ -165,10 +165,13 @@ impl DocDBStorage {
             let data = Self::all(conn, table).await?;
 
             let data = tokio::task::spawn_blocking(move || {
-                let doc = migrate_update(data, Doc::default());
-
-                let trx = doc.transact();
-                trx.encode_state_as_update_v1(&StateVector::default())
+                migrate_update(data, Doc::default())
+                    .and_then(|doc| {
+                        Ok(doc
+                            .transact()
+                            .encode_state_as_update_v1(&StateVector::default())?)
+                    })
+                    .expect("failed to encode update")
             })
             .await
             .context("failed to merge update")?;
@@ -219,10 +222,10 @@ impl DocDBStorage {
         if all_data.is_empty() {
             let update = doc
                 .transact()
-                .encode_state_as_update_v1(&StateVector::default());
+                .encode_state_as_update_v1(&StateVector::default())?;
             Self::insert(conn, workspace, &update).await?;
         } else {
-            doc = migrate_update(all_data, doc);
+            doc = migrate_update(all_data, doc)?;
         }
         trace!("end create doc: {workspace}");
 
@@ -254,7 +257,6 @@ impl DocStorage for DocDBStorage {
             Entry::Vacant(v) => {
                 debug!("init workspace cache: get lock");
                 let _lock = self.bucket.get_lock().await;
-
                 info!("init workspace cache: {workspace_id}");
                 let id = workspace_id.clone();
                 let doc = Self::create_doc(&self.pool, &id)
@@ -452,20 +454,20 @@ pub async fn docs_storage_partial_test(pool: &DocDBStorage) -> anyhow::Result<()
 
         ws.with_trx(|mut t| {
             let space = t.get_space("test");
-            let block = space.create(&mut t.trx, "block1", "text");
-            block.set(&mut t.trx, "test1", "value1");
+            let block = space.create(&mut t.trx, "block1", "text").unwrap();
+            block.set(&mut t.trx, "test1", "value1").unwrap();
         });
 
         ws.with_trx(|mut t| {
             let space = t.get_space("test");
             let block = space.get(&mut t.trx, "block1").unwrap();
-            block.set(&mut t.trx, "test2", "value2");
+            block.set(&mut t.trx, "test2", "value2").unwrap();
         });
 
         ws.with_trx(|mut t| {
             let space = t.get_space("test");
-            let block = space.create(&mut t.trx, "block2", "block2");
-            block.set(&mut t.trx, "test3", "value3");
+            let block = space.create(&mut t.trx, "block2", "block2").unwrap();
+            block.set(&mut t.trx, "test3", "value3").unwrap();
         });
 
         drop(sub);

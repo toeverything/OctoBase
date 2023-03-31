@@ -11,10 +11,15 @@ use y_sync::{
     awareness::{Awareness, Event, Subscription as AwarenessSubscription},
     sync::{DefaultProtocol, Error, Message, MessageReader, Protocol, SyncMessage},
 };
-use yrs::{types::{map::MapEvent, ToJson}, updates::{
-    decoder::{Decode, DecoderV1},
-    encoder::{Encode, Encoder, EncoderV1},
-}, Doc, MapRef, Observable, ReadTxn, StateVector, Subscription, Transact, TransactionMut, Update, UpdateEvent, UpdateSubscription, Map};
+use yrs::{
+    types::{map::MapEvent, ToJson},
+    updates::{
+        decoder::{Decode, DecoderV1},
+        encoder::{Encode, Encoder, EncoderV1},
+    },
+    Doc, Map, MapRef, Observable, ReadTxn, StateVector, Subscription, Transact, TransactionMut,
+    Update, UpdateEvent, UpdateSubscription,
+};
 
 static PROTOCOL: DefaultProtocol = DefaultProtocol;
 
@@ -121,17 +126,17 @@ impl Workspace {
         }
     }
 
-    pub fn set_search_index(&self, fields: Vec<String>) -> bool {
+    pub fn set_search_index(&self, fields: Vec<String>) -> JwstResult<bool> {
         match fields.iter().find(|&field| field.is_empty()) {
             Some(field) => {
                 error!("field name cannot be empty: {}", field);
-                false
+                Ok(false)
             }
             None => {
                 let value = serde_json::to_string(&fields).unwrap();
-                self.with_trx(|mut trx| trx.set_metadata(SEARCH_INDEX, value));
+                self.with_trx(|mut trx| trx.set_metadata(SEARCH_INDEX, value))?;
                 setup_plugin(self.clone());
-                true
+                Ok(true)
             }
         }
     }
@@ -255,7 +260,7 @@ impl Workspace {
                 return None;
             }
         };
-        Some(trx.encode_state_as_update_v1(&StateVector::default()))
+        trx.encode_state_as_update_v1(&StateVector::default()).ok()
     }
 
     pub async fn sync_init_message(&self) -> Result<Vec<u8>, Error> {
@@ -279,7 +284,10 @@ impl Workspace {
                     match msg {
                         Message::AwarenessQuery => {
                             if let Ok(update) = awareness.update() {
-                                result.push(Message::Awareness(update).encode_v1());
+                                match Message::Awareness(update).encode_v1() {
+                                    Ok(msg) => result.push(msg),
+                                    Err(e) => warn!("failed to encode awareness update: {:?}", e),
+                                }
                             }
                         }
                         Message::Awareness(update) => {
@@ -313,10 +321,10 @@ impl Workspace {
                         trace!("processing message: {:?}", msg);
                         match msg {
                             Message::Sync(msg) => match msg {
-                                SyncMessage::SyncStep1(sv) => {
-                                    let update = trx.encode_state_as_update_v1(&sv);
-                                    Some(Message::Sync(SyncMessage::SyncStep2(update)))
-                                }
+                                SyncMessage::SyncStep1(sv) => trx
+                                    .encode_state_as_update_v1(&sv)
+                                    .map(|update| Message::Sync(SyncMessage::SyncStep2(update)))
+                                    .ok(),
                                 SyncMessage::SyncStep2(update) => {
                                     if let Ok(update) = Update::decode_v1(&update) {
                                         trx.apply_update(update);
@@ -335,8 +343,11 @@ impl Workspace {
                                             trace!("before_state: {:?}", trx.before_state());
                                             trace!("after_state: {:?}", trx.after_state());
                                         }
-                                        let update = trx.encode_update_v1();
-                                        Some(Message::Sync(SyncMessage::Update(update)))
+                                        trx.encode_update_v1()
+                                            .map(|update| {
+                                                Message::Sync(SyncMessage::Update(update))
+                                            })
+                                            .ok()
                                     } else {
                                         None
                                     }
@@ -345,7 +356,10 @@ impl Workspace {
                             _ => None,
                         }
                     } {
-                        result.push(msg.encode_v1());
+                        match msg.encode_v1() {
+                            Ok(msg) => result.push(msg),
+                            Err(e) => warn!("failed to encode message: {:?}", e),
+                        }
                     }
                 }
             })) {
@@ -401,9 +415,9 @@ mod test {
         workspace.with_trx(|mut t| {
             let space = t.get_space("test");
 
-            let block = space.create(&mut t.trx, "test", "text");
+            let block = space.create(&mut t.trx, "test", "text").unwrap();
 
-            block.set(&mut t.trx, "test", "test");
+            block.set(&mut t.trx, "test", "test").unwrap();
         });
 
         let doc = workspace.doc();
@@ -415,7 +429,7 @@ mod test {
             let doc = Doc::default();
             {
                 let mut trx = doc.transact_mut();
-                match Update::decode_v1(&update) {
+                match update.and_then(|update| Update::decode_v1(&update)) {
                     Ok(update) => trx.apply_update(update),
                     Err(err) => info!("failed to decode update: {:?}", err),
                 }
@@ -452,7 +466,7 @@ mod test {
         workspace.with_trx(|mut t| {
             let space = t.get_space("test");
 
-            let block = space.create(&mut t.trx, "block", "text");
+            let block = space.create(&mut t.trx, "block", "text").unwrap();
 
             assert_eq!(space.blocks.len(&t.trx), 1);
             assert_eq!(workspace.updated.len(&t.trx), 1);
@@ -477,7 +491,7 @@ mod test {
         workspace.with_trx(|mut t| {
             let space = t.get_space("test");
 
-            Block::new(&mut t.trx, &space, "test", "test", 1);
+            Block::new(&mut t.trx, &space, "test", "test", 1).unwrap();
             let vec = space.get_blocks_by_flavour(&t.trx, "test");
             assert_eq!(vec.len(), 1);
         });
@@ -495,10 +509,10 @@ mod test {
 
         workspace.with_trx(|mut t| {
             let space = t.get_space("space1");
-            space.create(&mut t.trx, "block1", "text");
+            space.create(&mut t.trx, "block1", "text").unwrap();
 
             let space = t.get_space("space2");
-            space.create(&mut t.trx, "block2", "text");
+            space.create(&mut t.trx, "block2", "text").unwrap();
         });
 
         assert_json_include!(
@@ -531,11 +545,12 @@ mod test {
     fn scan_doc() {
         let doc = Doc::new();
         let map = doc.get_or_insert_map("test");
-        map.insert(&mut doc.transact_mut(), "test", "aaa");
+        map.insert(&mut doc.transact_mut(), "test", "aaa").unwrap();
 
         let data = doc
             .transact()
-            .encode_state_as_update_v1(&StateVector::default());
+            .encode_state_as_update_v1(&StateVector::default())
+            .unwrap();
 
         let doc = Doc::new();
         doc.transact_mut()

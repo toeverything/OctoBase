@@ -217,38 +217,38 @@ mod test {
         workspace.with_trx(|mut t| {
             let space1 = t.get_space("space1");
 
-            let block = space1.create(&mut t.trx, "b1", "text");
+            let block = space1.create(&mut t.trx, "b1", "text").unwrap();
 
-            block.set(&mut t.trx, "test", "test");
+            block.set(&mut t.trx, "test", "test").unwrap();
 
-            let block = space1.create(&mut t.trx, "a", "affine:text");
-            let b = space1.create(&mut t.trx, "b", "affine:text");
-            let c = space1.create(&mut t.trx, "c", "affine:text");
-            let d = space1.create(&mut t.trx, "d", "affine:text");
-            let e = space1.create(&mut t.trx, "e", "affine:text");
-            let f = space1.create(&mut t.trx, "f", "affine:text");
+            let block = space1.create(&mut t.trx, "a", "affine:text").unwrap();
+            let b = space1.create(&mut t.trx, "b", "affine:text").unwrap();
+            let c = space1.create(&mut t.trx, "c", "affine:text").unwrap();
+            let d = space1.create(&mut t.trx, "d", "affine:text").unwrap();
+            let e = space1.create(&mut t.trx, "e", "affine:text").unwrap();
+            let f = space1.create(&mut t.trx, "f", "affine:text").unwrap();
 
-            b.set(&mut t.trx, "title", "Title B content");
-            b.set(&mut t.trx, "text", "Text B content bbb xxx");
+            b.set(&mut t.trx, "title", "Title B content").unwrap();
+            b.set(&mut t.trx, "text", "Text B content bbb xxx").unwrap();
 
-            c.set(&mut t.trx, "title", "Title C content");
-            c.set(&mut t.trx, "text", "Text C content ccc xxx yyy");
+            c.set(&mut t.trx, "title", "Title C content").unwrap();
+            c.set(&mut t.trx, "text", "Text C content ccc xxx yyy").unwrap();
 
-            d.set(&mut t.trx, "title", "Title D content");
-            d.set(&mut t.trx, "text", "Text D content ddd yyy");
+            d.set(&mut t.trx, "title", "Title D content").unwrap();
+            d.set(&mut t.trx, "text", "Text D content ddd yyy").unwrap();
 
-            e.set(&mut t.trx, "title", "人民日报");
-            e.set(&mut t.trx,"text", "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途");
+            e.set(&mut t.trx, "title", "人民日报").unwrap();
+            e.set(&mut t.trx,"text", "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途").unwrap();
 
-            f.set(&mut t.trx, "title", "美国首次成功在核聚变反应中实现“净能量增益”");
-            f.set(&mut t.trx, "text", "当地时间13日，美国能源部官员宣布，由美国政府资助的加州劳伦斯·利弗莫尔国家实验室（LLNL），首次成功在核聚变反应中实现“净能量增益”，即聚变反应产生的能量大于促发该反应的镭射能量。");
+            f.set(&mut t.trx, "title", "美国首次成功在核聚变反应中实现“净能量增益”").unwrap();
+            f.set(&mut t.trx, "text", "当地时间13日，美国能源部官员宣布，由美国政府资助的加州劳伦斯·利弗莫尔国家实验室（LLNL），首次成功在核聚变反应中实现“净能量增益”，即聚变反应产生的能量大于促发该反应的镭射能量。").unwrap();
 
             // pushing blocks in
-            block.push_children(&mut t.trx, &b);
-            block.insert_children_at(&mut t.trx, &c, 0);
-            block.insert_children_before(&mut t.trx, &d, "b");
-            block.insert_children_after(&mut t.trx, &e, "b");
-            block.insert_children_after(&mut t.trx, &f, "c");
+            block.push_children(&mut t.trx, &b).unwrap();
+            block.insert_children_at(&mut t.trx, &c, 0).unwrap();
+            block.insert_children_before(&mut t.trx, &d, "b").unwrap();
+            block.insert_children_after(&mut t.trx, &e, "b").unwrap();
+            block.insert_children_after(&mut t.trx, &f, "c").unwrap();
 
             assert_eq!(
                 block.children(&t.trx),
@@ -263,7 +263,7 @@ mod test {
 
             // Question: Is this supposed to indicate that since this block is detached, then we should not be indexing it?
             // For example, should we walk up the parent tree to check if each block is actually attached?
-            block.remove_children(&mut t.trx, &d);
+            block.remove_children(&mut t.trx, &d).unwrap();
 
             println!("Blocks: {:#?}", space1.blocks); // shown if there is an issue running the test.
         });
@@ -271,38 +271,39 @@ mod test {
         workspace.with_trx(|mut t| {
             let space2 = t.get_space("space2");
 
-            let block = space2.create(&mut t.trx, "b1", "text");
+            let block = space2.create(&mut t.trx, "b1", "text").unwrap();
 
-            block.set(&mut t.trx, "test", "test");
+            block.set(&mut t.trx, "test", "test").unwrap();
 
-            let block = space2.create(&mut t.trx, "a1", "affine:text");
-            let b = space2.create(&mut t.trx, "b1", "affine:text");
-            let c = space2.create(&mut t.trx, "c1", "affine:text");
-            let d = space2.create(&mut t.trx, "d1", "affine:text");
-            let e = space2.create(&mut t.trx, "e1", "affine:text");
-            let f = space2.create(&mut t.trx, "f1", "affine:text");
+            let block = space2.create(&mut t.trx, "a1", "affine:text").unwrap();
+            let b = space2.create(&mut t.trx, "b1", "affine:text").unwrap();
+            let c = space2.create(&mut t.trx, "c1", "affine:text").unwrap();
+            let d = space2.create(&mut t.trx, "d1", "affine:text").unwrap();
+            let e = space2.create(&mut t.trx, "e1", "affine:text").unwrap();
+            let f = space2.create(&mut t.trx, "f1", "affine:text").unwrap();
 
-            b.set(&mut t.trx, "title", "Title B content");
-            b.set(&mut t.trx, "text", "Text B content bbb xxx");
+            b.set(&mut t.trx, "title", "Title B content").unwrap();
+            b.set(&mut t.trx, "text", "Text B content bbb xxx").unwrap();
 
-            c.set(&mut t.trx, "title", "Title C content");
-            c.set(&mut t.trx, "text", "Text C content ccc xxx yyy");
+            c.set(&mut t.trx, "title", "Title C content").unwrap();
+            c.set(&mut t.trx, "text", "Text C content ccc xxx yyy")
+                .unwrap();
 
-            d.set(&mut t.trx, "title", "Title D content");
-            d.set(&mut t.trx, "text", "Text D content ddd yyy");
+            d.set(&mut t.trx, "title", "Title D content").unwrap();
+            d.set(&mut t.trx, "text", "Text D content ddd yyy").unwrap();
 
-            e.set(&mut t.trx, "title", "人民日报");
-            e.set(&mut t.trx,"text", "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途");
+            e.set(&mut t.trx, "title", "人民日报").unwrap();
+            e.set(&mut t.trx,"text", "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途").unwrap();
 
-            f.set(&mut t.trx, "title", "美国首次成功在核聚变反应中实现“净能量增益”");
-            f.set(&mut t.trx, "text", "当地时间13日，美国能源部官员宣布，由美国政府资助的加州劳伦斯·利弗莫尔国家实验室（LLNL），首次成功在核聚变反应中实现“净能量增益”，即聚变反应产生的能量大于促发该反应的镭射能量。");
+            f.set(&mut t.trx, "title", "美国首次成功在核聚变反应中实现“净能量增益”").unwrap();
+            f.set(&mut t.trx, "text", "当地时间13日，美国能源部官员宣布，由美国政府资助的加州劳伦斯·利弗莫尔国家实验室（LLNL），首次成功在核聚变反应中实现“净能量增益”，即聚变反应产生的能量大于促发该反应的镭射能量。").unwrap();
 
             // pushing blocks in
-            block.push_children(&mut t.trx, &b);
-            block.insert_children_at(&mut t.trx, &c, 0);
-            block.insert_children_before(&mut t.trx, &d, "b1");
-            block.insert_children_after(&mut t.trx, &e, "b1");
-            block.insert_children_after(&mut t.trx, &f, "c1");
+            block.push_children(&mut t.trx, &b).unwrap();
+            block.insert_children_at(&mut t.trx, &c, 0).unwrap();
+            block.insert_children_before(&mut t.trx, &d, "b1").unwrap();
+            block.insert_children_after(&mut t.trx, &e, "b1").unwrap();
+            block.insert_children_after(&mut t.trx, &f, "c1").unwrap();
 
             assert_eq!(
                 block.children(&t.trx),
@@ -317,7 +318,7 @@ mod test {
 
             // Question: Is this supposed to indicate that since this block is detached, then we should not be indexing it?
             // For example, should we walk up the parent tree to check if each block is actually attached?
-            block.remove_children(&mut t.trx, &d);
+            block.remove_children(&mut t.trx, &d).unwrap();
 
             println!("Blocks: {:#?}", space2.blocks); // shown if there is an issue running the test.
         });

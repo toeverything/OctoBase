@@ -12,38 +12,45 @@ impl Block {
         operator: u64,
     ) -> Block {
         let space = trx.0.get_blocks();
-        Self(JwstBlock::new(
-            &mut trx.0.trx,
-            &space,
-            block_id,
-            flavor,
-            operator,
-        ))
+        Self(
+            JwstBlock::new(&mut trx.0.trx, &space, block_id, flavor, operator)
+                .expect("failed to create block"),
+        )
     }
 
     #[generate_interface]
     pub fn set_bool(&self, trx: &mut WorkspaceTransaction, key: String, value: bool) {
-        self.0.set(&mut trx.0.trx, &key, value);
+        self.0
+            .set(&mut trx.0.trx, &key, value)
+            .expect("failed to set bool");
     }
 
     #[generate_interface]
     pub fn set_string(&self, trx: &mut WorkspaceTransaction, key: String, value: String) {
-        self.0.set(&mut trx.0.trx, &key, value);
+        self.0
+            .set(&mut trx.0.trx, &key, value)
+            .expect("failed to set string");
     }
 
     #[generate_interface]
     pub fn set_float(&self, trx: &mut WorkspaceTransaction, key: String, value: f64) {
-        self.0.set(&mut trx.0.trx, &key, value);
+        self.0
+            .set(&mut trx.0.trx, &key, value)
+            .expect("failed to set float");
     }
 
     #[generate_interface]
     pub fn set_integer(&self, trx: &mut WorkspaceTransaction, key: String, value: i64) {
-        self.0.set(&mut trx.0.trx, &key, value);
+        self.0
+            .set(&mut trx.0.trx, &key, value)
+            .expect("failed to set integer");
     }
 
     #[generate_interface]
     pub fn set_null(&self, trx: &mut WorkspaceTransaction, key: String) {
-        self.0.set(&mut trx.0.trx, &key, Any::Null);
+        self.0
+            .set(&mut trx.0.trx, &key, Any::Null)
+            .expect("failed to set null");
     }
 
     #[generate_interface]
@@ -148,12 +155,16 @@ impl Block {
 
     #[generate_interface]
     pub fn push_children(&self, trx: &mut WorkspaceTransaction, block: &Block) {
-        self.0.push_children(&mut trx.0.trx, &block.0)
+        self.0
+            .push_children(&mut trx.0.trx, &block.0)
+            .expect("failed to push children")
     }
 
     #[generate_interface]
     pub fn insert_children_at(&self, trx: &mut WorkspaceTransaction, block: &Block, pos: u32) {
-        self.0.insert_children_at(&mut trx.0.trx, &block.0, pos)
+        self.0
+            .insert_children_at(&mut trx.0.trx, &block.0, pos)
+            .expect("failed to insert children at position")
     }
 
     #[generate_interface]
@@ -165,6 +176,7 @@ impl Block {
     ) {
         self.0
             .insert_children_before(&mut trx.0.trx, &block.0, reference)
+            .expect("failed to insert children before")
     }
 
     #[generate_interface]
@@ -176,11 +188,14 @@ impl Block {
     ) {
         self.0
             .insert_children_after(&mut trx.0.trx, &block.0, reference)
+            .expect("failed to insert children after")
     }
 
     #[generate_interface]
     pub fn remove_children(&self, trx: &mut WorkspaceTransaction, block: &Block) {
-        self.0.remove_children(&mut trx.0.trx, &block.0);
+        self.0
+            .remove_children(&mut trx.0.trx, &block.0)
+            .expect("failed to remove children");
     }
 
     #[generate_interface]

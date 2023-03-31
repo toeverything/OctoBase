@@ -35,12 +35,13 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
                     workspace_id,
                     [e.added(), e.updated(), e.removed()].concat()
                 );
-                if let Ok(update) = awareness
+                if let Some(update) = awareness
                     .update_with_clients([e.added(), e.updated(), e.removed()].concat())
-                    .map(|update| {
+                    .ok()
+                    .and_then(|update| {
                         let mut encoder = EncoderV1::new();
-                        YMessage::Awareness(update).encode(&mut encoder);
-                        encoder.to_vec()
+                        YMessage::Awareness(update).encode(&mut encoder).ok()?;
+                        Some(encoder.to_vec())
                     })
                 {
                     let mut dedup_cache = dedup_cache.lock().unwrap_or_else(|e| e.into_inner());

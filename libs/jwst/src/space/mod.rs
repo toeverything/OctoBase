@@ -41,7 +41,12 @@ impl Space {
         }
     }
 
-    pub fn from_exists<I, S>(trx: &TransactionMut, doc: Doc, workspace_id: I, space_id: S) -> Option<Self>
+    pub fn from_exists<I, S>(
+        trx: &TransactionMut,
+        doc: Doc,
+        workspace_id: I,
+        space_id: S,
+    ) -> Option<Self>
     where
         I: AsRef<str>,
         S: AsRef<str>,
@@ -142,7 +147,12 @@ impl Space {
         cb(Box::new(iterator))
     }
 
-    pub fn create<B, F>(&self, trx: &mut TransactionMut, block_id: B, flavor: F) -> Block
+    pub fn create<B, F>(
+        &self,
+        trx: &mut TransactionMut,
+        block_id: B,
+        flavor: F,
+    ) -> JwstResult<Block>
     where
         B: AsRef<str>,
         F: AsRef<str>,
@@ -252,9 +262,9 @@ mod test {
             Space::new(&mut trx, doc.clone(), "workspace", space_id)
         };
         space.with_trx(|mut t| {
-            let block = t.create("test", "text");
+            let block = t.create("test", "text").unwrap();
 
-            block.set(&mut t.trx, "test", "test");
+            block.set(&mut t.trx, "test", "test").unwrap();
         });
 
         let doc = space.doc();
@@ -262,11 +272,12 @@ mod test {
         let new_doc = {
             let update = doc
                 .transact()
-                .encode_state_as_update_v1(&StateVector::default());
+                .encode_state_as_update_v1(&StateVector::default())
+                .and_then(|update| Update::decode_v1(&update));
             let doc = Doc::default();
             {
                 let mut trx = doc.transact_mut();
-                match Update::decode_v1(&update) {
+                match update {
                     Ok(update) => trx.apply_update(update),
                     Err(err) => info!("failed to decode update: {:?}", err),
                 }
@@ -308,7 +319,7 @@ mod test {
         });
 
         space.with_trx(|mut t| {
-            let block = t.create("block", "text");
+            let block = t.create("block", "text").unwrap();
 
             assert_eq!(space.blocks.len(&t.trx), 1);
             assert_eq!(space.updated.len(&t.trx), 1);
@@ -331,7 +342,7 @@ mod test {
         });
 
         space.with_trx(|mut t| {
-            Block::new(&mut t.trx, &space, "test", "test", 1);
+            Block::new(&mut t.trx, &space, "test", "test", 1).unwrap();
             let vec = space.get_blocks_by_flavour(&t.trx, "test");
             assert_eq!(vec.len(), 1);
         });
