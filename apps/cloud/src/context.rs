@@ -5,8 +5,11 @@ use jwst::SearchResults;
 use jwst_logger::{error, warn};
 use jwst_rpc::{BroadcastChannels, BroadcastType, RpcContextImpl};
 use jwst_storage::JwstStorage;
-use std::collections::HashMap;
-use tempfile::{tempdir, TempDir};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
+use tempfile::tempdir;
 use tokio::sync::{Mutex, RwLock};
 
 pub struct Context {
@@ -17,7 +20,7 @@ pub struct Context {
     pub storage: JwstStorage,
     pub user_channel: UserChannel,
     pub channel: BroadcastChannels,
-    _dir: Option<TempDir>,
+    _dir: Option<PathBuf>,
 }
 
 impl Context {
@@ -25,8 +28,15 @@ impl Context {
         let (_dir, cloud, storage) = if let Ok(url) = dotenvy::var("DATABASE_URL") {
             (None, url.clone(), format!("{url}_binary"))
         } else {
-            let dir = tempdir().unwrap();
-            let path = dir.path();
+            let path = if let Ok(dir) = dotenvy::var("DATABASE_DIR") {
+                let dir = Path::new(&dir);
+                if !dir.try_exists().unwrap_or(false) {
+                    std::fs::create_dir(dir).expect("Cannot create dir");
+                }
+                dir.to_path_buf()
+            } else {
+                tempdir().expect("Cannot create temp dir").into_path()
+            };
 
             warn!(
                 "!!! no database url provided, store in {} !!!",
@@ -36,7 +46,7 @@ impl Context {
             let cloud = format!("sqlite:{}?mode=rwc", path.join("cloud.db").display());
             let storage = format!("sqlite:{}?mode=rwc", path.join("storage.db").display());
 
-            (Some(dir), cloud, storage)
+            (Some(path), cloud, storage)
         };
 
         let db = CloudDatabase::init_pool(&cloud)
