@@ -165,6 +165,9 @@ pub async fn invite_member(
         {
             Ok(metadata) => metadata,
             Err(e) => {
+                if let Err(e) = ctx.db.delete_permission(permission_id).await {
+                    error!("Failed to withdraw permissions: {}", e);
+                }
                 error!("Failed to send email: {}", e);
                 return ErrorStatus::InternalServerError.into_response();
             }
