@@ -190,14 +190,16 @@ pub async fn make_token(
                 return ErrorStatus::BadRequest.into_response();
             }
         }
-        MakeToken::Google { token } => (
+        MakeToken::Google { token } => {
             if let Ok(claims) = ctx.firebase.lock().await.decode_google_token(token).await {
-                ctx.db.firebase_user_login(&claims).await.map(Some)
+                match ctx.db.firebase_user_login(&claims).await {
+                    Ok(user) => (Ok(Some(user)), None),
+                    Err(_) => return ErrorStatus::InternalServerError.into_response(),
+                }
             } else {
-                Ok(None)
-            },
-            None,
-        ),
+                (Ok(None), None)
+            }
+        }
         MakeToken::Refresh { token } => {
             let Ok(data) = ctx.key.decrypt_aes_base64(token.clone()) else {
                 return ErrorStatus::BadRequest.into_response();
