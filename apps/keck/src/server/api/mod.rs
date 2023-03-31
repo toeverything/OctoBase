@@ -46,6 +46,9 @@ impl Context {
         let storage = if let Some(storage) = storage {
             info!("use external storage instance: {}", storage.database());
             Ok(storage)
+        } else if let Ok(_) = dotenvy::var("USE_MEMORY_SQLITE") {
+            info!("use memory sqlite database");
+            JwstStorage::new("sqlite:memory?mode=memory").await
         } else if let Ok(database_url) = dotenvy::var("DATABASE_URL") {
             info!("use external database: {}", database_url);
             JwstStorage::new(&database_url).await

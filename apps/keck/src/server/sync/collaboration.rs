@@ -50,6 +50,7 @@ mod test {
     use std::string::String;
     use std::sync::Arc;
     use libc::{kill, SIGTERM};
+    use rand::{Rng, thread_rng};
     use tokio::runtime::Runtime;
 
     #[test]
@@ -58,7 +59,8 @@ mod test {
         if let Ok(_) = dotenvy::var("KECK_DEBUG") {
             jwst_logger::init_logger();
         }
-        let server_port = 65534;
+        let mut rng = thread_rng();
+        let server_port = rng.gen_range(10000..=30000);
         let child = start_collaboration_server(server_port);
 
         let rt = Runtime::new().unwrap();
@@ -144,7 +146,8 @@ mod test {
     // #[test]
     fn client_collaboration_with_server_with_poor_connection() {
         create_db_dir();
-        let server_port = 65535;
+        let mut rng = thread_rng();
+        let server_port = rng.gen_range(30001..=65535);
         let child = start_collaboration_server(server_port);
 
         let rt = Runtime::new().unwrap();
