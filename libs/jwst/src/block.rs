@@ -1,10 +1,14 @@
 use super::{constants::sys, utils::JS_INT_RANGE, *};
 use lib0::any::Any;
 use serde::{Serialize, Serializer};
-use serde_json::Value;
+use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use yrs::{
-    types::ToJson, Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, ReadTxn, Transact,
+    types::{
+        text::{Diff, YChange},
+        ToJson, Value,
+    },
+    Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, Transact,
     TransactionMut,
 };
 
@@ -551,6 +555,81 @@ impl Block {
             },
         }
     }
+
+    pub fn clone_block<T>(
+        &self,
+        orig_trx: &T,
+        new_trx: &mut TransactionMut,
+        new_blocks: MapRef,
+    ) -> JwstResult<()>
+    where
+        T: ReadTxn,
+    {
+        // init base struct
+        let block = new_blocks.insert(new_trx, &*self.block_id, MapPrelim::<Any>::new())?;
+
+        // init default schema
+        block.insert(new_trx, sys::FLAVOR, self.flavor(orig_trx).as_ref())?;
+        block.insert(new_trx, sys::VERSION, ArrayPrelim::from([1, 0]))?;
+        let children = block.insert(
+            new_trx,
+            sys::CHILDREN,
+            ArrayPrelim::<Vec<String>, String>::from(vec![]),
+        )?;
+        block.insert(new_trx, sys::CREATED, self.created(orig_trx) as f64)?;
+
+        // clone children
+        for block_id in self.children(orig_trx) {
+            if let Err(e) = children.push_back(new_trx, block_id) {
+                warn!("failed to push block: {}", e);
+            }
+        }
+
+        // clone props
+        for key in self.block.keys(orig_trx).filter(|k| k.starts_with("prop:")) {
+            match self.block.get(orig_trx, key) {
+                Some(value) => match value {
+                    Value::Any(any) => {
+                        block.insert(new_trx, key, any)?;
+                    }
+                    Value::YText(text) => {
+                        let new_text = block.insert(new_trx, key, TextPrelim::new(""))?;
+                        for Diff {
+                            insert, attributes, ..
+                        } in text.diff(orig_trx, YChange::identity)
+                        {
+                            match insert {
+                                Value::Any(Any::String(str)) => {
+                                    let str = str.as_ref();
+                                    if let Some(attr) = attributes {
+                                        new_text.insert_with_attributes(
+                                            new_trx,
+                                            new_text.len(new_trx),
+                                            str,
+                                            *attr,
+                                        )?;
+                                    } else {
+                                        new_text.insert(new_trx, new_text.len(new_trx), str)?;
+                                    }
+                                }
+                                val => {
+                                    warn!("unexpected embed type: {:?}", val);
+                                }
+                            }
+                        }
+                    }
+                    val => {
+                        warn!("unexpected prop type: {:?}", val);
+                    }
+                },
+                None => {
+                    warn!("failed to get key: {}", key);
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Default)]
@@ -568,12 +647,15 @@ impl Serialize for Block {
 
         let mut buffer = String::new();
         any.to_json(&mut buffer);
-        let any: Value = serde_json::from_str(&buffer).unwrap();
+        let any: JsonValue = serde_json::from_str(&buffer).unwrap();
 
         let mut block = any.as_object().unwrap().clone();
-        block.insert("sys:id".to_string(), Value::String(self.block_id.clone()));
+        block.insert(
+            "sys:id".to_string(),
+            JsonValue::String(self.block_id.clone()),
+        );
 
-        Value::Object(block).serialize(serializer)
+        JsonValue::Object(block).serialize(serializer)
     }
 }
 

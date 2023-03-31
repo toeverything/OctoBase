@@ -376,22 +376,30 @@ pub async fn get_public_page(
 
     match ctx.storage.get_workspace(workspace_id).await {
         Ok(workspace) => {
-            if headers
-                .get(CONTENT_TYPE)
-                .and_then(|c| c.to_str().ok())
-                .map(|s| s.contains("json"))
-                .unwrap_or(false)
-            {
-                if let Some(space) = workspace.with_trx(|t| t.get_exists_space(page_id)) {
-                    Json(space).into_response()
-                } else {
-                    ErrorStatus::NotFound.into_response()
+            if let Some(space) = workspace.with_trx(|t| t.get_exists_space(page_id)) {
+                match headers.get(CONTENT_TYPE).and_then(|c| c.to_str().ok()) {
+                    Some("application/json") => Json(space).into_response(),
+                    Some(mine) if mine.starts_with("text/") => {
+                        if let Some(markdown) = workspace
+                            .retry_with_trx(|t| space.to_markdown(&t.trx), 10)
+                            .flatten()
+                        {
+                            markdown.into_response()
+                        } else {
+                            ErrorStatus::InternalServerError.into_response()
+                        }
+                    }
+                    _ => {
+                        if let Some(doc) = workspace
+                            .retry_with_trx(|t| space.to_single_page(&t.trx), 10)
+                            .flatten()
+                        {
+                            doc.into_response()
+                        } else {
+                            ErrorStatus::InternalServerError.into_response()
+                        }
+                    }
                 }
-            } else if let Some(markdown) = workspace.with_trx(|t| {
-                t.get_exists_space(page_id)
-                    .and_then(|page| page.to_markdown(&t.trx))
-            }) {
-                markdown.into_response()
             } else {
                 ErrorStatus::NotFound.into_response()
             }
