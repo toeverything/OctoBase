@@ -3,7 +3,7 @@ use android_logger::Config;
 use jwst::{error, info, DocStorage, JwstError, JwstResult, LevelFilter};
 use jwst_rpc::{get_workspace, start_sync_thread, SyncState};
 use jwst_storage::JwstStorage as AutoStorage;
-use std::sync::{Arc};
+use std::sync::Arc;
 use tokio::{runtime::Runtime, sync::RwLock};
 
 #[derive(Clone)]
@@ -25,13 +25,9 @@ impl JwstStorage {
             "info" => LevelFilter::Info,
             "warn" => LevelFilter::Warn,
             "error" => LevelFilter::Error,
-            _ => LevelFilter::Debug
+            _ => LevelFilter::Debug,
         };
-        android_logger::init_once(
-            Config::default()
-                .with_max_level(level)
-                .with_tag("jwst"),
-        );
+        android_logger::init_once(Config::default().with_max_level(level).with_tag("jwst"));
 
         let rt = Runtime::new().unwrap();
 

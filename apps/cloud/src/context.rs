@@ -1,4 +1,4 @@
-use super::{api::UserChannel, utils::create_debug_collaboration_workspace};
+use super::{api::UserChannel, config::Config, utils::create_debug_collaboration_workspace};
 use cloud_components::{FirebaseContext, KeyContext, MailContext};
 use cloud_database::CloudDatabase;
 use jwst::SearchResults;
@@ -17,6 +17,7 @@ pub struct Context {
     pub storage: JwstStorage,
     pub user_channel: UserChannel,
     pub channel: BroadcastChannels,
+    pub config: Config,
     _dir: Option<TempDir>,
 }
 
@@ -80,6 +81,7 @@ impl Context {
             // =========== sync channel ===========
             channel: RwLock::new(HashMap::new()),
             user_channel: UserChannel::new(),
+            config: Config::new(),
         }
     }
 

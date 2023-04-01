@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 lib0 = "0.16.5"
-swift-bridge = "0.1.48"
-tokio = "1.24.2"
+swift-bridge = "0.1.51"
+tokio = "1.26.0"
 yrs = "0.16.5"
 
 # ======= workspace dependencies =======
@@ -22,11 +22,11 @@ name = "octobase"
 crate-type = ["staticlib"]
 
 [build-dependencies]
-swift-bridge-build = "0.1.48"
+swift-bridge-build = "0.1.51"
 
 [dev-dependencies]
 reqwest = { version = "0.11.14", default-features = false, features = [
     "json",
     "rustls-tls",
 ] }
-regex = "1.7.2"
+regex = "1.7.1"

@@ -8,7 +8,7 @@ use jsonwebtoken::{
     decode, decode_header, encode, errors::Error as JwtError, DecodingKey, EncodingKey, Header,
     Validation,
 };
-use jwst::{Base64DecodeError, Base64Engine, URL_SAFE_ENGINE};
+use jwst::{warn, Base64DecodeError, Base64Engine, URL_SAFE_ENGINE};
 use pem::{encode as encode_pem, Pem};
 use rand::{thread_rng, Rng};
 use reqwest::{Client, RequestBuilder};
@@ -108,7 +108,7 @@ impl KeyContext {
 }
 
 pub struct Endpoint {
-    endpoint: Option<String>,
+    endpoint: String,
     password: Option<String>,
     http_client: Client,
 }
@@ -116,7 +116,13 @@ pub struct Endpoint {
 impl Endpoint {
     fn new() -> Self {
         Self {
-            endpoint: dotenvy::var("GOOGLE_ENDPOINT").ok(),
+            endpoint: {
+                let mut endpoint = dotenvy::var("GOOGLE_ENDPOINT").unwrap_or_default();
+                if endpoint.is_empty() {
+                    endpoint.push_str("www.googleapis.com");
+                }
+                endpoint
+            },
             password: dotenvy::var("GOOGLE_ENDPOINT_PASSWORD").ok(),
             http_client: Client::new(),
         }
@@ -126,7 +132,7 @@ impl Endpoint {
     fn endpoint(&self) -> String {
         format!(
             "https://{}/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com",
-            self.endpoint.as_deref().unwrap_or("www.googleapis.com")
+            &self.endpoint
         )
     }
 
@@ -144,19 +150,19 @@ impl Endpoint {
 #[derive(Debug, Error)]
 pub enum FirebaseAuthError {
     #[error("missing cache-control header")]
-    HeaderError,
+    Header,
     #[error("missing public key")]
     MissingPubKey,
     #[error("cannot find decoding key")]
     NotFound,
     #[error(transparent)]
-    ReqwestError(#[from] reqwest::Error),
+    Reqwest(#[from] reqwest::Error),
     #[error(transparent)]
-    JWTError(#[from] jsonwebtoken::errors::Error),
+    Jwt(#[from] jsonwebtoken::errors::Error),
     #[error(transparent)]
-    DecodePEMError(#[from] NomErr<PEMError>),
+    DecodePEM(#[from] NomErr<PEMError>),
     #[error(transparent)]
-    DecodeX509Error(#[from] NomErr<X509Error>),
+    DecodeX509(#[from] NomErr<X509Error>),
 }
 
 pub struct FirebaseContext {
@@ -176,20 +182,20 @@ impl FirebaseContext {
         }
     }
 
-    async fn init_from_firebase(&mut self) -> Result<(), FirebaseAuthError> {
+    async fn init_from_firebase(&mut self, expires_in: Duration) -> Result<(), FirebaseAuthError> {
         let resp = self.endpoint.connect().send().await?;
 
         let cache = resp
             .headers()
             .typed_get::<CacheControl>()
-            .ok_or(FirebaseAuthError::HeaderError)?;
+            .ok_or(FirebaseAuthError::Header)?;
         let now = Utc::now().naive_utc();
         // 1 hour
         let expires = now
             + cache
                 .max_age()
                 .and_then(|d| Duration::from_std(d).ok())
-                .unwrap_or(Duration::seconds(60 * 60));
+                .unwrap_or(expires_in);
 
         let body = resp.json::<HashMap<String, String>>().await?;
 
@@ -217,11 +223,12 @@ impl FirebaseContext {
     pub async fn decode_google_token(
         &mut self,
         token: String,
+        expires_in: Duration,
     ) -> Result<FirebaseClaims, FirebaseAuthError> {
         let header = decode_header(&token)?;
 
         if self.expires < Utc::now().naive_utc() {
-            self.init_from_firebase().await?;
+            self.init_from_firebase(expires_in).await?;
         }
 
         let kid = header.kid.ok_or(FirebaseAuthError::MissingPubKey)?;

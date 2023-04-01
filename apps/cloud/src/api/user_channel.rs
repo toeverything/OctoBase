@@ -157,6 +157,7 @@ impl UserChannel {
     }
 }
 
+#[instrument(skip(context, token))]
 pub async fn global_ws_handler(
     Extension(context): Extension<Arc<Context>>,
     Query(Param { token }): Query<Param>,

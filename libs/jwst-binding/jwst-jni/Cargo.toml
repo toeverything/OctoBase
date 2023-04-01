@@ -6,13 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-android_logger = "0.13.0"
+android_logger = "0.13.1"
 jni-sys = "^0.3.0"
 lib0 = "0.16.5"
-log-panics = "^2.1.0"
+log-panics = "2.1.0"
 sqlx = "0.6.2"
-rifgen = "^0.1.61"
-tokio = "1.24.2"
+rifgen = "0.1.61"
+tokio = "1.26.0"
 log = { package = "tracing", version = "0.1.37" }
 yrs = "0.16.5"
 
@@ -22,8 +22,8 @@ jwst-rpc = { path = "../../jwst-rpc" }
 jwst-storage = { path = "../../jwst-storage", features = ["sqlite"] }
 
 [build-dependencies]
-flapigen = { git = "https://github.com/Dushistov/flapigen-rs", rev = "5ccbdef4557a2f4950078824dad970876b964160" } # 0.6.0-pre13
-rifgen = "^0.1.61"
+flapigen = { git = "https://github.com/Dushistov/flapigen-rs", rev = "7d343c6" } # 0.6.0-pre13
+rifgen = "0.1.61"
 
 [lib]
 name = "jwst"

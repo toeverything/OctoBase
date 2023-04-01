@@ -25,6 +25,7 @@ struct Param {
     token: String,
 }
 
+#[instrument(skip(ctx, token, ws))]
 async fn ws_handler(
     Extension(ctx): Extension<Arc<Context>>,
     Path(workspace): Path<String>,

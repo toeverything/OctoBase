@@ -32,6 +32,16 @@ pub async fn shutdown_signal() {
 }
 
 pub async fn create_debug_collaboration_workspace(db: &CloudDatabase, storage: &JwstStorage) {
+    if db
+        .get_user_by_email("debug1@toeverything.info")
+        .await
+        .unwrap()
+        .is_some()
+    {
+        // already created
+        return;
+    }
+
     let user1 = CreateUser {
         name: "debug1".into(),
         email: "debug1@toeverything.info".into(),

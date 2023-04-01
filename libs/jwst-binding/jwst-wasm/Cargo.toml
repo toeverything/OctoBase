@@ -12,9 +12,9 @@ log_panic = ["console_error_panic_hook"]
 
 
 [dependencies]
-cfg-if = "^1.0.0"
-console_error_panic_hook = { version = "^0.1.7", optional = true }
-js-sys = "^0.3.60"
+cfg-if = "1.0.0"
+console_error_panic_hook = { version = "0.1.7", optional = true }
+js-sys = "0.3.61"
 wasm-bindgen = "^0.2.83"
 wee_alloc = { version = "^0.4.5", optional = true }
 
