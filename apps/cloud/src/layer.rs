@@ -94,12 +94,28 @@ pub fn make_tracing_layer(router: Router) -> Router {
                 );
                 let uri = request.uri();
                 if !EXCLUDED_URIS.contains(&uri.path()) {
+                    use form_urlencoded::{parse, Serializer};
                     info!(
-                        "[HTTP:request_id={}] {:?} {} {}",
+                        "[HTTP:request_id={}] {:?} {} {}{}",
                         request_id,
                         request.version(),
                         request.method(),
-                        request.uri(),
+                        uri.path(),
+                        &if let Some(query) = uri
+                            .query()
+                            .map(|q| parse(q.as_bytes())
+                                .filter(|i| i.0 != "token")
+                                .fold(Serializer::new(String::new()), |mut s, i| {
+                                    s.append_pair(&i.0, &i.1);
+                                    s
+                                })
+                                .finish())
+                            .and_then(|q| (!q.is_empty()).then_some(q))
+                        {
+                            format!("?{}", query)
+                        } else {
+                            "".to_string()
+                        },
                     );
                 }
 

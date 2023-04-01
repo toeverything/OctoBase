@@ -88,7 +88,6 @@ pub async fn handle_connector(
     'sync: loop {
         tokio::select! {
             Ok(msg) = server_rx.recv()=> {
-                debug!("server_rx.recv()");
                 let ts = Instant::now();
                 trace!("recv from server update: {:?}", msg);
                 if tx.send(Message::Binary(msg.clone())).await.is_err() {
@@ -101,7 +100,6 @@ pub async fn handle_connector(
 
             },
             Ok(msg) = broadcast_rx.recv()=> {
-                debug!("broadcast_rx.recv()");
                 let ts = Instant::now();
                 match msg {
                     BroadcastType::BroadcastAwareness(data) => {
