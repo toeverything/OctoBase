@@ -15,7 +15,7 @@ use axum::{
     routing::{delete, get, post, put, Router},
     Extension, Json,
 };
-use chrono::{Duration, Utc};
+use chrono::Utc;
 use cloud_database::{Claims, MakeToken, RefreshToken, User, UserQuery, UserToken};
 use jwst_logger::{error, info, instrument, tracing};
 use lib0::any::Any;
@@ -305,7 +305,7 @@ mod test {
 
     #[tokio::test]
     async fn test_with_token_expire() {
-        std::env::set_var("JWT_REFRESH_TOKEN_EXPIRE_DAY", "0");
+        std::env::set_var("JWT_REFRESH_TOKEN_EXPIRE_SECONDS", "0");
         std::env::set_var("JWT_ACCESS_TOKEN_EXPIRE_SECONDS", "10");
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
         let context = Context::new_test_client(pool).await;

@@ -4,11 +4,11 @@ use futures::{SinkExt, StreamExt};
 use jwst::{DocStorage, JwstResult, Workspace};
 use jwst_storage::JwstStorage;
 use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::sync::RwLock;
 use tokio::{
     net::TcpStream,
     sync::broadcast::{channel, Receiver},
 };
-use tokio::sync::RwLock;
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
@@ -144,7 +144,12 @@ async fn run_sync(
 /// manually trigger the 'tx.send()'.
 /// 2. synchronizing 'remote' modifications from the 'remote' to the local workspace, and
 /// encoding the updates before sending them back to the 'remote'
-pub fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec<u8>>, sync_state: Option<Arc<RwLock<SyncState>>>) {
+pub fn start_sync_thread(
+    workspace: &Workspace,
+    remote: String,
+    mut rx: Receiver<Vec<u8>>,
+    sync_state: Option<Arc<RwLock<SyncState>>>,
+) {
     debug!("spawn sync thread");
     let first_sync = Arc::new(AtomicBool::new(false));
     let first_sync_cloned = first_sync.clone();
@@ -187,7 +192,8 @@ pub fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver
                         first_sync_cloned.store(true, Ordering::Release);
                         if let Some(state) = sync_state.clone() {
                             let mut state = state.write().await;
-                            *state = SyncState::Error("Remote sync connection disconnected".to_string());
+                            *state =
+                                SyncState::Error("Remote sync connection disconnected".to_string());
                         }
                         warn!("Remote sync connection disconnected, try again in 2 seconds");
                         sleep(Duration::from_secs(3)).await;
