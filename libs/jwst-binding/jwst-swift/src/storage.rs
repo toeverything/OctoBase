@@ -1,10 +1,10 @@
 use crate::Workspace;
 use jwst::{error, info, DocStorage, JwstError, JwstResult};
+use jwst_logger::{init_logger_with_level, Level};
 use jwst_rpc::{get_workspace, start_sync_thread, SyncState};
 use jwst_storage::JwstStorage as AutoStorage;
 use std::sync::Arc;
 use tokio::{runtime::Runtime, sync::RwLock};
-use jwst_logger::{init_logger_with_level, Level};
 
 #[derive(Clone)]
 pub struct Storage {
@@ -25,7 +25,7 @@ impl Storage {
             "info" => Level::INFO,
             "warn" => Level::WARN,
             "error" => Level::ERROR,
-            _ => Level::DEBUG
+            _ => Level::DEBUG,
         };
         init_logger_with_level(level);
         let rt = Runtime::new().unwrap();

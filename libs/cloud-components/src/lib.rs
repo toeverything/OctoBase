@@ -7,6 +7,5 @@ pub use auth::{FirebaseContext, KeyContext};
 pub use mail::{Mail, MailContext};
 
 use constants::*;
-use jwst::{info, warn};
+use jwst::warn;
 use nanoid::nanoid;
-use utils::CacheControl;

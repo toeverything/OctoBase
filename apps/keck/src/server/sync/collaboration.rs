@@ -33,24 +33,21 @@ pub async fn upgrade_handler(
     })
 }
 
-
 #[cfg(test)]
 mod test {
-    use jwst_rpc::{get_workspace, start_sync_thread};
     use jwst::DocStorage;
     use jwst::{Block, Workspace};
     use jwst_logger::{error, info};
+    use jwst_rpc::{get_workspace, start_sync_thread};
     use jwst_storage::JwstStorage;
+    use libc::{kill, SIGTERM};
+    use rand::{thread_rng, Rng};
     use std::collections::hash_map::Entry;
     use std::ffi::c_int;
-    use std::fs;
     use std::io::{BufRead, BufReader};
-    use std::path::Path;
     use std::process::{Child, Command, Stdio};
     use std::string::String;
     use std::sync::Arc;
-    use libc::{kill, SIGTERM};
-    use rand::{Rng, thread_rng};
     use tokio::runtime::Runtime;
 
     #[test]
@@ -65,8 +62,11 @@ mod test {
         let rt = Runtime::new().unwrap();
         let (workspace_id, mut workspace, storage) = rt.block_on(async move {
             let workspace_id = String::from("1");
-            let storage: Arc<JwstStorage> =
-                Arc::new(JwstStorage::new("sqlite:memory?mode=rwc").await.expect("get storage: memory sqlite failed"));
+            let storage: Arc<JwstStorage> = Arc::new(
+                JwstStorage::new("sqlite:memory?mode=rwc")
+                    .await
+                    .expect("get storage: memory sqlite failed"),
+            );
             let remote = String::from(format!("ws://localhost:{server_port}/collaboration/1"));
             storage
                 .create_workspace(workspace_id.clone())
@@ -120,7 +120,12 @@ mod test {
                 "get block {block_id} from server: {}",
                 get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port)
             );
-            assert!(!get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port).is_empty());
+            assert!(!get_block_from_server(
+                workspace_id.clone(),
+                block_id.to_string(),
+                server_port
+            )
+            .is_empty());
         }
 
         workspace.with_trx(|mut trx| {
@@ -146,9 +151,16 @@ mod test {
         let rt = Runtime::new().unwrap();
         let workspace_id = String::from("1");
         let (storage, workspace) = rt.block_on(async {
-            let storage: Arc<JwstStorage> =
-                Arc::new(JwstStorage::new("sqlite:memory?mode=rwc").await.expect("get storage: memory sqlite failed"));
-            let workspace = storage.docs().get(workspace_id.clone()).await.expect("get workspace: {workspace_id} failed");
+            let storage: Arc<JwstStorage> = Arc::new(
+                JwstStorage::new("sqlite:memory?mode=rwc")
+                    .await
+                    .expect("get storage: memory sqlite failed"),
+            );
+            let workspace = storage
+                .docs()
+                .get(workspace_id.clone())
+                .await
+                .expect("get workspace: {workspace_id} failed");
             (storage, workspace)
         });
 
@@ -159,7 +171,9 @@ mod test {
             "get block 0 from server: {}",
             get_block_from_server(workspace_id.clone(), "0".to_string(), server_port)
         );
-        assert!(get_block_from_server(workspace_id.clone(), "0".to_string(), server_port).is_empty());
+        assert!(
+            get_block_from_server(workspace_id.clone(), "0".to_string(), server_port).is_empty()
+        );
 
         let (workspace_id, mut workspace, storage) = rt.block_on(async move {
             let workspace_id = String::from("1");
@@ -214,7 +228,12 @@ mod test {
                 "get block {block_id} from server: {}",
                 get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port)
             );
-            assert!(!get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port).is_empty());
+            assert!(!get_block_from_server(
+                workspace_id.clone(),
+                block_id.to_string(),
+                server_port
+            )
+            .is_empty());
         }
 
         workspace.with_trx(|mut trx| {
@@ -235,7 +254,12 @@ mod test {
                 "get block {block_id} from server: {}",
                 get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port)
             );
-            assert!(!get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port).is_empty());
+            assert!(!get_block_from_server(
+                workspace_id.clone(),
+                block_id.to_string(),
+                server_port
+            )
+            .is_empty());
         }
 
         workspace.with_trx(|mut trx| {

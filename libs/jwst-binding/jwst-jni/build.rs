@@ -10,9 +10,7 @@ fn main() {
     Generator::new(TypeCases::CamelCase, Language::Java, "src").generate_interface(in_src);
 
     let template = fs::read_to_string(in_src).unwrap();
-    let template = template
-        .split("use jni_sys::*;")
-        .collect::<Vec<_>>();
+    let template = template.split("use jni_sys::*;").collect::<Vec<_>>();
     let template = template
         .first()
         .into_iter()

@@ -23,7 +23,7 @@ pub enum SyncState {
     Initialized,
     Syncing,
     Finished,
-    Error(String)
+    Error(String),
 }
 
 #[derive(Debug)]
