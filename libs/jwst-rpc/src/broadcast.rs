@@ -19,7 +19,7 @@ type Broadcast = Sender<BroadcastType>;
 pub type BroadcastChannels = RwLock<HashMap<String, Broadcast>>;
 
 pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Broadcast) {
-    let awareness = {
+    {
         let sender = sender.clone();
         let workspace_id = workspace.id();
 
@@ -28,7 +28,7 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
             128,
         )));
 
-        workspace
+        let awareness = workspace
             .on_awareness_update(move |awareness, e| {
                 trace!(
                     "workspace awareness changed: {}, {:?}",
@@ -50,15 +50,19 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
                             .send(BroadcastType::BroadcastAwareness(update.clone()))
                             .is_err()
                         {
-                            info!("broadcast channel {workspace_id} has been closed",)
+                            debug!("broadcast channel {workspace_id} has been closed",)
                         }
                         dedup_cache.insert(update, ());
                     }
                 }
             })
-            .await
+            .await;
+
+        // TODO: this is a hack to prevent the subscription from being dropped
+        // just keep the ownership
+        std::mem::forget(awareness);
     };
-    let doc = {
+    {
         let sender = sender.clone();
         let workspace_id = workspace.id();
         workspace
@@ -73,17 +77,17 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
                     .send(BroadcastType::BroadcastRawContent(e.update.clone()))
                     .is_err()
                 {
-                    info!("broadcast channel {workspace_id} has been closed",)
+                    debug!("broadcast channel {workspace_id} has been closed",)
                 }
                 let update = sync_encode_update(&e.update);
                 if sender
                     .send(BroadcastType::BroadcastContent(update))
                     .is_err()
                 {
-                    info!("broadcast channel {workspace_id} has been closed",)
+                    debug!("broadcast channel {workspace_id} has been closed",)
                 }
             })
-            .unwrap()
+            .await;
     };
     // let metadata = workspace.observe_metadata(move |_, _e| {
     //     // context
@@ -93,7 +97,6 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
 
     let workspace_id = workspace.id();
     tokio::spawn(async move {
-        let _doc = doc;
         let mut rx = sender.subscribe();
         loop {
             tokio::select! {
@@ -112,12 +115,6 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
                 }
             }
         }
-        // drop(doc);
-        // drop(metadata);
-        info!("broadcast channel {workspace_id} has been closed");
+        debug!("broadcast channel {workspace_id} has been closed");
     });
-
-    // TODO: this is a hack to prevent the subscription from being dropped
-    // just keep the ownership
-    std::mem::forget(awareness);
 }

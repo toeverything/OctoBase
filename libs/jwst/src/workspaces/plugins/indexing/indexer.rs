@@ -27,8 +27,6 @@ pub struct IndexingPluginImpl {
     pub(super) schema: Schema,
     pub(super) index: Rc<Index>,
     pub(super) query_parser: QueryParser,
-    // need to keep so it gets dropped with this plugin
-    pub(super) _update_sub: Option<yrs::UpdateSubscription>,
     pub(super) search_index: Vec<String>,
 }
 

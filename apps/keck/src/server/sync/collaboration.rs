@@ -94,7 +94,7 @@ mod test {
 
         let workspace = {
             let id = workspace_id.clone();
-            let sub = workspace.observe(move |_, e| {
+            futures::executor::block_on(workspace.observe(move |_, e| {
                 let id = id.clone();
                 let rt = Runtime::new().unwrap();
                 if let Err(e) =
@@ -102,8 +102,7 @@ mod test {
                 {
                     error!("Failed to write update to storage: {}", e);
                 }
-            });
-            std::mem::forget(sub);
+            }));
 
             workspace
         };

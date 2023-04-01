@@ -1,17 +1,14 @@
 use super::Block;
 use jwst::Workspace as JwstWorkspace;
-use yrs::UpdateSubscription;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
-    pub(crate) _sub: Option<UpdateSubscription>,
 }
 
 impl Workspace {
     pub fn new(id: String) -> Self {
         Self {
             workspace: JwstWorkspace::new(id),
-            _sub: None,
         }
     }
 

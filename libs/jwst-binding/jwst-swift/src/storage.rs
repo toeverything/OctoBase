@@ -126,10 +126,10 @@ impl Storage {
                 start_sync_thread(&workspace, remote, rx, Some(self.sync_state.clone()));
             }
 
-            let (sub, workspace) = {
+            let workspace = {
                 let id = workspace.id();
                 let storage = self.storage.clone();
-                let sub = workspace.observe(move |_, e| {
+                futures::executor::block_on(workspace.observe(move |_, e| {
                     let id = id.clone();
                     if let Some(storage) = storage.clone() {
                         let rt = Runtime::new().unwrap();
@@ -141,15 +141,12 @@ impl Storage {
                             error!("Failed to write update to storage: {}", e);
                         }
                     }
-                });
+                }));
 
-                (sub, workspace)
+                workspace
             };
 
-            Ok(Workspace {
-                workspace,
-                _sub: sub,
-            })
+            Ok(Workspace { workspace })
         } else {
             Err(JwstError::WorkspaceNotInitialized(workspace_id))
         }
