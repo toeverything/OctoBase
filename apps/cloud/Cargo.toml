@@ -9,20 +9,20 @@ affine = ["cloud-database/postgres", "jwst-storage/postgres"]
 
 [dependencies]
 bytes = "1.4.0"
-axum = { version = "0.6.6", features = ["headers", "ws"] }
+axum = { version = "0.6.10", features = ["headers", "ws"] }
 chrono = { version = "0.4.23", features = ["serde"] }
 dotenvy = "0.15.6"
-futures = "0.3.26"
-futures-util = "0.3.26"
+futures = "0.3.27"
+futures-util = "0.3.27"
 http-body = "0.4.5"
 jsonwebtoken = "8.2.0"
-lettre = { version = "0.10.2", default-features = false }
+lettre = { version = "0.10.3", default-features = false }
 lib0 = "0.16.5"
 mime = "0.3.16"
 mimalloc = "0.1.34"
 nanoid = "0.4.0"
-serde = { version = "1.0.152", features = ["derive"] }
-serde_json = "1.0.93"
+serde = { version = "1.0.155", features = ["derive"] }
+serde_json = "1.0.94"
 tempfile = "3.4.0"
 tokio = { version = "1.26.0", features = [
     "macros",
@@ -36,7 +36,7 @@ tower-http = { version = "0.4.0", features = [
     "request-id",
     "trace",
 ] }
-utoipa = { version = "3.0.3", features = ["axum_extras"] }
+utoipa = { version = "3.1.0", features = ["axum_extras"] }
 yrs = "0.16.5"
 
 # ======= workspace dependencies =======

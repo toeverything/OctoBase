@@ -13,19 +13,19 @@ default = ["workspace-search"]
 
 [dependencies]
 anyhow = "1.0.69"
-async-trait = "0.1.64"
+async-trait = "0.1.66"
 base64 = "0.21.0"
 bytes = "1.4.0"
 cang-jie = "0.15.0"
 chrono = "0.4.23"
 convert_case = "0.6.0"
-futures = "0.3.26"
+futures = "0.3.27"
 lib0 = { version = "0.16.5", features = ["lib0-serde"] }
 utoipa = "2.4.2"
-schemars = "0.8.11"
-serde = { version = "1.0.152", features = ["derive"] }
-serde_json = "1.0.91"
-thiserror = "1.0.38"
+schemars = "0.8.12"
+serde = { version = "1.0.155", features = ["derive"] }
+serde_json = "1.0.94"
+thiserror = "1.0.39"
 tracing = { version = "0.1.37", features = ["log"] }
 type-map = "0.5.0"
 tantivy = { version = "0.19.2", optional = true }
