@@ -4,7 +4,7 @@ use super::*;
 use chrono::prelude::*;
 use cloud_database::Claims;
 use handlebars::{Handlebars, RenderError};
-use jwst::WorkspaceMetadata;
+use jwst::{warn, WorkspaceMetadata};
 use lettre::{
     error::Error as MailConfigError,
     message::{Mailbox, MultiPart, SinglePart},

@@ -15,7 +15,7 @@ use axum::{
     routing::{delete, get, post, put, Router},
     Extension, Json,
 };
-use chrono::{Duration, Utc};
+use chrono::Utc;
 use cloud_database::{Claims, MakeToken, RefreshToken, User, UserQuery, UserToken};
 use jwst_logger::{error, info, instrument, tracing};
 use lib0::any::Any;
@@ -191,7 +191,13 @@ pub async fn make_token(
             }
         }
         MakeToken::Google { token } => (
-            if let Ok(claims) = ctx.firebase.lock().await.decode_google_token(token).await {
+            if let Ok(claims) = ctx
+                .firebase
+                .lock()
+                .await
+                .decode_google_token(token, ctx.config.refresh_token_expires_in)
+                .await
+            {
                 ctx.db.firebase_user_login(&claims).await.map(Some)
             } else {
                 Ok(None)
@@ -215,39 +221,11 @@ pub async fn make_token(
         }
     };
 
-    let refresh_token_expire_time = std::env::var("JWT_REFRESH_TOKEN_EXPIRE_DAY")
-        .ok()
-        .and_then(|day| day.parse::<i64>().ok())
-        .map(|day| {
-            if day > 0 {
-                Duration::days(day)
-            } else {
-                // if day is 0, set expire time to 1 second
-                // that means token will expire immediately
-                Duration::seconds(1)
-            }
-        })
-        .unwrap_or_else(|| Duration::days(180));
-
-    let access_token_expire_time = std::env::var("JWT_ACCESS_TOKEN_EXPIRE_SECONDS")
-        .ok()
-        .and_then(|seconds| seconds.parse::<i64>().ok())
-        .map(|seconds| {
-            if seconds > 0 {
-                Duration::seconds(seconds)
-            } else {
-                // if day is 0, set expire time to 1 second
-                // that means token will expire immediately
-                Duration::seconds(1)
-            }
-        })
-        .unwrap_or_else(|| Duration::minutes(60));
-
     match user {
         Ok(Some(user)) => {
             let Some(refresh) = refresh.or_else(|| {
                 let refresh = RefreshToken {
-                    expires: Utc::now().naive_utc() + refresh_token_expire_time,
+                    expires: Utc::now().naive_utc() + ctx.config.refresh_token_expires_in,
                     user_id: user.id.clone(),
                     token_nonce: user.token_nonce.unwrap(),
                 };
@@ -260,7 +238,7 @@ pub async fn make_token(
             };
 
             let claims = Claims {
-                exp: Utc::now().naive_utc() + access_token_expire_time,
+                exp: Utc::now().naive_utc() + ctx.config.access_token_expires_in,
                 user: User {
                     id: user.id,
                     name: user.name,
@@ -327,8 +305,8 @@ mod test {
 
     #[tokio::test]
     async fn test_with_token_expire() {
-        std::env::set_var("JWT_REFRESH_TOKEN_EXPIRE_DAY", "0");
-        std::env::set_var("JWT_ACCESS_TOKEN_EXPIRE_SECONDS", "10");
+        std::env::set_var("JWT_REFRESH_TOKEN_EXPIRES_IN", "0");
+        std::env::set_var("JWT_ACCESS_TOKEN_EXPIRES_IN", "10");
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
         let context = Context::new_test_client(pool).await;
         let ctx = Arc::new(context);
