@@ -78,7 +78,7 @@ pub fn memory_connector(
                         use y_sync::sync::{Message, MessageReader, SyncMessage};
                         let doc = doc.clone();
                         tokio::task::spawn_blocking(move || {
-                            debug!("recv change: {}", data.len());
+                            trace!("recv change: {}", data.len());
                             let mut decoder = DecoderV1::from(data.as_slice());
                             for update in MessageReader::new(&mut decoder).filter_map(|m| {
                                 m.ok().and_then(|m| {
@@ -105,7 +105,7 @@ pub fn memory_connector(
                                 }
                             }
 
-                            debug!("recv change: {} end", data.len());
+                            trace!("recv change: {} end", data.len());
                         });
                     }
                     Message::Close => break,

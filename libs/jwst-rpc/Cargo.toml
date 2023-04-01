@@ -34,5 +34,6 @@ jwst = { path = "../jwst" }
 jwst-storage = { path = "../jwst-storage" }
 
 [dev-dependencies]
+indicatif = "0.17.3"
 tempfile = "3.4.0"
 jwst-logger = { path = "../jwst-logger" }

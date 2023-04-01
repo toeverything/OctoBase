@@ -10,13 +10,18 @@ pub fn init_logger() {
 
 #[inline]
 pub fn init_logger_with_level(level: Level) {
+    internal_init_logger_with_level(if cfg!(debug_assertions) {
+        Level::DEBUG
+    } else {
+        level
+    })
+}
+
+#[inline]
+pub fn internal_init_logger_with_level(level: Level) {
     let writer = stderr
         .with_max_level(Level::WARN)
-        .or_else(stdout.with_max_level(if cfg!(debug_assertions) {
-            Level::DEBUG
-        } else {
-            level
-        }));
+        .or_else(stdout.with_max_level(level));
 
     tracing_subscriber::registry()
         .with(

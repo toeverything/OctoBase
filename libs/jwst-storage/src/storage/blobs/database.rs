@@ -120,7 +120,7 @@ impl BlobDBStorage {
 #[async_trait]
 impl BlobStorage for BlobDBStorage {
     async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool> {
-        let _lock = self.bucket.get_lock().await;
+        let _lock = self.bucket.read().await;
         let workspace = workspace.unwrap_or("__default__".into());
         if let Ok(exists) = self.exists(&workspace, &id).await {
             return Ok(exists);
@@ -135,7 +135,7 @@ impl BlobStorage for BlobDBStorage {
         id: String,
         _params: Option<HashMap<String, String>>,
     ) -> JwstResult<Vec<u8>> {
-        let _lock = self.bucket.get_lock().await;
+        let _lock = self.bucket.read().await;
         let workspace = workspace.unwrap_or("__default__".into());
         if let Ok(blob) = self.get(&workspace, &id).await {
             return Ok(blob.blob);
@@ -150,7 +150,7 @@ impl BlobStorage for BlobDBStorage {
         id: String,
         _params: Option<HashMap<String, String>>,
     ) -> JwstResult<BlobMetadata> {
-        let _lock = self.bucket.get_lock().await;
+        let _lock = self.bucket.read().await;
         let workspace = workspace.unwrap_or("__default__".into());
         if let Ok(metadata) = self.metadata(&workspace, &id).await {
             Ok(metadata.into())
@@ -164,7 +164,7 @@ impl BlobStorage for BlobDBStorage {
         workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
     ) -> JwstResult<String> {
-        let _lock = self.bucket.get_lock().await;
+        let _lock = self.bucket.write().await;
         let workspace = workspace.unwrap_or("__default__".into());
 
         let (hash, blob) = get_hash(stream).await;
@@ -177,7 +177,7 @@ impl BlobStorage for BlobDBStorage {
     }
 
     async fn delete_blob(&self, workspace_id: Option<String>, id: String) -> JwstResult<bool> {
-        let _lock = self.bucket.get_lock().await;
+        let _lock = self.bucket.write().await;
         let workspace_id = workspace_id.unwrap_or("__default__".into());
         if let Ok(success) = self.delete(&workspace_id, &id).await {
             Ok(success)
@@ -187,7 +187,7 @@ impl BlobStorage for BlobDBStorage {
     }
 
     async fn delete_workspace(&self, workspace_id: String) -> JwstResult<()> {
-        let _lock = self.bucket.get_lock().await;
+        let _lock = self.bucket.write().await;
         if self.drop(&workspace_id).await.is_ok() {
             Ok(())
         } else {
@@ -196,7 +196,7 @@ impl BlobStorage for BlobDBStorage {
     }
 
     async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64> {
-        let _lock = self.bucket.get_lock().await;
+        let _lock = self.bucket.read().await;
         let size = self
             .get_blobs_size(&workspace_id)
             .await

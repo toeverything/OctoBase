@@ -66,21 +66,26 @@ pub async fn handle_connector(
     let mut server_rx = context.join_server_broadcast(&workspace_id).await;
 
     // Send initialization message.
-    if let Ok(init_data) = ws.sync_init_message().await {
-        if tx.send(Message::Binary(init_data)).await.is_err() {
-            // client disconnected
+    match ws.sync_init_message().await {
+        Ok(init_data) => {
+            if tx.send(Message::Binary(init_data)).await.is_err() {
+                warn!("failed to send init message: {}", identifier);
+                // client disconnected
+                if let Err(e) = tx.send(Message::Close).await {
+                    error!("failed to send close event: {}", e);
+                }
+                first_init.send(false).await.unwrap();
+                return;
+            }
+        }
+        Err(e) => {
+            warn!("failed to generate {} init message: {}", identifier, e);
             if let Err(e) = tx.send(Message::Close).await {
                 error!("failed to send close event: {}", e);
             }
             first_init.send(false).await.unwrap();
             return;
         }
-    } else {
-        if let Err(e) = tx.send(Message::Close).await {
-            error!("failed to send close event: {}", e);
-        }
-        first_init.send(false).await.unwrap();
-        return;
     }
 
     first_init.send(true).await.unwrap();
@@ -187,13 +192,12 @@ pub async fn handle_connector(
 #[cfg(test)]
 mod test {
     use super::*;
+    use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressIterator, ProgressStyle};
     use jwst::JwstResult;
     use yrs::Map;
 
     #[tokio::test]
     async fn sync_test() -> JwstResult<()> {
-        jwst_logger::init_logger();
-
         let workspace_id = format!("test{}", rand::random::<usize>());
 
         let (server, ws, init_state) =
@@ -205,13 +209,12 @@ mod test {
             connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
 
         // close connection after doc1 is broadcasted
-        let sub = doc2
-            .observe(move |_, _| {
-                futures::executor::block_on(async {
-                    tx2.send(Message::Close).await.unwrap();
-                });
-            })
-            .unwrap();
+        doc2.observe(move |_, _| {
+            futures::executor::block_on(async {
+                tx2.send(Message::Close).await.unwrap();
+            });
+        })
+        .await;
 
         doc1.with_trx(|mut t| {
             let space = t.get_space("space");
@@ -223,24 +226,39 @@ mod test {
         tx_handler.await.unwrap();
         rx_handler.join().unwrap();
 
-        drop(sub);
+        doc2.retry_with_trx(
+            |mut t| {
+                let space = t.get_space("space");
+                let block1 = space.get(&mut t.trx, "block1").unwrap();
 
-        doc2.with_trx(|mut t| {
-            let space = t.get_space("space");
-            let block1 = space.get(&mut t.trx, "block1").unwrap();
+                assert_eq!(block1.flavor(&t.trx), "flavor1");
+                assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
+            },
+            10,
+        );
 
-            assert_eq!(block1.flavor(&t.trx), "flavor1");
-            assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
-        });
+        ws.retry_with_trx(
+            |mut t| {
+                let space = t.get_space("space");
+                let block1 = space.get(&mut t.trx, "block1").unwrap();
 
-        ws.with_trx(|mut t| {
-            let space = t.get_space("space");
-            let block1 = space.get(&mut t.trx, "block1").unwrap();
+                assert_eq!(block1.flavor(&t.trx), "flavor1");
+                assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
+            },
+            10,
+        );
 
-            assert_eq!(block1.flavor(&t.trx), "flavor1");
-            assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
-        });
+        Ok(())
+    }
 
+    #[ignore = "somewhat slow, only natively tested"]
+    #[test]
+    fn sync_test_cycle() -> JwstResult<()> {
+        jwst_logger::init_logger();
+
+        for _ in 0..1000 {
+            sync_test()?;
+        }
         Ok(())
     }
 
@@ -249,6 +267,13 @@ mod test {
     async fn sync_stress_test() -> JwstResult<()> {
         // jwst_logger::init_logger();
 
+        let mp = MultiProgress::new();
+        let style = ProgressStyle::with_template(
+            "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
+        )
+        .unwrap()
+        .progress_chars("##-");
+
         let workspace_id = format!("test{}", rand::random::<usize>());
 
         let (server, ws, init_state) =
@@ -256,9 +281,15 @@ mod test {
 
         let mut jobs = vec![];
 
-        for i in 0..1000 {
+        let pb = mp.add(ProgressBar::new(1000));
+        pb.set_style(style.clone());
+        pb.set_message("writing");
+        for i in (0..1000)
+            .progress_with(pb.with_finish(ProgressFinish::WithMessage("write finished".into())))
+        {
             let init_state = init_state.clone();
             let server = server.clone();
+            let ws = ws.clone();
 
             let (mut doc, doc_tx, tx_handler, rx_handler) =
                 connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
@@ -266,10 +297,10 @@ mod test {
             let handler = std::thread::spawn(move || {
                 // close connection after doc1 is broadcasted
                 let block_id = format!("block{}", i);
-                let sub = {
+                {
                     let block_id = block_id.clone();
                     let doc_tx = doc_tx.clone();
-                    doc.observe(move |t, _| {
+                    futures::executor::block_on(doc.observe(move |t, _| {
                         let block_changed = t
                             .changed_parent_types()
                             .iter()
@@ -281,22 +312,23 @@ mod test {
                             .any(|key| key == block_id);
 
                         if block_changed {
-                            let _ = futures::executor::block_on(doc_tx.send(Message::Close));
+                            if let Err(e) = futures::executor::block_on(doc_tx.send(Message::Close))
+                            {
+                                error!("send close message failed: {}", e);
+                            }
                         }
-                    })
-                    .unwrap()
-                };
+                    }));
+                }
 
                 doc.retry_with_trx(
                     |mut t| {
                         let space = t.get_space("space");
-                        let block1 = space
+                        let block = space
                             .create(&mut t.trx, block_id.clone(), format!("flavor{}", i))
                             .unwrap();
-                        block1
+                        block
                             .set(&mut t.trx, &format!("key{}", i), format!("val{}", i))
                             .unwrap();
-                        println!("write {block_id}");
                     },
                     50,
                 );
@@ -307,7 +339,7 @@ mod test {
                     rx_handler.join().unwrap();
                 });
 
-                doc.retry_with_trx(
+                ws.retry_with_trx(
                     |mut t| {
                         let space = t.get_space("space");
                         let block1 = space.get(&mut t.trx, format!("block{}", i)).unwrap();
@@ -320,18 +352,20 @@ mod test {
                                 .to_string(),
                             format!("val{}", i)
                         );
-
-                        println!("check {block_id}");
                     },
                     50,
                 );
-
-                drop(sub);
             });
             jobs.push(handler);
         }
 
-        for handler in jobs {
+        let pb = mp.add(ProgressBar::new(jobs.len().try_into().unwrap()));
+        pb.set_style(style.clone());
+        pb.set_message("joining");
+        for handler in jobs
+            .into_iter()
+            .progress_with(pb.with_finish(ProgressFinish::WithMessage("join finished".into())))
+        {
             if let Err(e) = handler.join() {
                 panic!("{:?}", e);
             }
@@ -339,9 +373,14 @@ mod test {
 
         info!("check the workspace");
 
+        let pb = mp.add(ProgressBar::new(1000));
+        pb.set_style(style.clone());
+        pb.set_message("final checking");
         ws.with_trx(|mut t| {
             let space = t.get_space("space");
-            for i in 0..1000 {
+            for i in (0..1000)
+                .progress_with(pb.with_finish(ProgressFinish::WithMessage("check finished".into())))
+            {
                 let block1 = space.get(&mut t.trx, format!("block{}", i)).unwrap();
 
                 assert_eq!(block1.flavor(&t.trx), format!("flavor{}", i));
@@ -352,11 +391,20 @@ mod test {
                         .to_string(),
                     format!("val{}", i)
                 );
-
-                println!("final check {}", format!("block{}", i));
             }
         });
 
+        Ok(())
+    }
+
+    #[ignore = "somewhat slow, only natively tested"]
+    #[test]
+    fn sync_stress_test_cycle() -> JwstResult<()> {
+        // jwst_logger::internal_init_logger_with_level(jwst_logger::Level::WARN);
+
+        for _ in 0..1000 {
+            sync_stress_test()?;
+        }
         Ok(())
     }
 }

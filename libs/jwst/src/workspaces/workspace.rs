@@ -1,6 +1,8 @@
 use super::{metadata::SEARCH_INDEX, plugins::setup_plugin, *};
+use nanoid::nanoid;
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{
+    collections::HashMap,
     panic::{catch_unwind, AssertUnwindSafe},
     sync::Arc,
     thread::sleep,
@@ -9,7 +11,7 @@ use std::{
 use tokio::sync::RwLock;
 use y_sync::{
     awareness::{Awareness, Event, Subscription as AwarenessSubscription},
-    sync::{DefaultProtocol, Error, Message, MessageReader, Protocol, SyncMessage},
+    sync::{Error, Message, MessageReader, SyncMessage},
 };
 use yrs::{
     types::{map::MapEvent, ToJson},
@@ -21,8 +23,6 @@ use yrs::{
     Update, UpdateEvent, UpdateSubscription,
 };
 
-static PROTOCOL: DefaultProtocol = DefaultProtocol;
-
 use super::PluginMap;
 use plugins::PluginImpl;
 
@@ -32,6 +32,7 @@ pub struct Workspace {
     workspace_id: String,
     awareness: Arc<RwLock<Awareness>>,
     doc: Doc,
+    sub: Arc<RwLock<HashMap<String, UpdateSubscription>>>,
     pub(crate) updated: MapRef,
     pub(crate) metadata: MapRef,
     /// We store plugins so that their ownership is tied to [Workspace].
@@ -60,6 +61,7 @@ impl Workspace {
             workspace_id: workspace_id.as_ref().to_string(),
             awareness: Arc::new(RwLock::new(Awareness::new(doc.clone()))),
             doc,
+            sub: Arc::default(),
             updated,
             metadata,
             plugins: Default::default(),
@@ -70,6 +72,7 @@ impl Workspace {
         workspace_id: S,
         awareness: Arc<RwLock<Awareness>>,
         doc: Doc,
+        sub: Arc<RwLock<HashMap<String, UpdateSubscription>>>,
         updated: MapRef,
         metadata: MapRef,
         plugins: PluginMap,
@@ -78,6 +81,7 @@ impl Workspace {
             workspace_id: workspace_id.as_ref().to_string(),
             awareness,
             doc,
+            sub,
             updated,
             metadata,
             plugins,
@@ -211,22 +215,23 @@ impl Workspace {
     }
 
     /// Subscribe to update events.
-    pub fn observe(
+    pub async fn observe(
         &mut self,
         f: impl Fn(&TransactionMut, &UpdateEvent) + Clone + 'static,
-    ) -> Option<UpdateSubscription> {
+    ) -> Option<String> {
         info!("workspace observe enter");
         let doc = self.doc();
         match catch_unwind(AssertUnwindSafe(move || {
             let mut retry = 10;
+            let cb = move |trx: &TransactionMut, evt: &UpdateEvent| {
+                trace!("workspace observe: observe_update_v1, {:?}", &evt.update);
+                if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(trx, evt))) {
+                    error!("panic in observe callback: {:?}", e);
+                }
+            };
+
             loop {
-                let f = f.clone();
-                match doc.observe_update_v1(move |trx, evt| {
-                    trace!("workspace observe: observe_update_v1, {:?}", &evt.update);
-                    if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(trx, evt))) {
-                        error!("panic in observe callback: {:?}", e);
-                    }
-                }) {
+                match doc.observe_update_v1(cb.clone()) {
                     Ok(sub) => break Ok(sub),
                     Err(e) if retry <= 0 => break Err(e),
                     _ => {
@@ -237,7 +242,17 @@ impl Workspace {
                 }
             }
         })) {
-            Ok(sub) => sub.map_err(|e| error!("failed to observe: {:?}", e)).ok(),
+            Ok(sub) => match sub {
+                Ok(sub) => {
+                    let id = nanoid!();
+                    self.sub.write().await.insert(id.clone(), sub);
+                    Some(id)
+                }
+                Err(e) => {
+                    error!("failed to observe: {:?}", e);
+                    None
+                }
+            },
             Err(e) => {
                 error!("panic in observe callback: {:?}", e);
                 None
@@ -265,7 +280,26 @@ impl Workspace {
 
     pub async fn sync_init_message(&self) -> Result<Vec<u8>, Error> {
         let mut encoder = EncoderV1::new();
-        PROTOCOL.start(&*self.awareness.read().await, &mut encoder)?;
+        let (sv, update) = {
+            let mut retry = 50;
+            let trx = loop {
+                if let Ok(trx) = self.doc.try_transact() {
+                    break trx;
+                } else if retry > 0 {
+                    retry -= 1;
+                    tokio::time::sleep(Duration::from_micros(10)).await;
+                } else {
+                    return Err(Error::Other("failed to get state vector".into()));
+                }
+            };
+            let sv = trx.state_vector();
+            let update = self.awareness.read().await.update()?;
+            (sv, update)
+        };
+
+        Message::Sync(SyncMessage::SyncStep1(sv)).encode(&mut encoder)?;
+        Message::Awareness(update).encode(&mut encoder)?;
+
         Ok(encoder.to_vec())
     }
 
@@ -396,6 +430,7 @@ impl Clone for Workspace {
             &self.workspace_id,
             self.awareness.clone(),
             self.doc.clone(),
+            self.sub.clone(),
             self.updated.clone(),
             self.metadata.clone(),
             self.plugins.clone(),

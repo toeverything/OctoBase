@@ -63,7 +63,7 @@ mod test {
         let (workspace_id, mut workspace, storage) = rt.block_on(async move {
             let workspace_id = String::from("1");
             let storage: Arc<JwstStorage> = Arc::new(
-                JwstStorage::new("sqlite:memory?mode=rwc")
+                JwstStorage::new("sqlite::memory:")
                     .await
                     .expect("get storage: memory sqlite failed"),
             );
@@ -94,7 +94,7 @@ mod test {
 
         let workspace = {
             let id = workspace_id.clone();
-            let sub = workspace.observe(move |_, e| {
+            futures::executor::block_on(workspace.observe(move |_, e| {
                 let id = id.clone();
                 let rt = Runtime::new().unwrap();
                 if let Err(e) =
@@ -102,8 +102,7 @@ mod test {
                 {
                     error!("Failed to write update to storage: {}", e);
                 }
-            });
-            std::mem::forget(sub);
+            }));
 
             workspace
         };
@@ -152,7 +151,7 @@ mod test {
         let workspace_id = String::from("1");
         let (storage, workspace) = rt.block_on(async {
             let storage: Arc<JwstStorage> = Arc::new(
-                JwstStorage::new("sqlite:memory?mode=rwc")
+                JwstStorage::new("sqlite::memory:")
                     .await
                     .expect("get storage: memory sqlite failed"),
             );

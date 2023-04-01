@@ -1,5 +1,5 @@
 use super::*;
-use jwst::Workspace;
+use jwst::{DocStorage, Workspace};
 use jwst_storage::JwstStorage;
 use nanoid::nanoid;
 use std::collections::HashMap;
@@ -35,6 +35,12 @@ impl MinimumServerContext {
         workspace_id: &str,
     ) -> (Arc<MinimumServerContext>, Workspace, Vec<u8>) {
         let server = Self::new().await;
+        server
+            .get_storage()
+            .docs()
+            .delete(workspace_id.into())
+            .await
+            .unwrap();
         let ws = server.get_workspace(workspace_id).await.unwrap();
 
         let init_state = ws

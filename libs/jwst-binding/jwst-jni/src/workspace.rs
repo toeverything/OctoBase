@@ -2,11 +2,9 @@ use super::{
     generate_interface, Block, JwstWorkspace, OnWorkspaceTransaction, VecOfStrings,
     WorkspaceTransaction,
 };
-use yrs::UpdateSubscription;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
-    pub(crate) _sub: Option<UpdateSubscription>,
 }
 
 impl Workspace {
