@@ -158,7 +158,7 @@ pub enum FirebaseAuthError {
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
     #[error(transparent)]
-    JWT(#[from] jsonwebtoken::errors::Error),
+    Jwt(#[from] jsonwebtoken::errors::Error),
     #[error(transparent)]
     DecodePEM(#[from] NomErr<PEMError>),
     #[error(transparent)]

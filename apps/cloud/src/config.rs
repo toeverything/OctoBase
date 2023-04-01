@@ -1,7 +1,7 @@
 use chrono::Duration;
 use std::env;
 
-/// A config of [`Context`].
+/// A config of `Context`.
 #[derive(Clone, Debug)]
 pub struct Config {
     /// 60 seconds by default.
