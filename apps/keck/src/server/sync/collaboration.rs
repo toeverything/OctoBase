@@ -44,9 +44,7 @@ mod test {
     use rand::{thread_rng, Rng};
     use std::collections::hash_map::Entry;
     use std::ffi::c_int;
-    use std::fs;
     use std::io::{BufRead, BufReader};
-    use std::path::Path;
     use std::process::{Child, Command, Stdio};
     use std::string::String;
     use std::sync::Arc;
