@@ -190,7 +190,7 @@ pub async fn make_token(
                 return ErrorStatus::BadRequest.into_response();
             }
         }
-        MakeToken::Google { token } => (
+        MakeToken::Google { token } => {
             if let Ok(claims) = ctx
                 .firebase
                 .lock()
