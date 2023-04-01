@@ -128,8 +128,8 @@ pub async fn invite_member(
         };
 
         let Ok(addr) = data.email.clone().parse() else {
-        return ErrorStatus::BadRequest.into_response()
-    };
+            return ErrorStatus::BadRequest.into_response()
+        };
 
         let (permission_id, user_cred) = match ctx
             .db
@@ -165,6 +165,9 @@ pub async fn invite_member(
         {
             Ok(metadata) => metadata,
             Err(e) => {
+                if let Err(e) = ctx.db.delete_permission(permission_id).await {
+                    error!("Failed to withdraw permissions: {}", e);
+                }
                 error!("Failed to send email: {}", e);
                 return ErrorStatus::InternalServerError.into_response();
             }
@@ -341,12 +344,15 @@ pub async fn remove_user(
         }
     };
 
-    let permission_model = ctx
-        .db
-        .get_permission_by_id(id.clone())
-        .await
-        .unwrap()
-        .unwrap();
+    let permission_result = match ctx.db.get_permission_by_id(id.clone()).await {
+        Ok(result) => result,
+        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+    };
+    let permission_model = match permission_result {
+        Some(model) => model,
+        None => return ErrorStatus::InternalServerError.into_response(),
+    };
+
     match ctx.db.delete_permission(id).await {
         Ok(true) => {
             if let Some(user_id) = permission_model.user_id {

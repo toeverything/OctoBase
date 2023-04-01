@@ -642,12 +642,12 @@ impl CloudDatabase {
 
         if let Some(user_info) = &claims.user_info {
             if let Some(firebase_user) = firebase_user {
-                let model = Users::find()
-                    .filter(UsersColumn::Id.eq(firebase_user.user_id))
+                let id = Users::find()
+                    .filter(UsersColumn::Id.eq(firebase_user.user_id.clone()))
                     .one(&self.pool)
                     .await?
-                    .unwrap();
-                let id = model.id;
+                    .ok_or_else(|| DbErr::RecordNotFound(firebase_user.user_id.clone()))?
+                    .id;
 
                 let user = Users::update(UsersActiveModel {
                     id: Set(id.clone()),
@@ -661,6 +661,7 @@ impl CloudDatabase {
                 .await?;
                 Ok(user)
             } else {
+                let trx = self.pool.begin().await?;
                 let id = nanoid!();
                 let user = Users::insert(UsersActiveModel {
                     id: Set(id),
@@ -669,7 +670,7 @@ impl CloudDatabase {
                     avatar_url: Set(user_info.picture.clone()),
                     ..Default::default()
                 })
-                .exec_with_returning(&self.pool)
+                .exec_with_returning(&trx)
                 .await?;
                 let google_user_id = nanoid!();
                 GoogleUsers::insert(GoogleUsersActiveModel {
@@ -677,7 +678,7 @@ impl CloudDatabase {
                     user_id: Set(user.id.clone()),
                     google_id: Set(claims.user_id.clone()),
                 })
-                .exec_with_returning(&self.pool)
+                .exec_with_returning(&trx)
                 .await?;
                 Permissions::update_many()
                     .set(PermissionActiveModel {
@@ -685,8 +686,9 @@ impl CloudDatabase {
                         ..Default::default()
                     })
                     .filter(PermissionColumn::UserEmail.eq(user_info.email.clone()))
-                    .exec(&self.pool)
+                    .exec(&trx)
                     .await?;
+                trx.commit().await?;
                 Ok(user)
             }
         } else {
