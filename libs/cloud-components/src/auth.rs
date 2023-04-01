@@ -8,7 +8,7 @@ use jsonwebtoken::{
     decode, decode_header, encode, errors::Error as JwtError, DecodingKey, EncodingKey, Header,
     Validation,
 };
-use jwst::{Base64DecodeError, Base64Engine, URL_SAFE_ENGINE};
+use jwst::{warn, Base64DecodeError, Base64Engine, URL_SAFE_ENGINE};
 use pem::{encode as encode_pem, Pem};
 use rand::{thread_rng, Rng};
 use reqwest::{Client, RequestBuilder};

@@ -195,7 +195,7 @@ pub async fn make_token(
                 .firebase
                 .lock()
                 .await
-                .decode_google_token(token, ctx.config.refresh_token_expire_time)
+                .decode_google_token(token, ctx.config.refresh_token_expires_in)
                 .await
             {
                 ctx.db.firebase_user_login(&claims).await.map(Some)
@@ -225,7 +225,7 @@ pub async fn make_token(
         Ok(Some(user)) => {
             let Some(refresh) = refresh.or_else(|| {
                 let refresh = RefreshToken {
-                    expires: Utc::now().naive_utc() + ctx.config.refresh_token_expire_time,
+                    expires: Utc::now().naive_utc() + ctx.config.refresh_token_expires_in,
                     user_id: user.id.clone(),
                     token_nonce: user.token_nonce.unwrap(),
                 };
@@ -238,7 +238,7 @@ pub async fn make_token(
             };
 
             let claims = Claims {
-                exp: Utc::now().naive_utc() + ctx.config.access_token_expire_time,
+                exp: Utc::now().naive_utc() + ctx.config.access_token_expires_in,
                 user: User {
                     id: user.id,
                     name: user.name,
@@ -305,8 +305,8 @@ mod test {
 
     #[tokio::test]
     async fn test_with_token_expire() {
-        std::env::set_var("JWT_REFRESH_TOKEN_EXPIRE_SECONDS", "0");
-        std::env::set_var("JWT_ACCESS_TOKEN_EXPIRE_SECONDS", "10");
+        std::env::set_var("JWT_REFRESH_TOKEN_EXPIRES_IN", "0");
+        std::env::set_var("JWT_ACCESS_TOKEN_EXPIRES_IN", "10");
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
         let context = Context::new_test_client(pool).await;
         let ctx = Arc::new(context);
