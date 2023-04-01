@@ -63,7 +63,7 @@ mod test {
         let (workspace_id, mut workspace, storage) = rt.block_on(async move {
             let workspace_id = String::from("1");
             let storage: Arc<JwstStorage> = Arc::new(
-                JwstStorage::new("sqlite:memory?mode=rwc")
+                JwstStorage::new("sqlite::memory:")
                     .await
                     .expect("get storage: memory sqlite failed"),
             );
@@ -151,7 +151,7 @@ mod test {
         let workspace_id = String::from("1");
         let (storage, workspace) = rt.block_on(async {
             let storage: Arc<JwstStorage> = Arc::new(
-                JwstStorage::new("sqlite:memory?mode=rwc")
+                JwstStorage::new("sqlite::memory:")
                     .await
                     .expect("get storage: memory sqlite failed"),
             );
