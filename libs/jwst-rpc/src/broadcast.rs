@@ -85,14 +85,15 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
             })
             .unwrap()
     };
-    let metadata = workspace.observe_metadata(move |_, _e| {
-        // context
-        //     .user_channel
-        //     .update_workspace(ws_id.clone(), context.clone());
-    });
+    // let metadata = workspace.observe_metadata(move |_, _e| {
+    //     // context
+    //     //     .user_channel
+    //     //     .update_workspace(ws_id.clone(), context.clone());
+    // });
 
     let workspace_id = workspace.id();
     tokio::spawn(async move {
+        let _doc = doc;
         let mut rx = sender.subscribe();
         loop {
             tokio::select! {
@@ -111,8 +112,8 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
                 }
             }
         }
-        drop(doc);
-        drop(metadata);
+        // drop(doc);
+        // drop(metadata);
         info!("broadcast channel {workspace_id} has been closed");
     });
 

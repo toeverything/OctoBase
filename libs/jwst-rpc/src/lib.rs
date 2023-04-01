@@ -192,8 +192,6 @@ mod test {
 
     #[tokio::test]
     async fn sync_test() -> JwstResult<()> {
-        jwst_logger::init_logger();
-
         let workspace_id = format!("test{}", rand::random::<usize>());
 
         let (server, ws, init_state) =
@@ -225,22 +223,38 @@ mod test {
 
         drop(sub);
 
-        doc2.with_trx(|mut t| {
-            let space = t.get_space("space");
-            let block1 = space.get(&mut t.trx, "block1").unwrap();
+        doc2.retry_with_trx(
+            |mut t| {
+                let space = t.get_space("space");
+                let block1 = space.get(&mut t.trx, "block1").unwrap();
 
-            assert_eq!(block1.flavor(&t.trx), "flavor1");
-            assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
-        });
+                assert_eq!(block1.flavor(&t.trx), "flavor1");
+                assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
+            },
+            10,
+        );
 
-        ws.with_trx(|mut t| {
-            let space = t.get_space("space");
-            let block1 = space.get(&mut t.trx, "block1").unwrap();
+        ws.retry_with_trx(
+            |mut t| {
+                let space = t.get_space("space");
+                let block1 = space.get(&mut t.trx, "block1").unwrap();
 
-            assert_eq!(block1.flavor(&t.trx), "flavor1");
-            assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
-        });
+                assert_eq!(block1.flavor(&t.trx), "flavor1");
+                assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
+            },
+            10,
+        );
 
+        Ok(())
+    }
+
+    #[test]
+    fn sync_test_cycle() -> JwstResult<()> {
+        jwst_logger::init_logger();
+
+        for _ in 0..1000 {
+            sync_test()?;
+        }
         Ok(())
     }
 

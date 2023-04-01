@@ -219,14 +219,15 @@ impl Workspace {
         let doc = self.doc();
         match catch_unwind(AssertUnwindSafe(move || {
             let mut retry = 10;
+            let cb = move |trx: &TransactionMut, evt: &UpdateEvent| {
+                trace!("workspace observe: observe_update_v1, {:?}", &evt.update);
+                if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(trx, evt))) {
+                    error!("panic in observe callback: {:?}", e);
+                }
+            };
+
             loop {
-                let f = f.clone();
-                match doc.observe_update_v1(move |trx, evt| {
-                    trace!("workspace observe: observe_update_v1, {:?}", &evt.update);
-                    if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(trx, evt))) {
-                        error!("panic in observe callback: {:?}", e);
-                    }
-                }) {
+                match doc.observe_update_v1(cb.clone()) {
                     Ok(sub) => break Ok(sub),
                     Err(e) if retry <= 0 => break Err(e),
                     _ => {

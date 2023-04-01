@@ -237,7 +237,7 @@ impl DocDBStorage {
 impl DocStorage for DocDBStorage {
     async fn exists(&self, workspace_id: String) -> JwstResult<bool> {
         trace!("check workspace exists: get lock");
-        let _lock = self.bucket.get_lock().await;
+        let _lock = self.bucket.read().await;
 
         Ok(self.workspaces.read().await.contains_key(&workspace_id)
             || Self::count(&self.pool, &workspace_id)
@@ -256,7 +256,7 @@ impl DocStorage for DocDBStorage {
             }
             Entry::Vacant(v) => {
                 debug!("init workspace cache: get lock");
-                let _lock = self.bucket.get_lock().await;
+                let _lock = self.bucket.write().await;
                 info!("init workspace cache: {workspace_id}");
                 let id = workspace_id.clone();
                 let doc = Self::create_doc(&self.pool, &id)
@@ -272,7 +272,7 @@ impl DocStorage for DocDBStorage {
 
     async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> JwstResult<()> {
         trace!("write_full_update: get lock");
-        let _lock = self.bucket.get_lock().await;
+        let _lock = self.bucket.write().await;
 
         trace!("write_doc: {:?}", data);
 
@@ -288,7 +288,7 @@ impl DocStorage for DocDBStorage {
 
     async fn write_update(&self, workspace_id: String, data: &[u8]) -> JwstResult<()> {
         debug!("write_update: get lock");
-        let _lock = self.bucket.get_lock().await;
+        let _lock = self.bucket.write().await;
 
         trace!("write_update: {:?}", data);
         self.update(&self.pool, &workspace_id, data.into())
@@ -301,7 +301,7 @@ impl DocStorage for DocDBStorage {
 
     async fn delete(&self, workspace_id: String) -> JwstResult<()> {
         debug!("delete workspace: get lock");
-        let _lock = self.bucket.get_lock().await;
+        let _lock = self.bucket.write().await;
 
         debug!("delete workspace cache: {workspace_id}");
         self.workspaces.write().await.remove(&workspace_id);

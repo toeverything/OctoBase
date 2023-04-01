@@ -16,14 +16,25 @@ use jwst_logger::{debug, error, info, trace, warn};
 use path_ext::PathExt;
 use sea_orm::{prelude::*, ConnectOptions, Database, DbErr, QuerySelect, Set};
 use std::{num::NonZeroU32, path::PathBuf, sync::Arc, time::Duration};
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{OwnedSemaphorePermit, RwLock, RwLockReadGuard, RwLockWriteGuard, Semaphore};
 use url::Url;
 
 pub use storage::JwstStorage;
 
+pub enum BucketLocker<'a> {
+    Semaphore(OwnedSemaphorePermit),
+    ReadLock(RwLockReadGuard<'a, ()>),
+    WriteLock(RwLockWriteGuard<'a, ()>),
+}
+
+enum BucketLock {
+    Semaphore(Arc<Semaphore>),
+    RwLock(Arc<RwLock<()>>),
+}
+
 pub struct Bucket {
     bucket: Arc<RateLimiter<NotKeyed, InMemoryState, QuantaClock, NoOpMiddleware<QuantaInstant>>>,
-    semaphore: Arc<Semaphore>,
+    lock: BucketLock,
 }
 
 impl Bucket {
@@ -35,13 +46,32 @@ impl Bucket {
             bucket: Arc::new(RateLimiter::direct(
                 Quota::per_second(bucket_size).allow_burst(bucket_size),
             )),
-            semaphore: Arc::new(Semaphore::new(semaphore_size)),
+            lock: if semaphore_size > 1 {
+                BucketLock::Semaphore(Arc::new(Semaphore::new(semaphore_size)))
+            } else {
+                BucketLock::RwLock(Arc::default())
+            },
         }
     }
 
-    async fn get_lock(&self) -> OwnedSemaphorePermit {
+    async fn read(&self) -> BucketLocker {
         self.bucket.until_ready().await;
-        self.semaphore.clone().acquire_owned().await.unwrap()
+        match &self.lock {
+            BucketLock::RwLock(lock) => BucketLocker::ReadLock(lock.read().await),
+            BucketLock::Semaphore(semaphore) => {
+                BucketLocker::Semaphore(semaphore.clone().acquire_owned().await.unwrap())
+            }
+        }
+    }
+
+    async fn write(&self) -> BucketLocker {
+        self.bucket.until_ready().await;
+        match &self.lock {
+            BucketLock::RwLock(lock) => BucketLocker::WriteLock(lock.write().await),
+            BucketLock::Semaphore(semaphore) => {
+                BucketLocker::Semaphore(semaphore.clone().acquire_owned().await.unwrap())
+            }
+        }
     }
 }
 
@@ -55,7 +85,7 @@ fn is_sqlite(database: &str) -> bool {
 #[inline]
 fn get_bucket(single_thread: bool) -> Arc<Bucket> {
     Arc::new(Bucket::new(
-        if single_thread { 1 } else { 25 },
+        if single_thread { 10 } else { 25 },
         if single_thread { 1 } else { 5 },
     ))
 }
