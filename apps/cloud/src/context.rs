@@ -2,7 +2,7 @@ use super::{api::UserChannel, config::Config, utils::create_debug_collaboration_
 use cloud_components::{FirebaseContext, KeyContext, MailContext};
 use cloud_database::CloudDatabase;
 use jwst::SearchResults;
-use jwst_logger::{error, warn};
+use jwst_logger::{error, info, warn};
 use jwst_rpc::{BroadcastChannels, BroadcastType, RpcContextImpl};
 use jwst_storage::JwstStorage;
 use std::{collections::HashMap, path::Path};
@@ -34,14 +34,12 @@ impl Context {
                 (dir.to_path_buf(), None)
             } else {
                 let dir = tempdir().expect("Cannot create temp dir");
+                warn!("!!! Be careful, the data is stored in a temporary directory !!!");
                 (dir.path().to_path_buf(), Some(dir))
             };
 
-            warn!(
-                "!!! no database url provided, store in {} !!!",
-                path.display()
-            );
-            warn!("!!! please set DATABASE_URL in .env file or environmental variable to save your data !!!");
+            warn!("!!! Please set `DATABASE_URL` in .env file or environmental variable to save your data !!!");
+            info!("!!! The data is stored in {} !!!", path.display());
             let cloud = format!("sqlite:{}?mode=rwc", path.join("cloud.db").display());
             let storage = format!("sqlite:{}?mode=rwc", path.join("storage.db").display());
 

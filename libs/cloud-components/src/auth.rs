@@ -190,7 +190,6 @@ impl FirebaseContext {
             .typed_get::<CacheControl>()
             .ok_or(FirebaseAuthError::Header)?;
         let now = Utc::now().naive_utc();
-        // 1 hour
         let expires = now
             + cache
                 .max_age()

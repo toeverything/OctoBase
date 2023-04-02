@@ -1,9 +1,7 @@
 use super::*;
 use axum::{
-    extract::{
-        ws::{close_code, CloseFrame, Message, WebSocketUpgrade},
-        Path,
-    },
+    extract::{ws::WebSocketUpgrade, Path},
+    http::StatusCode,
     response::Response,
 };
 use jsonwebtoken::{decode, Validation};
@@ -33,41 +31,28 @@ async fn ws_handler(
     ws: WebSocketUpgrade,
 ) -> Response {
     let key = ctx.key.jwt_decode.clone();
-    let user = match decode::<Claims>(&token, &key, &Validation::default()).map(|d| d.claims) {
-        Ok(claims) => Some(claims.user.id),
-        Err(_) => None,
+    let user = decode::<Claims>(&token, &key, &Validation::default())
+        .map(|d| d.claims)
+        .ok()
+        .map(|claims| claims.user.id);
+
+    let Some(user_id) = user else {
+        return StatusCode::UNAUTHORIZED.into_response();
     };
 
-    ws.protocols(["AFFiNE"])
-        .on_upgrade(move |mut socket| async move {
-            let user_id = if let Some(user_id) = user {
-                if let Ok(true) = ctx
-                    .db
-                    .can_read_workspace(user_id.clone(), workspace.clone())
-                    .await
-                {
-                    Some(user_id)
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
-            let user_id = if let Some(user_id) = user_id {
-                user_id
-            } else {
-                let _ = socket
-                    .send(collaboration::Message::Close(Some(CloseFrame {
-                        code: close_code::POLICY,
-                        reason: "Unauthorized".into(),
-                    })))
-                    .await;
-                return;
-            };
+    if !ctx
+        .db
+        .can_read_workspace(user_id.clone(), workspace.clone())
+        .await
+        .ok()
+        .unwrap_or(false)
+    {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
 
-            handle_connector(ctx.clone(), workspace.clone(), user_id, move || {
-                socket_connector(socket, &workspace)
-            })
-            .await
+    ws.protocols(["AFFiNE"]).on_upgrade(move |socket| {
+        handle_connector(ctx.clone(), workspace.clone(), user_id, move || {
+            socket_connector(socket, &workspace)
         })
+    })
 }
