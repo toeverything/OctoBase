@@ -1,4 +1,4 @@
-use super::{metadata::SEARCH_INDEX, plugins::setup_plugin, *};
+use super::{metadata::SEARCH_INDEX, plugins::setup_plugin, JwstError, *};
 use nanoid::nanoid;
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{
@@ -264,18 +264,21 @@ impl Workspace {
         self.doc.clone()
     }
 
-    pub fn sync_migration(&self, mut retry: i32) -> Option<Vec<u8>> {
+    pub fn sync_migration(&self, mut retry: i32) -> JwstResult<Vec<u8>> {
         let trx = loop {
-            if let Ok(trx) = self.doc.try_transact() {
-                break trx;
-            } else if retry > 0 {
-                retry -= 1;
-                sleep(Duration::from_micros(10));
-            } else {
-                return None;
+            match self.doc.try_transact() {
+                Ok(trx) => break trx,
+                Err(e) => {
+                    if retry > 0 {
+                        retry -= 1;
+                        sleep(Duration::from_micros(10));
+                    } else {
+                        return Err(JwstError::DocTransaction(e.to_string()));
+                    }
+                }
             }
         };
-        trx.encode_state_as_update_v1(&StateVector::default()).ok()
+        Ok(trx.encode_state_as_update_v1(&StateVector::default())?)
     }
 
     pub async fn sync_init_message(&self) -> Result<Vec<u8>, Error> {

@@ -1,5 +1,8 @@
 /// The sys constants.
 pub mod sys {
+    /// `sys:id`
+    pub const ID: &str = "sys:id";
+
     /// `sys:children`
     pub const CHILDREN: &str = "sys:children";
 

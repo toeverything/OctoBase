@@ -1,9 +1,10 @@
+mod convert;
 mod transaction;
 
 use super::{block::MarkdownState, *};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use transaction::SpaceTransaction;
-use yrs::{ArrayPrelim, Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn};
+use yrs::{Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn};
 
 //         Workspace
 //         /       \
@@ -188,80 +189,6 @@ impl Space {
         T: ReadTxn,
     {
         self.blocks.contains_key(trx, block_id.as_ref())
-    }
-
-    pub fn to_markdown<T>(&self, trx: &T) -> Option<String>
-    where
-        T: ReadTxn,
-    {
-        if let Some(title) = self.get_blocks_by_flavour(trx, "affine:page").first() {
-            let mut markdown = String::new();
-
-            if let Some(title) = title.get(trx, "title") {
-                markdown.push_str(&format!("# {title}"));
-                markdown.push('\n');
-            }
-
-            for frame in title.children(trx) {
-                if let Some(frame) = self.get(trx, &frame) {
-                    let mut state = MarkdownState::default();
-                    for child in frame.children(trx) {
-                        if let Some(text) = self
-                            .get(trx, &child)
-                            .and_then(|child| child.to_markdown(trx, &mut state))
-                        {
-                            markdown.push_str(&text);
-                            markdown.push('\n');
-                        }
-                    }
-                }
-            }
-
-            Some(markdown)
-        } else {
-            None
-        }
-    }
-
-    pub fn to_single_page<T>(&self, trx: &T) -> Option<Vec<u8>>
-    where
-        T: ReadTxn,
-    {
-        let ws = Workspace::new(self.id());
-
-        match ws.with_trx(|mut t| {
-            let space = t.get_space(self.space_id());
-            let new_blocks = space.blocks.clone();
-            self.blocks(trx, |blocks| {
-                for block in blocks {
-                    block.clone_block(trx, &mut t.trx, new_blocks.clone())?;
-                }
-                Ok::<_, JwstError>(())
-            })?;
-
-            let page_tree = space
-                .metadata
-                .get(&mut t.trx, "pages")
-                .and_then(|a| a.to_yarray())
-                .or_else(|| {
-                    space
-                        .metadata
-                        .insert(&mut t.trx, "pages", ArrayPrelim::default())
-                        .map_err(|e| error!("failed to insert page tree: {}", e))
-                        .ok()
-                })
-                .unwrap();
-
-            // TODO: insert page item
-
-            Ok::<_, JwstError>(())
-        }) {
-            Ok(_) => ws.sync_migration(10),
-            Err(e) => {
-                info!("to_single_page error: {}", e);
-                None
-            }
-        }
     }
 }
 

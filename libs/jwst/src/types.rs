@@ -18,10 +18,20 @@ pub enum JwstError {
     Io(#[from] std::io::Error),
     #[error("doc codec error")]
     DocCodec(#[from] lib0::error::Error),
+    #[error("doc transaction error")]
+    DocTransaction(String),
     #[error("workspace {0} not initialized")]
     WorkspaceNotInitialized(String),
     #[error("workspace {0} not found")]
     WorkspaceNotFound(String),
+    // version metadata
+    #[error("workspace {0} has no version")]
+    VersionNotFound(String),
+    // page metadata
+    #[error("workspace {0} has no page tree")]
+    PageTreeNotFound(String),
+    #[error("page item {0} not found")]
+    PageItemNotFound(String),
 }
 
 pub type JwstResult<T> = Result<T, JwstError>;
