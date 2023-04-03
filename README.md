@@ -17,13 +17,15 @@ As an offline collaborative data database, OctoBase has the following characteri
 
 -   🔍 **High-performance real-time full-text indexing** with high-quality multilingual word segmentation support.
 
--   🌐 **Point-to-point / central server synchronization** with rich multi-platform native support.
+-   🌐 **CRDT-driven P2P synchronization** with rich multi-platform native support.
 
 -   🔒 **Fine-grained permission control** with advanced permission management.
 
-By providing native offline collaboration, full-text indexing, and binary storage, OctoBase enables you to easily build secure, high-performance local-first collaborative applications using the same set of data abstractions on multiple platforms.
+OctoBase provides native support for offline collaboration, full-text indexing, and binary storage, making it easy for developers to build secure and high-performance local-first collaborative applications that work seamlessly across multiple platforms.
 
-OctoBase can be used either as a stand-alone server database, or directly included in your application as an embedded database and remain fully functional.
+With OctoBase, you will have access to same data abstractions across platform that enable you to maintain consistency and coherence across all your applications, regardless of the devices or platforms used.
+
+Additionally, OctoBase can function as a standalone server database, or it can be integrated directly into your application as an embedded database while remaining fully functional.
 
 ## Project status
 
@@ -43,25 +45,16 @@ OctoBase aims to make it easy for developers to build local-first applications
 on all common platforms. In order to achieve this goal, we will strive to do these things:
 
 -   Make it easy to build on all supported platforms.
--   Implement basic data types that support collaboration.
--   Support peer-to-peer synchronization.
+-   CRDT-driven peer-to-peer synchronization model.
 -   Self-contained library distribution.
 -   Minimize external dependencies.
+-   Out-of-the-box permission control.
+
+You can see a summary of our recent updates here: [What's New](./apps/homepage/pages/docs/overview/whats_new.md).
 
 ## Building
 
-```bash
-# install rust toolchain
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-# clone the repo
-git clone https://github.com/toeverything/octobase/
-# start sync server
-cargo run --bin keck
-```
-
-Now you can access <http://localhost:3000/api/docs/> through the browser.
-
-This is a simple http interface binding, which allows you to modify the data in octobase with the http interface; you can also statically link octobase to your program, modify the data through native api, and synchronize with other clients.
+Visit [our website] to learn about installation and development.
 
 ## Project Overview
 
@@ -100,3 +93,4 @@ Currently, this repository is under **active development** and most components a
 [fossil]: https://www2.fossil-scm.org/home/doc/trunk/www/index.wiki
 [sqlite]: https://sqlite.org/index.html
 [contributor license agreement]: https://github.com/toeverything/octobase/edit/master/.github/CLA.md
+[our website]: https://octobase.pro

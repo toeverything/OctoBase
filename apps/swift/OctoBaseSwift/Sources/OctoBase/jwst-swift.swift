@@ -76,8 +76,8 @@ extension BlockRef {
         RustString(ptr: __swift_bridge__$Block$id(ptr))
     }
 
-    public func flavor() -> RustString {
-        RustString(ptr: __swift_bridge__$Block$flavor(ptr))
+    public func flavour() -> RustString {
+        RustString(ptr: __swift_bridge__$Block$flavour(ptr))
     }
 
     public func version() -> RustString {
@@ -400,8 +400,8 @@ extension WorkspaceRef {
         { let val = __swift_bridge__$Workspace$get(ptr, { let rustString = block_id.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val != nil { return Block(ptr: val!) } else { return nil } }()
     }
 
-    public func create<GenericIntoRustString: IntoRustString>(_ block_id: GenericIntoRustString, _ flavor: GenericIntoRustString) -> Block {
-        Block(ptr: __swift_bridge__$Workspace$create(ptr, { let rustString = block_id.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = flavor.intoRustString(); rustString.isOwned = false; return rustString.ptr }()))
+    public func create<GenericIntoRustString: IntoRustString>(_ block_id: GenericIntoRustString, _ flavour: GenericIntoRustString) -> Block {
+        Block(ptr: __swift_bridge__$Workspace$create(ptr, { let rustString = block_id.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = flavour.intoRustString(); rustString.isOwned = false; return rustString.ptr }()))
     }
 
     public func search<GenericIntoRustString: IntoRustString>(_ query: GenericIntoRustString) -> RustString {

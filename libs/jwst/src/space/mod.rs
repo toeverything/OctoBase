@@ -1,3 +1,4 @@
+mod convert;
 mod transaction;
 
 use super::{block::MarkdownState, *};
@@ -151,7 +152,7 @@ impl Space {
         &self,
         trx: &mut TransactionMut,
         block_id: B,
-        flavor: F,
+        flavour: F,
     ) -> JwstResult<Block>
     where
         B: AsRef<str>,
@@ -160,9 +161,9 @@ impl Space {
         info!(
             "create block: {}, flavour: {}",
             block_id.as_ref(),
-            flavor.as_ref()
+            flavour.as_ref()
         );
-        Block::new(trx, self, block_id, flavor, self.client_id())
+        Block::new(trx, self, block_id, flavour, self.client_id())
     }
 
     pub fn remove<S: AsRef<str>>(&self, trx: &mut TransactionMut, block_id: S) -> bool {
@@ -177,7 +178,7 @@ impl Space {
     {
         self.blocks(trx, |blocks| {
             blocks
-                .filter(|block| block.flavor(trx) == flavour)
+                .filter(|block| block.flavour(trx) == flavour)
                 .collect::<Vec<_>>()
         })
     }
@@ -188,39 +189,6 @@ impl Space {
         T: ReadTxn,
     {
         self.blocks.contains_key(trx, block_id.as_ref())
-    }
-
-    pub fn to_markdown<T>(&self, trx: &T) -> Option<String>
-    where
-        T: ReadTxn,
-    {
-        if let Some(title) = self.get_blocks_by_flavour(trx, "affine:page").first() {
-            let mut markdown = String::new();
-
-            if let Some(title) = title.get(trx, "title") {
-                markdown.push_str(&format!("# {title}"));
-                markdown.push('\n');
-            }
-
-            for frame in title.children(trx) {
-                if let Some(frame) = self.get(trx, &frame) {
-                    let mut state = MarkdownState::default();
-                    for child in frame.children(trx) {
-                        if let Some(text) = self
-                            .get(trx, &child)
-                            .and_then(|child| child.to_markdown(trx, &mut state))
-                        {
-                            markdown.push_str(&text);
-                            markdown.push('\n');
-                        }
-                    }
-                }
-            }
-
-            Some(markdown)
-        } else {
-            None
-        }
     }
 }
 
@@ -324,7 +292,7 @@ mod test {
             assert_eq!(space.blocks.len(&t.trx), 1);
             assert_eq!(space.updated.len(&t.trx), 1);
             assert_eq!(block.block_id(), "block");
-            assert_eq!(block.flavor(&t.trx), "text");
+            assert_eq!(block.flavour(&t.trx), "text");
 
             assert_eq!(
                 space.get(&t.trx, "block").map(|b| b.block_id()),

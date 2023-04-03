@@ -38,7 +38,7 @@ typedef struct BlockContent {
 
 JWSTBlock *block_new(const JWSTWorkspace *workspace,
                      const char *block_id,
-                     const char *flavor,
+                     const char *flavour,
                      uint64_t operator_);
 
 void block_destroy(JWSTBlock *block);
@@ -47,7 +47,7 @@ uint64_t block_get_created(const JWSTBlock *block);
 
 uint64_t block_get_updated(const JWSTBlock *block);
 
-char *block_get_flavor(const JWSTBlock *block);
+char *block_get_flavour(const JWSTBlock *block);
 
 struct BlockChildren *block_get_children(const JWSTBlock *block);
 
@@ -87,7 +87,7 @@ JWSTBlock *workspace_get_block(const JWSTWorkspace *workspace, const char *block
 
 JWSTBlock *workspace_create_block(const JWSTWorkspace *workspace,
                                   const char *block_id,
-                                  const char *flavor);
+                                  const char *flavour);
 
 bool workspace_remove_block(const JWSTWorkspace *workspace, const char *block_id);
 

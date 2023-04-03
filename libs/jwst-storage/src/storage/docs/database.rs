@@ -496,12 +496,12 @@ pub async fn docs_storage_partial_test(pool: &DocDBStorage) -> anyhow::Result<()
             let space = t.get_space("test");
 
             let block = space.get(&mut t.trx, "block1").unwrap();
-            assert_eq!(block.flavor(&t.trx), "text");
+            assert_eq!(block.flavour(&t.trx), "text");
             assert_eq!(block.get(&t.trx, "test1"), Some("value1".into()));
             assert_eq!(block.get(&t.trx, "test2"), Some("value2".into()));
 
             let block = space.get(&mut t.trx, "block2").unwrap();
-            assert_eq!(block.flavor(&t.trx), "block2");
+            assert_eq!(block.flavour(&t.trx), "block2");
             assert_eq!(block.get(&t.trx, "test3"), Some("value3".into()));
         });
     }

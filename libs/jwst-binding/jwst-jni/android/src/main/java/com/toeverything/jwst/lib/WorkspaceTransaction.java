@@ -16,13 +16,13 @@ public final class WorkspaceTransaction {
     }
     private static native boolean do_remove(long self, @NonNull String block_id);
 
-    public final @NonNull Block create(@NonNull String block_id, @NonNull String flavor) {
-        long ret = do_create(mNativeObj, block_id, flavor);
+    public final @NonNull Block create(@NonNull String block_id, @NonNull String flavour) {
+        long ret = do_create(mNativeObj, block_id, flavour);
         Block convRet = new Block(InternalPointerMarker.RAW_PTR, ret);
 
         return convRet;
     }
-    private static native long do_create(long self, @NonNull String block_id, @NonNull String flavor);
+    private static native long do_create(long self, @NonNull String block_id, @NonNull String flavour);
 
     public final void commit() {
         do_commit(mNativeObj);

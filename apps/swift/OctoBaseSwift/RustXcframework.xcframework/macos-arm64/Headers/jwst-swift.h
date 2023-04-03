@@ -84,7 +84,7 @@ int32_t __swift_bridge__$Block$exists_children(void* self, struct RustStr block_
 void* __swift_bridge__$Block$parent(void* self);
 uint64_t __swift_bridge__$Block$updated(void* self);
 void* __swift_bridge__$Block$id(void* self);
-void* __swift_bridge__$Block$flavor(void* self);
+void* __swift_bridge__$Block$flavour(void* self);
 void* __swift_bridge__$Block$version(void* self);
 uint64_t __swift_bridge__$Block$created(void* self);
 void __swift_bridge__$Block$set_bool(void* self, void* key, bool value);
@@ -111,7 +111,7 @@ void* __swift_bridge__$Workspace$new(void* id);
 void* __swift_bridge__$Workspace$id(void* self);
 uint64_t __swift_bridge__$Workspace$client_id(void* self);
 void* __swift_bridge__$Workspace$get(void* self, void* block_id);
-void* __swift_bridge__$Workspace$create(void* self, void* block_id, void* flavor);
+void* __swift_bridge__$Workspace$create(void* self, void* block_id, void* flavour);
 void* __swift_bridge__$Workspace$search(void* self, void* query);
 void* __swift_bridge__$Workspace$get_blocks_by_flavour(void* self, struct RustStr flavour);
 void* __swift_bridge__$Workspace$get_search_index(void* self);
