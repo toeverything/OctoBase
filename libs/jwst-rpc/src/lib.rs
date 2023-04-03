@@ -254,7 +254,7 @@ mod test {
     #[ignore = "somewhat slow, only natively tested"]
     #[test]
     fn sync_test_cycle() -> JwstResult<()> {
-        jwst_logger::init_logger();
+        jwst_logger::init_logger("jwst-rpc");
 
         for _ in 0..1000 {
             sync_test()?;
@@ -263,7 +263,9 @@ mod test {
     }
 
     async fn single_sync_stress_test(mp: &MultiProgress) -> JwstResult<()> {
-        // jwst_logger::init_logger();
+        // jwst_logger::init_logger("jwst-rpc");
+
+        let mp = MultiProgress::new();
         let style = ProgressStyle::with_template(
             "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
         )
@@ -396,7 +398,7 @@ mod test {
     #[ignore = "somewhat slow, only natively tested"]
     #[tokio::test(flavor = "multi_thread")]
     async fn sync_stress_test_cycle() -> JwstResult<()> {
-        // jwst_logger::internal_init_logger_with_level(jwst_logger::Level::WARN);
+        // jwst_logger::init_logger("jwst-rpc");
 
         let mp = MultiProgress::new();
         let style = ProgressStyle::with_template(
