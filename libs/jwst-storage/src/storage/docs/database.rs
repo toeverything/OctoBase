@@ -1,51 +1,10 @@
 use super::{entities::prelude::*, *};
 use jwst::{sync_encode_update, DocStorage, Workspace};
 use jwst_storage_migration::{Migrator, MigratorTrait};
-use std::{
-    collections::hash_map::Entry,
-    panic::{catch_unwind, AssertUnwindSafe},
-};
-use yrs::{updates::decoder::Decode, Doc, ReadTxn, StateVector, Transact, Update};
+use std::collections::hash_map::Entry;
+use yrs::{Doc, ReadTxn, StateVector, Transact};
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
-
-// apply all updates to the given doc
-fn migrate_update(update_records: Vec<<Docs as EntityTrait>::Model>, doc: Doc) -> JwstResult<Doc> {
-    {
-        let mut trx = doc.transact_mut();
-        for record in update_records {
-            let id = record.timestamp;
-            match Update::decode_v1(&record.blob) {
-                Ok(update) => {
-                    if let Err(e) = catch_unwind(AssertUnwindSafe(|| trx.apply_update(update))) {
-                        warn!("update {} merge failed, skip it: {:?}", id, e);
-                    }
-                }
-                Err(err) => warn!("failed to decode update: {:?}", err),
-            }
-        }
-        trx.commit();
-    }
-
-    trace!(
-        "migrate_update: {:?}",
-        doc.transact()
-            .encode_state_as_update_v1(&StateVector::default())?
-    );
-
-    Ok(doc)
-}
-
-fn merge_doc_records(update_records: Vec<<Docs as EntityTrait>::Model>) -> JwstResult<Vec<u8>> {
-    let state_vector = migrate_update(update_records, Doc::default())
-        .and_then(|doc| {
-            Ok(doc
-                .transact()
-                .encode_state_as_update_v1(&StateVector::default())?)
-        })?;
-
-    Ok(state_vector)
-}
 
 type DocsModel = <Docs as EntityTrait>::Model;
 type DocsActiveModel = super::entities::docs::ActiveModel;
@@ -176,11 +135,9 @@ impl DocDBStorage {
             trace!("full migrate update: {workspace}, {update_size}");
             let doc_records = Self::all(conn, workspace).await?;
 
-            let data = tokio::task::spawn_blocking(move || {
-                merge_doc_records(doc_records)
-            })
-            .await
-            .context("failed to merge update")??;
+            let data = tokio::task::spawn_blocking(move || utils::merge_doc_records(doc_records))
+                .await
+                .context("failed to merge update")??;
 
             Self::replace_with(conn, workspace, data).await?;
         } else {
@@ -231,7 +188,7 @@ impl DocDBStorage {
                 .encode_state_as_update_v1(&StateVector::default())?;
             Self::insert(conn, workspace, &update).await?;
         } else {
-            doc = migrate_update(all_data, doc)?;
+            doc = utils::migrate_update(all_data, doc)?;
         }
         trace!("end create doc: {workspace}");
 

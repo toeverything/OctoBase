@@ -1,4 +1,5 @@
 mod database;
+mod utils;
 
 use super::*;
 use database::DocDBStorage;
@@ -54,7 +55,7 @@ impl DocStorage for SharedDocDBStorage {
 
 #[cfg(test)]
 mod test {
-    use super::{error, info, SharedDocDBStorage, DocStorage};
+    use super::{error, info, DocStorage, SharedDocDBStorage};
     use jwst::JwstError;
     use rand::random;
     use std::collections::HashSet;
@@ -122,9 +123,10 @@ mod test {
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn postgres_create_workspace_stress_test() -> anyhow::Result<()> {
         jwst_logger::init_logger();
-        let storage =
-            SharedDocDBStorage::init_pool("postgresql://affine:affine@localhost:5432/affine_binary")
-                .await?;
+        let storage = SharedDocDBStorage::init_pool(
+            "postgresql://affine:affine@localhost:5432/affine_binary",
+        )
+        .await?;
         create_workspace_stress_test(storage.clone()).await?;
 
         Ok(())
@@ -135,7 +137,8 @@ mod test {
     async fn mysql_create_workspace_stress_test() -> anyhow::Result<()> {
         // jwst_logger::init_logger();
         let storage =
-            SharedDocDBStorage::init_pool("mysql://affine:affine@localhost:3306/affine_binary").await?;
+            SharedDocDBStorage::init_pool("mysql://affine:affine@localhost:3306/affine_binary")
+                .await?;
         create_workspace_stress_test(storage.clone()).await?;
 
         Ok(())
