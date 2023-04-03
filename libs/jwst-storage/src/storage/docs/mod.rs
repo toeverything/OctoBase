@@ -111,7 +111,7 @@ mod test {
     #[ignore = "for stress testing"]
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn sqlite_create_workspace_stress_test() -> anyhow::Result<()> {
-        jwst_logger::init_logger();
+        jwst_logger::init_logger("jwst-storage");
         let storage = DocAutoStorage::init_pool("sqlite::memory:").await?;
         create_workspace_stress_test(storage.clone()).await?;
 
@@ -121,7 +121,7 @@ mod test {
     #[ignore = "for stress testing"]
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn postgres_create_workspace_stress_test() -> anyhow::Result<()> {
-        jwst_logger::init_logger();
+        jwst_logger::init_logger("jwst-storage");
         let storage =
             DocAutoStorage::init_pool("postgresql://affine:affine@localhost:5432/affine_binary")
                 .await?;

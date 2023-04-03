@@ -15,8 +15,10 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[tokio::main]
 async fn main() {
-    init_logger();
-    jwst::print_versions(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+    const PKG_NAME: &str = env!("CARGO_PKG_NAME");
+    dotenvy::dotenv().expect("cant load envs");
+    init_logger(PKG_NAME);
+    jwst::print_versions(PKG_NAME, env!("CARGO_PKG_VERSION"));
 
     let cors = CorsLayer::new()
         // allow `GET` and `POST` when accessing the resource
