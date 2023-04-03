@@ -31,6 +31,7 @@ use utoipa::OpenApi;
         common::health_check,
         workspace::get_doc,
         workspace::get_public_doc,
+        workspace::get_public_page,
         workspace::get_workspaces,
         workspace::get_workspace_by_id,
         workspace::create_workspace,
@@ -65,8 +66,11 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/user/token", post(make_token))
         .route("/invitation/:path", post(permissions::accept_invitation))
         .nest_service("/global/sync", get(global_ws_handler))
-        .route("/public/doc/:id", get(workspace::get_public_doc))
-        .route("/public/page/:id/:page_id", get(workspace::get_public_page))
+        .route("/public/workspace/:id", get(workspace::get_public_doc))
+        .route(
+            "/public/workspace/:id/:page_id",
+            get(workspace::get_public_page),
+        )
         // TODO: Will consider this permission in the future
         .route(
             "/workspace/:id/blob/:name",
