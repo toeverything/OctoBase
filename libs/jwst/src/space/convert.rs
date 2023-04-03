@@ -141,8 +141,6 @@ impl Space {
 
             page_item.insert(&mut t.trx, "title", TextPrelim::new(title))?;
 
-            info!("ws: {:?}", ws.doc().to_json(&t.trx));
-
             Ok::<_, JwstError>(())
         })?;
 
