@@ -1,5 +1,16 @@
 # What's New
 
+## 0.0.1-230403
+
+-   [+] Add support for extract specific spaces from workspace
+-   [+] Add owned subscription in workspace
+-   [+] Add debug user for collaboration test
+-   [+] Add new homepage and documentation
+-   [+] Exposed `get_blocks_by_flavour()` to Android
+-   [*] Refactor websocket authentication
+-   [*] Exclude sensitive data in logs
+-   [*] Improve collaboration test
+
 ## 0.0.1-230326
 
 -   [+] Added configuration option for adjustable JWT token expiration
