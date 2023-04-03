@@ -1,6 +1,6 @@
 use super::*;
 use axum::{extract::Query, response::Response};
-use jwst::DocStorage;
+use jwst::{constants, DocStorage};
 use lib0::any::Any;
 use serde_json::Value as JsonValue;
 
@@ -39,18 +39,18 @@ pub async fn get_block(
 }
 
 /// Create or modify `Block` if block exists with specific id.
-/// Note that flavor can only be set when creating a block.
+/// Note that flavour can only be set when creating a block.
 /// - Return 200 and `Block`'s data if `Block`'s content set successful.
 /// - Return 404 Not Found if `Workspace` not exists.
 #[utoipa::path(
     post,
     tag = "Blocks",
     context_path = "/api/block",
-    path = "/{workspace_id}/{block_id}/?flavor={flavor}",
+    path = "/{workspace_id}/{block_id}/?flavour={flavour}",
     params(
         ("workspace_id", description = "workspace id"),
         ("block_id", description = "block id"),
-        ("flavor", description = "block flavor, default flavor is text. Optional", Query),
+        ("flavour", description = "block flavour, default flavour is text. Optional", Query),
     ),
     request_body(
         content = String,
@@ -73,9 +73,9 @@ pub async fn set_block(
     if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
         let mut update = None;
         if let Some(block) = workspace.with_trx(|mut t| {
-            let flavor = if let Some(query_map) = query_param {
+            let flavour = if let Some(query_map) = query_param {
                 query_map
-                    .get("flavor")
+                    .get("flavour")
                     .map_or_else(|| String::from("text"), |v| v.clone())
             } else {
                 String::from("text")
@@ -83,14 +83,14 @@ pub async fn set_block(
 
             if let Ok(block) = t
                 .get_blocks()
-                .create(&mut t.trx, &block_id, flavor)
+                .create(&mut t.trx, &block_id, flavour)
                 .map_err(|e| error!("failed to create block: {}", e.to_string()))
             {
                 // set block content
                 if let Some(block_content) = payload.as_object() {
                     let mut changed = false;
                     for (key, value) in block_content.iter() {
-                        if key == "sys:flavor" {
+                        if key == constants::sys::FLAVOUR {
                             continue;
                         }
                         changed = true;

@@ -16,14 +16,14 @@ impl SpaceTransaction<'_> {
         self.space.remove(&mut self.trx, block_id)
     }
 
-    // create a block with specified flavor
+    // create a block with specified flavour
     // if block exists, return the exists block
-    pub fn create<B, F>(&mut self, block_id: B, flavor: F) -> JwstResult<Block>
+    pub fn create<B, F>(&mut self, block_id: B, flavour: F) -> JwstResult<Block>
     where
         B: AsRef<str>,
         F: AsRef<str>,
     {
-        self.space.create(&mut self.trx, block_id, flavor)
+        self.space.create(&mut self.trx, block_id, flavour)
     }
 
     pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) -> JwstResult<()> {

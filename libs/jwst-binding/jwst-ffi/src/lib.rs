@@ -12,13 +12,13 @@ use yrs::{Subscription, Transaction, UpdateEvent};
 pub unsafe extern "C" fn block_new(
     workspace: *const Workspace,
     block_id: *const c_char,
-    flavor: *const c_char,
+    flavour: *const c_char,
     operator: u64,
 ) -> *mut Block {
     Box::into_raw(Box::new(Block::new(
         workspace.as_ref().unwrap(),
         CStr::from_ptr(block_id).to_str().unwrap(),
-        CStr::from_ptr(flavor).to_str().unwrap(),
+        CStr::from_ptr(flavour).to_str().unwrap(),
         operator,
     )))
 }
@@ -39,8 +39,8 @@ pub unsafe extern "C" fn block_get_updated(block: *const Block) -> u64 {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn block_get_flavor(block: *const Block) -> *mut c_char {
-    CString::new(block.as_ref().unwrap().flavor())
+pub unsafe extern "C" fn block_get_flavour(block: *const Block) -> *mut c_char {
+    CString::new(block.as_ref().unwrap().flavour())
         .unwrap()
         .into_raw()
 }
@@ -282,14 +282,14 @@ pub unsafe extern "C" fn workspace_get_block(
 pub unsafe extern "C" fn workspace_create_block(
     workspace: *const Workspace,
     block_id: *const c_char,
-    flavor: *const c_char,
+    flavour: *const c_char,
 ) -> *mut Block {
     let block_id = CStr::from_ptr(block_id).to_str().unwrap();
-    let flavor = CStr::from_ptr(flavor).to_str().unwrap();
+    let flavour = CStr::from_ptr(flavour).to_str().unwrap();
     let block = workspace
         .as_ref()
         .unwrap()
-        .with_trx(|t| t.create(block_id, flavor));
+        .with_trx(|t| t.create(block_id, flavour));
 
     Box::into_raw(Box::new(block))
 }

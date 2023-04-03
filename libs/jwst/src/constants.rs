@@ -6,10 +6,7 @@ pub mod sys {
     /// `sys:created`
     pub const CREATED: &str = "sys:created";
 
-    /// `sys:flavor`
-    pub const FLAVOR: &str = "sys:flavor";
-
-    /// `sys:flavor`
+    /// `sys:flavour`
     pub const FLAVOUR: &str = "sys:flavour";
 
     /// `sys:parent`

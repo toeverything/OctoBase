@@ -32,13 +32,13 @@ impl Workspace {
         })
     }
 
-    pub fn create(&self, block_id: String, flavor: String) -> Block {
+    pub fn create(&self, block_id: String, flavour: String) -> Block {
         let workspace = self.workspace.clone();
         self.workspace.with_trx(|mut trx| {
             let block = Block::new(
                 workspace,
                 trx.get_blocks()
-                    .create(&mut trx.trx, block_id, flavor)
+                    .create(&mut trx.trx, block_id, flavour)
                     .expect("failed to create block"),
             );
             drop(trx);

@@ -506,7 +506,7 @@ mod test {
             assert_eq!(space.blocks.len(&t.trx), 1);
             assert_eq!(workspace.updated.len(&t.trx), 1);
             assert_eq!(block.block_id(), "block");
-            assert_eq!(block.flavor(&t.trx), "text");
+            assert_eq!(block.flavour(&t.trx), "text");
 
             assert_eq!(
                 space.get(&t.trx, "block").map(|b| b.block_id()),
@@ -556,14 +556,14 @@ mod test {
                 "space:space1": {
                     "block1": {
                         "sys:children": [],
-                        "sys:flavor": "text",
+                        "sys:flavour": "text",
                         "sys:version": [1.0, 0.0],
                     }
                 },
                 "space:space2": {
                     "block2": {
                         "sys:children": [],
-                        "sys:flavor": "text",
+                        "sys:flavour": "text",
                         "sys:version": [1.0, 0.0],
                     }
                 },

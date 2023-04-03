@@ -5,12 +5,12 @@ import androidx.annotation.Nullable;
 
 public final class Block {
 
-    public Block(@NonNull WorkspaceTransaction trx, @NonNull String block_id, @NonNull String flavor, long operator) {
+    public Block(@NonNull WorkspaceTransaction trx, @NonNull String block_id, @NonNull String flavour, long operator) {
         long a0 = trx.mNativeObj;
-        mNativeObj = init(a0, block_id, flavor, operator);
+        mNativeObj = init(a0, block_id, flavour, operator);
         JNIReachabilityFence.reachabilityFence1(trx);
     }
-    private static native long init(long trx, @NonNull String block_id, @NonNull String flavor, long operator);
+    private static native long init(long trx, @NonNull String block_id, @NonNull String flavour, long operator);
 
     public final void setBool(@NonNull WorkspaceTransaction trx, @NonNull String key, boolean value) {
         long a0 = trx.mNativeObj;
@@ -140,15 +140,15 @@ public final class Block {
     }
     private static native @NonNull String do_id(long self);
 
-    public final @NonNull String flavor(@NonNull WorkspaceTransaction trx) {
+    public final @NonNull String flavour(@NonNull WorkspaceTransaction trx) {
         long a0 = trx.mNativeObj;
-        String ret = do_flavor(mNativeObj, a0);
+        String ret = do_flavour(mNativeObj, a0);
 
         JNIReachabilityFence.reachabilityFence1(trx);
 
         return ret;
     }
-    private static native @NonNull String do_flavor(long self, long trx);
+    private static native @NonNull String do_flavour(long self, long trx);
 
     public final @NonNull String version(@NonNull WorkspaceTransaction trx) {
         long a0 = trx.mNativeObj;

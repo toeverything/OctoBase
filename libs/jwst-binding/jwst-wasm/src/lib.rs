@@ -38,8 +38,8 @@ impl Workspace {
 
     /// Create and return a `Block` instance
     #[wasm_bindgen]
-    pub fn create(&self, block_id: String, flavor: String) -> Block {
-        Block(self.0.with_trx(|mut t| t.create(block_id, &flavor)))
+    pub fn create(&self, block_id: String, flavour: String) -> Block {
+        Block(self.0.with_trx(|mut t| t.create(block_id, &flavour)))
     }
 
     /// Return a `Block` instance if block exists

@@ -24,7 +24,7 @@ foreign_class!(
             unimplemented!()
         }
         fn WorkspaceTransaction::remove(& mut self , block_id : String)->bool; alias remove;
-        fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavor : String)->Block; alias create;
+        fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavour : String)->Block; alias create;
         fn WorkspaceTransaction::commit(& mut self); alias commit;
     }
 );
@@ -77,7 +77,7 @@ foreign_class!(
 foreign_class!(
 	class Block {
 		self_type Block;
-		constructor Block::new(trx : & mut WorkspaceTransaction , block_id : String , flavor : String , operator : u64 ,)->Block;
+		constructor Block::new(trx : & mut WorkspaceTransaction , block_id : String , flavour : String , operator : u64 ,)->Block;
 		fn Block::set_bool(& self , trx : & mut WorkspaceTransaction , key : String , value : bool); alias setBool;
 		fn Block::set_string(& self , trx : & mut WorkspaceTransaction , key : String , value : String); alias setString;
 		fn Block::set_float(& self , trx : & mut WorkspaceTransaction , key : String , value : f64); alias setFloat;
@@ -92,7 +92,7 @@ foreign_class!(
 		fn Block::get_float(& self , trx : & WorkspaceTransaction , key : String)->Option<f64>; alias getFloat;
 		fn Block::get_integer(& self , trx : & WorkspaceTransaction , key : String)->Option<i64>; alias getInteger;
 		fn Block::id(& self)->String; alias id;
-		fn Block::flavor(& self , trx : & WorkspaceTransaction)->String; alias flavor;
+		fn Block::flavour(& self , trx : & WorkspaceTransaction)->String; alias flavour;
 		fn Block::version(& self , trx : & WorkspaceTransaction)->String; alias version;
 		fn Block::created(& self , trx : & WorkspaceTransaction)->u64; alias created;
 		fn Block::updated(& self , trx : & WorkspaceTransaction)->u64; alias updated;

@@ -391,7 +391,7 @@ pub async fn get_public_page(
                     }
                     _ => {
                         if let Some(doc) = workspace
-                            .retry_with_trx(|t| space.to_single_page(&t.trx), 10)
+                            .retry_with_trx(|t| space.to_single_page(&t.trx).ok(), 10)
                             .flatten()
                         {
                             doc.into_response()
@@ -453,7 +453,7 @@ pub async fn get_public_doc(
 async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response {
     match ctx.storage.get_workspace(workspace_id).await {
         Ok(workspace) => {
-            if let Some(update) = workspace.sync_migration(50) {
+            if let Ok(update) = workspace.sync_migration(50) {
                 update.into_response()
             } else {
                 ErrorStatus::NotFound.into_response()
