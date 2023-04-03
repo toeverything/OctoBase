@@ -120,12 +120,12 @@ pub trait RpcContextImpl<'a> {
                         debug!("save {} updates", updates.len());
                         if let Some(update) = merge_updates(&id, &updates) {
                             if let Err(e) = docs.write_update(id.clone(), &update).await {
-                                error!("failed to save update of {}: {}", id, e);
+                                error!("failed to save update of {}: {:?}", id, e);
                             }
                         } else {
                             for update in updates.as_slice() {
                                 if let Err(e) = docs.write_update(id.clone(), update).await {
-                                    error!("failed to save update of {}: {}", id, e);
+                                    error!("failed to save update of {}: {:?}", id, e);
                                 }
                             }
                         }

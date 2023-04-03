@@ -228,6 +228,7 @@ pub async fn blobs_storage_test(pool: &BlobDBStorage) -> anyhow::Result<()> {
     assert_eq!(pool.count("basic").await?, 1);
 
     pool.drop("basic").await?;
+    assert_eq!(pool.count("basic").await?, 0);
 
     pool.insert("basic", "test1", &[1, 2, 3, 4]).await?;
 

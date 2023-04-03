@@ -105,7 +105,7 @@ impl Context {
                 Ok(search_results)
             }
             Err(e) => {
-                error!("cannot get workspace: {}", e);
+                error!("cannot get workspace: {:?}", e);
                 Err(Box::new(e))
             }
         }
