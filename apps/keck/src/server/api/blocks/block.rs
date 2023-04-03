@@ -84,7 +84,7 @@ pub async fn set_block(
             if let Ok(block) = t
                 .get_blocks()
                 .create(&mut t.trx, &block_id, flavor)
-                .map_err(|e| error!("failed to create block: {}", e.to_string()))
+                .map_err(|e| error!("failed to create block: {:?}", e))
             {
                 // set block content
                 if let Some(block_content) = payload.as_object() {
@@ -97,11 +97,11 @@ pub async fn set_block(
                         if let Ok(value) = serde_json::from_value::<Any>(value.clone()) {
                             if let Err(e) = block.set(&mut t.trx, key, value.clone()) {
                                 error!(
-                                    "failed to set block {} content: {}, {}, {}",
+                                    "failed to set block {} content: {}, {}, {:?}",
                                     block_id,
                                     key,
                                     value,
-                                    e.to_string()
+                                    e
                                 );
                             }
                         }
@@ -119,7 +119,7 @@ pub async fn set_block(
         }) {
             if let Some(update) = update {
                 if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
-                    error!("db write error: {}", e.to_string());
+                    error!("db write error: {:?}", e);
                 }
             }
 
@@ -247,7 +247,7 @@ pub async fn delete_block(
             }
         }) {
             if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
-                error!("db write error: {}", e.to_string());
+                error!("db write error: {:?}", e);
             }
             return StatusCode::NO_CONTENT;
         }
@@ -351,7 +351,7 @@ pub async fn insert_block_children(
                             changed = true;
                             if let Err(e) = block.push_children(&mut t.trx, &child) {
                                 // TODO: handle error correctly
-                                error!("failed to insert block: {}", e.to_string());
+                                error!("failed to insert block: {:?}", e);
                                 return None;
                             }
                         }
@@ -363,7 +363,7 @@ pub async fn insert_block_children(
                                 block.insert_children_before(&mut t.trx, &child, &before)
                             {
                                 // TODO: handle error correctly
-                                error!("failed to insert children before: {}", e.to_string());
+                                error!("failed to insert children before: {:?}", e);
                                 return None;
                             }
                         }
@@ -374,7 +374,7 @@ pub async fn insert_block_children(
                             if let Err(e) = block.insert_children_after(&mut t.trx, &child, &after)
                             {
                                 // TODO: handle error correctly
-                                error!("failed to insert children after: {}", e.to_string());
+                                error!("failed to insert children after: {:?}", e);
                                 return None;
                             }
                         }
@@ -384,7 +384,7 @@ pub async fn insert_block_children(
                             changed = true;
                             if let Err(e) = block.insert_children_at(&mut t.trx, &child, pos) {
                                 // TODO: handle error correctly
-                                error!("failed to insert children at: {}", e.to_string());
+                                error!("failed to insert children at: {:?}", e);
                                 return None;
                             }
                         }
@@ -399,7 +399,7 @@ pub async fn insert_block_children(
             }) {
                 if let Some(update) = update {
                     if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
-                        error!("db write error: {}", e.to_string());
+                        error!("db write error: {:?}", e);
                     }
                 }
 
@@ -455,7 +455,7 @@ pub async fn remove_block_children(
             None
         }) {
             if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
-                error!("db write error: {}", e.to_string());
+                error!("db write error: {:?}", e);
             }
             // response block content
             Json(block).into_response()

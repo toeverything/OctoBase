@@ -107,7 +107,7 @@ impl JwstStorage {
         match self.sync(workspace_id, remote) {
             Ok(workspace) => Some(workspace),
             Err(e) => {
-                error!("Failed to connect to workspace: {}", e);
+                error!("Failed to connect to workspace: {:?}", e);
                 self.error = Some(e.to_string());
                 None
             }
@@ -139,7 +139,7 @@ impl JwstStorage {
                             let storage = storage.write().await;
                             storage.docs().write_update(id, &e.update).await
                         }) {
-                            error!("Failed to write update to storage: {}", e);
+                            error!("Failed to write update to storage: {:?}", e);
                         }
                     }
                 }));

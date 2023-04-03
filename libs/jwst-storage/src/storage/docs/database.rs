@@ -42,8 +42,7 @@ fn merge_doc_records(update_records: Vec<<Docs as EntityTrait>::Model>) -> JwstR
             Ok(doc
                 .transact()
                 .encode_state_as_update_v1(&StateVector::default())?)
-        })
-        .expect("failed to encode update");
+        })?;
 
     Ok(state_vector)
 }
@@ -178,10 +177,10 @@ impl DocDBStorage {
             let doc_records = Self::all(conn, workspace).await?;
 
             let data = tokio::task::spawn_blocking(move || {
-                merge_doc_records(doc_records).expect("failed to encode update")
+                merge_doc_records(doc_records)
             })
             .await
-            .context("failed to merge update")?;
+            .context("failed to merge update")??;
 
             Self::replace_with(conn, workspace, data).await?;
         } else {

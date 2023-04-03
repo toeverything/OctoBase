@@ -100,7 +100,7 @@ mod test {
                 if let Err(e) =
                     rt.block_on(async { storage.docs().write_update(id, &e.update).await })
                 {
-                    error!("Failed to write update to storage: {}", e);
+                    error!("Failed to write update to storage: {:?}", e);
                 }
             }));
 
@@ -209,8 +209,7 @@ mod test {
                 if let Err(e) =
                     rt.block_on(async { storage.docs().write_update(id, &e.update).await })
                 {
-                    error!("Failed to write update to storage: {}", e);
-                    info!("Failed to write update to storage: {}", e);
+                    error!("Failed to write update to storage: {:?}", e);
                 }
             });
             std::mem::forget(sub);

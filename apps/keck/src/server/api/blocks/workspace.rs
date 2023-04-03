@@ -64,7 +64,7 @@ pub async fn set_workspace(
     match context.storage.create_workspace(workspace).await {
         Ok(workspace) => Json(workspace).into_response(),
         Err(e) => {
-            error!("Failed to init doc: {}", e);
+            error!("Failed to init doc: {:?}", e);
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
