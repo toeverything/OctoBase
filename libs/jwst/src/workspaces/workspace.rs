@@ -1,4 +1,4 @@
-use super::{metadata::SEARCH_INDEX, plugins::setup_plugin, *};
+use super::{metadata::SEARCH_INDEX, plugins::setup_plugin, JwstError, *};
 use nanoid::nanoid;
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{
@@ -264,18 +264,21 @@ impl Workspace {
         self.doc.clone()
     }
 
-    pub fn sync_migration(&self, mut retry: i32) -> Option<Vec<u8>> {
+    pub fn sync_migration(&self, mut retry: i32) -> JwstResult<Vec<u8>> {
         let trx = loop {
-            if let Ok(trx) = self.doc.try_transact() {
-                break trx;
-            } else if retry > 0 {
-                retry -= 1;
-                sleep(Duration::from_micros(10));
-            } else {
-                return None;
+            match self.doc.try_transact() {
+                Ok(trx) => break trx,
+                Err(e) => {
+                    if retry > 0 {
+                        retry -= 1;
+                        sleep(Duration::from_micros(10));
+                    } else {
+                        return Err(JwstError::DocTransaction(e.to_string()));
+                    }
+                }
             }
         };
-        trx.encode_state_as_update_v1(&StateVector::default()).ok()
+        Ok(trx.encode_state_as_update_v1(&StateVector::default())?)
     }
 
     pub async fn sync_init_message(&self) -> Result<Vec<u8>, Error> {
@@ -506,7 +509,7 @@ mod test {
             assert_eq!(space.blocks.len(&t.trx), 1);
             assert_eq!(workspace.updated.len(&t.trx), 1);
             assert_eq!(block.block_id(), "block");
-            assert_eq!(block.flavor(&t.trx), "text");
+            assert_eq!(block.flavour(&t.trx), "text");
 
             assert_eq!(
                 space.get(&t.trx, "block").map(|b| b.block_id()),
@@ -556,14 +559,14 @@ mod test {
                 "space:space1": {
                     "block1": {
                         "sys:children": [],
-                        "sys:flavor": "text",
+                        "sys:flavour": "text",
                         "sys:version": [1.0, 0.0],
                     }
                 },
                 "space:space2": {
                     "block2": {
                         "sys:children": [],
-                        "sys:flavor": "text",
+                        "sys:flavour": "text",
                         "sys:version": [1.0, 0.0],
                     }
                 },

@@ -80,8 +80,8 @@ impl Block {
         self.block.block_id()
     }
 
-    pub fn flavor(&self) -> String {
-        self.workspace.with_trx(|trx| self.block.flavor(&trx.trx))
+    pub fn flavour(&self) -> String {
+        self.workspace.with_trx(|trx| self.block.flavour(&trx.trx))
     }
 
     pub fn version(&self) -> String {

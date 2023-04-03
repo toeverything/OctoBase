@@ -138,7 +138,7 @@ impl JwstStorage {
                         };
                         Some(update)
                     } else {
-                        workspace.sync_migration(50)
+                        workspace.sync_migration(50).ok()
                     };
 
                     let Some(update) = update else {

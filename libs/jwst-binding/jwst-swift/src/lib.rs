@@ -38,7 +38,7 @@ mod ffi {
 
         pub fn id(self: &Block) -> String;
 
-        pub fn flavor(self: &Block) -> String;
+        pub fn flavour(self: &Block) -> String;
 
         pub fn version(self: &Block) -> String;
 
@@ -102,7 +102,7 @@ mod ffi {
 
         fn get(self: &Workspace, block_id: String) -> Option<Block>;
 
-        fn create(self: &Workspace, block_id: String, flavor: String) -> Block;
+        fn create(self: &Workspace, block_id: String, flavour: String) -> Block;
 
         fn search(self: &Workspace, query: String) -> String;
 

@@ -346,16 +346,24 @@ pub async fn get_doc(
     get_workspace_doc(ctx, workspace_id).await
 }
 
-/// Get a exists `page` json by page id
-/// - Return `page` json.
+/// Get a exists `page` markdown/json/doc by page id
+/// - If Context-Type is `application/json` then return `page` json.
+/// - If Context-Type starts with `text/` then return `page` markdown.
+/// - If neither then return `page` single page doc.
 #[utoipa::path(
     get,
     tag = "Workspace",
-    context_path = "/api/workspace",
-    path = "/{workspace_id}/page/{page_id}",
+    context_path = "/api/public",
+    path = "/workspace/{workspace_id}/{page_id}",
     params(
         ("workspace_id", description = "workspace id"),
         ("page_id", description = "page id")
+    ),
+    responses(
+        (status = 200, description = "Successfully get public page.", body =Vec<u8>,),
+        (status = 403, description = "Not a public workspace or page."),
+        (status = 404, description = "Workspace not found."),
+        (status = 500, description = "Server internal error.")
     )
 )]
 #[instrument(skip(ctx, headers))]
@@ -376,22 +384,31 @@ pub async fn get_public_page(
 
     match ctx.storage.get_workspace(workspace_id).await {
         Ok(workspace) => {
-            if headers
-                .get(CONTENT_TYPE)
-                .and_then(|c| c.to_str().ok())
-                .map(|s| s.contains("json"))
-                .unwrap_or(false)
-            {
-                if let Some(space) = workspace.with_trx(|t| t.get_exists_space(page_id)) {
-                    Json(space).into_response()
-                } else {
-                    ErrorStatus::NotFound.into_response()
+            if let Some(space) = workspace.with_trx(|t| t.get_exists_space(page_id)) {
+                // TODO: check page level permission
+                match headers.get(CONTENT_TYPE).and_then(|c| c.to_str().ok()) {
+                    Some("application/json") => Json(space).into_response(),
+                    Some(mine) if mine.starts_with("text/") => {
+                        if let Some(markdown) = workspace
+                            .retry_with_trx(|t| space.to_markdown(&t.trx), 10)
+                            .flatten()
+                        {
+                            markdown.into_response()
+                        } else {
+                            ErrorStatus::InternalServerError.into_response()
+                        }
+                    }
+                    _ => {
+                        if let Some(doc) = workspace
+                            .retry_with_trx(|t| space.to_single_page(&t.trx).ok(), 10)
+                            .flatten()
+                        {
+                            doc.into_response()
+                        } else {
+                            ErrorStatus::InternalServerError.into_response()
+                        }
+                    }
                 }
-            } else if let Some(markdown) = workspace.with_trx(|t| {
-                t.get_exists_space(page_id)
-                    .and_then(|page| page.to_markdown(&t.trx))
-            }) {
-                markdown.into_response()
             } else {
                 ErrorStatus::NotFound.into_response()
             }
@@ -405,23 +422,19 @@ pub async fn get_public_page(
 }
 
 /// Get a exists `public doc` by workspace id
-/// - Return 200 ok and `public doc` .
-/// - Return 403 Forbidden if you do not have permission.
-/// - Return 404 Not Found if `Workspace` is not exists.
-/// - Return 500 Internal Server Error if database error.
 #[utoipa::path(
     get,
     tag = "Workspace",
     context_path = "/api/public",
-    path = "/doc/{workspace_id}",
+    path = "/workspace/{workspace_id}",
     params(
         ("workspace_id", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "Successfully get public doc.", body =Vec<u8>,),
-        (status = 403, description = "Sorry, you do not have permission."),
+        (status = 403, description = "Not a public workspace."),
         (status = 404, description = "Workspace not found."),
-        (status = 500, description = "Server error, please try again later.")
+        (status = 500, description = "Server internal error.")
     )
 )]
 #[instrument(skip(ctx))]
@@ -445,7 +458,7 @@ pub async fn get_public_doc(
 async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response {
     match ctx.storage.get_workspace(workspace_id).await {
         Ok(workspace) => {
-            if let Some(update) = workspace.sync_migration(50) {
+            if let Ok(update) = workspace.sync_migration(50) {
                 update.into_response()
             } else {
                 ErrorStatus::NotFound.into_response()
@@ -1038,7 +1051,7 @@ mod test {
         assert_eq!(resp.status(), StatusCode::OK);
         let resp_json: serde_json::Value = resp.json().await;
         let workspace_id = resp_json["id"].as_str().unwrap().to_string();
-        let public_url = format!("/public/doc/{}", workspace_id.clone());
+        let public_url = format!("/public/workspace/{}", workspace_id.clone());
 
         let resp = client
             .get(&public_url)
@@ -1072,7 +1085,7 @@ mod test {
             .await;
         assert_eq!(resp.status(), StatusCode::OK);
         let resp = client
-            .get("/public/doc/mock_id")
+            .get("/public/workspace/mock_id")
             .header("authorization", format!("{}", access_token.clone()))
             .send()
             .await;

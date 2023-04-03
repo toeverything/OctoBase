@@ -38,7 +38,7 @@ r#"foreign_class!(
             unimplemented!()
         }
         fn WorkspaceTransaction::remove(& mut self , block_id : String)->bool; alias remove;
-        fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavor : String)->Block; alias create;
+        fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavour : String)->Block; alias create;
         fn WorkspaceTransaction::commit(& mut self); alias commit;
     }
 );"#,

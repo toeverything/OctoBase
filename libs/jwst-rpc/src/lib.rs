@@ -192,7 +192,7 @@ pub async fn handle_connector(
 #[cfg(test)]
 mod test {
     use super::*;
-    use indicatif::{MultiProgress, ProgressBar, ProgressFinish, ProgressIterator, ProgressStyle};
+    use indicatif::{MultiProgress, ProgressBar, ProgressIterator, ProgressStyle};
     use jwst::JwstResult;
     use yrs::Map;
 
@@ -218,7 +218,7 @@ mod test {
 
         doc1.with_trx(|mut t| {
             let space = t.get_space("space");
-            let block1 = space.create(&mut t.trx, "block1", "flavor1").unwrap();
+            let block1 = space.create(&mut t.trx, "block1", "flavour1").unwrap();
             block1.set(&mut t.trx, "key1", "val1").unwrap();
         });
 
@@ -231,7 +231,7 @@ mod test {
                 let space = t.get_space("space");
                 let block1 = space.get(&mut t.trx, "block1").unwrap();
 
-                assert_eq!(block1.flavor(&t.trx), "flavor1");
+                assert_eq!(block1.flavour(&t.trx), "flavour1");
                 assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
             },
             10,
@@ -242,7 +242,7 @@ mod test {
                 let space = t.get_space("space");
                 let block1 = space.get(&mut t.trx, "block1").unwrap();
 
-                assert_eq!(block1.flavor(&t.trx), "flavor1");
+                assert_eq!(block1.flavour(&t.trx), "flavour1");
                 assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
             },
             10,
@@ -262,12 +262,8 @@ mod test {
         Ok(())
     }
 
-    #[ignore = "somewhat slow, only natively tested"]
-    #[tokio::test(flavor = "multi_thread")]
-    async fn sync_stress_test() -> JwstResult<()> {
+    async fn single_sync_stress_test(mp: &MultiProgress) -> JwstResult<()> {
         // jwst_logger::init_logger();
-
-        let mp = MultiProgress::new();
         let style = ProgressStyle::with_template(
             "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
         )
@@ -284,9 +280,7 @@ mod test {
         let pb = mp.add(ProgressBar::new(1000));
         pb.set_style(style.clone());
         pb.set_message("writing");
-        for i in (0..1000)
-            .progress_with(pb.with_finish(ProgressFinish::WithMessage("write finished".into())))
-        {
+        for i in (0..1000).progress_with(pb) {
             let init_state = init_state.clone();
             let server = server.clone();
             let ws = ws.clone();
@@ -324,7 +318,7 @@ mod test {
                     |mut t| {
                         let space = t.get_space("space");
                         let block = space
-                            .create(&mut t.trx, block_id.clone(), format!("flavor{}", i))
+                            .create(&mut t.trx, block_id.clone(), format!("flavour{}", i))
                             .unwrap();
                         block
                             .set(&mut t.trx, &format!("key{}", i), format!("val{}", i))
@@ -344,7 +338,7 @@ mod test {
                         let space = t.get_space("space");
                         let block1 = space.get(&mut t.trx, format!("block{}", i)).unwrap();
 
-                        assert_eq!(block1.flavor(&t.trx), format!("flavor{}", i));
+                        assert_eq!(block1.flavour(&t.trx), format!("flavour{}", i));
                         assert_eq!(
                             block1
                                 .get(&t.trx, &format!("key{}", i))
@@ -362,10 +356,7 @@ mod test {
         let pb = mp.add(ProgressBar::new(jobs.len().try_into().unwrap()));
         pb.set_style(style.clone());
         pb.set_message("joining");
-        for handler in jobs
-            .into_iter()
-            .progress_with(pb.with_finish(ProgressFinish::WithMessage("join finished".into())))
-        {
+        for handler in jobs.into_iter().progress_with(pb) {
             if let Err(e) = handler.join() {
                 panic!("{:?}", e);
             }
@@ -378,12 +369,10 @@ mod test {
         pb.set_message("final checking");
         ws.with_trx(|mut t| {
             let space = t.get_space("space");
-            for i in (0..1000)
-                .progress_with(pb.with_finish(ProgressFinish::WithMessage("check finished".into())))
-            {
+            for i in (0..1000).progress_with(pb) {
                 let block1 = space.get(&mut t.trx, format!("block{}", i)).unwrap();
 
-                assert_eq!(block1.flavor(&t.trx), format!("flavor{}", i));
+                assert_eq!(block1.flavour(&t.trx), format!("flavour{}", i));
                 assert_eq!(
                     block1
                         .get(&t.trx, &format!("key{}", i))
@@ -398,12 +387,29 @@ mod test {
     }
 
     #[ignore = "somewhat slow, only natively tested"]
-    #[test]
-    fn sync_stress_test_cycle() -> JwstResult<()> {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn sync_stress_test() -> JwstResult<()> {
+        let mp = MultiProgress::new();
+        single_sync_stress_test(&mp).await
+    }
+
+    #[ignore = "somewhat slow, only natively tested"]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn sync_stress_test_cycle() -> JwstResult<()> {
         // jwst_logger::internal_init_logger_with_level(jwst_logger::Level::WARN);
 
-        for _ in 0..1000 {
-            sync_stress_test()?;
+        let mp = MultiProgress::new();
+        let style = ProgressStyle::with_template(
+            "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
+        )
+        .unwrap()
+        .progress_chars("##-");
+
+        let pb = mp.add(ProgressBar::new(1000));
+        pb.set_style(style.clone());
+        pb.set_message("cycle stress test");
+        for _ in (0..1000).progress_with(pb.clone()) {
+            single_sync_stress_test(&mp).await?;
         }
         Ok(())
     }

@@ -8,12 +8,12 @@ impl Block {
     pub fn new(
         trx: &mut WorkspaceTransaction,
         block_id: String,
-        flavor: String,
+        flavour: String,
         operator: u64,
     ) -> Block {
         let space = trx.0.get_blocks();
         Self(
-            JwstBlock::new(&mut trx.0.trx, &space, block_id, flavor, operator)
+            JwstBlock::new(&mut trx.0.trx, &space, block_id, flavour, operator)
                 .expect("failed to create block"),
         )
     }
@@ -123,8 +123,8 @@ impl Block {
     }
 
     #[generate_interface]
-    pub fn flavor(&self, trx: &WorkspaceTransaction) -> String {
-        self.0.flavor(&trx.0.trx)
+    pub fn flavour(&self, trx: &WorkspaceTransaction) -> String {
+        self.0.flavour(&trx.0.trx)
     }
 
     #[generate_interface]

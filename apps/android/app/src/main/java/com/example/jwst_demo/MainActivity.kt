@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
             // search demo
             Log.i("jwst", "search demo")
             workspace.withTrx { trx ->
-                val block = trx.create("search_test", "search_test_flavor")
+                val block = trx.create("search_test", "search_test_flavour")
                 block.set(trx, "title", "introduction")
                 block.set(trx, "text", "hello every one")
                 block.set(trx, "index", "this is index")

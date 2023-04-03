@@ -11,11 +11,11 @@ impl WorkspaceTransaction<'_> {
         self.0.get_blocks().remove(&mut self.0.trx, block_id)
     }
 
-    pub fn create(&mut self, block_id: String, flavor: String) -> Block {
+    pub fn create(&mut self, block_id: String, flavour: String) -> Block {
         Block(
             self.0
                 .get_blocks()
-                .create(&mut self.0.trx, block_id, flavor)
+                .create(&mut self.0.trx, block_id, flavour)
                 .expect("failed to create block"),
         )
     }

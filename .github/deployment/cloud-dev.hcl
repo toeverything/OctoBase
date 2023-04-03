@@ -39,7 +39,7 @@ job "affine-cloud-dev" {
     }
 
     service {
-      tags = ["urlprefix-dev.affine.live/"]
+      tags = ["urlprefix-api.affine.live/"]
       port = "affine-cloud"
       check {
         name     = "Affine Cloud Dev Check"

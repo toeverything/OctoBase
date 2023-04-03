@@ -12,15 +12,15 @@ pub struct Workspace {
 #[derive(Deserialize, PartialEq, Debug, ToSchema)]
 #[schema(example = json!({
     "sys_id": "0",
-    "sys:flavor": "affine:text",
+    "sys:flavour": "affine:text",
     "sys:created": 946684800000_u64,
     "sys:children": ["block1", "block2"],
     "prop:text": "123",
     "prop:color": "#ff0000",
 }))]
 pub struct Block {
-    #[serde(rename = "sys:flavor")]
-    flavor: String,
+    #[serde(rename = "sys:flavour")]
+    flavour: String,
     #[serde(rename = "sys:created")]
     created: u64,
     #[serde(rename = "sys:children")]

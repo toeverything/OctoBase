@@ -3,7 +3,7 @@
 ## 0.0.1-230326
 
 -   [+] Added configuration option for adjustable JWT token expiration
--   [+] Assigned flavor when creating blocks
+-   [+] Assigned flavour when creating blocks
 -   [+] Added block ID for serialized block
 -   [+] Added request ID for better error observability
 -   [*] Split API modules and added test for Affine-Cloud
@@ -12,7 +12,7 @@
 ## 0.0.1-230314
 
 -   [+] Implemented custom field indexes for local search
--   [+] Added support for searching and creating blocks by flavor
+-   [+] Added support for searching and creating blocks by flavour
 -   [+] Added runtime version printing
 -   [+] Switched search tokenizer to ngram
 -   [+] Added flexible environment reading

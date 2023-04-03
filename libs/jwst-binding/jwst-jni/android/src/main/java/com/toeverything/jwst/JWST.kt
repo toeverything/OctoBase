@@ -85,8 +85,8 @@ class WorkspaceTransaction constructor(internal var trx: JwstWorkspaceTransactio
         }
     }
 
-    fun create(id: String, flavor: String): Block {
-        return Block(this.trx.create(id, flavor))
+    fun create(id: String, flavour: String): Block {
+        return Block(this.trx.create(id, flavour))
     }
 
     fun remove(block_id: String): Boolean {
@@ -140,8 +140,8 @@ class Block constructor(private var block: JwstBlock) {
         return this.block.id()
     }
 
-    fun flavor(trx: WorkspaceTransaction): String {
-        return this.block.flavor(trx.trx)
+    fun flavour(trx: WorkspaceTransaction): String {
+        return this.block.flavour(trx.trx)
     }
 
     fun created(trx: WorkspaceTransaction): Long {
