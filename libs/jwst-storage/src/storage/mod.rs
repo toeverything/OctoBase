@@ -4,14 +4,14 @@ mod test;
 
 use super::*;
 use blobs::BlobAutoStorage;
-use docs::DocAutoStorage;
+use docs::SharedDocDBStorage;
 use std::{collections::HashMap, time::Instant};
 use tokio::sync::Mutex;
 
 pub struct JwstStorage {
     pool: DatabaseConnection,
     blobs: BlobAutoStorage,
-    docs: DocAutoStorage,
+    docs: SharedDocDBStorage,
     last_migrate: Mutex<HashMap<String, Instant>>,
 }
 
@@ -30,7 +30,7 @@ impl JwstStorage {
         let blobs = BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone())
             .await
             .context("Failed to init blobs")?;
-        let docs = DocAutoStorage::init_with_pool(pool.clone(), bucket.clone())
+        let docs = SharedDocDBStorage::init_with_pool(pool.clone(), bucket.clone())
             .await
             .context("Failed to init docs")?;
 
@@ -67,7 +67,7 @@ impl JwstStorage {
         &self.blobs
     }
 
-    pub fn docs(&self) -> &DocAutoStorage {
+    pub fn docs(&self) -> &SharedDocDBStorage {
         &self.docs
     }
 

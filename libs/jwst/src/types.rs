@@ -14,9 +14,9 @@ pub enum JwstError {
     BoxedError(#[from] anyhow::Error),
     #[error(transparent)]
     StorageError(anyhow::Error),
-    #[error("io error")]
+    #[error("io error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("doc codec error")]
+    #[error("doc codec error: {0}")]
     DocCodec(#[from] lib0::error::Error),
     #[error("workspace {0} not initialized")]
     WorkspaceNotInitialized(String),
