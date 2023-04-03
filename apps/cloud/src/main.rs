@@ -13,10 +13,12 @@ use tower_http::cors::{Any, CorsLayer};
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
+const PKG_NAME: &str = env!("CARGO_PKG_NAME");
+
 #[tokio::main]
 async fn main() {
-    const PKG_NAME: &str = env!("CARGO_PKG_NAME");
-    dotenvy::dotenv().expect("cant load envs");
+    // ignore load error
+    let _ = dotenvy::dotenv();
     init_logger(PKG_NAME);
     jwst::print_versions(PKG_NAME, env!("CARGO_PKG_VERSION"));
 
