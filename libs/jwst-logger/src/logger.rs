@@ -8,18 +8,10 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 /// See [`EnvFilter::from_env`]
 #[inline]
 pub fn init_logger(name: &str) {
-    let writer = stderr.with_max_level(Level::WARN).or_else(stdout);
-
-    tracing_subscriber::registry()
-        .with(
-            fmt::layer()
-                .map_writer(move |_| writer)
-                .map_event_format(|_| JWSTFormatter),
-        )
-        .with(EnvFilter::from_env(
-            name.replace('-', "_").to_uppercase() + "_LOG",
-        ))
-        .init();
+    let name = name.replace('-', "_");
+    let env_filter = EnvFilter::try_from_env(name.to_uppercase() + "_LOG")
+        .unwrap_or_else(|_| EnvFilter::new(name + "=info"));
+    init_logger_with_env_filter(env_filter);
 }
 
 /// Initialize a logger with the directives in the given string.
@@ -27,6 +19,11 @@ pub fn init_logger(name: &str) {
 /// See [`EnvFilter::new`]
 #[inline]
 pub fn init_logger_with(directives: &str) {
+    let env_filter = EnvFilter::new(directives.replace('-', "_"));
+    init_logger_with_env_filter(env_filter);
+}
+
+fn init_logger_with_env_filter(env_filter: EnvFilter) {
     let writer = stderr.with_max_level(Level::WARN).or_else(stdout);
 
     tracing_subscriber::registry()
@@ -35,6 +32,6 @@ pub fn init_logger_with(directives: &str) {
                 .map_writer(move |_| writer)
                 .map_event_format(|_| JWSTFormatter),
         )
-        .with(EnvFilter::new(directives.replace('-', "_")))
+        .with(env_filter)
         .init();
 }

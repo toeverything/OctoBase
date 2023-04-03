@@ -98,10 +98,7 @@ pub async fn set_block(
                             if let Err(e) = block.set(&mut t.trx, key, value.clone()) {
                                 error!(
                                     "failed to set block {} content: {}, {}, {:?}",
-                                    block_id,
-                                    key,
-                                    value,
-                                    e
+                                    block_id, key, value, e
                                 );
                             }
                         }
