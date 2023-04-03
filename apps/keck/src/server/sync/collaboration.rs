@@ -53,7 +53,7 @@ mod test {
     #[test]
     fn client_collaboration_with_server() {
         if dotenvy::var("KECK_DEBUG").is_ok() {
-            jwst_logger::init_logger("keck");
+            jwst_logger::init_logger();
         }
         let mut rng = thread_rng();
         let server_port = rng.gen_range(10000..=30000);

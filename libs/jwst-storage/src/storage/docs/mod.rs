@@ -1,5 +1,4 @@
 mod database;
-mod utils;
 
 use super::*;
 use database::DocDBStorage;
@@ -12,9 +11,9 @@ pub(super) use database::full_migration_stress_test;
 pub(super) use database::{docs_storage_partial_test, docs_storage_test};
 
 #[derive(Clone)]
-pub struct SharedDocDBStorage(pub(super) Arc<DocDBStorage>);
+pub struct DocAutoStorage(pub(super) Arc<DocDBStorage>);
 
-impl SharedDocDBStorage {
+impl DocAutoStorage {
     pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstResult<Self> {
         Ok(Self(Arc::new(
             DocDBStorage::init_with_pool(pool, bucket).await?,
@@ -31,7 +30,7 @@ impl SharedDocDBStorage {
 }
 
 #[async_trait]
-impl DocStorage for SharedDocDBStorage {
+impl DocStorage for DocAutoStorage {
     async fn exists(&self, id: String) -> JwstResult<bool> {
         self.0.exists(id).await
     }
@@ -55,13 +54,13 @@ impl DocStorage for SharedDocDBStorage {
 
 #[cfg(test)]
 mod test {
-    use super::{error, info, DocStorage, SharedDocDBStorage};
+    use super::{error, info, DocAutoStorage, DocStorage};
     use jwst::JwstError;
     use rand::random;
     use std::collections::HashSet;
     use tokio::task::JoinSet;
 
-    async fn create_workspace_stress_test(storage: SharedDocDBStorage) -> anyhow::Result<()> {
+    async fn create_workspace_stress_test(storage: DocAutoStorage) -> anyhow::Result<()> {
         let mut join_set = JoinSet::new();
         let mut set = HashSet::new();
 
@@ -112,8 +111,8 @@ mod test {
     #[ignore = "for stress testing"]
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn sqlite_create_workspace_stress_test() -> anyhow::Result<()> {
-        jwst_logger::init_logger("jwst-storage");
-        let storage = SharedDocDBStorage::init_pool("sqlite::memory:").await?;
+        jwst_logger::init_logger();
+        let storage = DocAutoStorage::init_pool("sqlite::memory:").await?;
         create_workspace_stress_test(storage.clone()).await?;
 
         Ok(())
@@ -122,11 +121,10 @@ mod test {
     #[ignore = "for stress testing"]
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn postgres_create_workspace_stress_test() -> anyhow::Result<()> {
-        jwst_logger::init_logger("jwst-storage");
-        let storage = SharedDocDBStorage::init_pool(
-            "postgresql://affine:affine@localhost:5432/affine_binary",
-        )
-        .await?;
+        jwst_logger::init_logger();
+        let storage =
+            DocAutoStorage::init_pool("postgresql://affine:affine@localhost:5432/affine_binary")
+                .await?;
         create_workspace_stress_test(storage.clone()).await?;
 
         Ok(())
@@ -137,8 +135,7 @@ mod test {
     async fn mysql_create_workspace_stress_test() -> anyhow::Result<()> {
         // jwst_logger::init_logger();
         let storage =
-            SharedDocDBStorage::init_pool("mysql://affine:affine@localhost:3306/affine_binary")
-                .await?;
+            DocAutoStorage::init_pool("mysql://affine:affine@localhost:3306/affine_binary").await?;
         create_workspace_stress_test(storage.clone()).await?;
 
         Ok(())

@@ -311,7 +311,7 @@ mod test {
 
     #[tokio::test]
     async fn test_with_token_expire() {
-        std::env::set_var("JWT_REFRESH_TOKEN_EXPIRES_IN", "10");
+        std::env::set_var("JWT_REFRESH_TOKEN_EXPIRES_IN", "0");
         std::env::set_var("JWT_ACCESS_TOKEN_EXPIRES_IN", "10");
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
         let context = Context::new_test_client(pool).await;

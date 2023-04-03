@@ -1,6 +1,6 @@
 use crate::Workspace;
 use jwst::{error, info, DocStorage, JwstError, JwstResult};
-use jwst_logger::init_logger_with;
+use jwst_logger::{init_logger_with_level, Level};
 use jwst_rpc::{get_workspace, start_sync_thread, SyncState};
 use jwst_storage::JwstStorage as AutoStorage;
 use std::sync::Arc;
@@ -19,7 +19,15 @@ impl Storage {
     }
 
     pub fn new_with_log_level(path: String, level: String) -> Self {
-        init_logger_with(&format!("{}={}", env!("CARGO_PKG_NAME"), level));
+        let level = match level.to_lowercase().as_str() {
+            "trace" => Level::TRACE,
+            "debug" => Level::DEBUG,
+            "info" => Level::INFO,
+            "warn" => Level::WARN,
+            "error" => Level::ERROR,
+            _ => Level::DEBUG,
+        };
+        init_logger_with_level(level);
         let rt = Runtime::new().unwrap();
 
         match rt.block_on(AutoStorage::new(&format!("sqlite:{path}?mode=rwc"))) {
