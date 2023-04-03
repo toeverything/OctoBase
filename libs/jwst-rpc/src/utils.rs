@@ -17,12 +17,27 @@ pub struct MinimumServerContext {
 // just for test
 impl MinimumServerContext {
     pub async fn new() -> Arc<Self> {
-        let storage = JwstStorage::new(
-            &std::env::var("DATABASE_URL")
-                .map(|url| format!("{url}_binary"))
-                .unwrap_or("sqlite::memory:".into()),
-        )
-        .await
+        let storage = 'connect: loop {
+            let mut retry = 3;
+            match JwstStorage::new(
+                &std::env::var("DATABASE_URL")
+                    .map(|url| format!("{url}_binary"))
+                    .unwrap_or("sqlite::memory:".into()),
+            )
+            .await
+            {
+                Ok(storage) => break 'connect Ok(storage),
+                Err(e) => {
+                    retry -= 1;
+                    if retry > 0 {
+                        error!("failed to connect database: {}", e);
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    } else {
+                        break 'connect Err(e);
+                    }
+                }
+            }
+        }
         .unwrap();
 
         Arc::new(Self {

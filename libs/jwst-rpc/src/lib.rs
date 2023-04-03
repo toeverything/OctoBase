@@ -193,7 +193,8 @@ pub async fn handle_connector(
 mod test {
     use super::*;
     use indicatif::{MultiProgress, ProgressBar, ProgressIterator, ProgressStyle};
-    use jwst::JwstResult;
+    use jwst::{JwstError, JwstResult};
+    use std::sync::atomic::{AtomicU64, Ordering};
     use yrs::Map;
 
     #[tokio::test]
@@ -254,7 +255,7 @@ mod test {
     #[ignore = "somewhat slow, only natively tested"]
     #[test]
     fn sync_test_cycle() -> JwstResult<()> {
-        jwst_logger::init_logger();
+        jwst_logger::init_logger("jwst-rpc");
 
         for _ in 0..1000 {
             sync_test()?;
@@ -263,7 +264,9 @@ mod test {
     }
 
     async fn single_sync_stress_test(mp: &MultiProgress) -> JwstResult<()> {
-        // jwst_logger::init_logger();
+        // jwst_logger::init_logger("jwst-rpc");
+
+        let mp = MultiProgress::new();
         let style = ProgressStyle::with_template(
             "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
         )
@@ -277,14 +280,23 @@ mod test {
 
         let mut jobs = vec![];
 
+        let collaborator_pb = mp.add(ProgressBar::new(10));
+        collaborator_pb.set_style(style.clone());
+        collaborator_pb.set_message("collaborators");
+        let collaborator = Arc::new(AtomicU64::new(0));
+
         let pb = mp.add(ProgressBar::new(1000));
         pb.set_style(style.clone());
         pb.set_message("writing");
         for i in (0..1000).progress_with(pb) {
+            let collaborator = collaborator.clone();
+            let collaborator_pb = collaborator_pb.clone();
             let init_state = init_state.clone();
             let server = server.clone();
             let ws = ws.clone();
 
+            collaborator.fetch_add(1, Ordering::Relaxed);
+            collaborator_pb.set_position(collaborator.load(Ordering::Relaxed));
             let (mut doc, doc_tx, tx_handler, rx_handler) =
                 connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
 
@@ -317,38 +329,42 @@ mod test {
                 doc.retry_with_trx(
                     |mut t| {
                         let space = t.get_space("space");
-                        let block = space
-                            .create(&mut t.trx, block_id.clone(), format!("flavour{}", i))
-                            .unwrap();
-                        block
-                            .set(&mut t.trx, &format!("key{}", i), format!("val{}", i))
-                            .unwrap();
+                        let block =
+                            space.create(&mut t.trx, block_id.clone(), format!("flavour{}", i))?;
+                        block.set(&mut t.trx, &format!("key{}", i), format!("val{}", i))?;
+                        Ok::<_, JwstError>(())
                     },
                     50,
-                );
+                )
+                .unwrap()
+                .unwrap();
 
-                futures::executor::block_on(async move {
-                    // await the task to make sure the doc1 is broadcasted before check doc2
-                    tx_handler.await.unwrap();
-                    rx_handler.join().unwrap();
-                });
+                // await the task to make sure the doc1 is broadcasted before check doc2
+                futures::executor::block_on(tx_handler).unwrap();
+                rx_handler.join().unwrap();
 
                 ws.retry_with_trx(
                     |mut t| {
                         let space = t.get_space("space");
-                        let block1 = space.get(&mut t.trx, format!("block{}", i)).unwrap();
+                        let block1 = space
+                            .get(&mut t.trx, format!("block{}", i))
+                            .ok_or_else(|| anyhow::anyhow!("block {} not found", i))?;
 
                         assert_eq!(block1.flavour(&t.trx), format!("flavour{}", i));
                         assert_eq!(
                             block1
                                 .get(&t.trx, &format!("key{}", i))
-                                .unwrap()
+                                .ok_or_else(|| anyhow::anyhow!("key not found"))?
                                 .to_string(),
                             format!("val{}", i)
                         );
+                        Ok::<_, JwstError>(())
                     },
                     50,
                 );
+
+                collaborator.fetch_sub(1, Ordering::Relaxed);
+                collaborator_pb.set_position(collaborator.load(Ordering::Relaxed));
             });
             jobs.push(handler);
         }
@@ -358,7 +374,7 @@ mod test {
         pb.set_message("joining");
         for handler in jobs.into_iter().progress_with(pb) {
             if let Err(e) = handler.join() {
-                panic!("{:?}", e);
+                panic!("{:?}", e.as_ref());
             }
         }
 
@@ -396,7 +412,7 @@ mod test {
     #[ignore = "somewhat slow, only natively tested"]
     #[tokio::test(flavor = "multi_thread")]
     async fn sync_stress_test_cycle() -> JwstResult<()> {
-        // jwst_logger::internal_init_logger_with_level(jwst_logger::Level::WARN);
+        // jwst_logger::init_logger("jwst-rpc");
 
         let mp = MultiProgress::new();
         let style = ProgressStyle::with_template(

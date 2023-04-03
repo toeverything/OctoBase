@@ -15,14 +15,14 @@ impl Config {
         let access_token_expires_in = Duration::seconds(
             env::var("JWT_ACCESS_TOKEN_EXPIRES_IN")
                 .ok()
-                .and_then(|val| val.parse::<i64>().ok())
+                .and_then(parse)
                 .unwrap_or(60),
         );
 
         let refresh_token_expires_in = Duration::seconds(
             env::var("JWT_REFRESH_TOKEN_EXPIRES_IN")
                 .ok()
-                .and_then(|val| val.parse::<i64>().ok())
+                .and_then(parse)
                 .unwrap_or(180 * 86400),
         );
 
@@ -30,5 +30,13 @@ impl Config {
             access_token_expires_in,
             refresh_token_expires_in,
         }
+    }
+}
+
+fn parse(val: String) -> Option<i64> {
+    if val.is_empty() {
+        None
+    } else {
+        val.parse::<i64>().ok()
     }
 }
