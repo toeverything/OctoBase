@@ -1,6 +1,6 @@
 use crate::{context::Context, error_status::ErrorStatus};
 use axum::{
-    extract::{BodyStream, Path},
+    extract::{Path},
     headers::ContentLength,
     http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
@@ -8,36 +8,16 @@ use axum::{
 };
 use cloud_database::{Claims, UpdateWorkspace, WorkspaceSearchInput};
 use futures::{future, StreamExt};
-use jwst::{error, BlobStorage, JwstError};
+use jwst::{error, BlobStorage, JwstError, debug};
 use jwst_logger::{info, instrument, tracing};
 use std::sync::Arc;
-
-impl Context {
-    #[instrument(skip(self, stream))]
-    pub(super) async fn upload_workspace(&self, stream: BodyStream) -> Vec<u8> {
-        info!("upload_workspace enter");
-        let mut has_error = false;
-        let stream = stream
-            .take_while(|x| {
-                has_error = x.is_err();
-                future::ready(x.is_ok())
-            })
-            .filter_map(|data| future::ready(data.ok()));
-        let mut stream = Box::pin(stream);
-        let mut res = vec![];
-        while let Some(b) = stream.next().await {
-            let mut chunk = b.to_vec();
-            res.append(&mut chunk);
-        }
-        res
-    }
-}
+use bytes::Bytes;
 
 /// Create `Workspace` .
 /// - Return 200 ok and `Workspace`'s data.
 /// - Return 500 internal server error.
 #[utoipa::path(post, tag = "Workspace", context_path = "/api", path = "/workspace",
-request_body(content = BodyStream, description = "Request body for updateWorkspace",content_type="application/octet-stream"),
+request_body(content = Bytes, description = "Request body for updateWorkspace",content_type="application/octet-stream"),
     responses(
         (status = 200, description = "Successfully create workspace",body=Workspace,example=json!({
             "id": "xxx",
@@ -49,18 +29,19 @@ request_body(content = BodyStream, description = "Request body for updateWorkspa
         (status = 500, description = "Internal server error"),
     ),
 )]
-#[instrument(skip(ctx, claims, _length, stream), fields(user_id = %claims.user.id))]
+#[instrument(skip(ctx, claims, _length, body), fields(user_id = %claims.user.id))]
 pub async fn create_workspace(
     Extension(ctx): Extension<Arc<Context>>,
     Extension(claims): Extension<Arc<Claims>>,
     TypedHeader(_length): TypedHeader<ContentLength>,
-    stream: BodyStream,
+    body: Bytes
 ) -> Response {
     info!("create_workspace enter");
     match ctx.db.create_normal_workspace(claims.user.id.clone()).await {
         Ok(data) => {
             let id = data.id.to_string();
-            let update = ctx.upload_workspace(stream).await;
+            let update = body.to_vec();
+            debug!("create_workspace update size: {}", update.len());
             if !ctx.storage.full_migrate(id, Some(update), true).await {
                 return ErrorStatus::InternalServerError.into_response();
             }
