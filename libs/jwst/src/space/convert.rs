@@ -3,10 +3,7 @@ use std::collections::HashMap;
 use super::*;
 use chrono::Utc;
 use lib0::any::Any;
-use yrs::{
-    types::{ToJson, Value},
-    Array, ArrayPrelim, ArrayRef, Map, MapPrelim, TextPrelim,
-};
+use yrs::{types::ToJson, Array, ArrayPrelim, ArrayRef, Map, MapPrelim, TextPrelim};
 
 impl Space {
     pub fn to_markdown<T>(&self, trx: &T) -> Option<String>
@@ -130,10 +127,10 @@ impl Space {
                             .get(trx, "createDate")
                             .map(|c| c.to_json(trx))
                             .and_then(|v| match v {
-                                Any::Array(a) => Some(a.iter().cloned().collect::<Vec<_>>()),
+                                Any::Array(a) => Some(a.to_vec()),
                                 _ => None,
                             })
-                            .unwrap_or_else(|| vec![]),
+                            .unwrap_or_default(),
                     )),
                 ),
             ]));
