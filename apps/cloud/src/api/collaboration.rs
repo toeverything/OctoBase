@@ -6,7 +6,6 @@ use axum::{
     http::StatusCode,
     response::Response,
 };
-use jsonwebtoken::{decode, Validation};
 use jwst_rpc::{handle_connector, socket_connector};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

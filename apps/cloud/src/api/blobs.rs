@@ -501,15 +501,31 @@ mod test {
             workspace_id.clone(),
             blob_name.clone()
         );
-        let resp = client.get(&url).send().await;
+        let resp = client
+            .get(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
         assert_eq!(resp.status(), StatusCode::OK);
         let mock_url = format!("/workspace/{}/blob/mock_id", workspace_id.clone());
-        let resp = client.get(&mock_url).send().await;
+        let resp = client
+            .get(&mock_url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         let mock_url = format!("/workspace/mock_id/blob/{}", blob_name.clone());
-        let resp = client.get(&mock_url).send().await;
-        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
-        let resp = client.get("/workspace/mock_id/blob/mock_id").send().await;
-        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        let resp = client
+            .get(&mock_url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        let resp = client
+            .get("/workspace/mock_id/blob/mock_id")
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     }
 }

@@ -7,7 +7,6 @@ use axum::{
 };
 use cloud_database::{WorkspaceDetail, WorkspaceWithPermission};
 use futures::{sink::SinkExt, stream::StreamExt};
-use jsonwebtoken::{decode, Validation};
 use jwst_logger::error;
 use nanoid::nanoid;
 use serde::Deserialize;
