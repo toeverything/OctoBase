@@ -17,7 +17,6 @@ use axum::{
 use chrono::{DateTime, Utc};
 use cloud_database::Claims;
 use futures::{future, StreamExt};
-use jsonwebtoken::{decode, Validation};
 use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
 use mime::APPLICATION_OCTET_STREAM;
