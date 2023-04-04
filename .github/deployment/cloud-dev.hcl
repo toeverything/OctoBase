@@ -68,6 +68,7 @@ SIGN_KEY            = "{{ key "service/development/affine-cloud/sign_key" }}"
 MAIL_ACCOUNT        = "{{ key "service/development/affine-cloud/mail_account" }}"
 MAIL_PASSWORD       = "{{ key "service/development/affine-cloud/mail_password" }}"
 JWST_DEV            = "1"
+AFFINE_CLOUD_LOG    = "debug,mio=off,hyper=off,rustls=off,tantivy=off,sqlx::query=off,jwst_rpc=trace,jwst_rpc::context=info,affine_cloud=trace"
 EOH
 
         destination = "secrets/.env"
@@ -75,7 +76,7 @@ EOH
       }
 
       config {
-        image      = "ghcr.io/toeverything/cloud:${DOCKER_TAG}"
+        image      = "ghcr.io/toeverything/cloud-self-hosted:${DOCKER_TAG}"
         force_pull = true
         ports      = ["affine-cloud"]
       }
