@@ -12,7 +12,7 @@ pub use workspace::{
 };
 
 use super::*;
-use jwst_static::with_api_doc_v2;
+use cloud_infra::with_api_doc_v2;
 use schema::InsertChildren;
 use utoipa::OpenApi;
 

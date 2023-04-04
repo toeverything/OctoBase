@@ -78,7 +78,6 @@ dependencies = [
  "jwst",
  "jwst-logger",
  "jwst-rpc",
- "jwst-static",
  "jwst-storage",
  "lettre",
  "lib0",
@@ -673,16 +672,20 @@ dependencies = [
  "handlebars",
  "jsonwebtoken",
  "jwst",
- "jwst-static",
  "lettre",
  "nanoid",
  "pem",
  "rand 0.8.5",
  "reqwest",
+ "rust-embed",
  "serde",
  "sha2",
  "thiserror",
  "url",
+ "url-escape",
+ "utoipa 2.4.2",
+ "utoipa 3.2.1",
+ "utoipa-swagger-ui",
  "x509-parser",
 ]
 
@@ -2036,18 +2039,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jwst-static"
-version = "0.1.0"
-dependencies = [
- "axum",
- "rust-embed",
- "url-escape",
- "utoipa 2.4.2",
- "utoipa 3.2.1",
- "utoipa-swagger-ui",
-]
-
-[[package]]
 name = "jwst-storage"
 version = "0.1.0"
 dependencies = [
@@ -2115,12 +2106,12 @@ dependencies = [
  "axum",
  "axum-test-helper",
  "cfg-if",
+ "cloud-infra",
  "dotenvy",
  "futures",
  "jwst",
  "jwst-logger",
  "jwst-rpc",
- "jwst-static",
  "jwst-storage",
  "lib0",
  "libc",
