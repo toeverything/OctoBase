@@ -9,8 +9,6 @@ pub struct WorkspaceTransaction<'a> {
     pub trx: TransactionMut<'a>,
 }
 
-unsafe impl Send for WorkspaceTransaction<'_> {}
-
 const RESERVE_SPACE: [&str; 2] = [constants::space::META, constants::space::UPDATED];
 
 impl WorkspaceTransaction<'_> {

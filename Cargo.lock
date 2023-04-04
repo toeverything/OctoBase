@@ -67,8 +67,8 @@ dependencies = [
  "axum-test-helper",
  "bytes",
  "chrono",
- "cloud-components",
  "cloud-database",
+ "cloud-infra",
  "dotenvy",
  "form_urlencoded",
  "futures",
@@ -641,7 +641,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "cloud-components"
+name = "cloud-database"
+version = "0.1.0"
+dependencies = [
+ "affine-cloud-migration",
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "jwst",
+ "jwst-logger",
+ "nanoid",
+ "schemars",
+ "sea-orm",
+ "sea-orm-migration",
+ "serde",
+ "serde_repr",
+ "sqlx",
+ "tokio",
+ "yrs",
+]
+
+[[package]]
+name = "cloud-infra"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
@@ -663,27 +684,6 @@ dependencies = [
  "thiserror",
  "url",
  "x509-parser",
-]
-
-[[package]]
-name = "cloud-database"
-version = "0.1.0"
-dependencies = [
- "affine-cloud-migration",
- "anyhow",
- "async-trait",
- "chrono",
- "jwst",
- "jwst-logger",
- "nanoid",
- "schemars",
- "sea-orm",
- "sea-orm-migration",
- "serde",
- "serde_repr",
- "sqlx",
- "tokio",
- "yrs",
 ]
 
 [[package]]

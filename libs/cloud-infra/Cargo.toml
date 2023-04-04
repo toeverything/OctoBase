@@ -1,5 +1,5 @@
 [package]
-name = "cloud-components"
+name = "cloud-infra"
 version = "0.1.0"
 authors = ["DarkSky <darksky2048@gmail.com>"]
 edition = "2021"

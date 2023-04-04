@@ -41,8 +41,8 @@ form_urlencoded = "1.1.0"
 yrs = "0.16.5"
 
 # ======= workspace dependencies =======
-cloud-components = { path = "../../libs/cloud-components" }
 cloud-database = { path = "../../libs/cloud-database" }
+cloud-infra = { path = "../../libs/cloud-infra" }
 jwst = { path = "../../libs/jwst" }
 jwst-logger = { path = "../../libs/jwst-logger" }
 jwst-rpc = { path = "../../libs/jwst-rpc" }
