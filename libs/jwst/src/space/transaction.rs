@@ -9,8 +9,6 @@ pub struct SpaceTransaction<'a> {
     pub trx: TransactionMut<'a>,
 }
 
-unsafe impl Send for SpaceTransaction<'_> {}
-
 impl SpaceTransaction<'_> {
     pub fn remove<S: AsRef<str>>(&mut self, block_id: S) -> bool {
         self.space.remove(&mut self.trx, block_id)

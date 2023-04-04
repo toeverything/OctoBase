@@ -53,21 +53,17 @@ impl Space {
         S: AsRef<str>,
     {
         let space_id = space_id.as_ref().into();
-        let blocks = trx.get_map(&format!("space:{}", space_id));
-        let updated = trx.get_map(constants::space::UPDATED);
-        let metadata = trx.get_map(constants::space::META);
+        let blocks = trx.get_map(&format!("space:{}", space_id))?;
+        let updated = trx.get_map(constants::space::UPDATED)?;
+        let metadata = trx.get_map(constants::space::META)?;
 
-        blocks.and_then(|blocks| {
-            updated.and_then(|updated| {
-                metadata.map(|metadata| Self {
-                    workspace_id: workspace_id.as_ref().into(),
-                    space_id,
-                    doc,
-                    blocks,
-                    updated,
-                    metadata,
-                })
-            })
+        Some(Self {
+            workspace_id: workspace_id.as_ref().into(),
+            space_id,
+            doc,
+            blocks,
+            updated,
+            metadata,
         })
     }
 
