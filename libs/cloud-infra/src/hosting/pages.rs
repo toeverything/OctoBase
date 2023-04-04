@@ -1,10 +1,5 @@
 use super::*;
 
-#[cfg(debug_assertions)]
-pub static PAGE_404: &str = include_str!("./404-dev.html");
-#[cfg(not(debug_assertions))]
-pub static PAGE_404: &str = include_str!("./404.html");
-
 pub const INDEX_HTML: &str = "index.html";
 
 pub fn create_404_page(message: impl AsRef<str>) -> Response<BoxBody> {
@@ -12,7 +7,19 @@ pub fn create_404_page(message: impl AsRef<str>) -> Response<BoxBody> {
     Response::builder()
         .header("Content-Type", "text/html")
         .status(if !message.is_empty() { 404 } else { 200 })
-        .body(boxed(PAGE_404.replace("{{ERROR_BANNER}}", message)))
+        .body(boxed(
+            StaticFiles::get(if cfg!(debug_assertions) {
+                "404-dev.html"
+            } else {
+                "404.html"
+            })
+            .and_then(|e| {
+                std::str::from_utf8(e.data.as_ref())
+                    .map(|s| s.replace("{{ERROR_BANNER}}", message))
+                    .ok()
+            })
+            .unwrap(),
+        ))
         .unwrap()
 }
 
