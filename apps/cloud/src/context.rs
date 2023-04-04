@@ -1,6 +1,6 @@
 use super::{api::UserChannel, config::Config, utils::create_debug_collaboration_workspace};
-use cloud_components::{FirebaseContext, KeyContext, MailContext};
 use cloud_database::CloudDatabase;
+use cloud_infer::{FirebaseContext, KeyContext, MailContext};
 use jwst::SearchResults;
 use jwst_logger::{error, info, warn};
 use jwst_rpc::{BroadcastChannels, BroadcastType, RpcContextImpl};
