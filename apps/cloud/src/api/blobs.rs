@@ -1,4 +1,6 @@
-use crate::{context::Context, error_status::ErrorStatus};
+use crate::{
+    context::Context, error_status::ErrorStatus, infrastructure::auth::get_claim_from_headers,
+};
 use axum::{
     extract::{BodyStream, Path},
     headers::ContentLength,
@@ -15,6 +17,7 @@ use axum::{
 use chrono::{DateTime, Utc};
 use cloud_database::Claims;
 use futures::{future, StreamExt};
+use jsonwebtoken::{decode, Validation};
 use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
 use mime::APPLICATION_OCTET_STREAM;
@@ -206,21 +209,29 @@ impl Context {
 #[instrument(skip(ctx, method, headers))]
 pub async fn get_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
-    // Extension(claims): Extension<Arc<Claims>>,
     Path((workspace_id, id)): Path<(String, String)>,
     method: Method,
     headers: HeaderMap,
 ) -> Response {
     info!("get_blob_in_workspace enter");
-    // match ctx
-    //     .db
-    //     .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
-    //     .await
-    // {
-    //     Ok(true) => (),
-    //     Ok(false) => return ErrorStatus::Forbidden.into_response(),
-    //     Err(_) => return ErrorStatus::InternalServerError.into_response(),
-    // }
+    match ctx.db.is_public_workspace(workspace_id.clone()).await {
+        Ok(true) => (),
+        Ok(false) => match get_claim_from_headers(&headers, &ctx.key.jwt_decode) {
+            Some(claims) => {
+                match ctx
+                    .db
+                    .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
+                    .await
+                {
+                    Ok(true) => (),
+                    Ok(false) => return ErrorStatus::Forbidden.into_response(),
+                    Err(_) => return ErrorStatus::InternalServerError.into_response(),
+                }
+            }
+            None => return ErrorStatus::Forbidden.into_response(),
+        },
+        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+    }
 
     ctx.get_blob(Some(workspace_id), id, method, headers).await
 }
