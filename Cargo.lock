@@ -68,7 +68,7 @@ dependencies = [
  "bytes",
  "chrono",
  "cloud-database",
- "cloud-infer",
+ "cloud-infra",
  "dotenvy",
  "form_urlencoded",
  "futures",
@@ -662,7 +662,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cloud-infer"
+name = "cloud-infra"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",

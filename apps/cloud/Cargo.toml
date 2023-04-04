@@ -42,7 +42,7 @@ yrs = "0.16.5"
 
 # ======= workspace dependencies =======
 cloud-database = { path = "../../libs/cloud-database" }
-cloud-infer = { path = "../../libs/cloud-infer" }
+cloud-infra = { path = "../../libs/cloud-infra" }
 jwst = { path = "../../libs/jwst" }
 jwst-logger = { path = "../../libs/jwst-logger" }
 jwst-rpc = { path = "../../libs/jwst-rpc" }
