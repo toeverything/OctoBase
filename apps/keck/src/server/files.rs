@@ -5,7 +5,7 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use jwst_static::{fetch_static_response, rust_embed, RustEmbed};
+use cloud_infra::{fetch_static_response, rust_embed, RustEmbed};
 
 #[derive(RustEmbed)]
 #[folder = "../homepage/out/"]

@@ -2,6 +2,7 @@ mod api_doc;
 mod files;
 mod pages;
 
+use super::*;
 use axum::{
     body::{boxed, BoxBody, Full},
     http::{header::CONTENT_TYPE, StatusCode, Uri},
