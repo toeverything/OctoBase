@@ -51,6 +51,7 @@ mod test {
     use tokio::runtime::Runtime;
 
     #[test]
+    #[ignore="not needed in ci"]
     fn client_collaboration_with_server() {
         if dotenvy::var("KECK_DEBUG").is_ok() {
             jwst_logger::init_logger("keck");
@@ -142,6 +143,7 @@ mod test {
     }
 
     #[test]
+    #[ignore="not needed in ci"]
     fn client_collaboration_with_server_with_poor_connection() {
         let mut rng = thread_rng();
         let server_port = rng.gen_range(30001..=65535);

@@ -2,6 +2,7 @@ mod api;
 mod config;
 mod context;
 mod error_status;
+mod infrastructure;
 mod layer;
 mod utils;
 
