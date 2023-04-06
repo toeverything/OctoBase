@@ -87,7 +87,7 @@ impl JwstStorage {
             .docs
             .get(workspace_id.as_ref().into())
             .await
-            .map_err(|err| JwstStorageError::CRUDError(format!(
+            .map_err(|_err| JwstStorageError::CRUDError(format!(
                 "Failed to create workspace {}",
                 workspace_id.as_ref()
             )))?;
@@ -104,7 +104,7 @@ impl JwstStorage {
             .docs
             .exists(workspace_id.as_ref().into())
             .await
-            .map_err(|err| JwstStorageError::CRUDError(format!(
+            .map_err(|_err| JwstStorageError::CRUDError(format!(
                 "failed to check workspace {}",
                 workspace_id.as_ref()
             )))?
@@ -113,7 +113,7 @@ impl JwstStorage {
                 .docs
                 .get(workspace_id.as_ref().into())
                 .await
-                .map_err(|err| JwstStorageError::CRUDError(format!(
+                .map_err(|_err| JwstStorageError::CRUDError(format!(
                     "Failed to get workspace {}",
                     workspace_id.as_ref()
                 )))?)
