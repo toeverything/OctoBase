@@ -56,7 +56,6 @@ impl DocStorage<JwstStorageError> for SharedDocDBStorage {
 #[cfg(test)]
 mod test {
     use super::{error, info, DocStorage, SharedDocDBStorage};
-    use jwst::JwstError;
     use rand::random;
     use std::collections::HashSet;
     use tokio::task::JoinSet;

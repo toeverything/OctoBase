@@ -14,8 +14,7 @@ pub struct BlobDBStorage {
 
 impl BlobDBStorage {
     pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstStorageResult<Self> {
-        Migrator::up(&pool, None)
-            .await?;
+        Migrator::up(&pool, None).await?;
         Ok(Self { bucket, pool })
     }
 
