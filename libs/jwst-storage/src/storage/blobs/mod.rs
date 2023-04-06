@@ -209,8 +209,8 @@ impl BlobAutoStorage {
 }
 
 #[async_trait]
-impl BlobStorage for BlobAutoStorage {
-    async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool> {
+impl BlobStorage<JwstStorageError> for BlobAutoStorage {
+    async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstStorageResult<bool> {
         self.db.check_blob(workspace, id).await
     }
 
@@ -219,12 +219,8 @@ impl BlobStorage for BlobAutoStorage {
         workspace: Option<String>,
         id: String,
         params: Option<HashMap<String, String>>,
-    ) -> JwstResult<Vec<u8>> {
-        let blob = self
-            .get_auto(workspace, id, params)
-            .await
-            .context("failed to get blob")
-            .map_err(JwstError::StorageError)?;
+    ) -> JwstStorageResult<Vec<u8>> {
+        let blob = self.get_auto(workspace, id, params).await?;
         Ok(blob)
     }
 
@@ -233,12 +229,8 @@ impl BlobStorage for BlobAutoStorage {
         workspace: Option<String>,
         id: String,
         params: Option<HashMap<String, String>>,
-    ) -> JwstResult<BlobMetadata> {
-        let metadata = self
-            .get_metadata_auto(workspace, id, params)
-            .await
-            .context("failed to get blob metadata")
-            .map_err(JwstError::StorageError)?;
+    ) -> JwstStorageResult<BlobMetadata> {
+        let metadata = self.get_metadata_auto(workspace, id, params).await?;
         Ok(metadata)
     }
 
@@ -246,11 +238,11 @@ impl BlobStorage for BlobAutoStorage {
         &self,
         workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
-    ) -> JwstResult<String> {
+    ) -> JwstStorageResult<String> {
         self.db.put_blob(workspace, stream).await
     }
 
-    async fn delete_blob(&self, workspace_id: Option<String>, id: String) -> JwstResult<bool> {
+    async fn delete_blob(&self, workspace_id: Option<String>, id: String) -> JwstStorageResult<bool> {
         // delete origin blobs
         let success = self
             .db
@@ -259,34 +251,23 @@ impl BlobStorage for BlobAutoStorage {
         if success {
             // delete optimized blobs
             let workspace_id = workspace_id.unwrap_or("__default__".into());
-            self.delete(&workspace_id, &id)
-                .await
-                .context("failed to delete optimized blob")
-                .map_err(JwstError::StorageError)?;
+            self.delete(&workspace_id, &id).await?;
         }
         Ok(success)
     }
 
-    async fn delete_workspace(&self, workspace_id: String) -> JwstResult<()> {
+    async fn delete_workspace(&self, workspace_id: String) -> JwstStorageResult<()> {
         // delete origin blobs
         self.db.delete_workspace(workspace_id.clone()).await?;
 
         // delete optimized blobs
-        self.drop(&workspace_id)
-            .await
-            .context("failed to delete optimized blob")
-            .map_err(JwstError::StorageError)?;
+        self.drop(&workspace_id).await?;
 
         Ok(())
     }
 
-    async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64> {
-        let size = self
-            .db
-            .get_blobs_size(&workspace_id)
-            .await
-            .context("failed to get blobs size")
-            .map_err(JwstError::StorageError)?;
+    async fn get_blobs_size(&self, workspace_id: String) -> JwstStorageResult<i64> {
+        let size = self.db.get_blobs_size(&workspace_id).await?;
 
         return Ok(size.unwrap_or(0));
     }

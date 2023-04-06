@@ -58,26 +58,26 @@ pub struct BlobMetadata {
 }
 
 #[async_trait]
-pub trait BlobStorage {
-    async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool>;
+pub trait BlobStorage<E = JwstError> {
+    async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool, E>;
     async fn get_blob(
         &self,
         workspace: Option<String>,
         id: String,
         params: Option<HashMap<String, String>>,
-    ) -> JwstResult<Vec<u8>>;
+    ) -> JwstResult<Vec<u8>, E>;
     async fn get_metadata(
         &self,
         workspace: Option<String>,
         id: String,
         params: Option<HashMap<String, String>>,
-    ) -> JwstResult<BlobMetadata>;
+    ) -> JwstResult<BlobMetadata, E>;
     async fn put_blob(
         &self,
         workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
-    ) -> JwstResult<String>;
-    async fn delete_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool>;
-    async fn delete_workspace(&self, workspace_id: String) -> JwstResult<()>;
-    async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64>;
+    ) -> JwstResult<String, E>;
+    async fn delete_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool, E>;
+    async fn delete_workspace(&self, workspace_id: String) -> JwstResult<(), E>;
+    async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64, E>;
 }
