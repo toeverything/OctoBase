@@ -45,7 +45,6 @@ class JwstWorkspace: ObservableObject {
         print(self.get(blockId: "test"))
         print(block.id().toString());
         print(block.flavor().toString())
-        print(block.version().toString())
         
         block.set_integer("integer", 1)
         block.set_float("float",  1.1)
