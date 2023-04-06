@@ -32,6 +32,10 @@ pub enum JwstError {
     PageTreeNotFound(String),
     #[error("page item {0} not found")]
     PageItemNotFound(String),
+    #[error("y_sync sync error")]
+    YSyncError(#[from] y_sync::sync::Error),
+    #[error("y_sync awareness error")]
+    YSyncAwarenessErr(#[from] y_sync::awareness::Error),
 }
 
 pub type JwstResult<T> = Result<T, JwstError>;

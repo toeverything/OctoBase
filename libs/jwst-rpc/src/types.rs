@@ -9,6 +9,8 @@ pub enum JwstRPCError {
     WebsocketConnectError(#[from] tungstenite::Error),
     #[error("jwst error")]
     JwstError(#[from] jwst::JwstError),
+    #[error("url parse error")]
+    UrlParseError(#[from] url::ParseError),
 }
 
 pub type JwstRPCResult<T> = Result<T, JwstRPCError>;

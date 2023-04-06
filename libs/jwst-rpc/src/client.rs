@@ -1,5 +1,4 @@
 use super::*;
-use anyhow::Context;
 use futures::{SinkExt, StreamExt};
 use jwst::{DocStorage, JwstResult, Workspace};
 use jwst_storage::JwstStorage;
@@ -17,7 +16,7 @@ type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 async fn prepare_connection(remote: &str) -> JwstRPCResult<Socket> {
     debug!("generate remote config");
-    let uri = Url::parse(remote).context("failed to parse remote url".to_string())?;
+    let uri = Url::parse(remote)?;
 
     let mut req = uri
         .into_client_request()?;
@@ -36,14 +35,12 @@ async fn init_connection(workspace: &Workspace, remote: &str) -> JwstRPCResult<S
     debug!("create init message");
     let init_data = workspace
         .sync_init_message()
-        .await
-        .context("failed to create init message")?;
+        .await?;
 
     debug!("send init message");
     socket
         .send(Message::Binary(init_data))
-        .await
-        .context("failed to send init message")?;
+        .await?;
 
     Ok(socket)
 }
@@ -256,4 +253,33 @@ pub async fn get_collaborating_workspace(
     }
 
     Ok(workspace)
+}
+
+#[cfg(test)]
+pub mod test {
+    use crate::client::{prepare_connection};
+    use crate::types::JwstRPCError::{BoxedError, UrlParseError, WebsocketConnectError};
+
+    #[tokio::test]
+    async fn sdklf() {
+        // let r = prepare_connection("https://example.net").await;
+        let r = prepare_connection("localhost").await;
+        if r.is_err() {
+            let error = r.err().unwrap();
+            match error {
+                WebsocketConnectError(e)=> {
+                    println!("WebsocketConnectError: {}", e);
+                },
+                BoxedError(e) => {
+                    println!("BoxedError: {:?}", e);
+                },
+                UrlParseError(e) => {
+                    println!("UrlParseError: {}", e);
+                },
+                _ => {
+                    println!("other error");
+                }
+            }
+        }
+    }
 }

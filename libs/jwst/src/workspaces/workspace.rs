@@ -281,7 +281,7 @@ impl Workspace {
         Ok(trx.encode_state_as_update_v1(&StateVector::default())?)
     }
 
-    pub async fn sync_init_message(&self) -> Result<Vec<u8>, Error> {
+    pub async fn sync_init_message(&self) -> JwstResult<Vec<u8>> {
         let mut encoder = EncoderV1::new();
         let (sv, update) = {
             let mut retry = 50;
@@ -292,7 +292,7 @@ impl Workspace {
                     retry -= 1;
                     tokio::time::sleep(Duration::from_micros(10)).await;
                 } else {
-                    return Err(Error::Other("failed to get state vector".into()));
+                    return Err(JwstError::YSyncError(Error::Other("failed to get state vector".into())));
                 }
             };
             let sv = trx.state_vector();
