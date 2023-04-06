@@ -241,13 +241,12 @@ impl Block {
         // init default schema
         block.insert(new_trx, sys::ID, self.block_id.as_ref())?;
         block.insert(new_trx, sys::FLAVOUR, self.flavour(orig_trx).as_ref())?;
-        block.insert(new_trx, sys::VERSION, ArrayPrelim::from([1, 0]))?;
         let children = block.insert(
             new_trx,
             sys::CHILDREN,
             ArrayPrelim::<Vec<String>, String>::from(vec![]),
         )?;
-        block.insert(new_trx, sys::CREATED, self.created(orig_trx) as f64)?;
+        // block.insert(new_trx, sys::CREATED, self.created(orig_trx) as f64)?;
 
         // clone children
         for block_id in self.children(orig_trx) {
@@ -273,5 +272,41 @@ impl Block {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use yrs::{updates::decoder::Decode, Update};
+
+    #[test]
+    fn test_multiple_layer_space_clone() {
+        let doc1 = Doc::new();
+        doc1.transact_mut()
+            .apply_update(Update::decode_v1(include_bytes!("test_multi_layer.bin")).unwrap());
+
+        let ws1 = Workspace::from_doc(doc1, "test");
+
+        let new_update = ws1.with_trx(|t| {
+            let space = t.get_exists_space("page0").unwrap();
+            space.to_single_page(&t.trx).unwrap()
+        });
+
+        let doc2 = Doc::new();
+        doc2.transact_mut()
+            .apply_update(Update::decode_v1(&new_update).unwrap());
+
+        let doc1 = ws1.doc();
+        let doc1_trx = doc1.transact();
+        let doc2_trx = doc2.transact();
+        assert_json_diff::assert_json_eq!(
+            doc1_trx.get_map("space:meta").unwrap().to_json(&doc1_trx),
+            doc2_trx.get_map("space:meta").unwrap().to_json(&doc2_trx)
+        );
+        assert_json_diff::assert_json_eq!(
+            doc1_trx.get_map("space:page0").unwrap().to_json(&doc1_trx),
+            doc2_trx.get_map("space:page0").unwrap().to_json(&doc2_trx)
+        );
     }
 }
