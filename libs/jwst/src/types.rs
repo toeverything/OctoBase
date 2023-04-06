@@ -38,16 +38,16 @@ pub enum JwstError {
     YSyncAwarenessErr(#[from] y_sync::awareness::Error),
 }
 
-pub type JwstResult<T> = Result<T, JwstError>;
+pub type JwstResult<T, E = JwstError> = Result<T, E>;
 
 #[async_trait]
-pub trait DocStorage {
-    async fn exists(&self, workspace_id: String) -> JwstResult<bool>;
-    async fn get(&self, workspace_id: String) -> JwstResult<Workspace>;
-    async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> JwstResult<()>;
+pub trait DocStorage<E = JwstError> {
+    async fn exists(&self, workspace_id: String) -> JwstResult<bool, E>;
+    async fn get(&self, workspace_id: String) -> JwstResult<Workspace, E>;
+    async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> JwstResult<(), E>;
     /// Return false means update exceeding max update
-    async fn write_update(&self, workspace_id: String, data: &[u8]) -> JwstResult<()>;
-    async fn delete(&self, workspace_id: String) -> JwstResult<()>;
+    async fn write_update(&self, workspace_id: String, data: &[u8]) -> JwstResult<(), E>;
+    async fn delete(&self, workspace_id: String) -> JwstResult<(), E>;
 }
 
 #[derive(Debug)]

@@ -190,20 +190,18 @@ impl DocDBStorage {
 }
 
 #[async_trait]
-impl DocStorage for DocDBStorage {
-    async fn exists(&self, workspace_id: String) -> JwstResult<bool> {
+impl DocStorage<JwstStorageError> for DocDBStorage {
+    async fn exists(&self, workspace_id: String) -> JwstStorageResult<bool> {
         trace!("check workspace exists: get lock");
         let _lock = self.bucket.read().await;
 
         Ok(self.workspaces.read().await.contains_key(&workspace_id)
             || Self::count(&self.pool, &workspace_id)
                 .await
-                .map(|c| c > 0)
-                .context("failed to check workspace")
-                .map_err(JwstError::StorageError)?)
+                .map(|c| c > 0)?)
     }
 
-    async fn get(&self, workspace_id: String) -> JwstResult<Workspace> {
+    async fn get(&self, workspace_id: String) -> JwstStorageResult<Workspace> {
         trace!("get workspace: enter");
         match self.workspaces.write().await.entry(workspace_id.clone()) {
             Entry::Occupied(ws) => {
@@ -216,9 +214,7 @@ impl DocStorage for DocDBStorage {
                 info!("init workspace cache: {workspace_id}");
                 let id = workspace_id.clone();
                 let doc = Self::create_doc(&self.pool, &id)
-                    .await
-                    .context("failed to create workspace")
-                    .map_err(JwstError::StorageError)?;
+                    .await?;
 
                 let ws = Workspace::from_doc(doc, workspace_id);
                 Ok(v.insert(ws).clone())
@@ -226,45 +222,39 @@ impl DocStorage for DocDBStorage {
         }
     }
 
-    async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> JwstResult<()> {
+    async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> JwstStorageResult<()> {
         trace!("write_full_update: get lock");
         let _lock = self.bucket.write().await;
 
         trace!("write_doc: {:?}", data);
 
         self.full_migrate(&self.pool, &workspace_id, data)
-            .await
-            .context("failed to store workspace")
-            .map_err(JwstError::StorageError)?;
+            .await?;
 
         debug_assert_eq!(Self::count(&self.pool, &workspace_id).await?, 1u64);
 
         Ok(())
     }
 
-    async fn write_update(&self, workspace_id: String, data: &[u8]) -> JwstResult<()> {
+    async fn write_update(&self, workspace_id: String, data: &[u8]) -> JwstStorageResult<()> {
         debug!("write_update: get lock");
         let _lock = self.bucket.write().await;
 
         trace!("write_update: {:?}", data);
         self.update(&self.pool, &workspace_id, data.into())
-            .await
-            .context("failed to store update workspace")
-            .map_err(JwstError::StorageError)?;
+            .await?;
 
         Ok(())
     }
 
-    async fn delete(&self, workspace_id: String) -> JwstResult<()> {
+    async fn delete(&self, workspace_id: String) -> JwstStorageResult<()> {
         debug!("delete workspace: get lock");
         let _lock = self.bucket.write().await;
 
         debug!("delete workspace cache: {workspace_id}");
         self.workspaces.write().await.remove(&workspace_id);
         DocDBStorage::delete(&self.pool, &workspace_id)
-            .await
-            .context("failed to delete workspace")
-            .map_err(JwstError::StorageError)?;
+            .await?;
 
         Ok(())
     }

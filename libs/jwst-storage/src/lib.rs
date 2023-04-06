@@ -15,7 +15,7 @@ use sea_orm::{prelude::*, ConnectOptions, Database, DbErr, QuerySelect, Set};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 pub use storage::JwstStorage;
-use crate::types::JwstStorageResult;
+pub use crate::types::{JwstStorageResult, JwstStorageError};
 
 #[inline]
 async fn create_connection(database: &str, single_thread: bool) -> JwstStorageResult<DatabaseConnection> {

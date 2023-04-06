@@ -15,13 +15,13 @@ pub(super) use database::{docs_storage_partial_test, docs_storage_test};
 pub struct SharedDocDBStorage(pub(super) Arc<DocDBStorage>);
 
 impl SharedDocDBStorage {
-    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstResult<Self> {
+    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstStorageResult<Self> {
         Ok(Self(Arc::new(
             DocDBStorage::init_with_pool(pool, bucket).await?,
         )))
     }
 
-    pub async fn init_pool(database: &str) -> JwstResult<Self> {
+    pub async fn init_pool(database: &str) -> JwstStorageResult<Self> {
         Ok(Self(Arc::new(DocDBStorage::init_pool(database).await?)))
     }
 
@@ -31,24 +31,24 @@ impl SharedDocDBStorage {
 }
 
 #[async_trait]
-impl DocStorage for SharedDocDBStorage {
-    async fn exists(&self, id: String) -> JwstResult<bool> {
+impl DocStorage<JwstStorageError> for SharedDocDBStorage {
+    async fn exists(&self, id: String) -> JwstStorageResult<bool> {
         self.0.exists(id).await
     }
 
-    async fn get(&self, id: String) -> JwstResult<Workspace> {
+    async fn get(&self, id: String) -> JwstStorageResult<Workspace> {
         self.0.get(id).await
     }
 
-    async fn write_full_update(&self, id: String, data: Vec<u8>) -> JwstResult<()> {
+    async fn write_full_update(&self, id: String, data: Vec<u8>) -> JwstStorageResult<()> {
         self.0.write_full_update(id, data).await
     }
 
-    async fn write_update(&self, id: String, data: &[u8]) -> JwstResult<()> {
+    async fn write_update(&self, id: String, data: &[u8]) -> JwstStorageResult<()> {
         self.0.write_update(id, data).await
     }
 
-    async fn delete(&self, id: String) -> JwstResult<()> {
+    async fn delete(&self, id: String) -> JwstStorageResult<()> {
         self.0.delete(id).await
     }
 }

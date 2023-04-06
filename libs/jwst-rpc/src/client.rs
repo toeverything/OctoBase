@@ -1,7 +1,7 @@
 use super::*;
 use futures::{SinkExt, StreamExt};
-use jwst::{DocStorage, JwstResult, Workspace};
-use jwst_storage::JwstStorage;
+use jwst::{DocStorage, Workspace};
+use jwst_storage::{JwstStorage, JwstStorageResult};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::RwLock;
 use tokio::{
@@ -216,7 +216,7 @@ pub fn start_sync_thread(
 pub async fn get_workspace(
     storage: &JwstStorage,
     id: String,
-) -> JwstResult<(Workspace, Receiver<Vec<u8>>)> {
+) -> JwstStorageResult<(Workspace, Receiver<Vec<u8>>)> {
     let workspace = storage.docs().get(id.clone()).await?;
     // get the receiver corresponding to DocAutoStorage, the sender is used in the doc::write_update() method.
     let rx = match storage.docs().remote().write().await.entry(id.clone()) {
@@ -230,12 +230,11 @@ pub async fn get_workspace(
 
     Ok((workspace, rx))
 }
-
 pub async fn get_collaborating_workspace(
     storage: &JwstStorage,
     id: String,
     remote: String,
-) -> JwstResult<Workspace> {
+) -> JwstStorageResult<Workspace> {
     let workspace = storage.docs().get(id.clone()).await?;
 
     if !remote.is_empty() {
