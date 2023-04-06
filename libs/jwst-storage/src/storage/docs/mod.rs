@@ -60,8 +60,9 @@ mod test {
     use rand::random;
     use std::collections::HashSet;
     use tokio::task::JoinSet;
+    use crate::{JwstStorageError, JwstStorageResult};
 
-    async fn create_workspace_stress_test(storage: SharedDocDBStorage) -> anyhow::Result<()> {
+    async fn create_workspace_stress_test(storage: SharedDocDBStorage) -> JwstStorageResult<()> {
         let mut join_set = JoinSet::new();
         let mut set = HashSet::new();
 
@@ -75,7 +76,7 @@ mod test {
                 let workspace = storage.get(id.clone()).await?;
                 info!("create workspace finish: {}", id);
                 assert_eq!(workspace.id(), id);
-                Ok::<_, JwstError>(())
+                Ok::<_, JwstStorageError>(())
             });
         }
 
@@ -96,7 +97,7 @@ mod test {
                 info!("get workspace: {}", id);
                 let workspace = storage.get(id.clone()).await?;
                 assert_eq!(workspace.id(), id);
-                Ok::<_, JwstError>(())
+                Ok::<_, JwstStorageError>(())
             });
         }
 
