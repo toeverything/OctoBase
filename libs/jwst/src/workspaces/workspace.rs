@@ -1,38 +1,23 @@
-use super::{metadata::SEARCH_INDEX, plugins::setup_plugin, JwstError, *};
-use nanoid::nanoid;
+use super::{
+    plugins::{setup_plugin, PluginMap},
+    *,
+};
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use std::{
-    collections::HashMap,
-    panic::{catch_unwind, AssertUnwindSafe},
-    sync::Arc,
-    thread::sleep,
-    time::Duration,
-};
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
-use y_sync::{
-    awareness::{Awareness, Event, Subscription as AwarenessSubscription},
-    sync::{Error, Message, MessageReader, SyncMessage},
-};
+use y_sync::awareness::Awareness;
 use yrs::{
     types::{map::MapEvent, ToJson},
-    updates::{
-        decoder::{Decode, DecoderV1},
-        encoder::{Encode, Encoder, EncoderV1},
-    },
-    Doc, Map, MapRef, Observable, ReadTxn, StateVector, Subscription, Transact, TransactionMut,
-    Update, UpdateEvent, UpdateSubscription,
+    Doc, Map, MapRef, Subscription, Transact, TransactionMut, UpdateSubscription,
 };
-
-use super::PluginMap;
-use plugins::PluginImpl;
 
 pub type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>;
 
 pub struct Workspace {
     workspace_id: String,
-    awareness: Arc<RwLock<Awareness>>,
-    doc: Doc,
-    sub: Arc<RwLock<HashMap<String, UpdateSubscription>>>,
+    pub(super) awareness: Arc<RwLock<Awareness>>,
+    pub(super) doc: Doc,
+    pub(super) sub: Arc<RwLock<HashMap<String, UpdateSubscription>>>,
     pub(crate) updated: MapRef,
     pub(crate) metadata: MapRef,
     /// We store plugins so that their ownership is tied to [Workspace].
@@ -94,100 +79,6 @@ impl Workspace {
         self.updated.len(&trx) == 0
     }
 
-    /// Allow the plugin to run any necessary updates it could have flagged via observers.
-    /// See [plugins].
-    pub(super) fn update_plugin<P: PluginImpl>(&self) -> Result<(), Box<dyn std::error::Error>> {
-        self.plugins.update_plugin::<P>(self)
-    }
-
-    /// See [plugins].
-    pub(super) fn with_plugin<P: PluginImpl, T>(&self, cb: impl Fn(&P) -> T) -> Option<T> {
-        self.plugins.with_plugin::<P, T>(cb)
-    }
-
-    #[cfg(feature = "workspace-search")]
-    pub fn search<S: AsRef<str>>(
-        &self,
-        query: S,
-    ) -> Result<SearchResults, Box<dyn std::error::Error>> {
-        use plugins::IndexingPluginImpl;
-
-        // refresh index if doc has update
-        self.update_plugin::<IndexingPluginImpl>()?;
-
-        let query = query.as_ref();
-
-        self.with_plugin::<IndexingPluginImpl, Result<SearchResults, Box<dyn std::error::Error>>>(
-            |search_plugin| search_plugin.search(query),
-        )
-        .expect("text search was set up by default")
-    }
-
-    pub fn search_result(&self, query: String) -> String {
-        match self.search(query) {
-            Ok(list) => serde_json::to_string(&list).unwrap(),
-            Err(_) => "[]".to_string(),
-        }
-    }
-
-    pub fn set_search_index(&self, fields: Vec<String>) -> JwstResult<bool> {
-        match fields.iter().find(|&field| field.is_empty()) {
-            Some(field) => {
-                error!("field name cannot be empty: {}", field);
-                Ok(false)
-            }
-            None => {
-                let value = serde_json::to_string(&fields).unwrap();
-                self.with_trx(|mut trx| trx.set_metadata(SEARCH_INDEX, value))?;
-                setup_plugin(self.clone());
-                Ok(true)
-            }
-        }
-    }
-
-    pub fn with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> T {
-        let doc = self.doc();
-        let trx = WorkspaceTransaction {
-            trx: doc.transact_mut(),
-            ws: self,
-        };
-
-        f(trx)
-    }
-
-    pub fn try_with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> Option<T> {
-        match self.doc().try_transact_mut() {
-            Ok(trx) => {
-                let trx = WorkspaceTransaction { trx, ws: self };
-                Some(f(trx))
-            }
-            Err(e) => {
-                info!("try_with_trx error: {}", e);
-                None
-            }
-        }
-    }
-
-    pub fn retry_with_trx<T>(
-        &self,
-        f: impl FnOnce(WorkspaceTransaction) -> T,
-        mut retry: i32,
-    ) -> Option<T> {
-        let trx = loop {
-            if let Ok(trx) = self.doc.try_transact_mut() {
-                break trx;
-            } else if retry > 0 {
-                retry -= 1;
-                sleep(Duration::from_micros(10));
-            } else {
-                info!("retry_with_trx error");
-                return None;
-            }
-        };
-
-        Some(f(WorkspaceTransaction { trx, ws: self }))
-    }
-
     pub fn id(&self) -> String {
         self.workspace_id.clone()
     }
@@ -200,211 +91,8 @@ impl Workspace {
         (&self.doc().transact(), self.metadata.clone()).into()
     }
 
-    pub fn observe_metadata(
-        &mut self,
-        f: impl Fn(&TransactionMut, &MapEvent) + 'static,
-    ) -> MapSubscription {
-        self.metadata.observe(f)
-    }
-
-    pub async fn on_awareness_update(
-        &mut self,
-        f: impl Fn(&Awareness, &Event) + 'static,
-    ) -> AwarenessSubscription<Event> {
-        self.awareness.write().await.on_update(f)
-    }
-
-    /// Subscribe to update events.
-    pub async fn observe(
-        &mut self,
-        f: impl Fn(&TransactionMut, &UpdateEvent) + Clone + 'static,
-    ) -> Option<String> {
-        info!("workspace observe enter");
-        let doc = self.doc();
-        match catch_unwind(AssertUnwindSafe(move || {
-            let mut retry = 10;
-            let cb = move |trx: &TransactionMut, evt: &UpdateEvent| {
-                trace!("workspace observe: observe_update_v1, {:?}", &evt.update);
-                if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(trx, evt))) {
-                    error!("panic in observe callback: {:?}", e);
-                }
-            };
-
-            loop {
-                match doc.observe_update_v1(cb.clone()) {
-                    Ok(sub) => break Ok(sub),
-                    Err(e) if retry <= 0 => break Err(e),
-                    _ => {
-                        sleep(Duration::from_micros(100));
-                        retry -= 1;
-                        continue;
-                    }
-                }
-            }
-        })) {
-            Ok(sub) => match sub {
-                Ok(sub) => {
-                    let id = nanoid!();
-                    self.sub.write().await.insert(id.clone(), sub);
-                    Some(id)
-                }
-                Err(e) => {
-                    error!("failed to observe: {:?}", e);
-                    None
-                }
-            },
-            Err(e) => {
-                error!("panic in observe callback: {:?}", e);
-                None
-            }
-        }
-    }
-
     pub fn doc(&self) -> Doc {
         self.doc.clone()
-    }
-
-    pub fn sync_migration(&self, mut retry: i32) -> JwstResult<Vec<u8>> {
-        let trx = loop {
-            match self.doc.try_transact() {
-                Ok(trx) => break trx,
-                Err(e) => {
-                    if retry > 0 {
-                        retry -= 1;
-                        sleep(Duration::from_micros(10));
-                    } else {
-                        return Err(JwstError::DocTransaction(e.to_string()));
-                    }
-                }
-            }
-        };
-        Ok(trx.encode_state_as_update_v1(&StateVector::default())?)
-    }
-
-    pub async fn sync_init_message(&self) -> Result<Vec<u8>, Error> {
-        let mut encoder = EncoderV1::new();
-        let (sv, update) = {
-            let mut retry = 50;
-            let trx = loop {
-                if let Ok(trx) = self.doc.try_transact() {
-                    break trx;
-                } else if retry > 0 {
-                    retry -= 1;
-                    tokio::time::sleep(Duration::from_micros(10)).await;
-                } else {
-                    return Err(Error::Other("failed to get state vector".into()));
-                }
-            };
-            let sv = trx.state_vector();
-            let update = self.awareness.read().await.update()?;
-            (sv, update)
-        };
-
-        Message::Sync(SyncMessage::SyncStep1(sv)).encode(&mut encoder)?;
-        Message::Awareness(update).encode(&mut encoder)?;
-
-        Ok(encoder.to_vec())
-    }
-
-    pub async fn sync_decode_message(&mut self, binary: &[u8]) -> Vec<Vec<u8>> {
-        let mut decoder = DecoderV1::from(binary);
-        let mut result = vec![];
-
-        let (awareness_msg, content_msg): (Vec<_>, Vec<_>) = MessageReader::new(&mut decoder)
-            .flatten()
-            .partition(|msg| matches!(msg, Message::Awareness(_) | Message::AwarenessQuery));
-
-        if !awareness_msg.is_empty() {
-            let mut awareness = self.awareness.write().await;
-            if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
-                for msg in awareness_msg {
-                    match msg {
-                        Message::AwarenessQuery => {
-                            if let Ok(update) = awareness.update() {
-                                match Message::Awareness(update).encode_v1() {
-                                    Ok(msg) => result.push(msg),
-                                    Err(e) => warn!("failed to encode awareness update: {:?}", e),
-                                }
-                            }
-                        }
-                        Message::Awareness(update) => {
-                            if let Err(e) = awareness.apply_update(update) {
-                                warn!("failed to apply awareness: {:?}", e);
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            })) {
-                warn!("failed to apply awareness update: {:?}", e);
-            }
-        }
-        if !content_msg.is_empty() {
-            let doc = self.doc();
-            if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
-                let mut retry = 30;
-                let mut trx = loop {
-                    if let Ok(trx) = doc.try_transact_mut() {
-                        break trx;
-                    } else if retry > 0 {
-                        retry -= 1;
-                        sleep(Duration::from_micros(10));
-                    } else {
-                        return;
-                    }
-                };
-                for msg in content_msg {
-                    if let Some(msg) = {
-                        trace!("processing message: {:?}", msg);
-                        match msg {
-                            Message::Sync(msg) => match msg {
-                                SyncMessage::SyncStep1(sv) => trx
-                                    .encode_state_as_update_v1(&sv)
-                                    .map(|update| Message::Sync(SyncMessage::SyncStep2(update)))
-                                    .ok(),
-                                SyncMessage::SyncStep2(update) => {
-                                    if let Ok(update) = Update::decode_v1(&update) {
-                                        trx.apply_update(update);
-                                    }
-                                    None
-                                }
-                                SyncMessage::Update(update) => {
-                                    if let Ok(update) = Update::decode_v1(&update) {
-                                        trx.apply_update(update);
-                                        trx.commit();
-                                        if cfg!(debug_assertions) {
-                                            trace!(
-                                                "changed_parent_types: {:?}",
-                                                trx.changed_parent_types()
-                                            );
-                                            trace!("before_state: {:?}", trx.before_state());
-                                            trace!("after_state: {:?}", trx.after_state());
-                                        }
-                                        trx.encode_update_v1()
-                                            .map(|update| {
-                                                Message::Sync(SyncMessage::Update(update))
-                                            })
-                                            .ok()
-                                    } else {
-                                        None
-                                    }
-                                }
-                            },
-                            _ => None,
-                        }
-                    } {
-                        match msg.encode_v1() {
-                            Ok(msg) => result.push(msg),
-                            Err(e) => warn!("failed to encode message: {:?}", e),
-                        }
-                    }
-                }
-            })) {
-                warn!("failed to apply update: {:?}", e);
-            }
-        }
-
-        result
     }
 }
 
@@ -445,7 +133,7 @@ impl Clone for Workspace {
 mod test {
     use super::{super::super::Block, *};
     use tracing::info;
-    use yrs::{updates::decoder::Decode, Doc, Map, StateVector, Update};
+    use yrs::{updates::decoder::Decode, Doc, Map, ReadTxn, StateVector, Update};
 
     #[test]
     fn doc_load_test() {
