@@ -1,5 +1,7 @@
 use super::*;
 
+const MAX_STACK: u8 = 10;
+
 impl Block {
     pub fn to_markdown<T>(&self, trx: &T, state: &mut MarkdownState) -> Option<String>
     where
@@ -94,58 +96,127 @@ impl Block {
         }
     }
 
+    fn clone_text<T>(
+        &self,
+        stack: u8,
+        trx: &T,
+        text: TextRef,
+        new_trx: &mut TransactionMut,
+        new_text: TextRef,
+    ) -> JwstResult<()>
+    where
+        T: ReadTxn,
+    {
+        if stack > MAX_STACK {
+            warn!("clone_text: stack overflow");
+            return Ok(());
+        }
+
+        for Diff {
+            insert, attributes, ..
+        } in text.diff(trx, YChange::identity)
+        {
+            match insert {
+                Value::Any(Any::String(str)) => {
+                    let str = str.as_ref();
+                    if let Some(attr) = attributes {
+                        new_text.insert_with_attributes(
+                            new_trx,
+                            new_text.len(new_trx),
+                            str,
+                            *attr,
+                        )?;
+                    } else {
+                        new_text.insert(new_trx, new_text.len(new_trx), str)?;
+                    }
+                }
+                val => {
+                    warn!("unexpected embed type: {:?}", val);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn clone_array<T>(
+        &self,
+        stack: u8,
+        trx: &T,
+        array: ArrayRef,
+        new_trx: &mut TransactionMut,
+        new_array: ArrayRef,
+    ) -> JwstResult<()>
+    where
+        T: ReadTxn,
+    {
+        if stack > MAX_STACK {
+            warn!("clone_array: stack overflow");
+            return Ok(());
+        }
+
+        for item in array.iter(trx) {
+            match item {
+                Value::Any(any) => {
+                    new_array.push_back(new_trx, any)?;
+                }
+                Value::YText(text) => {
+                    let new_text = new_array.push_back(new_trx, TextPrelim::new(""))?;
+                    self.clone_text(stack + 1, trx, text, new_trx, new_text)?;
+                }
+                Value::YMap(map) => {
+                    let new_map = new_array.push_back(new_trx, MapPrelim::<Any>::new())?;
+                    for (key, value) in map.iter(trx) {
+                        self.clone_value(stack + 1, key, trx, value, new_trx, new_map.clone())?;
+                    }
+                }
+                Value::YArray(array) => {
+                    let new_array = new_array.push_back(new_trx, ArrayPrelim::default())?;
+                    self.clone_array(stack + 1, trx, array, new_trx, new_array)?;
+                }
+                val => {
+                    warn!("unexpected prop type: {:?}", val);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn clone_value<T>(
         &self,
+        stack: u8,
         key: &str,
-        orig_trx: &T,
-        orig_value: Value,
+        trx: &T,
+        value: Value,
         new_trx: &mut TransactionMut,
         new_map: MapRef,
     ) -> JwstResult<()>
     where
         T: ReadTxn,
     {
-        match orig_value {
+        if stack > MAX_STACK {
+            warn!("clone_value: stack overflow");
+            return Ok(());
+        }
+
+        match value {
             Value::Any(any) => {
-                new_map.insert(new_trx, key, any)?;
+                new_map.insert(new_trx, key, any.clone())?;
             }
             Value::YText(text) => {
                 let new_text = new_map.insert(new_trx, key, TextPrelim::new(""))?;
-                for Diff {
-                    insert, attributes, ..
-                } in text.diff(orig_trx, YChange::identity)
-                {
-                    match insert {
-                        Value::Any(Any::String(str)) => {
-                            let str = str.as_ref();
-                            if let Some(attr) = attributes {
-                                new_text.insert_with_attributes(
-                                    new_trx,
-                                    new_text.len(new_trx),
-                                    str,
-                                    *attr,
-                                )?;
-                            } else {
-                                new_text.insert(new_trx, new_text.len(new_trx), str)?;
-                            }
-                        }
-                        val => {
-                            warn!("unexpected embed type: {:?}", val);
-                        }
-                    }
-                }
+                self.clone_text(stack + 1, trx, text, new_trx, new_text)?;
             }
             Value::YMap(map) => {
                 let new_map = new_map.insert(new_trx, key, MapPrelim::<Any>::new())?;
-                for (key, value) in map.iter(orig_trx) {
-                    self.clone_value(key, orig_trx, value, new_trx, new_map)?;
+                for (key, value) in map.iter(trx) {
+                    self.clone_value(stack + 1, key, trx, value, new_trx, new_map.clone())?;
                 }
             }
             Value::YArray(array) => {
                 let new_array = new_map.insert(new_trx, key, ArrayPrelim::default())?;
-                for value in array.iter(orig_trx) {
-                    self.clone_value(&index.to_string(), orig_trx, value, new_trx, new_array)?;
-                }
+                self.clone_array(stack + 1, trx, array, new_trx, new_array)?;
             }
             val => {
                 warn!("unexpected prop type: {:?}", val);
@@ -154,21 +225,6 @@ impl Block {
 
         Ok(())
     }
-
-    // fn clone_map<T>(
-    //     &self,
-    //     orig_trx: &T,
-    //     orig_map: MapRef,
-    //     new_trx: &mut TransactionMut,
-    //     new_map: MapRef,
-    // ) -> JwstResult<()>
-    // where
-    //     T: ReadTxn,
-    // {
-    //     for key in block.keys(orig_trx) {
-
-    //     }
-    // }
 
     pub fn clone_block<T>(
         &self,
@@ -208,7 +264,7 @@ impl Block {
         {
             match self.block.get(orig_trx, key) {
                 Some(value) => {
-                    self.clone_value(key, orig_trx, value, new_trx, self.block.clone())?;
+                    self.clone_value(0, key, orig_trx, value, new_trx, block.clone())?;
                 }
                 None => {
                     warn!("failed to get key: {}", key);

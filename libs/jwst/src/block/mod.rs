@@ -10,8 +10,8 @@ use yrs::{
         text::{Diff, YChange},
         ToJson, Value,
     },
-    Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, Transact,
-    TransactionMut,
+    Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, TextRef,
+    Transact, TransactionMut,
 };
 
 #[derive(Debug, PartialEq, Clone)]
