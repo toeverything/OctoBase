@@ -1,4 +1,4 @@
-# How to development binding for OctoBase
+# How to develop binding for OctoBase
 
 ## Android Binding
 

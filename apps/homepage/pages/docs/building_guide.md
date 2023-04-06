@@ -1,4 +1,4 @@
-# How to development OctoBase server
+# How to develop OctoBase server
 
 Welcome to OctoBase, a local-first, yet collaborative database! This document will guide you through the steps of building and running OctoBase.
 
@@ -68,9 +68,7 @@ By default, `AFFiNE Cloud` only supports official login provider in AFFiNE. If y
 
 ### Note
 
-Be sure to understand the requirements of the libraries and frameworks used in `AFFiNE Cloud` and `Keck`.
-
-If you encounter any issues, check the official documentation or contact the developers for assistance.
+If you encounter any issues, welcome to contact the developers for assistance.
 
 ## Api Documentation
 
