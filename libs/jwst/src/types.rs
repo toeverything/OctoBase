@@ -5,6 +5,7 @@ use chrono::NaiveDateTime;
 use futures::Stream;
 use std::collections::HashMap;
 use thiserror::Error;
+use tokio_tungstenite::tungstenite;
 
 #[derive(Debug, Error)]
 pub enum JwstError {
@@ -32,6 +33,8 @@ pub enum JwstError {
     PageTreeNotFound(String),
     #[error("page item {0} not found")]
     PageItemNotFound(String),
+    #[error("websocket connect error")]
+    WebsocketConnectError(#[from] tungstenite::Error),
 }
 
 pub type JwstResult<T> = Result<T, JwstError>;

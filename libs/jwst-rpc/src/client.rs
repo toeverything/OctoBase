@@ -9,11 +9,7 @@ use tokio::{
     net::TcpStream,
     sync::broadcast::{channel, Receiver},
 };
-use tokio_tungstenite::{
-    connect_async,
-    tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
-    MaybeTlsStream, WebSocketStream,
-};
+use tokio_tungstenite::{connect_async, tungstenite::{client::IntoClientRequest, http::HeaderValue, Message}, MaybeTlsStream, WebSocketStream};
 use url::Url;
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
@@ -23,15 +19,13 @@ async fn prepare_connection(remote: &str) -> JwstResult<Socket> {
     let uri = Url::parse(remote).context("failed to parse remote url".to_string())?;
 
     let mut req = uri
-        .into_client_request()
-        .context("failed to create client request")?;
+        .into_client_request()?;
     req.headers_mut()
         .append("Sec-WebSocket-Protocol", HeaderValue::from_static("AFFiNE"));
 
     debug!("connect to remote: {}", req.uri());
     Ok(connect_async(req)
-        .await
-        .context("failed to init connect")?
+        .await?
         .0)
 }
 

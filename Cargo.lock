@@ -1974,6 +1974,7 @@ dependencies = [
  "tantivy",
  "thiserror",
  "tokio",
+ "tokio-tungstenite",
  "tracing",
  "type-map",
  "utoipa 2.4.2",
