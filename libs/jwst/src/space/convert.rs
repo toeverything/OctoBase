@@ -44,6 +44,7 @@ impl Space {
             .or_else(|_| Ok(self.metadata.insert(trx, "pages", ArrayPrelim::default())?))
     }
 
+    // TODO: clone from origin doc
     fn init_version(&self, trx: &mut TransactionMut) -> JwstResult<MapRef> {
         self.metadata
             .get(trx, "versions")

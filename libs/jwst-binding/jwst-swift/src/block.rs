@@ -84,13 +84,6 @@ impl Block {
         self.workspace.with_trx(|trx| self.block.flavour(&trx.trx))
     }
 
-    pub fn version(&self) -> String {
-        self.workspace.with_trx(|trx| {
-            let [major, minor] = self.block.version(&trx.trx);
-            format!("{major}.{minor}")
-        })
-    }
-
     pub fn created(&self) -> u64 {
         self.workspace.with_trx(|trx| self.block.created(&trx.trx))
     }

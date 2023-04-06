@@ -150,16 +150,6 @@ public final class Block {
     }
     private static native @NonNull String do_flavour(long self, long trx);
 
-    public final @NonNull String version(@NonNull WorkspaceTransaction trx) {
-        long a0 = trx.mNativeObj;
-        String ret = do_version(mNativeObj, a0);
-
-        JNIReachabilityFence.reachabilityFence1(trx);
-
-        return ret;
-    }
-    private static native @NonNull String do_version(long self, long trx);
-
     public final long created(@NonNull WorkspaceTransaction trx) {
         long a0 = trx.mNativeObj;
         long ret = do_created(mNativeObj, a0);
