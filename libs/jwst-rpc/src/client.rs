@@ -11,10 +11,11 @@ use tokio::{
 };
 use tokio_tungstenite::{connect_async, tungstenite::{client::IntoClientRequest, http::HeaderValue, Message}, MaybeTlsStream, WebSocketStream};
 use url::Url;
+use crate::types::JwstRPCResult;
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
-async fn prepare_connection(remote: &str) -> JwstResult<Socket> {
+async fn prepare_connection(remote: &str) -> JwstRPCResult<Socket> {
     debug!("generate remote config");
     let uri = Url::parse(remote).context("failed to parse remote url".to_string())?;
 
@@ -29,7 +30,7 @@ async fn prepare_connection(remote: &str) -> JwstResult<Socket> {
         .0)
 }
 
-async fn init_connection(workspace: &Workspace, remote: &str) -> JwstResult<Socket> {
+async fn init_connection(workspace: &Workspace, remote: &str) -> JwstRPCResult<Socket> {
     let mut socket = prepare_connection(remote).await?;
 
     debug!("create init message");
@@ -53,7 +54,7 @@ async fn join_sync_thread(
     workspace: &Workspace,
     socket: Socket,
     rx: &mut Receiver<Vec<u8>>,
-) -> JwstResult<bool> {
+) -> JwstRPCResult<bool> {
     let (mut socket_tx, mut socket_rx) = socket.split();
 
     let id = workspace.id();
@@ -127,7 +128,7 @@ async fn run_sync(
     workspace: &Workspace,
     remote: String,
     rx: &mut Receiver<Vec<u8>>,
-) -> JwstResult<bool> {
+) -> JwstRPCResult<bool> {
     let socket = init_connection(workspace, &remote).await?;
     join_sync_thread(first_sync, sync_state, workspace, socket, rx).await
 }

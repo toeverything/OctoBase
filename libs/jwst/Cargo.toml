@@ -33,9 +33,6 @@ tantivy = { version = "0.19.2", optional = true }
 tokio = { version = "1.26.0", features = ["sync"] }
 y-sync = "0.3.0"
 yrs = "0.16.5"
-tokio-tungstenite = { version = "0.18.0", features = [
-    "rustls-tls-webpki-roots",
-] }
 
 [dev-dependencies]
 assert-json-diff = "2.0.2"
