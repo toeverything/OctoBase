@@ -255,31 +255,3 @@ pub async fn get_collaborating_workspace(
     Ok(workspace)
 }
 
-#[cfg(test)]
-pub mod test {
-    use crate::client::{prepare_connection};
-    use crate::types::JwstRPCError::{BoxedError, UrlParseError, WebsocketConnectError};
-
-    #[tokio::test]
-    async fn sdklf() {
-        // let r = prepare_connection("https://example.net").await;
-        let r = prepare_connection("localhost").await;
-        if r.is_err() {
-            let error = r.err().unwrap();
-            match error {
-                WebsocketConnectError(e)=> {
-                    println!("WebsocketConnectError: {}", e);
-                },
-                BoxedError(e) => {
-                    println!("BoxedError: {:?}", e);
-                },
-                UrlParseError(e) => {
-                    println!("UrlParseError: {}", e);
-                },
-                _ => {
-                    println!("other error");
-                }
-            }
-        }
-    }
-}
