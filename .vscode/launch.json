@@ -17,7 +17,8 @@
 			},
 			"env": {
 				"DATABASE_URL": "postgresql://affine:affine@localhost:5432/affine",
-				"SIGN_KEY": "12345678"
+				"SIGN_KEY": "12345678",
+				"AFFINE_CLOUD_LOG": "debug,mio=off,hyper=off,rustls=off,tantivy=off,sqlx::query=off,jwst_rpc=trace,jwst_rpc::context=info,affine_cloud=trace"
 			},
 			"args": [],
 			"cwd": "${workspaceFolder}"

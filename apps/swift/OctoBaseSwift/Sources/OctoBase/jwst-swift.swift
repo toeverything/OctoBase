@@ -80,10 +80,6 @@ extension BlockRef {
         RustString(ptr: __swift_bridge__$Block$flavour(ptr))
     }
 
-    public func version() -> RustString {
-        RustString(ptr: __swift_bridge__$Block$version(ptr))
-    }
-
     public func created() -> UInt64 {
         __swift_bridge__$Block$created(ptr)
     }

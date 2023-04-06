@@ -10,8 +10,8 @@ use yrs::{
         text::{Diff, YChange},
         ToJson, Value,
     },
-    Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, Transact,
-    TransactionMut,
+    Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, TextRef,
+    Transact, TransactionMut,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -58,7 +58,6 @@ impl Block {
 
             // init default schema
             block.insert(trx, sys::FLAVOUR, flavour.as_ref())?;
-            block.insert(trx, sys::VERSION, ArrayPrelim::from([1, 0]))?;
             block.insert(
                 trx,
                 sys::CHILDREN,
@@ -220,26 +219,6 @@ impl Block {
             .get(trx, sys::FLAVOUR)
             .unwrap_or_default()
             .to_string(trx)
-    }
-
-    // block schema version
-    // for example: [1, 0]
-    pub fn version<T>(&self, trx: &T) -> [usize; 2]
-    where
-        T: ReadTxn,
-    {
-        self.block
-            .get(trx, sys::VERSION)
-            .and_then(|v| v.to_yarray())
-            .map(|v| {
-                v.iter(trx)
-                    .take(2)
-                    .filter_map(|s| s.to_string(trx).parse::<usize>().ok())
-                    .collect::<Vec<_>>()
-            })
-            .unwrap()
-            .try_into()
-            .unwrap()
     }
 
     pub fn created<T>(&self, trx: &T) -> u64
@@ -511,7 +490,6 @@ mod test {
             assert_eq!(block.space_id, "space");
             assert_eq!(block.block_id(), "test");
             assert_eq!(block.flavour(&t.trx), "affine:text");
-            assert_eq!(block.version(&t.trx), [1, 0]);
         });
 
         // get exist block
@@ -521,7 +499,6 @@ mod test {
             let block = space.get(&t.trx, "test").unwrap();
 
             assert_eq!(block.flavour(&t.trx), "affine:text");
-            assert_eq!(block.version(&t.trx), [1, 0]);
         });
     }
 

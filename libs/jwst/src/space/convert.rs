@@ -44,6 +44,7 @@ impl Space {
             .or_else(|_| Ok(self.metadata.insert(trx, "pages", ArrayPrelim::default())?))
     }
 
+    // TODO: clone from origin doc
     fn init_version(&self, trx: &mut TransactionMut) -> JwstResult<MapRef> {
         self.metadata
             .get(trx, "versions")
@@ -124,7 +125,7 @@ impl Space {
                     "subpageIds".into(),
                     Any::Array(Box::from(
                         page_item
-                            .get(trx, "createDate")
+                            .get(trx, "subpageIds")
                             .map(|c| c.to_json(trx))
                             .and_then(|v| match v {
                                 Any::Array(a) => Some(a.to_vec()),

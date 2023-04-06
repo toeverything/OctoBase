@@ -14,9 +14,6 @@ pub mod sys {
 
     /// `sys:parent`
     pub const PARENT: &str = "sys:parent";
-
-    /// `sys:version`
-    pub const VERSION: &str = "sys:version";
 }
 
 pub mod space {

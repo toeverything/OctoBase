@@ -1,5 +1,7 @@
 use super::*;
 
+const MAX_STACK: u8 = 10;
+
 impl Block {
     pub fn to_markdown<T>(&self, trx: &T, state: &mut MarkdownState) -> Option<String>
     where
@@ -94,6 +96,136 @@ impl Block {
         }
     }
 
+    fn clone_text<T>(
+        &self,
+        stack: u8,
+        trx: &T,
+        text: TextRef,
+        new_trx: &mut TransactionMut,
+        new_text: TextRef,
+    ) -> JwstResult<()>
+    where
+        T: ReadTxn,
+    {
+        if stack > MAX_STACK {
+            warn!("clone_text: stack overflow");
+            return Ok(());
+        }
+
+        for Diff {
+            insert, attributes, ..
+        } in text.diff(trx, YChange::identity)
+        {
+            match insert {
+                Value::Any(Any::String(str)) => {
+                    let str = str.as_ref();
+                    if let Some(attr) = attributes {
+                        new_text.insert_with_attributes(
+                            new_trx,
+                            new_text.len(new_trx),
+                            str,
+                            *attr,
+                        )?;
+                    } else {
+                        new_text.insert(new_trx, new_text.len(new_trx), str)?;
+                    }
+                }
+                val => {
+                    warn!("unexpected embed type: {:?}", val);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn clone_array<T>(
+        &self,
+        stack: u8,
+        trx: &T,
+        array: ArrayRef,
+        new_trx: &mut TransactionMut,
+        new_array: ArrayRef,
+    ) -> JwstResult<()>
+    where
+        T: ReadTxn,
+    {
+        if stack > MAX_STACK {
+            warn!("clone_array: stack overflow");
+            return Ok(());
+        }
+
+        for item in array.iter(trx) {
+            match item {
+                Value::Any(any) => {
+                    new_array.push_back(new_trx, any)?;
+                }
+                Value::YText(text) => {
+                    let new_text = new_array.push_back(new_trx, TextPrelim::new(""))?;
+                    self.clone_text(stack + 1, trx, text, new_trx, new_text)?;
+                }
+                Value::YMap(map) => {
+                    let new_map = new_array.push_back(new_trx, MapPrelim::<Any>::new())?;
+                    for (key, value) in map.iter(trx) {
+                        self.clone_value(stack + 1, key, trx, value, new_trx, new_map.clone())?;
+                    }
+                }
+                Value::YArray(array) => {
+                    let new_array = new_array.push_back(new_trx, ArrayPrelim::default())?;
+                    self.clone_array(stack + 1, trx, array, new_trx, new_array)?;
+                }
+                val => {
+                    warn!("unexpected prop type: {:?}", val);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn clone_value<T>(
+        &self,
+        stack: u8,
+        key: &str,
+        trx: &T,
+        value: Value,
+        new_trx: &mut TransactionMut,
+        new_map: MapRef,
+    ) -> JwstResult<()>
+    where
+        T: ReadTxn,
+    {
+        if stack > MAX_STACK {
+            warn!("clone_value: stack overflow");
+            return Ok(());
+        }
+
+        match value {
+            Value::Any(any) => {
+                new_map.insert(new_trx, key, any.clone())?;
+            }
+            Value::YText(text) => {
+                let new_text = new_map.insert(new_trx, key, TextPrelim::new(""))?;
+                self.clone_text(stack + 1, trx, text, new_trx, new_text)?;
+            }
+            Value::YMap(map) => {
+                let new_map = new_map.insert(new_trx, key, MapPrelim::<Any>::new())?;
+                for (key, value) in map.iter(trx) {
+                    self.clone_value(stack + 1, key, trx, value, new_trx, new_map.clone())?;
+                }
+            }
+            Value::YArray(array) => {
+                let new_array = new_map.insert(new_trx, key, ArrayPrelim::default())?;
+                self.clone_array(stack + 1, trx, array, new_trx, new_array)?;
+            }
+            val => {
+                warn!("unexpected prop type: {:?}", val);
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn clone_block<T>(
         &self,
         orig_trx: &T,
@@ -109,13 +241,12 @@ impl Block {
         // init default schema
         block.insert(new_trx, sys::ID, self.block_id.as_ref())?;
         block.insert(new_trx, sys::FLAVOUR, self.flavour(orig_trx).as_ref())?;
-        block.insert(new_trx, sys::VERSION, ArrayPrelim::from([1, 0]))?;
         let children = block.insert(
             new_trx,
             sys::CHILDREN,
             ArrayPrelim::<Vec<String>, String>::from(vec![]),
         )?;
-        block.insert(new_trx, sys::CREATED, self.created(orig_trx) as f64)?;
+        // block.insert(new_trx, sys::CREATED, self.created(orig_trx) as f64)?;
 
         // clone children
         for block_id in self.children(orig_trx) {
@@ -125,42 +256,15 @@ impl Block {
         }
 
         // clone props
-        for key in self.block.keys(orig_trx).filter(|k| k.starts_with("prop:")) {
+        for key in self
+            .block
+            .keys(orig_trx)
+            .filter(|k| k.starts_with("prop:") || k.starts_with("ext:"))
+        {
             match self.block.get(orig_trx, key) {
-                Some(value) => match value {
-                    Value::Any(any) => {
-                        block.insert(new_trx, key, any)?;
-                    }
-                    Value::YText(text) => {
-                        let new_text = block.insert(new_trx, key, TextPrelim::new(""))?;
-                        for Diff {
-                            insert, attributes, ..
-                        } in text.diff(orig_trx, YChange::identity)
-                        {
-                            match insert {
-                                Value::Any(Any::String(str)) => {
-                                    let str = str.as_ref();
-                                    if let Some(attr) = attributes {
-                                        new_text.insert_with_attributes(
-                                            new_trx,
-                                            new_text.len(new_trx),
-                                            str,
-                                            *attr,
-                                        )?;
-                                    } else {
-                                        new_text.insert(new_trx, new_text.len(new_trx), str)?;
-                                    }
-                                }
-                                val => {
-                                    warn!("unexpected embed type: {:?}", val);
-                                }
-                            }
-                        }
-                    }
-                    val => {
-                        warn!("unexpected prop type: {:?}", val);
-                    }
-                },
+                Some(value) => {
+                    self.clone_value(0, key, orig_trx, value, new_trx, block.clone())?;
+                }
                 None => {
                     warn!("failed to get key: {}", key);
                 }
@@ -168,5 +272,41 @@ impl Block {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use yrs::{updates::decoder::Decode, Update};
+
+    #[test]
+    fn test_multiple_layer_space_clone() {
+        let doc1 = Doc::new();
+        doc1.transact_mut()
+            .apply_update(Update::decode_v1(include_bytes!("test_multi_layer.bin")).unwrap());
+
+        let ws1 = Workspace::from_doc(doc1, "test");
+
+        let new_update = ws1.with_trx(|t| {
+            let space = t.get_exists_space("page0").unwrap();
+            space.to_single_page(&t.trx).unwrap()
+        });
+
+        let doc2 = Doc::new();
+        doc2.transact_mut()
+            .apply_update(Update::decode_v1(&new_update).unwrap());
+
+        let doc1 = ws1.doc();
+        let doc1_trx = doc1.transact();
+        let doc2_trx = doc2.transact();
+        assert_json_diff::assert_json_eq!(
+            doc1_trx.get_map("space:meta").unwrap().to_json(&doc1_trx),
+            doc2_trx.get_map("space:meta").unwrap().to_json(&doc2_trx)
+        );
+        assert_json_diff::assert_json_eq!(
+            doc1_trx.get_map("space:page0").unwrap().to_json(&doc1_trx),
+            doc2_trx.get_map("space:page0").unwrap().to_json(&doc2_trx)
+        );
     }
 }

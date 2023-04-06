@@ -93,7 +93,6 @@ foreign_class!(
 		fn Block::get_integer(& self , trx : & WorkspaceTransaction , key : String)->Option<i64>; alias getInteger;
 		fn Block::id(& self)->String; alias id;
 		fn Block::flavour(& self , trx : & WorkspaceTransaction)->String; alias flavour;
-		fn Block::version(& self , trx : & WorkspaceTransaction)->String; alias version;
 		fn Block::created(& self , trx : & WorkspaceTransaction)->u64; alias created;
 		fn Block::updated(& self , trx : & WorkspaceTransaction)->u64; alias updated;
 		fn Block::parent(& self , trx : & WorkspaceTransaction)->Option<String>; alias parent;

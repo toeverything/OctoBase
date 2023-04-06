@@ -560,14 +560,12 @@ mod test {
                     "block1": {
                         "sys:children": [],
                         "sys:flavour": "text",
-                        "sys:version": [1.0, 0.0],
                     }
                 },
                 "space:space2": {
                     "block2": {
                         "sys:children": [],
                         "sys:flavour": "text",
-                        "sys:version": [1.0, 0.0],
                     }
                 },
                 "space:updated": {

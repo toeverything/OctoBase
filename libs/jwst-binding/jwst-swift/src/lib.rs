@@ -40,8 +40,6 @@ mod ffi {
 
         pub fn flavour(self: &Block) -> String;
 
-        pub fn version(self: &Block) -> String;
-
         pub fn created(self: &Block) -> u64;
 
         pub fn set_bool(self: &Block, key: String, value: bool);

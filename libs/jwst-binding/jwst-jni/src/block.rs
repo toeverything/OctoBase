@@ -128,12 +128,6 @@ impl Block {
     }
 
     #[generate_interface]
-    pub fn version(&self, trx: &WorkspaceTransaction) -> String {
-        let [major, minor] = self.0.version(&trx.0.trx);
-        format!("{major}.{minor}")
-    }
-
-    #[generate_interface]
     pub fn created(&self, trx: &WorkspaceTransaction) -> u64 {
         self.0.created(&trx.0.trx)
     }
