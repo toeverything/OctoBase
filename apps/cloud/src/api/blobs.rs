@@ -1,4 +1,6 @@
-use crate::{context::Context, error_status::ErrorStatus};
+use crate::{
+    context::Context, error_status::ErrorStatus, infrastructure::auth::get_claim_from_headers,
+};
 use axum::{
     extract::{BodyStream, Path},
     headers::ContentLength,
@@ -206,21 +208,29 @@ impl Context {
 #[instrument(skip(ctx, method, headers))]
 pub async fn get_blob_in_workspace(
     Extension(ctx): Extension<Arc<Context>>,
-    // Extension(claims): Extension<Arc<Claims>>,
     Path((workspace_id, id)): Path<(String, String)>,
     method: Method,
     headers: HeaderMap,
 ) -> Response {
     info!("get_blob_in_workspace enter");
-    // match ctx
-    //     .db
-    //     .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
-    //     .await
-    // {
-    //     Ok(true) => (),
-    //     Ok(false) => return ErrorStatus::Forbidden.into_response(),
-    //     Err(_) => return ErrorStatus::InternalServerError.into_response(),
-    // }
+    match ctx.db.is_public_workspace(workspace_id.clone()).await {
+        Ok(true) => (),
+        Ok(false) => match get_claim_from_headers(&headers, &ctx.key.jwt_decode) {
+            Some(claims) => {
+                match ctx
+                    .db
+                    .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
+                    .await
+                {
+                    Ok(true) => (),
+                    Ok(false) => return ErrorStatus::Forbidden.into_response(),
+                    Err(_) => return ErrorStatus::InternalServerError.into_response(),
+                }
+            }
+            None => return ErrorStatus::Forbidden.into_response(),
+        },
+        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+    }
 
     ctx.get_blob(Some(workspace_id), id, method, headers).await
 }
@@ -491,15 +501,31 @@ mod test {
             workspace_id.clone(),
             blob_name.clone()
         );
-        let resp = client.get(&url).send().await;
+        let resp = client
+            .get(&url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
         assert_eq!(resp.status(), StatusCode::OK);
         let mock_url = format!("/workspace/{}/blob/mock_id", workspace_id.clone());
-        let resp = client.get(&mock_url).send().await;
+        let resp = client
+            .get(&mock_url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         let mock_url = format!("/workspace/mock_id/blob/{}", blob_name.clone());
-        let resp = client.get(&mock_url).send().await;
-        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
-        let resp = client.get("/workspace/mock_id/blob/mock_id").send().await;
-        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        let resp = client
+            .get(&mock_url)
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        let resp = client
+            .get("/workspace/mock_id/blob/mock_id")
+            .header("authorization", format!("{}", access_token.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
     }
 }

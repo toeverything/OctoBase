@@ -195,19 +195,24 @@ pub async fn make_token(
             }
         }
         MakeToken::Google { token } => {
-            if let Ok(claims) = ctx
+            match ctx
                 .firebase
                 .lock()
                 .await
                 .decode_google_token(token, ctx.config.refresh_token_expires_in)
                 .await
             {
-                match ctx.db.firebase_user_login(&claims).await {
+                Ok(claims) => match ctx.db.firebase_user_login(&claims).await {
                     Ok(user) => (Ok(Some(user)), None),
-                    Err(_) => return ErrorStatus::InternalServerError.into_response(),
+                    Err(e) => {
+                        error!("failed to auth: {:?}", e,);
+                        return ErrorStatus::InternalServerError.into_response();
+                    }
+                },
+                Err(e) => {
+                    error!("failed to check token: {:?}", e);
+                    return ErrorStatus::Unauthorized.into_response();
                 }
-            } else {
-                (Ok(None), None)
             }
         }
         MakeToken::Refresh { token } => {

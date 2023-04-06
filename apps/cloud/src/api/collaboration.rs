@@ -1,10 +1,11 @@
+use crate::infrastructure::auth::get_claim_from_token;
+
 use super::*;
 use axum::{
     extract::{ws::WebSocketUpgrade, Path},
     http::StatusCode,
     response::Response,
 };
-use jsonwebtoken::{decode, Validation};
 use jwst_rpc::{handle_connector, socket_connector};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -30,11 +31,10 @@ async fn ws_handler(
     Query(Param { token }): Query<Param>,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let key = ctx.key.jwt_decode.clone();
-    let user = decode::<Claims>(&token, &key, &Validation::default())
-        .map(|d| d.claims)
-        .ok()
-        .map(|claims| claims.user.id);
+    let user = match get_claim_from_token(&token, &ctx.key.jwt_decode) {
+        Some(claims) => Some(claims.user.id),
+        None => None,
+    };
 
     let Some(user_id) = user else {
         return StatusCode::UNAUTHORIZED.into_response();

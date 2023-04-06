@@ -1,3 +1,5 @@
+use crate::infrastructure::auth::get_claim_from_token;
+
 use super::*;
 use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
@@ -5,7 +7,6 @@ use axum::{
 };
 use cloud_database::{WorkspaceDetail, WorkspaceWithPermission};
 use futures::{sink::SinkExt, stream::StreamExt};
-use jsonwebtoken::{decode, Validation};
 use jwst_logger::error;
 use nanoid::nanoid;
 use serde::Deserialize;
@@ -163,10 +164,9 @@ pub async fn global_ws_handler(
     Query(Param { token }): Query<Param>,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let key = context.key.jwt_decode.clone();
-    let user = match decode::<Claims>(&token, &key, &Validation::default()).map(|d| d.claims) {
-        Ok(claims) => Some(claims.user.id),
-        Err(_) => None,
+    let user = match get_claim_from_token(&token, &context.key.jwt_decode) {
+        Some(claims) => Some(claims.user.id),
+        None => None,
     };
 
     ws.protocols(["AFFiNE"])
