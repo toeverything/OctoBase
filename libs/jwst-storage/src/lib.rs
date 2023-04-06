@@ -1,6 +1,7 @@
 mod entities;
 mod rate_limiter;
 mod storage;
+mod types;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -14,10 +15,11 @@ use sea_orm::{prelude::*, ConnectOptions, Database, DbErr, QuerySelect, Set};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 pub use storage::JwstStorage;
+use crate::types::JwstStorageResult;
 
 #[inline]
-async fn create_connection(database: &str, single_thread: bool) -> JwstResult<DatabaseConnection> {
-    Ok(Database::connect(
+async fn create_connection(database: &str, single_thread: bool) -> JwstStorageResult<DatabaseConnection> {
+    let connection = Database::connect(
         ConnectOptions::from(database)
             .max_connections(if single_thread { 1 } else { 50 })
             .min_connections(if single_thread { 1 } else { 10 })
@@ -26,7 +28,7 @@ async fn create_connection(database: &str, single_thread: bool) -> JwstResult<Da
             .idle_timeout(Duration::from_secs(5))
             .max_lifetime(Duration::from_secs(30))
             .to_owned(),
-    )
-    .await
-    .context("Failed to connect to database")?)
+    ).await?;
+
+    Ok(connection)
 }

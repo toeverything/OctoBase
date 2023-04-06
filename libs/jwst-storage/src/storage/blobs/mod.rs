@@ -39,13 +39,13 @@ pub struct BlobAutoStorage {
 }
 
 impl BlobAutoStorage {
-    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstResult<Self> {
+    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstStorageResult<Self> {
         let db = Arc::new(BlobDBStorage::init_with_pool(pool, bucket).await?);
         let pool = db.pool.clone();
         Ok(Self { db, pool })
     }
 
-    pub async fn init_pool(database: &str) -> JwstResult<Self> {
+    pub async fn init_pool(database: &str) -> JwstStorageResult<Self> {
         let db = Arc::new(BlobDBStorage::init_pool(database).await?);
         let pool = db.pool.clone();
         Ok(Self { db, pool })
@@ -223,7 +223,8 @@ impl BlobStorage for BlobAutoStorage {
         let blob = self
             .get_auto(workspace, id, params)
             .await
-            .context("failed to get blob")?;
+            .context("failed to get blob")
+            .map_err(JwstError::StorageError)?;
         Ok(blob)
     }
 
@@ -236,7 +237,8 @@ impl BlobStorage for BlobAutoStorage {
         let metadata = self
             .get_metadata_auto(workspace, id, params)
             .await
-            .context("failed to get blob metadata")?;
+            .context("failed to get blob metadata")
+            .map_err(JwstError::StorageError)?;
         Ok(metadata)
     }
 
@@ -259,7 +261,8 @@ impl BlobStorage for BlobAutoStorage {
             let workspace_id = workspace_id.unwrap_or("__default__".into());
             self.delete(&workspace_id, &id)
                 .await
-                .context("failed to delete optimized blob")?;
+                .context("failed to delete optimized blob")
+                .map_err(JwstError::StorageError)?;
         }
         Ok(success)
     }
@@ -271,7 +274,8 @@ impl BlobStorage for BlobAutoStorage {
         // delete optimized blobs
         self.drop(&workspace_id)
             .await
-            .context("failed to delete optimized blob")?;
+            .context("failed to delete optimized blob")
+            .map_err(JwstError::StorageError)?;
 
         Ok(())
     }
@@ -281,7 +285,8 @@ impl BlobStorage for BlobAutoStorage {
             .db
             .get_blobs_size(&workspace_id)
             .await
-            .context("failed to get blobs size")?;
+            .context("failed to get blobs size")
+            .map_err(JwstError::StorageError)?;
 
         return Ok(size.unwrap_or(0));
     }

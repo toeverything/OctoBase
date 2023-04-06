@@ -1,5 +1,6 @@
 use super::{utils::get_hash, *};
 use jwst_storage_migration::{Migrator, MigratorTrait};
+use crate::types::{JwstStorageResult};
 
 pub(super) type BlobModel = <Blobs as EntityTrait>::Model;
 type BlobActiveModel = super::entities::blobs::ActiveModel;
@@ -12,14 +13,13 @@ pub struct BlobDBStorage {
 }
 
 impl BlobDBStorage {
-    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstResult<Self> {
+    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstStorageResult<Self> {
         Migrator::up(&pool, None)
-            .await
-            .context("failed to run migration")?;
+            .await?;
         Ok(Self { bucket, pool })
     }
 
-    pub async fn init_pool(database: &str) -> JwstResult<Self> {
+    pub async fn init_pool(database: &str) -> JwstStorageResult<Self> {
         let is_sqlite = is_sqlite(database);
         let pool = create_connection(database, is_sqlite).await?;
 
@@ -200,7 +200,8 @@ impl BlobStorage for BlobDBStorage {
         let size = self
             .get_blobs_size(&workspace_id)
             .await
-            .context("Failed to get blobs size")?;
+            .context("Failed to get blobs size")
+            .map_err(JwstError::StorageError)?;
         return Ok(size.unwrap_or(0));
     }
 }

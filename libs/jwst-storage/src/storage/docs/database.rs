@@ -3,6 +3,7 @@ use jwst::{sync_encode_update, DocStorage, Workspace};
 use jwst_storage_migration::{Migrator, MigratorTrait};
 use std::collections::hash_map::Entry;
 use yrs::{Doc, ReadTxn, StateVector, Transact};
+use crate::types::JwstStorageResult;
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
 
@@ -18,10 +19,9 @@ pub struct DocDBStorage {
 }
 
 impl DocDBStorage {
-    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstResult<Self> {
+    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstStorageResult<Self> {
         Migrator::up(&pool, None)
-            .await
-            .context("failed to run migration")?;
+            .await?;
 
         Ok(Self {
             bucket,
@@ -31,7 +31,7 @@ impl DocDBStorage {
         })
     }
 
-    pub async fn init_pool(database: &str) -> JwstResult<Self> {
+    pub async fn init_pool(database: &str) -> JwstStorageResult<Self> {
         let is_sqlite = is_sqlite(database);
         let pool = create_connection(database, is_sqlite).await?;
 
@@ -42,7 +42,7 @@ impl DocDBStorage {
         &self.remote
     }
 
-    async fn all<C>(conn: &C, workspace: &str) -> JwstResult<Vec<DocsModel>>
+    async fn all<C>(conn: &C, workspace: &str) -> JwstStorageResult<Vec<DocsModel>>
     where
         C: ConnectionTrait,
     {
@@ -50,13 +50,12 @@ impl DocDBStorage {
         let models = Docs::find()
             .filter(DocsColumn::Workspace.eq(workspace))
             .all(conn)
-            .await
-            .context("failed to scan all updates")?;
+            .await?;
         trace!("end scan all: {workspace}, {}", models.len());
         Ok(models)
     }
 
-    async fn count<C>(conn: &C, workspace: &str) -> JwstResult<u64>
+    async fn count<C>(conn: &C, workspace: &str) -> JwstStorageResult<u64>
     where
         C: ConnectionTrait,
     {
@@ -64,13 +63,12 @@ impl DocDBStorage {
         let count = Docs::find()
             .filter(DocsColumn::Workspace.eq(workspace))
             .count(conn)
-            .await
-            .context("failed to count update")?;
+            .await?;
         trace!("end count: {workspace}, {count}");
         Ok(count)
     }
 
-    async fn insert<C>(conn: &C, workspace: &str, blob: &[u8]) -> JwstResult<()>
+    async fn insert<C>(conn: &C, workspace: &str, blob: &[u8]) -> JwstStorageResult<()>
     where
         C: ConnectionTrait,
     {
@@ -82,13 +80,12 @@ impl DocDBStorage {
             ..Default::default()
         })
         .exec(conn)
-        .await
-        .context("failed to insert update")?;
+        .await?;
         trace!("end insert: {workspace}");
         Ok(())
     }
 
-    async fn replace_with<C>(conn: &C, workspace: &str, blob: Vec<u8>) -> JwstResult<()>
+    async fn replace_with<C>(conn: &C, workspace: &str, blob: Vec<u8>) -> JwstStorageResult<()>
     where
         C: ConnectionTrait,
     {
@@ -96,8 +93,7 @@ impl DocDBStorage {
         Docs::delete_many()
             .filter(DocsColumn::Workspace.eq(workspace))
             .exec(conn)
-            .await
-            .context("failed to delete old updates")?;
+            .await?;
         Docs::insert(DocsActiveModel {
             workspace: Set(workspace.into()),
             timestamp: Set(Utc::now().into()),
@@ -105,13 +101,12 @@ impl DocDBStorage {
             ..Default::default()
         })
         .exec(conn)
-        .await
-        .context("failed to insert new updates")?;
+        .await?;
         trace!("end replace: {workspace}");
         Ok(())
     }
 
-    async fn delete<C>(conn: &C, workspace: &str) -> JwstResult<()>
+    async fn delete<C>(conn: &C, workspace: &str) -> JwstStorageResult<()>
     where
         C: ConnectionTrait,
     {
@@ -119,13 +114,12 @@ impl DocDBStorage {
         Docs::delete_many()
             .filter(DocsColumn::Workspace.eq(workspace))
             .exec(conn)
-            .await
-            .context("failed to delete updates")?;
+            .await?;
         trace!("end drop: {workspace}");
         Ok(())
     }
 
-    async fn update<C>(&self, conn: &C, workspace: &str, blob: Vec<u8>) -> JwstResult<()>
+    async fn update<C>(&self, conn: &C, workspace: &str, blob: Vec<u8>) -> JwstStorageResult<()>
     where
         C: ConnectionTrait,
     {
@@ -136,8 +130,7 @@ impl DocDBStorage {
             let doc_records = Self::all(conn, workspace).await?;
 
             let data = tokio::task::spawn_blocking(move || utils::merge_doc_records(doc_records))
-                .await
-                .context("failed to merge update")??;
+                .await??;
 
             Self::replace_with(conn, workspace, data).await?;
         } else {
@@ -159,7 +152,7 @@ impl DocDBStorage {
         Ok(())
     }
 
-    async fn full_migrate<C>(&self, conn: &C, workspace: &str, blob: Vec<u8>) -> JwstResult<()>
+    async fn full_migrate<C>(&self, conn: &C, workspace: &str, blob: Vec<u8>) -> JwstStorageResult<()>
     where
         C: ConnectionTrait,
     {
@@ -173,7 +166,7 @@ impl DocDBStorage {
         Ok(())
     }
 
-    async fn create_doc<C>(conn: &C, workspace: &str) -> JwstResult<Doc>
+    async fn create_doc<C>(conn: &C, workspace: &str) -> JwstStorageResult<Doc>
     where
         C: ConnectionTrait,
     {
@@ -241,7 +234,7 @@ impl DocStorage for DocDBStorage {
 
         self.full_migrate(&self.pool, &workspace_id, data)
             .await
-            .context("Failed to store workspace")
+            .context("failed to store workspace")
             .map_err(JwstError::StorageError)?;
 
         debug_assert_eq!(Self::count(&self.pool, &workspace_id).await?, 1u64);
