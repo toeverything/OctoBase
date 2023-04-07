@@ -3,8 +3,8 @@ use super::{
     *,
 };
 use async_trait::async_trait;
-use jwst::{DocStorage, JwstResult, Workspace};
-use jwst_storage::JwstStorage;
+use jwst::{DocStorage, Workspace};
+use jwst_storage::{JwstStorage, JwstStorageResult};
 use std::ops::Deref;
 use tokio::sync::{
     broadcast::{channel as broadcast, Receiver as BroadcastReceiver, Sender as BroadcastSender},
@@ -37,7 +37,7 @@ pub trait RpcContextImpl<'a> {
     fn get_storage(&self) -> &JwstStorage;
     fn get_channel(&self) -> &BroadcastChannels;
 
-    async fn get_workspace(&self, id: &str) -> JwstResult<Workspace> {
+    async fn get_workspace(&self, id: &str) -> JwstStorageResult<Workspace> {
         self.get_storage().create_workspace(id).await
     }
 

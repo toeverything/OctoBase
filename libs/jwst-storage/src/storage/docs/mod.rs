@@ -15,13 +15,16 @@ pub(super) use database::{docs_storage_partial_test, docs_storage_test};
 pub struct SharedDocDBStorage(pub(super) Arc<DocDBStorage>);
 
 impl SharedDocDBStorage {
-    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstResult<Self> {
+    pub async fn init_with_pool(
+        pool: DatabaseConnection,
+        bucket: Arc<Bucket>,
+    ) -> JwstStorageResult<Self> {
         Ok(Self(Arc::new(
             DocDBStorage::init_with_pool(pool, bucket).await?,
         )))
     }
 
-    pub async fn init_pool(database: &str) -> JwstResult<Self> {
+    pub async fn init_pool(database: &str) -> JwstStorageResult<Self> {
         Ok(Self(Arc::new(DocDBStorage::init_pool(database).await?)))
     }
 
@@ -31,24 +34,24 @@ impl SharedDocDBStorage {
 }
 
 #[async_trait]
-impl DocStorage for SharedDocDBStorage {
-    async fn exists(&self, id: String) -> JwstResult<bool> {
+impl DocStorage<JwstStorageError> for SharedDocDBStorage {
+    async fn exists(&self, id: String) -> JwstStorageResult<bool> {
         self.0.exists(id).await
     }
 
-    async fn get(&self, id: String) -> JwstResult<Workspace> {
+    async fn get(&self, id: String) -> JwstStorageResult<Workspace> {
         self.0.get(id).await
     }
 
-    async fn write_full_update(&self, id: String, data: Vec<u8>) -> JwstResult<()> {
+    async fn write_full_update(&self, id: String, data: Vec<u8>) -> JwstStorageResult<()> {
         self.0.write_full_update(id, data).await
     }
 
-    async fn write_update(&self, id: String, data: &[u8]) -> JwstResult<()> {
+    async fn write_update(&self, id: String, data: &[u8]) -> JwstStorageResult<()> {
         self.0.write_update(id, data).await
     }
 
-    async fn delete(&self, id: String) -> JwstResult<()> {
+    async fn delete(&self, id: String) -> JwstStorageResult<()> {
         self.0.delete(id).await
     }
 }
@@ -56,12 +59,12 @@ impl DocStorage for SharedDocDBStorage {
 #[cfg(test)]
 mod test {
     use super::{error, info, DocStorage, SharedDocDBStorage};
-    use jwst::JwstError;
+    use crate::{JwstStorageError, JwstStorageResult};
     use rand::random;
     use std::collections::HashSet;
     use tokio::task::JoinSet;
 
-    async fn create_workspace_stress_test(storage: SharedDocDBStorage) -> anyhow::Result<()> {
+    async fn create_workspace_stress_test(storage: SharedDocDBStorage) -> JwstStorageResult<()> {
         let mut join_set = JoinSet::new();
         let mut set = HashSet::new();
 
@@ -75,13 +78,13 @@ mod test {
                 let workspace = storage.get(id.clone()).await?;
                 info!("create workspace finish: {}", id);
                 assert_eq!(workspace.id(), id);
-                Ok::<_, JwstError>(())
+                Ok::<_, JwstStorageError>(())
             });
         }
 
         let mut a = 0;
         while let Some(ret) = join_set.join_next().await {
-            if let Err(e) = ret? {
+            if let Err(e) = ret.map_err(JwstStorageError::DocMerge)? {
                 error!("failed to execute creator: {e}");
             }
             a += 1;
@@ -96,12 +99,12 @@ mod test {
                 info!("get workspace: {}", id);
                 let workspace = storage.get(id.clone()).await?;
                 assert_eq!(workspace.id(), id);
-                Ok::<_, JwstError>(())
+                Ok::<_, JwstStorageError>(())
             });
         }
 
         while let Some(ret) = join_set.join_next().await {
-            if let Err(e) = ret? {
+            if let Err(e) = ret.map_err(JwstStorageError::DocMerge)? {
                 error!("failed to execute: {e}");
             }
         }

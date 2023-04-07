@@ -1,54 +1,46 @@
 use super::*;
-use anyhow::Context;
 use futures::{SinkExt, StreamExt};
-use jwst::{DocStorage, JwstResult, Workspace};
-use jwst_storage::JwstStorage;
+use jwst::{DocStorage, Workspace};
+use jwst_storage::{JwstStorage, JwstStorageResult};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::RwLock;
 use tokio::{
     net::TcpStream,
     sync::broadcast::{channel, Receiver},
 };
-use tokio_tungstenite::{
-    connect_async,
-    tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
-    MaybeTlsStream, WebSocketStream,
-};
+use tokio_tungstenite::{connect_async, tungstenite::{client::IntoClientRequest, http::HeaderValue, Message}, MaybeTlsStream, WebSocketStream};
 use url::Url;
+use crate::types::JwstRPCResult;
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
-async fn prepare_connection(remote: &str) -> JwstResult<Socket> {
+async fn prepare_connection(remote: &str) -> JwstRPCResult<Socket> {
     debug!("generate remote config");
-    let uri = Url::parse(remote).context("failed to parse remote url".to_string())?;
+    let uri = Url::parse(remote)?;
 
     let mut req = uri
-        .into_client_request()
-        .context("failed to create client request")?;
+        .into_client_request()?;
     req.headers_mut()
         .append("Sec-WebSocket-Protocol", HeaderValue::from_static("AFFiNE"));
 
     debug!("connect to remote: {}", req.uri());
     Ok(connect_async(req)
-        .await
-        .context("failed to init connect")?
+        .await?
         .0)
 }
 
-async fn init_connection(workspace: &Workspace, remote: &str) -> JwstResult<Socket> {
+async fn init_connection(workspace: &Workspace, remote: &str) -> JwstRPCResult<Socket> {
     let mut socket = prepare_connection(remote).await?;
 
     debug!("create init message");
     let init_data = workspace
         .sync_init_message()
-        .await
-        .context("failed to create init message")?;
+        .await?;
 
     debug!("send init message");
     socket
         .send(Message::Binary(init_data))
-        .await
-        .context("failed to send init message")?;
+        .await?;
 
     Ok(socket)
 }
@@ -59,7 +51,7 @@ async fn join_sync_thread(
     workspace: &Workspace,
     socket: Socket,
     rx: &mut Receiver<Vec<u8>>,
-) -> JwstResult<bool> {
+) -> JwstRPCResult<bool> {
     let (mut socket_tx, mut socket_rx) = socket.split();
 
     let id = workspace.id();
@@ -133,7 +125,7 @@ async fn run_sync(
     workspace: &Workspace,
     remote: String,
     rx: &mut Receiver<Vec<u8>>,
-) -> JwstResult<bool> {
+) -> JwstRPCResult<bool> {
     let socket = init_connection(workspace, &remote).await?;
     join_sync_thread(first_sync, sync_state, workspace, socket, rx).await
 }
@@ -224,7 +216,7 @@ pub fn start_sync_thread(
 pub async fn get_workspace(
     storage: &JwstStorage,
     id: String,
-) -> JwstResult<(Workspace, Receiver<Vec<u8>>)> {
+) -> JwstStorageResult<(Workspace, Receiver<Vec<u8>>)> {
     let workspace = storage.docs().get(id.clone()).await?;
     // get the receiver corresponding to DocAutoStorage, the sender is used in the doc::write_update() method.
     let rx = match storage.docs().remote().write().await.entry(id.clone()) {
@@ -238,12 +230,11 @@ pub async fn get_workspace(
 
     Ok((workspace, rx))
 }
-
 pub async fn get_collaborating_workspace(
     storage: &JwstStorage,
     id: String,
     remote: String,
-) -> JwstResult<Workspace> {
+) -> JwstStorageResult<Workspace> {
     let workspace = storage.docs().get(id.clone()).await?;
 
     if !remote.is_empty() {
@@ -262,3 +253,4 @@ pub async fn get_collaborating_workspace(
 
     Ok(workspace)
 }
+

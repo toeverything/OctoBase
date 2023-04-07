@@ -4,6 +4,7 @@ mod connector;
 mod context;
 mod handler;
 mod utils;
+mod types;
 
 pub use broadcast::{BroadcastChannels, BroadcastType};
 pub use client::{get_collaborating_workspace, get_workspace, start_sync_thread};

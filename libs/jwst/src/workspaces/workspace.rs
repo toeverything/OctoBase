@@ -11,7 +11,7 @@ use std::{
 use tokio::sync::RwLock;
 use y_sync::{
     awareness::{Awareness, Event, Subscription as AwarenessSubscription},
-    sync::{Error, Message, MessageReader, SyncMessage},
+    sync::{Message, MessageReader, SyncMessage},
 };
 use yrs::{
     types::{map::MapEvent, ToJson},
@@ -281,7 +281,7 @@ impl Workspace {
         Ok(trx.encode_state_as_update_v1(&StateVector::default())?)
     }
 
-    pub async fn sync_init_message(&self) -> Result<Vec<u8>, Error> {
+    pub async fn sync_init_message(&self) -> JwstResult<Vec<u8>> {
         let mut encoder = EncoderV1::new();
         let (sv, update) = {
             let mut retry = 50;
@@ -292,7 +292,7 @@ impl Workspace {
                     retry -= 1;
                     tokio::time::sleep(Duration::from_micros(10)).await;
                 } else {
-                    return Err(Error::Other("failed to get state vector".into()));
+                    return Err(JwstError::SyncInitTransaction);
                 }
             };
             let sv = trx.state_vector();

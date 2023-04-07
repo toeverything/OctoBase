@@ -202,7 +202,7 @@ impl Block {
 
         match value {
             Value::Any(any) => {
-                new_map.insert(new_trx, key, any.clone())?;
+                new_map.insert(new_trx, key, any)?;
             }
             Value::YText(text) => {
                 let new_text = new_map.insert(new_trx, key, TextPrelim::new(""))?;

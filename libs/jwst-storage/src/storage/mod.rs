@@ -1,8 +1,9 @@
-mod blobs;
+pub(crate) mod blobs;
 mod docs;
 mod test;
 
 use super::*;
+use crate::types::JwstStorageError;
 use blobs::BlobAutoStorage;
 use docs::SharedDocDBStorage;
 use std::{collections::HashMap, time::Instant};
@@ -16,7 +17,7 @@ pub struct JwstStorage {
 }
 
 impl JwstStorage {
-    pub async fn new(database: &str) -> JwstResult<Self> {
+    pub async fn new(database: &str) -> JwstStorageResult<Self> {
         let is_sqlite = is_sqlite(database);
         let pool = create_connection(database, is_sqlite).await?;
         let bucket = get_bucket(is_sqlite);
@@ -27,12 +28,8 @@ impl JwstStorage {
                 .unwrap();
         }
 
-        let blobs = BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone())
-            .await
-            .context("Failed to init blobs")?;
-        let docs = SharedDocDBStorage::init_with_pool(pool.clone(), bucket.clone())
-            .await
-            .context("Failed to init docs")?;
+        let blobs = BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone()).await?;
+        let docs = SharedDocDBStorage::init_with_pool(pool.clone(), bucket.clone()).await?;
 
         Ok(Self {
             pool,
@@ -42,12 +39,12 @@ impl JwstStorage {
         })
     }
 
-    pub async fn new_with_sqlite(file: &str) -> JwstResult<Self> {
+    pub async fn new_with_sqlite(file: &str) -> JwstStorageResult<Self> {
         use std::fs::create_dir;
 
         let data = PathBuf::from("./data");
         if !data.exists() {
-            create_dir(&data).context("Failed to create data directory")?;
+            create_dir(&data).map_err(JwstStorageError::CreateDataFolder)?;
         }
 
         Self::new(&format!(
@@ -71,30 +68,34 @@ impl JwstStorage {
         &self.docs
     }
 
-    pub async fn with_pool<R, F, Fut>(&self, func: F) -> JwstResult<R>
+    pub async fn with_pool<R, F, Fut>(&self, func: F) -> JwstStorageResult<R>
     where
         F: Fn(DatabaseConnection) -> Fut,
-        Fut: Future<Output = JwstResult<R>>,
+        Fut: Future<Output = JwstStorageResult<R>>,
     {
         func(self.pool.clone()).await
     }
 
-    pub async fn create_workspace<S>(&self, workspace_id: S) -> JwstResult<Workspace>
+    pub async fn create_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
     where
         S: AsRef<str>,
     {
         info!("create_workspace: {}", workspace_id.as_ref());
-        Ok(self
+        let workspace = self
             .docs
             .get(workspace_id.as_ref().into())
             .await
-            .context(format!(
-                "Failed to create workspace {}",
-                workspace_id.as_ref()
-            ))?)
+            .map_err(|_err| {
+                JwstStorageError::Crud(format!(
+                    "Failed to create workspace {}",
+                    workspace_id.as_ref()
+                ))
+            })?;
+
+        Ok(workspace)
     }
 
-    pub async fn get_workspace<S>(&self, workspace_id: S) -> JwstResult<Workspace>
+    pub async fn get_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
     where
         S: AsRef<str>,
     {
@@ -103,18 +104,27 @@ impl JwstStorage {
             .docs
             .exists(workspace_id.as_ref().into())
             .await
-            .context(format!(
-                "failed to check workspace {}",
-                workspace_id.as_ref()
-            ))?
+            .map_err(|_err| {
+                JwstStorageError::Crud(format!(
+                    "failed to check workspace {}",
+                    workspace_id.as_ref()
+                ))
+            })?
         {
             Ok(self
                 .docs
                 .get(workspace_id.as_ref().into())
                 .await
-                .context(format!("Failed to get workspace {}", workspace_id.as_ref()))?)
+                .map_err(|_err| {
+                    JwstStorageError::Crud(format!(
+                        "failed to get workspace {}",
+                        workspace_id.as_ref()
+                    ))
+                })?)
         } else {
-            Err(JwstError::WorkspaceNotFound(workspace_id.as_ref().into()))
+            Err(JwstStorageError::WorkspaceNotFound(
+                workspace_id.as_ref().into(),
+            ))
         }
     }
 

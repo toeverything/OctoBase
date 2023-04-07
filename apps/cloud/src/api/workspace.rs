@@ -8,9 +8,10 @@ use axum::{
 };
 use cloud_database::{Claims, UpdateWorkspace, WorkspaceSearchInput};
 use futures::{future, StreamExt};
-use jwst::{error, BlobStorage, JwstError};
+use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
 use std::sync::Arc;
+use jwst_storage::JwstStorageError;
 
 impl Context {
     #[instrument(skip(self, stream))]
@@ -413,7 +414,7 @@ pub async fn get_public_page(
                 ErrorStatus::NotFound.into_response()
             }
         }
-        Err(JwstError::WorkspaceNotFound(_)) => ErrorStatus::NotFound.into_response(),
+        Err(JwstStorageError::WorkspaceNotFound(_)) => ErrorStatus::NotFound.into_response(),
         Err(e) => {
             error!("Failed to get workspace: {:?}", e);
             ErrorStatus::InternalServerError.into_response()
@@ -464,7 +465,7 @@ async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response 
                 ErrorStatus::NotFound.into_response()
             }
         }
-        Err(JwstError::WorkspaceNotFound(_)) => ErrorStatus::NotFound.into_response(),
+        Err(JwstStorageError::WorkspaceNotFound(_)) => ErrorStatus::NotFound.into_response(),
         Err(e) => {
             error!("Failed to get workspace: {:?}", e);
             ErrorStatus::InternalServerError.into_response()
