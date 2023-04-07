@@ -1,7 +1,4 @@
-use super::{
-    plugins::{setup_plugin, PluginMap},
-    *,
-};
+use super::plugins::{setup_plugin, PluginMap};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
@@ -85,10 +82,6 @@ impl Workspace {
 
     pub fn client_id(&self) -> u64 {
         self.doc.client_id()
-    }
-
-    pub fn metadata(&self) -> WorkspaceMetadata {
-        (&self.doc().transact(), self.metadata.clone()).into()
     }
 
     pub fn doc(&self) -> Doc {

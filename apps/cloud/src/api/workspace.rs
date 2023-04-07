@@ -391,6 +391,7 @@ pub async fn get_public_page(
                     Some(mine) if mine.starts_with("text/") => {
                         if let Some(markdown) = workspace
                             .retry_with_trx(|t| space.to_markdown(&t.trx), 10)
+                            .ok()
                             .flatten()
                         {
                             markdown.into_response()
@@ -401,6 +402,7 @@ pub async fn get_public_page(
                     _ => {
                         if let Some(doc) = workspace
                             .retry_with_trx(|t| space.to_single_page(&t.trx).ok(), 10)
+                            .ok()
                             .flatten()
                         {
                             doc.into_response()

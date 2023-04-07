@@ -105,19 +105,22 @@ impl Workspace {
         &self,
         f: impl FnOnce(WorkspaceTransaction) -> T,
         mut retry: i32,
-    ) -> Option<T> {
+    ) -> JwstResult<T> {
         let trx = loop {
-            if let Ok(trx) = self.doc.try_transact_mut() {
-                break trx;
-            } else if retry > 0 {
-                retry -= 1;
-                sleep(Duration::from_micros(10));
-            } else {
-                info!("retry_with_trx error");
-                return None;
+            match self.doc.try_transact_mut() {
+                Ok(trx) => break trx,
+                Err(e) => {
+                    if retry > 0 {
+                        retry -= 1;
+                        sleep(Duration::from_micros(10));
+                    } else {
+                        info!("retry_with_trx error");
+                        return Err(JwstError::DocTransaction(e.to_string()));
+                    }
+                }
             }
         };
 
-        Some(f(WorkspaceTransaction { trx, ws: self }))
+        Ok(f(WorkspaceTransaction { trx, ws: self }))
     }
 }
