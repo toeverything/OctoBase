@@ -59,20 +59,14 @@ jobs:
                   toolchain: stable
                   override: true
 
-            - name: Set up cargo cache
+            - uses: Swatinem/rust-cache@v2
+            - name: Set up cache
               uses: actions/cache@v3
               continue-on-error: false
               with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      ./vendor
-                      ./.cargo/config
-                      ./node_modules/.pnpm-store
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: ${{ runner.os }}-cargo-
+                  path: ./node_modules/.pnpm-store
+                  key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+                  restore-keys: ${{ runner.os }}-pnpm-
 
             - name: Cargo Vendor
               run: cargo vendor > .cargo/config
@@ -141,20 +135,14 @@ jobs:
                   target: x86_64-unknown-linux-musl
                   override: true
 
+            - uses: Swatinem/rust-cache@v2
             - name: Set up cache
               uses: actions/cache@v3
               continue-on-error: false
               with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      ./vendor
-                      ./.cargo/config
-                      ./node_modules/.pnpm-store
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: ${{ runner.os }}-cargo-
+                  path: ./node_modules/.pnpm-store
+                  key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+                  restore-keys: ${{ runner.os }}-pnpm-
 
             - name: Build & Check
               run: |
@@ -267,20 +255,14 @@ jobs:
                   components: clippy
                   override: true
 
+            - uses: Swatinem/rust-cache@v2
             - name: Set up cache
               uses: actions/cache@v3
               continue-on-error: false
               with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      ./vendor
-                      ./.cargo/config
-                      ./node_modules/.pnpm-store
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: ${{ runner.os }}-cargo-
+                  path: ./node_modules/.pnpm-store
+                  key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+                  restore-keys: ${{ runner.os }}-pnpm-
 
             - name: Install required cargo components
               uses: taiki-e/install-action@v2

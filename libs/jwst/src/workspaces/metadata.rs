@@ -108,7 +108,7 @@ impl Workspace {
             |mut t| {
                 let pages = if let Some(pages) = self
                     .metadata
-                    .get(&mut t.trx, "pages")
+                    .get(&t.trx, "pages")
                     .and_then(|v| v.to_yarray())
                 {
                     pages
