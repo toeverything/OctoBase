@@ -11,7 +11,7 @@ use std::{
 use tokio::sync::RwLock;
 use y_sync::{
     awareness::{Awareness, Event, Subscription as AwarenessSubscription},
-    sync::{Error, Message, MessageReader, SyncMessage},
+    sync::{Message, MessageReader, SyncMessage},
 };
 use yrs::{
     types::{map::MapEvent, ToJson},
@@ -292,7 +292,7 @@ impl Workspace {
                     retry -= 1;
                     tokio::time::sleep(Duration::from_micros(10)).await;
                 } else {
-                    return Err(JwstError::YSyncError(Error::Other("failed to get state vector".into())));
+                    return Err(JwstError::SyncInitTransaction);
                 }
             };
             let sv = trx.state_vector();

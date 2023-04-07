@@ -30,8 +30,8 @@ pub enum JwstError {
     PageTreeNotFound(String),
     #[error("page item {0} not found")]
     PageItemNotFound(String),
-    #[error("y_sync sync error")]
-    YSyncError(#[from] y_sync::sync::Error),
+    #[error("failed to get state vector")]
+    SyncInitTransaction,
     #[error("y_sync awareness error")]
     YSyncAwarenessErr(#[from] y_sync::awareness::Error),
 }

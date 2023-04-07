@@ -2,15 +2,13 @@ use thiserror::Error;
 use tokio_tungstenite::tungstenite;
 
 #[derive(Debug, Error)]
-pub enum JwstRPCError {
-    #[error(transparent)]
-    BoxedError(#[from] anyhow::Error),
-    #[error("websocket connect error")]
-    WebsocketConnectError(#[from] tungstenite::Error),
+pub enum JwstRpcError {
+    #[error("failed to connect websocket")]
+    WebsocketConnect(#[from] tungstenite::Error),
     #[error("jwst error")]
-    JwstError(#[from] jwst::JwstError),
-    #[error("url parse error")]
-    UrlParseError(#[from] url::ParseError),
+    Jwst(#[from] jwst::JwstError),
+    #[error("failed to parse url")]
+    UrlParse(#[from] url::ParseError),
 }
 
-pub type JwstRPCResult<T> = Result<T, JwstRPCError>;
+pub type JwstRPCResult<T> = Result<T, JwstRpcError>;

@@ -15,16 +15,16 @@ use utils::{ImageParams, InternalBlobMetadata};
 
 #[derive(Debug, Error)]
 pub enum JwstBlobError {
+    #[error("blob not found: {0}")]
+    BlobNotFound(String),
+    #[error("database error")]
+    Database(#[from] DbErr),
     #[error("failed to optimize image")]
     Image(#[from] ImageError),
     #[error("failed to optimize image")]
     ImageThread(#[from] JoinError),
-    #[error("database error")]
-    Database(#[from] DbErr),
-    #[error("blob not found: {0}")]
-    BlobNotFound(String),
-    #[error("params error: {0:?}")]
-    Params(HashMap<String, String>),
+    #[error("optimize params error: {0:?}")]
+    ImageParams(HashMap<String, String>),
 }
 pub type JwstBlobResult<T> = Result<T, JwstBlobError>;
 
@@ -39,7 +39,10 @@ pub struct BlobAutoStorage {
 }
 
 impl BlobAutoStorage {
-    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstStorageResult<Self> {
+    pub async fn init_with_pool(
+        pool: DatabaseConnection,
+        bucket: Arc<Bucket>,
+    ) -> JwstStorageResult<Self> {
         let db = Arc::new(BlobDBStorage::init_with_pool(pool, bucket).await?);
         let pool = db.pool.clone();
         Ok(Self { db, pool })
@@ -133,7 +136,7 @@ impl BlobAutoStorage {
                     self.db.metadata(workspace_id, &id).await.map(Into::into)
                 }
             } else {
-                Err(JwstBlobError::Params(params))
+                Err(JwstBlobError::ImageParams(params))
             }
         } else {
             self.db.metadata(workspace_id, &id).await.map(Into::into)
@@ -179,7 +182,7 @@ impl BlobAutoStorage {
                     Ok(image)
                 }
             } else {
-                Err(JwstBlobError::Params(params))
+                Err(JwstBlobError::ImageParams(params))
             }
         } else {
             self.db.get(workspace_id, &id).await.map(|m| m.blob)
@@ -242,7 +245,11 @@ impl BlobStorage<JwstStorageError> for BlobAutoStorage {
         self.db.put_blob(workspace, stream).await
     }
 
-    async fn delete_blob(&self, workspace_id: Option<String>, id: String) -> JwstStorageResult<bool> {
+    async fn delete_blob(
+        &self,
+        workspace_id: Option<String>,
+        id: String,
+    ) -> JwstStorageResult<bool> {
         // delete origin blobs
         let success = self
             .db

@@ -3,11 +3,11 @@ mod docs;
 mod test;
 
 use super::*;
+use crate::types::JwstStorageError;
 use blobs::BlobAutoStorage;
 use docs::SharedDocDBStorage;
 use std::{collections::HashMap, time::Instant};
 use tokio::sync::Mutex;
-use crate::types::JwstStorageError;
 
 pub struct JwstStorage {
     pool: DatabaseConnection,
@@ -28,10 +28,8 @@ impl JwstStorage {
                 .unwrap();
         }
 
-        let blobs = BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone())
-            .await?;
-        let docs = SharedDocDBStorage::init_with_pool(pool.clone(), bucket.clone())
-            .await?;
+        let blobs = BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone()).await?;
+        let docs = SharedDocDBStorage::init_with_pool(pool.clone(), bucket.clone()).await?;
 
         Ok(Self {
             pool,
@@ -46,7 +44,7 @@ impl JwstStorage {
 
         let data = PathBuf::from("./data");
         if !data.exists() {
-            create_dir(&data)?;
+            create_dir(&data).map_err(JwstStorageError::CreateDataFolder)?;
         }
 
         Self::new(&format!(
@@ -87,10 +85,12 @@ impl JwstStorage {
             .docs
             .get(workspace_id.as_ref().into())
             .await
-            .map_err(|_err| JwstStorageError::CRUDError(format!(
-                "Failed to create workspace {}",
-                workspace_id.as_ref()
-            )))?;
+            .map_err(|_err| {
+                JwstStorageError::Crud(format!(
+                    "Failed to create workspace {}",
+                    workspace_id.as_ref()
+                ))
+            })?;
 
         Ok(workspace)
     }
@@ -104,21 +104,27 @@ impl JwstStorage {
             .docs
             .exists(workspace_id.as_ref().into())
             .await
-            .map_err(|_err| JwstStorageError::CRUDError(format!(
-                "failed to check workspace {}",
-                workspace_id.as_ref()
-            )))?
+            .map_err(|_err| {
+                JwstStorageError::Crud(format!(
+                    "failed to check workspace {}",
+                    workspace_id.as_ref()
+                ))
+            })?
         {
             Ok(self
                 .docs
                 .get(workspace_id.as_ref().into())
                 .await
-                .map_err(|_err| JwstStorageError::CRUDError(format!(
-                    "Failed to get workspace {}",
-                    workspace_id.as_ref()
-                )))?)
+                .map_err(|_err| {
+                    JwstStorageError::Crud(format!(
+                        "failed to get workspace {}",
+                        workspace_id.as_ref()
+                    ))
+                })?)
         } else {
-            Err(JwstStorageError::WorkspaceNotFound(workspace_id.as_ref().into()))
+            Err(JwstStorageError::WorkspaceNotFound(
+                workspace_id.as_ref().into(),
+            ))
         }
     }
 

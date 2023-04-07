@@ -15,7 +15,10 @@ pub(super) use database::{docs_storage_partial_test, docs_storage_test};
 pub struct SharedDocDBStorage(pub(super) Arc<DocDBStorage>);
 
 impl SharedDocDBStorage {
-    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstStorageResult<Self> {
+    pub async fn init_with_pool(
+        pool: DatabaseConnection,
+        bucket: Arc<Bucket>,
+    ) -> JwstStorageResult<Self> {
         Ok(Self(Arc::new(
             DocDBStorage::init_with_pool(pool, bucket).await?,
         )))
@@ -56,10 +59,10 @@ impl DocStorage<JwstStorageError> for SharedDocDBStorage {
 #[cfg(test)]
 mod test {
     use super::{error, info, DocStorage, SharedDocDBStorage};
+    use crate::{JwstStorageError, JwstStorageResult};
     use rand::random;
     use std::collections::HashSet;
     use tokio::task::JoinSet;
-    use crate::{JwstStorageError, JwstStorageResult};
 
     async fn create_workspace_stress_test(storage: SharedDocDBStorage) -> JwstStorageResult<()> {
         let mut join_set = JoinSet::new();
@@ -81,7 +84,7 @@ mod test {
 
         let mut a = 0;
         while let Some(ret) = join_set.join_next().await {
-            if let Err(e) = ret? {
+            if let Err(e) = ret.map_err(JwstStorageError::DocMerge)? {
                 error!("failed to execute creator: {e}");
             }
             a += 1;
@@ -101,7 +104,7 @@ mod test {
         }
 
         while let Some(ret) = join_set.join_next().await {
-            if let Err(e) = ret? {
+            if let Err(e) = ret.map_err(JwstStorageError::DocMerge)? {
                 error!("failed to execute: {e}");
             }
         }

@@ -1,9 +1,9 @@
 use super::{entities::prelude::*, *};
+use crate::types::JwstStorageResult;
 use jwst::{sync_encode_update, DocStorage, Workspace};
 use jwst_storage_migration::{Migrator, MigratorTrait};
 use std::collections::hash_map::Entry;
 use yrs::{Doc, ReadTxn, StateVector, Transact};
-use crate::types::JwstStorageResult;
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
 
@@ -19,7 +19,10 @@ pub struct DocDBStorage {
 }
 
 impl DocDBStorage {
-    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstStorageResult<Self> {
+    pub async fn init_with_pool(
+        pool: DatabaseConnection,
+        bucket: Arc<Bucket>,
+    ) -> JwstStorageResult<Self> {
         Migrator::up(&pool, None).await?;
 
         Ok(Self {
@@ -129,7 +132,8 @@ impl DocDBStorage {
             let doc_records = Self::all(conn, workspace).await?;
 
             let data = tokio::task::spawn_blocking(move || utils::merge_doc_records(doc_records))
-                .await??;
+                .await
+                .map_err(JwstStorageError::DocMerge)??;
 
             Self::replace_with(conn, workspace, data).await?;
         } else {
@@ -151,7 +155,12 @@ impl DocDBStorage {
         Ok(())
     }
 
-    async fn full_migrate<C>(&self, conn: &C, workspace: &str, blob: Vec<u8>) -> JwstStorageResult<()>
+    async fn full_migrate<C>(
+        &self,
+        conn: &C,
+        workspace: &str,
+        blob: Vec<u8>,
+    ) -> JwstStorageResult<()>
     where
         C: ConnectionTrait,
     {
@@ -212,8 +221,7 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
                 let _lock = self.bucket.write().await;
                 info!("init workspace cache: {workspace_id}");
                 let id = workspace_id.clone();
-                let doc = Self::create_doc(&self.pool, &id)
-                    .await?;
+                let doc = Self::create_doc(&self.pool, &id).await?;
 
                 let ws = Workspace::from_doc(doc, workspace_id);
                 Ok(v.insert(ws).clone())
@@ -221,14 +229,17 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
         }
     }
 
-    async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> JwstStorageResult<()> {
+    async fn write_full_update(
+        &self,
+        workspace_id: String,
+        data: Vec<u8>,
+    ) -> JwstStorageResult<()> {
         trace!("write_full_update: get lock");
         let _lock = self.bucket.write().await;
 
         trace!("write_doc: {:?}", data);
 
-        self.full_migrate(&self.pool, &workspace_id, data)
-            .await?;
+        self.full_migrate(&self.pool, &workspace_id, data).await?;
 
         debug_assert_eq!(Self::count(&self.pool, &workspace_id).await?, 1u64);
 
@@ -240,8 +251,7 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
         let _lock = self.bucket.write().await;
 
         trace!("write_update: {:?}", data);
-        self.update(&self.pool, &workspace_id, data.into())
-            .await?;
+        self.update(&self.pool, &workspace_id, data.into()).await?;
 
         Ok(())
     }
@@ -252,8 +262,7 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
 
         debug!("delete workspace cache: {workspace_id}");
         self.workspaces.write().await.remove(&workspace_id);
-        DocDBStorage::delete(&self.pool, &workspace_id)
-            .await?;
+        DocDBStorage::delete(&self.pool, &workspace_id).await?;
 
         Ok(())
     }
