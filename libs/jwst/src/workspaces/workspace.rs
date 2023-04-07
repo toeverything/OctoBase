@@ -22,7 +22,7 @@ pub struct Workspace {
     /// into events that the [Workspace] experiences, like block updates.
     ///
     /// Public just for the crate as we experiment with the plugins interface.
-    /// See [plugins].
+    /// See [super::plugins].
     pub(super) plugins: PluginMap,
 }
 
