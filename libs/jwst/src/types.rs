@@ -22,8 +22,6 @@ pub enum JwstError {
     DocTransaction(String),
     #[error("workspace {0} not initialized")]
     WorkspaceNotInitialized(String),
-    #[error("workspace {0} not found")]
-    WorkspaceNotFound(String),
     // version metadata
     #[error("workspace {0} has no version")]
     VersionNotFound(String),
@@ -32,18 +30,22 @@ pub enum JwstError {
     PageTreeNotFound(String),
     #[error("page item {0} not found")]
     PageItemNotFound(String),
+    #[error("failed to get state vector")]
+    SyncInitTransaction,
+    #[error("y_sync awareness error")]
+    YSyncAwarenessErr(#[from] y_sync::awareness::Error),
 }
 
-pub type JwstResult<T> = Result<T, JwstError>;
+pub type JwstResult<T, E = JwstError> = Result<T, E>;
 
 #[async_trait]
-pub trait DocStorage {
-    async fn exists(&self, workspace_id: String) -> JwstResult<bool>;
-    async fn get(&self, workspace_id: String) -> JwstResult<Workspace>;
-    async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> JwstResult<()>;
+pub trait DocStorage<E = JwstError> {
+    async fn exists(&self, workspace_id: String) -> JwstResult<bool, E>;
+    async fn get(&self, workspace_id: String) -> JwstResult<Workspace, E>;
+    async fn write_full_update(&self, workspace_id: String, data: Vec<u8>) -> JwstResult<(), E>;
     /// Return false means update exceeding max update
-    async fn write_update(&self, workspace_id: String, data: &[u8]) -> JwstResult<()>;
-    async fn delete(&self, workspace_id: String) -> JwstResult<()>;
+    async fn write_update(&self, workspace_id: String, data: &[u8]) -> JwstResult<(), E>;
+    async fn delete(&self, workspace_id: String) -> JwstResult<(), E>;
 }
 
 #[derive(Debug)]
@@ -54,26 +56,26 @@ pub struct BlobMetadata {
 }
 
 #[async_trait]
-pub trait BlobStorage {
-    async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool>;
+pub trait BlobStorage<E = JwstError> {
+    async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool, E>;
     async fn get_blob(
         &self,
         workspace: Option<String>,
         id: String,
         params: Option<HashMap<String, String>>,
-    ) -> JwstResult<Vec<u8>>;
+    ) -> JwstResult<Vec<u8>, E>;
     async fn get_metadata(
         &self,
         workspace: Option<String>,
         id: String,
         params: Option<HashMap<String, String>>,
-    ) -> JwstResult<BlobMetadata>;
+    ) -> JwstResult<BlobMetadata, E>;
     async fn put_blob(
         &self,
         workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
-    ) -> JwstResult<String>;
-    async fn delete_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool>;
-    async fn delete_workspace(&self, workspace_id: String) -> JwstResult<()>;
-    async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64>;
+    ) -> JwstResult<String, E>;
+    async fn delete_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool, E>;
+    async fn delete_workspace(&self, workspace_id: String) -> JwstResult<(), E>;
+    async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64, E>;
 }
