@@ -5,14 +5,10 @@ use lib0::any::Any;
 use serde::{Serialize, Serializer};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
-use yrs::{
-    types::{
-        text::{Diff, YChange},
-        ToJson, Value,
-    },
-    Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, TextRef,
-    Transact, TransactionMut,
-};
+use yrs::{types::{
+    text::{Diff, YChange},
+    ToJson, Value,
+}, Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, TextRef, Transact, TransactionMut, DeepObservable};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Block {
@@ -24,11 +20,22 @@ pub struct Block {
     block: MapRef,
     children: ArrayRef,
     updated: Option<ArrayRef>,
+    // sub: Option<DeepEventsSubscription>,
 }
 
 unsafe impl Send for Block {}
 
 impl Block {
+    // use std::sync::mpsc::Sender, as client may call this in a sync thread
+    pub fn subscribe(&mut self, tx: std::sync::mpsc::Sender<String>) {
+        let block_id_cloned = self.block_id.clone();
+        // TODO use concrete error type
+        // TODO bind _sub to Block to share same lifetime
+        let _sub = self.block.observe_deep(move |_trx, _e| {
+            tx.send(block_id_cloned.clone()).expect("send block observe message error");
+        });
+    }
+
     // Create a new block, skip create if block is already created.
     pub fn new<B, F>(
         trx: &mut TransactionMut<'_>,

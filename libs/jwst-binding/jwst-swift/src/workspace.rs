@@ -3,12 +3,16 @@ use jwst::Workspace as JwstWorkspace;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
+    pub(crate) tx: std::sync::mpsc::Sender<String>,
+    pub(crate) rx: std::sync::mpsc::Receiver<String>,
 }
 
 impl Workspace {
     pub fn new(id: String) -> Self {
+        let (tx, rx) = std::sync::mpsc::channel::<String>();
         Self {
             workspace: JwstWorkspace::new(id),
+            tx, rx,
         }
     }
 
@@ -34,7 +38,7 @@ impl Workspace {
 
     pub fn create(&self, block_id: String, flavour: String) -> Block {
         let workspace = self.workspace.clone();
-        self.workspace.with_trx(|mut trx| {
+        let mut block = self.workspace.with_trx(|mut trx| {
             let block = Block::new(
                 workspace,
                 trx.get_blocks()
@@ -43,7 +47,12 @@ impl Workspace {
             );
             drop(trx);
             block
-        })
+        });
+
+        let jwst_block = &mut block.block;
+        jwst_block.subscribe(self.tx.clone());
+
+        block
     }
 
     pub fn search(self: &Workspace, query: String) -> String {
