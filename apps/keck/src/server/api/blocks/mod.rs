@@ -124,6 +124,21 @@ pub fn blocks_apis(router: Router) -> Router {
 mod tests {
     use super::*;
     use axum_test_helper::TestClient;
+    use serde_json::{from_str, json, to_string, Value};
+
+    #[tokio::test]
+    async fn test_doc_apis() {
+        let client = TestClient::new(doc_apis(Router::new()));
+
+        // basic workspace apis
+        let resp = client.get("/jwst.json").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let text = resp.text().await;
+        assert!(from_str::<Value>(text.as_str()).is_ok());
+
+        let resp = client.get("/docs/").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
 
     #[tokio::test]
     async fn test_workspace_apis() {
@@ -151,7 +166,7 @@ mod tests {
         let index = resp.json::<Vec<String>>().await;
         assert_eq!(index, vec!["title".to_owned(), "text".to_owned()]);
 
-        let body = serde_json::to_string(&serde_json::json!(["test"])).unwrap();
+        let body = to_string(&json!(["test"])).unwrap();
         let resp = client
             .post("/search/test/index")
             .header("content-type", "application/json")
