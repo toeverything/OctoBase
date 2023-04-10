@@ -1,5 +1,15 @@
 # What's New
 
+## 0.0.1-230410
+
+-   [+] feat: enable coverage test & more stable stress test
+-   [+] feat: clone nested data in doc (#359)
+-   [+] feat: single page sharing permission check (#361)
+-   [*] fix: unable to start when missing env file (#353)
+-   [*] fix: check permissions of blob API (#354)
+-   [*] chore: move hosting feature to cloud infra crate (#357)
+-   [*] refactor: add more concrete error types eliminating anyhow::Error in libs crate (#358)
+
 ## 0.0.1-230403
 
 -   [+] Add support for extract specific spaces from workspace
