@@ -381,6 +381,49 @@ mod tests {
             webp.len()
         );
 
+        assert!(storage
+            .get_blob(
+                Some("blob".into()),
+                hash.clone(),
+                Some(HashMap::from([("format".into(), "error_value".into()),]))
+            )
+            .await
+            .is_err());
+
+        assert!(storage
+            .get_blob(
+                Some("blob".into()),
+                hash.clone(),
+                Some(HashMap::from([
+                    ("format".into(), "webp".into()),
+                    ("size".into(), "error_value".into())
+                ]))
+            )
+            .await
+            .is_err());
+        assert!(storage
+            .get_blob(
+                Some("blob".into()),
+                hash.clone(),
+                Some(HashMap::from([
+                    ("format".into(), "webp".into()),
+                    ("width".into(), "111".into())
+                ]))
+            )
+            .await
+            .is_err());
+        assert!(storage
+            .get_blob(
+                Some("blob".into()),
+                hash.clone(),
+                Some(HashMap::from([
+                    ("format".into(), "webp".into()),
+                    ("height".into(), "111".into())
+                ]))
+            )
+            .await
+            .is_err());
+
         assert_eq!(
             storage.get_blobs_size("blob".into()).await.unwrap() as usize,
             100 + image.len()
