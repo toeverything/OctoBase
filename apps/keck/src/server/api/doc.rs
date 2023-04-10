@@ -18,6 +18,7 @@ use utoipa::OpenApi;
         workspace::get_workspace_block,
         workspace::workspace_search,
         workspace::set_search_index,
+        workspace::get_search_index,
         block::get_block,
         block::get_block_by_flavour,
         block::set_block,
