@@ -10,8 +10,8 @@ use cloud_database::{Claims, UpdateWorkspace, WorkspaceSearchInput};
 use futures::{future, StreamExt};
 use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
-use std::sync::Arc;
 use jwst_storage::JwstStorageError;
+use std::sync::Arc;
 
 impl Context {
     #[instrument(skip(self, stream))]
@@ -375,12 +375,26 @@ pub async fn get_public_page(
 ) -> Response {
     info!("get_page enter");
     match ctx.db.is_public_workspace(workspace_id.clone()).await {
-        Ok(true) => (),
-        Ok(false) => return ErrorStatus::Forbidden.into_response(),
+        // check if page is public
+        // TODO: improve logic
+        Ok(false)
+            if ctx
+                .storage
+                .get_workspace(workspace_id.clone())
+                .await
+                .ok()
+                .and_then(|ws| {
+                    ws.try_with_trx(|mut t| t.get_space(page_id.clone()).shared(&t.trx))
+                })
+                != Some(true) =>
+        {
+            return ErrorStatus::Forbidden.into_response();
+        }
         Err(e) => {
             error!("Failed to get permission: {:?}", e);
             return ErrorStatus::InternalServerError.into_response();
         }
+        Ok(true | false) => (),
     }
 
     match ctx.storage.get_workspace(workspace_id).await {
