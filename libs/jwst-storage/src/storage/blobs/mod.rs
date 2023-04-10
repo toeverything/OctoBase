@@ -330,14 +330,11 @@ mod tests {
             image.into_inner()
         };
         let stream = async { Bytes::from(image.clone()) }.into_stream();
-        let hash = storage
-            .put_blob(Some("image".into()), stream)
-            .await
-            .unwrap();
+        let hash = storage.put_blob(Some("blob".into()), stream).await.unwrap();
 
         assert_eq!(
             storage
-                .get_blob(Some("image".into()), hash.clone(), None)
+                .get_blob(Some("blob".into()), hash.clone(), None)
                 .await
                 .unwrap(),
             image
@@ -345,31 +342,81 @@ mod tests {
 
         assert_eq!(
             storage
-                .get_metadata(Some("image".into()), hash.clone(), None)
+                .get_metadata(Some("blob".into()), hash.clone(), None)
                 .await
                 .unwrap()
                 .size as usize,
             image.len()
         );
 
-        assert!(storage
-            .get_blob(
-                Some("image".into()),
-                hash.clone(),
-                Some(HashMap::from([("format".into(), "jpeg".into())]))
-            )
+        let jpeg_params = HashMap::from([("format".into(), "jpeg".into())]);
+        let jpeg = storage
+            .get_blob(Some("blob".into()), hash.clone(), Some(jpeg_params.clone()))
             .await
-            .unwrap()
-            .starts_with(&[0xff, 0xd8, 0xff]));
+            .unwrap();
+
+        assert!(jpeg.starts_with(&[0xff, 0xd8, 0xff]));
+        assert_eq!(
+            storage
+                .get_metadata(Some("blob".into()), hash.clone(), Some(jpeg_params))
+                .await
+                .unwrap()
+                .size as usize,
+            jpeg.len()
+        );
+
+        let webp_params = HashMap::from([("format".into(), "webp".into())]);
+        let webp = storage
+            .get_blob(Some("blob".into()), hash.clone(), Some(webp_params.clone()))
+            .await
+            .unwrap();
+
+        assert!(webp.starts_with(b"RIFF"));
+        assert_eq!(
+            storage
+                .get_metadata(
+                    Some("image".into()),
+                    hash.clone(),
+                    Some(webp_params.clone())
+                )
+                .await
+                .unwrap()
+                .size as usize,
+            webp.len()
+        );
+
+        assert_eq!(
+            storage.get_blobs_size("blob".into()).await.unwrap() as usize,
+            100 + image.len()
+        );
 
         assert!(storage
-            .get_blob(
-                Some("image".into()),
-                hash.clone(),
-                Some(HashMap::from([("format".into(), "webp".into())]))
-            )
+            .delete_blob(Some("blob".into()), hash.clone())
             .await
-            .unwrap()
-            .starts_with(b"RIFF"));
+            .unwrap());
+        assert_eq!(
+            storage
+                .check_blob(Some("blob".into()), hash.clone())
+                .await
+                .unwrap(),
+            false
+        );
+        assert!(storage
+            .get_blob(Some("blob".into()), hash.clone(), None)
+            .await
+            .is_err());
+        assert!(storage
+            .get_metadata(Some("blob".into()), hash.clone(), None)
+            .await
+            .is_err());
+        assert!(storage
+            .get_metadata(Some("blob".into()), hash.clone(), Some(webp_params))
+            .await
+            .is_err());
+
+        assert_eq!(
+            storage.get_blobs_size("blob".into()).await.unwrap() as usize,
+            100
+        );
     }
 }
