@@ -119,3 +119,50 @@ fn workspace_apis(router: Router) -> Router {
 pub fn blocks_apis(router: Router) -> Router {
     workspace_apis(block_apis(router))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum_test_helper::TestClient;
+
+    #[tokio::test]
+    async fn test_workspace_apis() {
+        let ctx = Arc::new(Context::new(JwstStorage::new("sqlite::memory:").await.ok()).await);
+        let client = TestClient::new(workspace_apis(Router::new()).layer(Extension(ctx)));
+
+        // basic workspace apis
+        let resp = client.get("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        let resp = client.post("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client.get("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client.delete("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+        let resp = client.get("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+        // workspace history apis
+        let resp = client.post("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = client.get("/search/test/index").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let index = resp.json::<Vec<String>>().await;
+        assert_eq!(index, vec!["title".to_owned(), "text".to_owned()]);
+
+        let body = serde_json::to_string(&serde_json::json!(["test"])).unwrap();
+        let resp = client
+            .post("/search/test/index")
+            .header("content-type", "application/json")
+            .body(body)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = client.get("/search/test/index").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let index = resp.json::<Vec<String>>().await;
+        assert_eq!(index, vec!["test".to_owned()]);
+    }
+}

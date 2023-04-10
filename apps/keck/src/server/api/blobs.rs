@@ -244,6 +244,9 @@ mod tests {
         let resp = client.delete(&format!("/blobs/test/{}", hash)).send().await;
         assert_eq!(resp.status(), StatusCode::NO_CONTENT);
 
+        let resp = client.delete(&format!("/blobs/test/{}", hash)).send().await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
         let resp = client.head(&format!("/blobs/test/{}", hash)).send().await;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 
