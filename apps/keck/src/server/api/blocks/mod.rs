@@ -27,6 +27,7 @@ use utoipa::OpenApi;
         workspace::history_workspace,
         workspace::get_workspace_block,
         workspace::workspace_search,
+        workspace::set_search_index,
         block::get_block,
         block::get_block_by_flavour,
         block::set_block,
@@ -143,13 +144,20 @@ mod tests {
     #[tokio::test]
     async fn test_workspace_apis() {
         let ctx = Arc::new(Context::new(JwstStorage::new("sqlite::memory:").await.ok()).await);
-        let client = TestClient::new(workspace_apis(Router::new()).layer(Extension(ctx)));
+        let client = TestClient::new(workspace_apis(Router::new()).layer(Extension(ctx.clone())));
 
         // basic workspace apis
         let resp = client.get("/block/test").send().await;
         assert_eq!(resp.status(), StatusCode::NOT_FOUND);
         let resp = client.post("/block/test").send().await;
         assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client.get("/block/test/client").send().await;
+        assert_eq!(
+            resp.text().await.parse::<u64>().unwrap(),
+            ctx.storage.get_workspace("test").await.unwrap().client_id()
+        );
+        let resp = client.get("/block/test/history").send().await;
+        assert_eq!(resp.json::<Vec<u64>>().await, Vec::<u64>::new());
         let resp = client.get("/block/test").send().await;
         assert_eq!(resp.status(), StatusCode::OK);
         let resp = client.delete("/block/test").send().await;
