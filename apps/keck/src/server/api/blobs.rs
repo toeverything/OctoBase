@@ -1,13 +1,13 @@
 use super::*;
 
-use axum::{extract::BodyStream, response::Response};
+use axum::{extract::BodyStream, response::Response, routing::post};
 use futures::{future, StreamExt};
 use jwst::BlobStorage;
 use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
 struct BlobStatus {
-    id: String,
+    id: Option<String>,
     exists: bool,
 }
 
@@ -94,7 +94,7 @@ pub async fn get_blob(
     post,
     tag = "Blobs",
     context_path = "/api/blobs",
-    path = "/{workspace_id}/{hash}",
+    path = "/{workspace_id}",
     params(
         ("workspace_id", description = "workspace id"),
         ("hash", description = "blob hash"),
@@ -109,11 +109,10 @@ pub async fn get_blob(
 )]
 pub async fn set_blob(
     Extension(context): Extension<Arc<Context>>,
-    Path(params): Path<(String, String)>,
+    Path(workspace): Path<String>,
     body: BodyStream,
 ) -> Response {
-    let (workspace, hash) = params;
-    info!("set_blob: {}, {}", workspace, hash);
+    info!("set_blob: {}", workspace);
 
     let mut has_error = false;
     let body = body
@@ -137,13 +136,17 @@ pub async fn set_blob(
                 .await;
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         } else {
-            Json(BlobStatus { id, exists: true }).into_response()
+            Json(BlobStatus {
+                id: Some(id),
+                exists: true,
+            })
+            .into_response()
         }
     } else {
         (
             StatusCode::NOT_FOUND,
             Json(BlobStatus {
-                id: hash,
+                id: None,
                 exists: false,
             }),
         )
@@ -193,11 +196,61 @@ pub async fn delete_blob(
 }
 
 pub fn blobs_apis(router: Router) -> Router {
-    router.route(
+    router.route("/blobs/:workspace", post(set_blob)).route(
         "/blobs/:workspace/:blob",
-        head(check_blob)
-            .get(get_blob)
-            .post(set_blob)
-            .delete(delete_blob),
+        head(check_blob).get(get_blob).delete(delete_blob),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::{Body, Bytes};
+    use axum_test_helper::TestClient;
+    use futures::stream;
+
+    #[tokio::test]
+    async fn test_blobs_apis() {
+        let ctx = Context::new(JwstStorage::new("sqlite::memory:").await.ok()).await;
+        let client = TestClient::new(blobs_apis(Router::new()).layer(Extension(Arc::new(ctx))));
+
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(
+            test_data
+                .clone()
+                .into_iter()
+                .map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))),
+        );
+
+        //upload blob in workspace
+        let resp = client
+            .post("/blobs/test")
+            .header("Content-Length", test_data_len.clone().to_string())
+            .body(Body::wrap_stream(test_data_stream.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let hash = resp_json["id"].as_str().unwrap().to_string();
+
+        let resp = client.head(&format!("/blobs/test/{}", hash)).send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = client.get(&format!("/blobs/test/{}", hash)).send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(test_data, resp.bytes().await.to_vec());
+
+        let resp = client.delete(&format!("/blobs/test/{}", hash)).send().await;
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+
+        let resp = client.head(&format!("/blobs/test/{}", hash)).send().await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+        let resp = client.get(&format!("/blobs/test/{}", hash)).send().await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+        let resp = client.get("/blobs/test/not_exists_id").send().await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
 }
