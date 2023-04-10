@@ -40,9 +40,9 @@ struct MailContent {
     site_url: String,
     avatar_url: String,
     workspace_name: String,
-    // workspace_avatar: String,
     invite_code: String,
     current_year: i32,
+    workspace_avatar: String,
 }
 
 pub struct MailContext {
@@ -107,20 +107,11 @@ impl MailContext {
         site_url: String,
         claims: &Claims,
         invite_code: &str,
+        workspace_avatar: Vec<u8>,
     ) -> Result<(String, MultiPart), RenderError> {
-        // let mut file = ctx
-        //     .storage
-        //     .blobs()
-        //     .get_blob(Some(workspace_id.clone()), metadata.avatar.clone().unwrap())
-        //     .await
-        //     .ok()?;
-
-        // let mut file_content = Vec::new();
-        // while let Some(chunk) = file.next().await {
-        //     file_content.extend(chunk.ok()?);
-        // }
-
-        // let workspace_avatar = lettre::message::Body::new(file_content);
+        let workspace_avatar = lettre::message::Body::new(workspace_avatar)
+            .encoding()
+            .to_string();
 
         let title = self.template.render(
             "MAIL_INVITE_TITLE",
@@ -139,7 +130,7 @@ impl MailContext {
                 workspace_name: metadata.name.unwrap_or_default(),
                 invite_code: invite_code.to_string(),
                 current_year: Utc::now().year(),
-                // workspace_avatar: workspace_avatar.encoding().to_string(),
+                workspace_avatar,
             },
         )?;
 
@@ -158,9 +149,10 @@ impl MailContext {
         site_url: String,
         claims: &Claims,
         invite_code: &str,
+        workspace_avatar: Vec<u8>,
     ) -> Result<Message, MailError> {
         let (title, msg_body) = self
-            .make_invite_email_content(metadata, site_url, claims, invite_code)
+            .make_invite_email_content(metadata, site_url, claims, invite_code, workspace_avatar)
             .await?;
 
         Ok(Message::builder()
@@ -177,10 +169,18 @@ impl MailContext {
         site_url: String,
         claims: &Claims,
         invite_code: &str,
+        workspace_avatar: Vec<u8>,
     ) -> Result<(), MailError> {
         if let Some(client) = &self.client {
             let email = self
-                .make_invite_email(send_to, metadata, site_url, claims, invite_code)
+                .make_invite_email(
+                    send_to,
+                    metadata,
+                    site_url,
+                    claims,
+                    invite_code,
+                    workspace_avatar,
+                )
                 .await?;
 
             let mut retry = 3;

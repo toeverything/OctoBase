@@ -9,7 +9,7 @@ use axum::{
     Extension, Json,
 };
 use cloud_database::{Claims, CreatePermission, PermissionType, UserCred};
-use jwst::error;
+use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
 use lettre::message::Mailbox;
 use std::sync::Arc;
@@ -173,13 +173,32 @@ pub async fn invite_member(
             }
         };
 
+        let workspace_avatar = ctx
+            .storage
+            .blobs()
+            .get_blob(
+                Some(workspace_id.clone()),
+                metadata.avatar.clone().unwrap(),
+                None,
+            )
+            .await
+            .ok()
+            .unwrap();
+
         let Ok(invite_code) = ctx.key.encrypt_aes_base64(permission_id.as_bytes()) else {
             return ErrorStatus::InternalServerError.into_response();
         };
         if !is_test_email {
             if let Err(e) = ctx
                 .mail
-                .send_invite_email(send_to, metadata, site_url, &claims, &invite_code)
+                .send_invite_email(
+                    send_to,
+                    metadata,
+                    site_url,
+                    &claims,
+                    &invite_code,
+                    workspace_avatar,
+                )
                 .await
             {
                 if let Err(e) = ctx.db.delete_permission(permission_id).await {
