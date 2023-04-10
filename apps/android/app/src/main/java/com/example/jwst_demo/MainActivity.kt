@@ -29,8 +29,12 @@ class MainActivity : AppCompatActivity() {
                 workspace.withTrx { trx -> workspace.get(trx, "root").get().children(trx) }
                     ?.joinToString { it }
                     ?.let { Log.i("jwst", it) }
+                workspace.createBlock("demo", "list");
+                println("x++++++++++++++++++++++++++++");
+                workspace.subscribe("abc", arrayOf("title", "text"))
                 workspace.withTrx { trx ->
                     Thread.sleep(1000)
+                    println("1++++++++++++++++++++++++++++++++++++++++++")
                     trx.create("child11", "child");
                 }
             } ?: run {
@@ -46,6 +50,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 this.title = content as String
 
+                println("2++++++++++++++++++++++++++++++++++++++++++")
                 // new lot of block and insert into children
                 workspace.withTrx { trx ->
                     val block1 = trx.create("root", "root")

@@ -22,6 +22,10 @@ class Workspace(workspace: JwstWorkspace) {
         this.workspace = workspace
     }
 
+    fun createBlock(blockId: String, flavour: String): Block {
+        return Block(this.workspace.createBlock(blockId, flavour))
+    }
+
     fun id(): String {
         return this.workspace.id()
     }
@@ -32,6 +36,10 @@ class Workspace(workspace: JwstWorkspace) {
 
     fun get(trx: WorkspaceTransaction, block_id: String): Optional<Block> {
         return this.workspace.get(trx.trx, block_id).map { block -> Block(block) }
+    }
+
+    fun getWorkspace(): JwstWorkspace {
+        return this.workspace
     }
 
     fun exists(trx: WorkspaceTransaction, block_id: String): Boolean {
@@ -74,6 +82,14 @@ class Workspace(workspace: JwstWorkspace) {
             indexFields.push(item)
         }
         return this.workspace.setSearchIndex(indexFields)
+    }
+
+    fun subscribe(block_id: String, test: Array<String>) {
+        val block_ids = JwstVecOfStrings()
+        for (item in test) {
+            block_ids.push(item)
+        }
+        this.workspace.subscribe(block_id, block_ids)
     }
 }
 

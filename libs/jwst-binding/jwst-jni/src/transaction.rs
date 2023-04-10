@@ -1,3 +1,5 @@
+use log::warn;
+use crate::workspace::{Workspace};
 use super::{Block, JwstWorkspaceTransaction};
 
 pub trait OnWorkspaceTransaction {

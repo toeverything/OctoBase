@@ -48,6 +48,12 @@ r#"foreign_callback!(
         onTrx = OnWorkspaceTransaction::on_trx(& self , trx : WorkspaceTransaction);
     }
 );"#,
+r#"foreign_callback!(
+    callback BlockObserver {
+        self_type BlockObserver;
+        on_change = BlockObserver::on_change(& self , block_id : String);
+    }
+);"#,
 r#"
 pub type VecOfStrings = Vec<String>;
 foreign_class!(

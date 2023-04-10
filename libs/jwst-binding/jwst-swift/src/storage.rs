@@ -3,7 +3,7 @@ use jwst::{error, info, DocStorage, JwstError, JwstResult};
 use jwst_logger::init_logger_with;
 use jwst_rpc::{get_workspace, start_sync_thread, SyncState};
 use jwst_storage::JwstStorage as AutoStorage;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::{runtime::Runtime, sync::RwLock};
 
 #[derive(Clone)]
@@ -138,7 +138,8 @@ impl Storage {
                 workspace
             };
 
-            Ok(Workspace { workspace })
+            let (tx, rx) = std::sync::mpsc::channel::<String>();
+            Ok(Workspace { workspace, tx, rx: Arc::new(Mutex::new(rx)) })
         } else {
             Err(JwstError::WorkspaceNotInitialized(workspace_id))
         }
@@ -147,6 +148,7 @@ impl Storage {
 
 #[cfg(test)]
 mod tests {
+    use std::thread::sleep;
     use crate::{Storage, Workspace};
     use tokio::runtime::Runtime;
 
@@ -155,10 +157,18 @@ mod tests {
     fn collaboration_test() {
         let (workspace_id, block_id) = ("1", "1");
         let workspace = get_workspace(workspace_id);
+        let rx = workspace.rx.clone();
+        let handle = std::thread::spawn(move || {
+            while let Ok(message) = rx.lock().unwrap().recv() {
+                println!("message: {}", message);
+            }
+        });
         let block = workspace.create(block_id.to_string(), "list".to_string());
         block.set_bool("bool_prop".to_string(), true);
         block.set_float("float_prop".to_string(), 1.0);
-        block.push_children(&workspace.create("2".to_string(), "list".to_string()));
+        let block2 = workspace.create("2".to_string(), "list".to_string());
+        block2.set_float("float_prop".to_string(), 2.0);
+        // block.push_children(&block2);
 
         let resp = get_block_from_server(workspace_id.to_string(), block.id().to_string());
         assert!(!resp.is_empty());
@@ -166,6 +176,8 @@ mod tests {
             r#"("prop:bool_prop":true)|("prop:float_prop":1\.0)|("sys:children":\["2"\])"#;
         let re = regex::Regex::new(prop_extractor).unwrap();
         assert_eq!(re.find_iter(resp.as_str()).count(), 3);
+        // handle.join().expect("TODO: panic message");
+        sleep(std::time::Duration::from_secs(2));
     }
 
     fn get_workspace(workspace_id: &str) -> Workspace {

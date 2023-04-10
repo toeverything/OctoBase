@@ -56,6 +56,29 @@ public final class Workspace {
     }
     private static native boolean do_withTrx(long self, OnWorkspaceTransaction on_trx);
 
+    public final @NonNull Block createBlock(@NonNull String block_id, @NonNull String flavour) {
+        long ret = do_createBlock(mNativeObj, block_id, flavour);
+        Block convRet = new Block(InternalPointerMarker.RAW_PTR, ret);
+
+        return convRet;
+    }
+    private static native long do_createBlock(long self, @NonNull String block_id, @NonNull String flavour);
+
+    public final void subscribe(@NonNull String block_id, @NonNull VecOfStrings test) {
+        long a1 = test.mNativeObj;
+        test.mNativeObj = 0;
+
+        do_subscribe(mNativeObj, block_id, a1);
+
+        JNIReachabilityFence.reachabilityFence1(test);
+    }
+    private static native void do_subscribe(long self, @NonNull String block_id, long test);
+
+    public final void setCallback(@NonNull BlockObserver callback) {
+        do_setCallback(mNativeObj, callback);
+    }
+    private static native void do_setCallback(long self, BlockObserver callback);
+
     public final @NonNull Block [] getBlocksByFlavour(@NonNull String flavour) {
         Block [] ret = do_getBlocksByFlavour(mNativeObj, flavour);
 

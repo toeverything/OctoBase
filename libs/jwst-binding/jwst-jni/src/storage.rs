@@ -1,9 +1,10 @@
+use std::collections::HashSet;
 use crate::Workspace;
 use android_logger::Config;
 use jwst::{error, info, DocStorage, JwstError, JwstResult, LevelFilter};
 use jwst_rpc::{get_workspace, start_sync_thread, SyncState};
 use jwst_storage::JwstStorage as AutoStorage;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::{runtime::Runtime, sync::RwLock};
 
 #[derive(Clone)]
@@ -147,7 +148,15 @@ impl JwstStorage {
                 workspace
             };
 
-            Ok(Workspace { workspace })
+            let (tx, rx) = std::sync::mpsc::channel::<String>();
+            Ok(Workspace {
+                workspace,
+                tx,
+                rx: Arc::new(Mutex::new(rx)),
+                callback: Arc::new(Mutex::new(None)),
+                observed_block_ids: Arc::new(std::sync::RwLock::new(HashSet::<String>::new())),
+                modified_block_ids: Arc::new(std::sync::RwLock::new(HashSet::<String>::new())),
+            })
         } else {
             Err(JwstError::WorkspaceNotInitialized(workspace_id))
         }

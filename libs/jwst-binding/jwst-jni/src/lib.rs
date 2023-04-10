@@ -14,4 +14,4 @@ use jwst::{
 use rifgen::rifgen_attr::*;
 use storage::JwstStorage;
 use transaction::{OnWorkspaceTransaction, WorkspaceTransaction};
-use workspace::Workspace;
+use workspace::{Workspace, BlockObserver};

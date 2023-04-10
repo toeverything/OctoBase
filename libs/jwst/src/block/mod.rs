@@ -5,12 +5,14 @@ use lib0::any::Any;
 use serde::{Serialize, Serializer};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
+use std::fmt;
 use yrs::{types::{
     text::{Diff, YChange},
     ToJson, Value,
 }, Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, TextRef, Transact, TransactionMut, DeepObservable};
+use yrs::types::DeepEventsSubscription;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Clone)]
 pub struct Block {
     id: String,
     space_id: String,
@@ -20,7 +22,39 @@ pub struct Block {
     block: MapRef,
     children: ArrayRef,
     updated: Option<ArrayRef>,
-    // sub: Option<DeepEventsSubscription>,
+    sub: Option<DeepEventsSubscription>,
+}
+
+impl fmt::Debug for Block {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MyStruct")
+            .field("id", &self.id)
+            .field("space_id", &self.space_id)
+            .field("block_id", &self.block_id)
+            .field("doc", &self.doc)
+            .field("operator", &self.operator)
+            .field("block", &self.block)
+            .field("children", &self.children)
+            .field("updated", &self.updated)
+            .finish()
+    }
+}
+
+impl PartialEq for Block {
+    fn eq(&self, other: &Self) -> bool {
+        if self.id != other.id
+            || self.space_id != other.space_id
+            || self.block_id != other.block_id
+            || self.doc != other.doc
+            || self.operator != other.operator
+            || self.block != other.block
+            || self.children != other.children
+            || self.updated != other.updated {
+            return false;
+        }
+
+        return true;
+    }
 }
 
 unsafe impl Send for Block {}
@@ -28,12 +62,20 @@ unsafe impl Send for Block {}
 impl Block {
     // use std::sync::mpsc::Sender, as client may call this in a sync thread
     pub fn subscribe(&mut self, tx: std::sync::mpsc::Sender<String>) {
-        let block_id_cloned = self.block_id.clone();
+        warn!("subscribe1+++++++++++++++++++++++++++++");
+        let block_id = self.block_id.clone();
         // TODO use concrete error type
         // TODO bind _sub to Block to share same lifetime
-        let _sub = self.block.observe_deep(move |_trx, _e| {
-            tx.send(block_id_cloned.clone()).expect("send block observe message error");
+        let sub = self.block.observe_deep(move |_trx, _e| {
+            warn!("subscribe4+++++++++++++++++++++++++++++");
+            tx.send(block_id.clone()).expect("send block observe message error");
+            warn!("subscribe5+++++++++++++++++++++++++++++");
+            println!("block observe message sent");
         });
+        warn!("subscribe2+++++++++++++++++++++++++++++");
+        // std::mem::forget(_sub);
+        self.sub = Some(sub);
+        warn!("subscribe3+++++++++++++++++++++++++++++");
     }
 
     // Create a new block, skip create if block is already created.
@@ -95,6 +137,7 @@ impl Block {
                 block,
                 children,
                 updated,
+                sub: None,
             };
 
             block.log_update(trx, HistoryOperation::Add);
@@ -124,6 +167,7 @@ impl Block {
             block,
             children,
             updated,
+            sub: None
         })
     }
 
@@ -148,6 +192,7 @@ impl Block {
             block,
             children,
             updated,
+            sub: None,
         }
     }
 

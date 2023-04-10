@@ -1,10 +1,11 @@
+use std::sync::{Arc, Mutex};
 use super::Block;
 use jwst::Workspace as JwstWorkspace;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
     pub(crate) tx: std::sync::mpsc::Sender<String>,
-    pub(crate) rx: std::sync::mpsc::Receiver<String>,
+    pub(crate) rx: Arc<Mutex<std::sync::mpsc::Receiver<String>>>,
 }
 
 impl Workspace {
@@ -12,7 +13,7 @@ impl Workspace {
         let (tx, rx) = std::sync::mpsc::channel::<String>();
         Self {
             workspace: JwstWorkspace::new(id),
-            tx, rx,
+            tx, rx: Arc::new(Mutex::new(rx))
         }
     }
 

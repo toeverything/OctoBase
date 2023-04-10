@@ -34,6 +34,12 @@ foreign_callback!(
         onTrx = OnWorkspaceTransaction::on_trx(& self , trx : WorkspaceTransaction);
     }
 );
+foreign_callback!(
+    callback BlockObserver {
+        self_type BlockObserver;
+        on_change = BlockObserver::on_change(& self , block_id : String);
+    }
+);
 
 pub type VecOfStrings = Vec<String>;
 foreign_class!(
@@ -114,6 +120,9 @@ foreign_class!(
 		fn Workspace::get(& self , trx : & mut WorkspaceTransaction , block_id : String)->Option<Block>; alias get;
 		fn Workspace::exists(& self , trx : & mut WorkspaceTransaction , block_id : & str)->bool; alias exists;
 		fn Workspace::with_trx(& self , on_trx : Box < dyn OnWorkspaceTransaction >)->bool; alias withTrx;
+		fn Workspace::create_block(& self , block_id : String , flavour : String)->Block; alias createBlock;
+		fn Workspace::subscribe(& self , block_id : String , test : VecOfStrings); alias subscribe;
+		fn Workspace::set_callback(& mut self , callback : Box < dyn BlockObserver >); alias setCallback;
 		fn Workspace::get_blocks_by_flavour(& self , flavour : & str)->Vec<Block>; alias getBlocksByFlavour;
 		fn Workspace::drop_trx(& self , trx : WorkspaceTransaction); alias dropTrx;
 		fn Workspace::search(& self , query : String)->String; alias search;
