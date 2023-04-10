@@ -113,6 +113,55 @@ impl MailContext {
             .encoding()
             .to_string();
 
+        let workspace_avatar = if workspace_avatar.is_empty() {
+            format!(
+                " <img
+                style=\"
+                  margin-left: 6px;
+                  width: 28px;
+                  height: 28px;
+                  border-radius: 50%;
+                  vertical-align: middle;
+                  margin-left: 12px;
+                  margin-right: 12px;
+                  box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
+                    -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
+                    4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);
+                \"
+                src=\"blob:{}/{}\"
+                alt=\"\"
+              />",
+                site_url.clone(),
+                workspace_avatar.clone()
+            )
+        } else {
+            format!(
+                " <div
+                style=\"
+                  margin-left: 6px;
+                  width: 28px;
+                  height: 28px;
+                  border-radius: 50%;
+                  vertical-align: middle;
+                  color: rgb(255, 255, 255);
+                  background-color:rgb(237, 213, 27);;
+                  margin-left: 12px;
+                  margin-right: 12px;
+                  box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
+                    -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
+                    4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);
+                \"
+              >{}</div>",
+                metadata
+                    .name
+                    .clone()
+                    .unwrap_or_default()
+                    .chars()
+                    .next()
+                    .unwrap()
+                    .to_string()
+            )
+        };
         let title = self.template.render(
             "MAIL_INVITE_TITLE",
             &MailTitle {
@@ -127,7 +176,7 @@ impl MailContext {
                 inviter_name: claims.user.name.clone(),
                 site_url,
                 avatar_url: claims.user.avatar_url.to_owned().unwrap_or("".to_string()),
-                workspace_name: metadata.name.unwrap_or_default(),
+                workspace_name: metadata.name.unwrap_or_default().clone(),
                 invite_code: invite_code.to_string(),
                 current_year: Utc::now().year(),
                 workspace_avatar,
