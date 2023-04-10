@@ -374,11 +374,7 @@ mod tests {
         assert!(webp.starts_with(b"RIFF"));
         assert_eq!(
             storage
-                .get_metadata(
-                    Some("image".into()),
-                    hash.clone(),
-                    Some(webp_params.clone())
-                )
+                .get_metadata(Some("blob".into()), hash.clone(), Some(webp_params.clone()))
                 .await
                 .unwrap()
                 .size as usize,
