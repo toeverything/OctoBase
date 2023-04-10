@@ -75,7 +75,7 @@ impl CloudBlobService {
             Err(_) => return Err(ErrorStatus::InternalServerError),
         }
 
-        self.get_blob(&ctx, Some(workspace_id), id, method, headers)
+        self.get_blob(ctx, Some(workspace_id), id, method, headers)
             .await
     }
 
@@ -93,7 +93,7 @@ impl CloudBlobService {
             return Err(ErrorStatus::PayloadTooLarge);
         }
 
-        let Ok(usage) = self.get_user_resource_usage(&ctx, user_id.clone()).await else {
+        let Ok(usage) = self.get_user_resource_usage(ctx, user_id.clone()).await else {
             return Err(ErrorStatus::InternalServerError);
         };
         if usage.blob_usage.usage + length.0 > usage.blob_usage.max_usage {
@@ -113,7 +113,7 @@ impl CloudBlobService {
             }
         }
 
-        self.upload_blob(&ctx, stream, Some(workspace_id)).await
+        self.upload_blob(ctx, stream, Some(workspace_id)).await
     }
 
     #[instrument(skip(ctx))]
