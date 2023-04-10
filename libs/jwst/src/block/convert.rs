@@ -283,8 +283,9 @@ mod tests {
     #[test]
     fn test_multiple_layer_space_clone() {
         let doc1 = Doc::new();
-        doc1.transact_mut()
-            .apply_update(Update::decode_v1(include_bytes!("test_multi_layer.bin")).unwrap());
+        doc1.transact_mut().apply_update(
+            Update::decode_v1(include_bytes!("../../fixtures/test_multi_layer.bin")).unwrap(),
+        );
 
         let ws1 = Workspace::from_doc(doc1, "test");
 
