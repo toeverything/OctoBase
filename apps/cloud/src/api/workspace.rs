@@ -1,4 +1,4 @@
-use crate::{context::Context, error_status::ErrorStatus};
+use crate::{context::Context, infrastructure::error_status::ErrorStatus};
 use axum::{
     extract::{BodyStream, Path},
     headers::ContentLength,
@@ -10,8 +10,8 @@ use cloud_database::{Claims, UpdateWorkspace, WorkspaceSearchInput};
 use futures::{future, StreamExt};
 use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
-use std::sync::Arc;
 use jwst_storage::JwstStorageError;
+use std::sync::Arc;
 
 impl Context {
     #[instrument(skip(self, stream))]
