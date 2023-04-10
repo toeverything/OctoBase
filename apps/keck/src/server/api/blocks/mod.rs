@@ -1,6 +1,6 @@
-mod block;
-mod schema;
-mod workspace;
+pub mod block;
+pub mod schema;
+pub mod workspace;
 
 pub use block::{
     delete_block, get_block, get_block_history, insert_block_children, remove_block_children,
@@ -12,59 +12,7 @@ pub use workspace::{
 };
 
 use super::*;
-use cloud_infra::with_api_doc_v2;
 use schema::InsertChildren;
-use utoipa::OpenApi;
-
-#[derive(OpenApi)]
-#[openapi(
-    paths(
-        workspace::get_workspace,
-        workspace::set_workspace,
-        workspace::delete_workspace,
-        workspace::workspace_client,
-        workspace::history_workspace_clients,
-        workspace::history_workspace,
-        workspace::get_workspace_block,
-        workspace::workspace_search,
-        workspace::set_search_index,
-        block::get_block,
-        block::get_block_by_flavour,
-        block::set_block,
-        block::get_block_history,
-        block::get_block_children,
-        block::delete_block,
-        block::insert_block_children,
-        block::remove_block_children,
-    ),
-    components(
-        schemas(
-            schema::InsertChildren,
-            schema::Workspace, schema::Block, schema::BlockRawHistory,
-            jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory,
-            jwst::SearchResults, jwst::SearchResult
-        )
-    ),
-    tags(
-        (name = "Workspace", description = "Read and write remote workspace"),
-        (name = "Blocks", description = "Read and write remote blocks")
-    )
-)]
-struct ApiDoc;
-
-const README: &str = include_str!("../../../../../homepage/pages/docs/introduction.md");
-const DISTINCTIVE_FEATURES: &str =
-    include_str!("../../../../../homepage/pages/docs/overview/distinctive_features.md");
-
-fn doc_apis(router: Router) -> Router {
-    if cfg!(feature = "schema") {
-        let mut openapi = ApiDoc::openapi();
-        openapi.info.description = Some(vec![README, DISTINCTIVE_FEATURES].join("\n"));
-        with_api_doc_v2(router, openapi, "JWST Api Docs")
-    } else {
-        router
-    }
-}
 
 fn block_apis(router: Router) -> Router {
     let block_operation = Router::new()
