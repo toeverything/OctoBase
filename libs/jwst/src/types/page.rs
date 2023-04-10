@@ -54,3 +54,35 @@ impl<T: ReadTxn> From<(&T, MapRef)> for PageMeta {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use yrs::{ArrayPrelim, Doc, Transact};
+
+    #[test]
+    fn test_page_meta() {
+        let doc = Doc::new();
+        let map = doc.get_or_insert_map("test");
+        let mut trx = doc.transact_mut();
+        map.insert(&mut trx, "id", "test_page").unwrap();
+        map.insert(&mut trx, "favorite", true).unwrap();
+        map.insert(&mut trx, "is_pivots", true).unwrap();
+        map.insert(&mut trx, "init", true).unwrap();
+        map.insert(&mut trx, "sub_page_ids", ArrayPrelim::default())
+            .unwrap();
+        map.insert(&mut trx, "title", "test_title").unwrap();
+        map.insert(&mut trx, "trash", true).unwrap();
+        map.insert(&mut trx, "trash_date", 1234567890).unwrap();
+
+        let meta = PageMeta::from((&trx, map));
+        assert_eq!(meta.id, "test_page");
+        assert_eq!(meta.favorite, Some(true));
+        assert_eq!(meta.is_pivots, Some(true));
+        assert_eq!(meta.init, Some(true));
+        assert_eq!(meta.sub_page_ids, Vec::<String>::new());
+        assert_eq!(meta.title, Some("test_title".to_string()));
+        assert_eq!(meta.trash, Some(true));
+        assert_eq!(meta.trash_date, Some(1234567890));
+    }
+}
