@@ -296,6 +296,7 @@ mod tests {
         let stream = async { Bytes::from(blob.clone()) }.into_stream();
         let hash = storage.put_blob(Some("blob".into()), stream).await.unwrap();
 
+        // check origin blob result
         assert_eq!(
             storage
                 .get_blob(Some("blob".into()), hash.clone(), None)
@@ -303,16 +304,6 @@ mod tests {
                 .unwrap(),
             blob
         );
-
-        assert!(storage
-            .get_blob(
-                Some("blob".into()),
-                hash.clone(),
-                Some(HashMap::from([("format".into(), "jpeg".into())]))
-            )
-            .await
-            .is_err());
-
         assert_eq!(
             storage
                 .get_metadata(Some("blob".into()), hash.clone(), None)
@@ -322,6 +313,17 @@ mod tests {
             blob.len()
         );
 
+        // optimize must failed if blob not supported
+        assert!(storage
+            .get_blob(
+                Some("blob".into()),
+                hash.clone(),
+                Some(HashMap::from([("format".into(), "jpeg".into())]))
+            )
+            .await
+            .is_err());
+
+        // generate image
         let image = {
             let mut image = Cursor::new(vec![]);
             DynamicImage::new_rgba8(32, 32)
@@ -332,6 +334,7 @@ mod tests {
         let stream = async { Bytes::from(image.clone()) }.into_stream();
         let hash = storage.put_blob(Some("blob".into()), stream).await.unwrap();
 
+        // check origin blob result
         assert_eq!(
             storage
                 .get_blob(Some("blob".into()), hash.clone(), None)
@@ -339,7 +342,6 @@ mod tests {
                 .unwrap(),
             image
         );
-
         assert_eq!(
             storage
                 .get_metadata(Some("blob".into()), hash.clone(), None)
@@ -349,6 +351,7 @@ mod tests {
             image.len()
         );
 
+        // check optimized jpeg result
         let jpeg_params = HashMap::from([("format".into(), "jpeg".into())]);
         let jpeg = storage
             .get_blob(Some("blob".into()), hash.clone(), Some(jpeg_params.clone()))
@@ -365,6 +368,7 @@ mod tests {
             jpeg.len()
         );
 
+        // check optimized webp result
         let webp_params = HashMap::from([("format".into(), "webp".into())]);
         let webp = storage
             .get_blob(Some("blob".into()), hash.clone(), Some(webp_params.clone()))
@@ -381,6 +385,7 @@ mod tests {
             webp.len()
         );
 
+        // optimize must failed if image params error
         assert!(storage
             .get_blob(
                 Some("blob".into()),
@@ -389,7 +394,6 @@ mod tests {
             )
             .await
             .is_err());
-
         assert!(storage
             .get_blob(
                 Some("blob".into()),
