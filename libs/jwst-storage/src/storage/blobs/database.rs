@@ -1,6 +1,6 @@
 use super::{utils::get_hash, *};
+use crate::types::JwstStorageResult;
 use jwst_storage_migration::{Migrator, MigratorTrait};
-use crate::types::{JwstStorageResult};
 
 pub(super) type BlobModel = <Blobs as EntityTrait>::Model;
 type BlobActiveModel = super::entities::blobs::ActiveModel;
@@ -13,7 +13,10 @@ pub struct BlobDBStorage {
 }
 
 impl BlobDBStorage {
-    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstStorageResult<Self> {
+    pub async fn init_with_pool(
+        pool: DatabaseConnection,
+        bucket: Arc<Bucket>,
+    ) -> JwstStorageResult<Self> {
         Migrator::up(&pool, None).await?;
         Ok(Self { bucket, pool })
     }
@@ -175,7 +178,11 @@ impl BlobStorage<JwstStorageError> for BlobDBStorage {
         }
     }
 
-    async fn delete_blob(&self, workspace_id: Option<String>, id: String) -> JwstStorageResult<bool> {
+    async fn delete_blob(
+        &self,
+        workspace_id: Option<String>,
+        id: String,
+    ) -> JwstStorageResult<bool> {
         let _lock = self.bucket.write().await;
         let workspace_id = workspace_id.unwrap_or("__default__".into());
         if let Ok(success) = self.delete(&workspace_id, &id).await {
@@ -196,9 +203,7 @@ impl BlobStorage<JwstStorageError> for BlobDBStorage {
 
     async fn get_blobs_size(&self, workspace_id: String) -> JwstStorageResult<i64> {
         let _lock = self.bucket.read().await;
-        let size = self
-            .get_blobs_size(&workspace_id)
-            .await?;
+        let size = self.get_blobs_size(&workspace_id).await?;
         return Ok(size.unwrap_or(0));
     }
 }
