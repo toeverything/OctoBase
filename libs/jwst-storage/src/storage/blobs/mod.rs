@@ -313,6 +313,15 @@ mod tests {
             .await
             .is_err());
 
+        assert_eq!(
+            storage
+                .get_metadata(Some("blob".into()), hash.clone(), None)
+                .await
+                .unwrap()
+                .size as usize,
+            blob.len()
+        );
+
         let image = {
             let mut image = Cursor::new(vec![]);
             DynamicImage::new_rgba8(32, 32)
@@ -332,6 +341,15 @@ mod tests {
                 .await
                 .unwrap(),
             image
+        );
+
+        assert_eq!(
+            storage
+                .get_metadata(Some("image".into()), hash.clone(), None)
+                .await
+                .unwrap()
+                .size as usize,
+            image.len()
         );
 
         assert!(storage
