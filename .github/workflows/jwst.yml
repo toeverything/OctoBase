@@ -227,6 +227,9 @@ jobs:
     lint:
         runs-on: ubuntu-latest
         environment: development
+        permissions:
+            contents: read
+            security-events: write
 
         steps:
             - name: Checkout
