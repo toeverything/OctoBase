@@ -16,6 +16,8 @@ pub enum JwstError {
     DocTransaction(String),
     #[error("workspace {0} not initialized")]
     WorkspaceNotInitialized(String),
+    #[error("workspace indexing error")]
+    WorkspaceReIndex,
     // version metadata
     #[error("workspace {0} has no version")]
     VersionNotFound(String),

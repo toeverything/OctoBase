@@ -36,3 +36,9 @@ pub fn print_versions(pkg_name: &str, pkg_version: &str) {
         &env!("VERGEN_RUSTC_COMMIT_HASH")[0..7],
     );
 }
+
+#[test]
+fn test_print_versions() {
+    // just for test coverage
+    print_versions("jwst", "0.1.0");
+}

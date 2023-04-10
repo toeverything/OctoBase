@@ -2,7 +2,7 @@
 mod indexing;
 mod plugin;
 
-use super::{metadata::SEARCH_INDEX, *};
+use super::*;
 
 #[cfg(feature = "workspace-search")]
 use indexing::IndexingPluginImpl;
@@ -72,17 +72,22 @@ impl Workspace {
     }
 
     pub fn set_search_index(&self, fields: Vec<String>) -> JwstResult<bool> {
-        match fields.iter().find(|&field| field.is_empty()) {
-            Some(field) => {
-                error!("field name cannot be empty: {}", field);
-                Ok(false)
-            }
-            None => {
-                let value = serde_json::to_string(&fields).unwrap();
-                self.with_trx(|mut trx| trx.set_metadata(SEARCH_INDEX, value))?;
-                setup_plugin(self.clone());
-                Ok(true)
-            }
+        let fields = fields
+            .iter()
+            .filter(|f| !f.is_empty())
+            .cloned()
+            .collect::<Vec<_>>();
+        if fields.is_empty() {
+            error!("search index cannot be empty");
+            return Ok(false);
         }
+
+        let value = serde_json::to_string(&fields).map_err(|_| JwstError::WorkspaceReIndex)?;
+        self.retry_with_trx(
+            |mut trx| trx.set_metadata(constants::metadata::SEARCH_INDEX, value),
+            10,
+        )??;
+        setup_plugin(self.clone());
+        Ok(true)
     }
 }
