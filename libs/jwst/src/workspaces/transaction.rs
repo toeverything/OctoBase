@@ -15,7 +15,8 @@ const RESERVE_SPACE: [&str; 2] = [constants::space::META, constants::space::UPDA
 
 impl WorkspaceTransaction<'_> {
     pub fn get_space<S: AsRef<str>>(&mut self, space_id: S) -> Space {
-        Space::new(&mut self.trx, self.ws.doc(), self.ws.id(), space_id)
+        let pages = self.ws.pages(&mut self.trx).unwrap();
+        Space::new(&mut self.trx, self.ws.doc(), pages, self.ws.id(), space_id)
     }
 
     pub fn get_exists_space<S: AsRef<str>>(&self, space_id: S) -> Option<Space> {
