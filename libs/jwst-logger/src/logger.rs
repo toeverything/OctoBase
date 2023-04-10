@@ -35,3 +35,9 @@ fn init_logger_with_env_filter(env_filter: EnvFilter) {
         .with(env_filter)
         .init();
 }
+
+#[test]
+fn test_init_logger() {
+    // just test that can be called without panicking
+    init_logger("jwst");
+}

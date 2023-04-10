@@ -1,10 +1,11 @@
 mod metadata;
+mod observe;
 mod plugins;
+mod sync;
 mod transaction;
 mod workspace;
 
 use super::{constants, error, info, trace, warn, JwstError, JwstResult, Space};
-use plugins::PluginMap;
 
 pub use metadata::WorkspaceMetadata;
 #[cfg(feature = "workspace-search")]

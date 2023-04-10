@@ -10,8 +10,8 @@ use cloud_database::{Claims, UpdateWorkspace, WorkspaceSearchInput};
 use futures::{future, StreamExt};
 use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
-use std::sync::Arc;
 use jwst_storage::JwstStorageError;
+use std::sync::Arc;
 
 impl Context {
     #[instrument(skip(self, stream))]
@@ -375,12 +375,26 @@ pub async fn get_public_page(
 ) -> Response {
     info!("get_page enter");
     match ctx.db.is_public_workspace(workspace_id.clone()).await {
-        Ok(true) => (),
-        Ok(false) => return ErrorStatus::Forbidden.into_response(),
+        // check if page is public
+        // TODO: improve logic
+        Ok(false)
+            if ctx
+                .storage
+                .get_workspace(workspace_id.clone())
+                .await
+                .ok()
+                .and_then(|ws| {
+                    ws.try_with_trx(|mut t| t.get_space(page_id.clone()).shared(&t.trx))
+                })
+                != Some(true) =>
+        {
+            return ErrorStatus::Forbidden.into_response();
+        }
         Err(e) => {
             error!("Failed to get permission: {:?}", e);
             return ErrorStatus::InternalServerError.into_response();
         }
+        Ok(true | false) => (),
     }
 
     match ctx.storage.get_workspace(workspace_id).await {
@@ -392,6 +406,7 @@ pub async fn get_public_page(
                     Some(mine) if mine.starts_with("text/") => {
                         if let Some(markdown) = workspace
                             .retry_with_trx(|t| space.to_markdown(&t.trx), 10)
+                            .ok()
                             .flatten()
                         {
                             markdown.into_response()
@@ -402,6 +417,7 @@ pub async fn get_public_page(
                     _ => {
                         if let Some(doc) = workspace
                             .retry_with_trx(|t| space.to_single_page(&t.trx).ok(), 10)
+                            .ok()
                             .flatten()
                         {
                             doc.into_response()
@@ -1000,6 +1016,7 @@ mod test {
         let context = Context::new_test_client(pool).await;
         let ctx = Arc::new(context);
         let app = make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
         //create user
         let client = TestClient::new(app);
         let body_data = json!({
@@ -1017,6 +1034,7 @@ mod test {
             .send()
             .await;
         assert_eq!(resp.status(), StatusCode::OK);
+
         //login user
         let body_data = json!({
             "type": "DebugLoginUser",
@@ -1041,6 +1059,7 @@ mod test {
                 .map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))),
         );
         let body_stream = Body::wrap_stream(test_data_stream.clone());
+
         //create workspace
         let resp = client
             .post("/workspace")
@@ -1053,13 +1072,13 @@ mod test {
         let resp_json: serde_json::Value = resp.json().await;
         let workspace_id = resp_json["id"].as_str().unwrap().to_string();
         let public_url = format!("/public/workspace/{}", workspace_id.clone());
-
         let resp = client
             .get(&public_url)
             .header("authorization", format!("{}", access_token.clone()))
             .send()
             .await;
         assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+
         //public workspace
         let url = format!("/workspace/{}", workspace_id.clone());
         let body_data = json!({
@@ -1077,8 +1096,18 @@ mod test {
         let resp_json: serde_json::Value = resp.json().await;
         let is_workspace_public = resp_json["public"].as_bool().unwrap();
         assert_eq!(is_workspace_public, true);
-        //get public doc
 
+        // check public workspace
+        let url = format!("/public/workspace/{}", workspace_id);
+        let resp = client
+            .get(&url)
+            .header("Content-Type", "application/json")
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        // TODO: check public page
+
+        //get not public doc
         let resp = client
             .get(&public_url)
             .header("authorization", format!("{}", access_token.clone()))

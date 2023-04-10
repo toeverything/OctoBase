@@ -1,3 +1,14 @@
+pub mod metadata {
+    /// `name`
+    pub const NAME: &str = "name";
+
+    /// `avatar`
+    pub const AVATAR: &str = "avatar";
+
+    /// `search_index`
+    pub const SEARCH_INDEX: &str = "search_index";
+}
+
 /// The sys constants.
 pub mod sys {
     /// `sys:id`

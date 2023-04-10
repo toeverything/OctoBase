@@ -59,20 +59,14 @@ jobs:
                   toolchain: stable
                   override: true
 
-            - name: Set up cargo cache
+            - uses: Swatinem/rust-cache@v2
+            - name: Set up cache
               uses: actions/cache@v3
               continue-on-error: false
               with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      ./vendor
-                      ./.cargo/config
-                      ./node_modules/.pnpm-store
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: ${{ runner.os }}-cargo-
+                  path: ./node_modules/.pnpm-store
+                  key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+                  restore-keys: ${{ runner.os }}-pnpm-
 
             - name: Cargo Vendor
               run: cargo vendor > .cargo/config
@@ -141,20 +135,14 @@ jobs:
                   target: x86_64-unknown-linux-musl
                   override: true
 
+            - uses: Swatinem/rust-cache@v2
             - name: Set up cache
               uses: actions/cache@v3
               continue-on-error: false
               with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      ./vendor
-                      ./.cargo/config
-                      ./node_modules/.pnpm-store
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: ${{ runner.os }}-cargo-
+                  path: ./node_modules/.pnpm-store
+                  key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+                  restore-keys: ${{ runner.os }}-pnpm-
 
             - name: Build & Check
               run: |
@@ -236,22 +224,12 @@ jobs:
                   labels: ${{ steps.meta_apiproxy.outputs.labels }}
                   target: apiproxy
 
-    test:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v1
-            - uses: actions-rs/toolchain@v1
-              with:
-                  toolchain: stable
-                  override: true
-            - uses: actions-rs/cargo@v1
-              with:
-                  command: test
-                  args: --no-fail-fast
-
     lint:
         runs-on: ubuntu-latest
         environment: development
+        permissions:
+            contents: read
+            security-events: write
 
         steps:
             - name: Checkout
@@ -267,20 +245,14 @@ jobs:
                   components: clippy
                   override: true
 
+            - uses: Swatinem/rust-cache@v2
             - name: Set up cache
               uses: actions/cache@v3
               continue-on-error: false
               with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      ./vendor
-                      ./.cargo/config
-                      ./node_modules/.pnpm-store
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: ${{ runner.os }}-cargo-
+                  path: ./node_modules/.pnpm-store
+                  key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+                  restore-keys: ${{ runner.os }}-pnpm-
 
             - name: Install required cargo components
               uses: taiki-e/install-action@v2
@@ -301,8 +273,8 @@ jobs:
                   sarif_file: rust-clippy-results.sarif
                   wait-for-processing: true
 
-    coverage:
-        name: Collect test coverage
+    test:
+        name: test & collect coverage
         runs-on: ubuntu-latest
         continue-on-error: true
         env:
