@@ -50,7 +50,7 @@ pub async fn get_block(
     params(
         ("workspace_id", description = "workspace id"),
         ("block_id", description = "block id"),
-        ("flavour", description = "block flavour, default flavour is text. Optional", Query),
+        ("flavour", Query, description = "block flavour, default flavour is text. Optional"),
     ),
     request_body(
         content = String,

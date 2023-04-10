@@ -36,8 +36,7 @@ sha2 = "0.10.6"
 thiserror = "1.0.39"
 url = "2.3.1"
 url-escape = "0.1.1"
-utoipa_v2 = { package = "utoipa", version = "2.4.2" }
-utoipa_v3 = { package = "utoipa", version = "3.1.0" }
+utoipa = "3.1.0"
 utoipa-swagger-ui = { version = "3.1.0", features = ["axum"] }
 x509-parser = "0.14.0"
 

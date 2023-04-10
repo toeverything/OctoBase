@@ -6,7 +6,7 @@ use jwst::BlobStorage;
 use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
-struct BlobStatus {
+pub struct BlobStatus {
     id: Option<String>,
     exists: bool,
 }
@@ -100,7 +100,8 @@ pub async fn get_blob(
         ("hash", description = "blob hash"),
     ),
     request_body(
-        content = Vec<u8>,
+        content = BodyStream,
+        content_type="application/octet-stream"
     ),
     responses(
         (status = 200, description = "Blob was saved", body = BlobStatus),

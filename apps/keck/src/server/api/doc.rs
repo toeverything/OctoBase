@@ -3,7 +3,7 @@ use super::{
     blocks::{block, schema, workspace},
     *,
 };
-use cloud_infra::with_api_doc_v2;
+use cloud_infra::with_api_doc;
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]
@@ -33,10 +33,10 @@ use utoipa::OpenApi;
     ),
     components(
         schemas(
-            schema::InsertChildren,
+            blobs::BlobStatus, schema::InsertChildren,
             schema::Workspace, schema::Block, schema::BlockRawHistory,
             jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory,
-            jwst::SearchResults, jwst::SearchResult
+            jwst::SearchResults, jwst::SearchResult,
         )
     ),
     tags(
@@ -54,7 +54,7 @@ pub fn doc_apis(router: Router) -> Router {
     if cfg!(feature = "schema") {
         let mut openapi = ApiDoc::openapi();
         openapi.info.description = Some(vec![README, DISTINCTIVE_FEATURES].join("\n"));
-        with_api_doc_v2(router, openapi, "JWST Api Docs")
+        with_api_doc(router, openapi, "jwst")
     } else {
         router
     }
