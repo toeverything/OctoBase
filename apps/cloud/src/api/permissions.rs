@@ -173,17 +173,27 @@ pub async fn invite_member(
             }
         };
 
-        let workspace_avatar = ctx
-            .storage
-            .blobs()
-            .get_blob(
-                Some(workspace_id.clone()),
-                metadata.avatar.clone().unwrap(),
-                None,
-            )
-            .await
-            .ok()
-            .unwrap();
+        let workspace_avatar_data = match metadata.avatar.clone() {
+            Some(avatar) => match ctx
+                .storage
+                .blobs()
+                .get_blob(Some(workspace_id.clone()), avatar.clone(), None)
+                .await
+            {
+                Ok(avatar) => {
+                    info!("avatar: Done");
+                    avatar
+                }
+                Err(e) => {
+                    error!("Failed to get workspace avatar: {}", e);
+                    Vec::new()
+                }
+            },
+            None => {
+                info!("avatar: None");
+                Vec::new()
+            }
+        };
 
         let Ok(invite_code) = ctx.key.encrypt_aes_base64(permission_id.as_bytes()) else {
             return ErrorStatus::InternalServerError.into_response();
@@ -197,7 +207,7 @@ pub async fn invite_member(
                     site_url,
                     &claims,
                     &invite_code,
-                    workspace_avatar,
+                    workspace_avatar_data,
                 )
                 .await
             {
