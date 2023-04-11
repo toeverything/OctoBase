@@ -1,9 +1,8 @@
-pub use base64::{DecodeError as Base64DecodeError, Engine as Base64Engine};
-
 use base64::{
-    alphabet::URL_SAFE,
+    alphabet::{STANDARD, URL_SAFE},
     engine::{general_purpose::PAD, GeneralPurpose},
 };
+pub use base64::{DecodeError as Base64DecodeError, Engine as Base64Engine};
 use lib0::encoding::Write;
 use std::ops::RangeInclusive;
 use yrs::updates::encoder::{Encoder, EncoderV1};
@@ -32,3 +31,4 @@ const MIN_JS_INT: i64 = -MAX_JS_INT;
 pub const JS_INT_RANGE: RangeInclusive<i64> = MIN_JS_INT..=MAX_JS_INT;
 
 pub const URL_SAFE_ENGINE: GeneralPurpose = GeneralPurpose::new(&URL_SAFE, PAD);
+pub const STANDARD_ENGINE: GeneralPurpose = GeneralPurpose::new(&STANDARD, PAD);
