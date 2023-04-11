@@ -28,7 +28,7 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
             128,
         )));
 
-        let awareness = workspace
+        workspace
             .on_awareness_update(move |awareness, e| {
                 trace!(
                     "workspace awareness changed: {}, {:?}",
@@ -57,11 +57,7 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
                 }
             })
             .await;
-
-        // TODO: this is a hack to prevent the subscription from being dropped
-        // just keep the ownership
-        std::mem::forget(awareness);
-    };
+    }
     {
         let sender = sender.clone();
         let workspace_id = workspace.id();
