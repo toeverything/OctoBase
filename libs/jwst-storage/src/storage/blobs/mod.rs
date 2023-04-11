@@ -279,3 +279,187 @@ impl BlobStorage<JwstStorageError> for BlobAutoStorage {
         return Ok(size.unwrap_or(0));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::FutureExt;
+    use image::{DynamicImage, ImageOutputFormat};
+    use std::io::Cursor;
+
+    #[tokio::test]
+    async fn test_blob_auto_storage() {
+        let storage = BlobAutoStorage::init_pool("sqlite::memory:").await.unwrap();
+
+        let blob = Vec::from_iter((0..100).map(|_| rand::random()));
+
+        let stream = async { Bytes::from(blob.clone()) }.into_stream();
+        let hash = storage.put_blob(Some("blob".into()), stream).await.unwrap();
+
+        // check origin blob result
+        assert_eq!(
+            storage
+                .get_blob(Some("blob".into()), hash.clone(), None)
+                .await
+                .unwrap(),
+            blob
+        );
+        assert_eq!(
+            storage
+                .get_metadata(Some("blob".into()), hash.clone(), None)
+                .await
+                .unwrap()
+                .size as usize,
+            blob.len()
+        );
+
+        // optimize must failed if blob not supported
+        assert!(storage
+            .get_blob(
+                Some("blob".into()),
+                hash.clone(),
+                Some(HashMap::from([("format".into(), "jpeg".into())]))
+            )
+            .await
+            .is_err());
+
+        // generate image
+        let image = {
+            let mut image = Cursor::new(vec![]);
+            DynamicImage::new_rgba8(32, 32)
+                .write_to(&mut image, ImageOutputFormat::Png)
+                .unwrap();
+            image.into_inner()
+        };
+        let stream = async { Bytes::from(image.clone()) }.into_stream();
+        let hash = storage.put_blob(Some("blob".into()), stream).await.unwrap();
+
+        // check origin blob result
+        assert_eq!(
+            storage
+                .get_blob(Some("blob".into()), hash.clone(), None)
+                .await
+                .unwrap(),
+            image
+        );
+        assert_eq!(
+            storage
+                .get_metadata(Some("blob".into()), hash.clone(), None)
+                .await
+                .unwrap()
+                .size as usize,
+            image.len()
+        );
+
+        // check optimized jpeg result
+        let jpeg_params = HashMap::from([("format".into(), "jpeg".into())]);
+        let jpeg = storage
+            .get_blob(Some("blob".into()), hash.clone(), Some(jpeg_params.clone()))
+            .await
+            .unwrap();
+
+        assert!(jpeg.starts_with(&[0xff, 0xd8, 0xff]));
+        assert_eq!(
+            storage
+                .get_metadata(Some("blob".into()), hash.clone(), Some(jpeg_params))
+                .await
+                .unwrap()
+                .size as usize,
+            jpeg.len()
+        );
+
+        // check optimized webp result
+        let webp_params = HashMap::from([("format".into(), "webp".into())]);
+        let webp = storage
+            .get_blob(Some("blob".into()), hash.clone(), Some(webp_params.clone()))
+            .await
+            .unwrap();
+
+        assert!(webp.starts_with(b"RIFF"));
+        assert_eq!(
+            storage
+                .get_metadata(Some("blob".into()), hash.clone(), Some(webp_params.clone()))
+                .await
+                .unwrap()
+                .size as usize,
+            webp.len()
+        );
+
+        // optimize must failed if image params error
+        assert!(storage
+            .get_blob(
+                Some("blob".into()),
+                hash.clone(),
+                Some(HashMap::from([("format".into(), "error_value".into()),]))
+            )
+            .await
+            .is_err());
+        assert!(storage
+            .get_blob(
+                Some("blob".into()),
+                hash.clone(),
+                Some(HashMap::from([
+                    ("format".into(), "webp".into()),
+                    ("size".into(), "error_value".into())
+                ]))
+            )
+            .await
+            .is_err());
+        assert!(storage
+            .get_blob(
+                Some("blob".into()),
+                hash.clone(),
+                Some(HashMap::from([
+                    ("format".into(), "webp".into()),
+                    ("width".into(), "111".into())
+                ]))
+            )
+            .await
+            .is_err());
+        assert!(storage
+            .get_blob(
+                Some("blob".into()),
+                hash.clone(),
+                Some(HashMap::from([
+                    ("format".into(), "webp".into()),
+                    ("height".into(), "111".into())
+                ]))
+            )
+            .await
+            .is_err());
+
+        assert_eq!(
+            storage.get_blobs_size("blob".into()).await.unwrap() as usize,
+            100 + image.len()
+        );
+
+        assert!(storage
+            .delete_blob(Some("blob".into()), hash.clone())
+            .await
+            .unwrap());
+        assert_eq!(
+            storage
+                .check_blob(Some("blob".into()), hash.clone())
+                .await
+                .unwrap(),
+            false
+        );
+        assert!(storage
+            .get_blob(Some("blob".into()), hash.clone(), None)
+            .await
+            .is_err());
+        assert!(storage
+            .get_metadata(Some("blob".into()), hash.clone(), None)
+            .await
+            .is_err());
+        assert!(storage
+            .get_metadata(Some("blob".into()), hash.clone(), Some(webp_params))
+            .await
+            .is_err());
+
+        assert_eq!(
+            storage.get_blobs_size("blob".into()).await.unwrap() as usize,
+            100
+        );
+    }
+}

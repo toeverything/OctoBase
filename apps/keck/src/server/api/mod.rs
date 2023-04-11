@@ -2,6 +2,7 @@
 mod blobs;
 #[cfg(feature = "api")]
 mod blocks;
+mod doc;
 
 use super::*;
 use axum::Router;
@@ -12,6 +13,7 @@ use axum::{
     response::IntoResponse,
     routing::{delete, get, head},
 };
+use doc::doc_apis;
 use jwst_rpc::{BroadcastChannels, RpcContextImpl};
 use jwst_storage::JwstStorage;
 use std::collections::HashMap;
