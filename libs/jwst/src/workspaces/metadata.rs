@@ -16,8 +16,12 @@ pub struct WorkspaceMetadata {
 impl From<(&'_ Transaction<'_>, MapRef)> for WorkspaceMetadata {
     fn from((trx, map): (&Transaction, MapRef)) -> Self {
         Self {
-            name: map.get(trx, constants::metadata::NAME).map(|s| s.to_string(trx)),
-            avatar: map.get(trx, constants::metadata::AVATAR).map(|s| s.to_string(trx)),
+            name: map
+                .get(trx, constants::metadata::NAME)
+                .map(|s| s.to_string(trx)),
+            avatar: map
+                .get(trx, constants::metadata::AVATAR)
+                .map(|s| s.to_string(trx)),
             search_index: match map.get(trx, constants::metadata::SEARCH_INDEX) {
                 Some(value) => serde_json::from_str::<Vec<String>>(&value.to_string(trx)).unwrap(),
                 None => vec!["title".to_string(), "text".to_string()],
@@ -35,7 +39,10 @@ impl From<WorkspaceMetadata> for Any {
         if let Some(avatar) = val.avatar {
             map.insert(constants::metadata::AVATAR.to_owned(), avatar.into());
         }
-        map.insert(constants::metadata::SEARCH_INDEX.to_owned(), val.search_index.into());
+        map.insert(
+            constants::metadata::SEARCH_INDEX.to_owned(),
+            val.search_index.into(),
+        );
         Any::Map(map.into())
     }
 }
@@ -71,10 +78,15 @@ mod tests {
             t.set_metadata(constants::metadata::NAME, "test_name")
                 .unwrap();
         });
+        ws.with_trx(|mut t| {
+            t.set_metadata(constants::metadata::AVATAR, "test_avatar")
+                .unwrap();
+        });
         assert_eq!(
             ws.metadata(),
             WorkspaceMetadata {
                 name: Some("test_name".to_string()),
+                avatar: Some("test_avatar".to_string()),
                 search_index: vec!["test1".to_string(), "test2".to_string()],
             }
         );
