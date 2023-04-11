@@ -2,9 +2,12 @@ mod convert;
 mod transaction;
 
 use super::{block::MarkdownState, *};
+use lib0::any::Any;
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use transaction::SpaceTransaction;
-use yrs::{Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn};
+use yrs::{
+    types::Value, Array, ArrayRef, Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn,
+};
 
 //         Workspace
 //         /       \
@@ -18,10 +21,17 @@ pub struct Space {
     pub(super) blocks: MapRef,
     pub(super) updated: MapRef,
     pub(super) metadata: MapRef,
+    pages: ArrayRef,
 }
 
 impl Space {
-    pub fn new<I, S>(trx: &mut TransactionMut, doc: Doc, workspace_id: I, space_id: S) -> Self
+    pub fn new<I, S>(
+        trx: &mut TransactionMut,
+        doc: Doc,
+        pages: ArrayRef,
+        workspace_id: I,
+        space_id: S,
+    ) -> Self
     where
         I: AsRef<str>,
         S: AsRef<str>,
@@ -39,6 +49,7 @@ impl Space {
             blocks,
             updated,
             metadata,
+            pages,
         }
     }
 
@@ -56,6 +67,7 @@ impl Space {
         let blocks = trx.get_map(&format!("space:{}", space_id))?;
         let updated = trx.get_map(constants::space::UPDATED)?;
         let metadata = trx.get_map(constants::space::META)?;
+        let pages = metadata.get(trx, "pages").and_then(|v| v.to_yarray())?;
 
         Some(Self {
             workspace_id: workspace_id.as_ref().into(),
@@ -64,6 +76,7 @@ impl Space {
             blocks,
             updated,
             metadata,
+            pages,
         })
     }
 
@@ -186,6 +199,23 @@ impl Space {
     {
         self.blocks.contains_key(trx, block_id.as_ref())
     }
+
+    pub fn shared<T>(&self, trx: &T) -> bool
+    where
+        T: ReadTxn,
+    {
+        let id = Some(Value::Any(Any::String(Box::from(self.space_id()))));
+        let is_public = Some(Value::Any(Any::Bool(true)));
+        self.pages.iter(trx).any(|v| {
+            v.to_ymap().and_then(|map| {
+                if map.get(trx, "id") == id {
+                    Some(map.get(trx, "isPublic") == is_public)
+                } else {
+                    None
+                }
+            }) == Some(true)
+        })
+    }
 }
 
 impl Serialize for Space {
@@ -212,7 +242,7 @@ impl Serialize for Space {
 mod test {
     use super::*;
     use tracing::info;
-    use yrs::{types::ToJson, updates::decoder::Decode, Doc, StateVector, Update};
+    use yrs::{types::ToJson, updates::decoder::Decode, ArrayPrelim, Doc, StateVector, Update};
 
     #[test]
     fn doc_load_test() {
@@ -223,7 +253,11 @@ mod test {
 
         let space = {
             let mut trx = doc.transact_mut();
-            Space::new(&mut trx, doc.clone(), "workspace", space_id)
+            let metadata = doc.get_or_insert_map_with_trx(trx.store_mut(), constants::space::META);
+            let pages = metadata
+                .insert(&mut trx, "pages", ArrayPrelim::default())
+                .unwrap();
+            Space::new(&mut trx, doc.clone(), pages, "workspace", space_id)
         };
         space.with_trx(|mut t| {
             let block = t.create("test", "text").unwrap();
@@ -272,7 +306,11 @@ mod test {
         let doc = Doc::new();
         let space = {
             let mut trx = doc.transact_mut();
-            Space::new(&mut trx, doc.clone(), "workspace", "space")
+            let metadata = doc.get_or_insert_map_with_trx(trx.store_mut(), constants::space::META);
+            let pages = metadata
+                .insert(&mut trx, "pages", ArrayPrelim::default())
+                .unwrap();
+            Space::new(&mut trx, doc.clone(), pages, "workspace", "space")
         };
 
         space.with_trx(|t| {
@@ -313,7 +351,11 @@ mod test {
 
         let doc = Doc::with_client_id(123);
         let mut trx = doc.transact_mut();
-        let space = Space::new(&mut trx, doc.clone(), "space", "test");
+        let metadata = doc.get_or_insert_map_with_trx(trx.store_mut(), constants::space::META);
+        let pages = metadata
+            .insert(&mut trx, "pages", ArrayPrelim::default())
+            .unwrap();
+        let space = Space::new(&mut trx, doc.clone(), pages, "space", "test");
         assert_eq!(space.client_id(), 123);
     }
 }

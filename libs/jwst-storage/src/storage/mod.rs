@@ -179,3 +179,15 @@ impl JwstStorage {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_sqlite_storage() {
+        let storage = JwstStorage::new_with_sqlite(":memory:").await.unwrap();
+        assert_eq!(storage.database(), "SqlxSqlitePoolConnection");
+    }
+}

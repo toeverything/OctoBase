@@ -212,7 +212,7 @@ mod test {
                 assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
             },
             10,
-        );
+        )?;
 
         ws.retry_with_trx(
             |mut t| {
@@ -223,7 +223,7 @@ mod test {
                 assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
             },
             10,
-        );
+        )?;
 
         Ok(())
     }
@@ -311,7 +311,7 @@ mod test {
                     },
                     50,
                 )
-                .unwrap()
+                .and_then(|v| v)
                 .unwrap();
 
                 // await the task to make sure the doc1 is broadcasted before check doc2
@@ -336,7 +336,9 @@ mod test {
                         Ok::<_, JwstError>(())
                     },
                     50,
-                );
+                )
+                .and_then(|v| v)
+                .unwrap();
 
                 collaborator.fetch_sub(1, Ordering::Relaxed);
                 collaborator_pb.set_position(collaborator.load(Ordering::Relaxed));
