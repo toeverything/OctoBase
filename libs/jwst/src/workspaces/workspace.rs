@@ -28,18 +28,12 @@ pub struct Workspace {
     /// Public just for the crate as we experiment with the plugins interface.
     /// See [super::plugins].
     pub(super) plugins: PluginMap,
-    // pub(crate) callback: Arc<RwLock<Option<Box<dyn FnOnce(Vec<String>) -> () + Send +Sync>>>>,
-    // pub(crate) runtime: Runtime,
-    // pub(crate) modified_block_ids: Arc<RwLock<HashSet<String>>>,
-    // pub(crate) tx: std::sync::mpsc::Sender<String>,
-    // pub(crate) rx: std::sync::mpsc::Receiver<String>,
     pub(crate) block_observer_config: Option<Arc<BlockObserverConfig>>,
 }
 
 pub struct BlockObserverConfig {
     pub(crate) callback: Arc<RwLock<Option<Box<dyn Fn(Vec<String>) -> () + Send +Sync>>>>,
     pub(crate) runtime: Arc<Runtime>,
-    // pub(crate) modified_block_ids: Arc<RwLock<HashSet<String>>>,
     pub(crate) tx: std::sync::mpsc::Sender<String>,
     // pub(crate) rx: Arc<Mutex<std::sync::mpsc::Receiver<String>>>,
     // pub(crate) handle: Arc<RwLock<Option<JoinHandle<()>>>>,
@@ -54,11 +48,10 @@ impl Workspace {
         Self::from_doc(doc, id)
     }
 
-    pub fn set_callback(&self, cb: Box<dyn Fn(Vec<String>) -> () + Send + Sync>) {
+    pub fn set_callback(&self, cb: Box<dyn Fn(Vec<String>) + Send + Sync>) {
         if let Some(block_observer_config) = self.block_observer_config.clone() {
             let callback = block_observer_config.callback.clone();
-            let rt = &block_observer_config.runtime;
-            rt.spawn(async move {
+            block_observer_config.runtime.spawn(async move {
                 *callback.write().await = Some(cb);
             });
         }
@@ -132,7 +125,6 @@ fn generate_block_observer_config() -> Option<Arc<BlockObserverConfig>> {
     let block_observer_config = Some(Arc::new(BlockObserverConfig {
         callback: callback.clone(),
         runtime: runtime.clone(),
-        // modified_block_ids: modified_block_ids.clone(),
         tx,
         // rx: Arc::new(Mutex::new(rx)),
         // handle: Arc::new(RwLock::new(None)),

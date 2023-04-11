@@ -55,7 +55,7 @@ impl PartialEq for Block {
             || self.updated != other.updated {
             return false;
         }
-        return true;
+        true
     }
 }
 
