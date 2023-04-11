@@ -1,9 +1,11 @@
 # OctoBase
 
-[![Issues Closed](https://img.shields.io/github/issues-closed/toeverything/OctoBase?color=6880ff)](https://github.com/toeverything/OctoBase/issues?q=is%3Aissue+is%3Aclosed)
-[![Join Telegram](https://img.shields.io/badge/join-telegram-blue)](https://t.me/affineworkos)
-[![Follow Twitter](https://img.shields.io/badge/-Twitter-grey?logo=twitter)](https://twitter.com/AffineOfficial)
-[![stars](https://img.shields.io/github/stars/toeverything/OctoBase.svg?style=flat&logo=github&colorB=red&label=stars)](https://github.com/toeverything/OctoBase)
+[![Rust-version-icon]](https://www.rust-lang.org/)
+[![codecov]](https://codecov.io/gh/toeverything/AFFiNE)
+[![stars]](https://github.com/toeverything/OctoBase)
+[![Issues Closed]](https://github.com/toeverything/OctoBase/issues?q=is%3Aissue+is%3Aclosed)
+[![Join Telegram]](https://t.me/affineworkos)
+[![Follow Twitter]](https://twitter.com/AffineOfficial)
 
 OctoBase is an offline-available, scalable, self-contained collaborative database, which was originally designed for AFFiNE. AFFiNE is a local-first open source knowledge base that provides full functionality in any network environment.
 
@@ -94,3 +96,9 @@ Currently, this repository is under **active development** and most components a
 [sqlite]: https://sqlite.org/index.html
 [contributor license agreement]: https://github.com/toeverything/octobase/edit/master/.github/CLA.md
 [our website]: https://octobase.pro
+[codecov]: https://codecov.io/gh/toeverything/octobase/branch/master/graphs/badge.svg?branch=master
+[stars]: https://img.shields.io/github/stars/toeverything/OctoBase.svg?style=flat&logo=github&colorB=red&label=stars
+[Follow Twitter]: https://img.shields.io/badge/-Twitter-grey?logo=twitter
+[Join Telegram]: https://img.shields.io/badge/join-telegram-blue
+[Issues Closed]: https://img.shields.io/github/issues-closed/toeverything/OctoBase?color=6880ff&logo=github
+[rust-version-icon]: https://img.shields.io/badge/Rust-1.70.0-dea584?logo=rust
