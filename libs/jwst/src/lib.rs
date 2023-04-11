@@ -15,7 +15,7 @@ pub use space::Space;
 pub use tracing::{debug, error, info, log::LevelFilter, trace, warn};
 pub use types::{BlobMetadata, BlobStorage, DocStorage, JwstError, JwstResult};
 pub use utils::{sync_encode_update, Base64DecodeError, Base64Engine, URL_SAFE_ENGINE};
-pub use workspaces::{MapSubscription, Workspace, WorkspaceMetadata, WorkspaceTransaction};
+pub use workspaces::{MapSubscription, Workspace, WorkspaceMetadata, WorkspaceTransaction, BlockObserverConfig};
 #[cfg(feature = "workspace-search")]
 pub use workspaces::{SearchResult, SearchResults};
 

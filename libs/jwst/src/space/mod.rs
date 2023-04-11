@@ -1,6 +1,7 @@
 mod convert;
 mod transaction;
 
+use std::sync::Arc;
 use super::{block::MarkdownState, *};
 use lib0::any::Any;
 use serde::{ser::SerializeMap, Serialize, Serializer};
@@ -22,6 +23,7 @@ pub struct Space {
     pub(super) updated: MapRef,
     pub(super) metadata: MapRef,
     pages: ArrayRef,
+    block_observer_config: Option<Arc<BlockObserverConfig>>,
 }
 
 impl Space {
@@ -31,6 +33,7 @@ impl Space {
         pages: ArrayRef,
         workspace_id: I,
         space_id: S,
+        block_observer_config: Option<Arc<BlockObserverConfig>>,
     ) -> Self
     where
         I: AsRef<str>,
@@ -50,6 +53,7 @@ impl Space {
             updated,
             metadata,
             pages,
+            block_observer_config,
         }
     }
 
@@ -58,6 +62,7 @@ impl Space {
         doc: Doc,
         workspace_id: I,
         space_id: S,
+        block_observer_config: Option<Arc<BlockObserverConfig>>,
     ) -> Option<Self>
     where
         I: AsRef<str>,
@@ -77,6 +82,7 @@ impl Space {
             updated,
             metadata,
             pages,
+            block_observer_config,
         })
     }
 
@@ -172,7 +178,11 @@ impl Space {
             block_id.as_ref(),
             flavour.as_ref()
         );
-        Block::new(trx, self, block_id, flavour, self.client_id())
+        let mut block = Block::new(trx, self, block_id, flavour, self.client_id())?;
+        if let Some(block_observer_config) = self.block_observer_config.clone() {
+            block.subscribe(block_observer_config.tx.clone());
+        }
+        Ok(block)
     }
 
     pub fn remove<S: AsRef<str>>(&self, trx: &mut TransactionMut, block_id: S) -> bool {
@@ -257,7 +267,7 @@ mod test {
             let pages = metadata
                 .insert(&mut trx, "pages", ArrayPrelim::default())
                 .unwrap();
-            Space::new(&mut trx, doc.clone(), pages, "workspace", space_id)
+            Space::new(&mut trx, doc.clone(), pages, "workspace", space_id, None)
         };
         space.with_trx(|mut t| {
             let block = t.create("test", "text").unwrap();
@@ -310,7 +320,7 @@ mod test {
             let pages = metadata
                 .insert(&mut trx, "pages", ArrayPrelim::default())
                 .unwrap();
-            Space::new(&mut trx, doc.clone(), pages, "workspace", "space")
+            Space::new(&mut trx, doc.clone(), pages, "workspace", "space", None)
         };
 
         space.with_trx(|t| {
@@ -355,7 +365,7 @@ mod test {
         let pages = metadata
             .insert(&mut trx, "pages", ArrayPrelim::default())
             .unwrap();
-        let space = Space::new(&mut trx, doc.clone(), pages, "space", "test");
+        let space = Space::new(&mut trx, doc.clone(), pages, "space", "test", None);
         assert_eq!(space.client_id(), 123);
     }
 }

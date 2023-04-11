@@ -11,4 +11,4 @@ pub use metadata::WorkspaceMetadata;
 #[cfg(feature = "workspace-search")]
 pub use plugins::{SearchResult, SearchResults};
 pub use transaction::WorkspaceTransaction;
-pub use workspace::{MapSubscription, Workspace};
+pub use workspace::{MapSubscription, Workspace, BlockObserverConfig};

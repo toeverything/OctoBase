@@ -5,16 +5,15 @@ use lib0::any::Any;
 use serde::{Serialize, Serializer};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
-use yrs::{
-    types::{
-        text::{Diff, YChange},
-        ToJson, Value,
-    },
-    Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, TextRef,
-    Transact, TransactionMut,
-};
+use std::fmt;
+use std::sync::Arc;
+use yrs::{types::{
+    text::{Diff, YChange},
+    ToJson, Value,
+}, Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, TextRef, Transact, TransactionMut, DeepObservable};
+use yrs::types::DeepEventsSubscription;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Clone)]
 pub struct Block {
     id: String,
     space_id: String,
@@ -24,9 +23,41 @@ pub struct Block {
     block: MapRef,
     children: ArrayRef,
     updated: Option<ArrayRef>,
+    sub: Arc<std::sync::RwLock<Option<DeepEventsSubscription>>>,
 }
 
 unsafe impl Send for Block {}
+
+impl fmt::Debug for Block {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MyStruct")
+            .field("id", &self.id)
+            .field("space_id", &self.space_id)
+            .field("block_id", &self.block_id)
+            .field("doc", &self.doc)
+            .field("operator", &self.operator)
+            .field("block", &self.block)
+            .field("children", &self.children)
+            .field("updated", &self.updated)
+            .finish()
+    }
+}
+
+impl PartialEq for Block {
+    fn eq(&self, other: &Self) -> bool {
+        if self.id != other.id
+            || self.space_id != other.space_id
+            || self.block_id != other.block_id
+            || self.doc != other.doc
+            || self.operator != other.operator
+            || self.block != other.block
+            || self.children != other.children
+            || self.updated != other.updated {
+            return false;
+        }
+        return true;
+    }
+}
 
 impl Block {
     // Create a new block, skip create if block is already created.
@@ -88,6 +119,7 @@ impl Block {
                 block,
                 children,
                 updated,
+                sub: Arc::new(std::sync::RwLock::new(None)),
             };
 
             block.log_update(trx, HistoryOperation::Add);
@@ -117,7 +149,17 @@ impl Block {
             block,
             children,
             updated,
+            sub: Arc::new(std::sync::RwLock::new(None)),
         })
+    }
+
+    pub fn subscribe(&mut self, tx: std::sync::mpsc::Sender<String>) {
+        let block_id = self.block_id.clone();
+        let sub = self.block.observe_deep(move |_trx, _e| {
+            tx.send(block_id.clone()).expect("send block observe message error");
+        });
+        // *self.sub.write().await = Some(sub); // sub: Arc<tokio::sync::RwLock<Some<DeepEventsSubscription>>>
+        *self.sub.write().unwrap() = Some(sub);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -141,6 +183,7 @@ impl Block {
             block,
             children,
             updated,
+            sub: Arc::new(std::sync::RwLock::new(None)),
         }
     }
 

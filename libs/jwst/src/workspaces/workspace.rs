@@ -1,7 +1,11 @@
 use super::plugins::{setup_plugin, PluginMap};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::RwLock;
+use std::collections::HashSet;
+use anyhow::Context;
+use tokio::runtime;
+use tokio::runtime::Runtime;
+use tokio::sync::{RwLock};
 use y_sync::awareness::Awareness;
 use yrs::{
     types::{map::MapEvent, ToJson},
@@ -24,6 +28,21 @@ pub struct Workspace {
     /// Public just for the crate as we experiment with the plugins interface.
     /// See [super::plugins].
     pub(super) plugins: PluginMap,
+    // pub(crate) callback: Arc<RwLock<Option<Box<dyn FnOnce(Vec<String>) -> () + Send +Sync>>>>,
+    // pub(crate) runtime: Runtime,
+    // pub(crate) modified_block_ids: Arc<RwLock<HashSet<String>>>,
+    // pub(crate) tx: std::sync::mpsc::Sender<String>,
+    // pub(crate) rx: std::sync::mpsc::Receiver<String>,
+    pub(crate) block_observer_config: Option<Arc<BlockObserverConfig>>,
+}
+
+pub struct BlockObserverConfig {
+    pub(crate) callback: Arc<RwLock<Option<Box<dyn Fn(Vec<String>) -> () + Send +Sync>>>>,
+    pub(crate) runtime: Arc<Runtime>,
+    // pub(crate) modified_block_ids: Arc<RwLock<HashSet<String>>>,
+    pub(crate) tx: std::sync::mpsc::Sender<String>,
+    // pub(crate) rx: Arc<Mutex<std::sync::mpsc::Receiver<String>>>,
+    // pub(crate) handle: Arc<RwLock<Option<JoinHandle<()>>>>,
 }
 
 unsafe impl Send for Workspace {}
@@ -33,6 +52,16 @@ impl Workspace {
     pub fn new<S: AsRef<str>>(id: S) -> Self {
         let doc = Doc::new();
         Self::from_doc(doc, id)
+    }
+
+    pub fn set_callback(&self, cb: Box<dyn Fn(Vec<String>) -> () + Send + Sync>) {
+        if let Some(block_observer_config) = self.block_observer_config.clone() {
+            let callback = block_observer_config.callback.clone();
+            let rt = &block_observer_config.runtime;
+            rt.spawn(async move {
+                *callback.write().await = Some(cb);
+            });
+        }
     }
 
     pub fn from_doc<S: AsRef<str>>(doc: Doc, workspace_id: S) -> Workspace {
@@ -47,6 +76,7 @@ impl Workspace {
             updated,
             metadata,
             plugins: Default::default(),
+            block_observer_config: generate_block_observer_config(),
         })
     }
 
@@ -67,6 +97,7 @@ impl Workspace {
             updated,
             metadata,
             plugins,
+            block_observer_config: generate_block_observer_config(),
         }
     }
 
@@ -87,6 +118,48 @@ impl Workspace {
     pub fn doc(&self) -> Doc {
         self.doc.clone()
     }
+}
+
+fn generate_block_observer_config() -> Option<Arc<BlockObserverConfig>> {
+    let runtime = Arc::new(runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .build()
+        .context("Failed to create runtime")
+        .unwrap());
+    let (tx, rx) = std::sync::mpsc::channel::<String>();
+    let modified_block_ids = Arc::new(RwLock::new(HashSet::new()));
+    let callback = Arc::new(RwLock::new(None));
+    let block_observer_config = Some(Arc::new(BlockObserverConfig {
+        callback: callback.clone(),
+        runtime: runtime.clone(),
+        // modified_block_ids: modified_block_ids.clone(),
+        tx,
+        // rx: Arc::new(Mutex::new(rx)),
+        // handle: Arc::new(RwLock::new(None)),
+    }));
+
+    // TODO: lazy start block callback thread
+    {
+        std::thread::spawn(move || {
+            let rt = runtime.clone();
+            while let Ok(block_id) = rx.recv() {
+                let modified_block_ids = modified_block_ids.clone();
+                let callback = callback.clone();
+                rt.spawn(async move {
+                    if let Some(callback) = callback.read().await.as_ref() {
+                        let mut guard = modified_block_ids.write().await;
+                        guard.insert(block_id);
+                        // TODO: merge recent block_id
+                        let block_ids = guard.iter().map(|item| item.to_owned()).collect::<Vec<String>>();
+                        callback(block_ids);
+                        guard.clear();
+                    }
+                });
+            }
+        });
+    }
+
+    block_observer_config
 }
 
 impl Serialize for Workspace {
