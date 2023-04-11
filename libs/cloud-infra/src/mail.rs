@@ -4,7 +4,7 @@ use super::*;
 use chrono::prelude::*;
 use cloud_database::Claims;
 use handlebars::{Handlebars, RenderError};
-use jwst::{warn, Base64Engine, WorkspaceMetadata, URL_SAFE_ENGINE};
+use jwst::{warn, Base64Engine, WorkspaceMetadata, STANDARD_ENGINE};
 use lettre::{
     error::Error as MailConfigError,
     message::{Mailbox, MultiPart, SinglePart},
@@ -109,7 +109,7 @@ impl MailContext {
         invite_code: &str,
         workspace_avatar: Vec<u8>,
     ) -> Result<(String, MultiPart), RenderError> {
-        let base64_data = URL_SAFE_ENGINE.encode(workspace_avatar.clone());
+        let base64_data = STANDARD_ENGINE.encode(workspace_avatar.clone());
         let workspace_avatar_url = format!("data:image/png;base64,{}", base64_data);
 
         let workspace_avatar = if workspace_avatar.is_empty() {
