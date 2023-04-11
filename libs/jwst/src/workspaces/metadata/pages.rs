@@ -43,7 +43,14 @@ impl<T: ReadTxn> From<(&T, MapRef)> for PageMeta {
             id: map.get(trx, "id").unwrap().to_string(trx),
             favorite: Self::get_bool(trx, &map, "favorite"),
             is_pinboard: Self::get_bool(trx, &map, "isRootPinboard"),
-            is_shared: Self::get_bool(trx, &map, "isPublic"),
+            is_shared: Self::get_bool(trx, &map, "isPublic").or_else(|| {
+                Self::get_number(trx, &map, "isPublic").map(|exp| {
+                    // if isPublic is a number, it is a expire time timestamp
+                    let exp = exp as i64;
+                    let now = chrono::Utc::now().timestamp();
+                    exp > now
+                })
+            }),
             init: Self::get_bool(trx, &map, "init"),
             sub_page_ids: map
                 .get(trx, "subpageIds")
