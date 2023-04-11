@@ -1,7 +1,7 @@
 # OctoBase
 
 [![Rust-version-icon]](https://www.rust-lang.org/)
-[![codecov]](https://codecov.io/gh/toeverything/AFFiNE)
+[![codecov]](https://codecov.io/gh/toeverything/OctoBase)
 [![stars]](https://github.com/toeverything/OctoBase)
 [![Issues Closed]](https://github.com/toeverything/OctoBase/issues?q=is%3Aissue+is%3Aclosed)
 [![Join Telegram]](https://t.me/affineworkos)
