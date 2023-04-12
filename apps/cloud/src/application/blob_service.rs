@@ -285,8 +285,8 @@ impl BlobService {
         };
 
         if has_error {
-            let _ = match ctx.storage.blobs().delete_blob(workspace, id).await {
-                Ok(_) => (),
+            match ctx.storage.blobs().delete_blob(workspace, id).await {
+                Ok(success) => success,
                 Err(e) => {
                     error!("Failed to delete blob: {}", e);
                     return Err(ErrorStatus::InternalServerError);
