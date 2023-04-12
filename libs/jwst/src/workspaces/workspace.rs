@@ -64,7 +64,7 @@ impl Workspace {
             });
 
             let mut handle_guard = block_observer_config.handle.lock().unwrap();
-            if let None = *handle_guard {
+            if handle_guard.is_none() {
                 let runtime = block_observer_config.runtime.clone();
                 let modified_block_ids = block_observer_config.modified_block_ids.clone();
                 let rx = block_observer_config.rx.clone();
@@ -169,16 +169,15 @@ fn generate_block_observer_config() -> Option<Arc<BlockObserverConfig>> {
     let (tx, rx) = std::sync::mpsc::channel::<String>();
     let modified_block_ids = Arc::new(RwLock::new(HashSet::new()));
     let callback = Arc::new(RwLock::new(None));
-    let block_observer_config = Some(Arc::new(BlockObserverConfig {
+
+    Some(Arc::new(BlockObserverConfig {
         callback: callback.clone(),
-        runtime: runtime.clone(),
+        runtime,
         tx,
         rx: Arc::new(Mutex::new(rx)),
         modified_block_ids,
         handle: Arc::new(Mutex::new(None)),
-    }));
-
-    block_observer_config
+    }))
 }
 
 impl Serialize for Workspace {
