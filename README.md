@@ -1,7 +1,15 @@
-# OctoBase
+
+
+<div align="center">
+
+<h1 style="border-bottom: none">
+    <b><a href="https://octobase.pro/">Octobase</a></b><br />
+    🐙 Local-first, yet collaborative. A light-weight, scalable, data engine written in Rust.
+    <br>
+</h1>
 
 [![Rust-version-icon]](https://www.rust-lang.org/)
-[![codecov]](https://codecov.io/gh/toeverything/AFFiNE)
+[![codecov]](https://codecov.io/gh/toeverything/OctoBase)
 [![stars]](https://github.com/toeverything/OctoBase)
 [![Issues Closed]](https://github.com/toeverything/OctoBase/issues?q=is%3Aissue+is%3Aclosed)
 [![Join Telegram]](https://t.me/affineworkos)
@@ -10,6 +18,11 @@
 OctoBase is an offline-available, scalable, self-contained collaborative database, which was originally designed for AFFiNE. AFFiNE is a local-first open source knowledge base that provides full functionality in any network environment.
 
 Based on OctoBase, you can not only implement a rich text editor for offline writing, but also implement richer offline collaboration functions based on OctoBase's data abstraction, such as: multidimensional tables, drawing boards, etc.
+
+</div>
+
+
+## Features
 
 As an offline collaborative data database, OctoBase has the following characteristics:
 
@@ -54,10 +67,6 @@ on all common platforms. In order to achieve this goal, we will strive to do the
 
 You can see a summary of our recent updates here: [What's New](./apps/homepage/pages/docs/overview/whats_new.md).
 
-## Building
-
-Visit [our website] to learn about installation and development.
-
 ## Project Overview
 
 ```shell
@@ -83,6 +92,10 @@ In the process of project development, there are many software development conce
 ## Hiring
 
 Some amazing companies including OctoBase are looking for developers! Are you interested in helping build with OctoBase and/or its partners? Check out some of the latest [jobs available](https://github.com/toeverything/AFFiNE/blob/master/docs/jobs.md).
+
+## Building
+
+See [BUILDING.md](./apps/homepage/pages/docs/building_guide.md) for instructions on how to build Octobase from source code.
 
 ## License
 
