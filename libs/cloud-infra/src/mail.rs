@@ -92,11 +92,12 @@ impl MailContext {
 
     pub fn parse_host(&self, host: &str) -> Option<String> {
         if let Ok(url) = Url::parse(host) {
-            if let Some(host) = url.host_str() {
-                if MAIL_WHITELIST.iter().any(|&domain| host.ends_with(domain)) {
-                    return Some(format!("https://{host}"));
-                }
-            }
+            // if let Some(host) = url.host_str() {
+            //     if MAIL_WHITELIST.iter().any(|&domain| host.ends_with(domain)) {
+
+            //     }
+            // }
+            return Some(format!("https://{host}"));
         }
         None
     }
@@ -112,27 +113,7 @@ impl MailContext {
         let base64_data = STANDARD_ENGINE.encode(workspace_avatar.clone());
         let workspace_avatar_url = format!("data:image/png;base64,{}", base64_data);
 
-        let workspace_avatar = if workspace_avatar.is_empty() {
-            format!(
-                " <img
-                style=\"
-                  margin-left: 6px;
-                  width: 28px;
-                  height: 28px;
-                  border-radius: 50%;
-                  vertical-align: middle;
-                  margin-left: 12px;
-                  margin-right: 12px;
-                  box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
-                    -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
-                    4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);
-                \"
-                src=\"{}\"
-                alt=\"\"
-              />",
-                workspace_avatar_url
-            )
-        } else {
+        let workspace_avatar = if base64_data.is_empty() {
             format!(
                 " <div
                 style=\"
@@ -158,6 +139,26 @@ impl MailContext {
                     .next()
                     .unwrap()
                     .to_string()
+            )
+        } else {
+            format!(
+                " <img
+                style=\"
+                  margin-left: 6px;
+                  width: 28px;
+                  height: 28px;
+                  border-radius: 50%;
+                  vertical-align: middle;
+                  margin-left: 12px;
+                  margin-right: 12px;
+                  box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
+                    -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
+                    4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);
+                \"
+                src=\"{}\"
+                alt=\"\"
+              />",
+                workspace_avatar_url
             )
         };
         let title = self.template.render(
@@ -197,9 +198,17 @@ impl MailContext {
         claims: &Claims,
         invite_code: &str,
         workspace_avatar: Vec<u8>,
+        avatar_format: String,
     ) -> Result<Message, MailError> {
         let (title, msg_body) = self
-            .make_invite_email_content(metadata, site_url, claims, invite_code, workspace_avatar)
+            .make_invite_email_content(
+                metadata,
+                site_url,
+                claims,
+                invite_code,
+                workspace_avatar,
+                avatar_format,
+            )
             .await?;
 
         Ok(Message::builder()
@@ -217,6 +226,7 @@ impl MailContext {
         claims: &Claims,
         invite_code: &str,
         workspace_avatar: Vec<u8>,
+        avatar_format: String,
     ) -> Result<(), MailError> {
         if let Some(client) = &self.client {
             let email = self
@@ -227,6 +237,7 @@ impl MailContext {
                     claims,
                     invite_code,
                     workspace_avatar,
+                    avatar_format,
                 )
                 .await?;
 
