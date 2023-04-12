@@ -1,6 +1,6 @@
 use crate::infrastructure::auth::get_claim_from_headers;
 
-use super::{error_status::ErrorStatus, *};
+use super::{infrastructure::error_status::ErrorStatus, *};
 use axum::{
     body::Body,
     http::{Request, Response},

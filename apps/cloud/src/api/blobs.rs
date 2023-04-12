@@ -1,190 +1,15 @@
-use crate::{
-    context::Context, error_status::ErrorStatus, infrastructure::auth::get_claim_from_headers,
-};
+use crate::context::Context;
 use axum::{
     extract::{BodyStream, Path},
     headers::ContentLength,
-    http::{
-        header::{
-            CACHE_CONTROL, CONTENT_LENGTH, CONTENT_TYPE, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH,
-            LAST_MODIFIED,
-        },
-        HeaderMap, HeaderValue, Method,
-    },
+    http::{HeaderMap, Method},
     response::{IntoResponse, Response},
-    Extension, Json, TypedHeader,
+    Extension, TypedHeader,
 };
-use chrono::{DateTime, Utc};
+
 use cloud_database::Claims;
-use futures::{future, StreamExt};
-use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
-use mime::APPLICATION_OCTET_STREAM;
-use serde::Serialize;
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
-
-#[derive(Serialize)]
-struct Usage {
-    blob_usage: BlobUsage,
-}
-
-#[derive(Serialize)]
-struct BlobUsage {
-    usage: u64,
-    max_usage: u64,
-}
-
-const MAX_USAGE: u64 = 10 * 1024 * 1024 * 1024;
-const MAX_BLOB_SIZE: u64 = 10 * 1024 * 1024;
-
-impl Context {
-    #[instrument(skip(self, method, headers))]
-    async fn get_blob(
-        &self,
-        workspace: Option<String>,
-        id: String,
-        method: Method,
-        headers: HeaderMap,
-    ) -> Response {
-        info!("get_blob enter");
-
-        let (id, params) = {
-            let path = PathBuf::from(id.clone());
-            let ext = path
-                .extension()
-                .and_then(|s| s.to_str().map(|s| s.to_string()));
-            let id = path
-                .file_stem()
-                .and_then(|s| s.to_str().map(|s| s.to_string()))
-                .unwrap_or(id);
-
-            (id, ext.map(|ext| HashMap::from([("format".into(), ext)])))
-        };
-
-        if let Some(etag) = headers.get(IF_NONE_MATCH).and_then(|h| h.to_str().ok()) {
-            if etag == id {
-                return ErrorStatus::NotModify.into_response();
-            }
-        }
-
-        let Ok(meta) = self.storage.blobs().get_metadata(workspace.clone(), id.clone(), params.clone()).await else {
-            return ErrorStatus::NotFound.into_response();
-        };
-
-        if let Some(modified_since) = headers
-            .get(IF_MODIFIED_SINCE)
-            .and_then(|h| h.to_str().ok())
-            .and_then(|s| DateTime::parse_from_rfc2822(s).ok())
-        {
-            if meta.last_modified <= modified_since.naive_utc() {
-                return ErrorStatus::NotModify.into_response();
-            }
-        }
-
-        let mut header = HeaderMap::with_capacity(5);
-        header.insert(ETAG, HeaderValue::from_str(&id).unwrap());
-        header.insert(
-            CONTENT_TYPE,
-            HeaderValue::from_str(&meta.content_type).unwrap_or(HeaderValue::from_static(
-                APPLICATION_OCTET_STREAM.essence_str(),
-            )),
-        );
-        header.insert(
-            LAST_MODIFIED,
-            HeaderValue::from_str(&DateTime::<Utc>::from_utc(meta.last_modified, Utc).to_rfc2822())
-                .unwrap(),
-        );
-        header.insert(
-            CONTENT_LENGTH,
-            HeaderValue::from_str(&meta.size.to_string()).unwrap(),
-        );
-        header.insert(
-            CACHE_CONTROL,
-            HeaderValue::from_str("public, immutable, max-age=31536000").unwrap(),
-        );
-
-        if method == Method::HEAD {
-            return header.into_response();
-        };
-
-        let Ok(file) = self.storage.blobs().get_blob(workspace, id, params.clone()).await else {
-            return ErrorStatus::NotFound.into_response();
-        };
-
-        if meta.size != file.len() as u64 {
-            header.insert(
-                CONTENT_LENGTH,
-                HeaderValue::from_str(&file.len().to_string()).unwrap(),
-            );
-
-            if let Some(params) = params {
-                if let Some(format) = params.get("format") {
-                    header.insert(
-                        CONTENT_TYPE,
-                        HeaderValue::from_str(&format!("image/{format}")).unwrap_or(
-                            HeaderValue::from_static(APPLICATION_OCTET_STREAM.essence_str()),
-                        ),
-                    );
-                }
-            }
-        }
-
-        (header, file).into_response()
-    }
-
-    #[instrument(skip(self, stream))]
-    async fn upload_blob(&self, stream: BodyStream, workspace: Option<String>) -> Response {
-        info!("upload_blob enter");
-        // TODO: cancel
-        let mut has_error = false;
-        let stream = stream
-            .take_while(|x| {
-                has_error = x.is_err();
-                future::ready(x.is_ok())
-            })
-            .filter_map(|data| future::ready(data.ok()));
-
-        if let Ok(id) = self
-            .storage
-            .blobs()
-            .put_blob(workspace.clone(), stream)
-            .await
-        {
-            if has_error {
-                let _ = self.storage.blobs().delete_blob(workspace, id).await;
-                ErrorStatus::InternalServerError.into_response()
-            } else {
-                id.into_response()
-            }
-        } else {
-            ErrorStatus::InternalServerError.into_response()
-        }
-    }
-
-    #[instrument(skip(self))]
-    async fn get_user_resource_usage(&self, user_id: String) -> Result<Usage, ErrorStatus> {
-        info!("get_user_resource enter");
-        let Ok(workspace_id_list) = self.db.get_user_owner_workspaces(user_id).await else {
-            return Err(ErrorStatus::InternalServerError);
-        };
-        let mut total_size = 0;
-        for workspace_id in workspace_id_list {
-            let size = self
-                .storage
-                .blobs()
-                .get_blobs_size(workspace_id.to_string())
-                .await
-                .map_err(|_| ErrorStatus::InternalServerError)?;
-            total_size += size as u64;
-        }
-        let blob_usage = BlobUsage {
-            usage: total_size,
-            max_usage: MAX_USAGE,
-        };
-        let usage = Usage { blob_usage };
-        Ok(usage)
-    }
-}
+use std::sync::Arc;
 
 ///  Get `blob` by workspace_id and hash.
 /// - Return 200 and `blob`.
@@ -213,26 +38,17 @@ pub async fn get_blob_in_workspace(
     headers: HeaderMap,
 ) -> Response {
     info!("get_blob_in_workspace enter");
-    match ctx.db.is_public_workspace(workspace_id.clone()).await {
-        Ok(true) => (),
-        Ok(false) => match get_claim_from_headers(&headers, &ctx.key.jwt_decode) {
-            Some(claims) => {
-                match ctx
-                    .db
-                    .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
-                    .await
-                {
-                    Ok(true) => (),
-                    Ok(false) => return ErrorStatus::Forbidden.into_response(),
-                    Err(_) => return ErrorStatus::InternalServerError.into_response(),
-                }
-            }
-            None => return ErrorStatus::Forbidden.into_response(),
+    match ctx
+        .blob_service
+        .get_blob_in_workspace(&ctx, workspace_id, id, method, headers)
+        .await
+    {
+        Ok((header_map, file)) => match file {
+            Some(file) => (header_map, file).into_response(),
+            None => header_map.into_response(),
         },
-        Err(_) => return ErrorStatus::InternalServerError.into_response(),
+        Err(e) => e.into_response(),
     }
-
-    ctx.get_blob(Some(workspace_id), id, method, headers).await
 }
 
 ///  Upload `blob` by workspace_id.
@@ -267,31 +83,10 @@ pub async fn upload_blob_in_workspace(
     stream: BodyStream,
 ) -> Response {
     info!("upload_blob_in_workspace enter");
-    if length.0 > MAX_BLOB_SIZE {
-        return ErrorStatus::PayloadTooLarge.into_response();
-    }
-
-    let Ok(usage) = ctx.get_user_resource_usage(claims.user.id.clone()).await else {
-        return ErrorStatus::InternalServerError.into_response();
-    };
-    if usage.blob_usage.usage + length.0 > usage.blob_usage.max_usage {
-        return ErrorStatus::PayloadExceedsLimit("10GB".to_string()).into_response();
-    }
-
-    match ctx
-        .db
-        .can_read_workspace(claims.user.id.clone(), workspace_id.clone())
+    ctx.blob_service
+        .upload_blob_in_workspace(&ctx, claims.user.id.clone(), workspace_id, length, stream)
         .await
-    {
-        Ok(true) => (),
-        Ok(false) => return ErrorStatus::Forbidden.into_response(),
-        Err(e) => {
-            error!("Failed to check read workspace: {}", e);
-            return ErrorStatus::InternalServerError.into_response();
-        }
-    }
-
-    ctx.upload_blob(stream, Some(workspace_id)).await
+        .into_response()
 }
 
 /// Get workspace's `usage`
@@ -317,10 +112,10 @@ pub async fn get_user_resource_usage(
     Extension(claims): Extension<Arc<Claims>>,
 ) -> Response {
     info!("get_user_resource enter");
-    let Ok(usage) = ctx.get_user_resource_usage(claims.user.id.clone()).await else {
-        return ErrorStatus::InternalServerError.into_response();
-    };
-    Json(usage).into_response()
+    ctx.blob_service
+        .get_user_resource_usage(&ctx, claims.user.id.clone())
+        .await
+        .into_response()
 }
 
 #[cfg(test)]
@@ -329,7 +124,7 @@ mod test {
     use axum_test_helper::TestClient;
     use bytes::Bytes;
     use cloud_database::CloudDatabase;
-    use futures::stream;
+    use futures::{stream, StreamExt};
     use serde_json::json;
 
     use super::{

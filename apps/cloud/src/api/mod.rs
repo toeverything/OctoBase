@@ -8,7 +8,9 @@ mod workspace;
 
 pub use collaboration::make_ws_route;
 
-use crate::{context::Context, error_status::ErrorStatus, layer::make_firebase_auth_layer};
+use crate::{
+    context::Context, infrastructure::error_status::ErrorStatus, layer::make_firebase_auth_layer,
+};
 use axum::{
     extract::Query,
     response::{IntoResponse, Response},
