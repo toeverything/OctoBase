@@ -92,12 +92,11 @@ impl MailContext {
 
     pub fn parse_host(&self, host: &str) -> Option<String> {
         if let Ok(url) = Url::parse(host) {
-            // if let Some(host) = url.host_str() {
-            //     if MAIL_WHITELIST.iter().any(|&domain| host.ends_with(domain)) {
-
-            //     }
-            // }
-            return Some(format!("https://{host}"));
+            if let Some(host) = url.host_str() {
+                if MAIL_WHITELIST.iter().any(|&domain| host.ends_with(domain)) {
+                    return Some(format!("https://{host}"));
+                }
+            }
         }
         None
     }
