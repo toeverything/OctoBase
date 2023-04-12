@@ -67,12 +67,22 @@ impl BlobService {
                     {
                         Ok(true) => (),
                         Ok(false) => return Err(ErrorStatus::Forbidden),
-                        Err(_) => return Err(ErrorStatus::InternalServerError),
+                        Err(e) => {
+                            return {
+                                error!("Internal server error: {:?}", e);
+                                Err(ErrorStatus::InternalServerError)
+                            }
+                        }
                     }
                 }
                 None => return Err(ErrorStatus::Forbidden),
             },
-            Err(_) => return Err(ErrorStatus::InternalServerError),
+            Err(e) => {
+                return {
+                    error!("Internal server error: {:?}", e);
+                    Err(ErrorStatus::InternalServerError)
+                }
+            }
         }
 
         self.get_blob(ctx, Some(workspace_id), id, method, headers)
@@ -94,6 +104,7 @@ impl BlobService {
         }
 
         let Ok(usage) = self.get_user_resource_usage(ctx, user_id.clone()).await else {
+            error!("Failed to get user resource usage");
             return Err(ErrorStatus::InternalServerError);
         };
         if usage.blob_usage.usage + length.0 > usage.blob_usage.max_usage {
@@ -123,8 +134,12 @@ impl BlobService {
         user_id: String,
     ) -> Result<Json<Usage>, ErrorStatus> {
         info!("get_user_resource enter");
-        let Ok(workspace_id_list) = ctx.db.get_user_owner_workspaces(user_id).await else {
-            return Err(ErrorStatus::InternalServerError);
+        let workspace_id_list = match ctx.db.get_user_owner_workspaces(user_id).await {
+            Ok(workspace_id_list) => workspace_id_list,
+            Err(e) => {
+                error!("Failed to get user owner workspaces: {}", e);
+                return Err(ErrorStatus::InternalServerError);
+            }
         };
         let mut total_size = 0;
         for workspace_id in workspace_id_list {
@@ -256,20 +271,29 @@ impl BlobService {
             })
             .filter_map(|data| future::ready(data.ok()));
 
-        if let Ok(id) = ctx
+        let id = match ctx
             .storage
             .blobs()
             .put_blob(workspace.clone(), stream)
             .await
         {
-            if has_error {
-                let _ = ctx.storage.blobs().delete_blob(workspace, id).await;
-                Err(ErrorStatus::InternalServerError)
-            } else {
-                Ok(id)
+            Ok(id) => id,
+            Err(e) => {
+                error!("Failed to upload blob: {}", e);
+                return Err(ErrorStatus::InternalServerError);
             }
-        } else {
+        };
+
+        if has_error {
+            let _ = match ctx.storage.blobs().delete_blob(workspace, id).await {
+                Ok(_) => (),
+                Err(e) => {
+                    error!("Failed to delete blob: {}", e);
+                }
+            };
             Err(ErrorStatus::InternalServerError)
+        } else {
+            Ok(id)
         }
     }
 }
