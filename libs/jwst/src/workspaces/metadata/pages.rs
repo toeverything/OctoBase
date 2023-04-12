@@ -127,8 +127,10 @@ impl Pages {
 
 #[cfg(test)]
 mod tests {
+    use crate::Workspace;
+
     use super::*;
-    use yrs::{ArrayPrelim, Doc, Transact};
+    use yrs::{updates::decoder::Decode, ArrayPrelim, Doc, Transact, Update};
 
     #[test]
     fn test_page_meta() {
@@ -154,5 +156,17 @@ mod tests {
         assert_eq!(meta.title, Some("test_title".to_string()));
         assert_eq!(meta.trash, Some(true));
         assert_eq!(meta.trash_date, Some(1234567890));
+    }
+
+    #[test]
+    fn test_shared_page() {
+        let doc = Doc::new();
+        doc.transact_mut().apply_update(
+            Update::decode_v1(include_bytes!("../../../fixtures/test_shared_page.bin")).unwrap(),
+        );
+
+        let ws = Workspace::from_doc(doc, "test");
+        assert!(ws.with_trx(|mut t| t.get_space("jyWl43FM_v").shared(&t.trx)));
+        assert!(ws.with_trx(|mut t| t.get_space("TLAaw1df58").shared(&t.trx)));
     }
 }
