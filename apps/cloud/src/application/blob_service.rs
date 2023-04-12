@@ -289,6 +289,7 @@ impl BlobService {
                 Ok(_) => (),
                 Err(e) => {
                     error!("Failed to delete blob: {}", e);
+                    Err(ErrorStatus::InternalServerError)
                 }
             };
             Err(ErrorStatus::InternalServerError)
