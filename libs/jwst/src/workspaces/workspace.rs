@@ -2,10 +2,14 @@ use super::plugins::{setup_plugin, PluginMap};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{collections::HashMap, sync::Arc};
 use std::collections::HashSet;
+use std::sync::Mutex;
+use std::time::{Duration};
 use anyhow::Context;
 use tokio::runtime;
 use tokio::runtime::Runtime;
 use tokio::sync::{RwLock};
+use tokio::time::sleep;
+use tracing::{debug};
 use y_sync::awareness::Awareness;
 use yrs::{
     types::{map::MapEvent, ToJson},
@@ -35,8 +39,9 @@ pub struct BlockObserverConfig {
     pub(crate) callback: Arc<RwLock<Option<Box<dyn Fn(Vec<String>) -> () + Send +Sync>>>>,
     pub(crate) runtime: Arc<Runtime>,
     pub(crate) tx: std::sync::mpsc::Sender<String>,
-    // pub(crate) rx: Arc<Mutex<std::sync::mpsc::Receiver<String>>>,
-    // pub(crate) handle: Arc<RwLock<Option<JoinHandle<()>>>>,
+    pub(crate) rx: Arc<Mutex<std::sync::mpsc::Receiver<String>>>,
+    pub(crate) modified_block_ids: Arc<RwLock<HashSet<String>>>,
+    pub(crate) handle: Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 
 unsafe impl Send for Workspace {}
@@ -54,6 +59,41 @@ impl Workspace {
             block_observer_config.runtime.spawn(async move {
                 *callback.write().await = Some(cb);
             });
+
+            let mut handle_guard = block_observer_config.handle.lock().unwrap();
+            if let None = *handle_guard {
+                let runtime = block_observer_config.runtime.clone();
+                let modified_block_ids = block_observer_config.modified_block_ids.clone();
+                let rx = block_observer_config.rx.clone();
+                let callback = block_observer_config.callback.clone();
+                *handle_guard = Some({
+                    std::thread::spawn(move || {
+                        let rx = rx.lock().unwrap();
+                        let rt = runtime.clone();
+                        while let Ok(block_id) = rx.recv() {
+                            debug!("received block change from {}", block_id);
+                            let modified_block_ids = modified_block_ids.clone();
+                            let callback = callback.clone();
+                            rt.spawn(async move {
+                                if let Some(callback) = callback.read().await.as_ref() {
+                                    let mut guard = modified_block_ids.write().await;
+                                    guard.insert(block_id);
+                                    drop(guard);
+                                    // merge changed blocks in between 200 ms
+                                    sleep(Duration::from_millis(200)).await;
+                                    let mut guard = modified_block_ids.write().await;
+                                    if !guard.is_empty() {
+                                        let block_ids = guard.iter().map(|item| item.to_owned()).collect::<Vec<String>>();
+                                        debug!("invoking callback with block ids: {:?}", block_ids);
+                                        callback(block_ids);
+                                        guard.clear();
+                                    }
+                                }
+                            });
+                        }
+                    })
+                })
+            }
         }
     }
 
@@ -116,6 +156,7 @@ impl Workspace {
 fn generate_block_observer_config() -> Option<Arc<BlockObserverConfig>> {
     let runtime = Arc::new(runtime::Builder::new_multi_thread()
         .worker_threads(2)
+        .enable_time()
         .build()
         .context("Failed to create runtime")
         .unwrap());
@@ -126,30 +167,10 @@ fn generate_block_observer_config() -> Option<Arc<BlockObserverConfig>> {
         callback: callback.clone(),
         runtime: runtime.clone(),
         tx,
-        // rx: Arc::new(Mutex::new(rx)),
-        // handle: Arc::new(RwLock::new(None)),
+        rx: Arc::new(Mutex::new(rx)),
+        modified_block_ids,
+        handle: Mutex::new(None),
     }));
-
-    // TODO: lazy start block callback thread
-    {
-        std::thread::spawn(move || {
-            let rt = runtime.clone();
-            while let Ok(block_id) = rx.recv() {
-                let modified_block_ids = modified_block_ids.clone();
-                let callback = callback.clone();
-                rt.spawn(async move {
-                    if let Some(callback) = callback.read().await.as_ref() {
-                        let mut guard = modified_block_ids.write().await;
-                        guard.insert(block_id);
-                        // TODO: merge recent block_id
-                        let block_ids = guard.iter().map(|item| item.to_owned()).collect::<Vec<String>>();
-                        callback(block_ids);
-                        guard.clear();
-                    }
-                });
-            }
-        });
-    }
 
     block_observer_config
 }
@@ -189,6 +210,7 @@ impl Clone for Workspace {
 
 #[cfg(test)]
 mod test {
+    use std::thread::sleep;
     use super::{super::super::Block, *};
     use tracing::info;
     use yrs::{updates::decoder::Decode, Doc, Map, ReadTxn, StateVector, Update};
@@ -236,6 +258,27 @@ mod test {
                 .get_or_insert_map("space:updated")
                 .to_json(&doc.transact())
         );
+    }
+
+    #[test]
+    fn block_observe_callback() {
+        let workspace = Workspace::new("test");
+        workspace.set_callback(Box::new(|block_ids| assert_eq!(block_ids, vec!["block1".to_string(), "block2".to_string()])));
+
+        let (block1, block2) = workspace.with_trx(|mut t| {
+            let space = t.get_space("test");
+            let block1 = space.create(&mut t.trx, "block1", "text").unwrap();
+            let block2 = space.create(&mut t.trx, "block2", "text").unwrap();
+            (block1, block2)
+        });
+
+        workspace.with_trx(|mut trx| {
+            block1.set(&mut trx.trx, "key1", "value1").unwrap();
+            block1.set(&mut trx.trx, "key2", "value2").unwrap();
+            block2.set(&mut trx.trx, "key1", "value1").unwrap();
+            block2.set(&mut trx.trx, "key2", "value2").unwrap();
+        });
+        sleep(Duration::from_millis(300));
     }
 
     #[test]

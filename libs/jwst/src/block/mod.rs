@@ -158,7 +158,6 @@ impl Block {
         let sub = self.block.observe_deep(move |_trx, _e| {
             tx.send(block_id.clone()).expect("send block observe message error");
         });
-        // *self.sub.write().await = Some(sub); // sub: Arc<tokio::sync::RwLock<Some<DeepEventsSubscription>>>
         *self.sub.write().unwrap() = Some(sub);
     }
 
