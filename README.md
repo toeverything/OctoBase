@@ -1,4 +1,12 @@
-# OctoBase
+
+
+<div align="center">
+
+<h1 style="border-bottom: none">
+    <b><a href="https://octobase.pro/">Octobase</a></b><br />
+    🐙 Local-first, yet collaborative. A light-weight, scalable, data engine written in Rust.
+    <br>
+</h1>
 
 [![Rust-version-icon]](https://www.rust-lang.org/)
 [![codecov]](https://codecov.io/gh/toeverything/OctoBase)
@@ -10,6 +18,11 @@
 OctoBase is an offline-available, scalable, self-contained collaborative database, which was originally designed for AFFiNE. AFFiNE is a local-first open source knowledge base that provides full functionality in any network environment.
 
 Based on OctoBase, you can not only implement a rich text editor for offline writing, but also implement richer offline collaboration functions based on OctoBase's data abstraction, such as: multidimensional tables, drawing boards, etc.
+
+</div>
+
+
+## Features
 
 As an offline collaborative data database, OctoBase has the following characteristics:
 
