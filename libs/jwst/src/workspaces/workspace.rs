@@ -3,18 +3,11 @@ use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 use y_sync::awareness::{Awareness, Event, Subscription as AwarenessSubscription};
-use std::collections::HashSet;
-use std::sync::Mutex;
-use std::time::{Duration};
-use anyhow::Context;
-use tokio::runtime;
-use tokio::runtime::Runtime;
-use tokio::time::sleep;
-use tracing::{debug};
 use yrs::{
     types::{map::MapEvent, ToJson},
     Doc, Map, MapRef, Subscription, Transact, TransactionMut, UpdateSubscription,
 };
+use crate::workspaces::block_observer::BlockObserverConfig;
 
 pub type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>;
 
@@ -34,17 +27,7 @@ pub struct Workspace {
     /// Public just for the crate as we experiment with the plugins interface.
     /// See [super::plugins].
     pub(super) plugins: PluginMap,
-    pub(crate) block_observer_config: Option<Arc<BlockObserverConfig>>,
-}
-
-type CallbackFn = Arc<RwLock<Option<Box<dyn Fn(Vec<String>) + Send +Sync>>>>;
-pub struct BlockObserverConfig {
-    pub(crate) callback: CallbackFn,
-    pub(crate) runtime: Arc<Runtime>,
-    pub(crate) tx: std::sync::mpsc::Sender<String>,
-    pub(crate) rx: Arc<Mutex<std::sync::mpsc::Receiver<String>>>,
-    pub(crate) modified_block_ids: Arc<RwLock<HashSet<String>>>,
-    pub(crate) handle: Arc<Mutex<Option<std::thread::JoinHandle<()>>>>,
+    pub block_observer_config: Option<Arc<BlockObserverConfig>>,
 }
 
 unsafe impl Send for Workspace {}
@@ -54,50 +37,6 @@ impl Workspace {
     pub fn new<S: AsRef<str>>(id: S) -> Self {
         let doc = Doc::new();
         Self::from_doc(doc, id)
-    }
-
-    pub fn set_callback(&self, cb: Box<dyn Fn(Vec<String>) + Send + Sync>) {
-        if let Some(block_observer_config) = self.block_observer_config.clone() {
-            let callback = block_observer_config.callback.clone();
-            block_observer_config.runtime.spawn(async move {
-                *callback.write().await = Some(cb);
-            });
-
-            let mut handle_guard = block_observer_config.handle.lock().unwrap();
-            if handle_guard.is_none() {
-                let runtime = block_observer_config.runtime.clone();
-                let modified_block_ids = block_observer_config.modified_block_ids.clone();
-                let rx = block_observer_config.rx.clone();
-                let callback = block_observer_config.callback.clone();
-                *handle_guard = Some({
-                    std::thread::spawn(move || {
-                        let rx = rx.lock().unwrap();
-                        let rt = runtime.clone();
-                        while let Ok(block_id) = rx.recv() {
-                            debug!("received block change from {}", block_id);
-                            let modified_block_ids = modified_block_ids.clone();
-                            let callback = callback.clone();
-                            rt.spawn(async move {
-                                if let Some(callback) = callback.read().await.as_ref() {
-                                    let mut guard = modified_block_ids.write().await;
-                                    guard.insert(block_id);
-                                    drop(guard);
-                                    // merge changed blocks in between 200 ms
-                                    sleep(Duration::from_millis(200)).await;
-                                    let mut guard = modified_block_ids.write().await;
-                                    if !guard.is_empty() {
-                                        let block_ids = guard.iter().map(|item| item.to_owned()).collect::<Vec<String>>();
-                                        debug!("invoking callback with block ids: {:?}", block_ids);
-                                        callback(block_ids);
-                                        guard.clear();
-                                    }
-                                }
-                            });
-                        }
-                    })
-                })
-            }
-        }
     }
 
     pub fn from_doc<S: AsRef<str>>(doc: Doc, workspace_id: S) -> Workspace {
@@ -113,7 +52,7 @@ impl Workspace {
             updated,
             metadata,
             plugins: Default::default(),
-            block_observer_config: generate_block_observer_config(),
+            block_observer_config: Some(Arc::new(BlockObserverConfig::new())),
         })
     }
 
@@ -136,7 +75,7 @@ impl Workspace {
             updated,
             metadata,
             plugins,
-            block_observer_config: generate_block_observer_config(),
+            block_observer_config: Some(Arc::new(BlockObserverConfig::new())),
         }
     }
 
@@ -157,27 +96,6 @@ impl Workspace {
     pub fn doc(&self) -> Doc {
         self.doc.clone()
     }
-}
-
-fn generate_block_observer_config() -> Option<Arc<BlockObserverConfig>> {
-    let runtime = Arc::new(runtime::Builder::new_multi_thread()
-        .worker_threads(2)
-        .enable_time()
-        .build()
-        .context("Failed to create runtime")
-        .unwrap());
-    let (tx, rx) = std::sync::mpsc::channel::<String>();
-    let modified_block_ids = Arc::new(RwLock::new(HashSet::new()));
-    let callback = Arc::new(RwLock::new(None));
-
-    Some(Arc::new(BlockObserverConfig {
-        callback: callback.clone(),
-        runtime,
-        tx,
-        rx: Arc::new(Mutex::new(rx)),
-        modified_block_ids,
-        handle: Arc::new(Mutex::new(None)),
-    }))
 }
 
 impl Serialize for Workspace {
@@ -217,6 +135,7 @@ impl Clone for Workspace {
 #[cfg(test)]
 mod test {
     use std::thread::sleep;
+    use std::time::Duration;
     use super::{super::super::Block, *};
     use tracing::info;
     use yrs::{updates::decoder::Decode, Doc, Map, ReadTxn, StateVector, Update};
@@ -269,7 +188,8 @@ mod test {
     #[test]
     fn block_observe_callback() {
         let workspace = Workspace::new("test");
-        workspace.set_callback(Box::new(|mut block_ids| {
+        let block_observer_config = workspace.block_observer_config.clone().unwrap();
+        block_observer_config.set_callback(Box::new(|mut block_ids| {
             block_ids.sort();
             assert_eq!(block_ids, vec!["block1".to_string(), "block2".to_string()])
         }));
