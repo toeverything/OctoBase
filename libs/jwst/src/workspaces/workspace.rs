@@ -37,8 +37,9 @@ pub struct Workspace {
     pub(crate) block_observer_config: Option<Arc<BlockObserverConfig>>,
 }
 
+type CallbackFn = Arc<RwLock<Option<Box<dyn Fn(Vec<String>) + Send +Sync>>>>;
 pub struct BlockObserverConfig {
-    pub(crate) callback: Arc<RwLock<Option<Box<dyn Fn(Vec<String>) -> () + Send +Sync>>>>,
+    pub(crate) callback: CallbackFn,
     pub(crate) runtime: Arc<Runtime>,
     pub(crate) tx: std::sync::mpsc::Sender<String>,
     pub(crate) rx: Arc<Mutex<std::sync::mpsc::Receiver<String>>>,
@@ -269,7 +270,10 @@ mod test {
     #[test]
     fn block_observe_callback() {
         let workspace = Workspace::new("test");
-        workspace.set_callback(Box::new(|block_ids| assert_eq!(block_ids, vec!["block1".to_string(), "block2".to_string()])));
+        workspace.set_callback(Box::new(|mut block_ids| {
+            block_ids.sort();
+            assert_eq!(block_ids, vec!["block1".to_string(), "block2".to_string()])
+        }));
 
         let (block1, block2) = workspace.with_trx(|mut t| {
             let space = t.get_space("test");
