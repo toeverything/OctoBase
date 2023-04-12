@@ -67,10 +67,6 @@ on all common platforms. In order to achieve this goal, we will strive to do the
 
 You can see a summary of our recent updates here: [What's New](./apps/homepage/pages/docs/overview/whats_new.md).
 
-## Building
-
-Visit [our website] to learn about installation and development.
-
 ## Project Overview
 
 ```shell
