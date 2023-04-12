@@ -60,14 +60,6 @@ jobs:
                   override: true
 
             - uses: Swatinem/rust-cache@v2
-            - name: Set up cargo cache
-              if: github.ref != 'refs/heads/master'
-              uses: actions/cache@v3
-              continue-on-error: false
-              with:
-                  path: target/
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: ${{ runner.os }}-cargo-
             - name: Set up pnpm cache
               uses: actions/cache@v3
               continue-on-error: false
@@ -144,13 +136,6 @@ jobs:
                   override: true
 
             - uses: Swatinem/rust-cache@v2
-            - name: Set up cargo cache
-              uses: actions/cache@v3
-              continue-on-error: false
-              with:
-                  path: target/
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: ${{ runner.os }}-cargo-
             - name: Set up pnpm cache
               uses: actions/cache@v3
               continue-on-error: false
@@ -261,13 +246,6 @@ jobs:
                   override: true
 
             - uses: Swatinem/rust-cache@v2
-            - name: Set up cargo cache
-              uses: actions/cache@v3
-              continue-on-error: false
-              with:
-                  path: target/
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: ${{ runner.os }}-cargo-
             - name: Set up pnpm cache
               uses: actions/cache@v3
               continue-on-error: false
@@ -308,13 +286,6 @@ jobs:
               with:
                   components: llvm-tools-preview
             - uses: Swatinem/rust-cache@v2
-            - name: Set up cargo cache
-              uses: actions/cache@v3
-              continue-on-error: false
-              with:
-                  path: target/
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-                  restore-keys: ${{ runner.os }}-cargo-
 
             - name: Install latest nextest release
               uses: taiki-e/install-action@nextest
