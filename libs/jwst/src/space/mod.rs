@@ -180,7 +180,7 @@ impl Space {
         );
         let mut block = Block::new(trx, self, block_id, flavour, self.client_id())?;
         if let Some(block_observer_config) = self.block_observer_config.clone() {
-            block.subscribe(block_observer_config.tx.clone());
+            block.subscribe(block_observer_config);
         }
         Ok(block)
     }

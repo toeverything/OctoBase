@@ -153,10 +153,14 @@ impl Block {
         })
     }
 
-    pub fn subscribe(&mut self, tx: std::sync::mpsc::Sender<String>) {
+    pub fn subscribe(&mut self, block_observer_config: Arc<BlockObserverConfig>) {
         let block_id = self.block_id.clone();
+        let tx = block_observer_config.tx.clone();
+        let handle = block_observer_config.handle.clone();
         let sub = self.block.observe_deep(move |_trx, _e| {
-            tx.send(block_id.clone()).expect("send block observe message error");
+            if handle.lock().unwrap().is_some() {
+                tx.send(block_id.clone()).expect("send block observe message error");
+            }
         });
         *self.sub.write().unwrap() = Some(sub);
     }

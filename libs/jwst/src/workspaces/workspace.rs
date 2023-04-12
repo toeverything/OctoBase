@@ -41,7 +41,7 @@ pub struct BlockObserverConfig {
     pub(crate) tx: std::sync::mpsc::Sender<String>,
     pub(crate) rx: Arc<Mutex<std::sync::mpsc::Receiver<String>>>,
     pub(crate) modified_block_ids: Arc<RwLock<HashSet<String>>>,
-    pub(crate) handle: Mutex<Option<std::thread::JoinHandle<()>>>,
+    pub(crate) handle: Arc<Mutex<Option<std::thread::JoinHandle<()>>>>,
 }
 
 unsafe impl Send for Workspace {}
@@ -169,7 +169,7 @@ fn generate_block_observer_config() -> Option<Arc<BlockObserverConfig>> {
         tx,
         rx: Arc::new(Mutex::new(rx)),
         modified_block_ids,
-        handle: Mutex::new(None),
+        handle: Arc::new(Mutex::new(None)),
     }));
 
     block_observer_config
