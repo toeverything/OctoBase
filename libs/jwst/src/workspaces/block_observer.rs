@@ -86,3 +86,9 @@ impl BlockObserverConfig {
         })
     }
 }
+
+impl Default for BlockObserverConfig {
+    fn default() -> Self {
+        BlockObserverConfig::new()
+    }
+}
