@@ -39,9 +39,9 @@ const MAX_USAGE: u64 = 10 * 1024 * 1024 * 1024;
 const MAX_BLOB_SIZE: u64 = 10 * 1024 * 1024;
 
 #[derive(Debug)]
-pub struct CloudBlobService {}
+pub struct BlobService {}
 
-impl CloudBlobService {
+impl BlobService {
     pub fn new() -> Self {
         Self {}
     }
