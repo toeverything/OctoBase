@@ -1,6 +1,6 @@
-mod block;
-mod schema;
-mod workspace;
+pub mod block;
+pub mod schema;
+pub mod workspace;
 
 pub use block::{
     delete_block, get_block, get_block_history, insert_block_children, remove_block_children,
@@ -12,58 +12,7 @@ pub use workspace::{
 };
 
 use super::*;
-use cloud_infra::with_api_doc_v2;
 use schema::InsertChildren;
-use utoipa::OpenApi;
-
-#[derive(OpenApi)]
-#[openapi(
-    paths(
-        workspace::get_workspace,
-        workspace::set_workspace,
-        workspace::delete_workspace,
-        workspace::workspace_client,
-        workspace::history_workspace_clients,
-        workspace::history_workspace,
-        workspace::get_workspace_block,
-        workspace::workspace_search,
-        block::get_block,
-        block::get_block_by_flavour,
-        block::set_block,
-        block::get_block_history,
-        block::get_block_children,
-        block::delete_block,
-        block::insert_block_children,
-        block::remove_block_children,
-    ),
-    components(
-        schemas(
-            schema::InsertChildren,
-            schema::Workspace, schema::Block, schema::BlockRawHistory,
-            jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory,
-            jwst::SearchResults, jwst::SearchResult
-        )
-    ),
-    tags(
-        (name = "Workspace", description = "Read and write remote workspace"),
-        (name = "Blocks", description = "Read and write remote blocks")
-    )
-)]
-struct ApiDoc;
-
-const README: &str = include_str!("../../../../../homepage/pages/docs/introduction.md");
-const DISTINCTIVE_FEATURES: &str =
-    include_str!("../../../../../homepage/pages/docs/overview/distinctive_features.md");
-
-fn doc_apis(router: Router) -> Router {
-    if cfg!(feature = "schema") {
-        let mut openapi = ApiDoc::openapi();
-        openapi.info.description = Some(vec![README, DISTINCTIVE_FEATURES].join("\n"));
-        with_api_doc_v2(router, openapi, "JWST Api Docs")
-    } else {
-        router
-    }
-}
 
 fn block_apis(router: Router) -> Router {
     let block_operation = Router::new()
@@ -118,4 +67,73 @@ fn workspace_apis(router: Router) -> Router {
 
 pub fn blocks_apis(router: Router) -> Router {
     workspace_apis(block_apis(router))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum_test_helper::TestClient;
+    use serde_json::{from_str, json, to_string, Value};
+
+    #[tokio::test]
+    async fn test_doc_apis() {
+        let client = TestClient::new(doc_apis(Router::new()));
+
+        // basic workspace apis
+        let resp = client.get("/jwst.json").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let text = resp.text().await;
+        assert!(from_str::<Value>(text.as_str()).is_ok());
+
+        let resp = client.get("/docs/").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_workspace_apis() {
+        let ctx = Arc::new(Context::new(JwstStorage::new("sqlite::memory:").await.ok()).await);
+        let client = TestClient::new(workspace_apis(Router::new()).layer(Extension(ctx.clone())));
+
+        // basic workspace apis
+        let resp = client.get("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        let resp = client.post("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client.get("/block/test/client").send().await;
+        assert_eq!(
+            resp.text().await.parse::<u64>().unwrap(),
+            ctx.storage.get_workspace("test").await.unwrap().client_id()
+        );
+        let resp = client.get("/block/test/history").send().await;
+        assert_eq!(resp.json::<Vec<u64>>().await, Vec::<u64>::new());
+        let resp = client.get("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client.delete("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+        let resp = client.get("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+        // workspace history apis
+        let resp = client.post("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = client.get("/search/test/index").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let index = resp.json::<Vec<String>>().await;
+        assert_eq!(index, vec!["title".to_owned(), "text".to_owned()]);
+
+        let body = to_string(&json!(["test"])).unwrap();
+        let resp = client
+            .post("/search/test/index")
+            .header("content-type", "application/json")
+            .body(body)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = client.get("/search/test/index").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let index = resp.json::<Vec<String>>().await;
+        assert_eq!(index, vec!["test".to_owned()]);
+    }
 }

@@ -8,7 +8,9 @@ mod workspace;
 
 pub use collaboration::make_ws_route;
 
-use crate::{context::Context, error_status::ErrorStatus, layer::make_firebase_auth_layer};
+use crate::{
+    context::Context, infrastructure::error_status::ErrorStatus, layer::make_firebase_auth_layer,
+};
 use axum::{
     extract::Query,
     response::{IntoResponse, Response},
@@ -56,7 +58,7 @@ use utoipa::OpenApi;
 struct ApiDoc;
 
 pub fn make_api_doc_route(route: Router) -> Router {
-    cloud_infra::with_api_doc_v3(route, ApiDoc::openapi(), env!("CARGO_PKG_NAME"))
+    cloud_infra::with_api_doc(route, ApiDoc::openapi(), env!("CARGO_PKG_NAME"))
 }
 
 pub fn make_rest_route(ctx: Arc<Context>) -> Router {

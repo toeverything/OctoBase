@@ -1,3 +1,5 @@
+use crate::application::blob_service::BlobService;
+
 use super::{api::UserChannel, config::Config, utils::create_debug_collaboration_workspace};
 use cloud_database::CloudDatabase;
 use cloud_infra::{FirebaseContext, KeyContext, MailContext};
@@ -19,6 +21,7 @@ pub struct Context {
     pub channel: BroadcastChannels,
     pub config: Config,
     _dir: Option<TempDir>,
+    pub blob_service: BlobService,
 }
 
 impl Context {
@@ -53,6 +56,8 @@ impl Context {
             .await
             .expect("Cannot create storage");
 
+        let blob_service = BlobService::new();
+
         if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
             create_debug_collaboration_workspace(&db, &storage).await;
         }
@@ -80,6 +85,7 @@ impl Context {
             channel: RwLock::new(HashMap::new()),
             user_channel: UserChannel::new(),
             config: Config::new(),
+            blob_service,
         }
     }
 

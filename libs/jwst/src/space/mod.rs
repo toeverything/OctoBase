@@ -1,14 +1,12 @@
 mod convert;
 mod transaction;
 
+use super::{block::MarkdownState, workspaces::Pages, *};
 use std::sync::Arc;
-use super::{block::MarkdownState, *};
 use lib0::any::Any;
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use transaction::SpaceTransaction;
-use yrs::{
-    types::Value, Array, ArrayRef, Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn,
-};
+use yrs::{Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn};
 
 //         Workspace
 //         /       \
@@ -22,7 +20,7 @@ pub struct Space {
     pub(super) blocks: MapRef,
     pub(super) updated: MapRef,
     pub(super) metadata: MapRef,
-    pages: ArrayRef,
+    pages: Pages,
     block_observer_config: Option<Arc<BlockObserverConfig>>,
 }
 
@@ -30,7 +28,7 @@ impl Space {
     pub fn new<I, S>(
         trx: &mut TransactionMut,
         doc: Doc,
-        pages: ArrayRef,
+        pages: Pages,
         workspace_id: I,
         space_id: S,
         block_observer_config: Option<Arc<BlockObserverConfig>>,
@@ -72,7 +70,7 @@ impl Space {
         let blocks = trx.get_map(&format!("space:{}", space_id))?;
         let updated = trx.get_map(constants::space::UPDATED)?;
         let metadata = trx.get_map(constants::space::META)?;
-        let pages = metadata.get(trx, "pages").and_then(|v| v.to_yarray())?;
+        let pages = Pages::new(metadata.get(trx, "pages").and_then(|v| v.to_yarray())?);
 
         Some(Self {
             workspace_id: workspace_id.as_ref().into(),
@@ -214,17 +212,7 @@ impl Space {
     where
         T: ReadTxn,
     {
-        let id = Some(Value::Any(Any::String(Box::from(self.space_id()))));
-        let is_public = Some(Value::Any(Any::Bool(true)));
-        self.pages.iter(trx).any(|v| {
-            v.to_ymap().and_then(|map| {
-                if map.get(trx, "id") == id {
-                    Some(map.get(trx, "isPublic") == is_public)
-                } else {
-                    None
-                }
-            }) == Some(true)
-        })
+        self.pages.check_shared(trx, &self.space_id)
     }
 }
 
@@ -267,7 +255,14 @@ mod test {
             let pages = metadata
                 .insert(&mut trx, "pages", ArrayPrelim::default())
                 .unwrap();
-            Space::new(&mut trx, doc.clone(), pages, "workspace", space_id, None)
+            Space::new(
+                &mut trx,
+                doc.clone(),
+                Pages::new(pages),
+                "workspace",
+                space_id,
+                None
+            )
         };
         space.with_trx(|mut t| {
             let block = t.create("test", "text").unwrap();
@@ -320,7 +315,14 @@ mod test {
             let pages = metadata
                 .insert(&mut trx, "pages", ArrayPrelim::default())
                 .unwrap();
-            Space::new(&mut trx, doc.clone(), pages, "workspace", "space", None)
+            Space::new(
+                &mut trx,
+                doc.clone(),
+                Pages::new(pages),
+                "workspace",
+                "space",
+                None
+            )
         };
 
         space.with_trx(|t| {
@@ -365,7 +367,7 @@ mod test {
         let pages = metadata
             .insert(&mut trx, "pages", ArrayPrelim::default())
             .unwrap();
-        let space = Space::new(&mut trx, doc.clone(), pages, "space", "test", None);
+        let space = Space::new(&mut trx, doc.clone(), Pages::new(pages), "space", "test", None);
         assert_eq!(space.client_id(), 123);
     }
 }
