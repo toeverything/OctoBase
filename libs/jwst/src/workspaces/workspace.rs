@@ -108,6 +108,7 @@ impl Workspace {
             awareness: Arc::new(RwLock::new(Awareness::new(doc.clone()))),
             doc,
             sub: Arc::default(),
+            awareness_sub: Arc::default(),
             updated,
             metadata,
             plugins: Default::default(),

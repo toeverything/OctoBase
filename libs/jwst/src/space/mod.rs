@@ -3,7 +3,6 @@ mod transaction;
 
 use super::{block::MarkdownState, workspaces::Pages, *};
 use std::sync::Arc;
-use lib0::any::Any;
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use transaction::SpaceTransaction;
 use yrs::{Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn};
