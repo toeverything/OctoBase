@@ -281,4 +281,81 @@ mod test {
 
         assert_eq!(doc.transact().store().root_keys(), vec!["test"]);
     }
+
+    #[test]
+    fn test_same_id_type_merge() {
+        let update = {
+            let doc = Doc::new();
+            let ws = Workspace::from_doc(doc, "test");
+            ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                let _block = space.create(&mut t.trx, "test", "test1").unwrap();
+            });
+
+            ws.doc()
+                .transact()
+                .encode_state_as_update_v1(&StateVector::default())
+                .unwrap()
+        };
+        let update1 = {
+            let doc = Doc::new();
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&update).unwrap());
+            let ws = Workspace::from_doc(doc, "test");
+            ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                let new_block = space.create(&mut t.trx, "test1", "test1").unwrap();
+                let block = space.get(&mut t.trx, "test").unwrap();
+                block.insert_children_at(&mut t.trx, &new_block, 0).unwrap();
+            });
+
+            ws.doc()
+                .transact()
+                .encode_state_as_update_v1(&StateVector::default())
+                .unwrap()
+        };
+        let update2 = {
+            let doc = Doc::new();
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&update).unwrap());
+            let ws = Workspace::from_doc(doc, "test");
+            ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                let new_block = space.create(&mut t.trx, "test2", "test2").unwrap();
+                let block = space.get(&mut t.trx, "test").unwrap();
+                block.insert_children_at(&mut t.trx, &new_block, 0).unwrap();
+            });
+
+            ws.doc()
+                .transact()
+                .encode_state_as_update_v1(&StateVector::default())
+                .unwrap()
+        };
+
+        // let merged_update = yrs::merge_updates_v1(&[&update1, &update2]).unwrap();
+
+        let doc = Doc::new();
+        doc.transact_mut()
+            .apply_update(Update::decode_v1(&update1).unwrap());
+        doc.transact_mut()
+            .apply_update(Update::decode_v1(&update2).unwrap());
+
+        let ws = Workspace::from_doc(doc, "test");
+        let block = ws.with_trx(|mut t| {
+            let space = t.get_space("space");
+            space.get(&t.trx, "test").unwrap()
+        });
+        println!("{:?}", serde_json::to_string_pretty(&block).unwrap());
+
+        ws.with_trx(|mut t| {
+            let space = t.get_space("space");
+            let block = space.get(&t.trx, "test").unwrap();
+            assert_eq!(
+                block.children(&t.trx),
+                vec!["test2".to_owned(), "test1".to_owned()]
+            );
+            // assert_eq!(block.get(&t.trx, "test1").unwrap().to_string(), "test1");
+            // assert_eq!(block.get(&t.trx, "test2").unwrap().to_string(), "test2");
+        });
+    }
 }
