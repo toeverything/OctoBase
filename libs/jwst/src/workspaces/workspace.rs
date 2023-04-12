@@ -332,30 +332,50 @@ mod test {
                 .unwrap()
         };
 
-        // let merged_update = yrs::merge_updates_v1(&[&update1, &update2]).unwrap();
+        {
+            let doc = Doc::new();
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&update1).unwrap());
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&update2).unwrap());
 
-        let doc = Doc::new();
-        doc.transact_mut()
-            .apply_update(Update::decode_v1(&update1).unwrap());
-        doc.transact_mut()
-            .apply_update(Update::decode_v1(&update2).unwrap());
+            let ws = Workspace::from_doc(doc, "test");
+            let block = ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                space.get(&t.trx, "test").unwrap()
+            });
+            println!("{:?}", serde_json::to_string_pretty(&block).unwrap());
 
-        let ws = Workspace::from_doc(doc, "test");
-        let block = ws.with_trx(|mut t| {
-            let space = t.get_space("space");
-            space.get(&t.trx, "test").unwrap()
-        });
-        println!("{:?}", serde_json::to_string_pretty(&block).unwrap());
+            ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                let block = space.get(&t.trx, "test").unwrap();
+                let mut children = block.children(&t.trx);
+                children.sort();
+                assert_eq!(children, vec!["test1".to_owned(), "test2".to_owned()]);
+            });
+        }
+        {
+            let merged_update = yrs::merge_updates_v1(&[&update1, &update2]).unwrap();
+            let doc = Doc::new();
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&merged_update).unwrap());
 
-        ws.with_trx(|mut t| {
-            let space = t.get_space("space");
-            let block = space.get(&t.trx, "test").unwrap();
-            assert_eq!(
-                block.children(&t.trx),
-                vec!["test2".to_owned(), "test1".to_owned()]
-            );
-            // assert_eq!(block.get(&t.trx, "test1").unwrap().to_string(), "test1");
-            // assert_eq!(block.get(&t.trx, "test2").unwrap().to_string(), "test2");
-        });
+            let ws = Workspace::from_doc(doc, "test");
+            let block = ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                space.get(&t.trx, "test").unwrap()
+            });
+            println!("{:?}", serde_json::to_string_pretty(&block).unwrap());
+
+            ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                let block = space.get(&t.trx, "test").unwrap();
+                let mut children = block.children(&t.trx);
+                children.sort();
+                assert_eq!(children, vec!["test1".to_owned(), "test2".to_owned()]);
+                // assert_eq!(block.get(&t.trx, "test1").unwrap().to_string(), "test1");
+                // assert_eq!(block.get(&t.trx, "test2").unwrap().to_string(), "test2");
+            });
+        }
     }
 }
