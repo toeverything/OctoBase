@@ -8,18 +8,21 @@ In this way, we can define different Block flavours to represent different data 
 
 ```js
 const titleBlock = {
+	'sys:id': '3380496952:1',
 	'sys:flavour': 'affine:title',
 	'sys:created': 1666158236651,
 	'sys:children': [],
 	'prop:text': 'This is a Title',
 }
 const textBlock = {
+	'sys:id': '3380496952:2',
 	'sys:flavour': 'affine:text',
 	'sys:created': 1666158236651,
 	'sys:children': [],
 	'prop:text': 'This is a normal line',
 }
 const todoBlock = {
+	'sys:id': '3380496952:3',
 	'sys:flavour': 'affine:todo',
 	'sys:created': 1666158236651,
 	'sys:children': [],
@@ -42,12 +45,14 @@ Then we can reorganize the data shown in the figure above with Block:
 
 ```js
 const title = {
+	'sys:id': '3380496952:1',
 	'sys:flavour': 'affine:title',
 	'sys:created': 1666158236651,
 	'sys:children': [],
 	'prop:text': 'Welcome to the AFFiNE Alpha',
 }
 const text = {
+	'sys:id': '3380496952:2',
 	'sys:flavour': 'affine:text',
 	'sys:created': 1666158236651,
 	'sys:children': [],
@@ -55,6 +60,7 @@ const text = {
 	'prop:text': 'The AFFiNE Alpha is here! You can also view our Official Website!',
 }
 const todo1 = {
+	'sys:id': '3380496952:3',
 	'sys:flavour': 'affine:todo',
 	'sys:created': 1666158236651,
 	'sys:children': [],
@@ -62,6 +68,7 @@ const todo1 = {
 	'prop:clicked': true,
 }
 const todo2 = {
+	'sys:id': '3380496952:4',
 	'sys:flavour': 'affine:todo',
 	'sys:created': 1666158236651,
 	'sys:children': [],
@@ -85,3 +92,27 @@ In actual use, you do not need to manually edit the data in the structure. OctoB
 -   Reactively update data when local or remote modifications occur
 
 And all these modifications can be Conflict-free merge with any remote offline.
+
+## Data Structure Under the Hood
+
+`Workspace` is the top level of collaboration entity, it holds a map-like structure which stores `Space`, `Space` holds a map-like structure which stores `Block`.
+
+`Workspace`, `Space`, `Block` forms a tree structure, and `Block` is the smallest unit of data in OctoBase.
+
+```
+           Workspace
+         /           \
+     Space    ...   Space
+    /  |  \        /  |  \
+Block ... Block Block ... Block
+```
+
+## Collaborative Workspace
+
+Each `Workspace`, `Space`, `Block` can be regarded as a single unit capable of conflict solving, and thus can be seen as a collaborative unit.
+
+With easy-to-use APIs provided by OctoBase, `Workspace` can be easily transferred through kind of providers, as network, local storage, etc. In this way Different clients can manipulate and collaborate the same `Workspace`, also `Space`, `Block` belongs to it.
+
+Octobase ensures workspaces in different clients with the same `workspace_id` are always the same one. However, please note that `Space` created within the same `Workspace` in different devices with the same `space_id` is not guaranteed to be the same `Space`. Specifically speaking, If the `Space` is created in one device, and synced to other devices, they will be the same `Space`, but if it's created separately in different devices, it's not the same one! This will make any further manipulation under the `Space` lose the ability of auto-conflict solving, which will downgrade to overriding strategy.
+
+To avoid this collision, we recommend a best practice that when creating a `Space`, use a random `space_id`. This can ensure that the `Space` with specific `space_id` is created only once (In the absence of random number collision), and is synced before it's manipulated by other devices. In this way, `Space` will never lose its auto-conflict solving capability. Feel free to manipulate the same collaborative unit on different devices and enjoy the auto-conflict solving!
