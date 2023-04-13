@@ -1,9 +1,9 @@
+use anyhow::Context;
 use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
-use anyhow::Context;
 use tokio::runtime;
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
@@ -22,12 +22,14 @@ pub struct BlockObserverConfig {
 
 impl BlockObserverConfig {
     pub fn new() -> Self {
-        let runtime = Arc::new(runtime::Builder::new_multi_thread()
-            .worker_threads(2)
-            .enable_time()
-            .build()
-            .context("Failed to create runtime")
-            .unwrap());
+        let runtime = Arc::new(
+            runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .enable_time()
+                .build()
+                .context("Failed to create runtime")
+                .unwrap(),
+        );
         let (tx, rx) = std::sync::mpsc::channel::<String>();
         let modified_block_ids = Arc::new(RwLock::new(HashSet::new()));
         let callback = Arc::new(RwLock::new(None));
@@ -41,8 +43,9 @@ impl BlockObserverConfig {
             handle: Arc::new(Mutex::new(None)),
         };
 
-        block_observer_config.handle = Arc::new(
-            Mutex::new(Some(block_observer_config.start_callback_thread())));
+        block_observer_config.handle = Arc::new(Mutex::new(Some(
+            block_observer_config.start_callback_thread(),
+        )));
 
         block_observer_config
     }
@@ -75,7 +78,10 @@ impl BlockObserverConfig {
                         sleep(Duration::from_millis(200)).await;
                         let mut guard = modified_block_ids.write().await;
                         if !guard.is_empty() {
-                            let block_ids = guard.iter().map(|item| item.to_owned()).collect::<Vec<String>>();
+                            let block_ids = guard
+                                .iter()
+                                .map(|item| item.to_owned())
+                                .collect::<Vec<String>>();
                             debug!("invoking callback with block ids: {:?}", block_ids);
                             callback(block_ids);
                             guard.clear();

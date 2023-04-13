@@ -1,7 +1,6 @@
-use super::{entities::prelude::*, *};
+use super::{entities::prelude::*, types::JwstStorageResult, *};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use yrs::{updates::decoder::Decode, Doc, ReadTxn, StateVector, Transact, Update};
-use crate::types::JwstStorageResult;
 
 // apply all updates to the given doc
 pub fn migrate_update(
@@ -33,7 +32,9 @@ pub fn migrate_update(
     Ok(doc)
 }
 
-pub fn merge_doc_records(update_records: Vec<<Docs as EntityTrait>::Model>) -> JwstStorageResult<Vec<u8>> {
+pub fn merge_doc_records(
+    update_records: Vec<<Docs as EntityTrait>::Model>,
+) -> JwstStorageResult<Vec<u8>> {
     let state_vector = migrate_update(update_records, Doc::default()).and_then(|doc| {
         Ok(doc
             .transact()

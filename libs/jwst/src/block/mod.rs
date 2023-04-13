@@ -7,11 +7,14 @@ use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, RwLock};
-use yrs::{types::{
-    text::{Diff, YChange},
-    ToJson, Value,
-}, Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, TextRef, Transact, TransactionMut, DeepObservable};
-use yrs::types::DeepEventsSubscription;
+use yrs::{
+    types::{
+        text::{Diff, YChange},
+        DeepEventsSubscription, ToJson, Value,
+    },
+    Array, ArrayPrelim, ArrayRef, DeepObservable, Doc, Map, MapPrelim, MapRef, ReadTxn, Text,
+    TextPrelim, TextRef, Transact, TransactionMut,
+};
 
 #[derive(Clone)]
 pub struct Block {
@@ -52,7 +55,8 @@ impl PartialEq for Block {
             || self.operator != other.operator
             || self.block != other.block
             || self.children != other.children
-            || self.updated != other.updated {
+            || self.updated != other.updated
+        {
             return false;
         }
         true
@@ -159,7 +163,8 @@ impl Block {
         let handle = block_observer_config.handle.clone();
         let sub = self.block.observe_deep(move |_trx, _e| {
             if handle.lock().unwrap().is_some() {
-                tx.send(block_id.clone()).expect("send block observe message error");
+                tx.send(block_id.clone())
+                    .expect("send block observe message error");
             }
         });
         *self.sub.write().unwrap() = Some(sub);

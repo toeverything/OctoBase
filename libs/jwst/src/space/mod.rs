@@ -2,8 +2,8 @@ mod convert;
 mod transaction;
 
 use super::{block::MarkdownState, workspaces::Pages, *};
-use std::sync::Arc;
 use serde::{ser::SerializeMap, Serialize, Serializer};
+use std::sync::Arc;
 use transaction::SpaceTransaction;
 use yrs::{Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn};
 
@@ -260,7 +260,7 @@ mod test {
                 Pages::new(pages),
                 "workspace",
                 space_id,
-                None
+                None,
             )
         };
         space.with_trx(|mut t| {
@@ -320,7 +320,7 @@ mod test {
                 Pages::new(pages),
                 "workspace",
                 "space",
-                None
+                None,
             )
         };
 
@@ -366,7 +366,14 @@ mod test {
         let pages = metadata
             .insert(&mut trx, "pages", ArrayPrelim::default())
             .unwrap();
-        let space = Space::new(&mut trx, doc.clone(), Pages::new(pages), "space", "test", None);
+        let space = Space::new(
+            &mut trx,
+            doc.clone(),
+            Pages::new(pages),
+            "space",
+            "test",
+            None,
+        );
         assert_eq!(space.client_id(), 123);
     }
 }

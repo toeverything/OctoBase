@@ -1,4 +1,7 @@
-use super::plugins::{setup_plugin, PluginMap};
+use super::{
+    block_observer::BlockObserverConfig,
+    plugins::{setup_plugin, PluginMap},
+};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
@@ -7,7 +10,6 @@ use yrs::{
     types::{map::MapEvent, ToJson},
     Doc, Map, MapRef, Subscription, Transact, TransactionMut, UpdateSubscription,
 };
-use crate::workspaces::block_observer::BlockObserverConfig;
 
 pub type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>;
 
@@ -134,9 +136,9 @@ impl Clone for Workspace {
 
 #[cfg(test)]
 mod test {
+    use super::{super::super::Block, *};
     use std::thread::sleep;
     use std::time::Duration;
-    use super::{super::super::Block, *};
     use tracing::info;
     use yrs::{updates::decoder::Decode, Doc, Map, ReadTxn, StateVector, Update};
 
@@ -312,7 +314,6 @@ mod test {
 
         assert_eq!(doc.transact().store().root_keys(), vec!["test"]);
     }
-
 
     #[test]
     fn test_same_ymap_id_same_source_merge() {

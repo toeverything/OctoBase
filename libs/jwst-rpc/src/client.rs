@@ -1,4 +1,5 @@
 use super::*;
+use crate::types::JwstRPCResult;
 use futures::{SinkExt, StreamExt};
 use jwst::{DocStorage, Workspace};
 use jwst_storage::{JwstStorage, JwstStorageResult};
@@ -8,9 +9,12 @@ use tokio::{
     net::TcpStream,
     sync::broadcast::{channel, Receiver},
 };
-use tokio_tungstenite::{connect_async, tungstenite::{client::IntoClientRequest, http::HeaderValue, Message}, MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{
+    connect_async,
+    tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
+    MaybeTlsStream, WebSocketStream,
+};
 use url::Url;
-use crate::types::JwstRPCResult;
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
@@ -18,29 +22,22 @@ async fn prepare_connection(remote: &str) -> JwstRPCResult<Socket> {
     debug!("generate remote config");
     let uri = Url::parse(remote)?;
 
-    let mut req = uri
-        .into_client_request()?;
+    let mut req = uri.into_client_request()?;
     req.headers_mut()
         .append("Sec-WebSocket-Protocol", HeaderValue::from_static("AFFiNE"));
 
     debug!("connect to remote: {}", req.uri());
-    Ok(connect_async(req)
-        .await?
-        .0)
+    Ok(connect_async(req).await?.0)
 }
 
 async fn init_connection(workspace: &Workspace, remote: &str) -> JwstRPCResult<Socket> {
     let mut socket = prepare_connection(remote).await?;
 
     debug!("create init message");
-    let init_data = workspace
-        .sync_init_message()
-        .await?;
+    let init_data = workspace.sync_init_message().await?;
 
     debug!("send init message");
-    socket
-        .send(Message::Binary(init_data))
-        .await?;
+    socket.send(Message::Binary(init_data)).await?;
 
     Ok(socket)
 }
@@ -253,4 +250,3 @@ pub async fn get_collaborating_workspace(
 
     Ok(workspace)
 }
-
