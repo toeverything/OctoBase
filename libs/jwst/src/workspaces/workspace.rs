@@ -7,6 +7,7 @@ use yrs::{
     types::{map::MapEvent, ToJson},
     Doc, Map, MapRef, Subscription, Transact, TransactionMut, UpdateSubscription,
 };
+use crate::workspaces::block_observer::BlockObserverConfig;
 
 pub type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>;
 
@@ -26,6 +27,7 @@ pub struct Workspace {
     /// Public just for the crate as we experiment with the plugins interface.
     /// See [super::plugins].
     pub(super) plugins: PluginMap,
+    pub block_observer_config: Option<Arc<BlockObserverConfig>>,
 }
 
 unsafe impl Send for Workspace {}
@@ -50,6 +52,7 @@ impl Workspace {
             updated,
             metadata,
             plugins: Default::default(),
+            block_observer_config: Some(Arc::new(BlockObserverConfig::new())),
         })
     }
 
@@ -72,6 +75,7 @@ impl Workspace {
             updated,
             metadata,
             plugins,
+            block_observer_config: Some(Arc::new(BlockObserverConfig::new())),
         }
     }
 
@@ -130,6 +134,8 @@ impl Clone for Workspace {
 
 #[cfg(test)]
 mod test {
+    use std::thread::sleep;
+    use std::time::Duration;
     use super::{super::super::Block, *};
     use tracing::info;
     use yrs::{updates::decoder::Decode, Doc, Map, ReadTxn, StateVector, Update};
@@ -177,6 +183,31 @@ mod test {
                 .get_or_insert_map("space:updated")
                 .to_json(&doc.transact())
         );
+    }
+
+    #[test]
+    fn block_observe_callback() {
+        let workspace = Workspace::new("test");
+        let block_observer_config = workspace.block_observer_config.clone().unwrap();
+        block_observer_config.set_callback(Box::new(|mut block_ids| {
+            block_ids.sort();
+            assert_eq!(block_ids, vec!["block1".to_string(), "block2".to_string()])
+        }));
+
+        let (block1, block2) = workspace.with_trx(|mut t| {
+            let space = t.get_space("test");
+            let block1 = space.create(&mut t.trx, "block1", "text").unwrap();
+            let block2 = space.create(&mut t.trx, "block2", "text").unwrap();
+            (block1, block2)
+        });
+
+        workspace.with_trx(|mut trx| {
+            block1.set(&mut trx.trx, "key1", "value1").unwrap();
+            block1.set(&mut trx.trx, "key2", "value2").unwrap();
+            block2.set(&mut trx.trx, "key1", "value1").unwrap();
+            block2.set(&mut trx.trx, "key2", "value2").unwrap();
+        });
+        sleep(Duration::from_millis(300));
     }
 
     #[test]

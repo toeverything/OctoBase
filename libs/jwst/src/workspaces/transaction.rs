@@ -22,11 +22,12 @@ impl WorkspaceTransaction<'_> {
             Pages::new(pages),
             self.ws.id(),
             space_id,
+            self.ws.block_observer_config.clone(),
         )
     }
 
     pub fn get_exists_space<S: AsRef<str>>(&self, space_id: S) -> Option<Space> {
-        Space::from_exists(&self.trx, self.ws.doc(), self.ws.id(), space_id)
+        Space::from_exists(&self.trx, self.ws.doc(), self.ws.id(), space_id, self.ws.block_observer_config.clone())
     }
 
     /// The compatibility interface for keck/jni/swift, this api was outdated.
@@ -39,7 +40,7 @@ impl WorkspaceTransaction<'_> {
         let keys = self.trx.store().root_keys();
         let iterator = keys.iter().filter_map(|key| {
             if key.starts_with("space:") && !RESERVE_SPACE.contains(&key.as_str()) {
-                Space::from_exists(&self.trx, self.ws.doc(), self.ws.id(), &key[6..])
+                Space::from_exists(&self.trx, self.ws.doc(), self.ws.id(), &key[6..], self.ws.block_observer_config.clone())
             } else {
                 None
             }
