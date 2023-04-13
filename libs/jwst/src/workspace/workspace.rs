@@ -29,7 +29,7 @@ pub struct Workspace {
     /// Public just for the crate as we experiment with the plugins interface.
     /// See [super::plugins].
     pub(super) plugins: PluginMap,
-    pub block_observer_config: Option<Arc<BlockObserverConfig>>,
+    pub(super) block_observer_config: Option<Arc<BlockObserverConfig>>,
 }
 
 unsafe impl Send for Workspace {}
@@ -97,6 +97,15 @@ impl Workspace {
 
     pub fn doc(&self) -> Doc {
         self.doc.clone()
+    }
+
+    pub fn set_callback(&self, cb: Box<dyn Fn(Vec<String>) + Send + Sync>) -> bool {
+        if let Some(block_observer_config) = self.block_observer_config.clone() {
+            block_observer_config.set_callback(cb);
+            return true;
+        }
+
+        false
     }
 }
 
@@ -190,8 +199,7 @@ mod test {
     #[test]
     fn block_observe_callback() {
         let workspace = Workspace::new("test");
-        let block_observer_config = workspace.block_observer_config.clone().unwrap();
-        block_observer_config.set_callback(Box::new(|mut block_ids| {
+        workspace.set_callback(Box::new(|mut block_ids| {
             block_ids.sort();
             assert_eq!(block_ids, vec!["block1".to_string(), "block2".to_string()])
         }));
