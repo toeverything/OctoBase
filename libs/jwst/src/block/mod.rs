@@ -6,7 +6,7 @@ use serde::{Serialize, Serializer};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use yrs::{types::{
     text::{Diff, YChange},
     ToJson, Value,
@@ -23,7 +23,7 @@ pub struct Block {
     block: MapRef,
     children: ArrayRef,
     updated: Option<ArrayRef>,
-    sub: Arc<std::sync::RwLock<Option<DeepEventsSubscription>>>,
+    sub: Arc<RwLock<Option<DeepEventsSubscription>>>,
 }
 
 unsafe impl Send for Block {}
@@ -119,7 +119,7 @@ impl Block {
                 block,
                 children,
                 updated,
-                sub: Arc::new(std::sync::RwLock::new(None)),
+                sub: Arc::default(),
             };
 
             block.log_update(trx, HistoryOperation::Add);
@@ -149,7 +149,7 @@ impl Block {
             block,
             children,
             updated,
-            sub: Arc::new(std::sync::RwLock::new(None)),
+            sub: Arc::default(),
         })
     }
 
@@ -186,7 +186,7 @@ impl Block {
             block,
             children,
             updated,
-            sub: Arc::new(std::sync::RwLock::new(None)),
+            sub: Arc::default(),
         }
     }
 

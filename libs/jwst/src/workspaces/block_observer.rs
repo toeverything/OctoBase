@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{Receiver, Sender};
 use std::thread::JoinHandle;
 use std::time::Duration;
 use anyhow::Context;
@@ -10,14 +11,13 @@ use tokio::time::sleep;
 use tracing::debug;
 
 type CallbackFn = Arc<RwLock<Option<Box<dyn Fn(Vec<String>) + Send + Sync>>>>;
-
 pub struct BlockObserverConfig {
-    pub(crate) callback: CallbackFn,
-    pub(crate) runtime: Arc<Runtime>,
-    pub(crate) tx: std::sync::mpsc::Sender<String>,
-    pub(crate) rx: Arc<Mutex<std::sync::mpsc::Receiver<String>>>,
-    pub(crate) modified_block_ids: Arc<RwLock<HashSet<String>>>,
-    pub(crate) handle: Arc<Mutex<Option<std::thread::JoinHandle<()>>>>,
+    pub(super) callback: CallbackFn,
+    pub(super) runtime: Arc<Runtime>,
+    pub(crate) tx: Sender<String>,
+    pub(super) rx: Arc<Mutex<Receiver<String>>>,
+    pub(super) modified_block_ids: Arc<RwLock<HashSet<String>>>,
+    pub(crate) handle: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
 impl BlockObserverConfig {
