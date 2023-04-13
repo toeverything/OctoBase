@@ -8,21 +8,21 @@ In this way, we can define different Block flavours to represent different data 
 
 ```js
 const titleBlock = {
-    'sys:id': '3380496952:1',
+	'sys:id': '3380496952:1',
 	'sys:flavour': 'affine:title',
 	'sys:created': 1666158236651,
 	'sys:children': [],
 	'prop:text': 'This is a Title',
 }
 const textBlock = {
-    'sys:id': '3380496952:2',
+	'sys:id': '3380496952:2',
 	'sys:flavour': 'affine:text',
 	'sys:created': 1666158236651,
 	'sys:children': [],
 	'prop:text': 'This is a normal line',
 }
 const todoBlock = {
-    'sys:id': '3380496952:3',
+	'sys:id': '3380496952:3',
 	'sys:flavour': 'affine:todo',
 	'sys:created': 1666158236651,
 	'sys:children': [],
@@ -45,14 +45,14 @@ Then we can reorganize the data shown in the figure above with Block:
 
 ```js
 const title = {
-    'sys:id': '3380496952:1',
+	'sys:id': '3380496952:1',
 	'sys:flavour': 'affine:title',
 	'sys:created': 1666158236651,
 	'sys:children': [],
 	'prop:text': 'Welcome to the AFFiNE Alpha',
 }
 const text = {
-    'sys:id': '3380496952:2',
+	'sys:id': '3380496952:2',
 	'sys:flavour': 'affine:text',
 	'sys:created': 1666158236651,
 	'sys:children': [],
@@ -60,7 +60,7 @@ const text = {
 	'prop:text': 'The AFFiNE Alpha is here! You can also view our Official Website!',
 }
 const todo1 = {
-    'sys:id': '3380496952:3',
+	'sys:id': '3380496952:3',
 	'sys:flavour': 'affine:todo',
 	'sys:created': 1666158236651,
 	'sys:children': [],
@@ -68,7 +68,7 @@ const todo1 = {
 	'prop:clicked': true,
 }
 const todo2 = {
-    'sys:id': '3380496952:4',
+	'sys:id': '3380496952:4',
 	'sys:flavour': 'affine:todo',
 	'sys:created': 1666158236651,
 	'sys:children': [],
@@ -94,6 +94,7 @@ In actual use, you do not need to manually edit the data in the structure. OctoB
 And all these modifications can be Conflict-free merge with any remote offline.
 
 ## Data Structure Under the Hood
+
 `Workspace` is the top level of collaboration entity, it holds a map-like structure which stores `Space`, `Space` holds a map-like structure which stores `Block`.
 
 `Workspace`, `Space`, `Block` forms a tree structure, and `Block` is the smallest unit of data in OctoBase.
@@ -107,6 +108,7 @@ Block ... Block Block ... Block
 ```
 
 ## Collaborative Workspace
+
 Each `Workspace`, `Space`, `Block` can be regarded as a single unit capable of conflict solving, and thus can be seen as a collaborative unit.
 
 With easy-to-use APIs provided by OctoBase, `Workspace` can be easily transferred through kind of providers, as network, local storage, etc. In this way Different clients can manipulate and collaborate the same `Workspace`, also `Space`, `Block` belongs to it.
