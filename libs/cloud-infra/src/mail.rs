@@ -109,7 +109,7 @@ impl MailContext {
         invite_code: &str,
         workspace_avatar: Vec<u8>,
     ) -> Result<(String, MultiPart), RenderError> {
-        let base64_data = STANDARD_ENGINE.encode(workspace_avatar.clone());
+        let base64_data = STANDARD_ENGINE.encode(workspace_avatar);
         let workspace_avatar_url = format!("data:image/jpeg;base64,{}", base64_data);
         fn string_to_color(s: &str) -> String {
             let input = if s.is_empty() { "affine" } else { s };
@@ -152,7 +152,7 @@ impl MailContext {
                     .unwrap_or_default()
                     .chars()
                     .next()
-                    .unwrap()
+                    .unwrap_or_default()
                     .to_string()
             )
         } else {
