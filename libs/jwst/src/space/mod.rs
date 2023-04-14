@@ -1,7 +1,8 @@
 mod convert;
 mod transaction;
 
-use super::{block::MarkdownState, workspaces::Pages, *};
+use super::{block::MarkdownState, workspace::Pages, *};
+use std::sync::Arc;
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::sync::Arc;
 use transaction::SpaceTransaction;
