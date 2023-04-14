@@ -172,6 +172,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7de8ce5e0f9f8d88245311066a578d72b7af3e7088f32783804676302df237e4"
 
 [[package]]
+name = "arbitrary"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2d098ff73c1ca148721f37baad5ea6a465a13f9573aba8641fbbbae8164a54e"
+
+[[package]]
 name = "arc-swap"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1982,6 +1988,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "jwst-codec"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "lib0",
+ "nom",
+]
+
+[[package]]
+name = "jwst-codec-fuzz"
+version = "0.0.0"
+dependencies = [
+ "jwst-codec",
+ "lib0",
+ "libfuzzer-sys",
+]
+
+[[package]]
 name = "jwst-jni"
 version = "0.1.0"
 dependencies = [
@@ -2215,6 +2239,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a52d3a8bfc85f250440e4424db7d857e241a3aebbbe301f3eb606ab15c39acbf"
 dependencies = [
  "rle-decode-fast",
+]
+
+[[package]]
+name = "libfuzzer-sys"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "beb09950ae85a0a94b27676cccf37da5ff13f27076aa1adbc6545dd0d0e1bd4e"
+dependencies = [
+ "arbitrary",
+ "cc",
+ "once_cell",
 ]
 
 [[package]]
