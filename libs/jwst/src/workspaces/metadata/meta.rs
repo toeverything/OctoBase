@@ -4,22 +4,22 @@ use super::*;
 use lib0::any::Any;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use yrs::{ArrayPrelim, ArrayRef, Map, MapRef, Transact, Transaction, TransactionMut};
+use yrs::{ArrayPrelim, ArrayRef, Map, MapRef, ReadTxn, Transact, TransactionMut};
 
 #[derive(Debug, Clone, JsonSchema, Serialize, Deserialize, PartialEq)]
 pub struct WorkspaceMetadata {
     pub name: Option<String>,
-    // pub avatar: Option<String>,
+    pub avatar: Option<String>,
     pub search_index: Vec<String>,
 }
 
-impl From<(&'_ Transaction<'_>, MapRef)> for WorkspaceMetadata {
-    fn from((trx, map): (&Transaction, MapRef)) -> Self {
+impl<T: ReadTxn> From<(&T, MapRef)> for WorkspaceMetadata {
+    fn from((trx, map): (&T, MapRef)) -> Self {
         Self {
             name: map
                 .get(trx, constants::metadata::NAME)
                 .map(|s| s.to_string(trx)),
-            // avatar: map.get(trx, "avatar").map(|s| s.to_string(trx)),
+            avatar: map.get(trx, "avatar").map(|s| s.to_string(trx)),
             search_index: match map.get(trx, constants::metadata::SEARCH_INDEX) {
                 Some(value) => serde_json::from_str::<Vec<String>>(&value.to_string(trx)).unwrap(),
                 None => vec!["title".to_string(), "text".to_string()],
@@ -80,6 +80,7 @@ mod tests {
             ws.metadata(),
             WorkspaceMetadata {
                 name: Some("test_name".to_string()),
+                avatar: None,
                 search_index: vec!["test1".to_string(), "test2".to_string()],
             }
         );
