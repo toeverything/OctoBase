@@ -153,7 +153,6 @@ impl MailContext {
                     .chars()
                     .next()
                     .unwrap_or_default()
-                    .to_string()
             )
         } else {
             format!(
@@ -190,7 +189,7 @@ impl MailContext {
                 inviter_name: claims.user.name.clone(),
                 site_url,
                 avatar_url: claims.user.avatar_url.to_owned().unwrap_or("".to_string()),
-                workspace_name: metadata.name.unwrap_or_default().clone(),
+                workspace_name: metadata.name.unwrap_or_default(),
                 invite_code: invite_code.to_string(),
                 current_year: Utc::now().year(),
                 workspace_avatar,
