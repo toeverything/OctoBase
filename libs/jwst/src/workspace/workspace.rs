@@ -10,7 +10,6 @@ use yrs::{
     types::{map::MapEvent, ToJson},
     Doc, Map, MapRef, Subscription, Transact, TransactionMut, UpdateSubscription,
 };
-use crate::workspace::block_observer::BlockObserverConfig;
 
 pub type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>;
 
