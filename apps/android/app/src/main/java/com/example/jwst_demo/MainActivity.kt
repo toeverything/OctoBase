@@ -22,6 +22,7 @@ class MainActivity : AppCompatActivity() {
         val database = File(filesDir, "jwst.db")
         val storage = Storage(database.absolutePath, "ws://10.0.2.2:3001/collaboration", "trace")
         storage.getWorkspace("test").unwrap()?.let { workspace ->
+            workspace.setCallback { block_ids -> println(block_ids) }
             workspace.withTrx { trx -> workspace.get(trx, "a").unwrap() }?.let { block ->
                 // load the existing block on the second startup program.
                 val content = workspace.withTrx { trx -> block.get(trx, "a key") }?.get()
