@@ -105,6 +105,15 @@ impl Space {
             let space = t.get_space(self.space_id());
             let new_blocks = space.blocks.clone();
             self.blocks(trx, |blocks| {
+                // TODO: hacky logic for BlockSuite's special case
+                let (roots, blocks): (Vec<_>, _) = blocks.partition(|b| {
+                    ["affine:surface", "affine:page"].contains(&b.flavour(trx).as_str())
+                });
+
+                for block in roots {
+                    block.clone_block(trx, &mut t.trx, new_blocks.clone())?;
+                }
+
                 for block in blocks {
                     block.clone_block(trx, &mut t.trx, new_blocks.clone())?;
                 }
