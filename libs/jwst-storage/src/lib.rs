@@ -14,10 +14,13 @@ use sea_orm::{prelude::*, ConnectOptions, Database, DbErr, QuerySelect, Set};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 pub use storage::JwstStorage;
-pub use crate::types::{JwstStorageResult, JwstStorageError};
+pub use types::{JwstStorageError, JwstStorageResult};
 
 #[inline]
-async fn create_connection(database: &str, single_thread: bool) -> JwstStorageResult<DatabaseConnection> {
+async fn create_connection(
+    database: &str,
+    single_thread: bool,
+) -> JwstStorageResult<DatabaseConnection> {
     let connection = Database::connect(
         ConnectOptions::from(database)
             .max_connections(if single_thread { 1 } else { 50 })
@@ -27,7 +30,8 @@ async fn create_connection(database: &str, single_thread: bool) -> JwstStorageRe
             .idle_timeout(Duration::from_secs(5))
             .max_lifetime(Duration::from_secs(30))
             .to_owned(),
-    ).await?;
+    )
+    .await?;
 
     Ok(connection)
 }

@@ -1,3 +1,4 @@
+mod block_observer;
 mod metadata;
 mod observe;
 mod plugins;
@@ -7,7 +8,8 @@ mod workspace;
 
 use super::{constants, error, info, trace, warn, JwstError, JwstResult, Space};
 
-pub use metadata::WorkspaceMetadata;
+pub use block_observer::BlockObserverConfig;
+pub use metadata::{Pages, WorkspaceMetadata};
 #[cfg(feature = "workspace-search")]
 pub use plugins::{SearchResult, SearchResults};
 pub use transaction::WorkspaceTransaction;

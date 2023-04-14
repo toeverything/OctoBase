@@ -1,8 +1,11 @@
-use super::plugins::{setup_plugin, PluginMap};
+use super::{
+    block_observer::BlockObserverConfig,
+    plugins::{setup_plugin, PluginMap},
+};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
-use y_sync::awareness::Awareness;
+use y_sync::awareness::{Awareness, Event, Subscription as AwarenessSubscription};
 use yrs::{
     types::{map::MapEvent, ToJson},
     Doc, Map, MapRef, Subscription, Transact, TransactionMut, UpdateSubscription,
@@ -14,7 +17,9 @@ pub struct Workspace {
     workspace_id: String,
     pub(super) awareness: Arc<RwLock<Awareness>>,
     pub(super) doc: Doc,
+    // TODO: Unreasonable subscription mechanism, needs refactoring
     pub(super) sub: Arc<RwLock<HashMap<String, UpdateSubscription>>>,
+    pub(super) awareness_sub: Arc<Option<AwarenessSubscription<Event>>>,
     pub(crate) updated: MapRef,
     pub(crate) metadata: MapRef,
     /// We store plugins so that their ownership is tied to [Workspace].
@@ -24,6 +29,7 @@ pub struct Workspace {
     /// Public just for the crate as we experiment with the plugins interface.
     /// See [super::plugins].
     pub(super) plugins: PluginMap,
+    pub block_observer_config: Option<Arc<BlockObserverConfig>>,
 }
 
 unsafe impl Send for Workspace {}
@@ -44,9 +50,11 @@ impl Workspace {
             awareness: Arc::new(RwLock::new(Awareness::new(doc.clone()))),
             doc,
             sub: Arc::default(),
+            awareness_sub: Arc::default(),
             updated,
             metadata,
             plugins: Default::default(),
+            block_observer_config: Some(Arc::new(BlockObserverConfig::new())),
         })
     }
 
@@ -55,6 +63,7 @@ impl Workspace {
         awareness: Arc<RwLock<Awareness>>,
         doc: Doc,
         sub: Arc<RwLock<HashMap<String, UpdateSubscription>>>,
+        awareness_sub: Arc<Option<AwarenessSubscription<Event>>>,
         updated: MapRef,
         metadata: MapRef,
         plugins: PluginMap,
@@ -64,9 +73,11 @@ impl Workspace {
             awareness,
             doc,
             sub,
+            awareness_sub,
             updated,
             metadata,
             plugins,
+            block_observer_config: Some(Arc::new(BlockObserverConfig::new())),
         }
     }
 
@@ -115,6 +126,7 @@ impl Clone for Workspace {
             self.awareness.clone(),
             self.doc.clone(),
             self.sub.clone(),
+            self.awareness_sub.clone(),
             self.updated.clone(),
             self.metadata.clone(),
             self.plugins.clone(),
@@ -125,6 +137,8 @@ impl Clone for Workspace {
 #[cfg(test)]
 mod test {
     use super::{super::super::Block, *};
+    use std::thread::sleep;
+    use std::time::Duration;
     use tracing::info;
     use yrs::{updates::decoder::Decode, Doc, Map, ReadTxn, StateVector, Update};
 
@@ -171,6 +185,31 @@ mod test {
                 .get_or_insert_map("space:updated")
                 .to_json(&doc.transact())
         );
+    }
+
+    #[test]
+    fn block_observe_callback() {
+        let workspace = Workspace::new("test");
+        let block_observer_config = workspace.block_observer_config.clone().unwrap();
+        block_observer_config.set_callback(Box::new(|mut block_ids| {
+            block_ids.sort();
+            assert_eq!(block_ids, vec!["block1".to_string(), "block2".to_string()])
+        }));
+
+        let (block1, block2) = workspace.with_trx(|mut t| {
+            let space = t.get_space("test");
+            let block1 = space.create(&mut t.trx, "block1", "text").unwrap();
+            let block2 = space.create(&mut t.trx, "block2", "text").unwrap();
+            (block1, block2)
+        });
+
+        workspace.with_trx(|mut trx| {
+            block1.set(&mut trx.trx, "key1", "value1").unwrap();
+            block1.set(&mut trx.trx, "key2", "value2").unwrap();
+            block2.set(&mut trx.trx, "key1", "value1").unwrap();
+            block2.set(&mut trx.trx, "key2", "value2").unwrap();
+        });
+        sleep(Duration::from_millis(300));
     }
 
     #[test]
@@ -274,5 +313,198 @@ mod test {
             .apply_update(Update::decode_v1(&data).unwrap());
 
         assert_eq!(doc.transact().store().root_keys(), vec!["test"]);
+    }
+
+    #[test]
+    fn test_same_ymap_id_same_source_merge() {
+        let update = {
+            let doc = Doc::new();
+            let ws = Workspace::from_doc(doc, "test");
+            ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                let _block = space.create(&mut t.trx, "test", "test1").unwrap();
+            });
+
+            ws.doc()
+                .transact()
+                .encode_state_as_update_v1(&StateVector::default())
+                .unwrap()
+        };
+        let update1 = {
+            let doc = Doc::new();
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&update).unwrap());
+            let ws = Workspace::from_doc(doc, "test");
+            ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                let new_block = space.create(&mut t.trx, "test1", "test1").unwrap();
+                let block = space.get(&mut t.trx, "test").unwrap();
+                block.insert_children_at(&mut t.trx, &new_block, 0).unwrap();
+            });
+
+            ws.doc()
+                .transact()
+                .encode_state_as_update_v1(&StateVector::default())
+                .unwrap()
+        };
+        let update2 = {
+            let doc = Doc::new();
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&update).unwrap());
+            let ws = Workspace::from_doc(doc, "test");
+            ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                let new_block = space.create(&mut t.trx, "test2", "test2").unwrap();
+                let block = space.get(&mut t.trx, "test").unwrap();
+                block.insert_children_at(&mut t.trx, &new_block, 0).unwrap();
+            });
+
+            ws.doc()
+                .transact()
+                .encode_state_as_update_v1(&StateVector::default())
+                .unwrap()
+        };
+
+        {
+            let doc = Doc::new();
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&update1).unwrap());
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&update2).unwrap());
+
+            let ws = Workspace::from_doc(doc, "test");
+            let block = ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                space.get(&t.trx, "test").unwrap()
+            });
+            println!("{:?}", serde_json::to_string_pretty(&block).unwrap());
+
+            ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                let block = space.get(&t.trx, "test").unwrap();
+                let mut children = block.children(&t.trx);
+                children.sort();
+                assert_eq!(children, vec!["test1".to_owned(), "test2".to_owned()]);
+            });
+        }
+        {
+            let merged_update = yrs::merge_updates_v1(&[&update1, &update2]).unwrap();
+            let doc = Doc::new();
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&merged_update).unwrap());
+
+            let ws = Workspace::from_doc(doc, "test");
+            let block = ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                space.get(&t.trx, "test").unwrap()
+            });
+            println!("{:?}", serde_json::to_string_pretty(&block).unwrap());
+
+            ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                let block = space.get(&t.trx, "test").unwrap();
+                let mut children = block.children(&t.trx);
+                children.sort();
+                assert_eq!(children, vec!["test1".to_owned(), "test2".to_owned()]);
+                // assert_eq!(block.get(&t.trx, "test1").unwrap().to_string(), "test1");
+                // assert_eq!(block.get(&t.trx, "test2").unwrap().to_string(), "test2");
+            });
+        }
+    }
+
+    #[test]
+    fn test_same_ymap_id_different_source_merge() {
+        let update = {
+            let doc = Doc::new();
+            let ws = Workspace::from_doc(doc, "test");
+            ws.with_trx(|mut t| {
+                t.get_space("space");
+            });
+
+            ws.doc()
+                .transact()
+                .encode_state_as_update_v1(&StateVector::default())
+                .unwrap()
+        };
+        let update1 = {
+            let doc = Doc::new();
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&update).unwrap());
+            let ws = Workspace::from_doc(doc, "test");
+            ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                let new_block = space.create(&mut t.trx, "test1", "test1").unwrap();
+                let block = space.create(&mut t.trx, "test", "test1").unwrap();
+                block.insert_children_at(&mut t.trx, &new_block, 0).unwrap();
+            });
+
+            ws.doc()
+                .transact()
+                .encode_state_as_update_v1(&StateVector::default())
+                .unwrap()
+        };
+        let update2 = {
+            let doc = Doc::new();
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&update).unwrap());
+            let ws = Workspace::from_doc(doc, "test");
+            ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                let new_block = space.create(&mut t.trx, "test2", "test2").unwrap();
+                let block = space.create(&mut t.trx, "test", "test1").unwrap();
+                block.insert_children_at(&mut t.trx, &new_block, 0).unwrap();
+            });
+
+            ws.doc()
+                .transact()
+                .encode_state_as_update_v1(&StateVector::default())
+                .unwrap()
+        };
+
+        {
+            let doc = Doc::new();
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&update1).unwrap());
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&update2).unwrap());
+
+            let ws = Workspace::from_doc(doc, "test");
+            let block = ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                space.get(&t.trx, "test").unwrap()
+            });
+            println!("{:?}", serde_json::to_string_pretty(&block).unwrap());
+
+            ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                let block = space.get(&t.trx, "test").unwrap();
+                let mut children = block.children(&t.trx);
+                children.sort();
+                assert_ne!(children, vec!["test1".to_owned(), "test2".to_owned()]);
+            });
+        }
+        {
+            let merged_update = yrs::merge_updates_v1(&[&update1, &update2]).unwrap();
+            let doc = Doc::new();
+            doc.transact_mut()
+                .apply_update(Update::decode_v1(&merged_update).unwrap());
+
+            let ws = Workspace::from_doc(doc, "test");
+            let block = ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                space.get(&t.trx, "test").unwrap()
+            });
+            println!("{:?}", serde_json::to_string_pretty(&block).unwrap());
+
+            ws.with_trx(|mut t| {
+                let space = t.get_space("space");
+                let block = space.get(&t.trx, "test").unwrap();
+                let mut children = block.children(&t.trx);
+                children.sort();
+                assert_ne!(children, vec!["test1".to_owned(), "test2".to_owned()]);
+                // assert_eq!(block.get(&t.trx, "test1").unwrap().to_string(), "test1");
+                // assert_eq!(block.get(&t.trx, "test2").unwrap().to_string(), "test2");
+            });
+        }
     }
 }

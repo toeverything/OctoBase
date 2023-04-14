@@ -60,7 +60,7 @@ jobs:
                   override: true
 
             - uses: Swatinem/rust-cache@v2
-            - name: Set up cache
+            - name: Set up pnpm cache
               uses: actions/cache@v3
               continue-on-error: false
               with:
@@ -136,7 +136,7 @@ jobs:
                   override: true
 
             - uses: Swatinem/rust-cache@v2
-            - name: Set up cache
+            - name: Set up pnpm cache
               uses: actions/cache@v3
               continue-on-error: false
               with:
@@ -246,7 +246,7 @@ jobs:
                   override: true
 
             - uses: Swatinem/rust-cache@v2
-            - name: Set up cache
+            - name: Set up pnpm cache
               uses: actions/cache@v3
               continue-on-error: false
               with:

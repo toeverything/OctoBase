@@ -17,6 +17,7 @@ pub use types::{BlobMetadata, BlobStorage, DocStorage, JwstError, JwstResult};
 pub use utils::{
     sync_encode_update, Base64DecodeError, Base64Engine, STANDARD_ENGINE, URL_SAFE_ENGINE,
 };
+pub use workspaces::BlockObserverConfig;
 pub use workspaces::{MapSubscription, Workspace, WorkspaceMetadata, WorkspaceTransaction};
 #[cfg(feature = "workspace-search")]
 pub use workspaces::{SearchResult, SearchResults};
