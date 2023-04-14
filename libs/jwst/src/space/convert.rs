@@ -39,6 +39,13 @@ impl Space {
         }
     }
 
+    fn init_workspace(&self, trx: &mut TransactionMut, meta: WorkspaceMetadata) -> JwstResult<()> {
+        self.metadata.insert(trx, "name", meta.name)?;
+        self.metadata.insert(trx, "avatar", meta.avatar)?;
+
+        Ok(())
+    }
+
     fn init_pages(&self, trx: &mut TransactionMut) -> JwstResult<ArrayRef> {
         self.pages(trx)
             .or_else(|_| Ok(self.metadata.insert(trx, "pages", ArrayPrelim::default())?))
@@ -98,12 +105,22 @@ impl Space {
             let space = t.get_space(self.space_id());
             let new_blocks = space.blocks.clone();
             self.blocks(trx, |blocks| {
+                // TODO: hacky logic for BlockSuite's special case
+                let (roots, blocks): (Vec<_>, _) = blocks.partition(|b| {
+                    ["affine:surface", "affine:page"].contains(&b.flavour(trx).as_str())
+                });
+
+                for block in roots {
+                    block.clone_block(trx, &mut t.trx, new_blocks.clone())?;
+                }
+
                 for block in blocks {
                     block.clone_block(trx, &mut t.trx, new_blocks.clone())?;
                 }
                 Ok::<_, JwstError>(())
             })?;
 
+            space.init_workspace(&mut t.trx, (trx, self.metadata.clone()).into())?;
             space.init_version(&mut t.trx)?;
 
             let title = self

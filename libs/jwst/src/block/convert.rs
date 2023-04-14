@@ -289,7 +289,13 @@ mod tests {
 
         let ws1 = Workspace::from_doc(doc1, "test");
 
-        let new_update = ws1.with_trx(|t| {
+        let new_update = ws1.with_trx(|mut t| {
+            ws1.metadata
+                .insert(&mut t.trx, "name", Some("test1"))
+                .unwrap();
+            ws1.metadata
+                .insert(&mut t.trx, "avatar", Some("test2"))
+                .unwrap();
             let space = t.get_exists_space("page0").unwrap();
             space.to_single_page(&t.trx).unwrap()
         });
