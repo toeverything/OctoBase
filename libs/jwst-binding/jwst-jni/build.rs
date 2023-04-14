@@ -90,7 +90,6 @@ foreign_class!(
 r#"foreign_callback!(
     callback BlockObserver {
         self_type BlockObserver;
-        // onChange = BlockObserver::on_change(& self , callback : WorkspaceTransaction);
         onChange = BlockObserver::on_change(& self , block_ids : VecOfStrings);
     }
 );"#,
