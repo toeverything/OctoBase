@@ -110,8 +110,23 @@ impl MailContext {
         workspace_avatar: Vec<u8>,
     ) -> Result<(String, MultiPart), RenderError> {
         let base64_data = STANDARD_ENGINE.encode(workspace_avatar.clone());
-        let workspace_avatar_url = format!("data:image/png;base64,{}", base64_data);
+        let workspace_avatar_url = format!("data:image/jpeg;base64,{}", base64_data);
+        fn string_to_color(s: &str) -> String {
+            let input = if s.is_empty() { "affine" } else { s };
+            let mut hash: u64 = 0;
 
+            for char in input.chars() {
+                hash = char as u64 + ((hash.wrapping_shl(5)).wrapping_sub(hash));
+            }
+
+            let mut color = String::from("#");
+            for i in 0..3 {
+                let value = (hash >> (i * 8)) & 0xff;
+                color.push_str(&format!("{:02x}", value));
+            }
+
+            color
+        }
         let workspace_avatar = if base64_data.is_empty() {
             format!(
                 " <div
@@ -122,7 +137,7 @@ impl MailContext {
                   border-radius: 50%;
                   vertical-align: middle;
                   color: rgb(255, 255, 255);
-                  background-color:rgb(237, 213, 27);;
+                  background-color: {};
                   margin-left: 12px;
                   margin-right: 12px;
                   box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
@@ -130,6 +145,7 @@ impl MailContext {
                     4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);
                 \"
               >{}</div>",
+                string_to_color(&metadata.name.clone().unwrap_or_default()),
                 metadata
                     .name
                     .clone()
@@ -197,17 +213,9 @@ impl MailContext {
         claims: &Claims,
         invite_code: &str,
         workspace_avatar: Vec<u8>,
-        avatar_format: String,
     ) -> Result<Message, MailError> {
         let (title, msg_body) = self
-            .make_invite_email_content(
-                metadata,
-                site_url,
-                claims,
-                invite_code,
-                workspace_avatar,
-                avatar_format,
-            )
+            .make_invite_email_content(metadata, site_url, claims, invite_code, workspace_avatar)
             .await?;
 
         Ok(Message::builder()
@@ -225,7 +233,6 @@ impl MailContext {
         claims: &Claims,
         invite_code: &str,
         workspace_avatar: Vec<u8>,
-        avatar_format: String,
     ) -> Result<(), MailError> {
         if let Some(client) = &self.client {
             let email = self
@@ -236,7 +243,6 @@ impl MailContext {
                     claims,
                     invite_code,
                     workspace_avatar,
-                    avatar_format,
                 )
                 .await?;
 

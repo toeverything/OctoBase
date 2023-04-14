@@ -9,11 +9,12 @@ use axum::{
     Extension, Json,
 };
 use cloud_database::{Claims, CreatePermission, PermissionType, UserCred};
+use image::ImageOutputFormat;
 use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
 use lettre::message::Mailbox;
+use std::io::Cursor;
 use std::sync::Arc;
-
 /// Get workspace's `Members`
 /// - Return 200 ok and `Members`.
 /// - Return 400 if request parameter error.
@@ -195,6 +196,19 @@ pub async fn invite_member(
             }
         };
 
+        fn convert_to_jpeg(data: &[u8]) -> Result<Vec<u8>, image::ImageError> {
+            let image = image::load_from_memory(data)?;
+            let mut buffer = Cursor::new(Vec::new());
+            image.write_to(&mut buffer, ImageOutputFormat::Jpeg(80))?;
+            Ok(buffer.into_inner())
+        }
+        let workspace_avatar_data = match convert_to_jpeg(&workspace_avatar_data) {
+            Ok(data) => data,
+            Err(e) => {
+                error!("Failed to convert avatar to jpeg: {}", e);
+                Vec::new()
+            }
+        };
         let Ok(invite_code) = ctx.key.encrypt_aes_base64(permission_id.as_bytes()) else {
             return ErrorStatus::InternalServerError.into_response();
         };
