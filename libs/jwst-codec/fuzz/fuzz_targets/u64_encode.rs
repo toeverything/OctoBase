@@ -1,11 +1,10 @@
 #![no_main]
 
 use jwst_codec::write_var_u64;
+use lib0::encoding::Write;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: Vec<u64>| {
-    use lib0::encoding::Write;
-
     for i in data {
         let mut buf1 = Vec::new();
         buf1.write_var(i);
