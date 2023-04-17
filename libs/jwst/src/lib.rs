@@ -3,7 +3,7 @@ mod history;
 mod space;
 mod types;
 mod utils;
-mod workspaces;
+mod workspace;
 
 pub mod constants;
 
@@ -17,10 +17,10 @@ pub use types::{BlobMetadata, BlobStorage, DocStorage, JwstError, JwstResult};
 pub use utils::{
     sync_encode_update, Base64DecodeError, Base64Engine, STANDARD_ENGINE, URL_SAFE_ENGINE,
 };
-pub use workspaces::BlockObserverConfig;
-pub use workspaces::{MapSubscription, Workspace, WorkspaceMetadata, WorkspaceTransaction};
+pub use workspace::BlockObserverConfig;
+pub use workspace::{MapSubscription, Workspace, WorkspaceMetadata, WorkspaceTransaction};
 #[cfg(feature = "workspace-search")]
-pub use workspaces::{SearchResult, SearchResults};
+pub use workspace::{SearchResult, SearchResults};
 
 #[inline]
 pub fn print_versions(pkg_name: &str, pkg_version: &str) {
