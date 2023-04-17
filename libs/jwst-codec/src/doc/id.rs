@@ -2,8 +2,8 @@ use super::*;
 
 #[derive(Debug)]
 pub struct Id {
-    client: u64,
-    clock: u64,
+    pub client: u64,
+    pub clock: u64,
 }
 
 pub fn read_item_id(input: &[u8]) -> IResult<&[u8], Id> {

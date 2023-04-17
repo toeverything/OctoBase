@@ -10,14 +10,14 @@ pub enum StructInfo {
 
 #[derive(Debug)]
 pub struct Structs {
-    client: u64,
-    clock: u64,
-    structs: Vec<StructInfo>,
+    pub client: u64,
+    pub clock: u64,
+    pub structs: Vec<StructInfo>,
 }
 
 #[derive(Debug)]
 pub struct Update {
-    structs: Vec<Structs>,
+    pub structs: Vec<Structs>,
 }
 
 fn parse_struct(input: &[u8]) -> IResult<&[u8], StructInfo> {
@@ -29,7 +29,7 @@ fn parse_struct(input: &[u8]) -> IResult<&[u8], StructInfo> {
         0 => Ok((input, StructInfo::GC)),
         10 => Ok((input, StructInfo::Skip)),
         _ => {
-            let (input, item) = read_item(input, info)?;
+            let (input, item) = read_item(input, info, first_5_bits)?;
             Ok((input, StructInfo::Item(item)))
         }
     }

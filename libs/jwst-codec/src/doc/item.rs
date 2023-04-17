@@ -8,12 +8,12 @@ pub enum Parent {
 
 #[derive(Debug)]
 pub struct Item {
-    info: u64,
-    left_id: Option<Id>,
-    right_id: Option<Id>,
-    parent: Option<Parent>,
-    parent_sub: Option<String>,
-    content: Content,
+    pub info: u64,
+    pub left_id: Option<Id>,
+    pub right_id: Option<Id>,
+    pub parent: Option<Parent>,
+    pub parent_sub: Option<String>,
+    pub content: Content,
 }
 
 fn read_has_parent(input: &[u8]) -> IResult<&[u8], bool> {
@@ -22,7 +22,7 @@ fn read_has_parent(input: &[u8]) -> IResult<&[u8], bool> {
     Ok((tail, has_parent))
 }
 
-pub fn read_item(input: &[u8], info: u64) -> IResult<&[u8], Item> {
+pub fn read_item(input: &[u8], info: u64, first_5_bit: u64) -> IResult<&[u8], Item> {
     let mut input = input;
     let has_left_id = info & 0b1000_0000 == 0b1000_0000;
     let has_right_id = info & 0b0100_0000 == 0b0100_0000;
@@ -72,7 +72,10 @@ pub fn read_item(input: &[u8], info: u64) -> IResult<&[u8], Item> {
             None
         },
         content: {
-            let (tail, content) = read_content(input)?;
+            // tag must not GC or Skip, this must process in parse_struct
+            debug_assert_ne!(first_5_bit, 0);
+            debug_assert_ne!(first_5_bit, 10);
+            let (tail, content) = read_content(input, first_5_bit)?;
             input = tail;
             content
         },
