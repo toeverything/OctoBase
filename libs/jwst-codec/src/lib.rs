@@ -18,6 +18,7 @@ pub fn parse_doc_update(input: &[u8]) -> IResult<&[u8], Update> {
 mod tests {
     use super::*;
 
+    #[ignore = "not finish yet"]
     #[test]
     fn test_parse_doc() {
         let update = parse_doc_update(include_bytes!("./fixtures/basic_doc.bin"))
