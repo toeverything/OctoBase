@@ -42,10 +42,7 @@ impl PageMeta {
 
 impl<T: ReadTxn> From<(&T, MapRef)> for PageMeta {
     fn from((trx, map): (&T, MapRef)) -> Self {
-        let sub_page_ids = match map
-            .get(trx, "subpageIds")
-            .and_then(|v| Some(v.to_json(trx)))
-        {
+        let sub_page_ids = match map.get(trx, "subpageIds").map(|v| v.to_json(trx)) {
             Some(Any::Array(sub_pages)) => sub_pages
                 .iter()
                 .map(|sub_page| {
