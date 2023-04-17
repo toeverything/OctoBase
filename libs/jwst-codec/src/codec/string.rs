@@ -1,5 +1,5 @@
 use super::*;
-use nom::{combinator::map_res, IResult};
+use nom::combinator::map_res;
 
 pub fn read_var_string(input: &[u8]) -> IResult<&[u8], String> {
     map_res(read_var_buffer, |s| String::from_utf8(s.to_vec()))(input)

@@ -1,5 +1,5 @@
 use super::*;
-use nom::{bytes::complete::take, IResult};
+use nom::bytes::complete::take;
 
 pub fn read_var_buffer(input: &[u8]) -> IResult<&[u8], &[u8]> {
     let (tail, len) = read_var_u64(input)?;

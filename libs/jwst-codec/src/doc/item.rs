@@ -1,15 +1,19 @@
 use super::*;
-use nom::IResult;
 
+#[derive(Debug)]
 pub enum Parent {
     String(String),
     Id(Id),
 }
 
+#[derive(Debug)]
 pub struct Item {
+    info: u64,
     left_id: Option<Id>,
     right_id: Option<Id>,
     parent: Option<Parent>,
+    parent_sub: Option<String>,
+    content: Content,
 }
 
 fn read_has_parent(input: &[u8]) -> IResult<&[u8], bool> {
@@ -21,10 +25,14 @@ fn read_has_parent(input: &[u8]) -> IResult<&[u8], bool> {
 pub fn read_item(input: &[u8], info: u64) -> IResult<&[u8], Item> {
     let mut input = input;
     let has_left_id = info & 0b1000_0000 == 0b1000_0000;
-    let has_right_id = info & 0b0100_0000 == 0b1000_0000;
+    let has_right_id = info & 0b0100_0000 == 0b0100_0000;
+    let has_parent_sub = info & 0b0010_0000 == 0b0010_0000;
     let has_not_parent_info = !has_left_id && !has_right_id;
 
+    // NOTE: read order must keep the same as the order in yjs
+    // TODO: this data structure design will break the cpu OOE, need to be optimized
     let item = Item {
+        info,
         left_id: if has_left_id {
             let (tail, id) = read_item_id(input)?;
             input = tail;
@@ -55,6 +63,18 @@ pub fn read_item(input: &[u8], info: u64) -> IResult<&[u8], Item> {
             } else {
                 None
             }
+        },
+        parent_sub: if has_parent_sub {
+            let (tail, parent_sub) = read_var_string(input)?;
+            input = tail;
+            Some(parent_sub)
+        } else {
+            None
+        },
+        content: {
+            let (tail, content) = read_content(input)?;
+            input = tail;
+            content
         },
     };
 

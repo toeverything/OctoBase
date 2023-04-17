@@ -1,7 +1,6 @@
-use nom::IResult;
-
 use super::*;
 
+#[derive(Debug)]
 pub struct Id {
     client: u64,
     clock: u64,

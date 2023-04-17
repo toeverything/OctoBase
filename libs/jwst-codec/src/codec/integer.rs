@@ -1,5 +1,6 @@
+use super::*;
 use byteorder::WriteBytesExt;
-use nom::{number::complete::be_u8, IResult, Needed};
+use nom::{number::complete::be_u8, Needed};
 use std::io::{Error, Write};
 
 pub fn read_var_u64(input: &[u8]) -> IResult<&[u8], u64> {
