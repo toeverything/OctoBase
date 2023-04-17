@@ -112,16 +112,46 @@ impl Pages {
         false
     }
 
+    fn find_shared_parent(
+        pages: &HashMap<String, PageMeta>,
+        child_to_parent: &HashMap<String, String>,
+        page_id: &str,
+    ) -> bool {
+        if let Some(page) = pages.get(page_id) {
+            if page.is_shared.unwrap_or(false) {
+                return true;
+            }
+            if let Some(parent_page_id) = child_to_parent.get(page_id) {
+                return Self::find_shared_parent(pages, child_to_parent, parent_page_id);
+            }
+        }
+        false
+    }
+
     pub fn check_shared<T: ReadTxn>(&self, trx: &T, page_id: &str) -> bool {
         let pages = self.pages(trx);
+        let child_to_parent: HashMap<String, String> = pages
+            .iter()
+            .flat_map(|(parent_page_id, parent_page)| {
+                parent_page
+                    .sub_page_ids
+                    .iter()
+                    .map(move |child_page_id| (child_page_id.clone(), parent_page_id.clone()))
+            })
+            .collect();
         if pages.contains_key(page_id) {
-            Self::check_pinboard(&pages, page_id)
-                || pages
+            if Self::check_pinboard(&pages, page_id) {
+                if Self::find_shared_parent(&pages, &child_to_parent, page_id) {
+                    return true;
+                }
+            } else {
+                return pages
                     .values()
-                    .any(|meta| meta.is_shared.unwrap_or(false) && meta.id == page_id)
-        } else {
-            false
+                    .any(|meta| meta.is_shared.unwrap_or(false) && meta.id == page_id);
+            }
         }
+
+        false
     }
 }
 
@@ -166,7 +196,7 @@ mod tests {
         );
 
         let ws = Workspace::from_doc(doc, "test");
-        assert!(ws.with_trx(|mut t| t.get_space("jyWl43FM_v").shared(&t.trx)));
+        assert!(!ws.with_trx(|mut t| t.get_space("jyWl43FM_v").shared(&t.trx)));
         assert!(ws.with_trx(|mut t| t.get_space("TLAaw1df58").shared(&t.trx)));
     }
 }
