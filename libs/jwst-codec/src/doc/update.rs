@@ -1,5 +1,5 @@
 use super::*;
-use nom::{bytes::complete::take, multi::count};
+use nom::{bytes::complete::take, multi::count, number::complete::be_u8};
 
 #[derive(Debug)]
 pub enum StructInfo {
@@ -21,15 +21,14 @@ pub struct Update {
 }
 
 fn parse_struct(input: &[u8]) -> IResult<&[u8], StructInfo> {
-    let (input, info) = take(1u8)(input)?;
-    let info = read_var_u64(info)?.1;
-    let first_5_bits = info & 0b11111;
+    let (input, info) = be_u8(input)?;
+    let first_5_bit = info & 0b11111;
 
-    match first_5_bits {
+    match first_5_bit {
         0 => Ok((input, StructInfo::GC)),
         10 => Ok((input, StructInfo::Skip)),
         _ => {
-            let (input, item) = read_item(input, info, first_5_bits)?;
+            let (input, item) = read_item(input, info, first_5_bit).unwrap();
             Ok((input, StructInfo::Item(item)))
         }
     }

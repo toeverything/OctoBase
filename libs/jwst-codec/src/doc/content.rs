@@ -7,24 +7,36 @@ use nom::{
 use serde_json::Value as JsonValue;
 
 #[derive(Debug)]
+pub enum YType {
+    YArray,
+    YMap,
+    YText,
+    YXmlElement(String),
+    YXmlText,
+    YXmlFragment,
+    YXmlHook(String),
+}
+
+#[derive(Debug)]
 pub enum Content {
     Deleted(u64),
     JSON(Vec<Option<String>>),
     Binary(Vec<u8>),
     String(String),
     Embed(JsonValue),
-    Format,
-    Type,
-    Any,
-    Doc,
+    Format { key: String, value: JsonValue },
+    Type(YType),
+    Any(Vec<Any>),
+    Doc { guid: String, opts: Vec<Any> },
 }
 
-pub fn read_content(input: &[u8], tag_type: u64) -> IResult<&[u8], Content> {
+pub fn read_content(input: &[u8], tag_type: u8) -> IResult<&[u8], Content> {
     match tag_type {
         1 => {
             let (tail, len) = read_var_u64(input)?;
+            println!("Deleted: {}", len);
             Ok((tail, Content::Deleted(len)))
-        }
+        } // Deleted
         2 => {
             let (tail, len) = read_var_u64(input)?;
             let (tail, strings) = count(
@@ -37,16 +49,68 @@ pub fn read_content(input: &[u8], tag_type: u64) -> IResult<&[u8], Content> {
                 }),
                 len as usize,
             )(tail)?;
+            println!("JSON: {:?}", strings);
             Ok((tail, Content::JSON(strings)))
-        }
+        } // JSON
         3 => {
             let (tail, bytes) = read_var_buffer(input)?;
+            println!("Binary: {:?}", bytes);
             Ok((tail, Content::Binary(bytes.to_vec())))
-        }
+        } // Binary
         4 => {
             let (tail, string) = read_var_string(input)?;
+            println!("String: {:?}", string);
             Ok((tail, Content::String(string)))
-        }
+        } // String
+        5 => {
+            let (tail, string) = read_var_string(input)?;
+
+            let json = serde_json::from_str(&string).map_err(|_| {
+                nom::Err::Error(Error::new(&input[1..string.len() + 1], ErrorKind::Verify))
+            })?;
+            println!("Embed: {:?}", json);
+            Ok((tail, Content::Embed(json)))
+        } // Embed
+        6 => {
+            let (tail, key) = read_var_string(input)?;
+            let (tail, value) = read_var_string(tail)?;
+            let value = serde_json::from_str(&value).map_err(|_| {
+                nom::Err::Error(Error::new(&input[1..value.len() + 1], ErrorKind::Verify))
+            })?;
+            println!("Format: {:?} {:?}", key, value);
+            Ok((tail, Content::Format { key, value }))
+        } // Format
+        7 => {
+            let (tail, type_ref) = read_var_u64(input)?;
+            let (tail, ytype) = match type_ref {
+                0 => (tail, YType::YArray),
+                1 => (tail, YType::YMap),
+                2 => (tail, YType::YText),
+                3 => {
+                    let (tail, name) = read_var_string(tail)?;
+                    (tail, YType::YXmlElement(name))
+                }
+                4 => (tail, YType::YXmlFragment),
+                5 => {
+                    let (tail, name) = read_var_string(tail)?;
+                    (tail, YType::YXmlHook(name))
+                }
+                6 => (tail, YType::YXmlText),
+                _ => return Err(nom::Err::Error(Error::new(input, ErrorKind::Tag))),
+            };
+            println!("Type: {:?}", ytype);
+            Ok((tail, Content::Type(ytype)))
+        } // Type
+        8 => {
+            let (tail, any) = read_any(input)?;
+            println!("Any: {:?}", any);
+            Ok((tail, Content::Any(any)))
+        } // Any
+        9 => {
+            let (tail, guid) = read_var_string(input)?;
+            let (tail, opts) = read_any(tail)?;
+            Ok((tail, Content::Doc { guid, opts }))
+        } // Doc
         _ => Err(nom::Err::Error(Error::new(input, ErrorKind::Tag))),
     }
 }
