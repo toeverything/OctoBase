@@ -3,6 +3,7 @@ mod java_glue;
 mod storage;
 mod transaction;
 mod workspace;
+mod block_observer;
 
 pub use crate::java_glue::*;
 
@@ -14,4 +15,5 @@ use jwst::{
 use rifgen::rifgen_attr::*;
 use storage::JwstStorage;
 use transaction::{OnWorkspaceTransaction, WorkspaceTransaction};
-use workspace::Workspace;
+use workspace::{Workspace};
+use block_observer::{BlockObserver};

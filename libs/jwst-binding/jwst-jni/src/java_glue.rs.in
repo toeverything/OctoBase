@@ -73,6 +73,12 @@ foreign_class!(
         }
     }
 );
+foreign_callback!(
+    callback BlockObserver {
+        self_type BlockObserver;
+        onChange = BlockObserver::on_change(& self , block_ids : VecOfStrings);
+    }
+);
 
 foreign_class!(
 	class Block {
@@ -119,5 +125,6 @@ foreign_class!(
 		fn Workspace::search(& self , query : String)->String; alias search;
 		fn Workspace::get_search_index(& self)->Vec<String>; alias getSearchIndex;
 		fn Workspace::set_search_index(& self , fields : VecOfStrings)->bool; alias setSearchIndex;
+		fn Workspace::set_callback(& self , observer : Box < dyn BlockObserver >)->bool; alias setCallback;
 	}
 );

@@ -75,6 +75,18 @@ class Workspace(workspace: JwstWorkspace) {
         }
         return this.workspace.setSearchIndex(indexFields)
     }
+
+    fun setCallback(callback: (block_ids: Array<String>) -> Unit): Boolean {
+        return this.workspace.setCallback {
+            block_ids -> run {
+                var x = mutableListOf<String>()
+                for (i in 0 until block_ids.len()) {
+                    x.add(block_ids.at(i))
+                }
+                callback(x.toTypedArray())
+            }
+        }
+    }
 }
 
 class WorkspaceTransaction constructor(internal var trx: JwstWorkspaceTransaction) {
