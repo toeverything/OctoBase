@@ -99,6 +99,13 @@ public final class Workspace {
     }
     private static native boolean do_setSearchIndex(long self, long fields);
 
+    public final boolean setCallback(@NonNull BlockObserver observer) {
+        boolean ret = do_setCallback(mNativeObj, observer);
+
+        return ret;
+    }
+    private static native boolean do_setCallback(long self, BlockObserver observer);
+
     public synchronized void delete() {
         if (mNativeObj != 0) {
             do_delete(mNativeObj);

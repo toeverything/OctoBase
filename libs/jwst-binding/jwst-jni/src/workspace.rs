@@ -1,3 +1,4 @@
+use crate::block_observer::{BlockObserver, BlockObserverWrapper};
 use super::{
     generate_interface, Block, JwstWorkspace, OnWorkspaceTransaction, VecOfStrings,
     WorkspaceTransaction,
@@ -71,5 +72,14 @@ impl Workspace {
         self.workspace
             .set_search_index(fields)
             .expect("failed to set search index")
+    }
+
+    #[generate_interface]
+    pub fn set_callback(&self, observer: Box<dyn BlockObserver>) -> bool {
+        let observer = BlockObserverWrapper::new(observer);
+        self.workspace.set_callback(Box::new(move |block_ids: Vec<String>| {
+            observer.on_change(block_ids);
+        }));
+        true
     }
 }
