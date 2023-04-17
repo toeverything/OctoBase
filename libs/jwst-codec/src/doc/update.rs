@@ -1,10 +1,10 @@
-use nom::{bytes::complete::take, multi::count, IResult};
-
 use super::*;
+use nom::{bytes::complete::take, multi::count, IResult};
 
 pub enum StructInfo {
     GC,
     Skip,
+    Item(Item),
 }
 
 pub struct Structs {
@@ -14,15 +14,17 @@ pub struct Structs {
 }
 
 fn parse_struct(input: &[u8]) -> IResult<&[u8], StructInfo> {
-    let (input, info) = take(1u8)(input)?;
+    let (mut input, info) = take(1u8)(input)?;
     let info = read_var_u64(info)?.1;
     let first_5_bits = info & 0b11111;
+
     match first_5_bits {
         0 => Ok((input, StructInfo::GC)),
         10 => Ok((input, StructInfo::Skip)),
         _ => {
-            let cant_copy_parent_info = first_5_bits & 0b11000000;
-            todo!()
+            let (input, item) = read_item(input, info)?;
+
+            Ok((input, StructInfo::Item(item)))
         }
     }
 }
