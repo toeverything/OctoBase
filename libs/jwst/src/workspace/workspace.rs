@@ -4,6 +4,8 @@ use super::{
 };
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{collections::HashMap, sync::Arc};
+use std::collections::HashSet;
+use std::sync::atomic::Ordering::Acquire;
 use tokio::sync::RwLock;
 use y_sync::awareness::{Awareness, Event, Subscription as AwarenessSubscription};
 use yrs::{
@@ -104,8 +106,24 @@ impl Workspace {
             block_observer_config.set_callback(cb);
             return true;
         }
-
         false
+    }
+
+    pub fn set_tracking_block_changes(&self, if_tracking: bool) {
+        if let Some(block_observer_config) = self.block_observer_config.clone() {
+            block_observer_config.set_tracking_block_changes(if_tracking);
+        }
+    }
+
+    pub fn retrieve_modified_blocks(&self) -> Option<HashSet<String>> {
+        self.block_observer_config
+            .clone()
+            .and_then(|block_observer_config| {
+                block_observer_config
+                    .is_manually_tracking_block_changes
+                    .load(Acquire)
+                    .then(|| block_observer_config.retrieve_modified_blocks())
+            })
     }
 }
 
@@ -218,6 +236,41 @@ mod test {
             block2.set(&mut trx.trx, "key2", "value2").unwrap();
         });
         sleep(Duration::from_millis(300));
+    }
+
+    #[test]
+    fn manually_retrieve_modified_blocks() {
+        let workspace = Workspace::new("test");
+        assert_eq!(workspace.retrieve_modified_blocks(), None);
+        workspace.set_tracking_block_changes(true);
+
+        let (block1, block2) = workspace.with_trx(|mut t| {
+            let space = t.get_space("test");
+            let block1 = space.create(&mut t.trx, "block1", "text").unwrap();
+            let block2 = space.create(&mut t.trx, "block2", "text").unwrap();
+            (block1, block2)
+        });
+
+        let modified_blocks = workspace.retrieve_modified_blocks().unwrap();
+        assert!(modified_blocks.is_empty());
+
+        workspace.with_trx(|mut trx| {
+            block1.set(&mut trx.trx, "key1", "value1").unwrap();
+            block1.set(&mut trx.trx, "key2", "value2").unwrap();
+            block2.set(&mut trx.trx, "key1", "value1").unwrap();
+            block2.set(&mut trx.trx, "key2", "value2").unwrap();
+        });
+
+        sleep(Duration::from_millis(100));
+        let modified_blocks = workspace.retrieve_modified_blocks().unwrap();
+
+        let mut expected: HashSet<String> = HashSet::new();
+        expected.insert("block1".to_string());
+        expected.insert("block2".to_string());
+        assert_eq!(modified_blocks, expected);
+
+        let modified_blocks = workspace.retrieve_modified_blocks().unwrap();
+        assert!(modified_blocks.is_empty());
     }
 
     #[test]
