@@ -18,13 +18,10 @@ pub fn parse_doc_update(input: &[u8]) -> IResult<&[u8], Update> {
 mod tests {
     use super::*;
 
-    #[ignore = "not finish yet"]
     #[test]
     fn test_parse_doc() {
-        let update = parse_doc_update(include_bytes!("./fixtures/basic_doc.bin"))
-            .unwrap()
-            .1;
+        let (_tail, update) = parse_doc_update(include_bytes!("./fixtures/basic_doc.bin")).unwrap();
 
-        println!("{:#?}", update)
+        assert_eq!(update.structs[0].structs.len(), 188);
     }
 }

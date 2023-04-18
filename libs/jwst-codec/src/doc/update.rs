@@ -3,8 +3,8 @@ use nom::{multi::count, number::complete::be_u8};
 
 #[derive(Debug)]
 pub enum StructInfo {
-    GC,
-    Skip,
+    GC(u64),
+    Skip(u64),
     Item(Item),
 }
 
@@ -25,8 +25,14 @@ fn parse_struct(input: &[u8]) -> IResult<&[u8], StructInfo> {
     let first_5_bit = info & 0b11111;
 
     match first_5_bit {
-        0 => Ok((input, StructInfo::GC)),
-        10 => Ok((input, StructInfo::Skip)),
+        0 => {
+            let (input, len) = read_var_u64(input)?;
+            Ok((input, StructInfo::GC(len)))
+        }
+        10 => {
+            let (input, len) = read_var_u64(input)?;
+            Ok((input, StructInfo::Skip(len)))
+        }
         _ => {
             let (input, item) = read_item(input, info, first_5_bit)?;
             Ok((input, StructInfo::Item(item)))
