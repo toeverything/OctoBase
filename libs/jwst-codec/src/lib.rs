@@ -10,6 +10,7 @@ use nom::IResult;
 
 pub fn parse_doc_update(input: &[u8]) -> IResult<&[u8], Update> {
     let (input, update) = read_update(input)?;
+    // TODO: add delete set parse
     // debug_assert_eq!(input.len(), 0);
     Ok((input, update))
 }
@@ -17,11 +18,67 @@ pub fn parse_doc_update(input: &[u8]) -> IResult<&[u8], Update> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::Deserialize;
+    use std::{fmt::Write, num::ParseIntError, path::PathBuf};
 
     #[test]
     fn test_parse_doc() {
         let (_tail, update) = parse_doc_update(include_bytes!("./fixtures/basic_doc.bin")).unwrap();
 
         assert_eq!(update.structs[0].structs.len(), 188);
+    }
+
+    fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect()
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct Data {
+        id: u64,
+        workspace: String,
+        timestamp: String,
+        blob: String,
+    }
+
+    #[ignore = "just for local data test"]
+    #[test]
+    fn test_parse_local_doc() {
+        let json =
+            serde_json::from_slice::<Vec<Data>>(include_bytes!("./fixtures/local_docs.json"))
+                .unwrap();
+
+        for ws in json {
+            let data = &ws.blob[5..=(ws.blob.len() - 2)];
+            if let Ok(data) = decode_hex(data) {
+                match parse_doc_update(&data) {
+                    Ok((_tail, update)) => {
+                        println!(
+                            "workspace: {}, global structs: {}, total structs: {}",
+                            ws.workspace,
+                            update.structs.len(),
+                            update
+                                .structs
+                                .iter()
+                                .map(|s| s.structs.len())
+                                .sum::<usize>()
+                        );
+                    }
+                    Err(e) => {
+                        std::fs::write(
+                            PathBuf::from("./fixtures/invalid")
+                                .join(format!("{}.ydoc", ws.workspace)),
+                            data,
+                        )
+                        .unwrap();
+                        println!("doc error: {}", ws.workspace);
+                    }
+                }
+            } else {
+                println!("error origin data: {}", ws.workspace);
+            }
+        }
     }
 }

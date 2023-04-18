@@ -2013,6 +2013,7 @@ dependencies = [
  "byteorder",
  "lib0",
  "nom",
+ "serde",
  "serde_json",
 ]
 
