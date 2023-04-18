@@ -1,10 +1,7 @@
 use lib0::any::Any;
 use std::collections::HashMap;
-use std::convert::TryFrom;
-use yrs::{
-    types::{ToJson, Value},
-    Array, ArrayRef, Map, MapRef, ReadTxn,
-};
+use yrs::{types::Value, Array, ArrayRef, Map, MapRef, ReadTxn};
+
 #[derive(Debug)]
 pub struct PageMeta {
     pub id: String,
@@ -17,31 +14,30 @@ pub struct PageMeta {
     pub trash: Option<bool>,
     pub trash_date: Option<usize>,
 }
-struct SubPageIds(Vec<String>);
-impl TryFrom<&Any> for SubPageIds {
-    type Error = &'static str;
-
-    fn try_from(value: &Any) -> Result<Self, Self::Error> {
-        if let Any::Array(sub_pages) = value {
-            let sub_page_ids = sub_pages
-                .iter()
-                .map(|sub_page| {
-                    if let Any::String(str) = sub_page {
-                        Ok(str.to_string())
-                    } else {
-                        Err("Expected String in sub-page IDs array")
-                    }
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-
-            Ok(SubPageIds(sub_page_ids))
-        } else {
-            Err("Expected Array in subpageIds")
-        }
-    }
-}
 
 impl PageMeta {
+    fn get_string_array<T: ReadTxn>(trx: &T, map: &MapRef, key: &str) -> Vec<String> {
+        map.get(trx, key)
+            .and_then(|v| {
+                if let Value::Any(Any::Array(a)) = v {
+                    Some(
+                        a.iter()
+                            .filter_map(|sub_page| {
+                                if let Any::String(str) = sub_page {
+                                    Some(str.to_string())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect(),
+                    )
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_default()
+    }
+
     fn get_bool<T: ReadTxn>(trx: &T, map: &MapRef, key: &str) -> Option<bool> {
         map.get(trx, key).and_then(|v| {
             if let Value::Any(Any::Bool(b)) = v {
@@ -65,15 +61,6 @@ impl PageMeta {
 
 impl<T: ReadTxn> From<(&T, MapRef)> for PageMeta {
     fn from((trx, map): (&T, MapRef)) -> Self {
-        let sub_page_ids = map.get(trx, "subpageIds").map(|v| v.to_json(trx));
-        let sub_page_ids_vec = match sub_page_ids {
-            Some(sub_page_ids_any) => match SubPageIds::try_from(&sub_page_ids_any) {
-                Ok(sub_page_ids) => sub_page_ids.0,
-                Err(_) => Vec::new(),
-            },
-            None => Vec::new(),
-        };
-
         Self {
             id: map.get(trx, "id").unwrap().to_string(trx),
             favorite: Self::get_bool(trx, &map, "favorite"),
@@ -87,7 +74,7 @@ impl<T: ReadTxn> From<(&T, MapRef)> for PageMeta {
                 })
             }),
             init: Self::get_bool(trx, &map, "init"),
-            sub_page_ids: sub_page_ids_vec,
+            sub_page_ids: Self::get_string_array(trx, &map, "subpageIds"),
             title: map.get(trx, "title").map(|s| s.to_string(trx)),
             trash: Self::get_bool(trx, &map, "trash"),
             trash_date: Self::get_number(trx, &map, "trashDate")
