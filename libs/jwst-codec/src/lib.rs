@@ -22,9 +22,26 @@ mod tests {
 
     #[test]
     fn test_parse_doc() {
-        let (_tail, update) = parse_doc_update(include_bytes!("./fixtures/basic_doc.bin")).unwrap();
+        let docs = [
+            (include_bytes!("./fixtures/basic.bin").to_vec(), 1, 188),
+            (include_bytes!("./fixtures/database.bin").to_vec(), 1, 149),
+            (include_bytes!("./fixtures/large.bin").to_vec(), 1, 9036),
+        ];
 
-        assert_eq!(update.structs[0].structs.len(), 188);
+        for (doc, clients, structs) in docs {
+            let (tail, update) = parse_doc_update(&doc).unwrap();
+
+            assert_eq!(tail.len(), 0);
+            assert_eq!(update.structs.len(), clients);
+            assert_eq!(
+                update
+                    .structs
+                    .iter()
+                    .map(|s| s.structs.len())
+                    .sum::<usize>(),
+                structs
+            );
+        }
     }
 
     fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
@@ -34,6 +51,7 @@ mod tests {
             .collect()
     }
 
+    #[allow(dead_code)]
     #[derive(Deserialize, Debug)]
     struct Data {
         id: u64,

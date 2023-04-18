@@ -1,29 +1,39 @@
 use super::*;
 use byteorder::WriteBytesExt;
-use nom::{number::complete::be_u8, Needed};
-use std::io::{Error, Write};
-
-fn map_nom_error(e: nom::Err<nom::error::Error<&[u8]>>) -> nom::Err<nom::error::Error<&[u8]>> {
-    if let nom::Err::Incomplete(Needed::Size(n)) = e {
-        nom::Err::Incomplete(Needed::Size(n.saturating_add(1)))
-    } else {
-        e
-    }
-}
+use nom::Needed;
+use std::{
+    io::{Error, Write},
+    num::NonZeroUsize,
+};
 
 pub fn read_var_u64(input: &[u8]) -> IResult<&[u8], u64> {
-    let mut shift = 0;
-    let mut result: u64 = 0;
-    let mut rest = input;
-    loop {
-        let (tail, byte) = be_u8(rest).map_err(map_nom_error)?;
-        let byte_val = byte as u64;
-        result |= (byte_val & 0b0111_1111) << shift;
-        if byte_val & 0b1000_0000 == 0 {
-            return Ok((tail, result));
+    // parse the first byte
+    if let Some(next_byte) = input.first() {
+        let mut shift = 7;
+        let mut curr_byte = *next_byte;
+        let mut rest = &input[1..];
+
+        // same logic in loop, but enable early exit when dealing with small numbers
+        let mut num = (curr_byte & 0b0111_1111) as u64;
+
+        // if the sign bit is set, we need more bits
+        while (curr_byte >> 7) & 0b1 != 0 {
+            if let Some(next_byte) = rest.first() {
+                curr_byte = *next_byte;
+                // add the remaining 7 bits to the number
+                num |= ((curr_byte & 0b0111_1111) as u64) << shift;
+                shift += 7;
+                rest = &rest[1..];
+            } else {
+                return Err(nom::Err::Incomplete(Needed::Size(
+                    NonZeroUsize::MIN.saturating_add(input.len() + 1),
+                )));
+            }
         }
-        shift += 7;
-        rest = tail;
+
+        Ok((rest, num))
+    } else {
+        Err(nom::Err::Incomplete(Needed::Size(NonZeroUsize::MIN)))
     }
 }
 
@@ -39,37 +49,41 @@ pub fn write_var_u64<W: Write>(buffer: &mut W, mut num: u64) -> Result<(), Error
     Ok(())
 }
 
-pub fn read_var_i64(i: &[u8]) -> IResult<&[u8], i64> {
+pub fn read_var_i64(input: &[u8]) -> IResult<&[u8], i64> {
     // parse the first byte
-    let (i, byte1) = be_u8(i)?;
-    // get the sign bit and the first 6 bits of the number
-    let sign_bit = (byte1 >> 6) & 0b1;
-    let mut num = (byte1 & 0b0011_1111) as i64;
+    if let Some(next_byte) = input.first() {
+        let mut shift = 6;
+        let mut curr_byte = *next_byte;
+        let mut rest: &[u8] = &input[1..];
 
-    let mut shift = 6;
-    let mut curr_byte = byte1;
-    let mut rest = i;
-    loop {
-        // If the sign bit is set, we need more bits
-        if curr_byte & 0b1000_0000 != 0 {
-            // Parse the next byte
-            let (tail, next_byte) = be_u8(rest).map_err(map_nom_error)?;
-            // Add the remaining 7 bits to the number
-            num |= ((next_byte & 0b0111_1111) as i64) << shift;
-            shift += 7;
-            rest = tail;
-            curr_byte = next_byte;
-        } else {
-            break;
+        // get the sign bit and the first 6 bits of the number
+        let sign_bit = (curr_byte >> 6) & 0b1;
+        let mut num = (curr_byte & 0b0011_1111) as i64;
+
+        // if the sign bit is set, we need more bits
+        while (curr_byte >> 7) & 0b1 != 0 {
+            if let Some(next_byte) = rest.first() {
+                curr_byte = *next_byte;
+                // add the remaining 7 bits to the number
+                num |= ((curr_byte & 0b0111_1111) as i64) << shift;
+                shift += 7;
+                rest = &rest[1..];
+            } else {
+                return Err(nom::Err::Incomplete(Needed::Size(
+                    NonZeroUsize::MIN.saturating_add(input.len() + 1),
+                )));
+            }
         }
-    }
 
-    // Negate the number if the sign bit is set
-    if sign_bit == 1 {
-        num = -num;
-    }
+        // negate the number if the sign bit is set
+        if sign_bit == 1 {
+            num = -num;
+        }
 
-    Ok((rest, num))
+        Ok((rest, num))
+    } else {
+        Err(nom::Err::Incomplete(Needed::Size(NonZeroUsize::MIN)))
+    }
 }
 
 pub fn write_var_i64<W: Write>(buffer: &mut W, mut num: i64) -> Result<(), Error> {
