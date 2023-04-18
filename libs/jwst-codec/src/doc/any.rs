@@ -52,7 +52,6 @@ fn read_any_item(input: &[u8]) -> IResult<&[u8], Any> {
         9 => {
             let (tail, len) = read_var_u64(tail)?;
             let (tail, object) = count(read_key_value, len as usize)(tail)?;
-
             Ok((tail, Any::Object(object.into_iter().collect())))
         } // Object
         10 => {

@@ -40,11 +40,7 @@ pub fn read_content(input: &[u8], tag_type: u8) -> IResult<&[u8], Content> {
             let (tail, len) = read_var_u64(input)?;
             let (tail, strings) = count(
                 map(read_var_string, |string| {
-                    if string == "undefined" {
-                        None
-                    } else {
-                        Some(string)
-                    }
+                    (string != "undefined").then_some(string)
                 }),
                 len as usize,
             )(tail)?;
@@ -93,7 +89,7 @@ pub fn read_content(input: &[u8], tag_type: u8) -> IResult<&[u8], Content> {
                 _ => return Err(nom::Err::Error(Error::new(input, ErrorKind::Tag))),
             };
             Ok((tail, Content::Type(ytype)))
-        } // Type
+        } // YType
         8 => {
             let (tail, any) = read_any(input)?;
             Ok((tail, Content::Any(any)))

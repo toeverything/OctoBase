@@ -10,8 +10,7 @@ use nom::IResult;
 
 pub fn parse_doc_update(input: &[u8]) -> IResult<&[u8], Update> {
     let (input, update) = read_update(input)?;
-    // TODO: add delete set parse
-    // debug_assert_eq!(input.len(), 0);
+    debug_assert_eq!(input.len(), 0);
     Ok((input, update))
 }
 
@@ -19,7 +18,7 @@ pub fn parse_doc_update(input: &[u8]) -> IResult<&[u8], Update> {
 mod tests {
     use super::*;
     use serde::Deserialize;
-    use std::{fmt::Write, num::ParseIntError, path::PathBuf};
+    use std::{num::ParseIntError, path::PathBuf};
 
     #[test]
     fn test_parse_doc() {
@@ -66,9 +65,9 @@ mod tests {
                                 .sum::<usize>()
                         );
                     }
-                    Err(e) => {
+                    Err(_e) => {
                         std::fs::write(
-                            PathBuf::from("./fixtures/invalid")
+                            PathBuf::from("./src/fixtures/invalid")
                                 .join(format!("{}.ydoc", ws.workspace)),
                             data,
                         )
