@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use lib0::any::Any;
+use std::collections::HashMap;
 use yrs::{types::Value, Array, ArrayRef, Map, MapRef, ReadTxn};
 
 pub struct PageMeta {
@@ -16,6 +15,28 @@ pub struct PageMeta {
 }
 
 impl PageMeta {
+    fn get_string_array<T: ReadTxn>(trx: &T, map: &MapRef, key: &str) -> Vec<String> {
+        map.get(trx, key)
+            .and_then(|v| {
+                if let Value::Any(Any::Array(a)) = v {
+                    Some(
+                        a.iter()
+                            .filter_map(|sub_page| {
+                                if let Any::String(str) = sub_page {
+                                    Some(str.to_string())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect(),
+                    )
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_default()
+    }
+
     fn get_bool<T: ReadTxn>(trx: &T, map: &MapRef, key: &str) -> Option<bool> {
         map.get(trx, key).and_then(|v| {
             if let Value::Any(Any::Bool(b)) = v {
@@ -52,11 +73,7 @@ impl<T: ReadTxn> From<(&T, MapRef)> for PageMeta {
                 })
             }),
             init: Self::get_bool(trx, &map, "init"),
-            sub_page_ids: map
-                .get(trx, "subpageIds")
-                .and_then(|v| v.to_yarray())
-                .map(|v| v.iter(trx).map(|v| v.to_string(trx)).collect::<Vec<_>>())
-                .unwrap_or_default(),
+            sub_page_ids: Self::get_string_array(trx, &map, "subpageIds"),
             title: map.get(trx, "title").map(|s| s.to_string(trx)),
             trash: Self::get_bool(trx, &map, "trash"),
             trash_date: Self::get_number(trx, &map, "trashDate")
@@ -91,7 +108,7 @@ impl Pages {
     fn check_pinboard(pages: &HashMap<String, PageMeta>, page_id: &str) -> bool {
         if let Some(root_pinboard_page) = pages
             .values()
-            .find(|meta| meta.is_pinboard.unwrap_or(false))
+            .find(|meta| meta.is_pinboard.unwrap_or(false) && meta.is_shared.unwrap_or(false))
         {
             let mut visited = vec![];
             let mut stack = vec![root_pinboard_page.id.clone()];
@@ -108,7 +125,6 @@ impl Pages {
                 }
             }
         }
-
         false
     }
 
@@ -164,9 +180,21 @@ mod tests {
         doc.transact_mut().apply_update(
             Update::decode_v1(include_bytes!("../../../fixtures/test_shared_page.bin")).unwrap(),
         );
-
         let ws = Workspace::from_doc(doc, "test");
-        assert!(ws.with_trx(|mut t| t.get_space("jyWl43FM_v").shared(&t.trx)));
-        assert!(ws.with_trx(|mut t| t.get_space("TLAaw1df58").shared(&t.trx)));
+        // test page
+
+        // - test page (shared page not in Pinboard)
+        assert!(ws.with_trx(|mut t| t.get_space("X83xzrb4Yr").shared(&t.trx)));
+        // - test page (unshared sub page of X83xzrb4Yr )
+        assert!(!ws.with_trx(|mut t| t.get_space("ZISRn1STfy").shared(&t.trx)));
+
+        // - test page (RootPinboard without shared)
+        assert!(!ws.with_trx(|mut t| t.get_space("m92E0qWwPY").shared(&t.trx)));
+        // - test page (unshared sub page of m92E0qWwPY in Pinboard)
+        assert!(!ws.with_trx(|mut t| t.get_space("2HadvFQVk3").shared(&t.trx)));
+        // - test page (shared sub page of 2HadvFQVk3 in Pinboard)
+        assert!(ws.with_trx(|mut t| t.get_space("ymMTOFx8tt").shared(&t.trx)));
+        // - test page (unshared sub page of ymMTOFx8tt in Pinboard)
+        assert!(!ws.with_trx(|mut t| t.get_space("lBaYQm5ZVo").shared(&t.trx)));
     }
 }
