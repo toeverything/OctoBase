@@ -2,7 +2,6 @@ use lib0::any::Any;
 use std::collections::HashMap;
 use yrs::{types::Value, Array, ArrayRef, Map, MapRef, ReadTxn};
 
-#[derive(Debug)]
 pub struct PageMeta {
     pub id: String,
     pub favorite: Option<bool>,
@@ -105,6 +104,7 @@ impl Pages {
             })
             .collect()
     }
+
     fn check_pinboard(pages: &HashMap<String, PageMeta>, page_id: &str) -> bool {
         if let Some(root_pinboard_page) = pages
             .values()
@@ -121,7 +121,7 @@ impl Pages {
                     if page.id == page_id {
                         return true;
                     }
-                    stack.extend(page.sub_page_ids.iter().cloned());
+                    stack.extend(page.sub_page_ids.clone());
                 }
             }
         }
