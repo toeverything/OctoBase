@@ -3,20 +3,21 @@ use byteorder::WriteBytesExt;
 use nom::{number::complete::be_u8, Needed};
 use std::io::{Error, Write};
 
+fn map_nom_error(e: nom::Err<nom::error::Error<&[u8]>>) -> nom::Err<nom::error::Error<&[u8]>> {
+    match e {
+        nom::Err::Incomplete(Needed::Size(n)) => {
+            nom::Err::Incomplete(Needed::Size(n.saturating_add(1)))
+        }
+        _ => e,
+    }
+}
+
 pub fn read_var_u64(input: &[u8]) -> IResult<&[u8], u64> {
     let mut shift = 0;
     let mut result: u64 = 0;
     let mut rest = input;
     loop {
-        let (tail, byte) = match be_u8(rest) {
-            Ok(t) => t,
-            Err(nom::Err::Incomplete(Needed::Size(n))) => {
-                return Err(nom::Err::Incomplete(Needed::Size(
-                    n.checked_add(1).unwrap(),
-                )))
-            }
-            Err(err) => return Err(err),
-        };
+        let (tail, byte) = be_u8(rest).map_err(map_nom_error)?;
         let byte_val = byte as u64;
         result |= (byte_val & 0b0111_1111) << shift;
         if byte_val & 0b1000_0000 == 0 {
@@ -53,15 +54,7 @@ pub fn read_var_i64(i: &[u8]) -> IResult<&[u8], i64> {
         // If the sign bit is set, we need more bits
         if curr_byte & 0b1000_0000 != 0 {
             // Parse the next byte
-            let (tail, next_byte) = match be_u8(rest) {
-                Ok(x) => x,
-                Err(nom::Err::Incomplete(Needed::Size(n))) => {
-                    return Err(nom::Err::Incomplete(Needed::Size(
-                        n.checked_add(1).unwrap(),
-                    )))
-                }
-                Err(e) => return Err(e),
-            };
+            let (tail, next_byte) = be_u8(rest).map_err(map_nom_error)?;
             // Add the remaining 7 bits to the number
             num |= ((next_byte & 0b0111_1111) as i64) << shift;
             shift += 7;

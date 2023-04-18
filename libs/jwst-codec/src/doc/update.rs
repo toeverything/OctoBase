@@ -1,5 +1,5 @@
 use super::*;
-use nom::{bytes::complete::take, multi::count, number::complete::be_u8};
+use nom::{multi::count, number::complete::be_u8};
 
 #[derive(Debug)]
 pub enum StructInfo {

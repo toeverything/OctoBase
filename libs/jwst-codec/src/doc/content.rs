@@ -8,13 +8,13 @@ use serde_json::Value as JsonValue;
 
 #[derive(Debug)]
 pub enum YType {
-    YArray,
-    YMap,
-    YText,
-    YXmlElement(String),
-    YXmlText,
-    YXmlFragment,
-    YXmlHook(String),
+    Array,
+    Map,
+    Text,
+    XmlElement(String),
+    XmlText,
+    XmlFragment,
+    XmlHook(String),
 }
 
 #[derive(Debug)]
@@ -83,19 +83,19 @@ pub fn read_content(input: &[u8], tag_type: u8) -> IResult<&[u8], Content> {
         7 => {
             let (tail, type_ref) = read_var_u64(input)?;
             let (tail, ytype) = match type_ref {
-                0 => (tail, YType::YArray),
-                1 => (tail, YType::YMap),
-                2 => (tail, YType::YText),
+                0 => (tail, YType::Array),
+                1 => (tail, YType::Map),
+                2 => (tail, YType::Text),
                 3 => {
                     let (tail, name) = read_var_string(tail)?;
-                    (tail, YType::YXmlElement(name))
+                    (tail, YType::XmlElement(name))
                 }
-                4 => (tail, YType::YXmlFragment),
+                4 => (tail, YType::XmlFragment),
                 5 => {
                     let (tail, name) = read_var_string(tail)?;
-                    (tail, YType::YXmlHook(name))
+                    (tail, YType::XmlHook(name))
                 }
-                6 => (tail, YType::YXmlText),
+                6 => (tail, YType::XmlText),
                 _ => return Err(nom::Err::Error(Error::new(input, ErrorKind::Tag))),
             };
             println!("Type: {:?}", ytype);

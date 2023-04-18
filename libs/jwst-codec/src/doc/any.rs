@@ -1,5 +1,5 @@
 use nom::{
-    multi::{count, fold_many0},
+    multi::count,
     number::complete::{be_f32, be_f64, be_i64, be_u8},
 };
 
