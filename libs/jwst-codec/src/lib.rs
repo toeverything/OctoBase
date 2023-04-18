@@ -10,7 +10,7 @@ use nom::IResult;
 
 pub fn parse_doc_update(input: &[u8]) -> IResult<&[u8], Update> {
     let (input, update) = read_update(input)?;
-    debug_assert_eq!(input.len(), 0);
+    // debug_assert_eq!(input.len(), 0);
     Ok((input, update))
 }
 

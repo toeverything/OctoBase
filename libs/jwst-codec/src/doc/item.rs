@@ -64,7 +64,7 @@ pub fn read_item(input: &[u8], info: u8, first_5_bit: u8) -> IResult<&[u8], Item
                 None
             }
         },
-        parent_sub: if has_parent_sub {
+        parent_sub: if has_not_parent_info && has_parent_sub {
             let (tail, parent_sub) = read_var_string(input)?;
             input = tail;
             Some(parent_sub)
@@ -75,7 +75,7 @@ pub fn read_item(input: &[u8], info: u8, first_5_bit: u8) -> IResult<&[u8], Item
             // tag must not GC or Skip, this must process in parse_struct
             debug_assert_ne!(first_5_bit, 0);
             debug_assert_ne!(first_5_bit, 10);
-            let (tail, content) = read_content(input, first_5_bit).unwrap();
+            let (tail, content) = read_content(input, first_5_bit)?;
             input = tail;
             content
         },

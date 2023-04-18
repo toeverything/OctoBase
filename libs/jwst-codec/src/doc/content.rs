@@ -34,7 +34,6 @@ pub fn read_content(input: &[u8], tag_type: u8) -> IResult<&[u8], Content> {
     match tag_type {
         1 => {
             let (tail, len) = read_var_u64(input)?;
-            println!("Deleted: {}", len);
             Ok((tail, Content::Deleted(len)))
         } // Deleted
         2 => {
@@ -49,17 +48,14 @@ pub fn read_content(input: &[u8], tag_type: u8) -> IResult<&[u8], Content> {
                 }),
                 len as usize,
             )(tail)?;
-            println!("JSON: {:?}", strings);
             Ok((tail, Content::JSON(strings)))
         } // JSON
         3 => {
             let (tail, bytes) = read_var_buffer(input)?;
-            println!("Binary: {:?}", bytes);
             Ok((tail, Content::Binary(bytes.to_vec())))
         } // Binary
         4 => {
             let (tail, string) = read_var_string(input)?;
-            println!("String: {:?}", string);
             Ok((tail, Content::String(string)))
         } // String
         5 => {
@@ -68,7 +64,6 @@ pub fn read_content(input: &[u8], tag_type: u8) -> IResult<&[u8], Content> {
             let json = serde_json::from_str(&string).map_err(|_| {
                 nom::Err::Error(Error::new(&input[1..string.len() + 1], ErrorKind::Verify))
             })?;
-            println!("Embed: {:?}", json);
             Ok((tail, Content::Embed(json)))
         } // Embed
         6 => {
@@ -77,7 +72,6 @@ pub fn read_content(input: &[u8], tag_type: u8) -> IResult<&[u8], Content> {
             let value = serde_json::from_str(&value).map_err(|_| {
                 nom::Err::Error(Error::new(&input[1..value.len() + 1], ErrorKind::Verify))
             })?;
-            println!("Format: {:?} {:?}", key, value);
             Ok((tail, Content::Format { key, value }))
         } // Format
         7 => {
@@ -98,12 +92,10 @@ pub fn read_content(input: &[u8], tag_type: u8) -> IResult<&[u8], Content> {
                 6 => (tail, YType::XmlText),
                 _ => return Err(nom::Err::Error(Error::new(input, ErrorKind::Tag))),
             };
-            println!("Type: {:?}", ytype);
             Ok((tail, Content::Type(ytype)))
         } // Type
         8 => {
             let (tail, any) = read_any(input)?;
-            println!("Any: {:?}", any);
             Ok((tail, Content::Any(any)))
         } // Any
         9 => {

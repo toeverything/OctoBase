@@ -28,7 +28,7 @@ fn parse_struct(input: &[u8]) -> IResult<&[u8], StructInfo> {
         0 => Ok((input, StructInfo::GC)),
         10 => Ok((input, StructInfo::Skip)),
         _ => {
-            let (input, item) = read_item(input, info, first_5_bit).unwrap();
+            let (input, item) = read_item(input, info, first_5_bit)?;
             Ok((input, StructInfo::Item(item)))
         }
     }
