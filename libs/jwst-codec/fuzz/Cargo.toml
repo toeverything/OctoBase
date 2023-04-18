@@ -1,0 +1,43 @@
+[package]
+name = "jwst-codec-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+lib0 = "0.16.5"
+
+[dependencies.jwst-codec]
+path = ".."
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "i64_decode"
+path = "fuzz_targets/i64_decode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "i64_encode"
+path = "fuzz_targets/i64_encode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "u64_decode"
+path = "fuzz_targets/u64_decode.rs"
+test = false
+doc = false
+
+
+[[bin]]
+name = "u64_encode"
+path = "fuzz_targets/u64_encode.rs"
+test = false
+doc = false
