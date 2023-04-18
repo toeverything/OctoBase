@@ -4,11 +4,10 @@ use nom::{number::complete::be_u8, Needed};
 use std::io::{Error, Write};
 
 fn map_nom_error(e: nom::Err<nom::error::Error<&[u8]>>) -> nom::Err<nom::error::Error<&[u8]>> {
-    match e {
-        nom::Err::Incomplete(Needed::Size(n)) => {
-            nom::Err::Incomplete(Needed::Size(n.saturating_add(1)))
-        }
-        _ => e,
+    if let nom::Err::Incomplete(Needed::Size(n)) = e {
+        nom::Err::Incomplete(Needed::Size(n.saturating_add(1)))
+    } else {
+        e
     }
 }
 
