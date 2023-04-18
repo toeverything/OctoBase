@@ -108,7 +108,7 @@ impl Pages {
     fn check_pinboard(pages: &HashMap<String, PageMeta>, page_id: &str) -> bool {
         if let Some(root_pinboard_page) = pages
             .values()
-            .find(|meta| meta.is_pinboard.unwrap_or(false))
+            .find(|meta| meta.is_pinboard.unwrap_or(false) && meta.is_shared.unwrap_or(false))
         {
             let mut visited = vec![];
             let mut stack = vec![root_pinboard_page.id.clone()];
@@ -128,46 +128,16 @@ impl Pages {
         false
     }
 
-    fn find_shared_parent(
-        pages: &HashMap<String, PageMeta>,
-        child_to_parent: &HashMap<String, String>,
-        page_id: &str,
-    ) -> bool {
-        if let Some(page) = pages.get(page_id) {
-            if page.is_shared.unwrap_or(false) {
-                return true;
-            }
-            if let Some(parent_page_id) = child_to_parent.get(page_id) {
-                return Self::find_shared_parent(pages, child_to_parent, parent_page_id);
-            }
-        }
-        false
-    }
-
     pub fn check_shared<T: ReadTxn>(&self, trx: &T, page_id: &str) -> bool {
         let pages = self.pages(trx);
-        let child_to_parent: HashMap<String, String> = pages
-            .iter()
-            .flat_map(|(parent_page_id, parent_page)| {
-                parent_page
-                    .sub_page_ids
-                    .iter()
-                    .map(move |child_page_id| (child_page_id.clone(), parent_page_id.clone()))
-            })
-            .collect();
         if pages.contains_key(page_id) {
-            if Self::check_pinboard(&pages, page_id) {
-                if Self::find_shared_parent(&pages, &child_to_parent, page_id) {
-                    return true;
-                }
-            } else {
-                return pages
+            Self::check_pinboard(&pages, page_id)
+                || pages
                     .values()
-                    .any(|meta| meta.is_shared.unwrap_or(false) && meta.id == page_id);
-            }
+                    .any(|meta| meta.is_shared.unwrap_or(false) && meta.id == page_id)
+        } else {
+            false
         }
-
-        false
     }
 }
 
@@ -225,6 +195,6 @@ mod tests {
         // - test page (shared sub page of 2HadvFQVk3 in Pinboard)
         assert!(ws.with_trx(|mut t| t.get_space("ymMTOFx8tt").shared(&t.trx)));
         // - test page (unshared sub page of ymMTOFx8tt in Pinboard)
-        assert!(ws.with_trx(|mut t| t.get_space("lBaYQm5ZVo").shared(&t.trx)));
+        assert!(!ws.with_trx(|mut t| t.get_space("lBaYQm5ZVo").shared(&t.trx)));
     }
 }
