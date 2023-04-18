@@ -1,10 +1,7 @@
 use super::*;
 use byteorder::WriteBytesExt;
 use nom::Needed;
-use std::{
-    io::{Error, Write},
-    num::NonZeroUsize,
-};
+use std::io::{Error, Write};
 
 pub fn read_var_u64(input: &[u8]) -> IResult<&[u8], u64> {
     // parse the first byte
@@ -25,15 +22,13 @@ pub fn read_var_u64(input: &[u8]) -> IResult<&[u8], u64> {
                 shift += 7;
                 rest = &rest[1..];
             } else {
-                return Err(nom::Err::Incomplete(Needed::Size(
-                    NonZeroUsize::MIN.saturating_add(input.len() + 1),
-                )));
+                return Err(nom::Err::Incomplete(Needed::new(input.len() + 1)));
             }
         }
 
         Ok((rest, num))
     } else {
-        Err(nom::Err::Incomplete(Needed::Size(NonZeroUsize::MIN)))
+        Err(nom::Err::Incomplete(Needed::new(1)))
     }
 }
 
@@ -69,9 +64,7 @@ pub fn read_var_i64(input: &[u8]) -> IResult<&[u8], i64> {
                 shift += 7;
                 rest = &rest[1..];
             } else {
-                return Err(nom::Err::Incomplete(Needed::Size(
-                    NonZeroUsize::MIN.saturating_add(input.len() + 1),
-                )));
+                return Err(nom::Err::Incomplete(Needed::new(input.len() + 1)));
             }
         }
 
@@ -82,7 +75,7 @@ pub fn read_var_i64(input: &[u8]) -> IResult<&[u8], i64> {
 
         Ok((rest, num))
     } else {
-        Err(nom::Err::Incomplete(Needed::Size(NonZeroUsize::MIN)))
+        Err(nom::Err::Incomplete(Needed::new(1)))
     }
 }
 
