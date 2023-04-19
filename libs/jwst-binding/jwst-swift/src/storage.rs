@@ -125,7 +125,7 @@ impl Storage {
                     let storage = self.storage.clone();
                     let id = id.clone();
                     rt.spawn(async move {
-                        while let Some(_) = receiver.recv().await {
+                        if receiver.recv().await.is_some() {
                             let storage = storage.clone();
                             storage.unwrap().write().await.full_migrate(id.clone(), None, true).await;
                         }
