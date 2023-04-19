@@ -1,6 +1,20 @@
 # What's New
 
-## 0.0.1-230410
+## 0.5.1-230419
+
+-   [+] feat: expose method for manually retrieval of modified blocks
+-   [+] feat: optimize check_shared
+-   [+] feat: new ybinary parser
+-   [+] feat: jni binding for block level observation
+-   [+] feat: block level observation
+-   [+] feat: support page share expire time
+-   [*] fix: support blocksuite specific behavier
+-   [*] chore: add collaboration doc and best practice
+-   [*] chore: test using ymap from different source with same id
+-   [*] test: add update merge test
+-   [*] fix: awareness subscription memory leak
+
+## 0.5.0-230410
 
 -   [+] feat: enable coverage test & more stable stress test
 -   [+] feat: clone nested data in doc (#359)
