@@ -30,6 +30,22 @@ pub enum Content {
     Doc { guid: String, opts: Vec<Any> },
 }
 
+impl Content {
+    pub fn clock_len(&self) -> u64 {
+        match self {
+            Content::Deleted(len) => *len,
+            Content::JSON(strings) => strings.len() as u64,
+            Content::String(string) => string.len() as u64,
+            Content::Any(any) => any.len() as u64,
+            Content::Binary(_)
+            | Content::Embed(_)
+            | Content::Format { .. }
+            | Content::Type(_)
+            | Content::Doc { .. } => 1,
+        }
+    }
+}
+
 pub fn read_content(input: &[u8], tag_type: u8) -> IResult<&[u8], Content> {
     match tag_type {
         1 => {

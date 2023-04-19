@@ -34,13 +34,10 @@ mod tests {
             assert_eq!(tail.len(), 0);
             assert_eq!(update.structs.len(), clients);
             assert_eq!(
-                update
-                    .structs
-                    .iter()
-                    .map(|s| s.structs.len())
-                    .sum::<usize>(),
+                update.structs.iter().map(|s| s.1.len()).sum::<usize>(),
                 structs
             );
+            println!("{:?}", update);
         }
     }
 
@@ -76,11 +73,7 @@ mod tests {
                             "workspace: {}, global structs: {}, total structs: {}",
                             ws.workspace,
                             update.structs.len(),
-                            update
-                                .structs
-                                .iter()
-                                .map(|s| s.structs.len())
-                                .sum::<usize>()
+                            update.structs.iter().map(|s| s.1.len()).sum::<usize>()
                         );
                     }
                     Err(_e) => {

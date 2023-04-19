@@ -1,10 +1,22 @@
 use super::*;
 use nom::{multi::count, number::complete::be_u8};
+use std::collections::HashMap;
+
+enum RawStructInfo {
+    GC(u64),
+    Skip(u64),
+    Item(Item),
+}
+
+struct RawRefs {
+    client: u64,
+    refs: Vec<StructInfo>,
+}
 
 #[derive(Debug)]
 pub enum StructInfo {
-    GC(u64),
-    Skip(u64),
+    GC { client: u64, clock: u64, len: u64 },
+    Skip { client: u64, clock: u64, len: u64 },
     Item(Item),
 }
 
@@ -21,58 +33,65 @@ pub struct DeleteSets {
 }
 
 #[derive(Debug)]
-pub struct Structs {
-    pub client: u64,
-    pub clock: u64,
-    pub structs: Vec<StructInfo>,
-}
-
-#[derive(Debug)]
 pub struct Update {
     pub delete_sets: Vec<DeleteSets>,
-    pub structs: Vec<Structs>,
+    pub structs: HashMap<u64, Vec<StructInfo>>,
 }
 
-fn parse_struct(input: &[u8]) -> IResult<&[u8], StructInfo> {
+fn read_struct(input: &[u8]) -> IResult<&[u8], RawStructInfo> {
     let (input, info) = be_u8(input)?;
     let first_5_bit = info & 0b11111;
 
     match first_5_bit {
         0 => {
             let (input, len) = read_var_u64(input)?;
-            Ok((input, StructInfo::GC(len)))
+            Ok((input, RawStructInfo::GC(len)))
         }
         10 => {
             let (input, len) = read_var_u64(input)?;
-            Ok((input, StructInfo::Skip(len)))
+            Ok((input, RawStructInfo::Skip(len)))
         }
         _ => {
             let (input, item) = read_item(input, info, first_5_bit)?;
-            Ok((input, StructInfo::Item(item)))
+            Ok((input, RawStructInfo::Item(item)))
         }
     }
 }
 
-fn parse_structs(input: &[u8]) -> IResult<&[u8], Structs> {
+fn read_refs(input: &[u8]) -> IResult<&[u8], RawRefs> {
     let (input, num_of_structs) = read_var_u64(input)?;
     let (input, client) = read_var_u64(input)?;
     let (input, clock) = read_var_u64(input)?;
-    let (input, structs) = count(parse_struct, num_of_structs as usize)(input)?;
-    Ok((
-        input,
-        Structs {
-            client,
-            clock,
-            structs,
-        },
-    ))
+    let (input, structs) = count(read_struct, num_of_structs as usize)(input)?;
+    let (refs, _) = structs
+        .into_iter()
+        .fold((vec![], clock), |(mut vec, clock), s| match s {
+            RawStructInfo::GC(len) => {
+                vec.push(StructInfo::GC { client, clock, len });
+                (vec, clock + len)
+            }
+            RawStructInfo::Skip(len) => {
+                vec.push(StructInfo::Skip { client, clock, len });
+                (vec, clock + len)
+            }
+            RawStructInfo::Item(item) => {
+                let len = item.content.clock_len();
+                vec.push(StructInfo::Item(item));
+                (vec, clock + len)
+            }
+        });
+
+    Ok((input, RawRefs { client, refs }))
 }
 
-fn read_client_struct_refs(input: &[u8]) -> IResult<&[u8], Vec<Structs>> {
+fn read_client_struct_refs(input: &[u8]) -> IResult<&[u8], HashMap<u64, Vec<StructInfo>>> {
     let (input, num_of_updates) = read_var_u64(input)?;
-    let (tail, updates) = count(parse_structs, num_of_updates as usize)(input)?;
+    let (tail, updates) = count(read_refs, num_of_updates as usize)(input)?;
 
-    Ok((tail, updates))
+    Ok((
+        tail,
+        updates.into_iter().map(|u| (u.client, u.refs)).collect(),
+    ))
 }
 
 fn read_delete(input: &[u8]) -> IResult<&[u8], Delete> {
