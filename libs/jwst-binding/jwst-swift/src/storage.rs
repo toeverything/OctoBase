@@ -3,7 +3,7 @@ use jwst::{error, info, DocStorage, JwstError, JwstResult};
 use jwst_logger::init_logger_with;
 use jwst_rpc::{get_workspace, start_sync_thread, SyncState};
 use jwst_storage::JwstStorage as AutoStorage;
-use std::sync::Arc;
+use std::sync::{Arc};
 use tokio::{runtime::Runtime, sync::RwLock};
 
 #[derive(Clone)]
@@ -107,7 +107,8 @@ impl Storage {
 
     pub fn sync(&self, workspace_id: String, remote: String) -> JwstResult<Workspace> {
         if let Some(storage) = &self.storage {
-            let rt = Runtime::new().unwrap();
+            let rt = Arc::new(Runtime::new().unwrap());
+            let (sender, mut receiver) = tokio::sync::mpsc::channel::<()>(20);
 
             let (mut workspace, rx) = rt.block_on(async move {
                 let storage = storage.read().await;
@@ -115,25 +116,33 @@ impl Storage {
             });
 
             if !remote.is_empty() {
-                start_sync_thread(&workspace, remote, rx, Some(self.sync_state.clone()));
+                start_sync_thread(&workspace, remote, rx, Some(self.sync_state.clone()), rt.clone(), sender);
             }
 
             let workspace = {
                 let id = workspace.id();
+                {
+                    let storage = self.storage.clone();
+                    let id = id.clone();
+                    rt.spawn(async move {
+                        while let Some(_) = receiver.recv().await {
+                            let storage = storage.clone();
+                            storage.unwrap().write().await.full_migrate(id.clone(), None, true).await;
+                        }
+                    });
+                }
                 let storage = self.storage.clone();
-                futures::executor::block_on(workspace.observe(move |_, e| {
+                workspace.observe(move |_, e| {
                     let id = id.clone();
                     if let Some(storage) = storage.clone() {
-                        let rt = Runtime::new().unwrap();
                         info!("update: {:?}", &e.update);
-                        if let Err(e) = rt.block_on(async move {
+                        let update = e.update.clone();
+                        rt.spawn(async move {
                             let storage = storage.write().await;
-                            storage.docs().write_update(id, &e.update).await
-                        }) {
-                            error!("Failed to write update to storage: {:?}", e);
-                        }
+                            storage.docs().write_update(id, &update).await.unwrap();
+                        });
                     }
-                }));
+                });
 
                 workspace
             };
@@ -154,7 +163,7 @@ mod tests {
     #[ignore = "need manually start collaboration server"]
     fn collaboration_test() {
         let (workspace_id, block_id) = ("1", "1");
-        let workspace = get_workspace(workspace_id);
+        let workspace = get_workspace(workspace_id, None);
         let block = workspace.create(block_id.to_string(), "list".to_string());
         block.set_bool("bool_prop".to_string(), true);
         block.set_float("float_prop".to_string(), 1.0);
@@ -168,12 +177,12 @@ mod tests {
         assert_eq!(re.find_iter(resp.as_str()).count(), 3);
     }
 
-    fn get_workspace(workspace_id: &str) -> Workspace {
+    fn get_workspace(workspace_id: &str, offline: Option<()>) -> Workspace {
         let mut storage = Storage::new("memory".to_string());
         storage
             .connect(
                 workspace_id.to_string(),
-                format!("ws://localhost:3000/collaboration/{workspace_id}").to_string(),
+                if offline.is_some() {"".to_string()} else{ format!("ws://localhost:3000/collaboration/{workspace_id}").to_string() },
             )
             .unwrap()
     }

@@ -23,7 +23,7 @@ impl Workspace {
     }
 
     /// Subscribe to update events.
-    pub async fn observe(
+    pub fn observe(
         &mut self,
         f: impl Fn(&TransactionMut, &UpdateEvent) + Clone + 'static,
     ) -> Option<String> {
@@ -53,7 +53,7 @@ impl Workspace {
             Ok(sub) => match sub {
                 Ok(sub) => {
                     let id = nanoid!();
-                    self.sub.write().await.insert(id.clone(), sub);
+                    (unsafe { &mut *self.sub.get() }).insert(id.clone(), sub);
                     Some(id)
                 }
                 Err(e) => {

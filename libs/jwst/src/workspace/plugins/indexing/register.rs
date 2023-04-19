@@ -88,7 +88,7 @@ impl PluginRegister for IndexingPluginRegister {
         ));
 
         let queue_reindex_clone = queue_reindex.clone();
-        futures::executor::block_on(ws.observe(move |_txn, _e| {
+        ws.observe(move |_txn, _e| {
             // upd.update
             // let u = yrs::Update::decode_v1(&e.update).unwrap();
             // let _items = u
@@ -100,7 +100,7 @@ impl PluginRegister for IndexingPluginRegister {
             //     item.id;
             // }
             queue_reindex_clone.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        }));
+        });
 
         Ok(IndexingPluginImpl {
             schema,

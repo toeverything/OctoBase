@@ -9,6 +9,7 @@ use tokio::{
     net::TcpStream,
     sync::broadcast::{channel, Receiver},
 };
+use tokio::runtime::Runtime;
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
@@ -48,12 +49,14 @@ async fn join_sync_thread(
     workspace: &Workspace,
     socket: Socket,
     rx: &mut Receiver<Vec<u8>>,
+    sender: &Sender<()>,
 ) -> JwstRPCResult<bool> {
     let (mut socket_tx, mut socket_rx) = socket.split();
 
     let id = workspace.id();
     let mut workspace = workspace.clone();
     debug!("start sync thread {id}");
+    let mut should_run_full_migrate = true;
     let success = loop {
         tokio::select! {
             Some(msg) = socket_rx.next() => {
@@ -65,6 +68,10 @@ async fn join_sync_thread(
                             // skip empty updates
                             if msg == [0, 2, 2, 0, 0] {
                                 continue;
+                            }
+                            if should_run_full_migrate {
+                                sender.send(()).await.unwrap();
+                                should_run_full_migrate = false;
                             }
                             let buffer = workspace.sync_decode_message(&msg).await;
                             first_sync.store(true, Ordering::Release);
@@ -122,9 +129,10 @@ async fn run_sync(
     workspace: &Workspace,
     remote: String,
     rx: &mut Receiver<Vec<u8>>,
+    sender: &Sender<()>,
 ) -> JwstRPCResult<bool> {
     let socket = init_connection(workspace, &remote).await?;
-    join_sync_thread(first_sync, sync_state, workspace, socket, rx).await
+    join_sync_thread(first_sync, sync_state, workspace, socket, rx, sender).await
 }
 
 /// Responsible for
@@ -138,15 +146,14 @@ pub fn start_sync_thread(
     remote: String,
     mut rx: Receiver<Vec<u8>>,
     sync_state: Option<Arc<RwLock<SyncState>>>,
+    rt: Arc<Runtime>,
+    sender: Sender<()>,
 ) {
     debug!("spawn sync thread");
     let first_sync = Arc::new(AtomicBool::new(false));
     let first_sync_cloned = first_sync.clone();
     let workspace = workspace.clone();
     std::thread::spawn(move || {
-        let Ok(rt) = tokio::runtime::Runtime::new() else {
-            return error!("Failed to create runtime");
-        };
         rt.block_on(async move {
             if !workspace.is_empty() {
                 info!("Workspace not empty, starting async remote connection");
@@ -165,6 +172,7 @@ pub fn start_sync_thread(
                     &workspace,
                     remote.clone(),
                     &mut rx,
+                    &sender,
                 )
                 .await
                 {
@@ -188,7 +196,6 @@ pub fn start_sync_thread(
                         sleep(Duration::from_secs(3)).await;
                     }
                     Err(e) => {
-                        first_sync_cloned.store(true, Ordering::Release);
                         if let Some(state) = sync_state.clone() {
                             let mut state = state.write().await;
                             *state = SyncState::Error("Remote sync error".to_string());
@@ -231,6 +238,7 @@ pub async fn get_collaborating_workspace(
     storage: &JwstStorage,
     id: String,
     remote: String,
+    sender: Sender<()>,
 ) -> JwstStorageResult<Workspace> {
     let workspace = storage.docs().get(id.clone()).await?;
 
@@ -245,7 +253,7 @@ pub async fn get_collaborating_workspace(
             }
         };
 
-        start_sync_thread(&workspace, remote, rx, None);
+        start_sync_thread(&workspace, remote, rx, None, Arc::new(Runtime::new().unwrap()), sender);
     }
 
     Ok(workspace)
