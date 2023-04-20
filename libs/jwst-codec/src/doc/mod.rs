@@ -3,9 +3,11 @@ mod content;
 mod doc;
 mod id;
 mod item;
+mod refs;
 mod update;
 
 use super::*;
+use refs::{read_client_struct_refs, StructInfo};
 
 pub use any::{read_any, Any};
 pub use content::{read_content, Content};

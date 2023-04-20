@@ -8,6 +8,15 @@ pub use doc::{read_content, read_item, read_item_id, read_update, Content, Doc, 
 
 use nanoid::nanoid;
 use nom::IResult;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum JwstCodecError {
+    #[error("invalid struct clock, expect {expect}, actually {actually}")]
+    InvalidStructClock { expect: u64, actually: u64 },
+}
+
+pub type JwstCodecResult<T = ()> = Result<T, JwstCodecError>;
 
 pub fn parse_doc_update(input: &[u8]) -> IResult<&[u8], Update> {
     let (input, update) = read_update(input)?;
