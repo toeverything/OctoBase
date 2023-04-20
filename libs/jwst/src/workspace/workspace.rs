@@ -6,7 +6,7 @@ use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{collections::HashMap, sync::Arc};
 use std::collections::HashSet;
 use std::sync::atomic::Ordering::Acquire;
-use std::cell::UnsafeCell;
+use std::sync::Mutex;
 use tokio::sync::RwLock;
 use y_sync::awareness::{Awareness, Event, Subscription as AwarenessSubscription};
 use yrs::{
@@ -21,7 +21,7 @@ pub struct Workspace {
     pub(super) awareness: Arc<RwLock<Awareness>>,
     pub(super) doc: Doc,
     // TODO: Unreasonable subscription mechanism, needs refactoring
-    pub(super) sub: Arc<UnsafeCell<HashMap<String, UpdateSubscription>>>,
+    pub(super) sub: Arc<Mutex<HashMap<String, UpdateSubscription>>>,
     pub(super) awareness_sub: Arc<Option<AwarenessSubscription<Event>>>,
     pub(crate) updated: MapRef,
     pub(crate) metadata: MapRef,
@@ -65,7 +65,7 @@ impl Workspace {
         workspace_id: S,
         awareness: Arc<RwLock<Awareness>>,
         doc: Doc,
-        sub: Arc<UnsafeCell<HashMap<String, UpdateSubscription>>>,
+        sub: Arc<Mutex<HashMap<String, UpdateSubscription>>>,
         awareness_sub: Arc<Option<AwarenessSubscription<Event>>>,
         updated: MapRef,
         metadata: MapRef,

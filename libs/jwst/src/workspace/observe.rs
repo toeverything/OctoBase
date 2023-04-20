@@ -53,7 +53,14 @@ impl Workspace {
             Ok(sub) => match sub {
                 Ok(sub) => {
                     let id = nanoid!();
-                    (unsafe { &mut *self.sub.get() }).insert(id.clone(), sub);
+                    match self.sub.lock() {
+                        Ok(mut s) => {
+                            s.insert(id.clone(), sub);
+                        },
+                        Err(e) => {
+                            error!("failed to lock sub: {:?}", e);
+                        }
+                    }
                     Some(id)
                 }
                 Err(e) => {
