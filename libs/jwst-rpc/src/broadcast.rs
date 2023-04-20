@@ -82,8 +82,7 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
                 {
                     debug!("broadcast channel {workspace_id} has been closed",)
                 }
-            })
-            .await;
+            });
     };
     // let metadata = workspace.observe_metadata(move |_, _e| {
     //     // context
