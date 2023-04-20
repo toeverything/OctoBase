@@ -54,9 +54,9 @@ impl Workspace {
                 Ok(sub) => {
                     let id = nanoid!();
                     match self.sub.lock() {
-                        Ok(mut s) => {
-                            s.insert(id.clone(), sub);
-                        },
+                        Ok(mut guard) => {
+                            guard.insert(id.clone(), sub);
+                        }
                         Err(e) => {
                             error!("failed to lock sub: {:?}", e);
                         }
