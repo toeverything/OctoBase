@@ -4,8 +4,9 @@ mod doc;
 pub use codec::{
     read_var_buffer, read_var_i64, read_var_string, read_var_u64, write_var_i64, write_var_u64,
 };
-pub use doc::{read_content, read_item, read_item_id, read_update, Content, Id, Item, Update};
+pub use doc::{read_content, read_item, read_item_id, read_update, Content, Doc, Id, Item, Update};
 
+use nanoid::nanoid;
 use nom::IResult;
 
 pub fn parse_doc_update(input: &[u8]) -> IResult<&[u8], Update> {

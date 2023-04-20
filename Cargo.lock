@@ -2115,6 +2115,7 @@ dependencies = [
  "byteorder",
  "criterion",
  "lib0",
+ "nanoid",
  "nom",
  "rand 0.8.5",
  "serde",
