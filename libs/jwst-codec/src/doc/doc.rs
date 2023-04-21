@@ -5,7 +5,8 @@ use super::*;
 pub struct Doc {
     client_id: u64,
     guid: String,
-    share: HashMap<String, Item>,
+    // root_type: HashMap<String, Item>,
+    store: DocStore,
 }
 
 impl Doc {
@@ -13,7 +14,8 @@ impl Doc {
         Self {
             client_id: rand::random(),
             guid: nanoid!(),
-            share: HashMap::new(),
+            // share: HashMap::new(),
+            store: DocStore::new(),
         }
     }
 }
