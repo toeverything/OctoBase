@@ -1,17 +1,22 @@
+use std::io::{Error, Write};
 use super::*;
 use nom::combinator::map_res;
+use crate::codec::buffer::write_var_buffer;
 
 pub fn read_var_string(input: &[u8]) -> IResult<&[u8], String> {
     map_res(read_var_buffer, |s| String::from_utf8(s.to_vec()))(input)
 }
 
+pub fn write_var_string<W: Write>(buffer: &mut W, input: String) -> Result<(), Error> {
+    let bytes = input.as_bytes();
+    write_var_buffer(buffer, bytes)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nom::{
-        error::{Error, ErrorKind},
-        Err,
-    };
+    use nom::{error::{Error, ErrorKind}, Err, AsBytes};
 
     #[test]
     fn test_read_var_string() {
@@ -60,5 +65,21 @@ mod tests {
             result,
             Err(Err::Error(Error::new(&input[..], ErrorKind::MapRes)))
         );
+    }
+
+    #[test]
+    fn test_var_str_codec() {
+        test_var_str_enc_dec("".to_string());
+        test_var_str_enc_dec(" ".to_string());
+        test_var_str_enc_dec("abcde".to_string());
+        test_var_str_enc_dec("🃒🃓🃟☗🀥🀫∺∼≂≇⓵➎⓷➏‍".to_string());
+    }
+
+    fn test_var_str_enc_dec(input: String) {
+        let mut buf = Vec::<u8>::new();
+        write_var_string(&mut buf, input.clone()).unwrap();
+        let (rest, decoded_str) = read_var_string(buf.as_bytes()).unwrap();
+        assert_eq!(decoded_str, input);
+        assert_eq!(rest.len(), 0);
     }
 }
