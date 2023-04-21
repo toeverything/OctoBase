@@ -8,10 +8,11 @@ pub fn read_var_buffer(input: &[u8]) -> IResult<&[u8], &[u8]> {
     Ok((tail, val))
 }
 
-pub fn write_var_buffer<W: Write>(buffer: &mut W, data: &[u8]) -> Result<(), Error> {
+// TODO remove leading underscore after being used
+pub fn _write_var_buffer<W: Write>(buffer: &mut W, data: &[u8]) -> Result<(), Error> {
     write_var_u64(buffer, data.len() as u64)?;
     buffer.write_all(data)?;
-    return Ok(());
+    Ok(())
 }
 
 #[cfg(test)]
@@ -66,7 +67,7 @@ mod tests {
 
     fn test_var_buf_enc_dec(data: &[u8]) {
         let mut buf = Vec::<u8>::new();
-        write_var_buffer(&mut buf, data).unwrap();
+        _write_var_buffer(&mut buf, data).unwrap();
         let result = read_var_buffer(buf.as_bytes());
         assert_eq!(result, Ok((&[][..], &data[..])));
     }
