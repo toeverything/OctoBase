@@ -79,7 +79,7 @@ jobs:
 
             - name: Log in to the Container registry
               uses: docker/login-action@v2
-              if: github.ref == 'refs/heads/master'
+              if: github.ref == 'refs/heads/legacy/patch_merge_update'
               with:
                   registry: ${{ env.REGISTRY }}
                   username: ${{ github.actor }}
@@ -100,7 +100,7 @@ jobs:
 
             - name: Build Docker image (pull request)
               uses: docker/build-push-action@v3
-              if: github.ref != 'refs/heads/master'
+              if: github.ref != 'refs/heads/legacy/patch_merge_update'
               with:
                   context: .
                   file: ./.github/deployment/Dockerfile-cloud
@@ -112,7 +112,7 @@ jobs:
 
             - name: Build and push Docker image (cloud)
               uses: docker/build-push-action@v3
-              if: github.ref == 'refs/heads/master'
+              if: github.ref == 'refs/heads/legacy/patch_merge_update'
               with:
                   context: .
                   file: ./.github/deployment/Dockerfile-cloud
