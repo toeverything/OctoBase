@@ -1,12 +1,12 @@
-use std::collections::hash_map::Entry;
 use crate::Workspace;
 use android_logger::Config;
 use jwst::{error, info, DocStorage, JwstError, JwstResult, LevelFilter};
-use jwst_rpc::start_client;
+use jwst_rpc::get_collaborating_workspace;
 use jwst_storage::JwstStorage as AutoStorage;
+use std::collections::hash_map::Entry;
 use std::sync::Arc;
-use tokio::{runtime::Runtime, sync::RwLock};
 use tokio::sync::broadcast::channel;
+use tokio::{runtime::Runtime, sync::RwLock};
 
 #[derive(Clone)]
 pub struct JwstStorage {
@@ -57,11 +57,17 @@ impl JwstStorage {
 
             let mut workspace = rt.block_on(async move {
                 let storage = storage.read().await;
-                if let Entry::Vacant(entry) = storage.docs().remote().write().await.entry(workspace_id.clone()) {
+                if let Entry::Vacant(entry) = storage
+                    .docs()
+                    .remote()
+                    .write()
+                    .await
+                    .entry(workspace_id.clone())
+                {
                     let (tx, _rx) = channel(100);
                     entry.insert(tx);
                 }
-                start_client(&storage, workspace_id, remote).await
+                get_collaborating_workspace(&storage, workspace_id, remote).await
             })?;
 
             let (sub, workspace) = {

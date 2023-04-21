@@ -126,7 +126,7 @@ async fn run_sync(
     join_sync_thread(first_sync, workspace, socket, rx).await
 }
 
-fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec<u8>>) {
+pub fn start_sync_thread(workspace: &Workspace, remote: String, mut rx: Receiver<Vec<u8>>) {
     debug!("spawn sync thread");
     let first_sync = Arc::new(AtomicBool::new(false));
     let first_sync_cloned = first_sync.clone();
