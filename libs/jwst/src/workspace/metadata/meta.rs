@@ -34,9 +34,9 @@ impl From<WorkspaceMetadata> for Any {
         if let Some(name) = val.name {
             map.insert(constants::metadata::NAME.to_owned(), name.into());
         }
-        // if let Some(avatar) = val.avatar {
-        //     map.insert(constants::metadata::AVATAR, avatar.into());
-        // }
+        if let Some(avatar) = val.avatar {
+            map.insert(constants::metadata::AVATAR.to_owned(), avatar.into());
+        }
         map.insert(
             constants::metadata::SEARCH_INDEX.to_owned(),
             val.search_index.into(),
@@ -76,11 +76,15 @@ mod tests {
             t.set_metadata(constants::metadata::NAME, "test_name")
                 .unwrap();
         });
+        ws.with_trx(|mut t| {
+            t.set_metadata(constants::metadata::AVATAR, "test_avatar")
+                .unwrap();
+        });
         assert_eq!(
             ws.metadata(),
             WorkspaceMetadata {
                 name: Some("test_name".to_string()),
-                avatar: None,
+                avatar: Some("test_avatar".to_string()),
                 search_index: vec!["test1".to_string(), "test2".to_string()],
             }
         );

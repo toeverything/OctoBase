@@ -4,7 +4,7 @@ use super::*;
 use chrono::prelude::*;
 use cloud_database::Claims;
 use handlebars::{Handlebars, RenderError};
-use jwst::{warn, WorkspaceMetadata};
+use jwst::{warn, Base64Engine, WorkspaceMetadata, STANDARD_ENGINE};
 use lettre::{
     error::Error as MailConfigError,
     message::{Mailbox, MultiPart, SinglePart},
@@ -40,9 +40,9 @@ struct MailContent {
     site_url: String,
     avatar_url: String,
     workspace_name: String,
-    // workspace_avatar: String,
     invite_code: String,
     current_year: i32,
+    workspace_avatar: String,
 }
 
 pub struct MailContext {
@@ -107,21 +107,74 @@ impl MailContext {
         site_url: String,
         claims: &Claims,
         invite_code: &str,
+        workspace_avatar: Vec<u8>,
     ) -> Result<(String, MultiPart), RenderError> {
-        // let mut file = ctx
-        //     .storage
-        //     .blobs()
-        //     .get_blob(Some(workspace_id.clone()), metadata.avatar.clone().unwrap())
-        //     .await
-        //     .ok()?;
+        let base64_data = STANDARD_ENGINE.encode(workspace_avatar);
+        let workspace_avatar_url = format!("data:image/jpeg;base64,{}", base64_data);
+        fn string_to_color(s: &str) -> String {
+            let input = if s.is_empty() { "affine" } else { s };
+            let mut hash: u64 = 0;
 
-        // let mut file_content = Vec::new();
-        // while let Some(chunk) = file.next().await {
-        //     file_content.extend(chunk.ok()?);
-        // }
+            for char in input.chars() {
+                hash = char as u64 + ((hash.wrapping_shl(5)).wrapping_sub(hash));
+            }
 
-        // let workspace_avatar = lettre::message::Body::new(file_content);
+            let mut color = String::from("#");
+            for i in 0..3 {
+                let value = (hash >> (i * 8)) & 0xff;
+                color.push_str(&format!("{:02x}", value));
+            }
 
+            color
+        }
+        let workspace_avatar = if base64_data.is_empty() {
+            format!(
+                " <div
+                style=\"
+                  margin-left: 6px;
+                  width: 28px;
+                  height: 28px;
+                  border-radius: 50%;
+                  vertical-align: middle;
+                  color: rgb(255, 255, 255);
+                  background-color: {};
+                  margin-left: 12px;
+                  margin-right: 12px;
+                  box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
+                    -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
+                    4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);
+                \"
+              >{}</div>",
+                string_to_color(&metadata.name.clone().unwrap_or_default()),
+                metadata
+                    .name
+                    .clone()
+                    .unwrap_or_default()
+                    .chars()
+                    .next()
+                    .unwrap_or_default()
+            )
+        } else {
+            format!(
+                " <img
+                style=\"
+                  margin-left: 6px;
+                  width: 28px;
+                  height: 28px;
+                  border-radius: 50%;
+                  vertical-align: middle;
+                  margin-left: 12px;
+                  margin-right: 12px;
+                  box-shadow: 2.8px 2.8px 4.9px rgba(58, 76, 92, 0.04),
+                    -2.8px -2.8px 9.1px rgba(58, 76, 92, 0.02),
+                    4.2px 4.2px 25.2px rgba(58, 76, 92, 0.06);
+                \"
+                src=\"{}\"
+                alt=\"\"
+              />",
+                workspace_avatar_url
+            )
+        };
         let title = self.template.render(
             "MAIL_INVITE_TITLE",
             &MailTitle {
@@ -139,7 +192,7 @@ impl MailContext {
                 workspace_name: metadata.name.unwrap_or_default(),
                 invite_code: invite_code.to_string(),
                 current_year: Utc::now().year(),
-                // workspace_avatar: workspace_avatar.encoding().to_string(),
+                workspace_avatar,
             },
         )?;
 
@@ -158,9 +211,10 @@ impl MailContext {
         site_url: String,
         claims: &Claims,
         invite_code: &str,
+        workspace_avatar: Vec<u8>,
     ) -> Result<Message, MailError> {
         let (title, msg_body) = self
-            .make_invite_email_content(metadata, site_url, claims, invite_code)
+            .make_invite_email_content(metadata, site_url, claims, invite_code, workspace_avatar)
             .await?;
 
         Ok(Message::builder()
@@ -177,10 +231,18 @@ impl MailContext {
         site_url: String,
         claims: &Claims,
         invite_code: &str,
+        workspace_avatar: Vec<u8>,
     ) -> Result<(), MailError> {
         if let Some(client) = &self.client {
             let email = self
-                .make_invite_email(send_to, metadata, site_url, claims, invite_code)
+                .make_invite_email(
+                    send_to,
+                    metadata,
+                    site_url,
+                    claims,
+                    invite_code,
+                    workspace_avatar,
+                )
                 .await?;
 
             let mut retry = 3;

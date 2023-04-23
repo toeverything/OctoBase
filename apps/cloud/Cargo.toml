@@ -17,6 +17,7 @@ futures-util = "0.3.27"
 http-body = "0.4.5"
 jsonwebtoken = "8.2.0"
 lettre = { version = "0.10.3", default-features = false }
+image =  "0.24.5" 
 lib0 = "0.16.5"
 mime = "0.3.16"
 mimalloc = "0.1.34"
