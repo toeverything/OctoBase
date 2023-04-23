@@ -13,7 +13,11 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum JwstCodecError {
     #[error("invalid struct clock, expect {expect}, actually {actually}")]
-    InvalidStructClock { expect: u64, actually: u64 },
+    StructClockInvalid { expect: u64, actually: u64 },
+    #[error("cannot find struct {clock} in {client_id}")]
+    StructSequenceInvalid { client_id: u64, clock: u64 },
+    #[error("struct {0} not exists")]
+    StructSequenceNotExists(u64),
 }
 
 pub type JwstCodecResult<T = ()> = Result<T, JwstCodecError>;

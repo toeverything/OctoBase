@@ -44,6 +44,27 @@ impl StructInfo {
             StructInfo::Item { item, .. } => item.content.clock_len(),
         }
     }
+
+    pub fn is_gc(&self) -> bool {
+        match self {
+            StructInfo::GC { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_skip(&self) -> bool {
+        match self {
+            StructInfo::Skip { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_item(&self) -> bool {
+        match self {
+            StructInfo::Item { .. } => true,
+            _ => false,
+        }
+    }
 }
 
 fn read_struct(input: &[u8]) -> IResult<&[u8], RawStructInfo> {
