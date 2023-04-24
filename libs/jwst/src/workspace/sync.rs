@@ -90,7 +90,6 @@ impl Workspace {
             }
         }
         if !content_msg.is_empty() {
-            self.try_subscribe_all_blocks();
             let doc = self.doc();
             if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
                 let mut retry = 30;
@@ -153,6 +152,7 @@ impl Workspace {
             })) {
                 warn!("failed to apply update: {:?}", e);
             }
+            self.try_subscribe_all_blocks();
         }
 
         result
