@@ -141,6 +141,7 @@ impl Clone for Workspace {
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashSet;
     use super::{super::super::Block, *};
     use std::thread::sleep;
     use std::time::Duration;
