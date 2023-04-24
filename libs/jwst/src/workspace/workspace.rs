@@ -46,7 +46,7 @@ impl Workspace {
         let updated = doc.get_or_insert_map("space:updated");
         let metadata = doc.get_or_insert_map("space:meta");
 
-        let mut workspace = setup_plugin(Self {
+        setup_plugin(Self {
             workspace_id: workspace_id.as_ref().to_string(),
             awareness: Arc::new(RwLock::new(Awareness::new(doc.clone()))),
             doc,
@@ -56,9 +56,7 @@ impl Workspace {
             metadata,
             plugins: Default::default(),
             block_observer_config: Some(Arc::new(BlockObserverConfig::new())),
-        });
-        workspace.try_subscribe_all_blocks();
-        workspace
+        })
     }
 
     fn from_raw<S: AsRef<str>>(
@@ -71,7 +69,7 @@ impl Workspace {
         metadata: MapRef,
         plugins: PluginMap,
     ) -> Workspace {
-        let mut workspace = Self {
+        Self {
             workspace_id: workspace_id.as_ref().to_string(),
             awareness,
             doc,
@@ -81,9 +79,7 @@ impl Workspace {
             metadata,
             plugins,
             block_observer_config: Some(Arc::new(BlockObserverConfig::new())),
-        };
-        workspace.try_subscribe_all_blocks();
-        workspace
+        }
     }
 
     pub fn is_empty(&self) -> bool {
