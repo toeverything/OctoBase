@@ -90,6 +90,7 @@ impl Workspace {
             }
         }
         if !content_msg.is_empty() {
+            self.try_subscribe_all_blocks();
             let doc = self.doc();
             if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
                 let mut retry = 30;
@@ -155,5 +156,20 @@ impl Workspace {
         }
 
         result
+    }
+
+    fn try_subscribe_all_blocks(&mut self) {
+        if let Some(block_observer_config) = self.block_observer_config.clone() {
+            if let Err(e) = self.retry_with_trx(|mut t| {
+                t.get_blocks().blocks(&t.trx, |blocks| {
+                    blocks.for_each(|mut block| {
+                        let block_observer_config = block_observer_config.clone();
+                        block.subscribe(block_observer_config);
+                    })
+                });
+            }, 10) {
+                error!("subscribe synchronized block callback failed: {}", e);
+            }
+        }
     }
 }
