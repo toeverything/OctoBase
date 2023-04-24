@@ -13,6 +13,10 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum JwstCodecError {
+    #[error("invalid update")]
+    UpdateInvalid(#[from] nom::Err<nom::error::Error<usize>>),
+    #[error("update not fully consumed: {0}")]
+    UpdateNotFullyConsumed(usize),
     #[error("invalid struct clock, expect {expect}, actually {actually}")]
     StructClockInvalid { expect: u64, actually: u64 },
     #[error("cannot find struct {clock} in {client_id}")]
