@@ -158,8 +158,9 @@ impl Workspace {
         result
     }
 
-    fn try_subscribe_all_blocks(&mut self) {
+    pub fn try_subscribe_all_blocks(&mut self) {
         if let Some(block_observer_config) = self.block_observer_config.clone() {
+            // costing approximately 1ms per 500 blocks
             if let Err(e) = self.retry_with_trx(|mut t| {
                 t.get_blocks().blocks(&t.trx, |blocks| {
                     blocks.for_each(|mut block| {
