@@ -12,17 +12,45 @@ impl DocStore {
         }
     }
 
+    pub fn get_state(&self, client: u64) -> u64 {
+        if let Some(structs) = self.items.get(&client) {
+            if let Some(last_struct) = structs.last() {
+                last_struct.clock() + last_struct.len()
+            } else {
+                warn!("client {} has no struct info", client);
+                0
+            }
+        } else {
+            0
+        }
+    }
+
+    pub fn get_state_vector(&self) -> HashMap<u64, u64> {
+        let mut sm = HashMap::new();
+        for (client, structs) in self.items.iter() {
+            if let Some(last_struct) = structs.last() {
+                sm.insert(*client, last_struct.clock() + last_struct.len());
+            } else {
+                warn!("client {} has no struct info", client);
+            }
+        }
+        sm
+    }
+
     pub fn add_item(&mut self, item: StructInfo) -> JwstCodecResult {
         let client_id = item.client_id();
 
         match self.items.entry(client_id) {
             Entry::Occupied(mut entry) => {
                 let structs = entry.get_mut();
-                let last_struct = structs.last_mut().unwrap();
-                let expect = last_struct.clock() + last_struct.len();
-                let actually = item.clock();
-                if expect != actually {
-                    return Err(JwstCodecError::StructClockInvalid { expect, actually });
+                if let Some(last_struct) = structs.last() {
+                    let expect = last_struct.clock() + last_struct.len();
+                    let actually = item.clock();
+                    if expect != actually {
+                        return Err(JwstCodecError::StructClockInvalid { expect, actually });
+                    }
+                } else {
+                    warn!("client {} has no struct info", client_id);
                 }
                 structs.push(item);
             }
@@ -104,5 +132,22 @@ impl DocStore {
         } else {
             Err(JwstCodecError::StructSequenceNotExists(client_id))
         }
+    }
+
+    pub fn self_check(&self) -> JwstCodecResult {
+        for structs in self.items.values() {
+            for i in 1..structs.len() {
+                let l = &structs[i - 1];
+                let r = &structs[i];
+                if l.clock() + l.len() != r.clock() {
+                    return Err(JwstCodecError::StructSequenceInvalid {
+                        client_id: l.client_id(),
+                        clock: l.clock(),
+                    });
+                }
+            }
+        }
+
+        Ok(())
     }
 }

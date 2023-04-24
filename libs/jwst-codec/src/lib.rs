@@ -6,6 +6,7 @@ pub use codec::{
 };
 pub use doc::{read_content, read_item, read_item_id, read_update, Content, Doc, Id, Item, Update};
 
+use jwst_logger::warn;
 use nanoid::nanoid;
 use nom::IResult;
 use thiserror::Error;

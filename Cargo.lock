@@ -2114,6 +2114,7 @@ dependencies = [
  "bitvec",
  "byteorder",
  "criterion",
+ "jwst-logger",
  "lib0",
  "nanoid",
  "nom",
