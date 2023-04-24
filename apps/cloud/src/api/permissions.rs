@@ -9,11 +9,12 @@ use axum::{
     Extension, Json,
 };
 use cloud_database::{Claims, CreatePermission, PermissionType, UserCred};
-use jwst::error;
+use image::ImageOutputFormat;
+use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
 use lettre::message::Mailbox;
+use std::io::Cursor;
 use std::sync::Arc;
-
 /// Get workspace's `Members`
 /// - Return 200 ok and `Members`.
 /// - Return 400 if request parameter error.
@@ -173,13 +174,55 @@ pub async fn invite_member(
             }
         };
 
+        let workspace_avatar_data = match metadata.avatar.clone() {
+            Some(avatar) => match ctx
+                .storage
+                .blobs()
+                .get_blob(Some(workspace_id.clone()), avatar.clone(), None)
+                .await
+            {
+                Ok(avatar) => {
+                    info!("avatar: Done");
+                    avatar
+                }
+                Err(e) => {
+                    error!("Failed to get workspace avatar: {}", e);
+                    Vec::new()
+                }
+            },
+            None => {
+                info!("avatar: None");
+                Vec::new()
+            }
+        };
+
+        fn convert_to_jpeg(data: &[u8]) -> Result<Vec<u8>, image::ImageError> {
+            let image = image::load_from_memory(data)?;
+            let mut buffer = Cursor::new(Vec::new());
+            image.write_to(&mut buffer, ImageOutputFormat::Jpeg(80))?;
+            Ok(buffer.into_inner())
+        }
+        let workspace_avatar_data = match convert_to_jpeg(&workspace_avatar_data) {
+            Ok(data) => data,
+            Err(e) => {
+                error!("Failed to convert avatar to jpeg: {}", e);
+                Vec::new()
+            }
+        };
         let Ok(invite_code) = ctx.key.encrypt_aes_base64(permission_id.as_bytes()) else {
             return ErrorStatus::InternalServerError.into_response();
         };
         if !is_test_email {
             if let Err(e) = ctx
                 .mail
-                .send_invite_email(send_to, metadata, site_url, &claims, &invite_code)
+                .send_invite_email(
+                    send_to,
+                    metadata,
+                    site_url,
+                    &claims,
+                    &invite_code,
+                    workspace_avatar_data,
+                )
                 .await
             {
                 if let Err(e) = ctx.db.delete_permission(permission_id).await {

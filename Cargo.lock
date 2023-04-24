@@ -74,6 +74,7 @@ dependencies = [
  "futures",
  "futures-util",
  "http-body",
+ "image",
  "jsonwebtoken",
  "jwst",
  "jwst-logger",
@@ -2115,6 +2116,7 @@ dependencies = [
  "criterion",
  "lib0",
  "nom",
+ "rand 0.8.5",
  "serde",
  "serde_json",
 ]
