@@ -128,7 +128,11 @@ impl Space {
         T: ReadTxn,
         S: AsRef<str>,
     {
-        Block::from(trx, self, block_id, self.client_id())
+        let mut block = Block::from(trx, self, block_id, self.client_id())?;
+        if let Some(block_observer_config) = self.block_observer_config.clone() {
+            block.subscribe(block_observer_config);
+        }
+        Some(block)
     }
 
     pub fn block_count(&self) -> u32 {

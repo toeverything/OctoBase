@@ -161,13 +161,20 @@ impl Block {
         let block_id = self.block_id.clone();
         let tx = block_observer_config.tx.clone();
         let handle = block_observer_config.handle.clone();
-        let sub = self.block.observe_deep(move |_trx, _e| {
-            if handle.lock().unwrap().is_some() {
-                tx.send(block_id.clone())
-                    .expect("send block observe message error");
-            }
-        });
-        *self.sub.write().unwrap() = Some(sub);
+        let observed_blocks = block_observer_config.observed_blocks.clone();
+        let read_guard = observed_blocks.read().unwrap();
+        if !read_guard.contains(self.block_id.as_str()) {
+            debug!("subscribe block: {}", self.block_id);
+            let sub = self.block.observe_deep(move |_trx, _e| {
+                if handle.lock().unwrap().is_some() {
+                    tx.send(block_id.clone())
+                        .expect("send block observe message error");
+                }
+            });
+            drop(read_guard);
+            observed_blocks.write().unwrap().insert(self.block_id.clone());
+            *self.sub.write().unwrap() = Some(sub);
+        }
     }
 
     #[allow(clippy::too_many_arguments)]

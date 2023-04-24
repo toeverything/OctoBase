@@ -4,8 +4,6 @@ use super::{
 };
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::{collections::HashMap, sync::Arc};
-use std::collections::HashSet;
-use std::sync::atomic::Ordering::Acquire;
 use std::sync::Mutex;
 use tokio::sync::RwLock;
 use y_sync::awareness::{Awareness, Event, Subscription as AwarenessSubscription};
@@ -101,31 +99,6 @@ impl Workspace {
     pub fn doc(&self) -> Doc {
         self.doc.clone()
     }
-
-    pub fn set_callback(&self, cb: Box<dyn Fn(Vec<String>) + Send + Sync>) -> bool {
-        if let Some(block_observer_config) = self.block_observer_config.clone() {
-            block_observer_config.set_callback(cb);
-            return true;
-        }
-        false
-    }
-
-    pub fn set_tracking_block_changes(&self, if_tracking: bool) {
-        if let Some(block_observer_config) = self.block_observer_config.clone() {
-            block_observer_config.set_tracking_block_changes(if_tracking);
-        }
-    }
-
-    pub fn retrieve_modified_blocks(&self) -> Option<HashSet<String>> {
-        self.block_observer_config
-            .clone()
-            .and_then(|block_observer_config| {
-                block_observer_config
-                    .is_manually_tracking_block_changes
-                    .load(Acquire)
-                    .then(|| block_observer_config.retrieve_modified_blocks())
-            })
-    }
 }
 
 impl Serialize for Workspace {
@@ -164,6 +137,7 @@ impl Clone for Workspace {
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashSet;
     use super::{super::super::Block, *};
     use std::thread::sleep;
     use std::time::Duration;
