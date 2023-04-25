@@ -13,7 +13,7 @@ use yrs::{
         DeepEventsSubscription, ToJson, Value,
     },
     Array, ArrayPrelim, ArrayRef, DeepObservable, Doc, Map, MapPrelim, MapRef, ReadTxn, Text,
-    TextPrelim, TextRef, Transact, Transaction, TransactionMut,
+    TextPrelim, TextRef, Transact, TransactionMut,
 };
 
 #[derive(Clone)]
@@ -516,7 +516,7 @@ impl Serialize for Block {
         S: Serializer,
     {
         let trx = self.doc.transact_mut();
-        let value = serialize_block(&self, &trx);
+        let value = serialize_block(self, &trx);
         value.serialize(serializer)
     }
 }
@@ -540,7 +540,6 @@ fn serialize_block(block: &Block, trx: &TransactionMut) -> JsonValue {
         .children
         .iter(trx)
         .map(|v| v.to_string(trx))
-        .into_iter()
         .for_each(|child_id| {
             children.push(serialize_block(&_space.get(trx, child_id).unwrap(), trx));
         });
