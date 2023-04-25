@@ -13,7 +13,7 @@ use yrs::{
         DeepEventsSubscription, ToJson, Value,
     },
     Array, ArrayPrelim, ArrayRef, DeepObservable, Doc, Map, MapPrelim, MapRef, ReadTxn, Text,
-    TextPrelim, TextRef, Transact, TransactionMut,
+    TextPrelim, TextRef, Transact, Transaction, TransactionMut,
 };
 
 #[derive(Clone)]
@@ -172,7 +172,10 @@ impl Block {
                 }
             });
             drop(read_guard);
-            observed_blocks.write().unwrap().insert(self.block_id.clone());
+            observed_blocks
+                .write()
+                .unwrap()
+                .insert(self.block_id.clone());
             *self.sub.write().unwrap() = Some(sub);
         }
     }
@@ -512,21 +515,39 @@ impl Serialize for Block {
     where
         S: Serializer,
     {
-        let trx = self.doc.transact();
-        let any = self.block.to_json(&trx);
-
-        let mut buffer = String::new();
-        any.to_json(&mut buffer);
-        let any: JsonValue = serde_json::from_str(&buffer).unwrap();
-
-        let mut block = any.as_object().unwrap().clone();
-        block.insert(
-            constants::sys::ID.to_string(),
-            JsonValue::String(self.block_id.clone()),
-        );
-
-        JsonValue::Object(block).serialize(serializer)
+        let trx = self.doc.transact_mut();
+        let value = serialize_block(&self, &trx);
+        value.serialize(serializer)
     }
+}
+
+fn serialize_block(block: &Block, trx: &TransactionMut) -> JsonValue {
+    let any = block.block.to_json(trx);
+    let mut buffer = String::new();
+    any.to_json(&mut buffer);
+    let any: JsonValue = serde_json::from_str(&buffer).unwrap();
+
+    let mut json_output = any.as_object().unwrap().clone();
+    json_output.insert(
+        constants::sys::ID.to_string(),
+        JsonValue::String(block.block_id.clone()),
+    );
+
+    let mut children: Vec<JsonValue> = vec![];
+    let _space =
+        Space::from_exists(trx, block.doc.clone(), "", block.space_id.clone(), None).unwrap();
+    block
+        .children
+        .iter(trx)
+        .map(|v| v.to_string(trx))
+        .into_iter()
+        .for_each(|child_id| {
+            children.push(serialize_block(&_space.get(trx, child_id).unwrap(), trx));
+        });
+
+    json_output.insert(sys::CHILDREN.to_string(), JsonValue::Array(children));
+
+    JsonValue::Object(json_output)
 }
 
 #[cfg(test)]
