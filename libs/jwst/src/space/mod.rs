@@ -199,6 +199,12 @@ impl Space {
         self.blocks(trx, |blocks| {
             blocks
                 .filter(|block| block.flavour(trx) == flavour)
+                .map(|mut block| {
+                    if let Some(block_observer_config) = self.block_observer_config.clone() {
+                        block.subscribe(block_observer_config);
+                    }
+                    block
+                })
                 .collect::<Vec<_>>()
         })
     }
