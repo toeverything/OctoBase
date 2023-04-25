@@ -7,14 +7,10 @@ use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, RwLock};
-use yrs::{
-    types::{
-        text::{Diff, YChange},
-        DeepEventsSubscription, ToJson, Value,
-    },
-    Array, ArrayPrelim, ArrayRef, DeepObservable, Doc, Map, MapPrelim, MapRef, ReadTxn, Text,
-    TextPrelim, TextRef, Transact, TransactionMut,
-};
+use yrs::{types::{
+    text::{Diff, YChange},
+    DeepEventsSubscription, ToJson, Value,
+}, Array, ArrayPrelim, ArrayRef, DeepObservable, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, TextRef, Transact, TransactionMut, Transaction};
 
 #[derive(Clone)]
 pub struct Block {
@@ -515,13 +511,13 @@ impl Serialize for Block {
     where
         S: Serializer,
     {
-        let trx = self.doc.transact_mut();
+        let trx = self.doc.transact();
         let value = serialize_block(self, &trx);
         value.serialize(serializer)
     }
 }
 
-fn serialize_block(block: &Block, trx: &TransactionMut) -> JsonValue {
+fn serialize_block(block: &Block, trx: &Transaction) -> JsonValue {
     let any = block.block.to_json(trx);
     let mut buffer = String::new();
     any.to_json(&mut buffer);

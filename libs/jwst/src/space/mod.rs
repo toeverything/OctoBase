@@ -54,8 +54,8 @@ impl Space {
         }
     }
 
-    pub fn from_exists<I, S>(
-        trx: &TransactionMut,
+    pub fn from_exists<I, S, T>(
+        trx: &T,
         doc: Doc,
         workspace_id: I,
         space_id: S,
@@ -64,6 +64,7 @@ impl Space {
     where
         I: AsRef<str>,
         S: AsRef<str>,
+        T: ReadTxn,
     {
         let space_id = space_id.as_ref().into();
         let blocks = trx.get_map(&format!("space:{}", space_id))?;
