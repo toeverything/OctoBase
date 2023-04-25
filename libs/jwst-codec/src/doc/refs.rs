@@ -13,28 +13,28 @@ struct RawRefs {
     refs: Vec<StructInfo>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum StructInfo {
-    GC { client: u64, clock: u64, len: u64 },
-    Skip { client: u64, clock: u64, len: u64 },
-    Item { client: u64, clock: u64, item: Item },
+    GC { id: Id, len: u64 },
+    Skip { id: Id, len: u64 },
+    Item { id: Id, item: Item },
 }
 
 impl StructInfo {
-    pub fn client_id(&self) -> u64 {
+    fn id(&self) -> &Id {
         match self {
-            StructInfo::GC { client, .. } => *client,
-            StructInfo::Skip { client, .. } => *client,
-            StructInfo::Item { client, .. } => *client,
+            StructInfo::GC { id, .. } => id,
+            StructInfo::Skip { id, .. } => id,
+            StructInfo::Item { id, .. } => id,
         }
     }
 
+    pub fn client_id(&self) -> u64 {
+        self.id().client
+    }
+
     pub fn clock(&self) -> u64 {
-        match self {
-            StructInfo::GC { clock, .. } => *clock,
-            StructInfo::Skip { clock, .. } => *clock,
-            StructInfo::Item { clock, .. } => *clock,
-        }
+        self.id().clock
     }
 
     pub fn len(&self) -> u64 {
@@ -94,23 +94,22 @@ fn read_refs(input: &[u8]) -> IResult<&[u8], RawRefs> {
     let (input, structs) = count(read_struct, num_of_structs as usize)(input)?;
     let (refs, _) = structs
         .into_iter()
-        .fold((vec![], clock), |(mut vec, clock), s| match s {
-            RawStructInfo::GC(len) => {
-                vec.push(StructInfo::GC { client, clock, len });
-                (vec, clock + len)
-            }
-            RawStructInfo::Skip(len) => {
-                vec.push(StructInfo::Skip { client, clock, len });
-                (vec, clock + len)
-            }
-            RawStructInfo::Item(item) => {
-                let len = item.content.clock_len();
-                vec.push(StructInfo::Item {
-                    client,
-                    clock,
-                    item,
-                });
-                (vec, clock + len)
+        .fold((vec![], clock), |(mut vec, clock), s| {
+            let id = Id::new(client, clock);
+            match s {
+                RawStructInfo::GC(len) => {
+                    vec.push(StructInfo::GC { id, len });
+                    (vec, clock + len)
+                }
+                RawStructInfo::Skip(len) => {
+                    vec.push(StructInfo::Skip { id, len });
+                    (vec, clock + len)
+                }
+                RawStructInfo::Item(item) => {
+                    let len = item.content.clock_len();
+                    vec.push(StructInfo::Item { id, item });
+                    (vec, clock + len)
+                }
             }
         });
 

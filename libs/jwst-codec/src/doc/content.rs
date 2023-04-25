@@ -6,7 +6,7 @@ use nom::{
 };
 use serde_json::Value as JsonValue;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum YType {
     Array,
     Map,
@@ -17,7 +17,7 @@ pub enum YType {
     XmlHook(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Content {
     Deleted(u64),
     JSON(Vec<Option<String>>),
