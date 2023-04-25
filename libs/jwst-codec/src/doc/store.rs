@@ -151,3 +151,89 @@ impl DocStore {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_state() {
+        {
+            let doc_store = DocStore::new();
+            let state = doc_store.get_state(1);
+            assert_eq!(state, 0);
+        }
+
+        {
+            let mut doc_store = DocStore::new();
+
+            let client_id = 1;
+
+            let struct_info1 = StructInfo::GC {
+                id: Id::new(1, 1),
+                len: 5,
+            };
+            let struct_info2 = StructInfo::Skip {
+                id: Id::new(1, 6),
+                len: 7,
+            };
+
+            doc_store
+                .items
+                .insert(client_id, vec![struct_info1.clone(), struct_info2.clone()]);
+
+            let state = doc_store.get_state(client_id);
+
+            assert_eq!(state, struct_info2.clock() + struct_info2.len());
+
+            assert!(doc_store.self_check().is_ok());
+        }
+    }
+
+    #[test]
+    fn test_get_state_vector() {
+        {
+            let doc_store = DocStore::new();
+            let state_map = doc_store.get_state_vector();
+            assert!(state_map.is_empty());
+        }
+
+        {
+            let mut doc_store = DocStore::new();
+
+            let client1 = 1;
+            let struct_info1 = StructInfo::GC {
+                id: Id::new(1, 0),
+                len: 5,
+            };
+
+            let client2 = 2;
+            let struct_info2 = StructInfo::GC {
+                id: Id::new(2, 0),
+                len: 6,
+            };
+            let struct_info3 = StructInfo::Skip {
+                id: Id::new(2, 6),
+                len: 1,
+            };
+
+            doc_store.items.insert(client1, vec![struct_info1.clone()]);
+            doc_store
+                .items
+                .insert(client2, vec![struct_info2.clone(), struct_info3.clone()]);
+
+            let state_map = doc_store.get_state_vector();
+
+            assert_eq!(
+                state_map.get(&client1),
+                Some(&(struct_info1.clock() + struct_info1.len()))
+            );
+            assert_eq!(
+                state_map.get(&client2),
+                Some(&(struct_info3.clock() + struct_info3.len()))
+            );
+
+            assert!(doc_store.self_check().is_ok());
+        }
+    }
+}
