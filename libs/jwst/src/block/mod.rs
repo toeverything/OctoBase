@@ -3,14 +3,21 @@ mod convert;
 use super::{constants::sys, utils::JS_INT_RANGE, *};
 use lib0::any::Any;
 use serde::{Serialize, Serializer};
-use serde_json::Value as JsonValue;
+use serde_json::Value::Object;
+use serde_json::{to_string, Value as JsonValue};
+use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::fmt;
+use std::rc::Rc;
 use std::sync::{Arc, RwLock};
-use yrs::{types::{
-    text::{Diff, YChange},
-    DeepEventsSubscription, ToJson, Value,
-}, Array, ArrayPrelim, ArrayRef, DeepObservable, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, TextRef, Transact, TransactionMut, Transaction};
+use yrs::{
+    types::{
+        text::{Diff, YChange},
+        DeepEventsSubscription, ToJson, Value,
+    },
+    Array, ArrayPrelim, ArrayRef, DeepObservable, Doc, Map, MapPrelim, MapRef, ReadTxn, Text,
+    TextPrelim, TextRef, Transact, Transaction, TransactionMut,
+};
 
 #[derive(Clone)]
 pub struct Block {
@@ -512,12 +519,40 @@ impl Serialize for Block {
         S: Serializer,
     {
         let trx = self.doc.transact();
-        let value = serialize_block(self, &trx);
+        let space =
+            Space::from_exists(&trx, self.doc.clone(), "", self.space_id.clone(), None).unwrap();
+        let mut map = serde_json::Map::new();
+        serialize_children_to_map(self, &trx, &mut map, &space);
+
+        let mut block_self = serialize_block(self, &trx);
+        block_self.insert(sys::CHILDREN.to_string(), Object(map));
+        let value = Object(block_self);
+
         value.serialize(serializer)
     }
 }
 
-fn serialize_block(block: &Block, trx: &Transaction) -> JsonValue {
+fn serialize_children_to_map(
+    block: &Block,
+    trx: &Transaction,
+    target: &mut serde_json::Map<String, JsonValue>,
+    space: &Space,
+) {
+    block
+        .children
+        .iter(trx)
+        .map(|v| v.to_string(trx))
+        .for_each(|child_id| {
+            if !target.contains_key(child_id.as_str()) {
+                let child = &space.get(trx, child_id.clone()).unwrap();
+                let json_output = serialize_block(child, trx);
+                target.insert(child.block_id.clone(), Object(json_output));
+                serialize_children_to_map(child, trx, target, space);
+            }
+        });
+}
+
+fn serialize_block(block: &Block, trx: &Transaction) -> serde_json::Map<String, JsonValue> {
     let any = block.block.to_json(trx);
     let mut buffer = String::new();
     any.to_json(&mut buffer);
@@ -529,20 +564,7 @@ fn serialize_block(block: &Block, trx: &Transaction) -> JsonValue {
         JsonValue::String(block.block_id.clone()),
     );
 
-    let mut children: Vec<JsonValue> = vec![];
-    let _space =
-        Space::from_exists(trx, block.doc.clone(), "", block.space_id.clone(), None).unwrap();
-    block
-        .children
-        .iter(trx)
-        .map(|v| v.to_string(trx))
-        .for_each(|child_id| {
-            children.push(serialize_block(&_space.get(trx, child_id).unwrap(), trx));
-        });
-
-    json_output.insert(sys::CHILDREN.to_string(), JsonValue::Array(children));
-
-    JsonValue::Object(json_output)
+    json_output
 }
 
 #[cfg(test)]
