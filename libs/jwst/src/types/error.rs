@@ -30,6 +30,8 @@ pub enum JwstError {
     SyncInitTransaction,
     #[error("y_sync awareness error")]
     YSyncAwarenessErr(#[from] y_sync::awareness::Error),
+    #[error("external error: {0}")]
+    ExternalError(String),
 }
 
 pub type JwstResult<T, E = JwstError> = Result<T, E>;

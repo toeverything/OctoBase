@@ -114,35 +114,61 @@ impl JwstStorage {
         }
     }
 
-    fn sync(&self, workspace_id: String, remote: String) -> JwstResult<Workspace> {
+    pub fn sync(&self, workspace_id: String, remote: String) -> JwstResult<Workspace> {
         if let Some(storage) = &self.storage {
-            let rt = Runtime::new().unwrap();
+            let rt = Arc::new(Runtime::new()?);
+            let (sender, mut receiver) = tokio::sync::mpsc::channel::<()>(20);
 
-            let (mut workspace, rx) = rt.block_on(async move {
+            let (mut workspace, rx) = match rt.block_on(async move {
                 let storage = storage.read().await;
-                get_workspace(&storage, workspace_id).await.unwrap()
-            });
+                get_workspace(&storage, workspace_id).await
+            }) {
+                Ok(workspace_and_receiver) => {
+                    workspace_and_receiver
+                }
+                Err(e) => {
+                    error!("Failed to get workspace: {:?}", e.to_string());
+                    return Err(JwstError::ExternalError(e.to_string()));
+                }
+            };
 
             if !remote.is_empty() {
-                start_sync_thread(&workspace, remote, rx, Some(self.sync_state.clone()));
+                start_sync_thread(&workspace, remote, rx, Some(self.sync_state.clone()), rt.clone(), sender);
             }
 
             let workspace = {
                 let id = workspace.id();
-                let storage = self.storage.clone();
-                futures::executor::block_on(workspace.observe(move |_, e| {
-                    let id = id.clone();
-                    if let Some(storage) = storage.clone() {
-                        let rt = Runtime::new().unwrap();
-                        info!("update: {:?}", &e.update);
-                        if let Err(e) = rt.block_on(async move {
-                            let storage = storage.write().await;
-                            storage.docs().write_update(id, &e.update).await
-                        }) {
-                            error!("Failed to write update to storage: {:?}", e);
+                {
+                    let storage = self.storage.clone();
+                    match storage {
+                        Some(storage) => {
+                            let id = id.clone();
+                            rt.spawn(async move {
+                                if receiver.recv().await.is_some() {
+                                    let storage = storage.clone();
+                                    storage.write().await.full_migrate(id.clone(), None, true).await;
+                                }
+                            });
+                        },
+                        None => {
+                            error!("Storage is not initialized");
                         }
                     }
-                }));
+                }
+                let storage = self.storage.clone();
+                workspace.observe(move |_, e| {
+                    let id = id.clone();
+                    if let Some(storage) = storage.clone() {
+                        info!("update: {:?}", &e.update);
+                        let update = e.update.clone();
+                        rt.spawn(async move {
+                            let storage = storage.write().await;
+                            storage.docs().write_update(id, &update).await.map_err(|e| {
+                               error!("Failed to write update: {:?}", e.to_string())
+                            }).unwrap();
+                        });
+                    }
+                });
 
                 workspace
             };

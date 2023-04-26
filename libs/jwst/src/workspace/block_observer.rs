@@ -2,7 +2,7 @@ use anyhow::Context;
 use std::collections::HashSet;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool};
 use std::sync::atomic::Ordering::{Acquire, Release};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -11,6 +11,7 @@ use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
 use tracing::debug;
+use crate::Workspace;
 
 type CallbackFn = Arc<RwLock<Option<Box<dyn Fn(Vec<String>) + Send + Sync>>>>;
 pub struct BlockObserverConfig {
@@ -23,6 +24,8 @@ pub struct BlockObserverConfig {
     pub(super) modified_block_ids: Arc<RwLock<HashSet<String>>>,
     pub(crate) handle: Arc<Mutex<Option<JoinHandle<()>>>>,
     pub(crate) is_manually_tracking_block_changes: Arc<AtomicBool>,
+    pub(crate) observed_blocks: Arc<std::sync::RwLock<HashSet<String>>>,
+    pub(crate) is_observing: Arc<AtomicBool>,
 }
 
 impl BlockObserverConfig {
@@ -47,6 +50,8 @@ impl BlockObserverConfig {
             modified_block_ids,
             handle: Arc::new(Mutex::new(None)),
             is_manually_tracking_block_changes: Arc::default(),
+            observed_blocks: Arc::default(),
+            is_observing: Arc::default(),
         };
 
         block_observer_config.handle = Arc::new(Mutex::new(Some(
@@ -56,7 +61,12 @@ impl BlockObserverConfig {
         block_observer_config
     }
 
+    pub fn is_consuming(&self) -> bool {
+        self.is_observing.load(Acquire)
+    }
+
     pub fn set_callback(&self, cb: Box<dyn Fn(Vec<String>) + Send + Sync>) {
+        self.is_observing.store(true, Release);
         let callback = self.callback.clone();
         self.runtime.spawn(async move {
             *callback.write().await = Some(cb);
@@ -65,6 +75,7 @@ impl BlockObserverConfig {
     }
 
     pub fn set_tracking_block_changes(&self, if_tracking: bool) {
+        self.is_observing.store(true, Release);
         self.is_manually_tracking_block_changes.store(if_tracking, Release);
         let callback = self.callback.clone();
         self.runtime.spawn(async move {
@@ -126,5 +137,37 @@ impl BlockObserverConfig {
 impl Default for BlockObserverConfig {
     fn default() -> Self {
         BlockObserverConfig::new()
+    }
+}
+
+impl Workspace {
+    pub fn init_block_observer_config(&mut self) {
+        self.block_observer_config = Some(Arc::new(BlockObserverConfig::new()));
+        println!("init_block_observer_config self.block_observer_config.is_some(): {}", self.block_observer_config.is_some());
+    }
+
+    pub fn set_callback(&self, cb: Box<dyn Fn(Vec<String>) + Send + Sync>) -> bool {
+        if let Some(block_observer_config) = self.block_observer_config.clone() {
+            block_observer_config.set_callback(cb);
+            return true;
+        }
+        false
+    }
+
+    pub fn set_tracking_block_changes(&self, if_tracking: bool) {
+        if let Some(block_observer_config) = self.block_observer_config.clone() {
+            block_observer_config.set_tracking_block_changes(if_tracking);
+        }
+    }
+
+    pub fn retrieve_modified_blocks(&self) -> Option<HashSet<String>> {
+        self.block_observer_config
+            .clone()
+            .and_then(|block_observer_config| {
+                block_observer_config
+                    .is_manually_tracking_block_changes
+                    .load(Acquire)
+                    .then(|| block_observer_config.retrieve_modified_blocks())
+            })
     }
 }

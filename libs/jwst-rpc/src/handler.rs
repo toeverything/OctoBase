@@ -190,8 +190,7 @@ mod test {
             futures::executor::block_on(async {
                 tx2.send(Message::Close).await.unwrap();
             });
-        })
-        .await;
+        });
 
         doc1.with_trx(|mut t| {
             let space = t.get_space("space");
@@ -281,7 +280,7 @@ mod test {
                 {
                     let block_id = block_id.clone();
                     let doc_tx = doc_tx.clone();
-                    futures::executor::block_on(doc.observe(move |t, _| {
+                    doc.observe(move |t, _| {
                         let block_changed = t
                             .changed_parent_types()
                             .iter()
@@ -298,7 +297,7 @@ mod test {
                                 error!("send close message failed: {}", e);
                             }
                         }
-                    }));
+                    });
                 }
 
                 doc.retry_with_trx(

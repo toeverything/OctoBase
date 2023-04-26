@@ -17,6 +17,7 @@ serde_json = "1.0.94"
 criterion = { version = "0.4.0", features = ["html_reports"] }
 lib0 = "0.16.5"
 serde = { version = "1.0.155", features = ["derive"] }
+rand = "0.8.5"
 
 [[bench]]
 name = "codec_benchmarks"

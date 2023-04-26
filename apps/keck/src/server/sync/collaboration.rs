@@ -49,6 +49,7 @@ mod test {
     use std::string::String;
     use std::sync::Arc;
     use tokio::runtime::Runtime;
+    use tokio::sync::mpsc::channel;
 
     #[test]
     #[ignore = "not needed in ci"]
@@ -84,10 +85,11 @@ mod test {
                 let (tx, _rx) = tokio::sync::broadcast::channel(10);
                 entry.insert(tx);
             };
+            let (sender, _receiver) = channel::<()>(10);
 
             let (workspace, rx) = get_workspace(&storage, workspace_id.clone()).await.unwrap();
             if !remote.is_empty() {
-                start_sync_thread(&workspace, remote, rx, None);
+                start_sync_thread(&workspace, remote, rx, None, Arc::new(Runtime::new().unwrap()), sender);
             }
 
             (workspace_id, workspace, storage)
@@ -95,7 +97,7 @@ mod test {
 
         let workspace = {
             let id = workspace_id.clone();
-            futures::executor::block_on(workspace.observe(move |_, e| {
+            workspace.observe(move |_, e| {
                 let id = id.clone();
                 let rt = Runtime::new().unwrap();
                 if let Err(e) =
@@ -103,7 +105,7 @@ mod test {
                 {
                     error!("Failed to write update to storage: {:?}", e);
                 }
-            }));
+            });
 
             workspace
         };
@@ -196,8 +198,9 @@ mod test {
             };
 
             let (workspace, rx) = get_workspace(&storage, workspace_id.clone()).await.unwrap();
+            let (sender, _receiver) = channel::<()>(10);
             if !remote.is_empty() {
-                start_sync_thread(&workspace, remote, rx, None);
+                start_sync_thread(&workspace, remote, rx, None,Arc::new(Runtime::new().unwrap()), sender);
             }
 
             (workspace_id, workspace, storage)
