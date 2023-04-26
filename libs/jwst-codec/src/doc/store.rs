@@ -236,4 +236,102 @@ mod tests {
             assert!(doc_store.self_check().is_ok());
         }
     }
+
+    #[test]
+    fn test_add_item() {
+        let mut doc_store = DocStore::new();
+
+        let struct_info1 = StructInfo::GC {
+            id: Id::new(1, 0),
+            len: 5,
+        };
+        let struct_info2 = StructInfo::Skip {
+            id: Id::new(1, 5),
+            len: 1,
+        };
+        let struct_info3_err = StructInfo::Skip {
+            id: Id::new(1, 5),
+            len: 1,
+        };
+        let struct_info3 = StructInfo::Skip {
+            id: Id::new(1, 6),
+            len: 1,
+        };
+
+        assert!(doc_store.add_item(struct_info1.clone()).is_ok());
+        assert!(doc_store.add_item(struct_info2.clone()).is_ok());
+        assert_eq!(
+            doc_store.add_item(struct_info3_err),
+            Err(JwstCodecError::StructClockInvalid {
+                expect: 6,
+                actually: 5
+            })
+        );
+        assert!(doc_store.add_item(struct_info3.clone()).is_ok());
+        assert_eq!(
+            doc_store.get_state(struct_info1.client_id()),
+            struct_info3.clock() + struct_info3.len()
+        );
+    }
+
+    #[test]
+    fn test_get_item() {
+        {
+            let mut doc_store = DocStore::new();
+            let struct_info = StructInfo::GC {
+                id: Id::new(1, 0),
+                len: 10,
+            };
+            doc_store.add_item(struct_info.clone()).unwrap();
+
+            assert_eq!(doc_store.get_item(1, 9), Ok(&struct_info));
+        }
+
+        {
+            let mut doc_store = DocStore::new();
+            let struct_info1 = StructInfo::GC {
+                id: Id::new(1, 0),
+                len: 10,
+            };
+            let struct_info2 = StructInfo::GC {
+                id: Id::new(1, 10),
+                len: 20,
+            };
+            doc_store.add_item(struct_info1.clone()).unwrap();
+            doc_store.add_item(struct_info2.clone()).unwrap();
+
+            assert_eq!(doc_store.get_item(1, 25), Ok(&struct_info2));
+        }
+
+        {
+            let doc_store = DocStore::new();
+
+            assert_eq!(
+                doc_store.get_item(1, 0),
+                Err(JwstCodecError::StructSequenceNotExists(1))
+            );
+        }
+
+        {
+            let mut doc_store = DocStore::new();
+            let struct_info1 = StructInfo::GC {
+                id: Id::new(1, 0),
+                len: 10,
+            };
+            let struct_info2 = StructInfo::GC {
+                id: Id::new(1, 10),
+                len: 20,
+            };
+            doc_store.add_item(struct_info1.clone()).unwrap();
+            doc_store.add_item(struct_info2.clone()).unwrap();
+
+            assert_eq!(
+                doc_store.get_item(1, 35),
+                Err(JwstCodecError::StructSequenceInvalid {
+                    client_id: 1,
+                    clock: 35
+                })
+            );
+        }
+    }
 }

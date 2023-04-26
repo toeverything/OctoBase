@@ -11,7 +11,7 @@ use nanoid::nanoid;
 use nom::IResult;
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum JwstCodecError {
     #[error("invalid update")]
     UpdateInvalid(#[from] nom::Err<nom::error::Error<usize>>),

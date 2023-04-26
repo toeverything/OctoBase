@@ -13,7 +13,7 @@ struct RawRefs {
     refs: Vec<StructInfo>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StructInfo {
     GC { id: Id, len: u64 },
     Skip { id: Id, len: u64 },
@@ -124,4 +124,32 @@ pub fn read_client_struct_refs(input: &[u8]) -> IResult<&[u8], HashMap<u64, Vec<
         tail,
         updates.into_iter().map(|u| (u.client, u.refs)).collect(),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_struct_info() {
+        {
+            let struct_info = StructInfo::GC {
+                id: Id::new(1, 0),
+                len: 10,
+            };
+            assert_eq!(struct_info.len(), 10);
+            assert_eq!(struct_info.client_id(), 1);
+            assert_eq!(struct_info.clock(), 0);
+        }
+
+        {
+            let struct_info = StructInfo::Skip {
+                id: Id::new(2, 0),
+                len: 20,
+            };
+            assert_eq!(struct_info.len(), 20);
+            assert_eq!(struct_info.client_id(), 2);
+            assert_eq!(struct_info.clock(), 0);
+        }
+    }
 }
