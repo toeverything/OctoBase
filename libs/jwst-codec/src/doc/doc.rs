@@ -34,6 +34,21 @@ impl Doc {
         }
         client_ids.sort();
 
+        let mut refs = items.get(client_ids.last().unwrap()).unwrap();
+        let mut rest_store = DocStore::new();
+
+        let mut missing_sv = HashMap::new();
+        let update_missing_sv = |client: u64, clock: u64| {
+            missing_sv
+                .entry(client)
+                .and_modify(|mclock| {
+                    if *mclock > clock {
+                        *mclock = clock;
+                    }
+                })
+                .or_insert(clock);
+        };
+
         Ok(None)
     }
 
