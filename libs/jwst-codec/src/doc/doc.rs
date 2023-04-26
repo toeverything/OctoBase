@@ -7,6 +7,26 @@ struct RestStructs {
     items: HashMap<u64, Vec<StructInfo>>,
 }
 
+impl RestStructs {
+    fn new() -> Self {
+        Self {
+            missing_state_vector: HashMap::new(),
+            items: HashMap::new(),
+        }
+    }
+
+    fn update_missing_sv(&mut self, client: u64, clock: u64) {
+        self.missing_state_vector
+            .entry(client)
+            .and_modify(|mclock| {
+                if *mclock > clock {
+                    *mclock = clock;
+                }
+            })
+            .or_insert(clock);
+    }
+}
+
 pub struct Doc {
     client_id: u64,
     guid: String,
@@ -35,19 +55,7 @@ impl Doc {
         client_ids.sort();
 
         let mut refs = items.get(client_ids.last().unwrap()).unwrap();
-        let mut rest_store = DocStore::new();
-
-        let mut missing_sv = HashMap::new();
-        let update_missing_sv = |client: u64, clock: u64| {
-            missing_sv
-                .entry(client)
-                .and_modify(|mclock| {
-                    if *mclock > clock {
-                        *mclock = clock;
-                    }
-                })
-                .or_insert(clock);
-        };
+        let mut rest_structs = RestStructs::new();
 
         Ok(None)
     }
