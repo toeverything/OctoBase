@@ -5,6 +5,7 @@ mod id;
 mod item;
 mod refs;
 mod store;
+mod traits;
 mod update;
 
 use super::*;
