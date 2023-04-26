@@ -542,7 +542,7 @@ fn serialize_children_to_map(
         .map(|v| v.to_string(trx))
         .for_each(|child_id| {
             if !target.contains_key(child_id.as_str()) {
-                let child = &space.get(trx, child_id.clone()).unwrap();
+                let child = &space.get(trx, child_id).unwrap();
                 let json_output = serialize_block(child, trx);
                 target.insert(child.block_id.clone(), Object(json_output));
                 serialize_children_to_map(child, trx, target, space);

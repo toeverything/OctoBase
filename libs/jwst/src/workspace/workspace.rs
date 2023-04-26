@@ -314,13 +314,13 @@ mod test {
             expected: serde_json::json!({
                 "space:space1": {
                     "block1": {
-                        "sys:children": [],
+                        "sys:children": {},
                         "sys:flavour": "text",
                     }
                 },
                 "space:space2": {
                     "block2": {
-                        "sys:children": [],
+                        "sys:children": {},
                         "sys:flavour": "text",
                     }
                 },
