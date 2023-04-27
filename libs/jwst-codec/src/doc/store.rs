@@ -67,44 +67,69 @@ impl DocStore {
     }
 
     // binary search struct info on a sorted array
-    pub fn get_item(&self, client_id: u64, clock: u64) -> JwstCodecResult<StructInfo> {
-        if let Some(structs) = self.items.read().unwrap().get(&client_id) {
-            let mut left = 0;
-            let mut right = structs.len() - 1;
-            let middle = &structs[right];
+    pub fn get_item_index(
+        items: &Vec<StructInfo>,
+        client_id: u64,
+        clock: u64,
+    ) -> JwstCodecResult<usize> {
+        let mut left = 0;
+        let mut right = items.len() - 1;
+        let middle = &items[right];
+        let middle_clock = middle.clock();
+        if middle_clock == clock {
+            return Ok(right);
+        }
+        let mut middle_index = (clock / (middle_clock + middle.len() - 1)) as usize * right;
+        while left <= right {
+            let middle = &items[middle_index];
             let middle_clock = middle.clock();
-            if middle_clock == clock {
-                return Ok(middle.clone());
-            }
-            let mut middle_index = (clock / (middle_clock + middle.len() - 1)) as usize * right;
-            while left <= right {
-                let middle = &structs[middle_index];
-                let middle_clock = middle.clock();
-                if middle_clock <= clock {
-                    if clock < middle_clock + middle.len() {
-                        return Ok(middle.clone());
-                    }
-                    left = middle_index + 1;
-                } else {
-                    right = middle_index - 1;
+            if middle_clock <= clock {
+                if clock < middle_clock + middle.len() {
+                    return Ok(middle_index);
                 }
-                middle_index = (left + right) / 2;
+                left = middle_index + 1;
+            } else {
+                right = middle_index - 1;
             }
-            Err(JwstCodecError::StructSequenceInvalid { client_id, clock })
+            middle_index = (left + right) / 2;
+        }
+        Err(JwstCodecError::StructSequenceInvalid { client_id, clock })
+    }
+
+    pub fn get_item(&self, client_id: u64, clock: u64) -> JwstCodecResult<StructInfo> {
+        if let Some(items) = self.items.read().unwrap().get(&client_id) {
+            let index = Self::get_item_index(items, client_id, clock)?;
+            // TODO: item need to be a reference
+            Ok(items[index].clone())
         } else {
             Err(JwstCodecError::StructSequenceNotExists(client_id))
         }
     }
 
-    fn get_item_clean_end(&self, id: Id) -> JwstCodecResult<StructInfo> {
-        let item = self.get_item(id.client, id.client)?;
-        if id.clock != item.clock() + item.len() - 1 && !item.is_gc() {
-            // structs.splice(index + 1, 0, transaction.splitItem(struct, id.clock - struct.id.clock + 1))
+    pub fn get_item_clean_end(&self, id: Id) -> JwstCodecResult<StructInfo> {
+        if let Some(items) = self.items.read().unwrap().get(&id.client) {
+            let index = Self::get_item_index(items, id.client, id.client)?;
+            let mut item = items[index].clone();
+            if id.clock != item.clock() + item.len() - 1 && !item.is_gc() {
+                let (left_item, right_item) = item.split_item(id.clock - item.clock() + 1)?;
+                if let Some(items) = self.items.write().unwrap().get_mut(&id.client) {
+                    if let Some(index) = items.iter().position(|i| i.clock() == id.clock) {
+                        items[index] = left_item.clone();
+                        items.insert(index + 1, right_item);
+                        // TODO: item need to be a reference
+                        return Ok(left_item);
+                    }
+                }
+                return Err(JwstCodecError::ItemSplitNotSupport);
+            } else {
+                Ok(item)
+            }
+        } else {
+            Err(JwstCodecError::StructSequenceNotExists(id.client))
         }
-        Ok(item)
     }
 
-    pub fn replace_struct(&self, item: StructInfo) -> JwstCodecResult {
+    pub fn replace_item(&self, item: StructInfo) -> JwstCodecResult {
         let client_id = item.client_id();
         let clock = item.clock();
 
@@ -169,7 +194,7 @@ mod tests {
         }
 
         {
-            let mut doc_store = DocStore::new();
+            let doc_store = DocStore::new();
 
             let client_id = 1;
 
@@ -251,7 +276,7 @@ mod tests {
 
     #[test]
     fn test_add_item() {
-        let mut doc_store = DocStore::new();
+        let doc_store = DocStore::new();
 
         let struct_info1 = StructInfo::GC {
             id: Id::new(1, 0),
@@ -289,7 +314,7 @@ mod tests {
     #[test]
     fn test_get_item() {
         {
-            let mut doc_store = DocStore::new();
+            let doc_store = DocStore::new();
             let struct_info = StructInfo::GC {
                 id: Id::new(1, 0),
                 len: 10,
@@ -300,7 +325,7 @@ mod tests {
         }
 
         {
-            let mut doc_store = DocStore::new();
+            let doc_store = DocStore::new();
             let struct_info1 = StructInfo::GC {
                 id: Id::new(1, 0),
                 len: 10,
@@ -325,7 +350,7 @@ mod tests {
         }
 
         {
-            let mut doc_store = DocStore::new();
+            let doc_store = DocStore::new();
             let struct_info1 = StructInfo::GC {
                 id: Id::new(1, 0),
                 len: 10,

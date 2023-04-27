@@ -13,6 +13,10 @@ use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq)]
 pub enum JwstCodecError {
+    #[error("Content does not support splitting in {0}")]
+    ContentSplitNotSupport(u64),
+    #[error("GC or Skip does not support splitting")]
+    ItemSplitNotSupport,
     #[error("invalid update")]
     UpdateInvalid(#[from] nom::Err<nom::error::Error<usize>>),
     #[error("update not fully consumed: {0}")]

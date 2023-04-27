@@ -21,7 +21,7 @@ pub enum StructInfo {
 }
 
 impl StructInfo {
-    fn id(&self) -> &Id {
+    pub fn id(&self) -> &Id {
         match self {
             StructInfo::GC { id, .. } => id,
             StructInfo::Skip { id, .. } => id,
@@ -63,6 +63,37 @@ impl StructInfo {
         match self {
             StructInfo::Item { .. } => true,
             _ => false,
+        }
+    }
+
+    pub fn split_item(&mut self, diff: u64) -> JwstCodecResult<(Self, Self)> {
+        if let Self::Item { id, item } = self {
+            let right_id = Id::new(id.client, id.clock + diff);
+            let (left_content, right_content) = item.content.split(diff)?;
+
+            let left_item = StructInfo::Item {
+                id: id.clone(),
+                item: Item {
+                    right_id: Some(right_id.clone()),
+                    content: left_content,
+                    ..item.clone()
+                },
+            };
+
+            let right_item = StructInfo::Item {
+                id: right_id.clone(),
+                item: Item {
+                    left_id: Some(Id::new(id.client, id.clock + diff - 1)),
+                    right_id: item.right_id.clone(),
+                    parent: item.parent.clone(),
+                    parent_sub: item.parent_sub.clone(),
+                    content: right_content,
+                },
+            };
+
+            Ok((left_item, right_item))
+        } else {
+            Err(JwstCodecError::ItemSplitNotSupport)
         }
     }
 }

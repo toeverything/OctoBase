@@ -44,6 +44,11 @@ impl Content {
             | Content::Doc { .. } => 1,
         }
     }
+
+    pub fn split(&self, diff: u64) -> JwstCodecResult<(Content, Content)> {
+        unimplemented!();
+        Err(JwstCodecError::ContentSplitNotSupport(diff))
+    }
 }
 
 pub fn read_content(input: &[u8], tag_type: u8) -> IResult<&[u8], Content> {
