@@ -216,7 +216,7 @@ mod test {
     #[test]
     fn block_observe_callback_triggered_by_get() {
         let workspace = Workspace::new("test");
-        workspace.set_callback(Box::new(|mut block_ids| {
+        workspace.set_callback(Box::new(|block_ids| {
             assert_eq!(block_ids, vec!["block1".to_string()]);
         }));
 
