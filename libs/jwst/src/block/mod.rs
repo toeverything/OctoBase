@@ -161,19 +161,23 @@ impl Block {
         let block_id = self.block_id.clone();
         let tx = block_observer_config.tx.clone();
         let handle = block_observer_config.handle.clone();
-        let observed_blocks = block_observer_config.observed_blocks.clone();
-        let read_guard = observed_blocks.read().unwrap();
-        if !read_guard.contains(self.block_id.as_str()) {
-            debug!("subscribe block: {}", self.block_id);
-            let sub = self.block.observe_deep(move |_trx, _e| {
-                if handle.lock().unwrap().is_some() {
-                    tx.send(block_id.clone())
-                        .expect("send block observe message error");
+        match self.sub.read() {
+            Ok(sub_read_guard) => {
+                if sub_read_guard.is_none() {
+                    debug!("subscribe block: {}", self.block_id);
+                    let sub = self.block.observe_deep(move |_trx, _e| {
+                        if handle.lock().unwrap().is_some() {
+                            tx.send(block_id.clone())
+                                .expect("send block observe message error");
+                        }
+                    });
+                    drop(sub_read_guard);
+                    *self.sub.write().unwrap() = Some(sub);
                 }
-            });
-            drop(read_guard);
-            observed_blocks.write().unwrap().insert(self.block_id.clone());
-            *self.sub.write().unwrap() = Some(sub);
+            }
+            Err(e) => {
+                error!("subscribe block error: {}", e);
+            }
         }
     }
 

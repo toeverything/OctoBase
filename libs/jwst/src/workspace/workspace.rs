@@ -190,7 +190,7 @@ mod test {
     }
 
     #[test]
-    fn block_observe_callback() {
+    fn block_observe_callback_triggered_by_set() {
         let workspace = Workspace::new("test");
         workspace.set_callback(Box::new(|mut block_ids| {
             block_ids.sort();
@@ -210,6 +210,32 @@ mod test {
             block2.set(&mut trx.trx, "key1", "value1").unwrap();
             block2.set(&mut trx.trx, "key2", "value2").unwrap();
         });
+        sleep(Duration::from_millis(300));
+    }
+
+    #[test]
+    fn block_observe_callback_triggered_by_get() {
+        let workspace = Workspace::new("test");
+        workspace.set_callback(Box::new(|mut block_ids| {
+            assert_eq!(block_ids, vec!["block1".to_string()]);
+        }));
+
+        let block = workspace.with_trx(|mut t| {
+            let space = t.get_space("blocks");
+            let block = space.create(&mut t.trx, "block1", "text").unwrap();
+            block
+        });
+
+        drop(block);
+
+        let block = workspace.with_trx(|mut trx| {
+            trx.get_blocks().get(&trx.trx, "block1".to_string()).unwrap()
+        });
+
+        workspace.with_trx(|mut trx| {
+            block.set(&mut trx.trx, "key1", "value1").unwrap();
+        });
+
         sleep(Duration::from_millis(300));
     }
 
