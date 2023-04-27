@@ -24,7 +24,6 @@ pub struct BlockObserverConfig {
     pub(super) modified_block_ids: Arc<RwLock<HashSet<String>>>,
     pub(crate) handle: Arc<Mutex<Option<JoinHandle<()>>>>,
     pub(crate) is_manually_tracking_block_changes: Arc<AtomicBool>,
-    pub(crate) observed_blocks: Arc<std::sync::RwLock<HashSet<String>>>,
     pub(crate) is_observing: Arc<AtomicBool>,
 }
 
@@ -50,7 +49,6 @@ impl BlockObserverConfig {
             modified_block_ids,
             handle: Arc::new(Mutex::new(None)),
             is_manually_tracking_block_changes: Arc::default(),
-            observed_blocks: Arc::default(),
             is_observing: Arc::default(),
         };
 
