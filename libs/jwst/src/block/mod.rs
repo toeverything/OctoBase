@@ -3,8 +3,8 @@ mod convert;
 use super::{constants::sys, utils::JS_INT_RANGE, *};
 use lib0::any::Any;
 use serde::{Serialize, Serializer};
+use serde_json::Value as JsonValue;
 use serde_json::Value::Object;
-use serde_json::{Value as JsonValue};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, RwLock};
@@ -542,10 +542,13 @@ fn serialize_children_to_map(
         .map(|v| v.to_string(trx))
         .for_each(|child_id| {
             if !target.contains_key(child_id.as_str()) {
-                let child = &space.get(trx, child_id).unwrap();
-                let json_output = serialize_block(child, trx);
-                target.insert(child.block_id.clone(), Object(json_output));
-                serialize_children_to_map(child, trx, target, space);
+                if let Some(child) = space.get(trx, child_id.clone()) {
+                    let json_output = serialize_block(&child, trx);
+                    target.insert(child.block_id.clone(), Object(json_output));
+                    serialize_children_to_map(&child, trx, target, space);
+                } else {
+                    error!("get child {} failed", child_id);
+                }
             }
         });
 }
@@ -554,11 +557,14 @@ fn serialize_block(block: &Block, trx: &Transaction) -> serde_json::Map<String, 
     let any = block.block.to_json(trx);
     let mut buffer = String::new();
     any.to_json(&mut buffer);
-    let any: JsonValue = serde_json::from_str(&buffer).unwrap();
+    let any: JsonValue = serde_json::from_str(&buffer).unwrap_or_else(|e| {
+        error!("parse json failed: {}", e);
+        Object(serde_json::Map::new())
+    });
 
-    let mut json_output = any.as_object().unwrap().clone();
+    let mut json_output = any.as_object().unwrap_or(&serde_json::Map::new()).clone();
     json_output.insert(
-        constants::sys::ID.to_string(),
+        sys::ID.to_string(),
         JsonValue::String(block.block_id.clone()),
     );
 
