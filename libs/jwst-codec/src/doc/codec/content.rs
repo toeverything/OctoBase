@@ -46,7 +46,7 @@ impl Content {
     }
 
     pub fn split(&self, diff: u64) -> JwstCodecResult<(Content, Content)> {
-        unimplemented!();
+        // TODO: implement split for other types
         Err(JwstCodecError::ContentSplitNotSupport(diff))
     }
 }

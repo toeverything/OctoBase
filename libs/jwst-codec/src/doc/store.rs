@@ -29,6 +29,8 @@ impl DocStore {
         }
     }
 
+    // TODO: use function in code
+    #[allow(dead_code)]
     pub fn get_state_vector(&self) -> HashMap<u64, u64> {
         let mut sm = HashMap::new();
         for (client, structs) in self.items.read().unwrap().iter() {
@@ -41,6 +43,8 @@ impl DocStore {
         sm
     }
 
+    // TODO: use function in code
+    #[allow(dead_code)]
     pub fn add_item(&self, item: StructInfo) -> JwstCodecResult {
         let client_id = item.client_id();
 
@@ -66,6 +70,8 @@ impl DocStore {
         Ok(())
     }
 
+    // TODO: use function in code
+    #[allow(dead_code)]
     // binary search struct info on a sorted array
     pub fn get_item_index(
         items: &Vec<StructInfo>,
@@ -96,6 +102,8 @@ impl DocStore {
         Err(JwstCodecError::StructSequenceInvalid { client_id, clock })
     }
 
+    // TODO: use function in code
+    #[allow(dead_code)]
     pub fn get_item(&self, client_id: u64, clock: u64) -> JwstCodecResult<StructInfo> {
         if let Some(items) = self.items.read().unwrap().get(&client_id) {
             let index = Self::get_item_index(items, client_id, clock)?;
@@ -106,6 +114,8 @@ impl DocStore {
         }
     }
 
+    // TODO: use function in code
+    #[allow(dead_code)]
     pub fn get_item_clean_end(&self, id: Id) -> JwstCodecResult<StructInfo> {
         if let Some(items) = self.items.read().unwrap().get(&id.client) {
             let index = Self::get_item_index(items, id.client, id.client)?;
@@ -129,6 +139,8 @@ impl DocStore {
         }
     }
 
+    // TODO: use function in code
+    #[allow(dead_code)]
     pub fn replace_item(&self, item: StructInfo) -> JwstCodecResult {
         let client_id = item.client_id();
         let clock = item.clock();
@@ -163,6 +175,8 @@ impl DocStore {
         }
     }
 
+    // TODO: use function in code
+    #[allow(dead_code)]
     pub fn self_check(&self) -> JwstCodecResult {
         for structs in self.items.read().unwrap().values() {
             for i in 1..structs.len() {

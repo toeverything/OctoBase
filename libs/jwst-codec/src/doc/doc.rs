@@ -4,6 +4,8 @@ use super::*;
 
 struct RestItems {
     missing_state_vector: HashMap<u64, u64>,
+    // TODO: use function in code
+    #[allow(dead_code)]
     items: HashMap<u64, Vec<StructInfo>>,
     stage_items: Vec<StructInfo>,
 }
@@ -32,11 +34,13 @@ impl RestItems {
         self.stage_items.push(item);
     }
 
+    // TODO: use function in code
+    #[allow(dead_code)]
     fn collect_items(&mut self) -> HashSet<u64> {
         let mut client_ids = HashSet::new();
         for item in self.stage_items.drain(..) {
             let client_id = item.client_id();
-
+            // TODO: move all items of the current iterator to rest_items
             client_ids.insert(client_id);
         }
         client_ids
@@ -44,7 +48,13 @@ impl RestItems {
 }
 
 pub struct Doc {
+    // TODO: use function in code
+    #[allow(dead_code)]
+    // random client id for each doc
     client_id: u64,
+    // TODO: use function in code
+    #[allow(dead_code)]
+    // random id for each doc, use in sub doc
     guid: String,
     // root_type: HashMap<String, Item>,
     store: DocStore,
