@@ -47,7 +47,16 @@ impl Content {
 
     pub fn split(&self, diff: u64) -> JwstCodecResult<(Content, Content)> {
         // TODO: implement split for other types
-        Err(JwstCodecError::ContentSplitNotSupport(diff))
+        match self {
+            Content::String(str) => {
+                let (left, right) = str.split_at(diff as usize);
+                Ok((
+                    Content::String(left.to_string()),
+                    Content::String(right.to_string()),
+                ))
+            }
+            _ => Err(JwstCodecError::ContentSplitNotSupport(diff)),
+        }
     }
 }
 

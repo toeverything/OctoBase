@@ -7,10 +7,10 @@ mod update;
 
 pub use any::Any;
 pub use content::Content;
-pub use id::Id;
-pub use item::Item;
+pub use id::{Client, Clock, Id};
+pub use item::{Item, Parent};
 pub use refs::StructInfo;
-pub use update::{read_update, Update};
+pub use update::{read_update, Update, UpdateIterator};
 
 use super::*;
 use any::read_any;
