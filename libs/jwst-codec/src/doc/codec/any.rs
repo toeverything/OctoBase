@@ -58,11 +58,11 @@ fn read_any_item(input: &[u8]) -> IResult<&[u8], Any> {
             let (tail, len) = read_var_u64(tail)?;
             let (tail, any) = count(read_any_item, len as usize)(tail)?;
             Ok((tail, Any::Array(any)))
-        }
+        } // Array
         11 => {
             let (tail, binary) = read_var_buffer(tail)?;
             Ok((tail, Any::Binary(binary.to_vec())))
-        }
+        } // Binary
         _ => Ok((tail, Any::Undefined)),
     }
 }

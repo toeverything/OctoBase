@@ -1,15 +1,14 @@
 use super::*;
-use crate::types::JwstRPCResult;
 use futures::{SinkExt, StreamExt};
 use jwst::{DocStorage, Workspace};
 use jwst_storage::{JwstStorage, JwstStorageResult};
 use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 use tokio::{
     net::TcpStream,
     sync::broadcast::{channel, Receiver},
 };
-use tokio::runtime::Runtime;
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
@@ -19,7 +18,7 @@ use url::Url;
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
-async fn prepare_connection(remote: &str) -> JwstRPCResult<Socket> {
+async fn prepare_connection(remote: &str) -> JwstRpcResult<Socket> {
     debug!("generate remote config");
     let uri = Url::parse(remote)?;
 
@@ -31,7 +30,7 @@ async fn prepare_connection(remote: &str) -> JwstRPCResult<Socket> {
     Ok(connect_async(req).await?.0)
 }
 
-async fn init_connection(workspace: &Workspace, remote: &str) -> JwstRPCResult<Socket> {
+async fn init_connection(workspace: &Workspace, remote: &str) -> JwstRpcResult<Socket> {
     let mut socket = prepare_connection(remote).await?;
 
     debug!("create init message");
@@ -50,7 +49,7 @@ async fn join_sync_thread(
     socket: Socket,
     rx: &mut Receiver<Vec<u8>>,
     sender: &Sender<()>,
-) -> JwstRPCResult<bool> {
+) -> JwstRpcResult<bool> {
     let (mut socket_tx, mut socket_rx) = socket.split();
 
     let id = workspace.id();
@@ -130,7 +129,7 @@ async fn run_sync(
     remote: String,
     rx: &mut Receiver<Vec<u8>>,
     sender: &Sender<()>,
-) -> JwstRPCResult<bool> {
+) -> JwstRpcResult<bool> {
     let socket = init_connection(workspace, &remote).await?;
     join_sync_thread(first_sync, sync_state, workspace, socket, rx, sender).await
 }
@@ -253,7 +252,14 @@ pub async fn get_collaborating_workspace(
             }
         };
 
-        start_sync_thread(&workspace, remote, rx, None, Arc::new(Runtime::new().unwrap()), sender);
+        start_sync_thread(
+            &workspace,
+            remote,
+            rx,
+            None,
+            Arc::new(Runtime::new().unwrap()),
+            sender,
+        );
     }
 
     Ok(workspace)

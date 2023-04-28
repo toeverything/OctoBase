@@ -7,8 +7,12 @@ pub enum JwstRpcError {
     WebsocketConnect(#[from] tungstenite::Error),
     #[error("jwst error")]
     Jwst(#[from] jwst::JwstError),
+    #[error("failed to encode sync message")]
+    ProtocolEncode,
+    #[error("failed to decode sync message")]
+    ProtocolDecode(#[from] nom::Err<nom::error::Error<usize>>),
     #[error("failed to parse url")]
     UrlParse(#[from] url::ParseError),
 }
 
-pub type JwstRPCResult<T> = Result<T, JwstRpcError>;
+pub type JwstRpcResult<T> = Result<T, JwstRpcError>;

@@ -21,6 +21,7 @@ use tokio::{
     sync::mpsc::{Receiver, Sender},
     time::{sleep, Duration},
 };
+use types::{JwstRpcError, JwstRpcResult};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum SyncState {
