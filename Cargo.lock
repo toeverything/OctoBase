@@ -2114,11 +2114,14 @@ dependencies = [
  "bitvec",
  "byteorder",
  "criterion",
+ "jwst-logger",
  "lib0",
+ "nanoid",
  "nom",
  "rand 0.8.5",
  "serde",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]

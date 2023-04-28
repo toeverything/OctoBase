@@ -6,7 +6,7 @@ use nom::{
 use super::*;
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Any {
     Undefined,
     Null,

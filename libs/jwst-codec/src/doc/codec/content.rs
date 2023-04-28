@@ -6,7 +6,7 @@ use nom::{
 };
 use serde_json::Value as JsonValue;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum YType {
     Array,
     Map,
@@ -17,7 +17,7 @@ pub enum YType {
     XmlHook(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Content {
     Deleted(u64),
     JSON(Vec<Option<String>>),
@@ -28,6 +28,27 @@ pub enum Content {
     Type(YType),
     Any(Vec<Any>),
     Doc { guid: String, opts: Vec<Any> },
+}
+
+impl Content {
+    pub fn clock_len(&self) -> u64 {
+        match self {
+            Content::Deleted(len) => *len,
+            Content::JSON(strings) => strings.len() as u64,
+            Content::String(string) => string.len() as u64,
+            Content::Any(any) => any.len() as u64,
+            Content::Binary(_)
+            | Content::Embed(_)
+            | Content::Format { .. }
+            | Content::Type(_)
+            | Content::Doc { .. } => 1,
+        }
+    }
+
+    pub fn split(&self, diff: u64) -> JwstCodecResult<(Content, Content)> {
+        // TODO: implement split for other types
+        Err(JwstCodecError::ContentSplitNotSupport(diff))
+    }
 }
 
 pub fn read_content(input: &[u8], tag_type: u8) -> IResult<&[u8], Content> {

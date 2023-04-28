@@ -4,9 +4,32 @@ mod doc;
 pub use codec::{
     read_var_buffer, read_var_i64, read_var_string, read_var_u64, write_var_i64, write_var_u64,
 };
-pub use doc::{read_content, read_item, read_item_id, read_update, Content, Id, Item, Update};
+pub use doc::{read_update, Content, Doc, Id, Item, Update};
 
+use jwst_logger::warn;
+use nanoid::nanoid;
 use nom::IResult;
+use thiserror::Error;
+
+#[derive(Debug, Error, PartialEq)]
+pub enum JwstCodecError {
+    #[error("Content does not support splitting in {0}")]
+    ContentSplitNotSupport(u64),
+    #[error("GC or Skip does not support splitting")]
+    ItemSplitNotSupport,
+    #[error("invalid update")]
+    UpdateInvalid(#[from] nom::Err<nom::error::Error<usize>>),
+    #[error("update not fully consumed: {0}")]
+    UpdateNotFullyConsumed(usize),
+    #[error("invalid struct clock, expect {expect}, actually {actually}")]
+    StructClockInvalid { expect: u64, actually: u64 },
+    #[error("cannot find struct {clock} in {client_id}")]
+    StructSequenceInvalid { client_id: u64, clock: u64 },
+    #[error("struct {0} not exists")]
+    StructSequenceNotExists(u64),
+}
+
+pub type JwstCodecResult<T = ()> = Result<T, JwstCodecError>;
 
 pub fn parse_doc_update(input: &[u8]) -> IResult<&[u8], Update> {
     let (input, update) = read_update(input)?;
@@ -34,13 +57,10 @@ mod tests {
             assert_eq!(tail.len(), 0);
             assert_eq!(update.structs.len(), clients);
             assert_eq!(
-                update
-                    .structs
-                    .iter()
-                    .map(|s| s.structs.len())
-                    .sum::<usize>(),
+                update.structs.iter().map(|s| s.1.len()).sum::<usize>(),
                 structs
             );
+            println!("{:?}", update);
         }
     }
 
@@ -76,11 +96,7 @@ mod tests {
                             "workspace: {}, global structs: {}, total structs: {}",
                             ws.workspace,
                             update.structs.len(),
-                            update
-                                .structs
-                                .iter()
-                                .map(|s| s.structs.len())
-                                .sum::<usize>()
+                            update.structs.iter().map(|s| s.1.len()).sum::<usize>()
                         );
                     }
                     Err(_e) => {

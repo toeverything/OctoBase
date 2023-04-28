@@ -1,14 +1,13 @@
 use super::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Parent {
     String(String),
     Id(Id),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Item {
-    pub info: u8,
     pub left_id: Option<Id>,
     pub right_id: Option<Id>,
     pub parent: Option<Parent>,
@@ -32,7 +31,6 @@ pub fn read_item(input: &[u8], info: u8, first_5_bit: u8) -> IResult<&[u8], Item
     // NOTE: read order must keep the same as the order in yjs
     // TODO: this data structure design will break the cpu OOE, need to be optimized
     let item = Item {
-        info,
         left_id: if has_left_id {
             let (tail, id) = read_item_id(input)?;
             input = tail;
