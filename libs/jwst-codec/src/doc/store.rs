@@ -130,7 +130,7 @@ impl DocStore {
                         return Ok(left_item);
                     }
                 }
-                return Err(JwstCodecError::ItemSplitNotSupport);
+                Err(JwstCodecError::ItemSplitNotSupport)
             } else {
                 Ok(item)
             }

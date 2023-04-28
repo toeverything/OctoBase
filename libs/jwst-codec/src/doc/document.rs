@@ -75,7 +75,7 @@ impl Doc {
         items: &HashMap<u64, Vec<StructInfo>>,
     ) -> JwstCodecResult<Option<RestItems>> {
         let mut client_ids = items.keys().copied().collect::<Vec<_>>();
-        if client_ids.len() == 0 {
+        if client_ids.is_empty() {
             return Ok(None);
         }
         client_ids.sort();
@@ -112,7 +112,7 @@ impl Doc {
 
     pub fn apply_update(&self, update: &[u8]) -> JwstCodecResult {
         let (rest, update) = read_update(update).map_err(|e| e.map_input(|u| u.len()))?;
-        if rest.len() > 0 {
+        if rest.is_empty() {
             return Err(JwstCodecError::UpdateNotFullyConsumed(rest.len()));
         }
         self.integrate_update(&update.structs)?;

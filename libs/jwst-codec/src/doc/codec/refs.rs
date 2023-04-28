@@ -46,24 +46,15 @@ impl StructInfo {
     }
 
     pub fn is_gc(&self) -> bool {
-        match self {
-            StructInfo::GC { .. } => true,
-            _ => false,
-        }
+        matches!(self, StructInfo::GC { .. })
     }
 
     pub fn is_skip(&self) -> bool {
-        match self {
-            StructInfo::Skip { .. } => true,
-            _ => false,
-        }
+        matches!(self, StructInfo::Skip { .. })
     }
 
     pub fn is_item(&self) -> bool {
-        match self {
-            StructInfo::Item { .. } => true,
-            _ => false,
-        }
+        matches!(self, StructInfo::Item { .. })
     }
 
     pub fn split_item(&mut self, diff: u64) -> JwstCodecResult<(Self, Self)> {
@@ -81,7 +72,7 @@ impl StructInfo {
             };
 
             let right_item = StructInfo::Item {
-                id: right_id.clone(),
+                id: right_id,
                 item: Item {
                     left_id: Some(Id::new(id.client, id.clock + diff - 1)),
                     right_id: item.right_id.clone(),
