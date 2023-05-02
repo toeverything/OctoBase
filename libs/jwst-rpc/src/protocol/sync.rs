@@ -3,7 +3,7 @@ use byteorder::WriteBytesExt;
 use nom::combinator::map;
 
 #[derive(Debug, Clone, PartialEq)]
-enum BinaryMessage {
+enum MessageType {
     Auth,
     Awareness,
     AwarenessQuery,
@@ -11,25 +11,25 @@ enum BinaryMessage {
     Custom(u64),
 }
 
-fn read_sync_tag(input: &[u8]) -> IResult<&[u8], BinaryMessage> {
+fn read_sync_tag(input: &[u8]) -> IResult<&[u8], MessageType> {
     let (tail, tag) = map(read_var_u64, |tag| match tag {
-        0 => BinaryMessage::Doc,
-        1 => BinaryMessage::Awareness,
-        2 => BinaryMessage::Auth,
-        3 => BinaryMessage::AwarenessQuery,
-        tag => BinaryMessage::Custom(tag),
+        0 => MessageType::Doc,
+        1 => MessageType::Awareness,
+        2 => MessageType::Auth,
+        3 => MessageType::AwarenessQuery,
+        tag => MessageType::Custom(tag),
     })(input)?;
 
     Ok((tail, tag))
 }
 
-fn write_sync_tag<W: Write>(buffer: &mut W, tag: BinaryMessage) -> Result<(), IoError> {
+fn write_sync_tag<W: Write>(buffer: &mut W, tag: MessageType) -> Result<(), IoError> {
     let tag: u64 = match tag {
-        BinaryMessage::Doc => 0,
-        BinaryMessage::Awareness => 1,
-        BinaryMessage::Auth => 2,
-        BinaryMessage::AwarenessQuery => 3,
-        BinaryMessage::Custom(tag) => tag,
+        MessageType::Doc => 0,
+        MessageType::Awareness => 1,
+        MessageType::Auth => 2,
+        MessageType::AwarenessQuery => 3,
+        MessageType::Custom(tag) => tag,
     };
 
     write_var_u64(buffer, tag)?;
@@ -52,16 +52,16 @@ pub fn read_sync_message(input: &[u8]) -> IResult<&[u8], SyncMessage> {
     let (tail, tag) = read_sync_tag(input)?;
 
     let (tail, message) = match tag {
-        BinaryMessage::Doc => {
+        MessageType::Doc => {
             let (tail, doc) = read_doc_message(tail)?;
             (tail, SyncMessage::Doc(doc))
         }
-        BinaryMessage::Awareness => {
+        MessageType::Awareness => {
             let (tail, update) = read_var_buffer(tail)?;
             // TODO: decode awareness update
             (tail, SyncMessage::Awareness(update.into()))
         }
-        BinaryMessage::Auth => {
+        MessageType::Auth => {
             let (tail, success) = read_var_u64(tail)?;
 
             if success == 1 {
@@ -71,8 +71,8 @@ pub fn read_sync_message(input: &[u8]) -> IResult<&[u8], SyncMessage> {
                 (tail, SyncMessage::Auth(Some(reason)))
             }
         }
-        BinaryMessage::AwarenessQuery => (tail, SyncMessage::AwarenessQuery),
-        BinaryMessage::Custom(tag) => {
+        MessageType::AwarenessQuery => (tail, SyncMessage::AwarenessQuery),
+        MessageType::Custom(tag) => {
             let (tail, payload) = read_var_buffer(tail)?;
             (tail, SyncMessage::Custom(tag as u8, payload.into()))
         }
@@ -87,7 +87,7 @@ pub fn write_sync_message<W: Write>(buffer: &mut W, msg: &SyncMessage) -> Result
             const PERMISSION_DENIED: u8 = 0;
             const PERMISSION_GRANTED: u8 = 1;
 
-            write_sync_tag(buffer, BinaryMessage::Auth)?;
+            write_sync_tag(buffer, MessageType::Auth)?;
             if let Some(reason) = reason {
                 buffer.write_u8(PERMISSION_DENIED)?;
                 write_var_string(buffer, reason.into())?;
@@ -96,14 +96,14 @@ pub fn write_sync_message<W: Write>(buffer: &mut W, msg: &SyncMessage) -> Result
             }
         }
         SyncMessage::AwarenessQuery => {
-            write_sync_tag(buffer, BinaryMessage::AwarenessQuery)?;
+            write_sync_tag(buffer, MessageType::AwarenessQuery)?;
         }
         SyncMessage::Awareness(update) => {
-            write_sync_tag(buffer, BinaryMessage::Awareness)?;
+            write_sync_tag(buffer, MessageType::Awareness)?;
             write_var_buffer(buffer, update)?;
         }
         SyncMessage::Doc(doc) => {
-            write_sync_tag(buffer, BinaryMessage::Doc)?;
+            write_sync_tag(buffer, MessageType::Doc)?;
             write_doc_message(buffer, doc)?;
         }
         SyncMessage::Custom(tag, data) => {
@@ -122,11 +122,11 @@ mod tests {
     #[test]
     fn test_sync_tag() {
         let messages = [
-            BinaryMessage::Auth,
-            BinaryMessage::Awareness,
-            BinaryMessage::AwarenessQuery,
-            BinaryMessage::Doc,
-            BinaryMessage::Custom(128),
+            MessageType::Auth,
+            MessageType::Awareness,
+            MessageType::AwarenessQuery,
+            MessageType::Doc,
+            MessageType::Custom(128),
         ];
 
         for msg in messages {

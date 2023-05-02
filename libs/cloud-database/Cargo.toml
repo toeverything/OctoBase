@@ -11,20 +11,20 @@ postgres = ["sqlx/postgres", "sea-orm/sqlx-postgres"]
 sqlite = ["sqlx/sqlite", "sea-orm/sqlx-sqlite"]
 
 [dependencies]
-async-trait = "0.1.66"
-chrono = { version = "0.4.23", features = ["serde"] }
+async-trait = "0.1.68"
+chrono = { version = "0.4.24", features = ["serde"] }
 nanoid = "0.4.0"
 schemars = "0.8.12"
-serde = { version = "1.0.155", features = ["derive"] }
-serde_repr = "0.1.11"
-sqlx = { version = "0.6.2", features = [
+serde = { version = "1.0.160", features = ["derive"] }
+serde_repr = "0.1.12"
+sqlx = { version = "0.6.3", features = [
     "chrono",
     "macros",
     "runtime-tokio-rustls",
 ] }
-sea-orm = { version = "0.11.1", features = ["runtime-tokio-rustls", "macros"] }
-sea-orm-migration = "0.11.1"
-tokio = { version = "1.26.0", features = ["fs", "macros", "sync"] }
+sea-orm = { version = "0.11.2", features = ["runtime-tokio-rustls", "macros"] }
+sea-orm-migration = "0.11.2"
+tokio = { version = "1.27.0", features = ["fs", "macros", "sync"] }
 yrs = "0.16.5"
 
 # ======= workspace dependencies =======

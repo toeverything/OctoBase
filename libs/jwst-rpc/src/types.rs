@@ -1,8 +1,10 @@
 use thiserror::Error;
+#[cfg(feature = "websocket")]
 use tokio_tungstenite::tungstenite;
 
 #[derive(Debug, Error)]
 pub enum JwstRpcError {
+    #[cfg(feature = "websocket")]
     #[error("failed to connect websocket")]
     WebsocketConnect(#[from] tungstenite::Error),
     #[error("jwst error")]
@@ -11,6 +13,7 @@ pub enum JwstRpcError {
     ProtocolEncode,
     #[error("failed to decode sync message")]
     ProtocolDecode(#[from] nom::Err<nom::error::Error<usize>>),
+    #[cfg(feature = "websocket")]
     #[error("failed to parse url")]
     UrlParse(#[from] url::ParseError),
 }

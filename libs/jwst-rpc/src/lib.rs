@@ -1,4 +1,5 @@
 mod broadcast;
+#[cfg(feature = "websocket")]
 mod client;
 mod connector;
 mod context;
@@ -7,20 +8,25 @@ mod protocol;
 mod types;
 mod utils;
 
-pub use broadcast::{BroadcastChannels, BroadcastType};
+#[cfg(feature = "websocket")]
 pub use client::{get_collaborating_workspace, get_workspace, start_sync_thread};
-pub use connector::{memory_connector, socket_connector};
+#[cfg(feature = "websocket")]
+pub use connector::socket_connector;
+
+pub use broadcast::{BroadcastChannels, BroadcastType};
+pub use connector::memory_connector;
 pub use context::RpcContextImpl;
 pub use handler::handle_connector;
 pub use protocol::{read_sync_message, write_sync_message, SyncMessage};
 pub use utils::{connect_memory_workspace, MinimumServerContext};
 
-use jwst::{debug, error, info, trace, warn};
+use jwst::{debug, error, info, trace};
 use std::{collections::hash_map::Entry, sync::Arc, time::Instant};
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     time::{sleep, Duration},
 };
+#[cfg(feature = "websocket")]
 use types::{JwstRpcError, JwstRpcResult};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
