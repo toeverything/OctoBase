@@ -17,6 +17,7 @@ members = [
     "libs/jwst-codec/fuzz",
     "libs/jwst-logger",
     "libs/jwst-rpc",
+    "libs/jwst-rpc/fuzz",
     "libs/jwst-storage",
     "libs/jwst-storage/src/migration",
 ]
@@ -42,7 +43,6 @@ opt-level = 3
 opt-level = 3
 
 [patch.crates-io]
-rust-embed = { git = "https://github.com/pyrossh/rust-embed", rev = "7c0fc42" }
 lib0 = { git = "https://github.com/toeverything/y-crdt", rev = "a97a144" }
 yrs = { git = "https://github.com/toeverything/y-crdt", rev = "a97a144" }
 y-sync = { git = "https://github.com/toeverything/y-sync", rev = "71657b2" }

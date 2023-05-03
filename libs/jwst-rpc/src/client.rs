@@ -1,6 +1,6 @@
 use super::*;
 use futures::{SinkExt, StreamExt};
-use jwst::{DocStorage, Workspace};
+use jwst::{warn, DocStorage, Workspace};
 use jwst_storage::{JwstStorage, JwstStorageResult};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::runtime::Runtime;
