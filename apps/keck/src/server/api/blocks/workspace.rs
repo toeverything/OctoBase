@@ -417,7 +417,7 @@ pub async fn subscribe_workspace(
         ws_id, payload.hook_endpoint
     );
     let hook_endpoint = payload.hook_endpoint;
-    return if let Ok(mut workspace) = context.storage.get_workspace(&ws_id).await {
+    if let Ok(mut workspace) = context.storage.get_workspace(&ws_id).await {
         workspace.try_subscribe_all_blocks();
         if let Some(runtime) = workspace.get_tokio_runtime() {
             workspace.set_callback(Box::new(move |block_ids| {
@@ -452,7 +452,7 @@ pub async fn subscribe_workspace(
         let err_msg = format!("Workspace: {} not found", ws_id);
         error!(err_msg);
         (StatusCode::NOT_FOUND, err_msg).into_response()
-    };
+    }
 }
 
 #[cfg(all(test, feature = "sqlite"))]
