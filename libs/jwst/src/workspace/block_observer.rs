@@ -33,6 +33,7 @@ impl BlockObserverConfig {
             runtime::Builder::new_multi_thread()
                 .worker_threads(2)
                 .enable_time()
+                .enable_io()
                 .build()
                 .context("Failed to create runtime")
                 .unwrap(),
@@ -40,7 +41,6 @@ impl BlockObserverConfig {
         let (tx, rx) = std::sync::mpsc::channel::<String>();
         let modified_block_ids = Arc::new(RwLock::new(HashSet::new()));
         let callback = Arc::new(RwLock::new(None));
-
         let mut block_observer_config = BlockObserverConfig {
             callback: callback.clone(),
             runtime,
@@ -141,7 +141,6 @@ impl Default for BlockObserverConfig {
 impl Workspace {
     pub fn init_block_observer_config(&mut self) {
         self.block_observer_config = Some(Arc::new(BlockObserverConfig::new()));
-        println!("init_block_observer_config self.block_observer_config.is_some(): {}", self.block_observer_config.is_some());
     }
 
     pub fn set_callback(&self, cb: Box<dyn Fn(Vec<String>) + Send + Sync>) -> bool {
@@ -167,5 +166,11 @@ impl Workspace {
                     .load(Acquire)
                     .then(|| block_observer_config.retrieve_modified_blocks())
             })
+    }
+
+    pub fn get_tokio_runtime(&self) -> Option<Arc<Runtime>> {
+        self.block_observer_config
+            .clone()
+            .map(|block_observer_config| block_observer_config.runtime.clone())
     }
 }

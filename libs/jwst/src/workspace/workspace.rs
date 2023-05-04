@@ -3,8 +3,8 @@ use super::{
     plugins::{setup_plugin, PluginMap},
 };
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use std::{collections::HashMap, sync::Arc};
 use std::sync::Mutex;
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 use y_sync::awareness::{Awareness, Event, Subscription as AwarenessSubscription};
 use yrs::{
@@ -68,7 +68,13 @@ impl Workspace {
         updated: MapRef,
         metadata: MapRef,
         plugins: PluginMap,
+        block_observer_config: Option<Arc<BlockObserverConfig>>,
     ) -> Workspace {
+        let block_observer_config = if block_observer_config.is_some() {
+            block_observer_config
+        } else {
+            Some(Arc::new(BlockObserverConfig::new()))
+        };
         Self {
             workspace_id: workspace_id.as_ref().to_string(),
             awareness,
@@ -78,7 +84,7 @@ impl Workspace {
             updated,
             metadata,
             plugins,
-            block_observer_config: Some(Arc::new(BlockObserverConfig::new())),
+            block_observer_config,
         }
     }
 
@@ -131,14 +137,15 @@ impl Clone for Workspace {
             self.updated.clone(),
             self.metadata.clone(),
             self.plugins.clone(),
+            self.block_observer_config.clone(),
         )
     }
 }
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashSet;
     use super::{super::super::Block, *};
+    use std::collections::HashSet;
     use std::thread::sleep;
     use std::time::Duration;
     use tracing::info;
@@ -229,7 +236,9 @@ mod test {
         drop(block);
 
         let block = workspace.with_trx(|mut trx| {
-            trx.get_blocks().get(&trx.trx, "block1".to_string()).unwrap()
+            trx.get_blocks()
+                .get(&trx.trx, "block1".to_string())
+                .unwrap()
         });
 
         workspace.with_trx(|mut trx| {

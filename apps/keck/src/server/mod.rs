@@ -5,7 +5,7 @@ mod utils;
 
 use axum::{http::Method, Extension, Router, Server};
 use std::{net::SocketAddr, sync::Arc};
-use tokio::signal;
+use tokio::{signal};
 use tower_http::cors::{Any, CorsLayer};
 
 use api::Context;
@@ -60,10 +60,12 @@ pub async fn start_server() {
         .allow_headers(Any);
 
     let context = Arc::new(Context::new(None).await);
+    let client = Arc::new(reqwest::Client::builder().no_proxy().build().unwrap());
 
     let app = files::static_files(sync::sync_handler(api::api_handler(Router::new())))
         .layer(cors)
-        .layer(Extension(context.clone()));
+        .layer(Extension(context.clone()))
+        .layer(Extension(client));
 
     let addr = SocketAddr::from((
         [0, 0, 0, 0],
