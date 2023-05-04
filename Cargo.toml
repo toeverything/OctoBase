@@ -36,6 +36,9 @@ lto = false
 inherits = "fast-release"
 debug = true
 
+[profile.release.package.jwst-codec-fuzz]
+debug = 1
+
 [profile.dev.package.image]
 opt-level = 3
 

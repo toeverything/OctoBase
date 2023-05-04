@@ -14,9 +14,6 @@ lib0 = "0.16.5"
 [dependencies.jwst-codec]
 path = ".."
 
-[profile.release]
-debug = 1
-
 [[bin]]
 name = "i64_decode"
 path = "fuzz_targets/i64_decode.rs"
