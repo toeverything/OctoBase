@@ -1,6 +1,16 @@
 # What's New
 
-## 0.5.1-230419
+## 0.5.1-canary.1-230504
+
+-   [+] feat: assemble runtime crdt state (#408)
+-   [+] feat: add workspace avatar (#365)
+-   [+] feat: add var buf & var string writer (#396)
+-   [+] feat: subscribing synchronized blocks from collaboration server (#397)
+-   [*] fix: block subscribing skipped caused by failing to update `observed_blocks` (#410)
+-   [*] fix: cannot subscribe blocks with get_blocks_by_flavour (#406)
+-   [*] fix: cannot save to local storage of workspace synchronized from collaboration server (#394)
+
+## 0.5.1-canary.0-230419
 
 -   [+] feat: expose method for manually retrieval of modified blocks
 -   [+] feat: optimize check_shared
