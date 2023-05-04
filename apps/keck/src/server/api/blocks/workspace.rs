@@ -391,6 +391,21 @@ pub async fn history_workspace(
     }
 }
 
+/// Register a webhook for all block changes from `workspace_id`
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/subscribe",
+    path = "/{workspace_id}",
+    params(
+        ("workspace_id", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Subscribe workspace succeed"),
+        (status = 404, description = "Workspace not found"),
+        (status = 500, description = "Internal Server Error")
+    )
+)]
 pub async fn subscribe_workspace(
     Extension(context): Extension<Arc<Context>>,
     Extension(client): Extension<Arc<Client>>,
@@ -436,11 +451,7 @@ pub async fn subscribe_workspace(
     } else {
         let err_msg = format!("Workspace: {} not found", ws_id);
         error!(err_msg);
-        (
-            StatusCode::NOT_FOUND,
-            err_msg,
-        )
-            .into_response()
+        (StatusCode::NOT_FOUND, err_msg).into_response()
     };
 }
 
