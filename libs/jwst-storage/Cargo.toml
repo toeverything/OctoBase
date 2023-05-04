@@ -12,20 +12,20 @@ postgres = ["sea-orm/sqlx-postgres"]
 sqlite = ["sea-orm/sqlx-sqlite"]
 
 [dependencies]
-anyhow = "1.0.69"
-async-trait = "0.1.66"
+anyhow = "1.0.70"
+async-trait = "0.1.68"
 bytes = "1.4.0"
-chrono = { version = "0.4.23", features = ["serde"] }
-futures = "0.3.27"
+chrono = { version = "0.4.24", features = ["serde"] }
+futures = "0.3.28"
 governor = "0.5.1"
-image = { version = "0.24.5", features = ["webp-encoder"] }
+image = { version = "0.24.6", features = ["webp-encoder"] }
 lib0 = "0.16.5"
 path-ext = "0.1.0"
 sha2 = "0.10.6"
-sea-orm = { version = "0.11.1", features = ["runtime-tokio-rustls", "macros"] }
-sea-orm-migration = "0.11.1"
-thiserror = "1.0.39"
-tokio = { version = "1.26.0", features = ["fs", "macros", "sync"] }
+sea-orm = { version = "0.11.2", features = ["runtime-tokio-rustls", "macros"] }
+sea-orm-migration = "0.11.2"
+thiserror = "1.0.40"
+tokio = { version = "1.27.0", features = ["fs", "macros", "sync"] }
 tokio-util = { version = "0.7.7", features = ["io"] }
 url = "2.3.1"
 yrs = "0.16.5"
