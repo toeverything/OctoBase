@@ -5,6 +5,7 @@ use axum::{
     response::Response,
 };
 use jwst::{parse_history, parse_history_client, DocStorage};
+use reqwest::Client;
 use utoipa::IntoParams;
 
 /// Get a exists `Workspace` by id
@@ -387,6 +388,70 @@ pub async fn history_workspace(
             format!("Workspace({ws_id:?}) not found"),
         )
             .into_response()
+    }
+}
+
+/// Register a webhook for all block changes from `workspace_id`
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/subscribe",
+    path = "/{workspace_id}",
+    params(
+        ("workspace_id", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Subscribe workspace succeed"),
+        (status = 404, description = "Workspace not found"),
+        (status = 500, description = "Internal Server Error")
+    )
+)]
+pub async fn subscribe_workspace(
+    Extension(context): Extension<Arc<Context>>,
+    Extension(client): Extension<Arc<Client>>,
+    Path(ws_id): Path<String>,
+    Json(payload): Json<SubscribeWorkspace>,
+) -> Response {
+    info!(
+        "subscribe_workspace {}, hook endpoint: {}",
+        ws_id, payload.hook_endpoint
+    );
+    let hook_endpoint = payload.hook_endpoint;
+    if let Ok(mut workspace) = context.storage.get_workspace(&ws_id).await {
+        workspace.try_subscribe_all_blocks();
+        if let Some(runtime) = workspace.get_tokio_runtime() {
+            workspace.set_callback(Box::new(move |block_ids| {
+                let ws_id = ws_id.clone();
+                let client = client.clone();
+                let hook_endpoint = hook_endpoint.clone();
+                debug!("blocks: {:?} changed from workspace: {}", block_ids, ws_id);
+                runtime.spawn(async move {
+                    let response = client
+                        .post(hook_endpoint)
+                        .json(&WorkspaceNotify {
+                            workspace_id: ws_id.to_string(),
+                            block_ids,
+                        })
+                        .send()
+                        .await;
+                    match response {
+                        Err(e) => error!("Failed to send notify: {}", e),
+                        Ok(response) => info!(
+                            "notified hook endpoint, endpoint response status: {}",
+                            response.status()
+                        ),
+                    }
+                });
+            }));
+            StatusCode::OK.into_response()
+        } else {
+            error!("get tokio runtime failed");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    } else {
+        let err_msg = format!("Workspace: {} not found", ws_id);
+        error!(err_msg);
+        (StatusCode::NOT_FOUND, err_msg).into_response()
     }
 }
 

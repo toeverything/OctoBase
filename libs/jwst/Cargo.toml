@@ -35,6 +35,7 @@ tokio = { version = "1.27.0", features = [
     "time",
     "rt",
     "rt-multi-thread",
+    "net",
 ] }
 y-sync = "0.3.0"
 yrs = "0.16.5"
