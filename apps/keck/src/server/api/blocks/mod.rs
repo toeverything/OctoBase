@@ -8,7 +8,7 @@ pub use block::{
 };
 pub use workspace::{
     delete_workspace, get_workspace, history_workspace, history_workspace_clients, set_workspace,
-    workspace_client,
+    workspace_client, subscribe_workspace
 };
 
 use super::*;
@@ -63,6 +63,7 @@ fn workspace_apis(router: Router) -> Router {
             "/search/:workspace/index",
             get(workspace::get_search_index).post(workspace::set_search_index),
         )
+        .route("/subscribe/:workspace", post(subscribe_workspace))
 }
 
 pub fn blocks_apis(router: Router) -> Router {
