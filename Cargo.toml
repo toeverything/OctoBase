@@ -46,6 +46,6 @@ opt-level = 3
 opt-level = 3
 
 [patch.crates-io]
-lib0 = { git = "https://github.com/toeverything/y-crdt", rev = "a97a144" }
-yrs = { git = "https://github.com/toeverything/y-crdt", rev = "a97a144" }
-y-sync = { git = "https://github.com/toeverything/y-sync", rev = "71657b2" }
+lib0 = { git = "https://github.com/toeverything/y-crdt", rev = "a700f09" }
+yrs = { git = "https://github.com/toeverything/y-crdt", rev = "a700f09" }
+y-sync = { git = "https://github.com/toeverything/y-sync", rev = "aeb0010" }

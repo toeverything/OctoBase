@@ -2364,7 +2364,7 @@ checksum = "0c2cdeb66e45e9f36bfad5bbdb4d2384e70936afbee843c6f6543f0c551ebb25"
 [[package]]
 name = "lib0"
 version = "0.16.5"
-source = "git+https://github.com/toeverything/y-crdt?rev=a97a144#a97a1444eb059378475466ac05a3187c1d5367b7"
+source = "git+https://github.com/toeverything/y-crdt?rev=a700f09#a700f0990a993f905531f7acf589c6a736bb7429"
 dependencies = [
  "serde",
  "serde_json",
@@ -5602,7 +5602,7 @@ dependencies = [
 [[package]]
 name = "y-sync"
 version = "0.3.0"
-source = "git+https://github.com/toeverything/y-sync?rev=71657b2#71657b2c154fa4e784478703bd117ba63f621e7d"
+source = "git+https://github.com/toeverything/y-sync?rev=aeb0010#aeb001081ed0b25db113b86ec88ccdc00c0905db"
 dependencies = [
  "lib0",
  "thiserror",
@@ -5612,7 +5612,7 @@ dependencies = [
 [[package]]
 name = "yrs"
 version = "0.16.5"
-source = "git+https://github.com/toeverything/y-crdt?rev=a97a144#a97a1444eb059378475466ac05a3187c1d5367b7"
+source = "git+https://github.com/toeverything/y-crdt?rev=a700f09#a700f0990a993f905531f7acf589c6a736bb7429"
 dependencies = [
  "atomic_refcell",
  "lib0",
