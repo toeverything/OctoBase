@@ -49,11 +49,11 @@ provider.on('sync', () => {
 
 provider.on('connection-close', () => {
     store.set(editorAtom, null);
-})
+});
 
 provider.on('connection-error', () => {
     store.set(editorAtom, null);
-})
+});
 
 function App() {
     const ref = useRef<HTMLDivElement>(null);
