@@ -41,8 +41,7 @@ fn write_sync_tag<W: Write>(buffer: &mut W, tag: MessageType) -> Result<(), IoEr
 #[derive(Debug, PartialEq)]
 pub enum SyncMessage {
     Auth(Option<String>),
-    // Awareness(AwarenessMessage),
-    Awareness(Vec<u8>),
+    Awareness(AwarenessStates),
     AwarenessQuery,
     Doc(DocMessage),
     Custom(u8, Vec<u8>),
@@ -58,8 +57,14 @@ pub fn read_sync_message(input: &[u8]) -> IResult<&[u8], SyncMessage> {
         }
         MessageType::Awareness => {
             let (tail, update) = read_var_buffer(tail)?;
-            // TODO: decode awareness update
-            (tail, SyncMessage::Awareness(update.into()))
+            (
+                tail,
+                SyncMessage::Awareness({
+                    let (awareness_tail, awareness) = read_awareness(update)?;
+                    debug_assert!(awareness_tail.is_empty());
+                    awareness
+                }),
+            )
         }
         MessageType::Auth => {
             let (tail, success) = read_var_u64(tail)?;
@@ -98,9 +103,13 @@ pub fn write_sync_message<W: Write>(buffer: &mut W, msg: &SyncMessage) -> Result
         SyncMessage::AwarenessQuery => {
             write_sync_tag(buffer, MessageType::AwarenessQuery)?;
         }
-        SyncMessage::Awareness(update) => {
+        SyncMessage::Awareness(awareness) => {
             write_sync_tag(buffer, MessageType::Awareness)?;
-            write_var_buffer(buffer, update)?;
+            write_var_buffer(buffer, &{
+                let mut update = Vec::new();
+                write_awareness(&mut update, awareness)?;
+                update
+            })?;
         }
         SyncMessage::Doc(doc) => {
             write_sync_tag(buffer, MessageType::Doc)?;
@@ -144,7 +153,7 @@ mod tests {
     fn test_sync_message() {
         let messages = [
             SyncMessage::Auth(Some("reason".to_string())),
-            SyncMessage::Awareness(vec![1, 2, 3]),
+            SyncMessage::Awareness(HashMap::from([(1, AwarenessState::new(1, "test".into()))])),
             SyncMessage::AwarenessQuery,
             SyncMessage::Doc(DocMessage::Step1(vec![4, 5, 6])),
             SyncMessage::Doc(DocMessage::Step2(vec![7, 8, 9])),

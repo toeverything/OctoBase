@@ -2,32 +2,30 @@ use super::*;
 use nom::multi::count;
 
 #[derive(Debug, PartialEq)]
-struct AwarenessClientState {
+pub struct AwarenessState {
     clock: u64,
     // content is usually a json
     content: String,
 }
 
-fn read_awareness_state(input: &[u8]) -> IResult<&[u8], (u64, AwarenessClientState)> {
+impl AwarenessState {
+    pub fn new(clock: u64, content: String) -> Self {
+        AwarenessState { clock, content }
+    }
+}
+
+fn read_awareness_state(input: &[u8]) -> IResult<&[u8], (u64, AwarenessState)> {
     let (tail, client_id) = read_var_u64(input)?;
     let (tail, clock) = read_var_u64(tail)?;
     let (tail, content) = read_var_string(tail)?;
 
-    Ok((tail, (client_id, AwarenessClientState { clock, content })))
-}
-
-fn read_awareness(input: &[u8]) -> IResult<&[u8], HashMap<u64, AwarenessClientState>> {
-    let (tail, len) = read_var_u64(&input)?;
-
-    let (tail, messages) = count(read_awareness_state, len as usize)(tail)?;
-
-    Ok((tail, messages.into_iter().collect()))
+    Ok((tail, (client_id, AwarenessState { clock, content })))
 }
 
 fn write_awareness_state<W: Write>(
     buffer: &mut W,
     client_id: u64,
-    state: &AwarenessClientState,
+    state: &AwarenessState,
 ) -> Result<(), IoError> {
     write_var_u64(buffer, client_id)?;
     write_var_u64(buffer, state.clock)?;
@@ -36,14 +34,20 @@ fn write_awareness_state<W: Write>(
     Ok(())
 }
 
-fn write_awareness<W: Write>(
-    buffer: &mut W,
-    clients: &HashMap<u64, AwarenessClientState>,
-) -> Result<(), IoError> {
+pub type AwarenessStates = HashMap<u64, AwarenessState>;
+
+pub fn read_awareness(input: &[u8]) -> IResult<&[u8], AwarenessStates> {
+    let (tail, len) = read_var_u64(&input)?;
+
+    let (tail, messages) = count(read_awareness_state, len as usize)(tail)?;
+
+    Ok((tail, messages.into_iter().collect()))
+}
+
+pub fn write_awareness<W: Write>(buffer: &mut W, clients: &AwarenessStates) -> Result<(), IoError> {
     write_var_u64(buffer, clients.len() as u64)?;
 
     for (client_id, state) in clients {
-        println!("{}", client_id);
         write_awareness_state(buffer, *client_id, state)?;
     }
 
@@ -51,8 +55,9 @@ fn write_awareness<W: Write>(
 }
 
 // awareness state message
+#[derive(Debug, PartialEq)]
 pub struct AwarenessMessage {
-    clients: HashMap<u64, AwarenessClientState>,
+    clients: AwarenessStates,
 }
 
 #[cfg(test)]
@@ -70,25 +75,16 @@ mod tests {
 
         let expected = HashMap::from([
             (
-                5,
-                AwarenessClientState {
-                    clock: 5,
-                    content: String::from_utf8(vec![1, 2, 3, 4, 5]).unwrap(),
-                },
+                1,
+                AwarenessState::new(5, String::from_utf8(vec![1]).unwrap()),
             ),
             (
                 2,
-                AwarenessClientState {
-                    clock: 10,
-                    content: String::from_utf8(vec![2, 3]).unwrap(),
-                },
+                AwarenessState::new(10, String::from_utf8(vec![2, 3]).unwrap()),
             ),
             (
-                1,
-                AwarenessClientState {
-                    clock: 5,
-                    content: String::from_utf8(vec![1]).unwrap(),
-                },
+                5,
+                AwarenessState::new(5, String::from_utf8(vec![1, 2, 3, 4, 5]).unwrap()),
             ),
         ]);
 
