@@ -9,8 +9,8 @@ fuzz_target!(|data: &[u8]| {
     if let Ok((_, msg)) = result {
         // ensure decoding and re-encoding results has same result
         let mut buffer = Vec::new();
-        if let Err(_) = write_sync_message(&mut buffer, &msg) {
-            panic!("Failed to write message: {:?}", msg);
+        if let Err(e) = write_sync_message(&mut buffer, &msg) {
+            panic!("Failed to write message: {:?}, {:?}", msg, e);
         }
         let result = read_sync_message(&buffer);
         if let Ok((_, msg2)) = result {
