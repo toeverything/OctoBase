@@ -58,7 +58,6 @@ pub fn write_doc_message<W: Write>(buffer: &mut W, msg: &DocMessage) -> Result<(
 }
 
 #[cfg(test)]
-
 mod tests {
     use super::*;
 

@@ -26,8 +26,6 @@ use tokio::{
     sync::mpsc::{Receiver, Sender},
     time::{sleep, Duration},
 };
-#[cfg(feature = "websocket")]
-use types::{JwstRpcError, JwstRpcResult};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum SyncState {

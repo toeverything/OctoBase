@@ -61,7 +61,11 @@ pub fn read_sync_message(input: &[u8]) -> IResult<&[u8], SyncMessage> {
                 tail,
                 SyncMessage::Awareness({
                     let (awareness_tail, awareness) = read_awareness(update)?;
-                    debug_assert!(awareness_tail.is_empty());
+                    let tail_len = awareness_tail.len();
+                    if tail_len > 0 {
+                        debug!("awareness update has trailing bytes: {}", tail_len);
+                        debug_assert!(tail_len > 0, "awareness update has trailing bytes");
+                    }
                     awareness
                 }),
             )
@@ -126,7 +130,7 @@ pub fn write_sync_message<W: Write>(buffer: &mut W, msg: &SyncMessage) -> Result
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{awareness::AwarenessState, *};
 
     #[test]
     fn test_sync_tag() {

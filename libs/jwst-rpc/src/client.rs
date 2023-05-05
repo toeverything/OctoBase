@@ -1,4 +1,4 @@
-use super::*;
+use super::{types::JwstRpcResult, *};
 use futures::{SinkExt, StreamExt};
 use jwst::{warn, DocStorage, Workspace};
 use jwst_storage::{JwstStorage, JwstStorageResult};
