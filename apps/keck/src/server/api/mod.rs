@@ -38,14 +38,6 @@ pub struct PageData<T> {
     data: T,
 }
 
-#[derive(Serialize)]
-pub struct WorkspaceNotify {
-    #[serde(rename(serialize = "workspaceId"))]
-    workspace_id: String,
-    #[serde(rename(serialize = "blockIds"))]
-    block_ids: Vec<String>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubscribeWorkspace {
     pub hook_endpoint: String,

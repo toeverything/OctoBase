@@ -38,7 +38,7 @@ pub trait RpcContextImpl<'a> {
     fn get_channel(&self) -> &BroadcastChannels;
 
     async fn get_workspace(&self, id: &str) -> JwstStorageResult<Workspace> {
-        self.get_storage().create_workspace(id).await
+        self.get_storage().create_workspace(id, None).await
     }
 
     async fn join_server_broadcast(&self, id: &str) -> BroadcastReceiver<Vec<u8>> {

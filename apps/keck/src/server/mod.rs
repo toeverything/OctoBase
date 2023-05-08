@@ -4,8 +4,13 @@ mod sync;
 mod utils;
 
 use axum::{http::Method, Extension, Router, Server};
-use std::{net::SocketAddr, sync::Arc};
-use tokio::{signal};
+use std::collections::HashMap;
+use std::thread::sleep;
+use std::time::Duration;
+use std::{net::SocketAddr, sync::Arc, thread};
+use tokio::sync::RwLock;
+use tokio::{runtime, signal};
+use tokio::runtime::Runtime;
 use tower_http::cors::{Any, CorsLayer};
 
 use api::Context;
@@ -37,6 +42,44 @@ async fn shutdown_signal() {
     info!("Shutdown signal received, starting graceful shutdown");
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceChangedBlocks {
+    #[serde(rename(serialize = "workspaceId"))]
+    pub workspace_id: String,
+    #[serde(rename(serialize = "blockIds"))]
+    pub block_ids: Vec<String>,
+}
+
+impl WorkspaceChangedBlocks {
+    pub fn new(workspace_id: String) -> WorkspaceChangedBlocks {
+        WorkspaceChangedBlocks {
+            workspace_id,
+            block_ids: Vec::new(),
+        }
+    }
+
+    pub fn insert_block_ids(&mut self, mut updated_block_ids: Vec<String>) {
+        self.block_ids.append(&mut updated_block_ids);
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.block_ids.is_empty()
+    }
+}
+
+fn generate_ws_callback(workspace_changed_blocks: Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>, runtime: Arc<Runtime>) -> Box<dyn Fn(String, Vec<String>) + Send + Sync>{
+    Box::new(move |workspace_id, block_ids| {
+        let workspace_changed_blocks = workspace_changed_blocks.clone();
+        runtime.spawn(async move {
+            let mut write_guard = workspace_changed_blocks.write().await;
+            write_guard
+                .entry(workspace_id.clone())
+                .or_insert(WorkspaceChangedBlocks::new(workspace_id.clone()))
+                .insert_block_ids(block_ids.clone());
+        });
+    })
+}
+
 pub async fn start_server() {
     let origins = [
         "http://localhost:4200".parse().unwrap(),
@@ -61,11 +104,73 @@ pub async fn start_server() {
 
     let context = Arc::new(Context::new(None).await);
     let client = Arc::new(reqwest::Client::builder().no_proxy().build().unwrap());
-
+    let runtime = Arc::new(
+        runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .enable_time()
+            .enable_io()
+            .build()
+            .expect("Failed to create runtime"),
+    );
+    let workspace_changed_blocks =
+        Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
+    let hook_endpoint = Arc::new(RwLock::new(String::new()));
+    {
+        let runtime = runtime.clone();
+        let workspace_changed_blocks = workspace_changed_blocks.clone();
+        let hook_endpoint = hook_endpoint.clone();
+        let client = client.clone();
+        thread::spawn(move || {
+            let runtime_cloned = runtime.clone();
+            loop {
+                let workspace_changed_blocks = workspace_changed_blocks.clone();
+                let hook_endpoint = hook_endpoint.clone();
+                let runtime_cloned = runtime_cloned.clone();
+                let client = client.clone();
+                runtime.spawn(async move {
+                    let read_guard = workspace_changed_blocks.read().await;
+                    if !read_guard.is_empty() {
+                        let endpoint = hook_endpoint.read().await;
+                        if !endpoint.is_empty() {
+                            {
+                                let workspace_changed_blocks_clone = read_guard.clone();
+                                let post_body = workspace_changed_blocks_clone
+                                    .into_values()
+                                    .collect::<Vec<WorkspaceChangedBlocks>>();
+                                let endpoint = endpoint.clone();
+                                runtime_cloned.spawn(async move {
+                                    let response = client
+                                        .post(endpoint.to_string())
+                                        .json(&post_body)
+                                        .send()
+                                        .await;
+                                    match response {
+                                        Ok(response) => info!(
+                                            "notified hook endpoint, endpoint response status: {}",
+                                            response.status()
+                                        ),
+                                        Err(e) => error!("Failed to send notify: {}", e),
+                                    }
+                                });
+                            }
+                        }
+                        drop(read_guard);
+                        let mut write_guard = workspace_changed_blocks.write().await;
+                        info!("workspace_changed_blocks: {:?}", write_guard);
+                        write_guard.clear();
+                    }
+                });
+                sleep(Duration::from_millis(5000));
+            }
+        });
+    }
     let app = files::static_files(sync::sync_handler(api::api_handler(Router::new())))
         .layer(cors)
         .layer(Extension(context.clone()))
-        .layer(Extension(client));
+        .layer(Extension(client))
+        .layer(Extension(runtime))
+        .layer(Extension(workspace_changed_blocks))
+        .layer(Extension(hook_endpoint));
 
     let addr = SocketAddr::from((
         [0, 0, 0, 0],

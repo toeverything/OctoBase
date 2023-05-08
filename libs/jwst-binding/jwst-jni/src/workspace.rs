@@ -77,7 +77,7 @@ impl Workspace {
     #[generate_interface]
     pub fn set_callback(&self, observer: Box<dyn BlockObserver>) -> bool {
         let observer = BlockObserverWrapper::new(observer);
-        self.workspace.set_callback(Box::new(move |block_ids: Vec<String>| {
+        self.workspace.set_callback(Box::new(move |_workspace_id, block_ids| {
             observer.on_change(block_ids);
         }));
         true

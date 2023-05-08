@@ -76,7 +76,11 @@ impl JwstStorage {
         func(self.pool.clone()).await
     }
 
-    pub async fn create_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
+    pub async fn create_workspace<S>(
+        &self,
+        workspace_id: S,
+        cb: Option<Box<dyn FnOnce(&Workspace) + Send + Sync>>,
+    ) -> JwstStorageResult<Workspace>
     where
         S: AsRef<str>,
     {
@@ -91,6 +95,10 @@ impl JwstStorage {
                     workspace_id.as_ref()
                 ))
             })?;
+
+        if let Some(cb) = cb {
+            cb(&workspace);
+        }
 
         Ok(workspace)
     }

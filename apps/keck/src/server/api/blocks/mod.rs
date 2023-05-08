@@ -63,7 +63,7 @@ fn workspace_apis(router: Router) -> Router {
             "/search/:workspace/index",
             get(workspace::get_search_index).post(workspace::set_search_index),
         )
-        .route("/subscribe/:workspace", post(subscribe_workspace))
+        .route("/subscribe", post(subscribe_workspace))
 }
 
 pub fn blocks_apis(router: Router) -> Router {

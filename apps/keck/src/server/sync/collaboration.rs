@@ -71,7 +71,7 @@ mod test {
             );
             let remote = String::from(format!("ws://localhost:{server_port}/collaboration/1"));
             storage
-                .create_workspace(workspace_id.clone())
+                .create_workspace(workspace_id.clone(), None)
                 .await
                 .unwrap();
 
@@ -182,7 +182,7 @@ mod test {
             let workspace_id = String::from("1");
             let remote = String::from(format!("ws://localhost:{server_port}/collaboration/1"));
             storage
-                .create_workspace(workspace_id.clone())
+                .create_workspace(workspace_id.clone(), None)
                 .await
                 .unwrap();
 
