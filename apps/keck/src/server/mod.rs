@@ -61,10 +61,6 @@ impl WorkspaceChangedBlocks {
     pub fn insert_block_ids(&mut self, mut updated_block_ids: Vec<String>) {
         self.block_ids.append(&mut updated_block_ids);
     }
-
-    pub fn is_empty(&self) -> bool {
-        self.block_ids.is_empty()
-    }
 }
 
 fn generate_ws_callback(workspace_changed_blocks: Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>, runtime: Arc<Runtime>) -> Box<dyn Fn(String, Vec<String>) + Send + Sync>{
