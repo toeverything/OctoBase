@@ -17,7 +17,9 @@ pub use broadcast::{BroadcastChannels, BroadcastType};
 pub use connector::memory_connector;
 pub use context::RpcContextImpl;
 pub use handler::handle_connector;
-pub use protocol::{read_sync_message, write_sync_message, SyncMessage};
+pub use protocol::{
+    read_sync_message, write_sync_message, AwarenessState, AwarenessStates, SyncMessage,
+};
 pub use utils::{connect_memory_workspace, MinimumServerContext};
 
 use jwst::{debug, error, info, trace};
@@ -26,6 +28,7 @@ use tokio::{
     sync::mpsc::{Receiver, Sender},
     time::{sleep, Duration},
 };
+use utils::convert_awareness_update;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum SyncState {
