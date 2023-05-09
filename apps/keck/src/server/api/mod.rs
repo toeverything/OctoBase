@@ -38,11 +38,6 @@ pub struct PageData<T> {
     data: T,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SubscribeWorkspace {
-    pub hook_endpoint: String,
-}
-
 pub struct Context {
     pub channel: BroadcastChannels,
     pub storage: JwstStorage,

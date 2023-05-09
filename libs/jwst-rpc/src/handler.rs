@@ -1,5 +1,5 @@
 use super::{BroadcastType, Message, RpcContextImpl};
-use jwst::{debug, error, info, trace, warn, Workspace};
+use jwst::{debug, error, info, trace, warn};
 use jwst_storage::WorkspaceRetrievalCallback;
 use std::{sync::Arc, time::Instant};
 use tokio::{

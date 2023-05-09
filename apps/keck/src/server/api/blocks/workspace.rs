@@ -1,4 +1,5 @@
 use super::*;
+use crate::server::api::blocks::SubscribeWorkspace;
 use axum::{
     extract::{Path, Query},
     http::header,
@@ -513,8 +514,10 @@ pub async fn history_workspace(
     tag = "Workspace",
     context_path = "/api/subscribe",
     path = "",
-    params(
-        ("workspace_id", description = "workspace id"),
+    request_body(
+        content_type = "application/json",
+        content = SubscribeWorkspace,
+        description = "Provide endpoint of webhook server",
     ),
     responses(
         (status = 200, description = "Subscribe workspace succeed"),

@@ -13,6 +13,7 @@ pub use workspace::{
 
 use super::*;
 use schema::InsertChildren;
+pub use schema::SubscribeWorkspace;
 
 fn block_apis(router: Router) -> Router {
     let block_operation = Router::new()
