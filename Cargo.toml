@@ -39,6 +39,9 @@ debug = true
 [profile.release.package.jwst-codec-fuzz]
 debug = 1
 
+[profile.release.package.jwst-rpc-fuzz]
+debug = 1
+
 [profile.dev.package.image]
 opt-level = 3
 

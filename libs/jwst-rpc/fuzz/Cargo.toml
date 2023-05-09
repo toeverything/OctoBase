@@ -12,6 +12,7 @@ libfuzzer-sys = "0.4"
 
 [dependencies.jwst-rpc]
 path = ".."
+default-features = false
 
 [profile.release]
 debug = 1
