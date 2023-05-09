@@ -65,7 +65,7 @@ mod tests {
                 let original =  MessageReader::new(&mut decoder)
                     .flatten()
                     .collect::<Vec<_>>();
-                assert_eq!(original.into_iter().map(to_sync_message).collect::<Vec<_>>(), messages);
+                assert_eq!(original.into_iter().filter_map(to_sync_message).collect::<Vec<_>>(), messages);
             }
         }
     }

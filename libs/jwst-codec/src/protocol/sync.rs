@@ -1,6 +1,5 @@
 use super::*;
 use byteorder::WriteBytesExt;
-use nom::combinator::map;
 
 #[derive(Debug, Clone, PartialEq)]
 enum MessageType {
@@ -8,17 +7,17 @@ enum MessageType {
     Awareness,
     AwarenessQuery,
     Doc,
-    Custom(u64),
 }
 
 fn read_sync_tag(input: &[u8]) -> IResult<&[u8], MessageType> {
-    let (tail, tag) = map(read_var_u64, |tag| match tag {
+    let (tail, tag) = read_var_u64(input)?;
+    let tag = match tag {
         0 => MessageType::Doc,
         1 => MessageType::Awareness,
         2 => MessageType::Auth,
         3 => MessageType::AwarenessQuery,
-        tag => MessageType::Custom(tag),
-    })(input)?;
+        _ => return Err(nom::Err::Error(Error::new(input, ErrorKind::Tag))),
+    };
 
     Ok((tail, tag))
 }
@@ -29,7 +28,6 @@ fn write_sync_tag<W: Write>(buffer: &mut W, tag: MessageType) -> Result<(), IoEr
         MessageType::Awareness => 1,
         MessageType::Auth => 2,
         MessageType::AwarenessQuery => 3,
-        MessageType::Custom(tag) => tag,
     };
 
     write_var_u64(buffer, tag)?;
@@ -45,10 +43,6 @@ pub enum SyncMessage {
     Awareness(AwarenessStates),
     AwarenessQuery,
     Doc(DocMessage),
-    Custom(
-        #[cfg_attr(test, proptest(strategy = "4..u8::MAX"))] u8,
-        Vec<u8>,
-    ),
 }
 
 pub fn read_sync_message(input: &[u8]) -> IResult<&[u8], SyncMessage> {
@@ -85,10 +79,6 @@ pub fn read_sync_message(input: &[u8]) -> IResult<&[u8], SyncMessage> {
             }
         }
         MessageType::AwarenessQuery => (tail, SyncMessage::AwarenessQuery),
-        MessageType::Custom(tag) => {
-            let (tail, payload) = read_var_buffer(tail)?;
-            (tail, SyncMessage::Custom(tag as u8, payload.into()))
-        }
     };
 
     Ok((tail, message))
@@ -123,10 +113,6 @@ pub fn write_sync_message<W: Write>(buffer: &mut W, msg: &SyncMessage) -> Result
             write_sync_tag(buffer, MessageType::Doc)?;
             write_doc_message(buffer, doc)?;
         }
-        SyncMessage::Custom(tag, data) => {
-            write_var_u64(buffer, *tag as u64)?;
-            write_var_buffer(buffer, data)?;
-        }
     }
 
     Ok(())
@@ -143,7 +129,6 @@ mod tests {
             MessageType::Awareness,
             MessageType::AwarenessQuery,
             MessageType::Doc,
-            MessageType::Custom(128),
         ];
 
         for msg in messages {
@@ -166,7 +151,6 @@ mod tests {
             SyncMessage::Doc(DocMessage::Step1(vec![4, 5, 6])),
             SyncMessage::Doc(DocMessage::Step2(vec![7, 8, 9])),
             SyncMessage::Doc(DocMessage::Update(vec![10, 11, 12])),
-            SyncMessage::Custom(13, vec![14, 15, 16]),
         ];
 
         for msg in messages {
@@ -194,7 +178,6 @@ mod tests {
             SyncMessage::Doc(DocMessage::Step1(vec![1, 2, 3])),
             SyncMessage::Doc(DocMessage::Step2(vec![7, 8, 9])),
             SyncMessage::Doc(DocMessage::Update(vec![10, 11, 12])),
-            SyncMessage::Custom(13, vec![14, 15, 16]),
         ];
 
         for msg in messages {
@@ -205,7 +188,9 @@ mod tests {
                 // check messages encode are compatible
                 let mut decoder = DecoderV1::from(buffer.as_slice());
                 let new_msg = YMessage::decode(&mut decoder).unwrap();
-                assert_eq!(to_sync_message(new_msg), msg);
+                if let Some(new_msg) = to_sync_message(new_msg) {
+                    assert_eq!(new_msg, msg);
+                }
             }
 
             {

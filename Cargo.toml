@@ -21,10 +21,10 @@ members = [
     "libs/jwst-storage/src/migration",
 ]
 
-[profile.release]
-lto = true
-opt-level = 3
-codegen-units = 1
+# [profile.release]
+# lto = true
+# opt-level = 3
+# codegen-units = 1
 
 [profile.fast-release]
 inherits = "release"
@@ -36,9 +36,6 @@ inherits = "fast-release"
 debug = true
 
 [profile.release.package.jwst-codec-fuzz]
-debug = 1
-
-[profile.release.package.jwst-rpc-fuzz]
 debug = 1
 
 [profile.dev.package.image]

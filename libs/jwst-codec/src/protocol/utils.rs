@@ -8,10 +8,10 @@ use yrs::{
 };
 
 #[cfg(test)]
-pub fn to_sync_message(msg: YMessage) -> SyncMessage {
+pub fn to_sync_message(msg: YMessage) -> Option<SyncMessage> {
     match msg {
-        YMessage::Auth(reason) => SyncMessage::Auth(reason),
-        YMessage::Awareness(awareness) => SyncMessage::Awareness(
+        YMessage::Auth(reason) => Some(SyncMessage::Auth(reason)),
+        YMessage::Awareness(awareness) => Some(SyncMessage::Awareness(
             awareness
                 .clients
                 .into_iter()
@@ -22,16 +22,16 @@ pub fn to_sync_message(msg: YMessage) -> SyncMessage {
                     )
                 })
                 .collect(),
-        ),
-        YMessage::AwarenessQuery => SyncMessage::AwarenessQuery,
-        YMessage::Sync(doc) => SyncMessage::Doc(match doc {
+        )),
+        YMessage::AwarenessQuery => Some(SyncMessage::AwarenessQuery),
+        YMessage::Sync(doc) => Some(SyncMessage::Doc(match doc {
             y_sync::sync::SyncMessage::SyncStep1(update) => {
                 DocMessage::Step1(update.encode_v1().unwrap())
             }
             y_sync::sync::SyncMessage::SyncStep2(update) => DocMessage::Step2(update),
             y_sync::sync::SyncMessage::Update(update) => DocMessage::Update(update),
-        }),
-        YMessage::Custom(tag, data) => SyncMessage::Custom(tag as u8, data),
+        })),
+        YMessage::Custom(_tag, _data) => None,
     }
 }
 
@@ -63,7 +63,6 @@ pub fn to_y_message(msg: SyncMessage) -> YMessage {
             DocMessage::Step2(update) => y_sync::sync::SyncMessage::SyncStep2(update),
             DocMessage::Update(update) => y_sync::sync::SyncMessage::Update(update),
         }),
-        SyncMessage::Custom(tag, data) => YMessage::Custom(tag, data),
     }
 }
 
