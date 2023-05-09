@@ -80,3 +80,20 @@ pub fn convert_awareness_update(update: y_sync::awareness::AwarenessUpdate) -> S
 
     SyncMessage::Awareness(states)
 }
+
+pub fn convert_awareness_y_update(update: AwarenessStates) -> y_sync::awareness::AwarenessUpdate {
+    y_sync::awareness::AwarenessUpdate {
+        clients: update
+            .into_iter()
+            .map(|(client_id, state)| {
+                (
+                    client_id,
+                    y_sync::awareness::AwarenessUpdateEntry {
+                        clock: state.clock as u32,
+                        json: state.content,
+                    },
+                )
+            })
+            .collect(),
+    }
+}

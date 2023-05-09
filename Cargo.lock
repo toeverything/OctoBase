@@ -2124,6 +2124,7 @@ dependencies = [
  "chrono",
  "convert_case",
  "futures",
+ "jwst-codec",
  "lib0",
  "nanoid",
  "schemars",

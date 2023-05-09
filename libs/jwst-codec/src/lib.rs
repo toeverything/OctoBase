@@ -8,8 +8,8 @@ pub use codec::{
 };
 pub use doc::{read_update, Content, Doc, Id, Item, Update};
 pub use protocol::{
-    convert_awareness_update, read_sync_message, write_sync_message, AwarenessState,
-    AwarenessStates, SyncMessage,
+    convert_awareness_update, convert_awareness_y_update, read_sync_message, write_sync_message,
+    AwarenessState, AwarenessStates, DocMessage, SyncMessage, SyncMessageScanner,
 };
 
 use jwst_logger::warn;
