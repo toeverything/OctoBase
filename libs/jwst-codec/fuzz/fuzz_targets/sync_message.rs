@@ -1,6 +1,6 @@
 #![no_main]
 
-use jwst_rpc::{read_sync_message, write_sync_message};
+use jwst_codec::{read_sync_message, write_sync_message};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

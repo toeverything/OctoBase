@@ -124,18 +124,3 @@ pub async fn connect_memory_workspace(
 
     (workspace, tx, tx_handler, rx_handler)
 }
-
-pub fn convert_awareness_update(update: y_sync::awareness::AwarenessUpdate) -> SyncMessage {
-    let states = update
-        .clients
-        .into_iter()
-        .map(|(client_id, state)| {
-            (
-                client_id,
-                AwarenessState::new(state.clock as u64, state.json),
-            )
-        })
-        .collect::<AwarenessStates>();
-
-    SyncMessage::Awareness(states)
-}

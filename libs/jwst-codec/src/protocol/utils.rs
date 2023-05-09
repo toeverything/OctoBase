@@ -1,4 +1,3 @@
-#[cfg(test)]
 use super::*;
 #[cfg(test)]
 use y_sync::sync::Message as YMessage;
@@ -66,4 +65,19 @@ pub fn to_y_message(msg: SyncMessage) -> YMessage {
         }),
         SyncMessage::Custom(tag, data) => YMessage::Custom(tag, data),
     }
+}
+
+pub fn convert_awareness_update(update: y_sync::awareness::AwarenessUpdate) -> SyncMessage {
+    let states = update
+        .clients
+        .into_iter()
+        .map(|(client_id, state)| {
+            (
+                client_id,
+                AwarenessState::new(state.clock as u64, state.json),
+            )
+        })
+        .collect::<AwarenessStates>();
+
+    SyncMessage::Awareness(states)
 }
