@@ -105,12 +105,14 @@ mod tests {
         );
         let workspace_changed_blocks =
             Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
+        let hook_endpoint = Arc::new(RwLock::new(String::new()));
         let client = TestClient::new(
             workspace_apis(Router::new())
                 .layer(Extension(ctx.clone()))
                 .layer(Extension(client.clone()))
                 .layer(Extension(runtime.clone()))
-                .layer(Extension(workspace_changed_blocks.clone())),
+                .layer(Extension(workspace_changed_blocks.clone()))
+                .layer(Extension(hook_endpoint.clone())),
         );
 
         // basic workspace apis
@@ -158,5 +160,17 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::OK);
         let index = resp.json::<Vec<String>>().await;
         assert_eq!(index, vec!["test".to_owned()]);
+
+        let body = json!({
+            "hookEndpoint": "localhost:3000/api/hook"
+        })
+        .to_string();
+        let resp = client
+            .post("/subscribe")
+            .header("content-type", "application/json")
+            .body(body)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
     }
 }
