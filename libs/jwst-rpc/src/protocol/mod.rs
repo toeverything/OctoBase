@@ -2,6 +2,7 @@ mod awareness;
 mod doc;
 mod scanner;
 mod sync;
+mod utils;
 
 pub use awareness::{AwarenessState, AwarenessStates};
 pub use scanner::SyncMessageScanner;

@@ -135,11 +135,6 @@ pub fn write_sync_message<W: Write>(buffer: &mut W, msg: &SyncMessage) -> Result
 #[cfg(test)]
 mod tests {
     use super::{awareness::AwarenessState, *};
-    use std::hash::BuildHasherDefault;
-    use yrs::updates::{
-        decoder::{Decode, DecoderV1},
-        encoder::{Encode, Encoder, EncoderV1},
-    };
 
     #[test]
     fn test_sync_tag() {
@@ -185,6 +180,13 @@ mod tests {
 
     #[test]
     fn test_sync_message_compatibility() {
+        use super::utils::{to_sync_message, to_y_message};
+        use y_sync::sync::Message as YMessage;
+        use yrs::updates::{
+            decoder::{Decode, DecoderV1},
+            encoder::{Encode, Encoder, EncoderV1},
+        };
+
         let messages = [
             SyncMessage::Auth(Some("reason".to_string())),
             SyncMessage::Awareness(HashMap::from([(1, AwarenessState::new(1, "test".into()))])),
@@ -195,49 +197,27 @@ mod tests {
             SyncMessage::Custom(13, vec![14, 15, 16]),
         ];
 
-        let y_sync_messages = [
-            y_sync::sync::Message::Auth(Some("reason".to_string())),
-            y_sync::sync::Message::Awareness(y_sync::awareness::AwarenessUpdate {
-                clients: HashMap::from([(
-                    1,
-                    y_sync::awareness::AwarenessUpdateEntry {
-                        clock: 1,
-                        json: "test".into(),
-                    },
-                )]),
-            }),
-            y_sync::sync::Message::AwarenessQuery,
-            y_sync::sync::Message::Sync(y_sync::sync::SyncMessage::SyncStep1(
-                yrs::StateVector::new(
-                    HashMap::<u64, u32, BuildHasherDefault<yrs::ClientHasher>>::from_iter([(
-                        2u64, 3u32,
-                    )]),
-                ),
-            )),
-            y_sync::sync::Message::Sync(y_sync::sync::SyncMessage::SyncStep2(vec![7, 8, 9])),
-            y_sync::sync::Message::Sync(y_sync::sync::SyncMessage::Update(vec![10, 11, 12])),
-            y_sync::sync::Message::Custom(13, vec![14, 15, 16]),
-        ];
-
-        // check messages encode are compatible
-        for (idx, msg) in messages.iter().enumerate() {
+        for msg in messages {
             let mut buffer = Vec::new();
-            write_sync_message(&mut buffer, msg).unwrap();
+            write_sync_message(&mut buffer, &msg).unwrap();
 
-            let mut decoder = DecoderV1::from(buffer.as_slice());
-            let msg = y_sync::sync::Message::decode(&mut decoder).unwrap();
-            assert_eq!(msg, y_sync_messages[idx]);
-        }
+            {
+                // check messages encode are compatible
+                let mut decoder = DecoderV1::from(buffer.as_slice());
+                let new_msg = YMessage::decode(&mut decoder).unwrap();
+                assert_eq!(to_sync_message(new_msg), msg);
+            }
 
-        // check messages decode are compatible
-        for (idx, msg) in y_sync_messages.iter().enumerate() {
-            let mut encoder = EncoderV1::new();
-            msg.encode(&mut encoder).unwrap();
+            {
+                // check messages decode are compatible
+                let mut encoder = EncoderV1::new();
+                to_y_message(msg.clone()).encode(&mut encoder).unwrap();
 
-            let buffer = encoder.to_vec();
-            let (tail, decoded) = read_sync_message(&buffer).unwrap();
-            assert_eq!(tail.len(), 0);
-            assert_eq!(decoded, messages[idx]);
+                let buffer = encoder.to_vec();
+                let (tail, decoded) = read_sync_message(&buffer).unwrap();
+                assert_eq!(tail.len(), 0);
+                assert_eq!(decoded, msg);
+            }
         }
     }
 }

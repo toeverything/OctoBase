@@ -4,9 +4,10 @@ use nom::multi::count;
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct AwarenessState {
-    clock: u64,
+    #[cfg_attr(test, proptest(strategy = "0..u32::MAX as u64"))]
+    pub(super) clock: u64,
     // content is usually a json
-    content: String,
+    pub(super) content: String,
 }
 
 impl AwarenessState {
