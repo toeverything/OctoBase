@@ -8,7 +8,7 @@ pub use block::{
 };
 pub use workspace::{
     delete_workspace, get_workspace, history_workspace, history_workspace_clients, set_workspace,
-    workspace_client, subscribe_workspace
+    subscribe_workspace, workspace_client,
 };
 
 use super::*;
@@ -93,7 +93,24 @@ mod tests {
     #[tokio::test]
     async fn test_workspace_apis() {
         let ctx = Arc::new(Context::new(JwstStorage::new("sqlite::memory:").await.ok()).await);
-        let client = TestClient::new(workspace_apis(Router::new()).layer(Extension(ctx.clone())));
+        let client = Arc::new(reqwest::Client::builder().no_proxy().build().unwrap());
+        let runtime = Arc::new(
+            runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .enable_time()
+                .enable_io()
+                .build()
+                .expect("Failed to create runtime"),
+        );
+        let workspace_changed_blocks =
+            Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
+        let client = TestClient::new(
+            workspace_apis(Router::new())
+                .layer(Extension(ctx.clone()))
+                .layer(Extension(client.clone()))
+                .layer(Extension(runtime.clone()))
+                .layer(Extension(workspace_changed_blocks.clone())),
+        );
 
         // basic workspace apis
         let resp = client.get("/block/test").send().await;
@@ -103,7 +120,11 @@ mod tests {
         let resp = client.get("/block/test/client").send().await;
         assert_eq!(
             resp.text().await.parse::<u64>().unwrap(),
-            ctx.storage.get_workspace("test", None).await.unwrap().client_id()
+            ctx.storage
+                .get_workspace("test", None)
+                .await
+                .unwrap()
+                .client_id()
         );
         let resp = client.get("/block/test/history").send().await;
         assert_eq!(resp.json::<Vec<u64>>().await, Vec::<u64>::new());
