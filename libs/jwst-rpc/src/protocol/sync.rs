@@ -38,13 +38,17 @@ fn write_sync_tag<W: Write>(buffer: &mut W, tag: MessageType) -> Result<(), IoEr
 }
 
 // sync message
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum SyncMessage {
     Auth(Option<String>),
     Awareness(AwarenessStates),
     AwarenessQuery,
     Doc(DocMessage),
-    Custom(u8, Vec<u8>),
+    Custom(
+        #[cfg_attr(test, proptest(strategy = "4..u8::MAX"))] u8,
+        Vec<u8>,
+    ),
 }
 
 pub fn read_sync_message(input: &[u8]) -> IResult<&[u8], SyncMessage> {

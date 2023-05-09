@@ -1,7 +1,8 @@
 use super::*;
 
 // doc sync message
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum DocMessage {
     // state vector
     Step1(Vec<u8>),

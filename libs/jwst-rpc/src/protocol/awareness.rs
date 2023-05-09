@@ -1,7 +1,8 @@
 use super::*;
 use nom::multi::count;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct AwarenessState {
     clock: u64,
     // content is usually a json

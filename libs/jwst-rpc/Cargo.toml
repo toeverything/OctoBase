@@ -41,5 +41,7 @@ jwst-storage = { path = "../jwst-storage" }
 
 [dev-dependencies]
 indicatif = "0.17.3"
-tempfile = "3.4.0"
 jwst-logger = { path = "../jwst-logger" }
+proptest = "1.1.0"
+proptest-derive = "0.3.0"
+tempfile = "3.4.0"

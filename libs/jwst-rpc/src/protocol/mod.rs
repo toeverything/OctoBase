@@ -1,8 +1,10 @@
 mod awareness;
 mod doc;
+mod scanner;
 mod sync;
 
 pub use awareness::{AwarenessState, AwarenessStates};
+pub use scanner::SyncMessageScanner;
 pub use sync::{read_sync_message, write_sync_message, SyncMessage};
 
 use super::*;
