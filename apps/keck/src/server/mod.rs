@@ -8,9 +8,9 @@ use std::collections::HashMap;
 use std::thread::sleep;
 use std::time::Duration;
 use std::{net::SocketAddr, sync::Arc, thread};
+use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 use tokio::{runtime, signal};
-use tokio::runtime::Runtime;
 use tower_http::cors::{Any, CorsLayer};
 
 use api::Context;
@@ -63,7 +63,10 @@ impl WorkspaceChangedBlocks {
     }
 }
 
-fn generate_ws_callback(workspace_changed_blocks: Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>, runtime: Arc<Runtime>) -> Box<dyn Fn(String, Vec<String>) + Send + Sync>{
+fn generate_ws_callback(
+    workspace_changed_blocks: Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
+    runtime: Arc<Runtime>,
+) -> Box<dyn Fn(String, Vec<String>) + Send + Sync> {
     Box::new(move |workspace_id, block_ids| {
         let workspace_changed_blocks = workspace_changed_blocks.clone();
         runtime.spawn(async move {
@@ -156,7 +159,7 @@ pub async fn start_server() {
                         write_guard.clear();
                     }
                 });
-                sleep(Duration::from_millis(5000));
+                sleep(Duration::from_millis(200));
             }
         });
     }

@@ -142,7 +142,7 @@ impl UserChannel {
                 .unwrap();
             workspace_detail_list.insert(item.id.to_string(), workspace_detail);
 
-            match context.storage.get_workspace(item.id.clone()).await {
+            match context.storage.get_workspace(item.id.clone(), None).await {
                 Ok(workspace) => {
                     workspace_metadata_list
                         .insert(item.id.to_string(), workspace.metadata().into());

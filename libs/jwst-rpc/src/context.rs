@@ -150,7 +150,7 @@ pub trait RpcContextImpl<'a> {
         let identifier = identifier.to_owned();
         let mut workspace = self
             .get_storage()
-            .get_workspace(&id)
+            .get_workspace(&id, None)
             .await
             .expect("workspace not found");
         tokio::spawn(async move {

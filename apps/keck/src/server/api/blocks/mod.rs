@@ -103,7 +103,7 @@ mod tests {
         let resp = client.get("/block/test/client").send().await;
         assert_eq!(
             resp.text().await.parse::<u64>().unwrap(),
-            ctx.storage.get_workspace("test").await.unwrap().client_id()
+            ctx.storage.get_workspace("test", None).await.unwrap().client_id()
         );
         let resp = client.get("/block/test/history").send().await;
         assert_eq!(resp.json::<Vec<u64>>().await, Vec::<u64>::new());

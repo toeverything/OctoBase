@@ -380,7 +380,7 @@ pub async fn get_public_page(
         Ok(false)
             if ctx
                 .storage
-                .get_workspace(workspace_id.clone())
+                .get_workspace(workspace_id.clone(), None)
                 .await
                 .ok()
                 .and_then(|ws| {
@@ -397,7 +397,7 @@ pub async fn get_public_page(
         Ok(true | false) => (),
     }
 
-    match ctx.storage.get_workspace(workspace_id).await {
+    match ctx.storage.get_workspace(workspace_id, None).await {
         Ok(workspace) => {
             if let Some(space) = workspace.with_trx(|t| t.get_exists_space(page_id)) {
                 // TODO: check page level permission
@@ -473,7 +473,7 @@ pub async fn get_public_doc(
 }
 
 async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response {
-    match ctx.storage.get_workspace(workspace_id).await {
+    match ctx.storage.get_workspace(workspace_id, None).await {
         Ok(workspace) => {
             if let Ok(update) = workspace.sync_migration(50) {
                 update.into_response()

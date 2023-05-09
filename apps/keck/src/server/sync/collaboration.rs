@@ -22,14 +22,24 @@ pub async fn auth_handler(Path(workspace_id): Path<String>) -> Json<WebSocketAut
 
 pub async fn upgrade_handler(
     Extension(context): Extension<Arc<Context>>,
+    Extension(runtime): Extension<Arc<Runtime>>,
+    Extension(workspace_changed_blocks): Extension<
+        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
+    >,
     Path(workspace): Path<String>,
     ws: WebSocketUpgrade,
 ) -> Response {
     let identifier = nanoid!();
     ws.protocols(["AFFiNE"]).on_upgrade(move |socket| {
-        handle_connector(context.clone(), workspace.clone(), identifier, move || {
-            socket_connector(socket, &workspace)
-        })
+        handle_connector(
+            context.clone(),
+            workspace.clone(),
+            identifier,
+            move || socket_connector(socket, &workspace),
+            Some(Box::new(|workspace| {
+                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
+            })),
+        )
     })
 }
 
@@ -89,7 +99,14 @@ mod test {
 
             let (workspace, rx) = get_workspace(&storage, workspace_id.clone()).await.unwrap();
             if !remote.is_empty() {
-                start_sync_thread(&workspace, remote, rx, None, Arc::new(Runtime::new().unwrap()), sender);
+                start_sync_thread(
+                    &workspace,
+                    remote,
+                    rx,
+                    None,
+                    Arc::new(Runtime::new().unwrap()),
+                    sender,
+                );
             }
 
             (workspace_id, workspace, storage)
@@ -200,7 +217,14 @@ mod test {
             let (workspace, rx) = get_workspace(&storage, workspace_id.clone()).await.unwrap();
             let (sender, _receiver) = channel::<()>(10);
             if !remote.is_empty() {
-                start_sync_thread(&workspace, remote, rx, None,Arc::new(Runtime::new().unwrap()), sender);
+                start_sync_thread(
+                    &workspace,
+                    remote,
+                    rx,
+                    None,
+                    Arc::new(Runtime::new().unwrap()),
+                    sender,
+                );
             }
 
             (workspace_id, workspace, storage)

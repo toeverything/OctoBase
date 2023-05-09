@@ -103,7 +103,7 @@ impl JwstStorage {
         Ok(workspace)
     }
 
-    pub async fn get_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
+    pub async fn get_workspace<S>(&self, workspace_id: S, cb: Option<Box<dyn FnOnce(&Workspace) + Send + Sync>>) -> JwstStorageResult<Workspace>
     where
         S: AsRef<str>,
     {
@@ -119,7 +119,7 @@ impl JwstStorage {
                 ))
             })?
         {
-            Ok(self
+            let workspace = self
                 .docs
                 .get(workspace_id.as_ref().into())
                 .await
@@ -128,7 +128,11 @@ impl JwstStorage {
                         "failed to get workspace {}",
                         workspace_id.as_ref()
                     ))
-                })?)
+                })?;
+            if let Some(cb) = cb {
+                cb(&workspace);
+            }
+            Ok(workspace)
         } else {
             Err(JwstStorageError::WorkspaceNotFound(
                 workspace_id.as_ref().into(),
