@@ -1,5 +1,6 @@
 use super::{BroadcastType, Message, RpcContextImpl};
 use jwst::{debug, error, info, trace, warn, Workspace};
+use jwst_storage::WorkspaceRetrievalCallback;
 use std::{sync::Arc, time::Instant};
 use tokio::{
     sync::mpsc::{Receiver, Sender},
@@ -11,7 +12,7 @@ pub async fn handle_connector(
     workspace_id: String,
     identifier: String,
     get_channel: impl FnOnce() -> (Sender<Message>, Receiver<Vec<u8>>, Sender<bool>),
-    cb: Option<Box<dyn FnOnce(&Workspace) + Send + Sync>>,
+    cb: WorkspaceRetrievalCallback,
 ) {
     info!("{} collaborate with workspace {}", identifier, workspace_id);
 

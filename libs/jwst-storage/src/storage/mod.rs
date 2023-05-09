@@ -16,6 +16,8 @@ pub struct JwstStorage {
     last_migrate: Mutex<HashMap<String, Instant>>,
 }
 
+pub type WorkspaceRetrievalCallback = Option<Box<dyn FnOnce(&Workspace) + Send + Sync>>; // retrieval
+
 impl JwstStorage {
     pub async fn new(database: &str) -> JwstStorageResult<Self> {
         let is_sqlite = is_sqlite(database);
@@ -79,7 +81,7 @@ impl JwstStorage {
     pub async fn create_workspace<S>(
         &self,
         workspace_id: S,
-        cb: Option<Box<dyn FnOnce(&Workspace) + Send + Sync>>,
+        cb: WorkspaceRetrievalCallback,
     ) -> JwstStorageResult<Workspace>
     where
         S: AsRef<str>,
@@ -103,7 +105,7 @@ impl JwstStorage {
         Ok(workspace)
     }
 
-    pub async fn get_workspace<S>(&self, workspace_id: S, cb: Option<Box<dyn FnOnce(&Workspace) + Send + Sync>>) -> JwstStorageResult<Workspace>
+    pub async fn get_workspace<S>(&self, workspace_id: S, cb: WorkspaceRetrievalCallback) -> JwstStorageResult<Workspace>
     where
         S: AsRef<str>,
     {
