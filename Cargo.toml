@@ -21,10 +21,10 @@ members = [
     "libs/jwst-storage/src/migration",
 ]
 
-# [profile.release]
-# lto = true
-# opt-level = 3
-# codegen-units = 1
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1
 
 [profile.fast-release]
 inherits = "release"

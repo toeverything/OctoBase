@@ -1,17 +1,23 @@
-use anyhow::Context;
-use std::collections::HashSet;
-use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool};
-use std::sync::atomic::Ordering::{Acquire, Release};
-use std::thread::JoinHandle;
-use std::time::Duration;
-use tokio::runtime;
-use tokio::runtime::Runtime;
-use tokio::sync::RwLock;
-use tokio::time::sleep;
+use super::Workspace;
+use std::{
+    collections::HashSet,
+    sync::{
+        atomic::{
+            AtomicBool,
+            Ordering::{Acquire, Release},
+        },
+        mpsc::{Receiver, Sender},
+        Arc, Mutex,
+    },
+    thread::JoinHandle,
+    time::Duration,
+};
+use tokio::{
+    runtime::{self, Runtime},
+    sync::RwLock,
+    time::sleep,
+};
 use tracing::debug;
-use crate::Workspace;
 
 type CallbackFn = Arc<RwLock<Option<Box<dyn Fn(Vec<String>) + Send + Sync>>>>;
 pub struct BlockObserverConfig {
@@ -35,7 +41,6 @@ impl BlockObserverConfig {
                 .enable_time()
                 .enable_io()
                 .build()
-                .context("Failed to create runtime")
                 .unwrap(),
         );
         let (tx, rx) = std::sync::mpsc::channel::<String>();
@@ -69,19 +74,21 @@ impl BlockObserverConfig {
         self.runtime.spawn(async move {
             *callback.write().await = Some(cb);
         });
-        self.is_manually_tracking_block_changes.store(false, Release);
+        self.is_manually_tracking_block_changes
+            .store(false, Release);
     }
 
     pub fn set_tracking_block_changes(&self, if_tracking: bool) {
         self.is_observing.store(true, Release);
-        self.is_manually_tracking_block_changes.store(if_tracking, Release);
+        self.is_manually_tracking_block_changes
+            .store(if_tracking, Release);
         let callback = self.callback.clone();
         self.runtime.spawn(async move {
             *callback.write().await = None;
         });
     }
 
-    pub fn retrieve_modified_blocks(&self) -> HashSet<String>{
+    pub fn retrieve_modified_blocks(&self) -> HashSet<String> {
         let modified_block_ids = self.modified_block_ids.clone();
         self.runtime.block_on(async move {
             let mut guard = modified_block_ids.write().await;

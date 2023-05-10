@@ -2,12 +2,6 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum JwstError {
-    // #[error("database error")]
-    // Database(#[from] DbErr),
-    #[error(transparent)]
-    BoxedError(#[from] anyhow::Error),
-    #[error(transparent)]
-    StorageError(anyhow::Error),
     #[error("io error")]
     Io(#[from] std::io::Error),
     #[error("doc codec error")]

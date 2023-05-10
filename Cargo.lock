@@ -2115,7 +2115,6 @@ dependencies = [
 name = "jwst"
 version = "0.1.1"
 dependencies = [
- "anyhow",
  "assert-json-diff",
  "async-trait",
  "base64 0.21.0",
