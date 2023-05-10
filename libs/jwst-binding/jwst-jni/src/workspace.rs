@@ -1,8 +1,9 @@
-use crate::block_observer::{BlockObserver, BlockObserverWrapper};
 use super::{
     generate_interface, Block, JwstWorkspace, OnWorkspaceTransaction, VecOfStrings,
     WorkspaceTransaction,
 };
+use crate::block_observer::{BlockObserver, BlockObserverWrapper};
+use std::sync::Arc;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
@@ -77,9 +78,10 @@ impl Workspace {
     #[generate_interface]
     pub fn set_callback(&self, observer: Box<dyn BlockObserver>) -> bool {
         let observer = BlockObserverWrapper::new(observer);
-        self.workspace.set_callback(Box::new(move |_workspace_id, block_ids| {
-            observer.on_change(block_ids);
-        }));
+        self.workspace
+            .set_callback(Arc::new(Box::new(move |_workspace_id, block_ids| {
+                observer.on_change(block_ids);
+            })));
         true
     }
 }

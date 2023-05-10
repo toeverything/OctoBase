@@ -10,10 +10,12 @@ use crate::server::WorkspaceChangedBlocks;
 use super::*;
 
 pub fn generate_ws_callback(
-    workspace_changed_blocks: Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    runtime: Arc<Runtime>,
-) -> Box<dyn Fn(String, Vec<String>) + Send + Sync> {
-    Box::new(move |workspace_id, block_ids| {
+    workspace_changed_blocks: &Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
+    runtime: &Arc<Runtime>,
+) -> Arc<Box<dyn Fn(String, Vec<String>) + Send + Sync>> {
+    let workspace_changed_blocks = workspace_changed_blocks.clone();
+    let runtime = runtime.clone();
+    Arc::new(Box::new(move |workspace_id, block_ids| {
         let workspace_changed_blocks = workspace_changed_blocks.clone();
         runtime.spawn(async move {
             let mut write_guard = workspace_changed_blocks.write().await;
@@ -22,7 +24,7 @@ pub fn generate_ws_callback(
                 .or_insert(WorkspaceChangedBlocks::new(workspace_id.clone()))
                 .insert_block_ids(block_ids.clone());
         });
-    })
+    }))
 }
 
 pub fn start_handling_observed_blocks(

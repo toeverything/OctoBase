@@ -13,7 +13,7 @@ use tokio::sync::RwLock;
 use tokio::time::sleep;
 use tracing::debug;
 
-type CallbackFn = Arc<RwLock<Option<Box<dyn Fn(String, Vec<String>) + Send + Sync>>>>;
+type CallbackFn = Arc<RwLock<Option<Arc<Box<dyn Fn(String, Vec<String>) + Send + Sync>>>>>;
 pub struct BlockObserverConfig {
     pub(crate) workspace_id: String,
     pub(super) callback: CallbackFn,
@@ -65,7 +65,7 @@ impl BlockObserverConfig {
         self.is_observing.load(Acquire)
     }
 
-    pub fn set_callback(&self, cb: Box<dyn Fn(String, Vec<String>) + Send + Sync>) {
+    pub fn set_callback(&self, cb: Arc<Box<dyn Fn(String, Vec<String>) + Send + Sync>>) {
         self.is_observing.store(true, Release);
         let callback = self.callback.clone();
         self.runtime.spawn(async move {
@@ -143,7 +143,7 @@ impl Workspace {
         self.block_observer_config = Some(Arc::new(BlockObserverConfig::new(self.id())));
     }
 
-    pub fn set_callback(&self, cb: Box<dyn Fn(String, Vec<String>) + Send + Sync>) -> bool {
+    pub fn set_callback(&self, cb: Arc<Box<dyn Fn(String, Vec<String>) + Send + Sync>>) -> bool {
         if let Some(block_observer_config) = self.block_observer_config.clone() {
             if !block_observer_config.is_consuming() {
                 block_observer_config.set_callback(cb);

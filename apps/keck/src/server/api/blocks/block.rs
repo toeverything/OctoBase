@@ -23,10 +23,7 @@ use serde_json::Value as JsonValue;
 )]
 pub async fn get_block(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(params): Path<(String, String)>,
 ) -> Response {
     let (ws_id, block) = params;
@@ -35,9 +32,7 @@ pub async fn get_block(
         .storage
         .get_workspace(
             ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
+            cb.read().await.clone()
         )
         .await
     {
@@ -77,10 +72,7 @@ pub async fn get_block(
 )]
 pub async fn set_block(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(params): Path<(String, String)>,
     query_param: Option<Query<HashMap<String, String>>>,
     Json(payload): Json<JsonValue>,
@@ -91,9 +83,7 @@ pub async fn set_block(
         .storage
         .get_workspace(
             &ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
+            cb.read().await.clone()
         )
         .await
     {
@@ -175,10 +165,7 @@ pub async fn set_block(
 )]
 pub async fn get_block_by_flavour(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(params): Path<(String, String)>,
 ) -> Response {
     let (ws_id, flavour) = params;
@@ -190,9 +177,7 @@ pub async fn get_block_by_flavour(
         .storage
         .get_workspace(
             &ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
+            cb.read().await.clone()
         )
         .await
     {
@@ -234,10 +219,7 @@ pub async fn get_block_by_flavour(
 )]
 pub async fn get_block_history(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(params): Path<(String, String)>,
 ) -> Response {
     let (ws_id, block) = params;
@@ -246,9 +228,7 @@ pub async fn get_block_history(
         .storage
         .get_workspace(
             &ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
+            cb.read().await.clone()
         )
         .await
     {
@@ -283,10 +263,7 @@ pub async fn get_block_history(
 )]
 pub async fn delete_block(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(params): Path<(String, String)>,
 ) -> StatusCode {
     let (ws_id, block) = params;
@@ -295,9 +272,7 @@ pub async fn delete_block(
         .storage
         .get_workspace(
             &ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
+            cb.read().await.clone()
         )
         .await
     {
@@ -337,10 +312,7 @@ pub async fn delete_block(
 )]
 pub async fn get_block_children(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(params): Path<(String, String)>,
     Query(pagination): Query<Pagination>,
 ) -> Response {
@@ -351,9 +323,7 @@ pub async fn get_block_children(
         .storage
         .get_workspace(
             ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
+            cb.read().await.clone()
         )
         .await
     {
@@ -408,10 +378,7 @@ pub async fn get_block_children(
 )]
 pub async fn insert_block_children(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(params): Path<(String, String)>,
     Json(payload): Json<InsertChildren>,
 ) -> Response {
@@ -421,9 +388,7 @@ pub async fn insert_block_children(
         .storage
         .get_workspace(
             &ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
+            cb.read().await.clone()
         )
         .await
     {
@@ -523,10 +488,7 @@ pub async fn insert_block_children(
 )]
 pub async fn remove_block_children(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(params): Path<(String, String, String)>,
 ) -> Response {
     let (ws_id, block, child_id) = params;
@@ -535,9 +497,7 @@ pub async fn remove_block_children(
         .storage
         .get_workspace(
             &ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
+            cb.read().await.clone()
         )
         .await
     {

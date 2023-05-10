@@ -22,23 +22,19 @@ pub async fn auth_handler(Path(workspace_id): Path<String>) -> Json<WebSocketAut
 
 pub async fn upgrade_handler(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(workspace): Path<String>,
     ws: WebSocketUpgrade,
 ) -> Response {
     let identifier = nanoid!();
+    let cb = cb.read().await.clone();
     ws.protocols(["AFFiNE"]).on_upgrade(move |socket| {
         handle_connector(
             context.clone(),
             workspace.clone(),
             identifier,
             move || socket_connector(socket, &workspace),
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
+            cb,
         )
     })
 }

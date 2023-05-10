@@ -27,21 +27,13 @@ use utoipa::IntoParams;
 )]
 pub async fn get_workspace(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(ws_id): Path<String>,
 ) -> Response {
     info!("get_workspace: {}", ws_id);
     if let Ok(workspace) = context
         .storage
-        .get_workspace(
-            &ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
-        )
+        .get_workspace(&ws_id, cb.read().await.clone())
         .await
     {
         Json(workspace).into_response()
@@ -72,21 +64,13 @@ pub async fn get_workspace(
 )]
 pub async fn set_workspace(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(workspace): Path<String>,
 ) -> Response {
     info!("set_workspace: {}", workspace);
     match context
         .storage
-        .create_workspace(
-            workspace,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
-        )
+        .create_workspace(workspace, cb.read().await.clone())
         .await
     {
         Ok(workspace) => Json(workspace).into_response(),
@@ -148,20 +132,12 @@ pub async fn delete_workspace(
 )]
 pub async fn workspace_client(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(ws_id): Path<String>,
 ) -> Response {
     if let Ok(workspace) = context
         .storage
-        .get_workspace(
-            &ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
-        )
+        .get_workspace(&ws_id, cb.read().await.clone())
         .await
     {
         Json(workspace.client_id()).into_response()
@@ -200,10 +176,7 @@ pub struct BlockSearchQuery {
 )]
 pub async fn workspace_search(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(ws_id): Path<String>,
     query: Query<BlockSearchQuery>,
 ) -> Response {
@@ -211,12 +184,7 @@ pub async fn workspace_search(
     info!("workspace_search: {ws_id:?} query = {query_text:?}");
     if let Ok(workspace) = context
         .storage
-        .get_workspace(
-            &ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
-        )
+        .get_workspace(&ws_id, cb.read().await.clone())
         .await
     {
         match workspace.search(query_text) {
@@ -253,22 +221,14 @@ pub async fn workspace_search(
 )]
 pub async fn get_search_index(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(ws_id): Path<String>,
 ) -> Response {
     info!("get_search_index: {ws_id:?}");
 
     if let Ok(workspace) = context
         .storage
-        .get_workspace(
-            &ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
-        )
+        .get_workspace(&ws_id, cb.read().await.clone())
         .await
     {
         Json(workspace.metadata().search_index).into_response()
@@ -297,10 +257,7 @@ pub async fn get_search_index(
 )]
 pub async fn set_search_index(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(ws_id): Path<String>,
     Json(fields): Json<Vec<String>>,
 ) -> Response {
@@ -308,12 +265,7 @@ pub async fn set_search_index(
 
     if let Ok(workspace) = context
         .storage
-        .get_workspace(
-            &ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
-        )
+        .get_workspace(&ws_id, cb.read().await.clone())
         .await
     {
         if let Ok(true) = workspace.set_search_index(fields) {
@@ -349,10 +301,7 @@ pub async fn set_search_index(
 )]
 pub async fn get_workspace_block(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(ws_id): Path<String>,
     Query(pagination): Query<Pagination>,
 ) -> Response {
@@ -360,12 +309,7 @@ pub async fn get_workspace_block(
     info!("get_workspace_block: {ws_id:?}");
     if let Ok(workspace) = context
         .storage
-        .get_workspace(
-            &ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
-        )
+        .get_workspace(&ws_id, cb.read().await.clone())
         .await
     {
         let (total, data) = workspace.with_trx(|mut t| {
@@ -421,20 +365,12 @@ pub async fn get_workspace_block(
 )]
 pub async fn history_workspace_clients(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(ws_id): Path<String>,
 ) -> Response {
     if let Ok(workspace) = context
         .storage
-        .get_workspace(
-            &ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
-        )
+        .get_workspace(&ws_id, cb.read().await.clone())
         .await
     {
         if let Some(history) = parse_history_client(&workspace.doc()) {
@@ -471,21 +407,13 @@ pub async fn history_workspace_clients(
 )]
 pub async fn history_workspace(
     Extension(context): Extension<Arc<Context>>,
-    Extension(runtime): Extension<Arc<Runtime>>,
-    Extension(workspace_changed_blocks): Extension<
-        Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,
-    >,
+    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(params): Path<(String, String)>,
 ) -> Response {
     let (ws_id, client) = params;
     if let Ok(workspace) = context
         .storage
-        .get_workspace(
-            &ws_id,
-            Some(Box::new(|workspace| {
-                workspace.set_callback(generate_ws_callback(workspace_changed_blocks, runtime));
-            })),
-        )
+        .get_workspace(&ws_id, cb.read().await.clone())
         .await
     {
         if let Ok(client) = client.parse::<u64>() {
