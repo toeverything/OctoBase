@@ -45,38 +45,31 @@ Additionally, OctoBase can function as a standalone server database, or it can b
 
 OctoBase has been used in [AFFiNE Cloud]. We are currently working on the following components:
 
-### Core
-
--   [x] CRDT operation (based on yrs)
--   [ ] 🚧 CRDT operation (based on [jwst-codec])
--   [x] CRDT-based data structure compatible with [blocksuite]
--   [ ] 🚧 Full-text indexing
-
-### Sync
-
--   [x] Blob Sync abstraction
-    -   [x] RESTful
-    -   [ ] 🚧 S3
--   [x] Collaboration abstraction
-    -   [x] WebSocket connector
-    -   [ ] 🚧 WebRTC connector
-    -   [ ] 🚧 libp2p connector
-
-### Storage
-
--   [x] Storage agnostic CRDT data storage
-    -   [x] SQLite adapter
-    -   [x] Postgres adapter
-    -   [ ] 🚧 S3 adapter
--   [x] Storage agnostic Blob storage
-    -   [x] SQLite adapter
-    -   [x] Postgres adapter
-    -   [ ] 🚧 S3 adapter
-
-### Binding
-
--   [ ] 🚧 Java binding
--   [ ] 🚧 Swift binding
+-   Core
+    -   ✅ CRDT operation (based on yrs)
+    -   🚧 CRDT operation (based on [jwst-codec])
+    -   ✅ CRDT-based data structure compatible with [blocksuite]
+    -   🚧 Full-text indexing
+-   Sync
+    -   ✅ Blob Sync abstraction
+        -   ✅ RESTful
+        -   🚧 S3
+    -   ✅ Collaboration abstraction
+        -   ✅ WebSocket connector
+        -   🚧 WebRTC connector
+        -   🚧 libp2p connector
+-   Storage
+    -   ✅ Storage agnostic CRDT data storage
+        -   ✅ SQLite adapter
+        -   ✅ Postgres adapter
+        -   🚧 S3 adapter
+    -   ✅ Storage agnostic Blob storage
+        -   ✅ SQLite adapter
+        -   ✅ Postgres adapter
+        -   🚧 S3 adapter
+-   Binding
+    -   🚧 Java binding
+    -   🚧 Swift binding
 
 ## Contributions
 
