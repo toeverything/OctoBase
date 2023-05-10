@@ -1,9 +1,10 @@
+use crate::Workspace;
 use anyhow::Context;
 use std::collections::HashSet;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::{Acquire, Release};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool};
-use std::sync::atomic::Ordering::{Acquire, Release};
 use std::thread::JoinHandle;
 use std::time::Duration;
 use tokio::runtime;
@@ -11,7 +12,6 @@ use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
 use tracing::debug;
-use crate::Workspace;
 
 type CallbackFn = Arc<RwLock<Option<Box<dyn Fn(String, Vec<String>) + Send + Sync>>>>;
 pub struct BlockObserverConfig {
@@ -71,19 +71,21 @@ impl BlockObserverConfig {
         self.runtime.spawn(async move {
             *callback.write().await = Some(cb);
         });
-        self.is_manually_tracking_block_changes.store(false, Release);
+        self.is_manually_tracking_block_changes
+            .store(false, Release);
     }
 
     pub fn set_tracking_block_changes(&self, if_tracking: bool) {
         self.is_observing.store(true, Release);
-        self.is_manually_tracking_block_changes.store(if_tracking, Release);
+        self.is_manually_tracking_block_changes
+            .store(if_tracking, Release);
         let callback = self.callback.clone();
         self.runtime.spawn(async move {
             *callback.write().await = None;
         });
     }
 
-    pub fn retrieve_modified_blocks(&self) -> HashSet<String>{
+    pub fn retrieve_modified_blocks(&self) -> HashSet<String> {
         let modified_block_ids = self.modified_block_ids.clone();
         self.runtime.block_on(async move {
             let mut guard = modified_block_ids.write().await;
@@ -143,7 +145,9 @@ impl Workspace {
 
     pub fn set_callback(&self, cb: Box<dyn Fn(String, Vec<String>) + Send + Sync>) -> bool {
         if let Some(block_observer_config) = self.block_observer_config.clone() {
-            block_observer_config.set_callback(cb);
+            if !block_observer_config.is_consuming() {
+                block_observer_config.set_callback(cb);
+            }
             return true;
         }
         false
