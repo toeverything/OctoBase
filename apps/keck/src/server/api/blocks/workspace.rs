@@ -6,7 +6,6 @@ use axum::{
     response::Response,
 };
 use jwst::{parse_history, parse_history_client, DocStorage};
-use tokio::runtime::Runtime;
 use utoipa::IntoParams;
 
 /// Get a exists `Workspace` by id
