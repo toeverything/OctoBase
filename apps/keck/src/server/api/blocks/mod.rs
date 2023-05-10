@@ -106,13 +106,24 @@ mod tests {
         let workspace_changed_blocks =
             Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
         let hook_endpoint = Arc::new(RwLock::new(String::new()));
+        let cb: Arc<RwLock<WorkspaceRetrievalCallback>>;
+        {
+            let workspace_changed_blocks = workspace_changed_blocks.clone();
+            let runtime = runtime.clone();
+            cb = Arc::new(RwLock::new(Some(Arc::new(Box::new(
+                move |workspace: &Workspace| {
+                    workspace.set_callback(generate_ws_callback(&workspace_changed_blocks, &runtime));
+                },
+            )))));
+        }
         let client = TestClient::new(
             workspace_apis(Router::new())
                 .layer(Extension(ctx.clone()))
                 .layer(Extension(client.clone()))
                 .layer(Extension(runtime.clone()))
                 .layer(Extension(workspace_changed_blocks.clone()))
-                .layer(Extension(hook_endpoint.clone())),
+                .layer(Extension(hook_endpoint.clone()))
+                .layer(Extension(cb)),
         );
 
         // basic workspace apis
