@@ -63,7 +63,7 @@ impl Workspace {
         let mut result = vec![];
 
         let (awareness_msg, content_msg): (Vec<_>, Vec<_>) =
-            SyncMessageScanner::new(&buffer).flatten().partition(|msg| {
+            SyncMessageScanner::new(buffer).flatten().partition(|msg| {
                 matches!(msg, SyncMessage::Awareness(_) | SyncMessage::AwarenessQuery)
             });
 
