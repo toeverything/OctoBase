@@ -51,11 +51,8 @@ async fn ws_handler(
     }
 
     ws.protocols(["AFFiNE"]).on_upgrade(move |socket| {
-        handle_connector(
-            ctx.clone(),
-            workspace.clone(),
-            user_id,
-            move || socket_connector(socket, &workspace),
-        )
+        handle_connector(ctx.clone(), workspace.clone(), user_id, move || {
+            socket_connector(socket, &workspace)
+        })
     })
 }

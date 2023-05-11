@@ -123,9 +123,7 @@ impl JwstStorage {
                 let storage = storage.read().await;
                 get_workspace(&storage, workspace_id).await
             }) {
-                Ok(workspace_and_receiver) => {
-                    workspace_and_receiver
-                }
+                Ok(workspace_and_receiver) => workspace_and_receiver,
                 Err(e) => {
                     error!("Failed to get workspace: {:?}", e.to_string());
                     return Err(JwstError::ExternalError(e.to_string()));
@@ -133,7 +131,14 @@ impl JwstStorage {
             };
 
             if !remote.is_empty() {
-                start_sync_thread(&workspace, remote, rx, Some(self.sync_state.clone()), rt.clone(), sender);
+                start_sync_thread(
+                    &workspace,
+                    remote,
+                    rx,
+                    Some(self.sync_state.clone()),
+                    rt.clone(),
+                    sender,
+                );
             }
 
             let workspace = {
@@ -146,10 +151,14 @@ impl JwstStorage {
                             rt.spawn(async move {
                                 if receiver.recv().await.is_some() {
                                     let storage = storage.clone();
-                                    storage.write().await.full_migrate(id.clone(), None, true).await;
+                                    storage
+                                        .write()
+                                        .await
+                                        .full_migrate(id.clone(), None, true)
+                                        .await;
                                 }
                             });
-                        },
+                        }
                         None => {
                             error!("Storage is not initialized");
                         }
@@ -163,9 +172,12 @@ impl JwstStorage {
                         let update = e.update.clone();
                         rt.spawn(async move {
                             let storage = storage.write().await;
-                            storage.docs().write_update(id, &update).await.map_err(|e| {
-                               error!("Failed to write update: {:?}", e.to_string())
-                            }).unwrap();
+                            storage
+                                .docs()
+                                .write_update(id, &update)
+                                .await
+                                .map_err(|e| error!("Failed to write update: {:?}", e.to_string()))
+                                .unwrap();
                         });
                     }
                 });

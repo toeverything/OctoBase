@@ -29,10 +29,7 @@ pub async fn get_workspace(
     Path(ws_id): Path<String>,
 ) -> Response {
     info!("get_workspace: {}", ws_id);
-    if let Ok(workspace) = context
-        .get_workspace(&ws_id)
-        .await
-    {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         Json(workspace).into_response()
     } else {
         (
@@ -64,10 +61,7 @@ pub async fn set_workspace(
     Path(workspace): Path<String>,
 ) -> Response {
     info!("set_workspace: {}", workspace);
-    match context
-        .create_workspace(workspace)
-        .await
-    {
+    match context.create_workspace(workspace).await {
         Ok(workspace) => Json(workspace).into_response(),
         Err(e) => {
             error!("Failed to init doc: {:?}", e);
@@ -129,10 +123,7 @@ pub async fn workspace_client(
     Extension(context): Extension<Arc<Context>>,
     Path(ws_id): Path<String>,
 ) -> Response {
-    if let Ok(workspace) = context
-        .get_workspace(&ws_id)
-        .await
-    {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         Json(workspace.client_id()).into_response()
     } else {
         (
@@ -174,10 +165,7 @@ pub async fn workspace_search(
 ) -> Response {
     let query_text = &query.query;
     info!("workspace_search: {ws_id:?} query = {query_text:?}");
-    if let Ok(workspace) = context
-        .get_workspace(&ws_id)
-        .await
-    {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         match workspace.search(query_text) {
             Ok(list) => {
                 debug!("workspace_search: {ws_id:?} query = {query_text:?}; {list:#?}");
@@ -216,10 +204,7 @@ pub async fn get_search_index(
 ) -> Response {
     info!("get_search_index: {ws_id:?}");
 
-    if let Ok(workspace) = context
-        .get_workspace(&ws_id)
-        .await
-    {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         Json(workspace.metadata().search_index).into_response()
     } else {
         (
@@ -251,10 +236,7 @@ pub async fn set_search_index(
 ) -> Response {
     info!("set_search_index: {ws_id:?} fields = {fields:?}");
 
-    if let Ok(workspace) = context
-        .get_workspace(&ws_id)
-        .await
-    {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         if let Ok(true) = workspace.set_search_index(fields) {
             StatusCode::OK.into_response()
         } else {
@@ -293,10 +275,7 @@ pub async fn get_workspace_block(
 ) -> Response {
     let Pagination { offset, limit } = pagination;
     info!("get_workspace_block: {ws_id:?}");
-    if let Ok(workspace) = context
-        .get_workspace(&ws_id)
-        .await
-    {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         let (total, data) = workspace.with_trx(|mut t| {
             let space = t.get_blocks();
 
@@ -352,10 +331,7 @@ pub async fn history_workspace_clients(
     Extension(context): Extension<Arc<Context>>,
     Path(ws_id): Path<String>,
 ) -> Response {
-    if let Ok(workspace) = context
-        .get_workspace(&ws_id)
-        .await
-    {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         if let Some(history) = parse_history_client(&workspace.doc()) {
             Json(history).into_response()
         } else {
@@ -393,10 +369,7 @@ pub async fn history_workspace(
     Path(params): Path<(String, String)>,
 ) -> Response {
     let (ws_id, client) = params;
-    if let Ok(workspace) = context
-        .get_workspace(&ws_id)
-        .await
-    {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         if let Ok(client) = client.parse::<u64>() {
             if let Some(json) = parse_history(&workspace.doc(), client)
                 .and_then(|history| serde_json::to_string(&history).ok())

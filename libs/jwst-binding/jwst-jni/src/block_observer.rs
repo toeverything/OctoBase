@@ -8,7 +8,7 @@ pub(crate) struct BlockObserverWrapper {
 
 impl BlockObserverWrapper {
     pub fn new(cb: Box<dyn BlockObserver>) -> Self {
-        Self {cb}
+        Self { cb }
     }
 }
 

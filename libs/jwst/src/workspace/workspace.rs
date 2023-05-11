@@ -55,7 +55,9 @@ impl Workspace {
             updated,
             metadata,
             plugins: Default::default(),
-            block_observer_config: Some(Arc::new(BlockObserverConfig::new(workspace_id.as_ref().to_string()))),
+            block_observer_config: Some(Arc::new(BlockObserverConfig::new(
+                workspace_id.as_ref().to_string(),
+            ))),
         })
     }
 
@@ -73,7 +75,9 @@ impl Workspace {
         let block_observer_config = if block_observer_config.is_some() {
             block_observer_config
         } else {
-            Some(Arc::new(BlockObserverConfig::new(workspace_id.as_ref().to_string())))
+            Some(Arc::new(BlockObserverConfig::new(
+                workspace_id.as_ref().to_string(),
+            )))
         };
         Self {
             workspace_id: workspace_id.as_ref().to_string(),

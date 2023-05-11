@@ -6,8 +6,8 @@ use std::time::Duration;
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 
-use crate::server::WorkspaceChangedBlocks;
 use super::*;
+use crate::server::WorkspaceChangedBlocks;
 
 pub fn generate_ws_callback(
     workspace_changed_blocks: &Arc<RwLock<HashMap<String, WorkspaceChangedBlocks>>>,

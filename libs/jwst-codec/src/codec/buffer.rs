@@ -1,6 +1,6 @@
-use std::io::{Error, Write};
 use super::*;
 use nom::bytes::complete::take;
+use std::io::{Error, Write};
 
 pub fn read_var_buffer(input: &[u8]) -> IResult<&[u8], &[u8]> {
     let (tail, len) = read_var_u64(input)?;
@@ -18,8 +18,11 @@ pub fn _write_var_buffer<W: Write>(buffer: &mut W, data: &[u8]) -> Result<(), Er
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nom::{error::{Error, ErrorKind}, Err, AsBytes};
-    use rand::{Rng, thread_rng};
+    use nom::{
+        error::{Error, ErrorKind},
+        AsBytes, Err,
+    };
+    use rand::{thread_rng, Rng};
 
     #[test]
     fn test_read_var_buffer() {

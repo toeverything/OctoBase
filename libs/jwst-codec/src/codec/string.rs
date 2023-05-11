@@ -1,6 +1,6 @@
-use std::io::{Error, Write};
 use super::*;
 use nom::combinator::map_res;
+use std::io::{Error, Write};
 
 pub fn read_var_string(input: &[u8]) -> IResult<&[u8], String> {
     map_res(read_var_buffer, |s| String::from_utf8(s.to_vec()))(input)
@@ -16,7 +16,10 @@ pub fn _write_var_string<W: Write>(buffer: &mut W, input: String) -> Result<(), 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nom::{error::{Error, ErrorKind}, Err, AsBytes};
+    use nom::{
+        error::{Error, ErrorKind},
+        AsBytes, Err,
+    };
 
     #[test]
     fn test_read_var_string() {

@@ -78,10 +78,7 @@ impl JwstStorage {
         func(self.pool.clone()).await
     }
 
-    pub async fn create_workspace<S>(
-        &self,
-        workspace_id: S,
-    ) -> JwstStorageResult<Workspace>
+    pub async fn create_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
     where
         S: AsRef<str>,
     {
