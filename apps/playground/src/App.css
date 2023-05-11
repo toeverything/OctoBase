@@ -1,8 +1,3 @@
-#editor-container {
-    width: 100vw;
-    height: 100vh;
-}
-
 body {
     overflow: scroll;
 }
@@ -17,4 +12,3 @@ body {
     height: 100vh;
     margin-right: 20px;
 }
-
