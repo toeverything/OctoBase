@@ -2,3 +2,18 @@
     width: 100vw;
     height: 100vh;
 }
+
+body {
+    overflow: scroll;
+}
+
+#editor-container {
+    width: 700px;
+    height: 100vh;
+    margin-right: 20px;
+}
+
+#root {
+    display: flex;
+    justify-content: center;
+}
