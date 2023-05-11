@@ -320,23 +320,18 @@ mod test {
                 ws.retry_with_trx(
                     |mut t| {
                         let space = t.get_space("space");
-                        let block1 = space
-                            .get(&mut t.trx, format!("block{}", i))
-                            .ok_or_else(|| anyhow::anyhow!("block {} not found", i))?;
+                        let block1 = space.get(&mut t.trx, format!("block{}", i))?;
 
                         assert_eq!(block1.flavour(&t.trx), format!("flavour{}", i));
                         assert_eq!(
-                            block1
-                                .get(&t.trx, &format!("key{}", i))
-                                .ok_or_else(|| anyhow::anyhow!("key not found"))?
-                                .to_string(),
+                            block1.get(&t.trx, &format!("key{}", i))?.to_string(),
                             format!("val{}", i)
                         );
-                        Ok::<_, JwstError>(())
+                        None::<()>
                     },
                     50,
                 )
-                .and_then(|v| v)
+                .unwrap()
                 .unwrap();
 
                 collaborator.fetch_sub(1, Ordering::Relaxed);

@@ -1,10 +1,9 @@
 use super::*;
 use jwst::{sync_encode_update, Workspace};
+use jwst_codec::{convert_awareness_update, write_sync_message};
 use lru_time_cache::LruCache;
 use std::{collections::HashMap, sync::Mutex};
 use tokio::sync::{broadcast::Sender, RwLock};
-use y_sync::sync::Message as YMessage;
-use yrs::updates::encoder::{Encode, Encoder, EncoderV1};
 
 #[derive(Clone)]
 pub enum BroadcastType {
@@ -39,9 +38,14 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
                     .update_with_clients([e.added(), e.updated(), e.removed()].concat())
                     .ok()
                     .and_then(|update| {
-                        let mut encoder = EncoderV1::new();
-                        YMessage::Awareness(update).encode(&mut encoder).ok()?;
-                        Some(encoder.to_vec())
+                        let mut buffer = Vec::new();
+                        match write_sync_message(&mut buffer, &convert_awareness_update(update)) {
+                            Ok(_) => Some(buffer),
+                            Err(e) => {
+                                error!("failed to write awareness update: {}", e);
+                                None
+                            }
+                        }
                     })
                 {
                     let mut dedup_cache = dedup_cache.lock().unwrap_or_else(|e| e.into_inner());

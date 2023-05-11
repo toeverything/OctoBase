@@ -1,16 +1,22 @@
-use crate::Workspace;
-use anyhow::Context;
-use std::collections::HashSet;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering::{Acquire, Release};
-use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
-use std::time::Duration;
-use tokio::runtime;
-use tokio::runtime::Runtime;
-use tokio::sync::RwLock;
-use tokio::time::sleep;
+use super::Workspace;
+use std::{
+    collections::HashSet,
+    sync::{
+        atomic::{
+            AtomicBool,
+            Ordering::{Acquire, Release},
+        },
+        mpsc::{Receiver, Sender},
+        Arc, Mutex,
+    },
+    thread::JoinHandle,
+    time::Duration,
+};
+use tokio::{
+    runtime::{self, Runtime},
+    sync::RwLock,
+    time::sleep,
+};
 use tracing::debug;
 
 type CallbackFn = Arc<RwLock<Option<Arc<Box<dyn Fn(String, Vec<String>) + Send + Sync>>>>>;
@@ -36,7 +42,6 @@ impl BlockObserverConfig {
                 .enable_time()
                 .enable_io()
                 .build()
-                .context("Failed to create runtime")
                 .unwrap(),
         );
         let (tx, rx) = std::sync::mpsc::channel::<String>();
