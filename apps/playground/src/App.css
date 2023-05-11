@@ -7,13 +7,14 @@ body {
     overflow: scroll;
 }
 
+#root {
+    display: flex;
+    justify-content: center;
+}
+
 #editor-container {
     width: 700px;
     height: 100vh;
     margin-right: 20px;
 }
 
-#root {
-    display: flex;
-    justify-content: center;
-}
