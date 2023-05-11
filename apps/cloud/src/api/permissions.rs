@@ -160,7 +160,7 @@ pub async fn invite_member(
 
         let metadata = match ctx
             .storage
-            .get_workspace(workspace_id.clone(), None)
+            .get_workspace(workspace_id.clone())
             .await
             .map(|ws| ws.metadata())
         {

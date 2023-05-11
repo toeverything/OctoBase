@@ -26,13 +26,11 @@ use utoipa::IntoParams;
 )]
 pub async fn get_workspace(
     Extension(context): Extension<Arc<Context>>,
-    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(ws_id): Path<String>,
 ) -> Response {
     info!("get_workspace: {}", ws_id);
     if let Ok(workspace) = context
-        .storage
-        .get_workspace(&ws_id, cb.read().await.clone())
+        .get_workspace(&ws_id)
         .await
     {
         Json(workspace).into_response()
@@ -63,13 +61,11 @@ pub async fn get_workspace(
 )]
 pub async fn set_workspace(
     Extension(context): Extension<Arc<Context>>,
-    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(workspace): Path<String>,
 ) -> Response {
     info!("set_workspace: {}", workspace);
     match context
-        .storage
-        .create_workspace(workspace, cb.read().await.clone())
+        .create_workspace(workspace)
         .await
     {
         Ok(workspace) => Json(workspace).into_response(),
@@ -131,12 +127,10 @@ pub async fn delete_workspace(
 )]
 pub async fn workspace_client(
     Extension(context): Extension<Arc<Context>>,
-    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(ws_id): Path<String>,
 ) -> Response {
     if let Ok(workspace) = context
-        .storage
-        .get_workspace(&ws_id, cb.read().await.clone())
+        .get_workspace(&ws_id)
         .await
     {
         Json(workspace.client_id()).into_response()
@@ -175,15 +169,13 @@ pub struct BlockSearchQuery {
 )]
 pub async fn workspace_search(
     Extension(context): Extension<Arc<Context>>,
-    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(ws_id): Path<String>,
     query: Query<BlockSearchQuery>,
 ) -> Response {
     let query_text = &query.query;
     info!("workspace_search: {ws_id:?} query = {query_text:?}");
     if let Ok(workspace) = context
-        .storage
-        .get_workspace(&ws_id, cb.read().await.clone())
+        .get_workspace(&ws_id)
         .await
     {
         match workspace.search(query_text) {
@@ -220,14 +212,12 @@ pub async fn workspace_search(
 )]
 pub async fn get_search_index(
     Extension(context): Extension<Arc<Context>>,
-    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(ws_id): Path<String>,
 ) -> Response {
     info!("get_search_index: {ws_id:?}");
 
     if let Ok(workspace) = context
-        .storage
-        .get_workspace(&ws_id, cb.read().await.clone())
+        .get_workspace(&ws_id)
         .await
     {
         Json(workspace.metadata().search_index).into_response()
@@ -256,15 +246,13 @@ pub async fn get_search_index(
 )]
 pub async fn set_search_index(
     Extension(context): Extension<Arc<Context>>,
-    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(ws_id): Path<String>,
     Json(fields): Json<Vec<String>>,
 ) -> Response {
     info!("set_search_index: {ws_id:?} fields = {fields:?}");
 
     if let Ok(workspace) = context
-        .storage
-        .get_workspace(&ws_id, cb.read().await.clone())
+        .get_workspace(&ws_id)
         .await
     {
         if let Ok(true) = workspace.set_search_index(fields) {
@@ -300,15 +288,13 @@ pub async fn set_search_index(
 )]
 pub async fn get_workspace_block(
     Extension(context): Extension<Arc<Context>>,
-    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(ws_id): Path<String>,
     Query(pagination): Query<Pagination>,
 ) -> Response {
     let Pagination { offset, limit } = pagination;
     info!("get_workspace_block: {ws_id:?}");
     if let Ok(workspace) = context
-        .storage
-        .get_workspace(&ws_id, cb.read().await.clone())
+        .get_workspace(&ws_id)
         .await
     {
         let (total, data) = workspace.with_trx(|mut t| {
@@ -364,12 +350,10 @@ pub async fn get_workspace_block(
 )]
 pub async fn history_workspace_clients(
     Extension(context): Extension<Arc<Context>>,
-    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(ws_id): Path<String>,
 ) -> Response {
     if let Ok(workspace) = context
-        .storage
-        .get_workspace(&ws_id, cb.read().await.clone())
+        .get_workspace(&ws_id)
         .await
     {
         if let Some(history) = parse_history_client(&workspace.doc()) {
@@ -406,13 +390,11 @@ pub async fn history_workspace_clients(
 )]
 pub async fn history_workspace(
     Extension(context): Extension<Arc<Context>>,
-    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(params): Path<(String, String)>,
 ) -> Response {
     let (ws_id, client) = params;
     if let Ok(workspace) = context
-        .storage
-        .get_workspace(&ws_id, cb.read().await.clone())
+        .get_workspace(&ws_id)
         .await
     {
         if let Ok(client) = client.parse::<u64>() {

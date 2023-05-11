@@ -1,6 +1,5 @@
 use super::{BroadcastType, Message, RpcContextImpl};
 use jwst::{debug, error, info, trace, warn};
-use jwst_storage::WorkspaceRetrievalCallback;
 use std::{sync::Arc, time::Instant};
 use tokio::{
     sync::mpsc::{Receiver, Sender},
@@ -12,7 +11,6 @@ pub async fn handle_connector(
     workspace_id: String,
     identifier: String,
     get_channel: impl FnOnce() -> (Sender<Message>, Receiver<Vec<u8>>, Sender<bool>),
-    cb: WorkspaceRetrievalCallback,
 ) {
     info!("{} collaborate with workspace {}", identifier, workspace_id);
 
@@ -23,10 +21,6 @@ pub async fn handle_connector(
         .get_workspace(&workspace_id)
         .await
         .expect("failed to get workspace");
-
-    if let Some(cb) = cb {
-        cb(&ws);
-    }
 
     // Continuously receive information from the remote socket, apply it to the local workspace, and
     // send the encoded updates back to the remote end through the socket.

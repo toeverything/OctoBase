@@ -81,13 +81,13 @@ impl JwstStorage {
     pub async fn create_workspace<S>(
         &self,
         workspace_id: S,
-        cb: WorkspaceRetrievalCallback,
     ) -> JwstStorageResult<Workspace>
     where
         S: AsRef<str>,
     {
         info!("create_workspace: {}", workspace_id.as_ref());
-        let workspace = self
+
+        Ok(self
             .docs
             .get(workspace_id.as_ref().into())
             .await
@@ -96,16 +96,10 @@ impl JwstStorage {
                     "Failed to create workspace {}",
                     workspace_id.as_ref()
                 ))
-            })?;
-
-        if let Some(cb) = cb {
-            cb(&workspace);
-        }
-
-        Ok(workspace)
+            })?)
     }
 
-    pub async fn get_workspace<S>(&self, workspace_id: S, cb: WorkspaceRetrievalCallback) -> JwstStorageResult<Workspace>
+    pub async fn get_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
     where
         S: AsRef<str>,
     {
@@ -121,7 +115,7 @@ impl JwstStorage {
                 ))
             })?
         {
-            let workspace = self
+            Ok(self
                 .docs
                 .get(workspace_id.as_ref().into())
                 .await
@@ -130,11 +124,7 @@ impl JwstStorage {
                         "failed to get workspace {}",
                         workspace_id.as_ref()
                     ))
-                })?;
-            if let Some(cb) = cb {
-                cb(&workspace);
-            }
-            Ok(workspace)
+                })?)
         } else {
             Err(JwstStorageError::WorkspaceNotFound(
                 workspace_id.as_ref().into(),

@@ -105,7 +105,7 @@ impl Context {
     ) -> Result<SearchResults, Box<dyn std::error::Error>> {
         let workspace_id = workspace_id.to_string();
 
-        match self.storage.get_workspace(workspace_id.clone(), None).await {
+        match self.storage.get_workspace(workspace_id.clone()).await {
             Ok(workspace) => {
                 let search_results = workspace.search(query_string)?;
                 Ok(search_results)

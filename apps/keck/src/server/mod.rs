@@ -87,7 +87,6 @@ pub async fn start_server() {
         .allow_origin(origins)
         .allow_headers(Any);
 
-    let context = Arc::new(Context::new(None).await);
     let client = Arc::new(reqwest::Client::builder().no_proxy().build().unwrap());
     let runtime = Arc::new(
         runtime::Builder::new_multi_thread()
@@ -100,16 +99,17 @@ pub async fn start_server() {
     let workspace_changed_blocks =
         Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
     let hook_endpoint = Arc::new(RwLock::new(String::new()));
-    let cb: Arc<RwLock<WorkspaceRetrievalCallback>>;
+    let cb: WorkspaceRetrievalCallback;
     {
         let workspace_changed_blocks = workspace_changed_blocks.clone();
         let runtime = runtime.clone();
-        cb = Arc::new(RwLock::new(Some(Arc::new(Box::new(
+        cb = Some(Arc::new(Box::new(
             move |workspace: &Workspace| {
                 workspace.set_callback(generate_ws_callback(&workspace_changed_blocks, &runtime));
             },
-        )))));
+        )));
     }
+    let context = Arc::new(Context::new(None, cb).await);
 
     start_handling_observed_blocks(
         runtime.clone(),
@@ -124,8 +124,7 @@ pub async fn start_server() {
         .layer(Extension(client))
         .layer(Extension(runtime))
         .layer(Extension(workspace_changed_blocks))
-        .layer(Extension(hook_endpoint))
-        .layer(Extension(cb));
+        .layer(Extension(hook_endpoint));
 
     let addr = SocketAddr::from((
         [0, 0, 0, 0],

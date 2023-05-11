@@ -107,7 +107,6 @@ pub async fn connect_memory_workspace(
                 workspace_id,
                 nanoid!(),
                 move || (tx, rx, first_init_tx),
-                None
             ));
         });
         // tokio::spawn(handle_connector(server, id.into(), nanoid!(), move || {

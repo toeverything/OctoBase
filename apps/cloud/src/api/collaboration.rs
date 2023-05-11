@@ -56,7 +56,6 @@ async fn ws_handler(
             workspace.clone(),
             user_id,
             move || socket_connector(socket, &workspace),
-            None,
         )
     })
 }

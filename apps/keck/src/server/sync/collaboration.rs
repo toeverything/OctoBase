@@ -22,19 +22,19 @@ pub async fn auth_handler(Path(workspace_id): Path<String>) -> Json<WebSocketAut
 
 pub async fn upgrade_handler(
     Extension(context): Extension<Arc<Context>>,
-    Extension(cb): Extension<Arc<RwLock<WorkspaceRetrievalCallback>>>,
     Path(workspace): Path<String>,
     ws: WebSocketUpgrade,
 ) -> Response {
     let identifier = nanoid!();
-    let cb = cb.read().await.clone();
+    if let Err(e) = context.create_workspace(workspace.clone()).await {
+        error!("create workspace failed: {:?}", e);
+    }
     ws.protocols(["AFFiNE"]).on_upgrade(move |socket| {
         handle_connector(
             context.clone(),
             workspace.clone(),
             identifier,
             move || socket_connector(socket, &workspace),
-            cb,
         )
     })
 }
@@ -77,7 +77,7 @@ mod test {
             );
             let remote = String::from(format!("ws://localhost:{server_port}/collaboration/1"));
             storage
-                .create_workspace(workspace_id.clone(), None)
+                .create_workspace(workspace_id.clone())
                 .await
                 .unwrap();
 
@@ -195,7 +195,7 @@ mod test {
             let workspace_id = String::from("1");
             let remote = String::from(format!("ws://localhost:{server_port}/collaboration/1"));
             storage
-                .create_workspace(workspace_id.clone(), None)
+                .create_workspace(workspace_id.clone())
                 .await
                 .unwrap();
 

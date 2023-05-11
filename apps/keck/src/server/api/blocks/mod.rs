@@ -93,7 +93,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_workspace_apis() {
-        let ctx = Arc::new(Context::new(JwstStorage::new("sqlite::memory:").await.ok()).await);
         let client = Arc::new(reqwest::Client::builder().no_proxy().build().unwrap());
         let runtime = Arc::new(
             runtime::Builder::new_multi_thread()
@@ -106,24 +105,22 @@ mod tests {
         let workspace_changed_blocks =
             Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
         let hook_endpoint = Arc::new(RwLock::new(String::new()));
-        let cb: Arc<RwLock<WorkspaceRetrievalCallback>>;
+        let cb: WorkspaceRetrievalCallback;
         {
             let workspace_changed_blocks = workspace_changed_blocks.clone();
             let runtime = runtime.clone();
-            cb = Arc::new(RwLock::new(Some(Arc::new(Box::new(
-                move |workspace: &Workspace| {
-                    workspace.set_callback(generate_ws_callback(&workspace_changed_blocks, &runtime));
-                },
-            )))));
+            cb = Some(Arc::new(Box::new(move |workspace: &Workspace| {
+                workspace.set_callback(generate_ws_callback(&workspace_changed_blocks, &runtime));
+            })));
         }
+        let ctx = Arc::new(Context::new(JwstStorage::new("sqlite::memory:").await.ok(), cb).await);
         let client = TestClient::new(
             workspace_apis(Router::new())
                 .layer(Extension(ctx.clone()))
                 .layer(Extension(client.clone()))
                 .layer(Extension(runtime.clone()))
                 .layer(Extension(workspace_changed_blocks.clone()))
-                .layer(Extension(hook_endpoint.clone()))
-                .layer(Extension(cb)),
+                .layer(Extension(hook_endpoint.clone())),
         );
 
         // basic workspace apis
@@ -134,11 +131,7 @@ mod tests {
         let resp = client.get("/block/test/client").send().await;
         assert_eq!(
             resp.text().await.parse::<u64>().unwrap(),
-            ctx.storage
-                .get_workspace("test", None)
-                .await
-                .unwrap()
-                .client_id()
+            ctx.storage.get_workspace("test").await.unwrap().client_id()
         );
         let resp = client.get("/block/test/history").send().await;
         assert_eq!(resp.json::<Vec<u64>>().await, Vec::<u64>::new());

@@ -38,7 +38,7 @@ pub trait RpcContextImpl<'a> {
     fn get_channel(&self) -> &BroadcastChannels;
 
     async fn get_workspace(&self, id: &str) -> JwstStorageResult<Workspace> {
-        self.get_storage().create_workspace(id, None).await
+        self.get_storage().create_workspace(id).await
     }
 
     async fn join_server_broadcast(&self, id: &str) -> BroadcastReceiver<Vec<u8>> {
@@ -150,7 +150,7 @@ pub trait RpcContextImpl<'a> {
         let identifier = identifier.to_owned();
         let mut workspace = self
             .get_storage()
-            .get_workspace(&id, None)
+            .get_workspace(&id)
             .await
             .expect("workspace not found");
         tokio::spawn(async move {
