@@ -7,7 +7,6 @@ mod utils;
 use api::Context;
 use axum::{http::Method, Extension, Router, Server};
 use jwst::Workspace;
-use jwst_storage::WorkspaceRetrievalCallback;
 use std::{
     collections::HashMap,
     thread::sleep,
@@ -44,6 +43,8 @@ async fn shutdown_signal() {
 
     info!("Shutdown signal received, starting graceful shutdown");
 }
+
+type WorkspaceRetrievalCallback = Option<Arc<Box<dyn Fn(&Workspace) + Send + Sync>>>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceChangedBlocks {

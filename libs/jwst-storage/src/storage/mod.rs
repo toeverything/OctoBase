@@ -16,8 +16,6 @@ pub struct JwstStorage {
     last_migrate: Mutex<HashMap<String, Instant>>,
 }
 
-pub type WorkspaceRetrievalCallback = Option<Arc<Box<dyn Fn(&Workspace) + Send + Sync>>>;
-
 impl JwstStorage {
     pub async fn new(database: &str) -> JwstStorageResult<Self> {
         let is_sqlite = is_sqlite(database);
