@@ -43,7 +43,7 @@ pub enum InsertChildren {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[schema(example=json!({
-    "hook_endpoint": "http://localhost:3000/api/hooks"
+    "hookEndpoint": "http://localhost:3000/api/hooks"
 }))]
 pub struct SubscribeWorkspace {
     #[serde(rename = "hookEndpoint")]
