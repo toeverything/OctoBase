@@ -29,7 +29,7 @@
 	},
 	"building_guide": "Developing Sync Server",
 	"binding_guide": "Developing Binding",
-	"testing_guide": "🚧 How to Test",
+	"testing_guide": "How to make tests",
 	"collaborative_with_octobase": {
 		"title": "Collaboratived with OctoBase",
 		"type": "separator"
