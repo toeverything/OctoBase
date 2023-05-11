@@ -2,11 +2,12 @@ use super::*;
 use jwst::{DocStorage, Workspace};
 use jwst_storage::JwstStorage;
 use nanoid::nanoid;
-use std::collections::HashMap;
-use std::thread::JoinHandle as StdJoinHandler;
-use tokio::sync::mpsc::channel;
-use tokio::sync::RwLock;
-use tokio::task::JoinHandle as TokioJoinHandler;
+use std::{collections::HashMap, thread::JoinHandle as StdJoinHandler, time::Duration};
+use tokio::{
+    sync::{mpsc::channel, RwLock},
+    task::JoinHandle as TokioJoinHandler,
+    time::sleep,
+};
 use yrs::{updates::decoder::Decode, Doc, ReadTxn, StateVector, Transact, Update};
 
 pub struct MinimumServerContext {
@@ -31,7 +32,7 @@ impl MinimumServerContext {
                     retry -= 1;
                     if retry > 0 {
                         error!("failed to connect database: {}", e);
-                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                        sleep(Duration::from_secs(1)).await;
                     } else {
                         break 'connect Err(e);
                     }

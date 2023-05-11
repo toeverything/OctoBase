@@ -6,21 +6,23 @@ on:
         branches: [master]
         paths:
             - 'apps/cloud/**'
-            - 'apps/handbook/**'
+            - 'apps/homepage/**'
             - 'apps/keck/**'
             - 'libs/**'
             - '.github/deployment/Dockerfile-cloud'
             - '.github/deployment/Dockerfile-jwst'
+            - '.github/deployment/Dockerfile-mt-cloud'
             - '.github/workflows/jwst.yml'
     pull_request:
         branches: [master]
         paths:
             - 'apps/cloud/**'
-            - 'apps/handbook/**'
+            - 'apps/homepage/**'
             - 'apps/keck/**'
             - 'libs/**'
             - '.github/deployment/Dockerfile-cloud'
             - '.github/deployment/Dockerfile-jwst'
+            - '.github/deployment/Dockerfile-mt-cloud'
             - '.github/workflows/jwst.yml'
 
 # Cancels all previous workflow runs for pull requests that have not completed.
@@ -34,13 +36,109 @@ concurrency:
 env:
     REGISTRY: ghcr.io
     NAMESPACE: toeverything
+
     APIPROXY_IMAGE_NAME: apiproxy
     CLOUD_IMAGE_NAME: cloud-self-hosted
     JWST_IMAGE_NAME: jwst
+
     IMAGE_TAG: canary-${{ github.sha }}
     IMAGE_TAG_LATEST: nightly-latest
 
+    LOCAL_CACHE: localhost:5000/toeverything/relocate:latest
+    IMAGE_TAG_MT: canary-mt-${{ github.sha }}
+    IMAGE_TAG_MT_LATEST: mt-latest
+
 jobs:
+    aio-cloud-baseline:
+        if: github.ref == 'refs/heads/master'
+        runs-on: self-hosted
+        environment: development
+        permissions:
+            contents: read
+            packages: write
+
+        services:
+            registry:
+                image: registry:2
+                ports:
+                    - 5000:5000
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+
+            - name: Install Rust
+              uses: actions-rs/toolchain@v1
+              with:
+                  profile: minimal
+                  toolchain: stable
+                  override: true
+
+            - uses: Swatinem/rust-cache@v2
+            - name: Set up pnpm cache
+              uses: actions/cache@v3
+              continue-on-error: false
+              with:
+                  path: ./node_modules/.pnpm-store
+                  key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+                  restore-keys: ${{ runner.os }}-pnpm-
+
+            - name: Cargo Vendor
+              run: cargo vendor > .cargo/config
+
+            - name: Log in to the Container registry
+              uses: docker/login-action@v2
+              if: github.ref == 'refs/heads/master'
+              with:
+                  registry: ${{ env.REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
+
+            - name: Set up QEMU
+              uses: docker/setup-qemu-action@v1
+
+            - name: Set up Docker Buildx
+              id: buildx
+              uses: docker/setup-buildx-action@v1
+              with:
+                  driver-opts: network=host
+
+            - name: Build and push Docker image (cloud-mt-baseline)
+              uses: docker/build-push-action@v3
+              if: github.ref == 'refs/heads/master'
+              with:
+                  context: .
+                  file: ./.github/deployment/Dockerfile-mt-cloud
+                  push: true
+                  tags: ${{ env.LOCAL_CACHE }}
+                  target: jwst
+
+            - name: Get current time
+              id: time
+              run: echo "::set-output name=time::$(date +'%Y%m%d-%H%M')"
+
+            - name: Extract metadata (tags, labels) for Docker (mt-cloud)
+              id: meta_mt_cloud
+              uses: docker/metadata-action@v4
+              with:
+                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.CLOUD_IMAGE_NAME }}
+                  tags: |
+                      ${{ env.IMAGE_TAG_MT }}-${{ steps.time.outputs.time }}
+                      ${{ env.IMAGE_TAG_MT_LATEST }}
+
+            - name: Build and push Docker image (mt-cloud)
+              uses: docker/build-push-action@v3
+              with:
+                  context: .
+                  platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
+                  file: ./.github/deployment/Dockerfile-mt-cloud-prod
+                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
+                  tags: ${{ steps.meta_mt_cloud.outputs.tags }}
+                  labels: ${{ steps.meta_mt_cloud.outputs.labels }}
+                  target: affine
+                  build-args: |
+                      BASE_IMAGE=${{ env.LOCAL_CACHE }}
+
     cloud:
         runs-on: self-hosted
         environment: development

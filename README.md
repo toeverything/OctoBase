@@ -1,5 +1,3 @@
-
-
 <div align="center">
 
 <h1 style="border-bottom: none">
@@ -20,7 +18,6 @@ OctoBase is an offline-available, scalable, self-contained collaborative databas
 Based on OctoBase, you can not only implement a rich text editor for offline writing, but also implement richer offline collaboration functions based on OctoBase's data abstraction, such as: multidimensional tables, drawing boards, etc.
 
 </div>
-
 
 ## Features
 
@@ -45,6 +42,34 @@ Additionally, OctoBase can function as a standalone server database, or it can b
 ## Project status
 
 **The OctoBase project is currently under heavy development, most components are not yet production ready. Major changes may occur at any time before the version reaches 1.0.**
+
+OctoBase has been used in [AFFiNE Cloud]. We are currently working on the following components:
+
+-   Core
+    -   ✅ CRDT operation (based on yrs)
+    -   🚧 CRDT operation (based on [jwst-codec])
+    -   ✅ CRDT-based data structure compatible with [blocksuite]
+    -   🚧 Full-text indexing
+-   Sync
+    -   ✅ Blob Sync abstraction
+        -   ✅ RESTful
+        -   🚧 S3
+    -   ✅ [Collaboration abstraction]
+        -   ✅ [WebSocket connector]
+        -   🚧 WebRTC connector
+        -   🚧 libp2p connector
+-   Storage
+    -   ✅ Storage agnostic CRDT data storage
+        -   ✅ SQLite adapter
+        -   ✅ Postgres adapter
+        -   🚧 S3 adapter
+    -   ✅ Storage agnostic Blob storage
+        -   ✅ SQLite adapter
+        -   ✅ Postgres adapter
+        -   🚧 S3 adapter
+-   Binding
+    -   🚧 [Java binding]
+    -   🚧 [Swift binding]
 
 ## Contributions
 
@@ -79,6 +104,7 @@ You can see a summary of our recent updates here: [What's New](./apps/homepage/p
 └── libs ##
     ├── jwst  ## OctoBase core library
     ├── jwst-binding ## Multilingual FFI bindings for OctoBase
+    ├── jwst-codec ## CRDT implementation for OctoBase
     ├── jwst-logger ## logger plugins for OctoBase
     ├── jwst-rpc ## sync plugins for OctoBase
     ├── jwst-storage ## storage plugins for OctoBase
@@ -115,3 +141,10 @@ Currently, this repository is under **active development** and most components a
 [Join Telegram]: https://img.shields.io/badge/join-telegram-blue
 [Issues Closed]: https://img.shields.io/github/issues-closed/toeverything/OctoBase?color=6880ff&logo=github
 [rust-version-icon]: https://img.shields.io/badge/Rust-1.70.0-dea584?logo=rust
+[affine cloud]: https://app.affine.pro
+[jwst-codec]: ./libs/jwst-codec/
+[blocksuite]: https://github.com/toeverything/blocksuite
+[Collaboration abstraction]: https://github.com/toeverything/OctoBase/issues/287
+[WebSocket connector]: ./libs/jwst-rpc/src/connector/socket.rs
+[Java binding]: ./libs/jwst-binding/jwst-jni
+[Swift binding]: ./libs/jwst-binding/jwst-swift

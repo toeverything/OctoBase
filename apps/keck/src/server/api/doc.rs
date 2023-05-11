@@ -36,7 +36,7 @@ use utoipa::OpenApi;
     components(
         schemas(
             blobs::BlobStatus, schema::InsertChildren,
-            schema::Workspace, schema::Block, schema::BlockRawHistory,
+            schema::Workspace, schema::Block, schema::BlockRawHistory, schema::SubscribeWorkspace,
             jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory,
             jwst::SearchResults, jwst::SearchResult,
         )

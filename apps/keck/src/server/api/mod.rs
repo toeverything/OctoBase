@@ -11,11 +11,11 @@ use axum::{
     extract::{Json, Path},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post, head},
+    routing::{delete, get, head, post},
 };
 use doc::doc_apis;
 use jwst_rpc::{BroadcastChannels, RpcContextImpl};
-use jwst_storage::JwstStorage;
+use jwst_storage::{JwstStorage, JwstStorageResult};
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
@@ -38,26 +38,14 @@ pub struct PageData<T> {
     data: T,
 }
 
-#[derive(Serialize)]
-pub struct WorkspaceNotify {
-    #[serde(rename(serialize = "workspaceId"))]
-    workspace_id: String,
-    #[serde(rename(serialize = "blockIds"))]
-    block_ids: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SubscribeWorkspace {
-    pub hook_endpoint: String,
-}
-
 pub struct Context {
-    pub channel: BroadcastChannels,
-    pub storage: JwstStorage,
+    channel: BroadcastChannels,
+    storage: JwstStorage,
+    callback: WorkspaceRetrievalCallback,
 }
 
 impl Context {
-    pub async fn new(storage: Option<JwstStorage>) -> Self {
+    pub async fn new(storage: Option<JwstStorage>, cb: WorkspaceRetrievalCallback) -> Self {
         let storage = if let Some(storage) = storage {
             info!("use external storage instance: {}", storage.database());
             Ok(storage)
@@ -76,7 +64,32 @@ impl Context {
         Context {
             channel: RwLock::new(HashMap::new()),
             storage,
+            callback: cb,
         }
+    }
+
+    pub async fn get_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
+    where
+        S: AsRef<str>,
+    {
+        let workspace = self.storage.get_workspace(workspace_id).await?;
+        if let Some(cb) = self.callback.clone() {
+            cb(&workspace);
+        }
+
+        Ok(workspace)
+    }
+
+    pub async fn create_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
+    where
+        S: AsRef<str>,
+    {
+        let workspace = self.storage.create_workspace(workspace_id).await?;
+        if let Some(cb) = self.callback.clone() {
+            cb(&workspace);
+        }
+
+        Ok(workspace)
     }
 }
 
