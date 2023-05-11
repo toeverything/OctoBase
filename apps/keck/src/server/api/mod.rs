@@ -39,9 +39,9 @@ pub struct PageData<T> {
 }
 
 pub struct Context {
-    pub channel: BroadcastChannels,
-    pub storage: JwstStorage,
-    pub callback: WorkspaceRetrievalCallback,
+    channel: BroadcastChannels,
+    storage: JwstStorage,
+    callback: WorkspaceRetrievalCallback,
 }
 
 impl Context {

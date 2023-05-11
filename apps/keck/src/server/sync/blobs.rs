@@ -16,6 +16,7 @@ use axum::{
 };
 use futures::{future, StreamExt};
 use jwst::BlobStorage;
+use jwst_rpc::RpcContextImpl;
 use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 
 #[derive(Serialize)]
@@ -38,7 +39,7 @@ impl Context {
             }
         }
 
-        let Ok(meta) = self.storage.blobs().get_metadata(workspace.clone(), id.clone(), None).await else {
+        let Ok(meta) = self.get_storage().blobs().get_metadata(workspace.clone(), id.clone(), None).await else {
             return StatusCode::NOT_FOUND.into_response()
         };
 
@@ -81,7 +82,7 @@ impl Context {
             return header.into_response();
         };
 
-        let Ok(file) = self.storage.blobs().get_blob(workspace, id, None).await else {
+        let Ok(file) = self.get_storage().blobs().get_blob(workspace, id, None).await else {
             return StatusCode::NOT_FOUND.into_response()
         };
 
@@ -106,13 +107,13 @@ impl Context {
             .filter_map(|data| future::ready(data.ok()));
 
         if let Ok(id) = self
-            .storage
+            .get_storage()
             .blobs()
             .put_blob(workspace.clone(), stream)
             .await
         {
             if has_error {
-                let _ = self.storage.blobs().delete_blob(workspace, id).await;
+                let _ = self.get_storage().blobs().delete_blob(workspace, id).await;
                 StatusCode::INTERNAL_SERVER_ERROR.into_response()
             } else {
                 Json(BlobStatus { id, exists: true }).into_response()
