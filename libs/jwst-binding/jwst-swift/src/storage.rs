@@ -3,7 +3,7 @@ use jwst::{error, info, DocStorage, JwstError, JwstResult};
 use jwst_logger::init_logger_with;
 use jwst_rpc::{get_workspace, start_sync_thread, SyncState};
 use jwst_storage::JwstStorage as AutoStorage;
-use std::sync::{Arc};
+use std::sync::Arc;
 use tokio::{runtime::Runtime, sync::RwLock};
 
 #[derive(Clone)]
@@ -114,9 +114,7 @@ impl Storage {
                 let storage = storage.read().await;
                 get_workspace(&storage, workspace_id).await
             }) {
-                Ok(workspace_and_receiver) => {
-                    workspace_and_receiver
-                }
+                Ok(workspace_and_receiver) => workspace_and_receiver,
                 Err(e) => {
                     error!("Failed to get workspace: {:?}", e.to_string());
                     return Err(JwstError::ExternalError(e.to_string()));
@@ -124,7 +122,14 @@ impl Storage {
             };
 
             if !remote.is_empty() {
-                start_sync_thread(&workspace, remote, rx, Some(self.sync_state.clone()), rt.clone(), sender);
+                start_sync_thread(
+                    &workspace,
+                    remote,
+                    rx,
+                    Some(self.sync_state.clone()),
+                    rt.clone(),
+                    sender,
+                );
             }
 
             let workspace = {
@@ -137,10 +142,14 @@ impl Storage {
                             rt.spawn(async move {
                                 if receiver.recv().await.is_some() {
                                     let storage = storage.clone();
-                                    storage.write().await.full_migrate(id.clone(), None, true).await;
+                                    storage
+                                        .write()
+                                        .await
+                                        .full_migrate(id.clone(), None, true)
+                                        .await;
                                 }
                             });
-                        },
+                        }
                         None => {
                             error!("Storage is not initialized");
                         }
@@ -154,9 +163,12 @@ impl Storage {
                         let update = e.update.clone();
                         rt.spawn(async move {
                             let storage = storage.write().await;
-                            storage.docs().write_update(id, &update).await.map_err(|e| {
-                                error!("Failed to write update: {:?}", e.to_string())
-                            }).unwrap();
+                            storage
+                                .docs()
+                                .write_update(id, &update)
+                                .await
+                                .map_err(|e| error!("Failed to write update: {:?}", e.to_string()))
+                                .unwrap();
                         });
                     }
                 });
@@ -199,7 +211,11 @@ mod tests {
         storage
             .connect(
                 workspace_id.to_string(),
-                if offline.is_some() {"".to_string()} else{ format!("ws://localhost:3000/collaboration/{workspace_id}").to_string() },
+                if offline.is_some() {
+                    "".to_string()
+                } else {
+                    format!("ws://localhost:3000/collaboration/{workspace_id}").to_string()
+                },
             )
             .unwrap()
     }

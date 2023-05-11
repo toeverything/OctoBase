@@ -26,6 +26,9 @@ pub async fn upgrade_handler(
     ws: WebSocketUpgrade,
 ) -> Response {
     let identifier = nanoid!();
+    if let Err(e) = context.create_workspace(workspace.clone()).await {
+        error!("create workspace failed: {:?}", e);
+    }
     ws.protocols(["AFFiNE"]).on_upgrade(move |socket| {
         handle_connector(context.clone(), workspace.clone(), identifier, move || {
             socket_connector(socket, &workspace)
@@ -89,7 +92,14 @@ mod test {
 
             let (workspace, rx) = get_workspace(&storage, workspace_id.clone()).await.unwrap();
             if !remote.is_empty() {
-                start_sync_thread(&workspace, remote, rx, None, Arc::new(Runtime::new().unwrap()), sender);
+                start_sync_thread(
+                    &workspace,
+                    remote,
+                    rx,
+                    None,
+                    Arc::new(Runtime::new().unwrap()),
+                    sender,
+                );
             }
 
             (workspace_id, workspace, storage)
@@ -200,7 +210,14 @@ mod test {
             let (workspace, rx) = get_workspace(&storage, workspace_id.clone()).await.unwrap();
             let (sender, _receiver) = channel::<()>(10);
             if !remote.is_empty() {
-                start_sync_thread(&workspace, remote, rx, None,Arc::new(Runtime::new().unwrap()), sender);
+                start_sync_thread(
+                    &workspace,
+                    remote,
+                    rx,
+                    None,
+                    Arc::new(Runtime::new().unwrap()),
+                    sender,
+                );
             }
 
             (workspace_id, workspace, storage)

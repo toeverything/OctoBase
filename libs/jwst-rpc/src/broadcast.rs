@@ -61,28 +61,27 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
     {
         let sender = sender.clone();
         let workspace_id = workspace.id();
-        workspace
-            .observe(move |_, e| {
-                trace!(
-                    "workspace {} changed: {}bytes",
-                    workspace_id,
-                    &e.update.len()
-                );
+        workspace.observe(move |_, e| {
+            trace!(
+                "workspace {} changed: {}bytes",
+                workspace_id,
+                &e.update.len()
+            );
 
-                if sender
-                    .send(BroadcastType::BroadcastRawContent(e.update.clone()))
-                    .is_err()
-                {
-                    debug!("broadcast channel {workspace_id} has been closed",)
-                }
-                let update = sync_encode_update(&e.update);
-                if sender
-                    .send(BroadcastType::BroadcastContent(update))
-                    .is_err()
-                {
-                    debug!("broadcast channel {workspace_id} has been closed",)
-                }
-            });
+            if sender
+                .send(BroadcastType::BroadcastRawContent(e.update.clone()))
+                .is_err()
+            {
+                debug!("broadcast channel {workspace_id} has been closed",)
+            }
+            let update = sync_encode_update(&e.update);
+            if sender
+                .send(BroadcastType::BroadcastContent(update))
+                .is_err()
+            {
+                debug!("broadcast channel {workspace_id} has been closed",)
+            }
+        });
     };
     // let metadata = workspace.observe_metadata(move |_, _e| {
     //     // context

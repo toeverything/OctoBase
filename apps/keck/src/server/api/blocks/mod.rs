@@ -8,11 +8,12 @@ pub use block::{
 };
 pub use workspace::{
     delete_workspace, get_workspace, history_workspace, history_workspace_clients, set_workspace,
-    workspace_client, subscribe_workspace
+    subscribe_workspace, workspace_client,
 };
 
 use super::*;
 use schema::InsertChildren;
+pub use schema::SubscribeWorkspace;
 
 fn block_apis(router: Router) -> Router {
     let block_operation = Router::new()
@@ -63,7 +64,7 @@ fn workspace_apis(router: Router) -> Router {
             "/search/:workspace/index",
             get(workspace::get_search_index).post(workspace::set_search_index),
         )
-        .route("/subscribe/:workspace", post(subscribe_workspace))
+        .route("/subscribe", post(subscribe_workspace))
 }
 
 pub fn blocks_apis(router: Router) -> Router {
@@ -92,8 +93,34 @@ mod tests {
 
     #[tokio::test]
     async fn test_workspace_apis() {
-        let ctx = Arc::new(Context::new(JwstStorage::new("sqlite::memory:").await.ok()).await);
-        let client = TestClient::new(workspace_apis(Router::new()).layer(Extension(ctx.clone())));
+        let client = Arc::new(reqwest::Client::builder().no_proxy().build().unwrap());
+        let runtime = Arc::new(
+            runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .enable_time()
+                .enable_io()
+                .build()
+                .expect("Failed to create runtime"),
+        );
+        let workspace_changed_blocks =
+            Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
+        let hook_endpoint = Arc::new(RwLock::new(String::new()));
+        let cb: WorkspaceRetrievalCallback = {
+            let workspace_changed_blocks = workspace_changed_blocks.clone();
+            let runtime = runtime.clone();
+            Some(Arc::new(Box::new(move |workspace: &Workspace| {
+                workspace.set_callback(generate_ws_callback(&workspace_changed_blocks, &runtime));
+            })))
+        };
+        let ctx = Arc::new(Context::new(JwstStorage::new("sqlite::memory:").await.ok(), cb).await);
+        let client = TestClient::new(
+            workspace_apis(Router::new())
+                .layer(Extension(ctx.clone()))
+                .layer(Extension(client.clone()))
+                .layer(Extension(runtime.clone()))
+                .layer(Extension(workspace_changed_blocks.clone()))
+                .layer(Extension(hook_endpoint.clone())),
+        );
 
         // basic workspace apis
         let resp = client.get("/block/test").send().await;
@@ -136,5 +163,17 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::OK);
         let index = resp.json::<Vec<String>>().await;
         assert_eq!(index, vec!["test".to_owned()]);
+
+        let body = json!({
+            "hookEndpoint": "localhost:3000/api/hook"
+        })
+        .to_string();
+        let resp = client
+            .post("/subscribe")
+            .header("content-type", "application/json")
+            .body(body)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
     }
 }

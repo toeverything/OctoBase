@@ -212,7 +212,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_blobs_apis() {
-        let ctx = Context::new(JwstStorage::new("sqlite::memory:").await.ok()).await;
+        let ctx = Context::new(JwstStorage::new("sqlite::memory:").await.ok(), None).await;
         let client = TestClient::new(blobs_apis(Router::new()).layer(Extension(Arc::new(ctx))));
 
         let test_data: Vec<u8> = (0..=255).collect();
