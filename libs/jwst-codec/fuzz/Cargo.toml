@@ -15,6 +15,18 @@ lib0 = "0.16.5"
 path = ".."
 
 [[bin]]
+name = "decode_bytes"
+path = "fuzz_targets/decode_bytes.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "sync_message"
+path = "fuzz_targets/sync_message.rs"
+test = false
+doc = false
+
+[[bin]]
 name = "i64_decode"
 path = "fuzz_targets/i64_decode.rs"
 test = false

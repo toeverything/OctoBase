@@ -55,7 +55,9 @@ impl Workspace {
             updated,
             metadata,
             plugins: Default::default(),
-            block_observer_config: Some(Arc::new(BlockObserverConfig::new())),
+            block_observer_config: Some(Arc::new(BlockObserverConfig::new(
+                workspace_id.as_ref().to_string(),
+            ))),
         })
     }
 
@@ -73,7 +75,9 @@ impl Workspace {
         let block_observer_config = if block_observer_config.is_some() {
             block_observer_config
         } else {
-            Some(Arc::new(BlockObserverConfig::new()))
+            Some(Arc::new(BlockObserverConfig::new(
+                workspace_id.as_ref().to_string(),
+            )))
         };
         Self {
             workspace_id: workspace_id.as_ref().to_string(),
@@ -199,10 +203,10 @@ mod test {
     #[test]
     fn block_observe_callback_triggered_by_set() {
         let workspace = Workspace::new("test");
-        workspace.set_callback(Box::new(|mut block_ids| {
+        workspace.set_callback(Arc::new(Box::new(|_workspace_id, mut block_ids| {
             block_ids.sort();
             assert_eq!(block_ids, vec!["block1".to_string(), "block2".to_string()])
-        }));
+        })));
 
         let (block1, block2) = workspace.with_trx(|mut t| {
             let space = t.get_space("test");
@@ -223,9 +227,9 @@ mod test {
     #[test]
     fn block_observe_callback_triggered_by_get() {
         let workspace = Workspace::new("test");
-        workspace.set_callback(Box::new(|block_ids| {
+        workspace.set_callback(Arc::new(Box::new(|_workspace_id, block_ids| {
             assert_eq!(block_ids, vec!["block1".to_string()]);
-        }));
+        })));
 
         let block = workspace.with_trx(|mut t| {
             let space = t.get_space("blocks");

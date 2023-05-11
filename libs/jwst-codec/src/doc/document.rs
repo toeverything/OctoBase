@@ -60,8 +60,8 @@ pub struct Doc {
     store: DocStore,
 }
 
-impl Doc {
-    pub fn new() -> Self {
+impl Default for Doc {
+    fn default() -> Self {
         Self {
             client_id: rand::random(),
             guid: nanoid!(),
@@ -69,7 +69,9 @@ impl Doc {
             store: DocStore::new(),
         }
     }
+}
 
+impl Doc {
     fn integrate_update(
         &self,
         items: &HashMap<u64, Vec<StructInfo>>,

@@ -12,9 +12,11 @@ websocket = ["axum", "tokio-tungstenite", "url"]
 [dependencies]
 anyhow = "1.0.70"
 async-trait = "0.1.68"
+byteorder = "1.4.3"
 futures = "0.3.28"
 lru_time_cache = "0.11.11"
 nanoid = "0.4.0"
+nom = "7.1.3"
 rand = "0.8.5"
 thiserror = "1.0.40"
 tokio = { version = "1.27.0", features = [
@@ -34,9 +36,10 @@ url = { version = "2.3.1", optional = true }
 
 # ======= workspace dependencies =======
 jwst = { path = "../jwst" }
+jwst-codec = { path = "../jwst-codec" }
 jwst-storage = { path = "../jwst-storage" }
 
 [dev-dependencies]
 indicatif = "0.17.3"
-tempfile = "3.4.0"
 jwst-logger = { path = "../jwst-logger" }
+tempfile = "3.4.0"

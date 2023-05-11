@@ -18,7 +18,7 @@ pub fn read_var_u64(input: &[u8]) -> IResult<&[u8], u64> {
             if let Some(next_byte) = rest.first() {
                 curr_byte = *next_byte;
                 // add the remaining 7 bits to the number
-                num |= ((curr_byte & 0b0111_1111) as u64) << shift;
+                num |= ((curr_byte & 0b0111_1111) as u64).wrapping_shl(shift);
                 shift += 7;
                 rest = &rest[1..];
             } else {
@@ -60,7 +60,7 @@ pub fn read_var_i64(input: &[u8]) -> IResult<&[u8], i64> {
             if let Some(next_byte) = rest.first() {
                 curr_byte = *next_byte;
                 // add the remaining 7 bits to the number
-                num |= ((curr_byte & 0b0111_1111) as i64) << shift;
+                num |= ((curr_byte & 0b0111_1111) as i64).wrapping_shl(shift);
                 shift += 7;
                 rest = &rest[1..];
             } else {

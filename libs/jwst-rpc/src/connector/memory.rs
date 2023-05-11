@@ -1,16 +1,11 @@
 use super::*;
+use jwst_codec::{write_sync_message, DocMessage, SyncMessage, SyncMessageScanner};
 use std::{
     sync::atomic::{AtomicBool, Ordering},
     thread::JoinHandle as StdJoinHandler,
 };
 use tokio::{sync::mpsc::channel, task::JoinHandle as TokioJoinHandler};
-use yrs::{
-    updates::{
-        decoder::{Decode, DecoderV1},
-        encoder::Encode,
-    },
-    Doc, Transact, Update,
-};
+use yrs::{updates::decoder::Decode, Doc, Transact, Update};
 
 // just for test
 pub fn memory_connector(
@@ -35,18 +30,17 @@ pub fn memory_connector(
         let sub = {
             let finish = finish.clone();
             doc.observe_update_v1(move |_, e| {
-                use y_sync::sync::{Message, SyncMessage};
-
                 debug!("send change: {}", e.update.len());
-                if futures::executor::block_on(
-                    remote_sender.send(
-                        Message::Sync(SyncMessage::Update(e.update.clone()))
-                            .encode_v1()
-                            .expect("failed to encode update"),
-                    ),
-                )
-                .is_err()
-                {
+
+                let mut buffer = Vec::new();
+                if let Err(e) = write_sync_message(
+                    &mut buffer,
+                    &SyncMessage::Doc(DocMessage::Update(e.update.clone())),
+                ) {
+                    error!("write sync message error: {}", e);
+                    return;
+                }
+                if futures::executor::block_on(remote_sender.send(buffer)).is_err() {
                     // pipeline was closed
                     finish.store(true, Ordering::Release);
                 }
@@ -75,14 +69,12 @@ pub fn memory_connector(
             while let Some(msg) = local_receiver.recv().await {
                 match msg {
                     Message::Binary(data) => {
-                        use y_sync::sync::{Message, MessageReader, SyncMessage};
                         let doc = doc.clone();
                         tokio::task::spawn_blocking(move || {
                             trace!("recv change: {}", data.len());
-                            let mut decoder = DecoderV1::from(data.as_slice());
-                            for update in MessageReader::new(&mut decoder).filter_map(|m| {
+                            for update in SyncMessageScanner::new(&data).filter_map(|m| {
                                 m.ok().and_then(|m| {
-                                    if let Message::Sync(SyncMessage::Update(update)) = m {
+                                    if let SyncMessage::Doc(DocMessage::Update(update)) = m {
                                         Some(update)
                                     } else {
                                         None

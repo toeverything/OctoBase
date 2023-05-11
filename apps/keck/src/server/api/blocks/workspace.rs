@@ -1,11 +1,11 @@
 use super::*;
+use crate::server::api::blocks::SubscribeWorkspace;
 use axum::{
     extract::{Path, Query},
     http::header,
     response::Response,
 };
 use jwst::{parse_history, parse_history_client, DocStorage};
-use reqwest::Client;
 use utoipa::IntoParams;
 
 /// Get a exists `Workspace` by id
@@ -29,7 +29,7 @@ pub async fn get_workspace(
     Path(ws_id): Path<String>,
 ) -> Response {
     info!("get_workspace: {}", ws_id);
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         Json(workspace).into_response()
     } else {
         (
@@ -61,8 +61,7 @@ pub async fn set_workspace(
     Path(workspace): Path<String>,
 ) -> Response {
     info!("set_workspace: {}", workspace);
-
-    match context.storage.create_workspace(workspace).await {
+    match context.create_workspace(workspace).await {
         Ok(workspace) => Json(workspace).into_response(),
         Err(e) => {
             error!("Failed to init doc: {:?}", e);
@@ -124,7 +123,7 @@ pub async fn workspace_client(
     Extension(context): Extension<Arc<Context>>,
     Path(ws_id): Path<String>,
 ) -> Response {
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         Json(workspace.client_id()).into_response()
     } else {
         (
@@ -166,7 +165,7 @@ pub async fn workspace_search(
 ) -> Response {
     let query_text = &query.query;
     info!("workspace_search: {ws_id:?} query = {query_text:?}");
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         match workspace.search(query_text) {
             Ok(list) => {
                 debug!("workspace_search: {ws_id:?} query = {query_text:?}; {list:#?}");
@@ -205,7 +204,7 @@ pub async fn get_search_index(
 ) -> Response {
     info!("get_search_index: {ws_id:?}");
 
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         Json(workspace.metadata().search_index).into_response()
     } else {
         (
@@ -237,7 +236,7 @@ pub async fn set_search_index(
 ) -> Response {
     info!("set_search_index: {ws_id:?} fields = {fields:?}");
 
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         if let Ok(true) = workspace.set_search_index(fields) {
             StatusCode::OK.into_response()
         } else {
@@ -276,7 +275,7 @@ pub async fn get_workspace_block(
 ) -> Response {
     let Pagination { offset, limit } = pagination;
     info!("get_workspace_block: {ws_id:?}");
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         let (total, data) = workspace.with_trx(|mut t| {
             let space = t.get_blocks();
 
@@ -332,7 +331,7 @@ pub async fn history_workspace_clients(
     Extension(context): Extension<Arc<Context>>,
     Path(ws_id): Path<String>,
 ) -> Response {
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         if let Some(history) = parse_history_client(&workspace.doc()) {
             Json(history).into_response()
         } else {
@@ -370,7 +369,7 @@ pub async fn history_workspace(
     Path(params): Path<(String, String)>,
 ) -> Response {
     let (ws_id, client) = params;
-    if let Ok(workspace) = context.storage.get_workspace(&ws_id).await {
+    if let Ok(workspace) = context.get_workspace(&ws_id).await {
         if let Ok(client) = client.parse::<u64>() {
             if let Some(json) = parse_history(&workspace.doc(), client)
                 .and_then(|history| serde_json::to_string(&history).ok())
@@ -391,68 +390,35 @@ pub async fn history_workspace(
     }
 }
 
-/// Register a webhook for all block changes from `workspace_id`
+/// Register a webhook for all block changes from all workspace changes
 #[utoipa::path(
-    get,
+    post,
     tag = "Workspace",
     context_path = "/api/subscribe",
-    path = "/{workspace_id}",
-    params(
-        ("workspace_id", description = "workspace id"),
+    path = "",
+    request_body(
+        content_type = "application/json",
+        content = SubscribeWorkspace,
+        description = "Provide endpoint of webhook server",
     ),
     responses(
         (status = 200, description = "Subscribe workspace succeed"),
-        (status = 404, description = "Workspace not found"),
         (status = 500, description = "Internal Server Error")
     )
 )]
 pub async fn subscribe_workspace(
-    Extension(context): Extension<Arc<Context>>,
-    Extension(client): Extension<Arc<Client>>,
-    Path(ws_id): Path<String>,
+    Extension(hook_endpoint): Extension<Arc<RwLock<String>>>,
     Json(payload): Json<SubscribeWorkspace>,
 ) -> Response {
     info!(
-        "subscribe_workspace {}, hook endpoint: {}",
-        ws_id, payload.hook_endpoint
+        "subscribe all workspaces, hook endpoint: {}",
+        payload.hook_endpoint
     );
-    let hook_endpoint = payload.hook_endpoint;
-    if let Ok(mut workspace) = context.storage.get_workspace(&ws_id).await {
-        workspace.try_subscribe_all_blocks();
-        if let Some(runtime) = workspace.get_tokio_runtime() {
-            workspace.set_callback(Box::new(move |block_ids| {
-                let ws_id = ws_id.clone();
-                let client = client.clone();
-                let hook_endpoint = hook_endpoint.clone();
-                debug!("blocks: {:?} changed from workspace: {}", block_ids, ws_id);
-                runtime.spawn(async move {
-                    let response = client
-                        .post(hook_endpoint)
-                        .json(&WorkspaceNotify {
-                            workspace_id: ws_id.to_string(),
-                            block_ids,
-                        })
-                        .send()
-                        .await;
-                    match response {
-                        Err(e) => error!("Failed to send notify: {}", e),
-                        Ok(response) => info!(
-                            "notified hook endpoint, endpoint response status: {}",
-                            response.status()
-                        ),
-                    }
-                });
-            }));
-            StatusCode::OK.into_response()
-        } else {
-            error!("get tokio runtime failed");
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        }
-    } else {
-        let err_msg = format!("Workspace: {} not found", ws_id);
-        error!(err_msg);
-        (StatusCode::NOT_FOUND, err_msg).into_response()
-    }
+
+    let mut write_guard = hook_endpoint.write().await;
+    *write_guard = payload.hook_endpoint.clone();
+    info!("successfully subscribed all workspaces");
+    StatusCode::OK.into_response()
 }
 
 #[cfg(all(test, feature = "sqlite"))]

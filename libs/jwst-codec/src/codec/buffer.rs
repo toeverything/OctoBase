@@ -1,6 +1,6 @@
-use std::io::{Error, Write};
 use super::*;
 use nom::bytes::complete::take;
+use std::io::{Error, Write};
 
 pub fn read_var_buffer(input: &[u8]) -> IResult<&[u8], &[u8]> {
     let (tail, len) = read_var_u64(input)?;
@@ -8,8 +8,7 @@ pub fn read_var_buffer(input: &[u8]) -> IResult<&[u8], &[u8]> {
     Ok((tail, val))
 }
 
-// TODO remove leading underscore after being used
-pub fn _write_var_buffer<W: Write>(buffer: &mut W, data: &[u8]) -> Result<(), Error> {
+pub fn write_var_buffer<W: Write>(buffer: &mut W, data: &[u8]) -> Result<(), Error> {
     write_var_u64(buffer, data.len() as u64)?;
     buffer.write_all(data)?;
     Ok(())
@@ -18,8 +17,11 @@ pub fn _write_var_buffer<W: Write>(buffer: &mut W, data: &[u8]) -> Result<(), Er
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nom::{error::{Error, ErrorKind}, Err, AsBytes};
-    use rand::{Rng, thread_rng};
+    use nom::{
+        error::{Error, ErrorKind},
+        AsBytes, Err,
+    };
+    use rand::{thread_rng, Rng};
 
     #[test]
     fn test_read_var_buffer() {
@@ -67,7 +69,7 @@ mod tests {
 
     fn test_var_buf_enc_dec(data: &[u8]) {
         let mut buf = Vec::<u8>::new();
-        _write_var_buffer(&mut buf, data).unwrap();
+        write_var_buffer(&mut buf, data).unwrap();
         let result = read_var_buffer(buf.as_bytes());
         assert_eq!(result, Ok((&[][..], &data[..])));
     }

@@ -1,15 +1,15 @@
 use super::*;
+use jwst_codec::{
+    convert_awareness_update, convert_awareness_y_update, write_sync_message, DocMessage,
+    SyncMessage, SyncMessageScanner,
+};
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
     thread::sleep,
     time::Duration,
 };
-use y_sync::sync::{Message, MessageReader, SyncMessage};
 use yrs::{
-    updates::{
-        decoder::{Decode, DecoderV1},
-        encoder::{Encode, Encoder, EncoderV1},
-    },
+    updates::{decoder::Decode, encoder::Encode},
     ReadTxn, StateVector, Transact, Update,
 };
 
@@ -32,8 +32,7 @@ impl Workspace {
     }
 
     pub async fn sync_init_message(&self) -> JwstResult<Vec<u8>> {
-        let mut encoder = EncoderV1::new();
-        let (sv, update) = {
+        let (sv, awareness_update) = {
             let mut retry = 50;
             let trx = loop {
                 if let Ok(trx) = self.doc.try_transact() {
@@ -47,46 +46,52 @@ impl Workspace {
             };
             let sv = trx.state_vector();
             let update = self.awareness.read().await.update()?;
-            (sv, update)
+            (sv, convert_awareness_update(update))
         };
 
-        Message::Sync(SyncMessage::SyncStep1(sv)).encode(&mut encoder)?;
-        Message::Awareness(update).encode(&mut encoder)?;
+        let mut buffer = Vec::new();
+        write_sync_message(
+            &mut buffer,
+            &SyncMessage::Doc(DocMessage::Step1(sv.encode_v1()?)),
+        )?;
+        write_sync_message(&mut buffer, &awareness_update)?;
 
-        Ok(encoder.to_vec())
+        Ok(buffer)
     }
 
-    pub async fn sync_decode_message(&mut self, binary: &[u8]) -> Vec<Vec<u8>> {
-        let mut decoder = DecoderV1::from(binary);
+    pub async fn sync_decode_message(&mut self, buffer: &[u8]) -> Vec<Vec<u8>> {
         let mut result = vec![];
 
-        let (awareness_msg, content_msg): (Vec<_>, Vec<_>) = MessageReader::new(&mut decoder)
-            .flatten()
-            .partition(|msg| matches!(msg, Message::Awareness(_) | Message::AwarenessQuery));
+        let (awareness_msg, content_msg): (Vec<_>, Vec<_>) =
+            SyncMessageScanner::new(buffer).flatten().partition(|msg| {
+                matches!(msg, SyncMessage::Awareness(_) | SyncMessage::AwarenessQuery)
+            });
 
         if !awareness_msg.is_empty() {
             let mut awareness = self.awareness.write().await;
-            if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
-                for msg in awareness_msg {
-                    match msg {
-                        Message::AwarenessQuery => {
-                            if let Ok(update) = awareness.update() {
-                                match Message::Awareness(update).encode_v1() {
-                                    Ok(msg) => result.push(msg),
-                                    Err(e) => warn!("failed to encode awareness update: {:?}", e),
-                                }
+            for msg in awareness_msg {
+                match msg {
+                    SyncMessage::AwarenessQuery => {
+                        if let Ok(update) = awareness.update() {
+                            let mut buffer = Vec::new();
+                            if let Err(e) =
+                                write_sync_message(&mut buffer, &convert_awareness_update(update))
+                            {
+                                warn!("failed to encode awareness update: {:?}", e);
+                            } else {
+                                result.push(buffer);
                             }
                         }
-                        Message::Awareness(update) => {
-                            if let Err(e) = awareness.apply_update(update) {
-                                warn!("failed to apply awareness: {:?}", e);
-                            }
-                        }
-                        _ => {}
                     }
+                    SyncMessage::Awareness(update) => {
+                        if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
+                            awareness.apply_update(convert_awareness_y_update(update))
+                        })) {
+                            warn!("failed to apply awareness: {:?}", e);
+                        }
+                    }
+                    _ => {}
                 }
-            })) {
-                warn!("failed to apply awareness update: {:?}", e);
             }
         }
         if !content_msg.is_empty() {
@@ -107,18 +112,23 @@ impl Workspace {
                     if let Some(msg) = {
                         trace!("processing message: {:?}", msg);
                         match msg {
-                            Message::Sync(msg) => match msg {
-                                SyncMessage::SyncStep1(sv) => trx
-                                    .encode_state_as_update_v1(&sv)
-                                    .map(|update| Message::Sync(SyncMessage::SyncStep2(update)))
-                                    .ok(),
-                                SyncMessage::SyncStep2(update) => {
+                            SyncMessage::Doc(msg) => match msg {
+                                DocMessage::Step1(sv) => {
+                                    StateVector::decode_v1(&sv).ok().and_then(|sv| {
+                                        trx.encode_state_as_update_v1(&sv)
+                                            .map(|update| {
+                                                SyncMessage::Doc(DocMessage::Step2(update))
+                                            })
+                                            .ok()
+                                    })
+                                }
+                                DocMessage::Step2(update) => {
                                     if let Ok(update) = Update::decode_v1(&update) {
                                         trx.apply_update(update);
                                     }
                                     None
                                 }
-                                SyncMessage::Update(update) => {
+                                DocMessage::Update(update) => {
                                     if let Ok(update) = Update::decode_v1(&update) {
                                         trx.apply_update(update);
                                         trx.commit();
@@ -132,7 +142,7 @@ impl Workspace {
                                         }
                                         trx.encode_update_v1()
                                             .map(|update| {
-                                                Message::Sync(SyncMessage::Update(update))
+                                                SyncMessage::Doc(DocMessage::Update(update))
                                             })
                                             .ok()
                                     } else {
@@ -143,9 +153,11 @@ impl Workspace {
                             _ => None,
                         }
                     } {
-                        match msg.encode_v1() {
-                            Ok(msg) => result.push(msg),
-                            Err(e) => warn!("failed to encode message: {:?}", e),
+                        let mut buffer = Vec::new();
+                        if let Err(e) = write_sync_message(&mut buffer, &msg) {
+                            warn!("failed to encode message: {:?}", e);
+                        } else {
+                            result.push(buffer);
                         }
                     }
                 }
@@ -161,14 +173,17 @@ impl Workspace {
     pub fn try_subscribe_all_blocks(&mut self) {
         if let Some(block_observer_config) = self.block_observer_config.clone() {
             // costing approximately 1ms per 500 blocks
-            if let Err(e) = self.retry_with_trx(|mut t| {
-                t.get_blocks().blocks(&t.trx, |blocks| {
-                    blocks.for_each(|mut block| {
-                        let block_observer_config = block_observer_config.clone();
-                        block.subscribe(block_observer_config);
-                    })
-                });
-            }, 10) {
+            if let Err(e) = self.retry_with_trx(
+                |mut t| {
+                    t.get_blocks().blocks(&t.trx, |blocks| {
+                        blocks.for_each(|mut block| {
+                            let block_observer_config = block_observer_config.clone();
+                            block.subscribe(block_observer_config);
+                        })
+                    });
+                },
+                10,
+            ) {
                 error!("subscribe synchronized block callback failed: {}", e);
             }
         }
