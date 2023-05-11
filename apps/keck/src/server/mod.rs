@@ -4,17 +4,18 @@ mod subscribe;
 mod sync;
 mod utils;
 
-use axum::{http::Method, Extension, Router, Server};
-use std::collections::HashMap;
-use std::thread::sleep;
-use std::{net::SocketAddr, sync::Arc};
-use tokio::sync::RwLock;
-use tokio::{runtime, signal};
-use tower_http::cors::{Any, CorsLayer};
-
 use api::Context;
+use axum::{http::Method, Extension, Router, Server};
 use jwst::Workspace;
 use jwst_storage::WorkspaceRetrievalCallback;
+use std::{
+    collections::HashMap,
+    thread::sleep,
+    {net::SocketAddr, sync::Arc},
+};
+use tokio::{runtime, signal, sync::RwLock};
+use tower_http::cors::{Any, CorsLayer};
+
 pub use subscribe::*;
 pub use utils::*;
 
