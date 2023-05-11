@@ -99,14 +99,13 @@ pub async fn start_server() {
     let workspace_changed_blocks =
         Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
     let hook_endpoint = Arc::new(RwLock::new(String::new()));
-    let cb: WorkspaceRetrievalCallback;
-    {
+    let cb: WorkspaceRetrievalCallback = {
         let workspace_changed_blocks = workspace_changed_blocks.clone();
         let runtime = runtime.clone();
-        cb = Some(Arc::new(Box::new(move |workspace: &Workspace| {
+        Some(Arc::new(Box::new(move |workspace: &Workspace| {
             workspace.set_callback(generate_ws_callback(&workspace_changed_blocks, &runtime));
-        })));
-    }
+        })))
+    };
     let context = Arc::new(Context::new(None, cb).await);
 
     start_handling_observed_blocks(
