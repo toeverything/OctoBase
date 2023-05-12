@@ -53,6 +53,15 @@ importers:
 
   apps/homepage:
     dependencies:
+      '@blocksuite/blocks':
+        specifier: ^0.5.0
+        version: 0.5.0(@blocksuite/store@0.5.0)(nanoid@4.0.2)(yjs@13.5.51)
+      '@blocksuite/editor':
+        specifier: ^0.5.0
+        version: 0.5.0(@blocksuite/blocks@0.5.0)(@blocksuite/store@0.5.0)
+      '@blocksuite/store':
+        specifier: ^0.5.0
+        version: 0.5.0(lit@2.7.4)(yjs@13.5.51)
       '@emotion/react':
         specifier: ^11.10.6
         version: 11.10.6(@types/react@18.0.29)(react@18.2.0)
@@ -86,6 +95,12 @@ importers:
       react-dom:
         specifier: ^18.2.0
         version: 18.2.0(react@18.2.0)
+      y-websocket:
+        specifier: ^1.5.0
+        version: 1.5.0(yjs@13.5.51)
+      yjs:
+        specifier: ^13.5.51
+        version: 13.5.51
     devDependencies:
       '@types/react':
         specifier: ^18.0.29

@@ -3,13 +3,23 @@ import {EditorContainer} from "@blocksuite/editor";
 import {useEffect, useRef, useState} from "react";
 // @ts-ignore
 import {WebsocketProvider} from "y-websocket";
+import {ContentParser} from "@blocksuite/blocks/content-parser";
 
-export default function EditorLoader({workspace, editor, provider}: {workspace: Workspace, provider: WebsocketProvider, editor: EditorContainer}) {
+const presetMarkdown = `
+This is a collaborating playground. Data are persisted and collaborated through octobase.
+`;
+
+export default function EditorLoader({workspace, editor, provider}: {
+    workspace: Workspace,
+    provider: WebsocketProvider,
+    editor: EditorContainer
+}) {
     const [ready, setReady] = useState(false);
     useEffect(() => {
         provider.on('sync', () => {
             if (workspace.isEmpty) {
                 const page = workspace.createPage({id: 'page0'});
+                const contentParser = new ContentParser(page);
                 // Add page block and surface block at root level
                 const pageBlockId = page.addBlock('affine:page', {
                     title: new Text(),
@@ -19,6 +29,10 @@ export default function EditorLoader({workspace, editor, provider}: {workspace: 
 
                 // Add frame block inside page block
                 const frameId = page.addBlock('affine:frame', {}, pageBlockId);
+
+                contentParser.importMarkdown(presetMarkdown, frameId);
+
+
                 // Add paragraph block inside frame block
                 page.addBlock('affine:paragraph', {}, frameId);
                 page.resetHistory();
@@ -52,7 +66,7 @@ export default function EditorLoader({workspace, editor, provider}: {workspace: 
     return (
         <>
             {!ready && <div className="tip">
-                <div>1. Please first start keck server with <code>cargo run -p keck</code>.</div>
+                <div>1. To collaborate with octobase, please use <code>pnpn dev:collaboration</code>.</div>
                 <div>2. BlockSuite Editor will mount automatically after keck server is connected.</div>
             </div>}
             {ready && <div ref={ref} id="editor-container"/>}

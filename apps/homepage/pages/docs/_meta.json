@@ -39,9 +39,5 @@
 		"href": "https://github.com/toeverything/affine",
 		"newWindow": true
 	},
-	"blocksuite": {
-		"title": "BlockSuite",
-		"href": "https://github.com/toeverything/blocksuite",
-		"newWindow": true
-	}
+	"collaborate_with_blocksuite": "Blocksuite"
 }
