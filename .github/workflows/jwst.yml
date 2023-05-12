@@ -18,6 +18,7 @@ on:
         paths:
             - 'apps/cloud/**'
             - 'apps/homepage/**'
+            - 'apps/playground/**'
             - 'apps/keck/**'
             - 'libs/**'
             - '.github/deployment/Dockerfile-cloud'
