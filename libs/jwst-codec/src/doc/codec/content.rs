@@ -171,15 +171,18 @@ impl Content {
         }
     }
 
-    pub fn split(&self, diff: u64) -> JwstCodecResult<(Self, Self)> {
+    pub fn countable(&self) -> bool {
+        !matches!(self, Content::Format { .. } | Content::Deleted(_))
+    }
+
+    pub fn split(&mut self, diff: u64) -> JwstCodecResult<Self> {
         // TODO: implement split for other types
         match self {
             Self::String(str) => {
                 let (left, right) = str.split_at(diff as usize);
-                Ok((
-                    Self::String(left.to_string()),
-                    Self::String(right.to_string()),
-                ))
+                let right = right.to_string();
+                *str = left.to_string();
+                Ok(Self::String(right))
             }
             _ => Err(JwstCodecError::ContentSplitNotSupport(diff)),
         }

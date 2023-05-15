@@ -1,21 +1,104 @@
 use super::*;
+use crate::doc::StateVector;
 use std::{
+    cell::{Ref, RefCell, RefMut},
     collections::{hash_map::Entry, HashMap},
+    ops::Deref,
     sync::{Arc, RwLock},
 };
 
-type StructRef = Arc<StructInfo>;
+#[derive(Clone, PartialEq, Debug)]
+pub struct StructRef(Arc<RefCell<StructInfo>>);
 
-#[derive(Clone)]
+impl From<StructInfo> for StructRef {
+    fn from(info: StructInfo) -> Self {
+        Self(Arc::new(RefCell::new(info)))
+    }
+}
+
+impl From<Arc<RefCell<StructInfo>>> for StructRef {
+    fn from(info: Arc<RefCell<StructInfo>>) -> Self {
+        Self(info)
+    }
+}
+
+impl Deref for StructRef {
+    type Target = Arc<RefCell<StructInfo>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl StructRef {
+    pub fn as_ref(&self) -> Ref<'_, StructInfo> {
+        self.0.borrow()
+    }
+
+    pub fn as_mut_ref(&self) -> RefMut<'_, StructInfo> {
+        self.0.borrow_mut()
+    }
+
+    pub fn modify<M>(&self, mut modifier: M)
+    where
+        M: FnMut(&mut StructInfo),
+    {
+        let mut borrow = self.0.borrow_mut();
+        modifier(&mut borrow);
+    }
+
+    pub fn id(&self) -> Id {
+        self.0.borrow().id()
+    }
+
+    pub fn client(&self) -> Client {
+        self.0.borrow().client()
+    }
+
+    pub fn clock(&self) -> Clock {
+        self.0.borrow().clock()
+    }
+
+    pub fn len(&self) -> u64 {
+        self.0.borrow().len()
+    }
+
+    pub fn is_item(&self) -> bool {
+        self.0.borrow().is_item()
+    }
+
+    pub fn is_gc(&self) -> bool {
+        self.0.borrow().is_gc()
+    }
+
+    pub fn is_skip(&self) -> bool {
+        self.0.borrow().is_skip()
+    }
+
+    pub fn left_id(&self) -> Option<Id> {
+        self.0.borrow().left_id()
+    }
+
+    pub fn right_id(&self) -> Option<Id> {
+        self.0.borrow().right_id()
+    }
+
+    pub fn deleted(&self) -> bool {
+        self.0.borrow().flags().deleted()
+    }
+}
+
+#[derive(Default)]
 pub struct DocStore {
-    items: Arc<RwLock<HashMap<u64, Vec<StructRef>>>>,
+    pub items: Arc<RwLock<HashMap<Client, Vec<StructRef>>>>,
+    pub types: Arc<RwLock<HashMap<String, TypeStoreRef>>>,
+    pub delete_set: Arc<RwLock<DeleteSet>>,
+    pub pending: Option<Update>,
 }
 
 impl DocStore {
     pub fn new() -> Self {
-        Self {
-            items: Arc::default(),
-        }
+        Default::default()
     }
 
     pub fn get_state(&self, client: Client) -> Clock {
@@ -35,6 +118,7 @@ impl DocStore {
         let mut state = StateVector::new();
         for (client, structs) in self.items.read().unwrap().iter() {
             if let Some(last_struct) = structs.last() {
+                let last_struct = last_struct.as_ref();
                 state.insert(*client, last_struct.clock() + last_struct.len());
             } else {
                 warn!("client {} has no struct info", client);
@@ -43,15 +127,18 @@ impl DocStore {
         state
     }
 
-    // TODO: use function in code
     #[allow(dead_code)]
     pub fn add_item(&self, item: StructInfo) -> JwstCodecResult {
-        let client_id = item.client_id();
+        self.add_item_ref(item.into())
+    }
 
+    pub fn add_item_ref(&self, item: StructRef) -> JwstCodecResult {
+        let client_id = item.client();
         match self.items.write().unwrap().entry(client_id) {
             Entry::Occupied(mut entry) => {
                 let structs = entry.get_mut();
                 if let Some(last_struct) = structs.last() {
+                    let last_struct = last_struct.as_ref();
                     let expect = last_struct.clock() + last_struct.len();
                     let actually = item.clock();
                     if expect != actually {
@@ -60,17 +147,17 @@ impl DocStore {
                 } else {
                     warn!("client {} has no struct info", client_id);
                 }
-                structs.push(Arc::new(item));
+                structs.push(item);
             }
             Entry::Vacant(entry) => {
-                entry.insert(vec![Arc::new(item)]);
+                entry.insert(vec![item]);
             }
         }
 
         Ok(())
     }
 
-    // binary search struct info on a sorted array
+    /// binary search struct info on a sorted array
     pub fn get_item_index(items: &Vec<StructRef>, clock: Clock) -> Option<usize> {
         let mut left = 0;
         let mut right = items.len() - 1;
@@ -97,14 +184,51 @@ impl DocStore {
     }
 
     pub fn get_item<I: Into<Id>>(&self, id: I) -> JwstCodecResult<StructRef> {
+        self.get_item_with_idx(id).map(|(item, _)| item)
+    }
+
+    pub fn get_item_with_idx<I: Into<Id>>(&self, id: I) -> JwstCodecResult<(StructRef, usize)> {
         let id = id.into();
         if let Some(items) = self.items.read().unwrap().get(&id.client) {
             if let Some(index) = Self::get_item_index(items, id.clock) {
-                return Ok(Arc::clone(items.get(index).unwrap()));
+                return Ok((items.get(index).unwrap().clone(), index));
             }
         }
 
         Err(JwstCodecError::StructSequenceNotExists(id.client))
+    }
+
+    pub fn with_client_items_mut(
+        &self,
+        client: Client,
+        mut modifier: impl FnMut(&mut Vec<StructRef>) -> JwstCodecResult,
+    ) -> JwstCodecResult {
+        if let Some(structs) = self.items.write().unwrap().get_mut(&client) {
+            return modifier(structs);
+        }
+
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub fn split_item<I: Into<Id>>(&mut self, id: I, diff: u64) -> JwstCodecResult {
+        if diff == 0 {
+            return Ok(());
+        }
+
+        let id = id.into();
+
+        if let Some(items) = self.items.write().unwrap().get_mut(&id.client) {
+            if let Some(idx) = Self::get_item_index(items, id.clock) {
+                let item = items.get(idx).unwrap().clone();
+                if item.is_item() {
+                    let right_item = item.borrow_mut().split_item(diff)?;
+                    items.insert(idx + 1, right_item.into());
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn get_item_clean_start<I: Into<Id>>(&self, id: I) -> JwstCodecResult<StructRef> {
@@ -114,13 +238,12 @@ impl DocStore {
                 let item = items.get(index).unwrap().clone();
                 let offset = id.clock - item.clock();
                 if offset > 0 && item.is_item() {
-                    let (left_item, right_item) = item.split_item(offset)?;
-                    items[index] = left_item.into();
+                    let right_item = item.borrow_mut().split_item(offset)?;
                     items.insert(index + 1, right_item.into());
 
-                    return Ok(Arc::clone(items.get(index + 1).unwrap()));
+                    return Ok((items.get(index + 1).unwrap()).clone());
                 } else {
-                    return Ok(Arc::clone(&item));
+                    return Ok(item);
                 }
             }
         }
@@ -135,13 +258,12 @@ impl DocStore {
                 let item = items.get(index).unwrap().clone();
                 let offset = id.clock - item.clock();
                 if offset != item.len() - 1 && !item.is_gc() {
-                    let (left_item, right_item) = item.split_item(offset + 1)?;
-                    items[index] = left_item.into();
+                    let right_item = item.borrow_mut().split_item(offset + 1)?;
                     items.insert(index + 1, right_item.into());
 
-                    return Ok(Arc::clone(items.get(index).unwrap()));
+                    return Ok(items.get(index).unwrap().clone());
                 } else {
-                    return Ok(Arc::clone(&item));
+                    return Ok(item);
                 }
             }
         }
@@ -152,7 +274,7 @@ impl DocStore {
     // TODO: use function in code
     #[allow(dead_code)]
     pub fn replace_item(&self, item: StructInfo) -> JwstCodecResult {
-        let client_id = item.client_id();
+        let client_id = item.client();
         let clock = item.clock();
 
         if let Some(structs) = self.items.write().unwrap().get_mut(&client_id) {
@@ -194,7 +316,7 @@ impl DocStore {
                 let r = &structs[i];
                 if l.clock() + l.len() != r.clock() {
                     return Err(JwstCodecError::StructSequenceInvalid {
-                        client_id: l.client_id(),
+                        client_id: l.client(),
                         clock: l.clock(),
                     });
                 }
@@ -202,6 +324,42 @@ impl DocStore {
         }
 
         Ok(())
+    }
+
+    pub(crate) fn get_or_create_type(&self, str: &str) -> TypeStoreRef {
+        match self.types.write().unwrap().entry(str.to_string()) {
+            Entry::Occupied(e) => e.get().clone(),
+            Entry::Vacant(e) => {
+                let type_store = Arc::new(RefCell::new(TypeStore::new(TypeStoreKind::Unknown)));
+                e.insert(type_store.clone());
+
+                type_store
+            }
+        }
+    }
+
+    pub(crate) fn get_start_item(&self, s: StructRef) -> StructRef {
+        let mut o = s;
+
+        while let Some(left_id) = o.left_id() {
+            if let Ok(left_struct) = self.get_item(left_id) {
+                if left_struct.is_item() {
+                    o = left_struct;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        o
+    }
+
+    pub(crate) fn delete(&self, id: Id, len: u64) {
+        if let Ok(mut delete_set) = self.delete_set.write() {
+            delete_set.add(id.client, id.clock, len)
+        }
     }
 }
 
@@ -233,7 +391,7 @@ mod tests {
 
             doc_store.items.write().unwrap().insert(
                 client_id,
-                vec![struct_info1.clone().into(), struct_info2.clone().into()],
+                vec![struct_info1.into(), struct_info2.clone().into()],
             );
 
             let state = doc_store.get_state(client_id);
@@ -278,7 +436,7 @@ mod tests {
                 .insert(client1, vec![struct_info1.clone().into()]);
             doc_store.items.write().unwrap().insert(
                 client2,
-                vec![struct_info2.clone().into(), struct_info3.clone().into()],
+                vec![struct_info2.into(), struct_info3.clone().into()],
             );
 
             let state_map = doc_store.get_state_vector();
@@ -318,7 +476,7 @@ mod tests {
         };
 
         assert!(doc_store.add_item(struct_info1.clone()).is_ok());
-        assert!(doc_store.add_item(struct_info2.clone()).is_ok());
+        assert!(doc_store.add_item(struct_info2).is_ok());
         assert_eq!(
             doc_store.add_item(struct_info3_err),
             Err(JwstCodecError::StructClockInvalid {
@@ -328,7 +486,7 @@ mod tests {
         );
         assert!(doc_store.add_item(struct_info3.clone()).is_ok());
         assert_eq!(
-            doc_store.get_state(struct_info1.client_id()),
+            doc_store.get_state(struct_info1.client()),
             struct_info3.clock() + struct_info3.len()
         );
     }
@@ -356,7 +514,7 @@ mod tests {
                 id: Id::new(1, 10),
                 len: 20,
             };
-            doc_store.add_item(struct_info1.clone()).unwrap();
+            doc_store.add_item(struct_info1).unwrap();
             doc_store.add_item(struct_info2.clone()).unwrap();
 
             assert_eq!(doc_store.get_item(Id::new(1, 25)), Ok(struct_info2.into()));
@@ -381,8 +539,8 @@ mod tests {
                 id: Id::new(1, 10),
                 len: 20,
             };
-            doc_store.add_item(struct_info1.clone()).unwrap();
-            doc_store.add_item(struct_info2.clone()).unwrap();
+            doc_store.add_item(struct_info1).unwrap();
+            doc_store.add_item(struct_info2).unwrap();
 
             assert_eq!(
                 doc_store.get_item(Id::new(1, 35)),
@@ -397,29 +555,32 @@ mod tests {
         let struct_info1 = StructInfo::Item {
             id: Id::new(1, 0),
             item: Box::new(Item {
-                left_id: None,
-                right_id: None,
-                parent: None,
-                parent_sub: None,
                 content: Content::String(String::from("octo")),
+                ..Default::default()
             }),
         };
 
         let struct_info2 = StructInfo::Item {
             id: Id::new(1, struct_info1.len()),
             item: Box::new(Item {
-                left_id: Some(*struct_info1.id()),
-                right_id: None,
-                parent: None,
-                parent_sub: None,
+                left_id: Some(struct_info1.id()),
                 content: Content::String(String::from("base")),
+                ..Default::default()
             }),
         };
-        doc_store.add_item(struct_info1).unwrap();
+        doc_store.add_item(struct_info1.clone()).unwrap();
         doc_store.add_item(struct_info2).unwrap();
 
+        let s1 = doc_store.get_item(Id::new(1, 0)).unwrap();
+        assert_eq!(s1, struct_info1.into());
         let left = doc_store.get_item_clean_end((1, 1)).unwrap();
         assert_eq!(left.len(), 2); // octo => oc_to
+
+        // s1 used to be (1, 4), but it actually ref of first item in store, so now it should be (1, 2)
+        assert_eq!(
+            s1, left,
+            "doc internal mutation should not modify the pointer"
+        );
         let right = doc_store.get_item_clean_start((1, 5)).unwrap();
         assert_eq!(right.len(), 3); // base => b_ase
     }

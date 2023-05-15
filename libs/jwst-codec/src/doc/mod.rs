@@ -1,13 +1,15 @@
 mod awareness;
 mod codec;
+mod common;
 mod document;
 mod store;
-mod traits;
+mod types;
 
 use super::*;
 
 pub use awareness::{Awareness, AwarenessEvent};
 pub use codec::*;
-pub use document::{Doc, StateVector};
-pub use store::DocStore;
-pub use traits::{CrdtList, CrdtMap};
+pub use common::*;
+pub use document::Doc;
+pub use store::{DocStore, StructRef};
+pub use types::*;
