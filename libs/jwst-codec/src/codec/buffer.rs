@@ -4,7 +4,7 @@ use std::io::{Error, Write};
 
 pub fn read_var_buffer(input: &[u8]) -> IResult<&[u8], &[u8]> {
     let (tail, len) = read_var_u64(input)?;
-    let (tail, val) = take(len)(tail)?;
+    let (tail, val) = take(len as usize)(tail)?;
     Ok((tail, val))
 }
 
