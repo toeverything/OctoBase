@@ -6,15 +6,7 @@ const Editor = dynamic(() => {
 }, {ssr: false});
 
 
-const StyledEditor = styled.div`
-  display: flex;
-  justify-content: center;
-`
-
 export default function EditorWrapper() {
-    return (
-        <StyledEditor>
-            <Editor editorNum={2}/>
-        </StyledEditor>
-    )
+    return <Editor editorNum={2}/>;
+
 }

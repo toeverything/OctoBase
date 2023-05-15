@@ -10,7 +10,7 @@ export default function Editor({editorNum}: { editorNum: number }) {
         <>
             {Array.from({length: editorNum}, (_, i) => i).map(id => {
                 const workspace = new Workspace({
-                    id: `test-workspace`
+                    id: `test-workspace121212`
                 });
                 workspace.register(AffineSchemas);
                 return <div key={id}>

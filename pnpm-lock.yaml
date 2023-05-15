@@ -71,6 +71,12 @@ importers:
       '@mui/material':
         specifier: ^5.11.14
         version: 5.11.14(@emotion/react@11.10.6)(@emotion/styled@11.10.6)(@types/react@18.0.29)(react-dom@18.2.0)(react@18.2.0)
+      '@rich-data/json-plugin':
+        specifier: 3.0.0-20230329005843-d296129
+        version: 3.0.0-20230329005843-d296129(@rich-data/viewer@3.0.0-20230329033420-e331425)(react-dom@18.2.0)(react@18.2.0)
+      '@rich-data/viewer':
+        specifier: 3.0.0-20230329033420-e331425
+        version: 3.0.0-20230329033420-e331425(react-dom@18.2.0)(react@18.2.0)
       '@toeverything/jwt-react':
         specifier: workspace:*
         version: link:../../libs/jwt-react
@@ -1516,6 +1522,42 @@ packages:
     resolution: {integrity: sha512-50/17A98tWUfQ176raKiOGXuYpLyyVMkxxG6oylzL3BPOlA6ADGdK7EYunSa4I064xerltq9TGXs8HmOk5E+vw==}
     dev: false
 
+  /@rich-data/json-plugin@3.0.0-20230329005843-d296129(@rich-data/viewer@3.0.0-20230329033420-e331425)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-z/e6jMq/oBLWXXTLZLgXs0VzHUJO8E1/YPEmpygtceAQ7nz5GEUbaGIvCKWVPzWl+RQRn+ehmu/JMAtcTfst7Q==}
+    peerDependencies:
+      '@rich-data/viewer': ^3.0.0-20230329005843-d296129
+      react: ^18
+      react-dom: ^18
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+    dependencies:
+      '@rich-data/viewer': 3.0.0-20230329033420-e331425(react-dom@18.2.0)(react@18.2.0)
+      '@tabler/icons-react': 2.18.0(react@18.2.0)
+      clsx: 1.2.1
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    dev: false
+
+  /@rich-data/viewer@3.0.0-20230329033420-e331425(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-0QuZICgH4KteV+89kxLWgCmmN/Az9kIC4oxdftnoejbt3sYx8CGImVlLZEXLj+4bSRO6skgY7UTddShQ3PfRBA==}
+    peerDependencies:
+      react: ^18
+      react-dom: ^18
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+    dependencies:
+      clsx: 1.2.1
+      jotai: 2.0.4(react@18.2.0)
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    dev: false
+
   /@rollup/plugin-replace@5.0.2:
     resolution: {integrity: sha512-M9YXNekv/C/iHHK+cvORzfRYfPbq0RDD8r0G+bMiTXjNGKulPnCT9O3Ss46WfhI6ZOCgApOP7xAdmCQJ+U2LAA==}
     engines: {node: '>=14.0.0'}
@@ -1662,6 +1704,23 @@ packages:
     resolution: {integrity: sha512-4C7nX/dvpzB7za4Ql9K81xK3HPxCpHMgwTZVyf+9JQ6VUbn9jjZVN7/Nkdz/Ugzs2CSjqnL/UPXroiVBVHUWUw==}
     dependencies:
       tslib: 2.5.0
+    dev: false
+
+  /@tabler/icons-react@2.18.0(react@18.2.0):
+    resolution: {integrity: sha512-F4HyBIoC3DvIPmjP9ienurvSWhQOajDuTc3C5F7UfjhBkom3cAuJfDWH2tqGAfNrhjvG4X3ERR2dxOWLpegsiA==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
+    dependencies:
+      '@tabler/icons': 2.18.0
+      prop-types: 15.8.1
+      react: 18.2.0
+    dev: false
+
+  /@tabler/icons@2.18.0:
+    resolution: {integrity: sha512-N7a20mwbhrFXNqvd8Rxa0Btwu1Li5rQbqdIi3mzt5HRjP25PbyYuTU2BXbu8yMEnUk018Gi13gpS/jlMgXFuOw==}
     dev: false
 
   /@toeverything/y-indexeddb@0.5.4-canary.19(yjs@13.5.51):

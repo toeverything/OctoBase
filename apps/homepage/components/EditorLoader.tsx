@@ -4,6 +4,16 @@ import {useEffect, useRef, useState} from "react";
 // @ts-ignore
 import {WebsocketProvider} from "y-websocket";
 import {ContentParser} from "@blocksuite/blocks/content-parser";
+import styled from "@emotion/styled";
+import RichData from "./RichData";
+
+const StyledWrapper = styled.div`
+  display: flex;
+  position: relative;
+  width: 100%;
+  height: 400px;
+  margin-bottom: 20px;
+`
 
 const presetMarkdown = `
 This is a collaborating playground. Data are persisted and collaborated through octobase.
@@ -15,6 +25,7 @@ export default function EditorLoader({workspace, editor, provider}: {
     editor: EditorContainer
 }) {
     const [ready, setReady] = useState(false);
+    const [json, setJson] = useState<Record<string, unknown>>({});
     useEffect(() => {
         provider.on('sync', () => {
             const page0 = workspace.getPage('page0');
@@ -53,22 +64,45 @@ export default function EditorLoader({workspace, editor, provider}: {
             setReady(false);
         });
 
+        let timeoutId;
+        workspace.doc.on('update', (update, origin, doc) => {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+            timeoutId = setTimeout(() => {
+                setJson(doc.toJSON());
+            }, 1000);
+        });
+
     }, []);
 
     const ref = useRef<HTMLDivElement>(null);
     useEffect(() => {
         if (!ref.current || !ready) return;
         ref.current.appendChild(editor);
+
+        return () => {
+            ref.current.removeChild(editor);
+        }
     }, [ref, ready]);
 
     return (
-        <>
-            {!ready && <div className="tip">
-                <div>1. To collaborate with octobase, please use <code>pnpn dev:collaboration</code>.</div>
-                <div>2. BlockSuite Editor will mount automatically after keck server is connected.</div>
-            </div>}
-            {ready && <div ref={ref} id="editor-container"/>}
-        </>
+        <StyledWrapper>
+            <div style={{width: '60%'}}>
+                {ready ? <div ref={ref} id="editor-container"/> : <div className="tip">
+                    <div>1. To collaborate with octobase, please use <code>pnpn dev:collaboration</code>.</div>
+                    <div>2. BlockSuite Editor will mount automatically after keck server is connected.</div>
+                </div>}
+            </div>
+            <div
+                style={{
+                    width: '40%',
+                    height: '80%',
+                    overflow: 'auto',
+                }}>
+                <RichData value={json}/>
+            </div>
+        </StyledWrapper>
     )
 
 }
