@@ -1,21 +1,27 @@
+use super::delete_set::DeleteSet;
 use super::*;
 use std::collections::{HashMap, VecDeque};
+use std::ops::Range;
 
 #[derive(Debug, Default)]
 pub struct Update {
-    pub delete_sets: Vec<DeleteSets>,
     pub structs: HashMap<u64, VecDeque<StructInfo>>,
+    pub delete_set: DeleteSet,
 
     /// all unapplicable items that we can't integrate into doc
     /// any item with inconsistent id clock or missing dependency will be put here
-    rest_structs: HashMap<Client, Vec<StructInfo>>,
+    pub pending_structs: HashMap<Client, VecDeque<StructInfo>>,
     /// missing state vector after applying updates
-    missing_state: StateVector,
+    pub missing_state: StateVector,
+    /// all unapplicable delete set
+    pub pending_delete_set: DeleteSet,
 }
 
-impl Update {
-    pub fn from(mut decoder: RawDecoder) -> JwstCodecResult<Update> {
-        let structs = {
+impl TryFrom<RawDecoder> for Update {
+    type Error = JwstCodecError;
+
+    fn try_from(mut decoder: RawDecoder) -> JwstCodecResult<Self> {
+        let structs: HashMap<u64, VecDeque<StructInfo>> = {
             let num_of_updates = decoder.read_var_u64()?;
             let updates = (0..num_of_updates)
                 .map(|_| RawRefs::read(&mut decoder))
@@ -24,12 +30,7 @@ impl Update {
             updates.into_iter().map(|u| (u.client, u.refs)).collect()
         };
 
-        let delete_sets = {
-            let num_of_clients = decoder.read_var_u64()?;
-            (0..num_of_clients)
-                .map(|_| DeleteSets::read(&mut decoder))
-                .collect::<Result<Vec<_>, _>>()?
-        };
+        let delete_set = DeleteSet::read(&mut decoder)?;
 
         if !decoder.is_empty() {
             return Err(JwstCodecError::UpdateNotFullyConsumed(
@@ -39,14 +40,16 @@ impl Update {
 
         Ok(Update {
             structs,
-            delete_sets,
+            delete_set,
             ..Update::default()
         })
     }
+}
 
+impl Update {
     // decode from ydoc v1
     pub fn from_ybinary1(buffer: Vec<u8>) -> JwstCodecResult<Update> {
-        Self::from(RawDecoder::new(buffer))
+        Self::try_from(RawDecoder::new(buffer))
     }
 
     pub fn into(self) -> JwstCodecResult<Vec<u8>> {
@@ -59,6 +62,49 @@ impl Update {
 
     pub fn iter(&mut self, store: &DocStore) -> UpdateIterator {
         UpdateIterator::new(store, self)
+    }
+
+    pub fn delete_set_iter(&mut self, store: &DocStore) -> DeleteSetIterator {
+        DeleteSetIterator::new(store, self)
+    }
+
+    // take all pending structs and delete set to [self] update struct
+    pub fn drain_pending_state(&mut self) {
+        debug_assert!(self.is_empty());
+
+        std::mem::swap(&mut self.pending_structs, &mut self.structs);
+        std::mem::swap(&mut self.pending_delete_set, &mut self.delete_set);
+    }
+
+    pub fn merge<I: IntoIterator<Item = Update>>(updates: I) -> Update {
+        let mut merged = Update::default();
+
+        for update in updates {
+            merged.delete_set.merge(update.delete_set);
+
+            for (client, structs) in update.structs {
+                let iter = structs.into_iter().filter(|p| !p.is_skip());
+                if let Some(merged_structs) = merged.structs.get_mut(&client) {
+                    merged_structs.extend(iter);
+                } else {
+                    merged.structs.insert(client, iter.collect());
+                }
+            }
+        }
+
+        for (_, structs) in merged.structs.iter_mut() {
+            structs.make_contiguous().sort_by_key(|s| s.id().clock)
+        }
+
+        merged
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.structs.is_empty() && self.delete_set.is_empty()
+    }
+
+    pub fn is_pending_empty(&self) -> bool {
+        self.pending_structs.is_empty() && self.pending_delete_set.is_empty()
     }
 }
 
@@ -127,9 +173,11 @@ impl<'a> UpdateIterator<'a> {
             let unapplicable_items = self.update.structs.remove(&client);
             if let Some(mut items) = unapplicable_items {
                 items.push_front(s);
-                self.update.rest_structs.insert(client, items.into());
+                self.update.pending_structs.insert(client, items);
             } else {
-                self.update.rest_structs.insert(client, vec![s.clone()]);
+                self.update
+                    .pending_structs
+                    .insert(client, [s.clone()].into());
             }
             self.client_ids.retain(|&c| c != client);
         }
@@ -190,7 +238,7 @@ impl<'a> UpdateIterator<'a> {
     }
 }
 
-impl<'a> Iterator for UpdateIterator<'a> {
+impl Iterator for UpdateIterator<'_> {
     type Item = (StructInfo, u64);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -198,7 +246,7 @@ impl<'a> Iterator for UpdateIterator<'a> {
         let mut cur = self.next_candidate();
 
         while let Some(cur_update) = cur.take() {
-            let id = *cur_update.id();
+            let id = cur_update.id();
             if cur_update.is_skip() {
                 cur = self.next_candidate();
                 continue;
@@ -247,5 +295,145 @@ impl<'a> Iterator for UpdateIterator<'a> {
 
         // we all done
         None
+    }
+}
+
+pub struct DeleteSetIterator<'a> {
+    update: &'a mut Update,
+    /// current state vector from store
+    state: StateVector,
+}
+
+impl<'a> DeleteSetIterator<'a> {
+    pub fn new(store: &DocStore, update: &'a mut Update) -> Self {
+        let state = store.get_state_vector();
+        DeleteSetIterator { update, state }
+    }
+}
+
+impl Iterator for DeleteSetIterator<'_> {
+    type Item = (Client, Range<u64>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(client) = self.update.delete_set.keys().next().cloned() {
+            let deletes = self.update.delete_set.get_mut(&client).unwrap();
+            let local_state = self.state.get(&client);
+
+            while let Some(range) = deletes.pop() {
+                let start = range.start;
+                let end = range.end;
+
+                if start < local_state {
+                    if local_state < end {
+                        // partially state missing
+                        // [start..end)
+                        //        ^ local_state in between
+                        // // split
+                        // [start..local_state) [local_state..end)
+                        //                      ^^^^^ unapplicable
+                        self.update
+                            .pending_delete_set
+                            .add(client, local_state, end - local_state);
+
+                        return Some((client, start..local_state));
+                    }
+
+                    return Some((client, range));
+                } else {
+                    // all state missing
+                    self.update
+                        .pending_delete_set
+                        .add(client, start, end - start);
+                }
+            }
+        }
+
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{doc::RawDecoder, *};
+    use serde::Deserialize;
+    use std::{num::ParseIntError, path::PathBuf};
+
+    fn parse_doc_update(input: Vec<u8>) -> JwstCodecResult<Update> {
+        Update::try_from(RawDecoder::new(input))
+    }
+
+    #[test]
+    fn test_parse_doc() {
+        let docs = [
+            (include_bytes!("../../fixtures/basic.bin").to_vec(), 1, 188),
+            (
+                include_bytes!("../../fixtures/database.bin").to_vec(),
+                1,
+                149,
+            ),
+            (include_bytes!("../../fixtures/large.bin").to_vec(), 1, 9036),
+        ];
+
+        for (doc, clients, structs) in docs {
+            let update = parse_doc_update(doc).unwrap();
+
+            assert_eq!(update.structs.len(), clients);
+            assert_eq!(
+                update.structs.iter().map(|s| s.1.len()).sum::<usize>(),
+                structs
+            );
+            println!("{:?}", update);
+        }
+    }
+
+    fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect()
+    }
+
+    #[allow(dead_code)]
+    #[derive(Deserialize, Debug)]
+    struct Data {
+        id: u64,
+        workspace: String,
+        timestamp: String,
+        blob: String,
+    }
+
+    #[ignore = "just for local data test"]
+    #[test]
+    fn test_parse_local_doc() {
+        let json =
+            serde_json::from_slice::<Vec<Data>>(include_bytes!("../../fixtures/local_docs.json"))
+                .unwrap();
+
+        for ws in json {
+            let data = &ws.blob[5..=(ws.blob.len() - 2)];
+            if let Ok(data) = decode_hex(data) {
+                match parse_doc_update(data.clone()) {
+                    Ok(update) => {
+                        println!(
+                            "workspace: {}, global structs: {}, total structs: {}",
+                            ws.workspace,
+                            update.structs.len(),
+                            update.structs.iter().map(|s| s.1.len()).sum::<usize>()
+                        );
+                    }
+                    Err(_e) => {
+                        std::fs::write(
+                            PathBuf::from("./src/fixtures/invalid")
+                                .join(format!("{}.ydoc", ws.workspace)),
+                            data,
+                        )
+                        .unwrap();
+                        println!("doc error: {}", ws.workspace);
+                    }
+                }
+            } else {
+                println!("error origin data: {}", ws.workspace);
+            }
+        }
     }
 }

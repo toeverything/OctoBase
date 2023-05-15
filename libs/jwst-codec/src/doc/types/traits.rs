@@ -1,4 +1,4 @@
-use super::*;
+use crate::doc::DocStore;
 
 pub trait CrdtList {
     type Item;
