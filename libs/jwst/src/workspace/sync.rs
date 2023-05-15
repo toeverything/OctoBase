@@ -1,8 +1,5 @@
 use super::*;
-use jwst_codec::{
-    convert_awareness_update, convert_awareness_y_update, write_sync_message, DocMessage,
-    SyncMessage, SyncMessageScanner,
-};
+use jwst_codec::{write_sync_message, DocMessage, SyncMessage, SyncMessageScanner};
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
     thread::sleep,
@@ -44,9 +41,9 @@ impl Workspace {
                     return Err(JwstError::SyncInitTransaction);
                 }
             };
-            let sv = trx.state_vector();
-            let update = self.awareness.read().await.update()?;
-            (sv, convert_awareness_update(update))
+            let sv: StateVector = trx.state_vector();
+            let awareness = self.awareness.read().await;
+            (sv, SyncMessage::Awareness(awareness.get_states().clone()))
         };
 
         let mut buffer = Vec::new();
@@ -72,24 +69,17 @@ impl Workspace {
             for msg in awareness_msg {
                 match msg {
                     SyncMessage::AwarenessQuery => {
-                        if let Ok(update) = awareness.update() {
-                            let mut buffer = Vec::new();
-                            if let Err(e) =
-                                write_sync_message(&mut buffer, &convert_awareness_update(update))
-                            {
-                                warn!("failed to encode awareness update: {:?}", e);
-                            } else {
-                                result.push(buffer);
-                            }
+                        let mut buffer = Vec::new();
+                        if let Err(e) = write_sync_message(
+                            &mut buffer,
+                            &SyncMessage::Awareness(awareness.get_states().clone()),
+                        ) {
+                            warn!("failed to encode awareness update: {:?}", e);
+                        } else {
+                            result.push(buffer);
                         }
                     }
-                    SyncMessage::Awareness(update) => {
-                        if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
-                            awareness.apply_update(convert_awareness_y_update(update))
-                        })) {
-                            warn!("failed to apply awareness: {:?}", e);
-                        }
-                    }
+                    SyncMessage::Awareness(update) => awareness.apply_update(update),
                     _ => {}
                 }
             }
