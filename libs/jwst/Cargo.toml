@@ -36,7 +36,6 @@ tokio = { version = "1.27.0", features = [
     "rt-multi-thread",
     "net",
 ] }
-y-sync = "0.3.0"
 yrs = "0.16.5"
 
 # ======= workspace dependencies =======

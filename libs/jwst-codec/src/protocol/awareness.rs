@@ -1,18 +1,50 @@
 use super::*;
 use nom::multi::count;
 
+const NULL_STR: &str = "null";
+
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct AwarenessState {
     #[cfg_attr(test, proptest(strategy = "0..u32::MAX as u64"))]
-    pub(super) clock: u64,
+    pub(crate) clock: u64,
     // content is usually a json
-    pub(super) content: String,
+    pub(crate) content: String,
 }
 
 impl AwarenessState {
     pub fn new(clock: u64, content: String) -> Self {
         AwarenessState { clock, content }
+    }
+
+    pub fn is_deleted(&self) -> bool {
+        self.content == NULL_STR
+    }
+
+    pub(crate) fn add_clock(&mut self) {
+        self.clock += 1;
+    }
+
+    pub(crate) fn set_clock(&mut self, clock: u64) {
+        self.clock = clock;
+    }
+
+    pub fn set_content(&mut self, content: String) {
+        self.add_clock();
+        self.content = content;
+    }
+
+    pub fn delete(&mut self) {
+        self.set_content(NULL_STR.to_string());
+    }
+}
+
+impl Default for AwarenessState {
+    fn default() -> Self {
+        AwarenessState {
+            clock: 0,
+            content: NULL_STR.to_string(),
+        }
     }
 }
 

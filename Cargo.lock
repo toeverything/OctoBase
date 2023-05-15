@@ -2136,7 +2136,6 @@ dependencies = [
  "type-map",
  "utoipa",
  "vergen",
- "y-sync",
  "yrs",
 ]
 
@@ -2225,7 +2224,6 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "url",
- "y-sync",
  "yrs",
 ]
 

@@ -22,8 +22,6 @@ pub enum JwstError {
     PageItemNotFound(String),
     #[error("failed to get state vector")]
     SyncInitTransaction,
-    #[error("y_sync awareness error")]
-    YSyncAwarenessErr(#[from] y_sync::awareness::Error),
     #[error("external error: {0}")]
     ExternalError(String),
 }

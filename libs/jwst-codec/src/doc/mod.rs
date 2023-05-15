@@ -1,3 +1,4 @@
+mod awareness;
 mod codec;
 mod document;
 mod store;
@@ -5,6 +6,7 @@ mod traits;
 
 use super::*;
 
+pub use awareness::{Awareness, AwarenessEvent};
 pub use codec::{read_update, Any, Content, Id, Item, StructInfo, Update};
 pub use document::Doc;
 pub use store::DocStore;
