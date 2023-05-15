@@ -17,7 +17,8 @@ export default function EditorLoader({workspace, editor, provider}: {
     const [ready, setReady] = useState(false);
     useEffect(() => {
         provider.on('sync', () => {
-            if (workspace.isEmpty) {
+            const page0 = workspace.getPage('page0');
+            if (workspace.isEmpty || !page0) {
                 const page = workspace.createPage({id: 'page0'});
                 const contentParser = new ContentParser(page);
                 // Add page block and surface block at root level
@@ -30,19 +31,16 @@ export default function EditorLoader({workspace, editor, provider}: {
                 // Add frame block inside page block
                 const frameId = page.addBlock('affine:frame', {}, pageBlockId);
 
-                contentParser.importMarkdown(presetMarkdown, frameId);
+                contentParser.importMarkdown(presetMarkdown, frameId).then(() => {
+                    page.resetHistory();
 
+                    editor.page = page;
+                    setReady(true);
+                });
 
-                // Add paragraph block inside frame block
-                page.addBlock('affine:paragraph', {}, frameId);
-                page.resetHistory();
-
-                editor.page = page;
-                setReady(true);
             } else {
-                let page = workspace.getPage('page0');
-                assertExists(page);
-                editor.page = page;
+                assertExists(page0);
+                editor.page = page0;
                 setReady(true);
             }
         });
