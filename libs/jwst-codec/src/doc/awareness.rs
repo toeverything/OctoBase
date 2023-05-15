@@ -216,8 +216,11 @@ mod tests {
             new_states.insert(4, AwarenessState::new(2, "null".to_string()));
             awareness.apply_update(new_states);
 
+            awareness.set_local_state("test".to_string());
+            awareness.clear_local_state();
+
             let values: std::sync::MutexGuard<Vec<AwarenessEvent>> = values.lock().unwrap();
-            assert_eq!(values.len(), 2);
+            assert_eq!(values.len(), 4);
             let event = values.get(0).unwrap();
 
             let mut added = event.added.clone();
@@ -232,6 +235,12 @@ mod tests {
 
             let event = values.get(1).unwrap();
             assert_eq!(event.removed, [4]);
+
+            let event = values.get(2).unwrap();
+            assert_eq!(event.updated, [0]);
+
+            let event = values.get(3).unwrap();
+            assert_eq!(event.removed, [0]);
         }
     }
 }
