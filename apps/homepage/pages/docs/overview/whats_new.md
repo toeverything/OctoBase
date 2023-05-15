@@ -1,5 +1,13 @@
 # What's New
 
+## 0.5.1-canary.2-230515
+
+-   [+] feat: impl integrate update
+-   [+] feat: octobase editor synchronization playground
+-   [+] feat: port sync protocol
+-   [+] feat: add aio affine cloud image baseline ci
+-   [+] feat: webhook for subscribing block changes
+
 ## 0.5.1-canary.1-230504
 
 -   [+] feat: assemble runtime crdt state (#408)
