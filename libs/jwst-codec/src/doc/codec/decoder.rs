@@ -1,5 +1,5 @@
 use super::*;
-use byteorder::ReadBytesExt;
+use byteorder::{BigEndian, ReadBytesExt};
 use std::io::Cursor;
 
 #[inline]
@@ -20,18 +20,50 @@ where
 
 pub trait CrdtReader {
     // basic read functions
-    fn get_buffer(&mut self) -> &mut Cursor<Vec<u8>>;
+    fn get_buffer(&self) -> &Cursor<Vec<u8>>;
+    fn get_buffer_mut(&mut self) -> &mut Cursor<Vec<u8>>;
     fn read_var_u64(&mut self) -> JwstCodecResult<u64> {
-        read_with_cursor(self.get_buffer(), read_var_u64)
+        read_with_cursor(self.get_buffer_mut(), read_var_u64)
     }
     fn read_var_string(&mut self) -> JwstCodecResult<String> {
-        read_with_cursor(self.get_buffer(), read_var_string)
+        read_with_cursor(self.get_buffer_mut(), read_var_string)
+    }
+    fn read_var_buffer<'a>(&mut self) -> JwstCodecResult<Vec<u8>> {
+        read_with_cursor(self.get_buffer_mut(), |i| {
+            read_var_buffer(i).map(|(tail, val)| (tail, val.to_vec()))
+        })
     }
     fn read_u8(&mut self) -> JwstCodecResult<u8> {
-        let buffer = self.get_buffer();
+        let buffer = self.get_buffer_mut();
         Ok(buffer
             .read_u8()
             .map_err(|_| JwstCodecError::IncompleteDocument)?)
+    }
+    fn read_f32_be(&mut self) -> JwstCodecResult<f32> {
+        let buffer = self.get_buffer_mut();
+        Ok(buffer
+            .read_f32::<BigEndian>()
+            .map_err(|_| JwstCodecError::IncompleteDocument)?)
+    }
+    fn read_f64_be(&mut self) -> JwstCodecResult<f64> {
+        let buffer = self.get_buffer_mut();
+        Ok(buffer
+            .read_f64::<BigEndian>()
+            .map_err(|_| JwstCodecError::IncompleteDocument)?)
+    }
+    fn read_i64_be(&mut self) -> JwstCodecResult<i64> {
+        let buffer = self.get_buffer_mut();
+        Ok(buffer
+            .read_i64::<BigEndian>()
+            .map_err(|_| JwstCodecError::IncompleteDocument)?)
+    }
+    fn is_empty(&self) -> bool {
+        let buffer = self.get_buffer();
+        buffer.position() >= buffer.get_ref().len() as u64
+    }
+    fn len(&self) -> u64 {
+        let buffer = self.get_buffer();
+        buffer.get_ref().len() as u64 - buffer.position()
     }
 
     // ydoc specific read functions
@@ -44,10 +76,6 @@ pub trait CrdtReader {
         let client = self.read_var_u64()?;
         let clock = self.read_var_u64()?;
         Ok(Id::new(client, clock))
-    }
-
-    fn read_content(&mut self, tag_type: u8) -> JwstCodecResult<Content> {
-        read_with_cursor(self.get_buffer(), |input| read_content(input, tag_type))
     }
 }
 
@@ -65,7 +93,11 @@ impl RawDecoder {
 }
 
 impl<'d> CrdtReader for RawDecoder {
-    fn get_buffer(&mut self) -> &mut Cursor<Vec<u8>> {
+    fn get_buffer(&self) -> &Cursor<Vec<u8>> {
+        &self.buffer
+    }
+
+    fn get_buffer_mut(&mut self) -> &mut Cursor<Vec<u8>> {
         &mut self.buffer
     }
 }

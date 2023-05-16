@@ -1,9 +1,4 @@
 use super::*;
-use nom::{
-    combinator::map,
-    error::{Error, ErrorKind},
-    multi::count,
-};
 use serde_json::Value as JsonValue;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,104 +26,87 @@ pub enum Content {
 }
 
 impl Content {
-    pub fn clock_len(&self) -> u64 {
-        match self {
-            Content::Deleted(len) => *len,
-            Content::JSON(strings) => strings.len() as u64,
-            Content::String(string) => string.len() as u64,
-            Content::Any(any) => any.len() as u64,
-            Content::Binary(_)
-            | Content::Embed(_)
-            | Content::Format { .. }
-            | Content::Type(_)
-            | Content::Doc { .. } => 1,
+    pub(crate) fn from<R: CrdtReader>(decoder: &mut R, tag_type: u8) -> JwstCodecResult<Self> {
+        match tag_type {
+            1 => Ok(Self::Deleted(decoder.read_var_u64()?)), // Deleted
+            2 => {
+                let len = decoder.read_var_u64()?;
+                let strings = (0..len)
+                    .map(|_| {
+                        decoder
+                            .read_var_string()
+                            .map(|s| (s != "undefined").then_some(s))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                Ok(Self::JSON(strings))
+            } // JSON
+            3 => Ok(Self::Binary(decoder.read_var_buffer()?.to_vec())), // Binary
+            4 => Ok(Self::String(decoder.read_var_string()?)), // String
+            5 => {
+                let string = decoder.read_var_string()?;
+                let json = serde_json::from_str(&string)
+                    .map_err(|_| JwstCodecError::DamagedDocumentJson)?;
+
+                Ok(Self::Embed(json))
+            } // Embed
+            6 => {
+                let key = decoder.read_var_string()?;
+                let value = decoder.read_var_string()?;
+                let value = serde_json::from_str(&value)
+                    .map_err(|_| JwstCodecError::DamagedDocumentJson)?;
+
+                Ok(Self::Format { key, value })
+            } // Format
+            7 => {
+                let type_ref = decoder.read_var_u64()?;
+                let ytype = match type_ref {
+                    0 => YType::Array,
+                    1 => YType::Map,
+                    2 => YType::Text,
+                    3 => YType::XmlElement(decoder.read_var_string()?),
+                    4 => YType::XmlFragment,
+                    5 => YType::XmlHook(decoder.read_var_string()?),
+                    6 => YType::XmlText,
+                    _ => return Err(JwstCodecError::IncompleteDocument),
+                };
+                Ok(Self::Type(ytype))
+            } // YType
+            8 => Ok(Self::Any(Any::from_multiple(decoder)?)), // Any
+            9 => {
+                let guid = decoder.read_var_string()?;
+                let opts = Any::from_multiple(decoder)?;
+                Ok(Self::Doc { guid, opts })
+            } // Doc
+            _ => return Err(JwstCodecError::IncompleteDocument),
         }
     }
 
-    pub fn split(&self, diff: u64) -> JwstCodecResult<(Content, Content)> {
+    pub fn clock_len(&self) -> u64 {
+        match self {
+            Self::Deleted(len) => *len,
+            Self::JSON(strings) => strings.len() as u64,
+            Self::String(string) => string.len() as u64,
+            Self::Any(any) => any.len() as u64,
+            Self::Binary(_)
+            | Self::Embed(_)
+            | Self::Format { .. }
+            | Self::Type(_)
+            | Self::Doc { .. } => 1,
+        }
+    }
+
+    pub fn split(&self, diff: u64) -> JwstCodecResult<(Self, Self)> {
         // TODO: implement split for other types
         match self {
-            Content::String(str) => {
+            Self::String(str) => {
                 let (left, right) = str.split_at(diff as usize);
                 Ok((
-                    Content::String(left.to_string()),
-                    Content::String(right.to_string()),
+                    Self::String(left.to_string()),
+                    Self::String(right.to_string()),
                 ))
             }
             _ => Err(JwstCodecError::ContentSplitNotSupport(diff)),
         }
-    }
-}
-
-pub fn read_content(input: &[u8], tag_type: u8) -> IResult<&[u8], Content> {
-    match tag_type {
-        1 => {
-            let (tail, len) = read_var_u64(input)?;
-            Ok((tail, Content::Deleted(len)))
-        } // Deleted
-        2 => {
-            let (tail, len) = read_var_u64(input)?;
-            let (tail, strings) = count(
-                map(read_var_string, |string| {
-                    (string != "undefined").then_some(string)
-                }),
-                len as usize,
-            )(tail)?;
-            Ok((tail, Content::JSON(strings)))
-        } // JSON
-        3 => {
-            let (tail, bytes) = read_var_buffer(input)?;
-            Ok((tail, Content::Binary(bytes.to_vec())))
-        } // Binary
-        4 => {
-            let (tail, string) = read_var_string(input)?;
-            Ok((tail, Content::String(string)))
-        } // String
-        5 => {
-            let (tail, string) = read_var_string(input)?;
-
-            let json = serde_json::from_str(&string).map_err(|_| {
-                nom::Err::Error(Error::new(&input[1..string.len() + 1], ErrorKind::Verify))
-            })?;
-            Ok((tail, Content::Embed(json)))
-        } // Embed
-        6 => {
-            let (tail, key) = read_var_string(input)?;
-            let (tail, value) = read_var_string(tail)?;
-            let value = serde_json::from_str(&value).map_err(|_| {
-                nom::Err::Error(Error::new(&input[1..value.len() + 1], ErrorKind::Verify))
-            })?;
-            Ok((tail, Content::Format { key, value }))
-        } // Format
-        7 => {
-            let (tail, type_ref) = read_var_u64(input)?;
-            let (tail, ytype) = match type_ref {
-                0 => (tail, YType::Array),
-                1 => (tail, YType::Map),
-                2 => (tail, YType::Text),
-                3 => {
-                    let (tail, name) = read_var_string(tail)?;
-                    (tail, YType::XmlElement(name))
-                }
-                4 => (tail, YType::XmlFragment),
-                5 => {
-                    let (tail, name) = read_var_string(tail)?;
-                    (tail, YType::XmlHook(name))
-                }
-                6 => (tail, YType::XmlText),
-                _ => return Err(nom::Err::Error(Error::new(input, ErrorKind::Tag))),
-            };
-            Ok((tail, Content::Type(ytype)))
-        } // YType
-        8 => {
-            let (tail, any) = read_any(input)?;
-            Ok((tail, Content::Any(any)))
-        } // Any
-        9 => {
-            let (tail, guid) = read_var_string(input)?;
-            let (tail, opts) = read_any(tail)?;
-            Ok((tail, Content::Doc { guid, opts }))
-        } // Doc
-        _ => Err(nom::Err::Error(Error::new(input, ErrorKind::Tag))),
     }
 }

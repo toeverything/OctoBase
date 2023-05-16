@@ -1,5 +1,4 @@
 use super::*;
-use nom::multi::count;
 use std::collections::{HashMap, VecDeque};
 
 #[derive(Debug)]
@@ -8,10 +7,30 @@ pub struct Delete {
     pub len: u64,
 }
 
+impl Delete {
+    fn from<R: CrdtReader>(decoder: &mut R) -> JwstCodecResult<Self> {
+        let clock = decoder.read_var_u64()?;
+        let len = decoder.read_var_u64()?;
+        Ok(Delete { clock, len })
+    }
+}
+
 #[derive(Debug)]
 pub struct DeleteSets {
     pub client: u64,
     pub deletes: Vec<Delete>,
+}
+
+impl DeleteSets {
+    fn from<R: CrdtReader>(decoder: &mut R) -> JwstCodecResult<Self> {
+        let client = decoder.read_var_u64()?;
+        let num_of_deletes = decoder.read_var_u64()?;
+        let deletes = (0..num_of_deletes)
+            .map(|_| Delete::from(decoder))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(DeleteSets { client, deletes })
+    }
 }
 
 #[derive(Debug, Default)]
@@ -26,42 +45,36 @@ pub struct Update {
     missing_state: StateVector,
 }
 
-fn read_delete(input: &[u8]) -> IResult<&[u8], Delete> {
-    let (tail, clock) = read_var_u64(input)?;
-    let (tail, len) = read_var_u64(tail)?;
-    Ok((tail, Delete { clock, len }))
-}
+impl Update {
+    pub fn from(mut decoder: RawDecoder) -> JwstCodecResult<Update> {
+        let structs = {
+            let num_of_updates = decoder.read_var_u64()?;
+            let updates = (0..num_of_updates)
+                .map(|_| RawRefs::from(&mut decoder))
+                .collect::<Result<Vec<_>, _>>()?;
 
-fn parse_delete_set(input: &[u8]) -> IResult<&[u8], DeleteSets> {
-    let (input, client) = read_var_u64(input)?;
-    let (input, num_of_deletes) = read_var_u64(input)?;
-    let (tail, deletes) = count(read_delete, num_of_deletes as usize)(input)?;
+            updates.into_iter().map(|u| (u.client, u.refs)).collect()
+        };
 
-    Ok((tail, DeleteSets { client, deletes }))
-}
+        let delete_sets = {
+            let num_of_clients = decoder.read_var_u64()?;
+            (0..num_of_clients)
+                .map(|_| DeleteSets::from(&mut decoder))
+                .collect::<Result<Vec<_>, _>>()?
+        };
 
-fn read_delete_set(input: &[u8]) -> IResult<&[u8], Vec<DeleteSets>> {
-    let (input, num_of_clients) = read_var_u64(input)?;
-    let (tail, deletes) = count(parse_delete_set, num_of_clients as usize)(input)?;
+        if !decoder.is_empty() {
+            return Err(JwstCodecError::UpdateNotFullyConsumed(
+                decoder.len() as usize
+            ));
+        }
 
-    Ok((tail, deletes))
-}
-
-pub fn read_update(mut decoder: RawDecoder) -> JwstCodecResult<Update> {
-    let structs = read_client_struct_refs(&mut decoder)?;
-
-    let input = &decoder.buffer.get_ref()[(decoder.buffer.position()) as usize..];
-    let (tail, delete_sets) = read_delete_set(input).map_err(|e| e.map_input(|u| u.len()))?;
-
-    if !tail.is_empty() {
-        return Err(JwstCodecError::UpdateNotFullyConsumed(tail.len()));
+        Ok(Update {
+            structs,
+            delete_sets,
+            ..Update::default()
+        })
     }
-
-    Ok(Update {
-        structs,
-        delete_sets,
-        ..Update::default()
-    })
 }
 
 pub struct UpdateIterator<'a> {

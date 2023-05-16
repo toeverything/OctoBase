@@ -1,5 +1,5 @@
 use super::*;
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 
 enum RawStructInfo {
     GC(u64),
@@ -7,9 +7,23 @@ enum RawStructInfo {
     Item(Item),
 }
 
-struct RawRefs {
-    client: u64,
-    refs: VecDeque<StructInfo>,
+impl RawStructInfo {
+    fn from<R: CrdtReader>(decoder: &mut R) -> JwstCodecResult<Self> {
+        let info = decoder.read_info()?;
+        let first_5_bit = info & 0b11111;
+
+        match first_5_bit {
+            0 => {
+                let len = decoder.read_var_u64()?;
+                Ok(Self::GC(len))
+            }
+            10 => {
+                let len = decoder.read_var_u64()?;
+                Ok(Self::Skip(len))
+            }
+            _ => Ok(Self::Item(Item::from(decoder, info, first_5_bit)?)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,9 +36,9 @@ pub enum StructInfo {
 impl StructInfo {
     pub fn id(&self) -> &Id {
         match self {
-            StructInfo::GC { id, .. } => id,
-            StructInfo::Skip { id, .. } => id,
-            StructInfo::Item { id, .. } => id,
+            Self::GC { id, .. } => id,
+            Self::Skip { id, .. } => id,
+            Self::Item { id, .. } => id,
         }
     }
 
@@ -38,22 +52,22 @@ impl StructInfo {
 
     pub fn len(&self) -> u64 {
         match self {
-            StructInfo::GC { len, .. } => *len,
-            StructInfo::Skip { len, .. } => *len,
-            StructInfo::Item { item, .. } => item.content.clock_len(),
+            Self::GC { len, .. } => *len,
+            Self::Skip { len, .. } => *len,
+            Self::Item { item, .. } => item.content.clock_len(),
         }
     }
 
     pub fn is_gc(&self) -> bool {
-        matches!(self, StructInfo::GC { .. })
+        matches!(self, Self::GC { .. })
     }
 
     pub fn is_skip(&self) -> bool {
-        matches!(self, StructInfo::Skip { .. })
+        matches!(self, Self::Skip { .. })
     }
 
     pub fn is_item(&self) -> bool {
-        matches!(self, StructInfo::Item { .. })
+        matches!(self, Self::Item { .. })
     }
 
     pub fn left_id(&self) -> Option<Id> {
@@ -77,7 +91,7 @@ impl StructInfo {
             let right_id = Id::new(id.client, id.clock + diff);
             let (left_content, right_content) = item.content.split(diff)?;
 
-            let left_item = StructInfo::Item {
+            let left_item = Self::Item {
                 id: *id,
                 item: Box::new(Item {
                     right_id: Some(right_id),
@@ -86,7 +100,7 @@ impl StructInfo {
                 }),
             };
 
-            let right_item = StructInfo::Item {
+            let right_item = Self::Item {
                 id: right_id,
                 item: Box::new(Item {
                     left_id: Some(Id::new(id.client, id.clock + diff - 1)),
@@ -104,34 +118,21 @@ impl StructInfo {
     }
 }
 
-fn read_struct<R: CrdtReader>(decoder: &mut R) -> JwstCodecResult<RawStructInfo> {
-    let info = decoder.read_info()?;
-    let first_5_bit = info & 0b11111;
-
-    match first_5_bit {
-        0 => {
-            let len = decoder.read_var_u64()?;
-            Ok(RawStructInfo::GC(len))
-        }
-        10 => {
-            let len = decoder.read_var_u64()?;
-            Ok(RawStructInfo::Skip(len))
-        }
-        _ => {
-            let item = read_item(decoder, info, first_5_bit)?;
-            Ok(RawStructInfo::Item(item))
-        }
-    }
+pub struct RawRefs {
+    pub(crate) client: u64,
+    pub(crate) refs: VecDeque<StructInfo>,
 }
 
-fn read_refs<R: CrdtReader>(decoder: &mut R) -> JwstCodecResult<RawRefs> {
-    let num_of_structs = decoder.read_var_u64()?;
-    let client = decoder.read_var_u64()?;
-    let clock = decoder.read_var_u64()?;
-    let (refs, _) = (0..num_of_structs)
-        .map(|_| read_struct(decoder))
-        .flatten()
-        .fold(
+impl RawRefs {
+    pub(crate) fn from<R: CrdtReader>(decoder: &mut R) -> JwstCodecResult<Self> {
+        let num_of_structs = decoder.read_var_u64()?;
+        let client = decoder.read_var_u64()?;
+        let clock = decoder.read_var_u64()?;
+        let structs = (0..num_of_structs)
+            .map(|_| RawStructInfo::from(decoder))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let (refs, _) = structs.into_iter().fold(
             (VecDeque::with_capacity(num_of_structs as usize), clock),
             |(mut vec, clock), s| {
                 let id = Id::new(client, clock);
@@ -156,19 +157,8 @@ fn read_refs<R: CrdtReader>(decoder: &mut R) -> JwstCodecResult<RawRefs> {
             },
         );
 
-    Ok(RawRefs { client, refs })
-}
-
-pub fn read_client_struct_refs<R: CrdtReader>(
-    decoder: &mut R,
-) -> JwstCodecResult<HashMap<u64, VecDeque<StructInfo>>> {
-    let num_of_updates = decoder.read_var_u64()?;
-    let updates = (0..num_of_updates)
-        .map(|_| read_refs(decoder))
-        .flatten()
-        .collect::<Vec<_>>();
-
-    Ok(updates.into_iter().map(|u| (u.client, u.refs)).collect())
+        Ok(Self { client, refs })
+    }
 }
 
 #[cfg(test)]

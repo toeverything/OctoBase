@@ -102,7 +102,7 @@ impl Default for Doc {
 impl Doc {
     pub fn apply_update(&mut self, update: Vec<u8>) -> JwstCodecResult {
         let decoder = RawDecoder::new(update);
-        let mut update = read_update(decoder)?;
+        let mut update = Update::from(decoder)?;
 
         self.integrate_update(&mut update)?;
 

@@ -6,7 +6,7 @@ pub use codec::{
     read_var_buffer, read_var_i64, read_var_string, read_var_u64, write_var_buffer, write_var_i64,
     write_var_string, write_var_u64,
 };
-pub use doc::{read_update, Awareness, AwarenessEvent, Content, Doc, Id, Item, Update};
+pub use doc::{Awareness, AwarenessEvent, Content, Doc, Id, Item, Update};
 pub use protocol::{
     read_sync_message, write_sync_message, AwarenessState, AwarenessStates, DocMessage,
     SyncMessage, SyncMessageScanner,
@@ -19,6 +19,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq)]
 pub enum JwstCodecError {
+    #[error("Damaged document: corrupt json data")]
+    DamagedDocumentJson,
     #[error("Incomplete document")]
     IncompleteDocument,
     #[error("Content does not support splitting in {0}")]
@@ -46,7 +48,7 @@ mod tests {
     use std::{num::ParseIntError, path::PathBuf};
 
     fn parse_doc_update(input: Vec<u8>) -> JwstCodecResult<Update> {
-        read_update(RawDecoder::new(input))
+        Update::from(RawDecoder::new(input))
     }
 
     #[test]
