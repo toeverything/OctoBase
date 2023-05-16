@@ -1,11 +1,10 @@
+use jwst_codec::{Awareness, AwarenessEvent};
 use nanoid::nanoid;
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
-    sync::Arc,
     thread::sleep,
     time::Duration,
 };
-use y_sync::awareness::{Awareness, Event};
 use yrs::{types::map::MapEvent, Observable, TransactionMut, UpdateEvent};
 
 use super::*;
@@ -18,8 +17,11 @@ impl Workspace {
         self.metadata.observe(f)
     }
 
-    pub async fn on_awareness_update(&mut self, f: impl Fn(&Awareness, &Event) + 'static) {
-        self.awareness_sub = Arc::new(Some(self.awareness.write().await.on_update(f)));
+    pub async fn on_awareness_update(
+        &mut self,
+        f: impl Fn(&Awareness, AwarenessEvent) + Send + Sync + 'static,
+    ) {
+        self.awareness.write().await.on_update(f);
     }
 
     /// Subscribe to update events.

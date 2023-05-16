@@ -1,6 +1,6 @@
 use super::*;
 use jwst::{sync_encode_update, Workspace};
-use jwst_codec::{convert_awareness_update, write_sync_message};
+use jwst_codec::{write_sync_message, SyncMessage};
 use lru_time_cache::LruCache;
 use std::{collections::HashMap, sync::Mutex};
 use tokio::sync::{broadcast::Sender, RwLock};
@@ -29,35 +29,24 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
 
         workspace
             .on_awareness_update(move |awareness, e| {
-                trace!(
-                    "workspace awareness changed: {}, {:?}",
-                    workspace_id,
-                    [e.added(), e.updated(), e.removed()].concat()
-                );
-                if let Some(update) = awareness
-                    .update_with_clients([e.added(), e.updated(), e.removed()].concat())
-                    .ok()
-                    .and_then(|update| {
-                        let mut buffer = Vec::new();
-                        match write_sync_message(&mut buffer, &convert_awareness_update(update)) {
-                            Ok(_) => Some(buffer),
-                            Err(e) => {
-                                error!("failed to write awareness update: {}", e);
-                                None
-                            }
-                        }
-                    })
-                {
-                    let mut dedup_cache = dedup_cache.lock().unwrap_or_else(|e| e.into_inner());
-                    if !dedup_cache.contains_key(&update) {
-                        if sender
-                            .send(BroadcastType::BroadcastAwareness(update.clone()))
-                            .is_err()
-                        {
-                            debug!("broadcast channel {workspace_id} has been closed",)
-                        }
-                        dedup_cache.insert(update, ());
+                let mut buffer = Vec::new();
+                if let Err(e) = write_sync_message(
+                    &mut buffer,
+                    &SyncMessage::Awareness(e.get_updated(awareness.get_states())),
+                ) {
+                    error!("failed to write awareness update: {}", e);
+                    return;
+                }
+
+                let mut dedup_cache = dedup_cache.lock().unwrap_or_else(|e| e.into_inner());
+                if !dedup_cache.contains_key(&buffer) {
+                    if sender
+                        .send(BroadcastType::BroadcastAwareness(buffer.clone()))
+                        .is_err()
+                    {
+                        debug!("broadcast channel {workspace_id} has been closed",)
                     }
+                    dedup_cache.insert(buffer, ());
                 }
             })
             .await;

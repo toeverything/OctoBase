@@ -2,11 +2,11 @@ use super::{
     block_observer::BlockObserverConfig,
     plugins::{setup_plugin, PluginMap},
 };
+use jwst_codec::Awareness;
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::sync::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
-use y_sync::awareness::{Awareness, Event, Subscription as AwarenessSubscription};
 use yrs::{
     types::{map::MapEvent, ToJson},
     Doc, Map, MapRef, Subscription, Transact, TransactionMut, UpdateSubscription,
@@ -20,7 +20,6 @@ pub struct Workspace {
     pub(super) doc: Doc,
     // TODO: Unreasonable subscription mechanism, needs refactoring
     pub(super) sub: Arc<Mutex<HashMap<String, UpdateSubscription>>>,
-    pub(super) awareness_sub: Arc<Option<AwarenessSubscription<Event>>>,
     pub(crate) updated: MapRef,
     pub(crate) metadata: MapRef,
     /// We store plugins so that their ownership is tied to [Workspace].
@@ -48,10 +47,9 @@ impl Workspace {
 
         setup_plugin(Self {
             workspace_id: workspace_id.as_ref().to_string(),
-            awareness: Arc::new(RwLock::new(Awareness::new(doc.clone()))),
+            awareness: Arc::new(RwLock::new(Awareness::new(doc.client_id()))),
             doc,
             sub: Arc::default(),
-            awareness_sub: Arc::default(),
             updated,
             metadata,
             plugins: Default::default(),
@@ -66,7 +64,6 @@ impl Workspace {
         awareness: Arc<RwLock<Awareness>>,
         doc: Doc,
         sub: Arc<Mutex<HashMap<String, UpdateSubscription>>>,
-        awareness_sub: Arc<Option<AwarenessSubscription<Event>>>,
         updated: MapRef,
         metadata: MapRef,
         plugins: PluginMap,
@@ -84,7 +81,6 @@ impl Workspace {
             awareness,
             doc,
             sub,
-            awareness_sub,
             updated,
             metadata,
             plugins,
@@ -137,7 +133,6 @@ impl Clone for Workspace {
             self.awareness.clone(),
             self.doc.clone(),
             self.sub.clone(),
-            self.awareness_sub.clone(),
             self.updated.clone(),
             self.metadata.clone(),
             self.plugins.clone(),
