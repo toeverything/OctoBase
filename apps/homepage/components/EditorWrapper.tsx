@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
 import {useState} from "react";
 import styled from "@emotion/styled";
+import {nanoid} from "nanoid";
 
 const Editor = dynamic(() => {
     return import('./Editor');
@@ -25,6 +26,7 @@ const Button = styled.button`
 `
 
 export default function EditorWrapper() {
+    const [workspaceId, _] = useState(nanoid());
     const [editorNum, setEditorNum] = useState(2);
     return (
         <>
@@ -32,7 +34,7 @@ export default function EditorWrapper() {
                 <Button onClick={() => {setEditorNum(editorNum + 1)}}>Add Editor</Button>
                 <Button onClick={() => {setEditorNum(editorNum - 1)}}>Remove Editor</Button>
             </div>
-            <Editor editorNum={editorNum}/>
+            <Editor editorNum={editorNum} workspaceId={workspaceId}/>
         </>
     );
 }

@@ -8,12 +8,12 @@ import {useEffect, useRef, useState} from "react";
 import {ContentParser} from "@blocksuite/blocks/content-parser";
 import RichData from "./RichData";
 
-export default function Editor({editorNum}: { editorNum: number }) {
+export default function Editor({editorNum, workspaceId}: { editorNum: number, workspaceId: string }) {
     return (
         <>
             {Array.from({length: editorNum}, (_, i) => i).map(id => {
                 const workspace = new Workspace({
-                    id: `test-workspace`
+                    id: `test-workspace-${workspaceId}`
                 });
                 workspace.register(AffineSchemas);
                 return <div key={id}>
