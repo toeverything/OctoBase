@@ -1,5 +1,4 @@
 use super::*;
-use nom::{multi::count, number::complete::be_u8};
 use std::collections::{HashMap, VecDeque};
 
 enum RawStructInfo {
@@ -105,67 +104,71 @@ impl StructInfo {
     }
 }
 
-fn read_struct(input: &[u8]) -> IResult<&[u8], RawStructInfo> {
-    let (input, info) = be_u8(input)?;
+fn read_struct<R: CrdtReader>(decoder: &mut R) -> JwstCodecResult<RawStructInfo> {
+    let info = decoder.read_info()?;
     let first_5_bit = info & 0b11111;
 
     match first_5_bit {
         0 => {
-            let (input, len) = read_var_u64(input)?;
-            Ok((input, RawStructInfo::GC(len)))
+            let len = decoder.read_var_u64()?;
+            Ok(RawStructInfo::GC(len))
         }
         10 => {
-            let (input, len) = read_var_u64(input)?;
-            Ok((input, RawStructInfo::Skip(len)))
+            let len = decoder.read_var_u64()?;
+            Ok(RawStructInfo::Skip(len))
         }
         _ => {
-            let (input, item) = read_item(input, info, first_5_bit)?;
-            Ok((input, RawStructInfo::Item(item)))
+            let item = read_item(decoder, info, first_5_bit)?;
+            Ok(RawStructInfo::Item(item))
         }
     }
 }
 
-fn read_refs(input: &[u8]) -> IResult<&[u8], RawRefs> {
-    let (input, num_of_structs) = read_var_u64(input)?;
-    let (input, client) = read_var_u64(input)?;
-    let (input, clock) = read_var_u64(input)?;
-    let (input, structs) = count(read_struct, num_of_structs as usize)(input)?;
-    let (refs, _) = structs.into_iter().fold(
-        (VecDeque::with_capacity(num_of_structs as usize), clock),
-        |(mut vec, clock), s| {
-            let id = Id::new(client, clock);
-            match s {
-                RawStructInfo::GC(len) => {
-                    vec.push_back(StructInfo::GC { id, len });
-                    (vec, clock + len)
+fn read_refs<R: CrdtReader>(decoder: &mut R) -> JwstCodecResult<RawRefs> {
+    let num_of_structs = decoder.read_var_u64()?;
+    let client = decoder.read_var_u64()?;
+    let clock = decoder.read_var_u64()?;
+    let (refs, _) = (0..num_of_structs)
+        .map(|_| read_struct(decoder))
+        .flatten()
+        .fold(
+            (VecDeque::with_capacity(num_of_structs as usize), clock),
+            |(mut vec, clock), s| {
+                let id = Id::new(client, clock);
+                match s {
+                    RawStructInfo::GC(len) => {
+                        vec.push_back(StructInfo::GC { id, len });
+                        (vec, clock + len)
+                    }
+                    RawStructInfo::Skip(len) => {
+                        vec.push_back(StructInfo::Skip { id, len });
+                        (vec, clock + len)
+                    }
+                    RawStructInfo::Item(item) => {
+                        let len = item.content.clock_len();
+                        vec.push_back(StructInfo::Item {
+                            id,
+                            item: Box::new(item),
+                        });
+                        (vec, clock + len)
+                    }
                 }
-                RawStructInfo::Skip(len) => {
-                    vec.push_back(StructInfo::Skip { id, len });
-                    (vec, clock + len)
-                }
-                RawStructInfo::Item(item) => {
-                    let len = item.content.clock_len();
-                    vec.push_back(StructInfo::Item {
-                        id,
-                        item: Box::new(item),
-                    });
-                    (vec, clock + len)
-                }
-            }
-        },
-    );
+            },
+        );
 
-    Ok((input, RawRefs { client, refs }))
+    Ok(RawRefs { client, refs })
 }
 
-pub fn read_client_struct_refs(input: &[u8]) -> IResult<&[u8], HashMap<u64, VecDeque<StructInfo>>> {
-    let (input, num_of_updates) = read_var_u64(input)?;
-    let (tail, updates) = count(read_refs, num_of_updates as usize)(input)?;
+pub fn read_client_struct_refs<R: CrdtReader>(
+    decoder: &mut R,
+) -> JwstCodecResult<HashMap<u64, VecDeque<StructInfo>>> {
+    let num_of_updates = decoder.read_var_u64()?;
+    let updates = (0..num_of_updates)
+        .map(|_| read_refs(decoder))
+        .flatten()
+        .collect::<Vec<_>>();
 
-    Ok((
-        tail,
-        updates.into_iter().map(|u| (u.client, u.refs)).collect(),
-    ))
+    Ok(updates.into_iter().map(|u| (u.client, u.refs)).collect())
 }
 
 #[cfg(test)]

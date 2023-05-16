@@ -47,17 +47,21 @@ fn read_delete_set(input: &[u8]) -> IResult<&[u8], Vec<DeleteSets>> {
     Ok((tail, deletes))
 }
 
-pub fn read_update(input: &[u8]) -> IResult<&[u8], Update> {
-    let (tail, structs) = read_client_struct_refs(input)?;
-    let (tail, delete_sets) = read_delete_set(tail)?;
-    Ok((
-        tail,
-        Update {
-            structs,
-            delete_sets,
-            ..Update::default()
-        },
-    ))
+pub fn read_update(mut decoder: RawDecoder) -> JwstCodecResult<Update> {
+    let structs = read_client_struct_refs(&mut decoder)?;
+
+    let input = &decoder.buffer.get_ref()[(decoder.buffer.position()) as usize..];
+    let (tail, delete_sets) = read_delete_set(input).map_err(|e| e.map_input(|u| u.len()))?;
+
+    if !tail.is_empty() {
+        return Err(JwstCodecError::UpdateNotFullyConsumed(tail.len()));
+    }
+
+    Ok(Update {
+        structs,
+        delete_sets,
+        ..Update::default()
+    })
 }
 
 pub struct UpdateIterator<'a> {
