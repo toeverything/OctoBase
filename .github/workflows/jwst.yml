@@ -408,7 +408,9 @@ jobs:
             CARGO_TERM_COLOR: always
         steps:
             - uses: actions/checkout@v3
-            - uses: dtolnay/rust-toolchain@stable
+            - uses: dtolnay/rust-toolchain@master
+              with:
+                  toolchain: nightly-2023-03-08
             - uses: Swatinem/rust-cache@v2
 
             - name: fuzzing
