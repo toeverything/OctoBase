@@ -413,6 +413,7 @@ jobs:
 
             - name: fuzzing
               run: |
+                cargo install cargo-fuzz
                 cargo fuzz run codec_doc_any -- -max_total_time=30
                 cargo fuzz run decode_bytes -- -max_total_time=30
                 cargo fuzz run i64_decode -- -max_total_time=30
