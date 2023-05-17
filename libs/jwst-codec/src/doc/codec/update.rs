@@ -44,6 +44,19 @@ impl Update {
         })
     }
 
+    // decode from ydoc v1
+    pub fn from_ybinary1(buffer: Vec<u8>) -> JwstCodecResult<Update> {
+        Self::from(RawDecoder::new(buffer))
+    }
+
+    pub fn into(self) -> JwstCodecResult<Vec<u8>> {
+        let encoder = RawEncoder::default();
+
+        // TODO: write updates
+
+        Ok(encoder.into_inner())
+    }
+
     pub fn iter(&mut self, store: &DocStore) -> UpdateIterator {
         UpdateIterator::new(store, self)
     }
