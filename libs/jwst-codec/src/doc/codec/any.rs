@@ -62,7 +62,7 @@ impl<R: CrdtReader> CrdtRead<R> for Any {
 impl<W: CrdtWriter> CrdtWrite<W> for Any {
     fn write(&self, writer: &mut W) -> JwstCodecResult<()> {
         match self {
-            Any::Undefined => writer.write_u8(127 - 0)?,
+            Any::Undefined => writer.write_u8(127)?,
             Any::Null => writer.write_u8(127 - 1)?,
             Any::Integer(value) => {
                 writer.write_u8(127 - 2)?;
