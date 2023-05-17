@@ -26,7 +26,7 @@ pub enum Content {
 }
 
 impl Content {
-    pub(crate) fn from<R: CrdtReader>(decoder: &mut R, tag_type: u8) -> JwstCodecResult<Self> {
+    pub(crate) fn read<R: CrdtReader>(decoder: &mut R, tag_type: u8) -> JwstCodecResult<Self> {
         match tag_type {
             1 => Ok(Self::Deleted(decoder.read_var_u64()?)), // Deleted
             2 => {
@@ -76,16 +76,85 @@ impl Content {
                 };
                 Ok(Self::Type(ytype))
             } // YType
-            8 => Ok(Self::Any(Any::from_multiple(decoder)?)), // Any
+            8 => Ok(Self::Any(Any::read_multiple(decoder)?)), // Any
             9 => {
                 let guid = decoder.read_var_string()?;
-                let opts = Any::from_multiple(decoder)?;
+                let opts = Any::read_multiple(decoder)?;
                 Ok(Self::Doc { guid, opts })
             } // Doc
             _ => Err(JwstCodecError::IncompleteDocument(
                 "Unknown content type".to_string(),
             )),
         }
+    }
+
+    pub(crate) fn get_info(&self) -> u8 {
+        match self {
+            Self::Deleted(_) => 1,
+            Self::JSON(_) => 2,
+            Self::Binary(_) => 3,
+            Self::String(_) => 4,
+            Self::Embed(_) => 5,
+            Self::Format { .. } => 6,
+            Self::Type(_) => 7,
+            Self::Any(_) => 8,
+            Self::Doc { .. } => 9,
+        }
+    }
+
+    pub(crate) fn write<W: CrdtWriter>(&self, encoder: &mut W) -> JwstCodecResult<()> {
+        match self {
+            Self::Deleted(len) => {
+                encoder.write_var_u64(*len)?;
+            }
+            Self::JSON(strings) => {
+                encoder.write_var_u64(strings.len() as u64)?;
+                for string in strings {
+                    match string {
+                        Some(string) => encoder.write_var_string(string)?,
+                        None => encoder.write_var_string("undefined")?,
+                    }
+                }
+            }
+            Self::Binary(buffer) => {
+                encoder.write_var_buffer(buffer)?;
+            }
+            Self::String(string) => {
+                encoder.write_var_string(string)?;
+            }
+            Self::Embed(json) => {
+                encoder.write_var_string(json.to_string())?;
+            }
+            Self::Format { key, value } => {
+                encoder.write_var_string(key)?;
+                encoder.write_var_string(value.to_string())?;
+            }
+            Self::Type(ytype) => match ytype {
+                YType::Array => encoder.write_var_u64(0)?,
+                YType::Map => encoder.write_var_u64(1)?,
+                YType::Text => encoder.write_var_u64(2)?,
+                YType::XmlElement(string) => {
+                    encoder.write_var_u64(3)?;
+                    encoder.write_var_string(string)?;
+                }
+                YType::XmlFragment => encoder.write_var_u64(4)?,
+                YType::XmlHook(string) => {
+                    encoder.write_var_u64(5)?;
+                    encoder.write_var_string(string)?;
+                }
+                YType::XmlText => encoder.write_var_u64(6)?,
+            },
+            Self::Any(any) => {
+                encoder.write_var_u64(8)?;
+                Any::write_multiple(encoder, any)?;
+            }
+            Self::Doc { guid, opts } => {
+                encoder.write_var_u64(9)?;
+                encoder.write_var_string(guid)?;
+                Any::write_multiple(encoder, opts)?;
+            }
+        }
+        Ok(())
     }
 
     pub fn clock_len(&self) -> u64 {

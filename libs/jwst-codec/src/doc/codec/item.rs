@@ -16,7 +16,7 @@ pub struct Item {
 }
 
 impl Item {
-    pub(crate) fn from<R: CrdtReader>(
+    pub(crate) fn read<R: CrdtReader>(
         decoder: &mut R,
         info: u8,
         first_5_bit: u8,
@@ -60,10 +60,56 @@ impl Item {
                 // tag must not GC or Skip, this must process in parse_struct
                 debug_assert_ne!(first_5_bit, 0);
                 debug_assert_ne!(first_5_bit, 10);
-                Content::from(decoder, first_5_bit)?
+                Content::read(decoder, first_5_bit)?
             },
         };
 
         Ok(item)
+    }
+
+    pub(crate) fn write<W: CrdtWriter>(&self, encoder: &mut W) -> JwstCodecResult<()> {
+        {
+            // write info
+            let mut info = self.content.get_info();
+            if self.left_id.is_some() {
+                info |= 0b1000_0000;
+            }
+            if self.right_id.is_some() {
+                info |= 0b0100_0000;
+            }
+            if self.parent.is_some() || self.parent_sub.is_some() {
+                info |= 0b0010_0000;
+            }
+            if self.parent.is_none() && self.parent_sub.is_none() {
+                info |= 0b0001_0000;
+            }
+            encoder.write_info(info)?;
+        }
+
+        if let Some(left_id) = self.left_id {
+            encoder.write_item_id(&left_id)?;
+        }
+        if let Some(right_id) = self.right_id {
+            encoder.write_item_id(&right_id)?;
+        }
+        if let Some(parent) = &self.parent {
+            match parent {
+                Parent::String(s) => {
+                    encoder.write_var_u64(1)?;
+                    encoder.write_var_string(s)?;
+                }
+                Parent::Id(id) => {
+                    encoder.write_var_u64(0)?;
+                    encoder.write_item_id(id)?;
+                }
+            }
+        }
+        if let Some(parent_sub) = &self.parent_sub {
+            encoder.write_var_string(parent_sub)?;
+        }
+
+        self.content.write(encoder)?;
+
+        Ok(())
     }
 }

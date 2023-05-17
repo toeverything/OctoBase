@@ -21,8 +21,28 @@ impl<R: CrdtReader> CrdtRead<R> for RawStructInfo {
                 let len = decoder.read_var_u64()?;
                 Ok(Self::Skip(len))
             }
-            _ => Ok(Self::Item(Item::from(decoder, info, first_5_bit)?)),
+            _ => Ok(Self::Item(Item::read(decoder, info, first_5_bit)?)),
         }
+    }
+}
+
+impl<W: CrdtWriter> CrdtWrite<W> for RawStructInfo {
+    fn write(&self, encoder: &mut W) -> JwstCodecResult<()> {
+        match self {
+            Self::GC(len) => {
+                encoder.write_info(0)?;
+                encoder.write_var_u64(*len)?;
+            }
+            Self::Skip(len) => {
+                encoder.write_info(10)?;
+                encoder.write_var_u64(*len)?;
+            }
+            Self::Item(item) => {
+                item.write(encoder)?;
+            }
+        }
+
+        Ok(())
     }
 }
 

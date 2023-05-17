@@ -131,7 +131,7 @@ impl Any {
         Ok(())
     }
 
-    pub(crate) fn from_multiple<R: CrdtReader>(reader: &mut R) -> JwstCodecResult<Vec<Any>> {
+    pub(crate) fn read_multiple<R: CrdtReader>(reader: &mut R) -> JwstCodecResult<Vec<Any>> {
         let len = reader.read_var_u64()?;
         let any = (0..len)
             .map(|_| Any::read(reader))
@@ -140,7 +140,7 @@ impl Any {
         Ok(any)
     }
 
-    pub(crate) fn _into_multiple<W: CrdtWriter>(
+    pub(crate) fn write_multiple<W: CrdtWriter>(
         writer: &mut W,
         any: &[Any],
     ) -> JwstCodecResult<()> {
