@@ -20,6 +20,10 @@ thiserror = "1.0.40"
 # ======= workspace dependencies =======
 jwst-logger = { path = "../jwst-logger" }
 
+[target.'cfg(fuzzing)'.dependencies]
+arbitrary = { version = "1.3.0", features = ["derive"] }
+ordered-float = { version = "3.6.0", features = ["arbitrary"] }
+
 [dev-dependencies]
 criterion = { version = "0.4.0", features = ["html_reports"] }
 lib0 = "0.16.5"

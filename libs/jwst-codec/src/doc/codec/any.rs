@@ -3,6 +3,7 @@ use ordered_float::OrderedFloat;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(fuzzing, derive(arbitrary::Arbitrary))]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Any {
     Undefined,
