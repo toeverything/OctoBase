@@ -90,8 +90,7 @@ impl<W: CrdtWriter> CrdtWrite<W> for Any {
                 writer.write_u8(127 - 9)?;
                 writer.write_var_u64(value.len() as u64)?;
                 for (key, value) in value {
-                    writer.write_var_string(key)?;
-                    value.write(writer)?;
+                    Self::write_key_value(writer, key, value)?;
                 }
             }
             Any::Array(values) => {
@@ -119,6 +118,17 @@ impl Any {
         Ok((key, value))
     }
 
+    fn write_key_value<W: CrdtWriter>(
+        writer: &mut W,
+        key: &str,
+        value: &Any,
+    ) -> JwstCodecResult<()> {
+        writer.write_var_string(key)?;
+        value.write(writer)?;
+
+        Ok(())
+    }
+
     pub(crate) fn from_multiple<R: CrdtReader>(reader: &mut R) -> JwstCodecResult<Vec<Any>> {
         let len = reader.read_var_u64()?;
         let any = (0..len)
@@ -126,6 +136,18 @@ impl Any {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(any)
+    }
+
+    pub(crate) fn _into_multiple<W: CrdtWriter>(
+        writer: &mut W,
+        any: &[Any],
+    ) -> JwstCodecResult<()> {
+        writer.write_var_u64(any.len() as u64)?;
+        for value in any {
+            value.write(writer)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -163,6 +185,29 @@ mod tests {
                             .collect(),
                         ),
                         Any::Undefined,
+                    ]),
+                ),
+                (
+                    "standard_data".to_string(),
+                    Any::Array(vec![
+                        Any::Undefined,
+                        Any::Null,
+                        Any::Integer(1145141919810),
+                        Any::Float32(114.514),
+                        Any::Float64(115.514),
+                        Any::BigInt64(-1145141919810),
+                        Any::False,
+                        Any::True,
+                        Any::Object(
+                            vec![
+                                ("name".to_string(), Any::String("tadokoro".to_string())),
+                                ("age".to_string(), Any::String("24".to_string())),
+                                ("profession".to_string(), Any::String("student".to_string())),
+                            ]
+                            .into_iter()
+                            .collect(),
+                        ),
+                        Any::Binary(vec![1, 2, 3, 4, 5]),
                     ]),
                 ),
             ]
