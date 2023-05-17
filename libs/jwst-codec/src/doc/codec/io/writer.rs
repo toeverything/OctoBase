@@ -43,33 +43,8 @@ pub trait CrdtWriter {
     fn write_item_id(&mut self, id: &Id) -> JwstCodecResult<()>;
 }
 
-// compatible with ydoc v1
-pub struct RawEncoder {
-    pub(super) buffer: Cursor<Vec<u8>>,
-}
-
-impl RawEncoder {
-    pub fn new(buffer: Vec<u8>) -> Self {
-        Self {
-            buffer: Cursor::new(buffer),
-        }
-    }
-}
-
-impl CrdtWriter for RawEncoder {
-    fn get_buffer_mut(&mut self) -> &mut Cursor<Vec<u8>> {
-        &mut self.buffer
-    }
-
-    // ydoc specific write functions
-    #[inline(always)]
-    fn write_info(&mut self, num: u8) -> JwstCodecResult<()> {
-        self.write_u8(num)
-    }
-
-    fn write_item_id(&mut self, id: &Id) -> JwstCodecResult<()> {
-        self.write_var_u64(id.client)?;
-        self.write_var_u64(id.clock)?;
-        Ok(())
-    }
+pub trait CrdtWrite<W: CrdtWriter> {
+    fn write(writer: &mut W) -> JwstCodecResult<Self>
+    where
+        Self: Sized;
 }
