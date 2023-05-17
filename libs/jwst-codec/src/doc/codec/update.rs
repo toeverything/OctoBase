@@ -18,7 +18,7 @@ impl Update {
         let structs = {
             let num_of_updates = decoder.read_var_u64()?;
             let updates = (0..num_of_updates)
-                .map(|_| RawRefs::from(&mut decoder))
+                .map(|_| RawRefs::read(&mut decoder))
                 .collect::<Result<Vec<_>, _>>()?;
 
             updates.into_iter().map(|u| (u.client, u.refs)).collect()
@@ -27,7 +27,7 @@ impl Update {
         let delete_sets = {
             let num_of_clients = decoder.read_var_u64()?;
             (0..num_of_clients)
-                .map(|_| DeleteSets::from(&mut decoder))
+                .map(|_| DeleteSets::read(&mut decoder))
                 .collect::<Result<Vec<_>, _>>()?
         };
 

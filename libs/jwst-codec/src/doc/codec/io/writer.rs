@@ -44,7 +44,7 @@ pub trait CrdtWriter {
 }
 
 pub trait CrdtWrite<W: CrdtWriter> {
-    fn write(writer: &mut W) -> JwstCodecResult<Self>
+    fn write(&self, writer: &mut W) -> JwstCodecResult<()>
     where
         Self: Sized;
 }

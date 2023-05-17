@@ -7,8 +7,8 @@ enum RawStructInfo {
     Item(Item),
 }
 
-impl RawStructInfo {
-    fn from<R: CrdtReader>(decoder: &mut R) -> JwstCodecResult<Self> {
+impl<R: CrdtReader> CrdtRead<R> for RawStructInfo {
+    fn read(decoder: &mut R) -> JwstCodecResult<Self> {
         let info = decoder.read_info()?;
         let first_5_bit = info & 0b11111;
 
@@ -123,13 +123,13 @@ pub struct RawRefs {
     pub(crate) refs: VecDeque<StructInfo>,
 }
 
-impl RawRefs {
-    pub(crate) fn from<R: CrdtReader>(decoder: &mut R) -> JwstCodecResult<Self> {
+impl<R: CrdtReader> CrdtRead<R> for RawRefs {
+    fn read(decoder: &mut R) -> JwstCodecResult<Self> {
         let num_of_structs = decoder.read_var_u64()?;
         let client = decoder.read_var_u64()?;
         let clock = decoder.read_var_u64()?;
         let structs = (0..num_of_structs)
-            .map(|_| RawStructInfo::from(decoder))
+            .map(|_| RawStructInfo::read(decoder))
             .collect::<Result<Vec<_>, _>>()?;
 
         let (refs, _) = structs.into_iter().fold(

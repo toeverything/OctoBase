@@ -42,15 +42,14 @@ impl CrdtReader for RawDecoder {
 }
 
 // compatible with ydoc v1
+#[derive(Default)]
 pub struct RawEncoder {
-    pub(super) buffer: Cursor<Vec<u8>>,
+    buffer: Cursor<Vec<u8>>,
 }
 
 impl RawEncoder {
-    pub fn new(buffer: Vec<u8>) -> Self {
-        Self {
-            buffer: Cursor::new(buffer),
-        }
+    pub fn into_inner(self) -> Vec<u8> {
+        self.buffer.into_inner()
     }
 }
 

@@ -2,6 +2,7 @@ use super::*;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Any {
     Undefined,
     Null,
@@ -12,7 +13,10 @@ pub enum Any {
     False,
     True,
     String(String),
+    // FIXME: due to macro's overflow evaluating, we can't use proptest here
+    #[cfg_attr(test, proptest(skip))]
     Object(HashMap<String, Any>),
+    #[cfg_attr(test, proptest(skip))]
     Array(Vec<Any>),
     Binary(Vec<u8>),
 }
@@ -20,7 +24,7 @@ pub enum Any {
 impl<R: CrdtReader> CrdtRead<R> for Any {
     fn read(reader: &mut R) -> JwstCodecResult<Self> {
         let index = reader.read_u8()?;
-        match 127 - index {
+        match 127u8.overflowing_sub(index).0 {
             0 => Ok(Any::Undefined),
             1 => Ok(Any::Null),
             2 => Ok(Any::Integer(reader.read_var_u64()?)), // Integer
@@ -55,6 +59,58 @@ impl<R: CrdtReader> CrdtRead<R> for Any {
     }
 }
 
+impl<W: CrdtWriter> CrdtWrite<W> for Any {
+    fn write(&self, writer: &mut W) -> JwstCodecResult<()> {
+        match self {
+            Any::Undefined => writer.write_u8(127 - 0)?,
+            Any::Null => writer.write_u8(127 - 1)?,
+            Any::Integer(value) => {
+                writer.write_u8(127 - 2)?;
+                writer.write_var_u64(*value)?;
+            }
+            Any::Float32(value) => {
+                writer.write_u8(127 - 3)?;
+                writer.write_f32_be(*value)?;
+            }
+            Any::Float64(value) => {
+                writer.write_u8(127 - 4)?;
+                writer.write_f64_be(*value)?;
+            }
+            Any::BigInt64(value) => {
+                writer.write_u8(127 - 5)?;
+                writer.write_i64_be(*value)?;
+            }
+            Any::False => writer.write_u8(127 - 6)?,
+            Any::True => writer.write_u8(127 - 7)?,
+            Any::String(value) => {
+                writer.write_u8(127 - 8)?;
+                writer.write_var_string(value)?;
+            }
+            Any::Object(value) => {
+                writer.write_u8(127 - 9)?;
+                writer.write_var_u64(value.len() as u64)?;
+                for (key, value) in value {
+                    writer.write_var_string(key)?;
+                    value.write(writer)?;
+                }
+            }
+            Any::Array(values) => {
+                writer.write_u8(127 - 10)?;
+                writer.write_var_u64(values.len() as u64)?;
+                for value in values {
+                    value.write(writer)?;
+                }
+            }
+            Any::Binary(value) => {
+                writer.write_u8(127 - 11)?;
+                writer.write_var_buffer(value)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl Any {
     fn read_key_value<R: CrdtReader>(reader: &mut R) -> JwstCodecResult<(String, Any)> {
         let key = reader.read_var_string()?;
@@ -70,5 +126,73 @@ impl Any {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(any)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::{collection::vec, prelude::*};
+
+    #[test]
+    fn test_any_codec() {
+        let any = Any::Object(
+            vec![
+                ("name".to_string(), Any::String("Alice".to_string())),
+                ("age".to_string(), Any::Integer(25)),
+                (
+                    "contacts".to_string(),
+                    Any::Array(vec![
+                        Any::Object(
+                            vec![
+                                ("type".to_string(), Any::String("Mobile".to_string())),
+                                ("number".to_string(), Any::String("1234567890".to_string())),
+                            ]
+                            .into_iter()
+                            .collect(),
+                        ),
+                        Any::Object(
+                            vec![
+                                ("type".to_string(), Any::String("Email".to_string())),
+                                (
+                                    "address".to_string(),
+                                    Any::String("alice@example.com".to_string()),
+                                ),
+                            ]
+                            .into_iter()
+                            .collect(),
+                        ),
+                        Any::Undefined,
+                    ]),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        );
+
+        let mut encoder = RawEncoder::default();
+        any.write(&mut encoder).unwrap();
+        let encoded = encoder.into_inner();
+
+        let mut decoder = RawDecoder::new(encoded);
+        let decoded = Any::read(&mut decoder).unwrap();
+
+        assert_eq!(any, decoded);
+    }
+
+    proptest! {
+        #[test]
+        fn test_random_any(any in vec(any::<Any>(), 0..100)) {
+            for any in &any {
+                let mut encoder = RawEncoder::default();
+                any.write(&mut encoder).unwrap();
+                let encoded = encoder.into_inner();
+
+                let mut decoder = RawDecoder::new(encoded);
+                let decoded = Any::read(&mut decoder).unwrap();
+
+                assert_eq!(any, &decoded);
+            }
+        }
     }
 }
