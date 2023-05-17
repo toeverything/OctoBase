@@ -21,8 +21,8 @@ use thiserror::Error;
 pub enum JwstCodecError {
     #[error("Damaged document: corrupt json data")]
     DamagedDocumentJson,
-    #[error("Incomplete document")]
-    IncompleteDocument,
+    #[error("Incomplete document: {0}")]
+    IncompleteDocument(String),
     #[error("Invalid write buffer: {0}")]
     InvalidWriteBuffer(String),
     #[error("Content does not support splitting in {0}")]

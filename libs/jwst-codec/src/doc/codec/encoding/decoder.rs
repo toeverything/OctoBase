@@ -1,6 +1,6 @@
 use super::*;
 use byteorder::{BigEndian, ReadBytesExt};
-use std::io::Cursor;
+use std::io::{Cursor, Error};
 
 #[inline]
 fn read_with_cursor<T, F>(buffer: &mut Cursor<Vec<u8>>, f: F) -> JwstCodecResult<T>
@@ -16,6 +16,11 @@ where
 
     buffer.set_position((rest_pos + input.len() - tail.len()) as u64);
     Ok(result)
+}
+
+#[inline]
+fn map_io_error(e: Error) -> JwstCodecError {
+    JwstCodecError::IncompleteDocument(e.to_string())
 }
 
 pub trait CrdtReader {
@@ -34,28 +39,22 @@ pub trait CrdtReader {
         })
     }
     fn read_u8(&mut self) -> JwstCodecResult<u8> {
-        let buffer = self.get_buffer_mut();
-        Ok(buffer
-            .read_u8()
-            .map_err(|_| JwstCodecError::IncompleteDocument)?)
+        self.get_buffer_mut().read_u8().map_err(map_io_error)
     }
     fn read_f32_be(&mut self) -> JwstCodecResult<f32> {
-        let buffer = self.get_buffer_mut();
-        Ok(buffer
+        self.get_buffer_mut()
             .read_f32::<BigEndian>()
-            .map_err(|_| JwstCodecError::IncompleteDocument)?)
+            .map_err(map_io_error)
     }
     fn read_f64_be(&mut self) -> JwstCodecResult<f64> {
-        let buffer = self.get_buffer_mut();
-        Ok(buffer
+        self.get_buffer_mut()
             .read_f64::<BigEndian>()
-            .map_err(|_| JwstCodecError::IncompleteDocument)?)
+            .map_err(map_io_error)
     }
     fn read_i64_be(&mut self) -> JwstCodecResult<i64> {
-        let buffer = self.get_buffer_mut();
-        Ok(buffer
+        self.get_buffer_mut()
             .read_i64::<BigEndian>()
-            .map_err(|_| JwstCodecError::IncompleteDocument)?)
+            .map_err(map_io_error)
     }
     fn is_empty(&self) -> bool {
         let buffer = self.get_buffer();

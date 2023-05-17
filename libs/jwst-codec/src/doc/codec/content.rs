@@ -68,7 +68,11 @@ impl Content {
                     4 => YType::XmlFragment,
                     5 => YType::XmlHook(decoder.read_var_string()?),
                     6 => YType::XmlText,
-                    _ => return Err(JwstCodecError::IncompleteDocument),
+                    _ => {
+                        return Err(JwstCodecError::IncompleteDocument(
+                            "Unknown y type".to_string(),
+                        ))
+                    }
                 };
                 Ok(Self::Type(ytype))
             } // YType
@@ -78,7 +82,11 @@ impl Content {
                 let opts = Any::from_multiple(decoder)?;
                 Ok(Self::Doc { guid, opts })
             } // Doc
-            _ => return Err(JwstCodecError::IncompleteDocument),
+            _ => {
+                return Err(JwstCodecError::IncompleteDocument(
+                    "Unknown content type".to_string(),
+                ))
+            }
         }
     }
 
