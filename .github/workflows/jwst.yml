@@ -412,6 +412,7 @@ jobs:
             - uses: Swatinem/rust-cache@v2
 
             - name: fuzzing
+              working-directory: ./libs/jwst-codec
               run: |
                 cargo install cargo-fuzz
                 cargo fuzz run codec_doc_any -- -max_total_time=30
