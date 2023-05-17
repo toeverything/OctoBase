@@ -82,11 +82,9 @@ impl Content {
                 let opts = Any::from_multiple(decoder)?;
                 Ok(Self::Doc { guid, opts })
             } // Doc
-            _ => {
-                return Err(JwstCodecError::IncompleteDocument(
-                    "Unknown content type".to_string(),
-                ))
-            }
+            _ => Err(JwstCodecError::IncompleteDocument(
+                "Unknown content type".to_string(),
+            )),
         }
     }
 

@@ -33,7 +33,7 @@ pub trait CrdtReader {
     fn read_var_string(&mut self) -> JwstCodecResult<String> {
         read_with_cursor(self.get_buffer_mut(), read_var_string)
     }
-    fn read_var_buffer<'a>(&mut self) -> JwstCodecResult<Vec<u8>> {
+    fn read_var_buffer(&mut self) -> JwstCodecResult<Vec<u8>> {
         read_with_cursor(self.get_buffer_mut(), |i| {
             read_var_buffer(i).map(|(tail, val)| (tail, val.to_vec()))
         })
