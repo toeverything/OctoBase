@@ -1,38 +1,6 @@
 use super::*;
 use std::collections::{HashMap, VecDeque};
 
-#[derive(Debug)]
-pub struct Delete {
-    pub clock: Clock,
-    pub len: u64,
-}
-
-impl Delete {
-    fn from<R: CrdtReader>(decoder: &mut R) -> JwstCodecResult<Self> {
-        let clock = decoder.read_var_u64()?;
-        let len = decoder.read_var_u64()?;
-        Ok(Delete { clock, len })
-    }
-}
-
-#[derive(Debug)]
-pub struct DeleteSets {
-    pub client: u64,
-    pub deletes: Vec<Delete>,
-}
-
-impl DeleteSets {
-    fn from<R: CrdtReader>(decoder: &mut R) -> JwstCodecResult<Self> {
-        let client = decoder.read_var_u64()?;
-        let num_of_deletes = decoder.read_var_u64()?;
-        let deletes = (0..num_of_deletes)
-            .map(|_| Delete::from(decoder))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(DeleteSets { client, deletes })
-    }
-}
-
 #[derive(Debug, Default)]
 pub struct Update {
     pub delete_sets: Vec<DeleteSets>,
@@ -74,6 +42,10 @@ impl Update {
             delete_sets,
             ..Update::default()
         })
+    }
+
+    pub fn iter(&mut self, store: &DocStore) -> UpdateIterator {
+        UpdateIterator::new(store, self)
     }
 }
 
@@ -202,12 +174,6 @@ impl<'a> UpdateIterator<'a> {
         }
 
         cur
-    }
-}
-
-impl Update {
-    pub fn iter(&mut self, store: &DocStore) -> UpdateIterator {
-        UpdateIterator::new(store, self)
     }
 }
 

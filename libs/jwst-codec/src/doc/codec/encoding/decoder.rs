@@ -67,16 +67,8 @@ pub trait CrdtReader {
     }
 
     // ydoc specific read functions
-    #[inline(always)]
-    fn read_info(&mut self) -> JwstCodecResult<u8> {
-        self.read_u8()
-    }
-
-    fn read_item_id(&mut self) -> JwstCodecResult<Id> {
-        let client = self.read_var_u64()?;
-        let clock = self.read_var_u64()?;
-        Ok(Id::new(client, clock))
-    }
+    fn read_info(&mut self) -> JwstCodecResult<u8>;
+    fn read_item_id(&mut self) -> JwstCodecResult<Id>;
 }
 
 // compatible with ydoc v1
@@ -92,12 +84,23 @@ impl RawDecoder {
     }
 }
 
-impl<'d> CrdtReader for RawDecoder {
+impl CrdtReader for RawDecoder {
     fn get_buffer(&self) -> &Cursor<Vec<u8>> {
         &self.buffer
     }
 
     fn get_buffer_mut(&mut self) -> &mut Cursor<Vec<u8>> {
         &mut self.buffer
+    }
+
+    #[inline(always)]
+    fn read_info(&mut self) -> JwstCodecResult<u8> {
+        self.read_u8()
+    }
+
+    fn read_item_id(&mut self) -> JwstCodecResult<Id> {
+        let client = self.read_var_u64()?;
+        let clock = self.read_var_u64()?;
+        Ok(Id::new(client, clock))
     }
 }

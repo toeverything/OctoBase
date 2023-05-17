@@ -1,6 +1,7 @@
 mod any;
 mod content;
-mod decoder;
+mod delete;
+mod encoding;
 mod id;
 mod item;
 mod refs;
@@ -8,7 +9,8 @@ mod update;
 
 pub use any::Any;
 pub use content::Content;
-pub use decoder::{CrdtReader, RawDecoder};
+pub use delete::{Delete, DeleteSets};
+pub use encoding::{CrdtReader, RawDecoder};
 pub use id::{Client, Clock, Id};
 pub use item::{Item, Parent};
 pub use refs::{RawRefs, StructInfo};

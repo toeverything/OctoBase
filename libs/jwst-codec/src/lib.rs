@@ -23,6 +23,8 @@ pub enum JwstCodecError {
     DamagedDocumentJson,
     #[error("Incomplete document")]
     IncompleteDocument,
+    #[error("Invalid write buffer: {0}")]
+    InvalidWriteBuffer(String),
     #[error("Content does not support splitting in {0}")]
     ContentSplitNotSupport(u64),
     #[error("GC or Skip does not support splitting")]
