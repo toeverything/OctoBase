@@ -14,6 +14,19 @@ lib0 = "0.16.5"
 [dependencies.jwst-codec]
 path = ".."
 
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "codec_doc_any"
+path = "fuzz_targets/codec_doc_any.rs"
+test = false
+doc = false
+
 [[bin]]
 name = "decode_bytes"
 path = "fuzz_targets/decode_bytes.rs"

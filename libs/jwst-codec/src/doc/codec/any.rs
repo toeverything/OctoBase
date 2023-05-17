@@ -1,4 +1,5 @@
 use super::*;
+use ordered_float::OrderedFloat;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -7,8 +8,8 @@ pub enum Any {
     Undefined,
     Null,
     Integer(u64),
-    Float32(f32),
-    Float64(f64),
+    Float32(OrderedFloat<f32>),
+    Float64(OrderedFloat<f64>),
     BigInt64(i64),
     False,
     True,
@@ -28,8 +29,8 @@ impl<R: CrdtReader> CrdtRead<R> for Any {
             0 => Ok(Any::Undefined),
             1 => Ok(Any::Null),
             2 => Ok(Any::Integer(reader.read_var_u64()?)), // Integer
-            3 => Ok(Any::Float32(reader.read_f32_be()?)),  // Float32
-            4 => Ok(Any::Float64(reader.read_f64_be()?)),  // Float64
+            3 => Ok(Any::Float32(reader.read_f32_be()?.into())), // Float32
+            4 => Ok(Any::Float64(reader.read_f64_be()?.into())), // Float64
             5 => Ok(Any::BigInt64(reader.read_i64_be()?)), // BigInt64
             6 => Ok(Any::False),
             7 => Ok(Any::True),
@@ -70,11 +71,11 @@ impl<W: CrdtWriter> CrdtWrite<W> for Any {
             }
             Any::Float32(value) => {
                 writer.write_u8(127 - 3)?;
-                writer.write_f32_be(*value)?;
+                writer.write_f32_be(value.into_inner())?;
             }
             Any::Float64(value) => {
                 writer.write_u8(127 - 4)?;
-                writer.write_f64_be(*value)?;
+                writer.write_f64_be(value.into_inner())?;
             }
             Any::BigInt64(value) => {
                 writer.write_u8(127 - 5)?;
@@ -193,8 +194,8 @@ mod tests {
                         Any::Undefined,
                         Any::Null,
                         Any::Integer(1145141919810),
-                        Any::Float32(114.514),
-                        Any::Float64(115.514),
+                        Any::Float32(114.514.into()),
+                        Any::Float64(115.514.into()),
                         Any::BigInt64(-1145141919810),
                         Any::False,
                         Any::True,

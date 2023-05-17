@@ -6,7 +6,10 @@ pub use codec::{
     read_var_buffer, read_var_i64, read_var_string, read_var_u64, write_var_buffer, write_var_i64,
     write_var_string, write_var_u64,
 };
-pub use doc::{Awareness, AwarenessEvent, Content, Doc, Id, Item, Update};
+pub use doc::{
+    Any, Awareness, AwarenessEvent, Content, CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, Doc, Id,
+    Item, RawDecoder, RawEncoder, Update,
+};
 pub use protocol::{
     read_sync_message, write_sync_message, AwarenessState, AwarenessStates, DocMessage,
     SyncMessage, SyncMessageScanner,

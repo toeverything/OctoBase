@@ -398,3 +398,26 @@ jobs:
               with:
                   name: tests
                   files: lcov.info
+
+    fuzzing:
+        name: fuzzing
+        runs-on: ubuntu-latest
+        continue-on-error: true
+        env:
+            RUSTFLAGS: -D warnings
+            CARGO_TERM_COLOR: always
+        steps:
+            - uses: actions/checkout@v3
+            - uses: dtolnay/rust-toolchain@stable
+            - uses: Swatinem/rust-cache@v2
+
+            - name: fuzzing
+              run: |
+                cargo fuzz run codec_doc_any -- -max_total_time=30
+                cargo fuzz run decode_bytes -- -max_total_time=30
+                cargo fuzz run i64_decode -- -max_total_time=30
+                cargo fuzz run i64_encode -- -max_total_time=30
+                cargo fuzz run sync_message -- -max_total_time=30
+                cargo fuzz run u64_decode -- -max_total_time=30
+                cargo fuzz run u64_encode -- -max_total_time=30
+
