@@ -1,3 +1,4 @@
+#[forbid(unsafe_code)]
 mod server;
 
 use jwst_logger::init_logger;

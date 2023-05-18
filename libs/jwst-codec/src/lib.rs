@@ -1,3 +1,4 @@
+#[forbid(unsafe_code)]
 mod codec;
 mod doc;
 mod protocol;
