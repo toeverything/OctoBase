@@ -1,3 +1,4 @@
+#[forbid(unsafe_code)]
 mod entities;
 mod rate_limiter;
 mod storage;

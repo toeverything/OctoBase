@@ -1,3 +1,4 @@
+#[forbid(unsafe_code)]
 mod auth;
 mod constants;
 mod hosting;
