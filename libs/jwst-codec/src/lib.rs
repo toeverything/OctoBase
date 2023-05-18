@@ -6,7 +6,10 @@ pub use codec::{
     read_var_buffer, read_var_i64, read_var_string, read_var_u64, write_var_buffer, write_var_i64,
     write_var_string, write_var_u64,
 };
-pub use doc::{read_update, Awareness, AwarenessEvent, Content, Doc, Id, Item, Update};
+pub use doc::{
+    Any, Awareness, AwarenessEvent, Content, CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, Doc, Id,
+    Item, RawDecoder, RawEncoder, Update,
+};
 pub use protocol::{
     read_sync_message, write_sync_message, AwarenessState, AwarenessStates, DocMessage,
     SyncMessage, SyncMessageScanner,
@@ -19,6 +22,12 @@ use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq)]
 pub enum JwstCodecError {
+    #[error("Damaged document: corrupt json data")]
+    DamagedDocumentJson,
+    #[error("Incomplete document: {0}")]
+    IncompleteDocument(String),
+    #[error("Invalid write buffer: {0}")]
+    InvalidWriteBuffer(String),
     #[error("Content does not support splitting in {0}")]
     ContentSplitNotSupport(u64),
     #[error("GC or Skip does not support splitting")]
@@ -37,17 +46,15 @@ pub enum JwstCodecError {
 
 pub type JwstCodecResult<T = ()> = Result<T, JwstCodecError>;
 
-pub fn parse_doc_update(input: &[u8]) -> IResult<&[u8], Update> {
-    let (input, update) = read_update(input)?;
-    debug_assert_eq!(input.len(), 0);
-    Ok((input, update))
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{doc::RawDecoder, *};
     use serde::Deserialize;
     use std::{num::ParseIntError, path::PathBuf};
+
+    fn parse_doc_update(input: Vec<u8>) -> JwstCodecResult<Update> {
+        Update::from(RawDecoder::new(input))
+    }
 
     #[test]
     fn test_parse_doc() {
@@ -58,9 +65,8 @@ mod tests {
         ];
 
         for (doc, clients, structs) in docs {
-            let (tail, update) = parse_doc_update(&doc).unwrap();
+            let update = parse_doc_update(doc).unwrap();
 
-            assert_eq!(tail.len(), 0);
             assert_eq!(update.structs.len(), clients);
             assert_eq!(
                 update.structs.iter().map(|s| s.1.len()).sum::<usize>(),
@@ -96,8 +102,8 @@ mod tests {
         for ws in json {
             let data = &ws.blob[5..=(ws.blob.len() - 2)];
             if let Ok(data) = decode_hex(data) {
-                match parse_doc_update(&data) {
-                    Ok((_tail, update)) => {
+                match parse_doc_update(data.clone()) {
+                    Ok(update) => {
                         println!(
                             "workspace: {}, global structs: {}, total structs: {}",
                             ws.workspace,

@@ -1,4 +1,3 @@
-use super::*;
 use std::{
     hash::Hash,
     ops::{Add, Sub},
@@ -39,10 +38,4 @@ impl Add<Clock> for Id {
     fn add(self, rhs: Clock) -> Self::Output {
         (self.client, self.clock + rhs).into()
     }
-}
-
-pub fn read_item_id(input: &[u8]) -> IResult<&[u8], Id> {
-    let (tail, client) = read_var_u64(input)?;
-    let (tail, clock) = read_var_u64(tail)?;
-    Ok((tail, Id::new(client, clock)))
 }

@@ -1,20 +1,19 @@
 mod any;
 mod content;
+mod delete;
 mod id;
+mod io;
 mod item;
 mod refs;
 mod update;
 
 pub use any::Any;
 pub use content::Content;
+pub use delete::{Delete, DeleteSets};
 pub use id::{Client, Clock, Id};
+pub use io::{CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, RawDecoder, RawEncoder};
 pub use item::{Item, Parent};
-pub use refs::StructInfo;
-pub use update::{read_update, Update, UpdateIterator};
+pub use refs::{RawRefs, StructInfo};
+pub use update::{Update, UpdateIterator};
 
 use super::*;
-use any::read_any;
-use content::read_content;
-use id::read_item_id;
-use item::read_item;
-use refs::read_client_struct_refs;
