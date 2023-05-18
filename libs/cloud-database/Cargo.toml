@@ -31,6 +31,7 @@ yrs = "0.16.5"
 affine-cloud-migration = { path = "./migration" }
 jwst = { path = "../jwst" }
 jwst-logger = { path = "../jwst-logger" }
+argon2 = "0.5.0"
 
 [dev-dependencies]
 anyhow = "1.0.69"

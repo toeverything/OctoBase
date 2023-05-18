@@ -7,6 +7,10 @@ use super::{
     *,
 };
 use affine_cloud_migration::{Expr, JoinType, Migrator, MigratorTrait, Query};
+use argon2::{
+    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    Argon2,
+};
 use jwst_logger::{info, instrument, tracing};
 use nanoid::nanoid;
 use sea_orm::{
@@ -70,11 +74,34 @@ impl CloudDatabase {
     #[instrument(skip(self))]
     pub async fn user_login(&self, login: UserLogin) -> Result<Option<UsersModel>, DbErr> {
         info!("database user_login enter");
-        Users::find()
+        let Ok(user) = Users::find()
+            .column(UsersColumn::Password)
             .filter(UsersColumn::Email.eq(login.email))
-            .filter(UsersColumn::Password.eq(login.password))
             .one(&self.pool)
-            .await
+            .await else {
+                return Err(DbErr::RecordNotFound(
+                    "Failed to find the user".to_string(),
+                ));
+            };
+
+        let hashed_password = user
+            .clone()
+            .ok_or(DbErr::RecordNotFound("Failed to find the user".to_string()))?
+            .password
+            .ok_or(DbErr::RecordNotFound("Failed to find the user".to_string()))?;
+
+        let parsed_hash = PasswordHash::new(&hashed_password).or(Err(DbErr::RecordNotFound(
+            "Failed to find the user".to_string(),
+        )))?;
+
+        if Argon2::default()
+            .verify_password(login.password.as_bytes(), &parsed_hash)
+            .is_err()
+        {
+            return Err(DbErr::RecordNotFound("Failed to find the user".to_string()));
+        }
+
+        Ok(user)
     }
 
     #[instrument(skip(self, token))]
@@ -133,10 +160,18 @@ impl CloudDatabase {
         let trx = self.pool.begin().await?;
 
         let id = nanoid!();
+
+        let salt = SaltString::generate(&mut OsRng);
+
+        // Argon2 with default params (Argon2id v19)
+        let hashed_password = Argon2::default()
+            .hash_password(user.password.as_bytes(), &salt)
+            .or(Err(DbErr::RecordNotUpdated))?;
+
         let Ok(user) = Users::insert(UsersActiveModel {
             id: Set(id.clone()),
             name: Set(user.name),
-            password: Set(Some(user.password)),
+            password: Set(Some(hashed_password.to_string())),
             email: Set(user.email),
             avatar_url: Set(user.avatar_url),
             ..Default::default()
@@ -710,6 +745,37 @@ impl CloudDatabase {
 
 #[cfg(test)]
 mod test {
+
+    #[tokio::test]
+    async fn login_test() -> anyhow::Result<()> {
+        use super::*;
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await?;
+        // start test
+        pool.create_user(CreateUser {
+            avatar_url: Some("xxx".to_string()),
+            email: "xxx@xxx.xx".to_string(),
+            name: "xxx".to_string(),
+            password: "xxx".to_string(),
+        })
+        .await
+        .unwrap();
+
+        pool.user_login(model::UserLogin {
+            email: "xxx@xxx.xx".to_string(),
+            password: "xxx".to_string(),
+        })
+        .await
+        .unwrap();
+
+        pool.user_login(model::UserLogin {
+            email: "xxx@xxx.xx".to_string(),
+            password: "xxx1".to_string(),
+        })
+        .await
+        .unwrap_err();
+
+        Ok(())
+    }
 
     #[tokio::test]
     async fn database_create_tables() -> anyhow::Result<()> {
