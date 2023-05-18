@@ -25,7 +25,6 @@ pub fn memory_connector(
     //  recv thread
     let recv_handler = {
         debug!("init memory recv thread");
-        let doc = doc.clone();
         let finish = Arc::new(AtomicBool::new(false));
         let sub = {
             let finish = finish.clone();
