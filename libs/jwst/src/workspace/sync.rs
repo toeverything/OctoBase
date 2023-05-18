@@ -1,4 +1,5 @@
 use super::*;
+use crate::RETRY_NUM;
 use jwst_codec::{write_sync_message, DocMessage, SyncMessage, SyncMessageScanner};
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
@@ -11,7 +12,8 @@ use yrs::{
 };
 
 impl Workspace {
-    pub fn sync_migration(&self, mut retry: i32) -> JwstResult<Vec<u8>> {
+    pub fn sync_migration(&self) -> JwstResult<Vec<u8>> {
+        let mut retry = RETRY_NUM;
         let trx = loop {
             match self.doc.try_transact() {
                 Ok(trx) => break trx,
@@ -30,7 +32,7 @@ impl Workspace {
 
     pub async fn sync_init_message(&self) -> JwstResult<Vec<u8>> {
         let (sv, awareness_update) = {
-            let mut retry = 50;
+            let mut retry = RETRY_NUM;
             let trx = loop {
                 if let Ok(trx) = self.doc.try_transact() {
                     break trx;
@@ -87,7 +89,7 @@ impl Workspace {
         if !content_msg.is_empty() {
             let doc = self.doc();
             if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
-                let mut retry = 30;
+                let mut retry = RETRY_NUM;
                 let mut trx = loop {
                     if let Ok(trx) = doc.try_transact_mut() {
                         break trx;
