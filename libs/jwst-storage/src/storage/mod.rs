@@ -82,8 +82,7 @@ impl JwstStorage {
     {
         info!("create_workspace: {}", workspace_id.as_ref());
 
-        Ok(self
-            .docs
+        self.docs
             .get(workspace_id.as_ref().into())
             .await
             .map_err(|_err| {
@@ -91,7 +90,7 @@ impl JwstStorage {
                     "Failed to create workspace {}",
                     workspace_id.as_ref()
                 ))
-            })?)
+            })
     }
 
     pub async fn get_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>

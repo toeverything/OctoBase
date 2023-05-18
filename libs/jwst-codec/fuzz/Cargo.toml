@@ -8,11 +8,31 @@ edition = "2021"
 cargo-fuzz = true
 
 [dependencies]
+rand = "0.8"
 libfuzzer-sys = "0.4"
 lib0 = "0.16.5"
 
 [dependencies.jwst-codec]
 path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "codec_doc_any_struct"
+path = "fuzz_targets/codec_doc_any_struct.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "codec_doc_any"
+path = "fuzz_targets/codec_doc_any.rs"
+test = false
+doc = false
 
 [[bin]]
 name = "decode_bytes"
