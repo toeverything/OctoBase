@@ -1,6 +1,8 @@
 use super::*;
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(fuzzing, derive(arbitrary::Arbitrary))]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Parent {
     String(String),
     Id(Id),
@@ -95,6 +97,8 @@ impl ItemFlags {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(fuzzing, derive(arbitrary::Arbitrary))]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct Item {
     pub left_id: Option<Id>,
     pub right_id: Option<Id>,
@@ -196,24 +200,41 @@ impl Item {
             item.flags.set_countable();
         }
 
+        debug_assert!(item.is_valid());
+
         Ok(item)
     }
 
-    pub(crate) fn write<W: CrdtWriter>(&self, encoder: &mut W) -> JwstCodecResult {
-        {
-            // write info
-            let mut info = self.content.get_info();
-            if self.left_id.is_some() {
-                info |= item_flags::ITEM_HAS_LEFT_ID;
-            }
-            if self.right_id.is_some() {
-                info |= item_flags::ITEM_HAS_RIGHT_ID;
-            }
-            if self.parent_sub.is_some() {
-                info |= item_flags::ITEM_HAS_PARENT_SUB;
-            }
-            encoder.write_info(info)?;
+    fn get_info(&self) -> (u8, bool) {
+        let mut info = self.content.get_info();
+        if self.left_id.is_some() {
+            info |= item_flags::ITEM_HAS_LEFT_ID;
         }
+        if self.right_id.is_some() {
+            info |= item_flags::ITEM_HAS_RIGHT_ID;
+        }
+        let has_not_parent_info = info & 0b1100_0000 == 0;
+        if has_not_parent_info && self.parent_sub.is_some() {
+            info |= item_flags::ITEM_HAS_PARENT_SUB;
+        }
+        (info, has_not_parent_info)
+    }
+
+    pub(crate) fn is_valid(&self) -> bool {
+        let has_id = self.left_id.is_some() || self.right_id.is_some();
+        if self.parent.is_some() && has_id {
+            return false;
+        } else if self.parent.is_none() && !has_id {
+            return false;
+        } else if self.parent_sub.is_some() && has_id {
+            return false;
+        }
+        return true;
+    }
+
+    pub(crate) fn write<W: CrdtWriter>(&self, encoder: &mut W) -> JwstCodecResult {
+        let (info, has_not_parent_info) = self.get_info();
+        encoder.write_info(info)?;
 
         if let Some(left_id) = self.left_id {
             encoder.write_item_id(&left_id)?;
@@ -221,24 +242,63 @@ impl Item {
         if let Some(right_id) = self.right_id {
             encoder.write_item_id(&right_id)?;
         }
-        if let Some(parent) = &self.parent {
-            match parent {
-                Parent::String(s) => {
-                    encoder.write_var_u64(1)?;
-                    encoder.write_var_string(s)?;
-                }
-                Parent::Id(id) => {
-                    encoder.write_var_u64(0)?;
-                    encoder.write_item_id(id)?;
+        if has_not_parent_info {
+            if let Some(parent) = &self.parent {
+                match parent {
+                    Parent::String(s) => {
+                        encoder.write_var_u64(1)?;
+                        encoder.write_var_string(s)?;
+                    }
+                    Parent::Id(id) => {
+                        encoder.write_var_u64(0)?;
+                        encoder.write_item_id(id)?;
+                    }
                 }
             }
         }
+
         if let Some(parent_sub) = &self.parent_sub {
-            encoder.write_var_string(parent_sub)?;
+            if has_not_parent_info {
+                encoder.write_var_string(parent_sub)?;
+            }
         }
 
         self.content.write(encoder)?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::{collection::vec, prelude::*};
+
+    fn item_round_trip(item: &Item) -> JwstCodecResult {
+        if !item.is_valid() {
+            return Ok(());
+        }
+
+        let mut encoder = RawEncoder::default();
+        item.write(&mut encoder)?;
+
+        let mut decoder = RawDecoder::new(encoder.into_inner());
+
+        let info = decoder.read_info()?;
+        let first_5_bit = info & 0b11111;
+        let decoded_item = Item::read(&mut decoder, info, first_5_bit)?;
+
+        assert_eq!(item, &decoded_item);
+
+        Ok(())
+    }
+
+    proptest! {
+        #[test]
+        fn test_random_content(items in vec(any::<Item>(), 0..10)) {
+            for item in &items {
+                item_round_trip(item).unwrap();
+            }
+        }
     }
 }

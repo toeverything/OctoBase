@@ -8,6 +8,8 @@ pub type Client = u64;
 pub type Clock = u64;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+#[cfg_attr(fuzzing, derive(arbitrary::Arbitrary))]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct Id {
     pub client: Client,
     pub clock: Clock,
