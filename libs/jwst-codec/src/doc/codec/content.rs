@@ -15,7 +15,6 @@ pub enum YType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(fuzzing, derive(arbitrary::Arbitrary))]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Content {
     Deleted(u64),

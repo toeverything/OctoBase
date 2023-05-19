@@ -2,7 +2,6 @@ use super::*;
 use std::collections::VecDeque;
 
 #[derive(Debug, PartialEq)]
-#[cfg_attr(fuzzing, derive(arbitrary::Arbitrary))]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 enum RawStructInfo {
     GC(u64),

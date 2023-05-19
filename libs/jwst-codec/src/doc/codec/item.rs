@@ -97,7 +97,6 @@ impl ItemFlags {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(fuzzing, derive(arbitrary::Arbitrary))]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct Item {
     pub left_id: Option<Id>,
