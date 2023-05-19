@@ -1,10 +1,9 @@
+use super::*;
 use std::{
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
     sync::Arc,
 };
-
-use super::*;
 
 #[derive(Default, Debug)]
 pub struct StateVector(HashMap<Client, Clock>);
@@ -101,11 +100,9 @@ impl Default for Doc {
 }
 
 impl Doc {
-    pub fn apply_update(&mut self, update: &[u8]) -> JwstCodecResult {
-        let (rest, mut update) = read_update(update).map_err(|e| e.map_input(|u| u.len()))?;
-        if !rest.is_empty() {
-            return Err(JwstCodecError::UpdateNotFullyConsumed(rest.len()));
-        }
+    pub fn apply_update(&mut self, update: Vec<u8>) -> JwstCodecResult {
+        let decoder = RawDecoder::new(update);
+        let mut update = Update::from(decoder)?;
 
         self.integrate_update(&mut update)?;
 

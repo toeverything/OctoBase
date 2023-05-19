@@ -93,7 +93,7 @@ pub fn write_sync_message<W: Write>(buffer: &mut W, msg: &SyncMessage) -> Result
             write_sync_tag(buffer, MessageType::Auth)?;
             if let Some(reason) = reason {
                 buffer.write_u8(PERMISSION_DENIED)?;
-                write_var_string(buffer, reason.into())?;
+                write_var_string(buffer, reason)?;
             } else {
                 buffer.write_u8(PERMISSION_GRANTED)?;
             }
