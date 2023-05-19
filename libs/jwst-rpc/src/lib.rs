@@ -1,3 +1,4 @@
+#[forbid(unsafe_code)]
 mod broadcast;
 #[cfg(feature = "websocket")]
 mod client;

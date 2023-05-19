@@ -1,3 +1,4 @@
+#[forbid(unsafe_code)]
 mod api;
 mod application;
 mod config;
