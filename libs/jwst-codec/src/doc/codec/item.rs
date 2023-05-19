@@ -221,14 +221,8 @@ impl Item {
 
     pub(crate) fn is_valid(&self) -> bool {
         let has_id = self.left_id.is_some() || self.right_id.is_some();
-        if self.parent.is_some() && has_id {
-            return false;
-        } else if self.parent.is_none() && !has_id {
-            return false;
-        } else if self.parent_sub.is_some() && has_id {
-            return false;
-        }
-        return true;
+        !has_id && self.parent.is_some()
+            || has_id && self.parent.is_none() && self.parent_sub.is_none()
     }
 
     pub(crate) fn write<W: CrdtWriter>(&self, encoder: &mut W) -> JwstCodecResult {
