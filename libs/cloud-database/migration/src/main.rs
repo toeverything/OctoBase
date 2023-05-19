@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use sea_orm_migration::prelude::*;
 
 #[tokio::main]
