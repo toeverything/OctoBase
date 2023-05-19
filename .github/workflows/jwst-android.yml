@@ -32,7 +32,7 @@ jobs:
                   target: aarch64-linux-android
             - run: cargo install cargo-ndk
             - name: Publish package
-              uses: gradle/gradle-build-action@v2
+              uses: gradle/gradle-build-action@v2.4.2
               with:
                   arguments: :jwst:publishReleasePublicationToGitHubPackagesRepository
                   build-root-directory: apps/android
