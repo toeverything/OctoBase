@@ -68,10 +68,10 @@ impl Content {
                     4 => YType::XmlFragment,
                     5 => YType::XmlHook(decoder.read_var_string()?),
                     6 => YType::XmlText,
-                    _ => {
-                        return Err(JwstCodecError::IncompleteDocument(
-                            "Unknown y type".to_string(),
-                        ))
+                    type_ref => {
+                        return Err(JwstCodecError::IncompleteDocument(format!(
+                            "Unknown y type: {type_ref}"
+                        )))
                     }
                 };
                 Ok(Self::Type(ytype))
@@ -82,9 +82,9 @@ impl Content {
                 let opts = Any::read_multiple(decoder)?;
                 Ok(Self::Doc { guid, opts })
             } // Doc
-            _ => Err(JwstCodecError::IncompleteDocument(
-                "Unknown content type".to_string(),
-            )),
+            tag_type => Err(JwstCodecError::IncompleteDocument(format!(
+                "Unknown content type: {tag_type}"
+            ))),
         }
     }
 
@@ -102,7 +102,7 @@ impl Content {
         }
     }
 
-    pub(crate) fn write<W: CrdtWriter>(&self, encoder: &mut W) -> JwstCodecResult<()> {
+    pub(crate) fn write<W: CrdtWriter>(&self, encoder: &mut W) -> JwstCodecResult {
         match self {
             Self::Deleted(len) => {
                 encoder.write_var_u64(*len)?;
@@ -145,11 +145,9 @@ impl Content {
                 YType::XmlText => encoder.write_var_u64(6)?,
             },
             Self::Any(any) => {
-                encoder.write_var_u64(8)?;
                 Any::write_multiple(encoder, any)?;
             }
             Self::Doc { guid, opts } => {
-                encoder.write_var_u64(9)?;
                 encoder.write_var_string(guid)?;
                 Any::write_multiple(encoder, opts)?;
             }
@@ -186,5 +184,53 @@ impl Content {
             }
             _ => Err(JwstCodecError::ContentSplitNotSupport(diff)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value as JsonValue;
+
+    fn content_round_trip(content: Content) -> JwstCodecResult {
+        let mut writer = RawEncoder::default();
+        writer.write_u8(content.get_info())?;
+        content.write(&mut writer).unwrap();
+
+        let mut reader = RawDecoder::new(writer.into_inner());
+        let tag_type = reader.read_u8()?;
+        assert_eq!(Content::read(&mut reader, tag_type)?, content);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_content() {
+        content_round_trip(Content::Deleted(42)).unwrap();
+        content_round_trip(Content::JSON(vec![
+            None,
+            Some("test_1".to_string()),
+            Some("test_2".to_string()),
+        ]))
+        .unwrap();
+        content_round_trip(Content::Binary(vec![1, 2, 3])).unwrap();
+        content_round_trip(Content::String("hello".to_string())).unwrap();
+        content_round_trip(Content::Embed(JsonValue::Bool(true))).unwrap();
+        content_round_trip(Content::Format {
+            key: "key".to_string(),
+            value: JsonValue::Number(42.into()),
+        })
+        .unwrap();
+        content_round_trip(Content::Type(YType::Text)).unwrap();
+        content_round_trip(Content::Any(vec![
+            Any::BigInt64(42),
+            Any::String("Test Any".to_string()),
+        ]))
+        .unwrap();
+        content_round_trip(Content::Doc {
+            guid: "my_guid".to_string(),
+            opts: vec![Any::BigInt64(42), Any::String("Test Doc".to_string())],
+        })
+        .unwrap();
     }
 }

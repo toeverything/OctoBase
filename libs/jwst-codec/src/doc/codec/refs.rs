@@ -27,7 +27,7 @@ impl<R: CrdtReader> CrdtRead<R> for RawStructInfo {
 }
 
 impl<W: CrdtWriter> CrdtWrite<W> for RawStructInfo {
-    fn write(&self, encoder: &mut W) -> JwstCodecResult<()> {
+    fn write(&self, encoder: &mut W) -> JwstCodecResult {
         match self {
             Self::GC(len) => {
                 encoder.write_info(0)?;

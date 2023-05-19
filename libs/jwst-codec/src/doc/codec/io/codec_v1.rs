@@ -55,11 +55,11 @@ impl CrdtWriter for RawEncoder {
 
     // ydoc specific write functions
     #[inline(always)]
-    fn write_info(&mut self, num: u8) -> JwstCodecResult<()> {
+    fn write_info(&mut self, num: u8) -> JwstCodecResult {
         self.write_u8(num)
     }
 
-    fn write_item_id(&mut self, id: &Id) -> JwstCodecResult<()> {
+    fn write_item_id(&mut self, id: &Id) -> JwstCodecResult {
         self.write_var_u64(id.client)?;
         self.write_var_u64(id.clock)?;
         Ok(())
@@ -94,7 +94,7 @@ mod tests {
             assert_eq!(reader.read_u8().unwrap(), b'o');
         }
         {
-            let mut reader = RawDecoder::new(vec![0x40, 0x49, 0x0f, 0xdb, 0xd2, 0x04]);
+            let mut reader = RawDecoder::new(vec![0x40, 0x49, 0x0f, 0xdb]);
             assert_eq!(reader.read_f32_be().unwrap(), 3.1415927);
         }
         {
@@ -116,6 +116,73 @@ mod tests {
         {
             let mut reader = RawDecoder::new(vec![0x1, 0x2]);
             assert_eq!(reader.read_item_id().unwrap(), Id::new(1, 2));
+        }
+    }
+
+    #[test]
+    fn test_crdt_writer() {
+        {
+            let mut writer = RawEncoder::default();
+            writer.write_var_u64(754).unwrap();
+            assert_eq!(writer.into_inner(), vec![0xf2, 0x5]);
+        }
+        {
+            let ret = vec![0x5, b'h', b'e', b'l', b'l', b'o'];
+            let mut writer = RawEncoder::default();
+            writer.write_var_string("hello").unwrap();
+            assert_eq!(writer.into_inner(), ret);
+
+            let mut writer = RawEncoder::default();
+            writer.write_var_buffer(b"hello").unwrap();
+            assert_eq!(writer.into_inner(), ret);
+
+            let mut writer = RawEncoder::default();
+            writer.write_u8(5).unwrap();
+            writer.write_u8(b'h').unwrap();
+            writer.write_u8(b'e').unwrap();
+            writer.write_u8(b'l').unwrap();
+            writer.write_u8(b'l').unwrap();
+            writer.write_u8(b'o').unwrap();
+            assert_eq!(writer.into_inner(), ret);
+        }
+        {
+            let mut writer = RawEncoder::default();
+            writer.write_f32_be(3.1415927).unwrap();
+            assert_eq!(writer.into_inner(), vec![0x40, 0x49, 0x0f, 0xdb]);
+        }
+        {
+            let mut writer = RawEncoder::default();
+            writer.write_f64_be(3.141592653589793).unwrap();
+            assert_eq!(
+                writer.into_inner(),
+                vec![0x40, 0x09, 0x21, 0xfb, 0x54, 0x44, 0x2d, 0x18]
+            );
+        }
+        {
+            let mut writer = RawEncoder::default();
+            writer.write_i64_be(i64::MAX).unwrap();
+            assert_eq!(
+                writer.into_inner(),
+                vec![0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+            );
+        }
+        {
+            let mut writer = RawEncoder::default();
+            writer.write_i64_be(i64::MIN).unwrap();
+            assert_eq!(
+                writer.into_inner(),
+                vec![0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+            );
+        }
+        {
+            let mut writer = RawEncoder::default();
+            writer.write_info(0x80).unwrap();
+            assert_eq!(writer.into_inner(), vec![0x80]);
+        }
+        {
+            let mut writer = RawEncoder::default();
+            writer.write_item_id(&Id::new(1, 2)).unwrap();
+            assert_eq!(writer.into_inner(), vec![0x1, 0x2]);
         }
     }
 }

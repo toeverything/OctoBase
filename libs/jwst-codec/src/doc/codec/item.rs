@@ -199,7 +199,7 @@ impl Item {
         Ok(item)
     }
 
-    pub(crate) fn write<W: CrdtWriter>(&self, encoder: &mut W) -> JwstCodecResult<()> {
+    pub(crate) fn write<W: CrdtWriter>(&self, encoder: &mut W) -> JwstCodecResult {
         {
             // write info
             let mut info = self.content.get_info();

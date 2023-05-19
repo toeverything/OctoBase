@@ -93,7 +93,7 @@ impl Doc {
         &mut self,
         mut struct_info: StructInfo,
         offset: u64,
-    ) -> JwstCodecResult<()> {
+    ) -> JwstCodecResult {
         self.repair(&mut struct_info)?;
         let struct_info = Arc::new(RefCell::new(struct_info));
         match struct_info.borrow_mut().deref_mut() {
