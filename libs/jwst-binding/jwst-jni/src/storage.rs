@@ -13,7 +13,7 @@ pub struct JwstStorage {
     storage: Arc<AutoStorage>,
     channel: Arc<BroadcastChannels>,
     error: Option<String>,
-    pub(crate) sync_state: Arc<RwLock<SyncState>>,
+    sync_state: Arc<RwLock<SyncState>>,
 }
 
 impl JwstStorage {
