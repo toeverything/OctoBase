@@ -2,7 +2,7 @@ use crate::Workspace;
 use futures::TryFutureExt;
 use jwst::{error, warn, JwstError};
 use jwst_logger::init_logger_with;
-use jwst_rpc::{start_sync_thread1, BroadcastChannels, RpcContextImpl, SyncState};
+use jwst_rpc::{start_client_sync, BroadcastChannels, RpcContextImpl, SyncState};
 use jwst_storage::{JwstStorage as AutoStorage, JwstStorageResult};
 use std::sync::{Arc, RwLock};
 use tokio::runtime::Runtime;
@@ -99,7 +99,7 @@ impl Storage {
         let rt = Arc::new(Runtime::new().map_err(JwstError::Io)?);
 
         if !remote.is_empty() {
-            start_sync_thread1(
+            start_client_sync(
                 rt.clone(),
                 Arc::new(self.clone()),
                 self.sync_state.clone(),
