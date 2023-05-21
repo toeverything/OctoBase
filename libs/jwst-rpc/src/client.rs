@@ -2,11 +2,14 @@ use super::{types::JwstRpcResult, *};
 use futures::{SinkExt, StreamExt};
 use jwst::{warn, DocStorage, Workspace};
 use jwst_storage::{JwstStorage, JwstStorageResult};
-use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::runtime::Runtime;
-use tokio::sync::RwLock;
+use nanoid::nanoid;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    RwLock,
+};
 use tokio::{
     net::TcpStream,
+    runtime::Runtime,
     sync::broadcast::{channel, Receiver},
 };
 use tokio_tungstenite::{
@@ -44,7 +47,7 @@ async fn init_connection(workspace: &Workspace, remote: &str) -> JwstRpcResult<S
 
 async fn join_sync_thread(
     first_sync: Arc<AtomicBool>,
-    sync_state: Option<Arc<RwLock<SyncState>>>,
+    sync_state: Option<Arc<tokio::sync::RwLock<SyncState>>>,
     workspace: &Workspace,
     socket: Socket,
     rx: &mut Receiver<Vec<u8>>,
@@ -124,7 +127,7 @@ async fn join_sync_thread(
 
 async fn run_sync(
     first_sync: Arc<AtomicBool>,
-    sync_state: Option<Arc<RwLock<SyncState>>>,
+    sync_state: Option<Arc<tokio::sync::RwLock<SyncState>>>,
     workspace: &Workspace,
     remote: String,
     rx: &mut Receiver<Vec<u8>>,
@@ -132,6 +135,89 @@ async fn run_sync(
 ) -> JwstRpcResult<bool> {
     let socket = init_connection(workspace, &remote).await?;
     join_sync_thread(first_sync, sync_state, workspace, socket, rx, sender).await
+}
+
+pub fn start_sync_thread1(
+    rt: Arc<Runtime>,
+    context: Arc<impl RpcContextImpl<'static> + Send + Sync + 'static>,
+    sync_state: Arc<RwLock<SyncState>>,
+    remote: String,
+    workspace_id: String,
+) {
+    debug!("spawn sync thread");
+    let first_sync = Arc::new(AtomicBool::new(false));
+    let first_sync_cloned = first_sync.clone();
+    let workspace = workspace_id.clone();
+    std::thread::spawn(move || {
+        rt.block_on(async move {
+            if let Err(e) = context.get_workspace(&workspace).await {
+                error!("create workspace failed: {:?}", e);
+            }
+            if !workspace.is_empty() {
+                info!("Workspace not empty, starting async remote connection");
+                let first_sync = first_sync_cloned.clone();
+                tokio::spawn(async move {
+                    sleep(Duration::from_secs(2)).await;
+                    first_sync.store(true, Ordering::Release);
+                });
+            } else {
+                info!("Workspace empty, starting sync remote connection");
+            }
+
+            loop {
+                let identifier = nanoid!();
+                let workspace = workspace.clone();
+                let socket = prepare_connection(&remote).await.unwrap();
+                let first_init_tx = {
+                    let (first_init_tx, mut first_init_rx) = tokio::sync::mpsc::channel::<bool>(10);
+                    let first_sync = first_sync_cloned.clone();
+                    let sync_state = sync_state.clone();
+                    tokio::spawn(async move {
+                        if let Some(true) = first_init_rx.recv().await {
+                            first_sync.store(true, Ordering::Release);
+                            let mut state = sync_state.write().unwrap();
+                            match *state {
+                                SyncState::Offline => *state = SyncState::Initialized,
+                                SyncState::Initialized | SyncState::Error(_) => {
+                                    *state = SyncState::Syncing
+                                }
+                                _ => {}
+                            }
+                        }
+                    });
+                    first_init_tx
+                };
+
+                let ret =
+                    handle_connector(context.clone(), workspace.clone(), identifier, move || {
+                        let (tx, rx) = tungstenite_socket_connector(socket, &workspace);
+                        (tx, rx, first_init_tx)
+                    })
+                    .await;
+
+                {
+                    first_sync_cloned.store(true, Ordering::Release);
+                    let mut state = sync_state.write().unwrap();
+                    if ret {
+                        debug!("sync thread finished");
+                        *state = SyncState::Finished;
+                    } else {
+                        *state =
+                            SyncState::Error("Remote sync connection disconnected".to_string());
+                    }
+                }
+
+                warn!("Remote sync connection disconnected, try again in 2 seconds");
+                sleep(Duration::from_secs(3)).await;
+            }
+        });
+    });
+
+    while let Ok(false) | Err(false) =
+        first_sync.compare_exchange_weak(true, false, Ordering::Acquire, Ordering::Acquire)
+    {
+        std::thread::sleep(Duration::from_millis(100));
+    }
 }
 
 /// Responsible for
@@ -144,7 +230,7 @@ pub fn start_sync_thread(
     workspace: &Workspace,
     remote: String,
     mut rx: Receiver<Vec<u8>>,
-    sync_state: Option<Arc<RwLock<SyncState>>>,
+    sync_state: Option<Arc<tokio::sync::RwLock<SyncState>>>,
     rt: Arc<Runtime>,
     sender: Sender<()>,
 ) {
@@ -154,16 +240,6 @@ pub fn start_sync_thread(
     let workspace = workspace.clone();
     std::thread::spawn(move || {
         rt.block_on(async move {
-            if !workspace.is_empty() {
-                info!("Workspace not empty, starting async remote connection");
-                let first_sync_cloned_2 = first_sync_cloned.clone();
-                tokio::spawn(async move {
-                    sleep(Duration::from_secs(2)).await;
-                    first_sync_cloned_2.store(true, Ordering::Release);
-                });
-            } else {
-                info!("Workspace empty, starting sync remote connection");
-            }
             loop {
                 match run_sync(
                     first_sync_cloned.clone(),
@@ -232,35 +308,4 @@ pub async fn get_workspace(
     };
 
     Ok((workspace, rx))
-}
-pub async fn get_collaborating_workspace(
-    storage: &JwstStorage,
-    id: String,
-    remote: String,
-    sender: Sender<()>,
-) -> JwstStorageResult<Workspace> {
-    let workspace = storage.docs().get(id.clone()).await?;
-
-    if !remote.is_empty() {
-        // get the receiver corresponding to DocAutoStorage, the sender is used in the doc::write_update() method.
-        let rx = match storage.docs().remote().write().await.entry(id.clone()) {
-            Entry::Occupied(tx) => tx.get().subscribe(),
-            Entry::Vacant(entry) => {
-                let (tx, rx) = channel(100);
-                entry.insert(tx);
-                rx
-            }
-        };
-
-        start_sync_thread(
-            &workspace,
-            remote,
-            rx,
-            None,
-            Arc::new(Runtime::new().unwrap()),
-            sender,
-        );
-    }
-
-    Ok(workspace)
 }

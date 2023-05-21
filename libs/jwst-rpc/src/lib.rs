@@ -9,9 +9,9 @@ mod types;
 mod utils;
 
 #[cfg(feature = "websocket")]
-pub use client::{get_collaborating_workspace, get_workspace, start_sync_thread};
+pub use client::{get_workspace, start_sync_thread, start_sync_thread1};
 #[cfg(feature = "websocket")]
-pub use connector::socket_connector;
+pub use connector::{axum_socket_connector, tungstenite_socket_connector};
 
 pub use broadcast::{BroadcastChannels, BroadcastType};
 pub use connector::memory_connector;
