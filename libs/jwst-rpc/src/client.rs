@@ -36,12 +36,15 @@ pub fn start_client_sync(
     debug!("spawn sync thread");
     let first_sync = Arc::new(AtomicBool::new(false));
     let first_sync_cloned = first_sync.clone();
-    let workspace = workspace_id.clone();
     std::thread::spawn(move || {
         rt.block_on(async move {
-            if let Err(e) = context.get_workspace(&workspace).await {
-                error!("create workspace failed: {:?}", e);
-            }
+            let workspace = match context.get_workspace(&workspace_id).await {
+                Ok(workspace) => workspace,
+                Err(e) => {
+                    error!("failed to create workspace: {:?}", e);
+                    return;
+                }
+            };
             if !workspace.is_empty() {
                 info!("Workspace not empty, starting async remote connection");
                 let first_sync = first_sync_cloned.clone();
@@ -55,7 +58,7 @@ pub fn start_client_sync(
 
             loop {
                 let identifier = nanoid!();
-                let workspace = workspace.clone();
+                let workspace_id = workspace_id.clone();
                 let socket = prepare_connection(&remote).await.unwrap();
                 let first_init_tx = {
                     let (first_init_tx, mut first_init_rx) = channel::<bool>(10);
@@ -77,12 +80,14 @@ pub fn start_client_sync(
                     first_init_tx
                 };
 
-                let ret =
-                    handle_connector(context.clone(), workspace.clone(), identifier, move || {
-                        let (tx, rx) = tungstenite_socket_connector(socket, &workspace);
+                let ret = {
+                    let id = workspace_id.clone();
+                    handle_connector(context.clone(), workspace_id, identifier, move || {
+                        let (tx, rx) = tungstenite_socket_connector(socket, &id);
                         (tx, rx, first_init_tx)
                     })
-                    .await;
+                    .await
+                };
 
                 {
                     first_sync_cloned.store(true, Ordering::Release);
