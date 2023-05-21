@@ -4,7 +4,8 @@ use axum::{
     response::Response,
     Json,
 };
-use jwst_rpc::{handle_connector, socket_connector};
+use futures::FutureExt;
+use jwst_rpc::{axum_socket_connector, handle_connector};
 use serde::Serialize;
 use std::sync::Arc;
 
@@ -31,8 +32,9 @@ pub async fn upgrade_handler(
     }
     ws.protocols(["AFFiNE"]).on_upgrade(move |socket| {
         handle_connector(context.clone(), workspace.clone(), identifier, move || {
-            socket_connector(socket, &workspace)
+            axum_socket_connector(socket, &workspace)
         })
+        .map(|_| ())
     })
 }
 

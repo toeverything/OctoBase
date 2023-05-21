@@ -6,7 +6,8 @@ use axum::{
     http::StatusCode,
     response::Response,
 };
-use jwst_rpc::{handle_connector, socket_connector};
+use futures_util::FutureExt;
+use jwst_rpc::{axum_socket_connector, handle_connector};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -52,7 +53,8 @@ async fn ws_handler(
 
     ws.protocols(["AFFiNE"]).on_upgrade(move |socket| {
         handle_connector(ctx.clone(), workspace.clone(), user_id, move || {
-            socket_connector(socket, &workspace)
+            axum_socket_connector(socket, &workspace)
         })
+        .map(|_| ())
     })
 }
