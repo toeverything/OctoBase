@@ -1,9 +1,11 @@
 use crate::Workspace;
 use futures::TryFutureExt;
+use jwst::Workspace as JwstWorkspace;
 use jwst::{error, warn, JwstError};
 use jwst_logger::init_logger_with;
 use jwst_rpc::{start_client_sync, BroadcastChannels, RpcContextImpl, SyncState};
 use jwst_storage::{JwstStorage as AutoStorage, JwstStorageResult};
+use nanoid::nanoid;
 use std::sync::{Arc, RwLock};
 use tokio::runtime::Runtime;
 
@@ -97,20 +99,36 @@ impl Storage {
 
     fn sync(&self, workspace_id: String, remote: String) -> JwstStorageResult<Workspace> {
         let rt = Arc::new(Runtime::new().map_err(JwstError::Io)?);
+        let is_offline = remote.is_empty();
 
-        if !remote.is_empty() {
-            start_client_sync(
-                rt.clone(),
-                Arc::new(self.clone()),
-                self.sync_state.clone(),
-                remote,
-                workspace_id.clone(),
-            );
+        let workspace = rt.block_on(async { self.get_workspace(&workspace_id).await });
+
+        match workspace {
+            Ok(mut workspace) => {
+                if is_offline {
+                    let identifier = nanoid!();
+                    rt.block_on(async {
+                        self.join_broadcast(&mut workspace, identifier.clone())
+                            .await;
+                    });
+                    // prevent rt from being dropped, which will cause dropping the broadcast channel
+                    std::mem::forget(rt);
+                } else {
+                    start_client_sync(
+                        rt.clone(),
+                        Arc::new(self.clone()),
+                        self.sync_state.clone(),
+                        remote,
+                        workspace_id.clone(),
+                    );
+                }
+
+                Ok(Workspace { workspace })
+            }
+            Err(e) => {
+                return Err(e);
+            }
         }
-
-        Ok(Workspace {
-            workspace: rt.block_on(self.get_workspace(&workspace_id))?,
-        })
     }
 }
 
@@ -127,6 +145,7 @@ impl RpcContextImpl<'_> for Storage {
 #[cfg(test)]
 mod tests {
     use crate::{Storage, Workspace};
+    use std::thread::sleep;
     use tokio::runtime::Runtime;
 
     #[test]
