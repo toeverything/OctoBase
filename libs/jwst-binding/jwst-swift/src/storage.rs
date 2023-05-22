@@ -1,6 +1,5 @@
 use crate::Workspace;
 use futures::TryFutureExt;
-use jwst::Workspace as JwstWorkspace;
 use jwst::{error, warn, JwstError};
 use jwst_logger::init_logger_with;
 use jwst_rpc::{start_client_sync, BroadcastChannels, RpcContextImpl, SyncState};
@@ -115,18 +114,18 @@ impl Storage {
                     std::mem::forget(rt);
                 } else {
                     start_client_sync(
-                        rt.clone(),
+                        rt,
                         Arc::new(self.clone()),
                         self.sync_state.clone(),
                         remote,
-                        workspace_id.clone(),
+                        workspace_id,
                     );
                 }
 
                 Ok(Workspace { workspace })
             }
             Err(e) => {
-                return Err(e);
+                Err(e)
             }
         }
     }
@@ -145,7 +144,6 @@ impl RpcContextImpl<'_> for Storage {
 #[cfg(test)]
 mod tests {
     use crate::{Storage, Workspace};
-    use std::thread::sleep;
     use tokio::runtime::Runtime;
 
     #[test]

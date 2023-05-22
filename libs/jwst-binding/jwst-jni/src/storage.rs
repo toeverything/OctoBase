@@ -124,22 +124,21 @@ impl JwstStorage {
                     std::mem::forget(rt);
                 } else {
                     start_client_sync(
-                        rt.clone(),
+                        rt,
                         Arc::new(self.clone()),
                         self.sync_state.clone(),
                         remote,
-                        workspace_id.clone(),
+                        workspace_id,
                     );
                 }
 
                 Ok(Workspace { workspace })
             }
             Err(e) => {
-                return Err(e);
+                Err(e)
             }
         }
-    }
-}
+    }}
 
 impl RpcContextImpl<'_> for JwstStorage {
     fn get_storage(&self) -> &AutoStorage {
