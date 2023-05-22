@@ -1,4 +1,5 @@
 use super::*;
+use crate::doc::StateVector;
 use std::{
     cell::{Ref, RefCell, RefMut},
     collections::{hash_map::Entry, HashMap},

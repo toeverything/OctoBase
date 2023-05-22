@@ -1,90 +1,10 @@
 use super::*;
 use std::{
     cell::RefCell,
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     ops::{Deref, DerefMut, Range},
     sync::Arc,
 };
-
-#[derive(Default, Debug)]
-pub struct StateVector(HashMap<Client, Clock>);
-
-impl StateVector {
-    pub fn new() -> Self {
-        Self(HashMap::new())
-    }
-
-    pub fn set_max(&mut self, client: Client, clock: Clock) {
-        self.entry(client)
-            .and_modify(|mclock| {
-                if *mclock < clock {
-                    *mclock = clock;
-                }
-            })
-            .or_insert(clock);
-    }
-
-    pub fn get(&self, client: &Client) -> Clock {
-        *self.0.get(client).unwrap_or(&0)
-    }
-
-    pub fn contains(&self, id: &Id) -> bool {
-        id.clock <= self.get(&id.client)
-    }
-
-    pub fn set_min(&mut self, client: Client, clock: Clock) {
-        self.entry(client)
-            .and_modify(|mclock| {
-                if *mclock > clock {
-                    *mclock = clock;
-                }
-            })
-            .or_insert(clock);
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&Client, &Clock)> {
-        self.0.iter()
-    }
-
-    pub fn merge_with(&mut self, other: &Self) {
-        for (client, clock) in other.iter() {
-            self.set_min(*client, *clock);
-        }
-    }
-}
-
-impl Deref for StateVector {
-    type Target = HashMap<Client, Clock>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for StateVector {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl From<&HashMap<Client, Vec<StructInfo>>> for StateVector {
-    fn from(value: &HashMap<Client, Vec<StructInfo>>) -> Self {
-        Self(
-            value
-                .iter()
-                .map(|(k, v)| {
-                    (
-                        *k,
-                        match v.last() {
-                            Some(v) => v.id().clock + v.len(),
-                            _ => 0,
-                        },
-                    )
-                })
-                .collect(),
-        )
-    }
-}
 
 pub struct Doc {
     // TODO: use function in code
@@ -114,11 +34,11 @@ impl Doc {
     pub fn apply_update(&mut self, mut update: Update) -> JwstCodecResult {
         let mut retry = false;
         loop {
-            for (s, offset) in update.iter(&self.store) {
+            for (s, offset) in update.iter(self.store.get_state_vector()) {
                 self.integrate_struct_info(s, offset)?;
             }
 
-            for (client, range) in update.delete_set_iter(&self.store) {
+            for (client, range) in update.delete_set_iter(self.store.get_state_vector()) {
                 self.delete_range(client, range)?;
             }
 
@@ -132,7 +52,8 @@ impl Doc {
                     retry = true;
                 }
 
-                for (client, range) in pending_update.delete_set_iter(&self.store) {
+                for (client, range) in pending_update.delete_set_iter(self.store.get_state_vector())
+                {
                     self.delete_range(client, range)?;
                 }
 

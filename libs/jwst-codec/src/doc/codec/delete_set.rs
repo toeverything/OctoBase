@@ -1,4 +1,4 @@
-use crate::doc::common::OrderRange;
+use crate::doc::OrderRange;
 
 use super::*;
 use std::{
@@ -50,6 +50,16 @@ impl Deref for DeleteSet {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<const N: usize> From<[(Client, Vec<Range<u64>>); N]> for DeleteSet {
+    fn from(value: [(Client, Vec<Range<u64>>); N]) -> Self {
+        let mut map = HashMap::with_capacity(N);
+        for (client, ranges) in value {
+            map.insert(client, ranges.into());
+        }
+        Self(map)
     }
 }
 

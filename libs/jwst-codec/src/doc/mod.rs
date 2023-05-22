@@ -9,6 +9,7 @@ use super::*;
 
 pub use awareness::{Awareness, AwarenessEvent};
 pub use codec::*;
-pub use document::{Doc, StateVector};
+pub use common::*;
+pub use document::Doc;
 pub use store::{DocStore, StructRef};
 pub use types::*;

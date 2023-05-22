@@ -1,4 +1,5 @@
-use super::delete_set::DeleteSet;
+use crate::doc::StateVector;
+
 use super::*;
 use std::collections::{HashMap, VecDeque};
 use std::ops::Range;
@@ -60,12 +61,12 @@ impl Update {
         Ok(encoder.into_inner())
     }
 
-    pub fn iter(&mut self, store: &DocStore) -> UpdateIterator {
-        UpdateIterator::new(store, self)
+    pub fn iter(&mut self, state: StateVector) -> UpdateIterator {
+        UpdateIterator::new(self, state)
     }
 
-    pub fn delete_set_iter(&mut self, store: &DocStore) -> DeleteSetIterator {
-        DeleteSetIterator::new(store, self)
+    pub fn delete_set_iter(&mut self, state: StateVector) -> DeleteSetIterator {
+        DeleteSetIterator::new(self, state)
     }
 
     // take all pending structs and delete set to [self] update struct
@@ -123,8 +124,7 @@ pub struct UpdateIterator<'a> {
 }
 
 impl<'a> UpdateIterator<'a> {
-    pub fn new(store: &DocStore, update: &'a mut Update) -> Self {
-        let state = store.get_state_vector();
+    pub fn new(update: &'a mut Update, state: StateVector) -> Self {
         let mut client_ids = update.structs.keys().cloned().collect::<Vec<_>>();
         client_ids.sort();
         let cur_client_id = client_ids.pop();
@@ -305,8 +305,7 @@ pub struct DeleteSetIterator<'a> {
 }
 
 impl<'a> DeleteSetIterator<'a> {
-    pub fn new(store: &DocStore, update: &'a mut Update) -> Self {
-        let state = store.get_state_vector();
+    pub fn new(update: &'a mut Update, state: StateVector) -> Self {
         DeleteSetIterator { update, state }
     }
 }
@@ -346,6 +345,8 @@ impl Iterator for DeleteSetIterator<'_> {
                         .add(client, start, end - start);
                 }
             }
+
+            self.update.delete_set.remove(&client);
         }
 
         None
@@ -354,9 +355,21 @@ impl Iterator for DeleteSetIterator<'_> {
 
 #[cfg(test)]
 mod tests {
+    use crate::doc::common::OrderRange;
+
     use super::{doc::RawDecoder, *};
     use serde::Deserialize;
     use std::{num::ParseIntError, path::PathBuf};
+
+    fn struct_item(id: (Client, Clock), len: usize) -> StructInfo {
+        StructInfo::Item {
+            id: id.into(),
+            item: Box::new(Item {
+                content: Content::String("c".repeat(len)),
+                ..Item::default()
+            }),
+        }
+    }
 
     fn parse_doc_update(input: Vec<u8>) -> JwstCodecResult<Update> {
         Update::try_from(RawDecoder::new(input))
@@ -435,5 +448,104 @@ mod tests {
                 println!("error origin data: {}", ws.workspace);
             }
         }
+    }
+
+    #[test]
+    fn test_update_iterator() {
+        let mut update = Update {
+            structs: HashMap::from([
+                (
+                    0,
+                    VecDeque::from([
+                        struct_item((0, 0), 1),
+                        struct_item((0, 1), 1),
+                        StructInfo::Skip {
+                            id: (0, 2).into(),
+                            len: 1,
+                        },
+                    ]),
+                ),
+                (
+                    1,
+                    VecDeque::from([
+                        struct_item((1, 0), 1),
+                        StructInfo::Item {
+                            id: (1, 1).into(),
+                            item: Item {
+                                left_id: Some((0, 1).into()),
+                                content: Content::String("c".repeat(2)),
+                                ..Item::default()
+                            }
+                            .into(),
+                        },
+                    ]),
+                ),
+            ]),
+            ..Update::default()
+        };
+
+        let mut iter = update.iter(StateVector::new());
+        assert_eq!(iter.next().unwrap().0.id(), (1, 0).into());
+        assert_eq!(iter.next().unwrap().0.id(), (0, 0).into());
+        assert_eq!(iter.next().unwrap().0.id(), (0, 1).into());
+        assert_eq!(iter.next().unwrap().0.id(), (1, 1).into());
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_update_iterator_with_missing_state() {
+        let mut update = Update {
+            // an item with higher sequence id than local state
+            structs: HashMap::from([(0, VecDeque::from([struct_item((0, 4), 1)]))]),
+            ..Update::default()
+        };
+
+        let mut iter = update.iter(StateVector::from([(0, 3)]));
+        assert_eq!(iter.next(), None);
+        assert!(!update.pending_structs.is_empty());
+        assert_eq!(
+            update
+                .pending_structs
+                .get_mut(&0)
+                .unwrap()
+                .pop_front()
+                .unwrap()
+                .id(),
+            (0, 4).into()
+        );
+        assert!(!update.missing_state.is_empty());
+        assert_eq!(update.missing_state.get(&0), 3);
+    }
+
+    #[test]
+    fn test_delete_set_iterator() {
+        let mut update = Update {
+            delete_set: DeleteSet::from([(0, vec![(0..2), (3..5)])]),
+            ..Update::default()
+        };
+
+        let mut iter = update.delete_set_iter(StateVector::from([(0, 10)]));
+        assert_eq!(iter.next().unwrap(), (0, 0..2));
+        assert_eq!(iter.next().unwrap(), (0, 3..5));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_delete_set_with_missing_state() {
+        let mut update = Update {
+            delete_set: DeleteSet::from([(0, vec![(3..5), (7..12), (13..15)])]),
+            ..Update::default()
+        };
+
+        let mut iter = update.delete_set_iter(StateVector::from([(0, 10)]));
+        assert_eq!(iter.next().unwrap(), (0, 3..5));
+        assert_eq!(iter.next().unwrap(), (0, 7..10));
+        assert_eq!(iter.next(), None);
+
+        assert!(!update.pending_delete_set.is_empty());
+        assert_eq!(
+            update.pending_delete_set.get(&0).unwrap(),
+            &OrderRange::from(vec![(10..12), (13..15)])
+        );
     }
 }
