@@ -64,6 +64,7 @@ pub struct TypeStore {
     pub start: Option<StructRef>,
     pub map: HashMap<String, StructRef>,
     pub item: Option<StructRef>,
+    pub len: usize,
     kind: TypeStoreKind,
 }
 
@@ -75,6 +76,7 @@ impl TypeStore {
             start: None,
             map: HashMap::new(),
             item: None,
+            len: 0,
             kind,
         }
     }
@@ -83,6 +85,12 @@ impl TypeStore {
         if let TypeStoreKind::Unknown = self.kind {
             self.kind = kind;
         }
+    }
+}
+
+impl From<TypeStore> for TypeStoreRef {
+    fn from(value: TypeStore) -> Self {
+        Arc::new(RefCell::new(value))
     }
 }
 
