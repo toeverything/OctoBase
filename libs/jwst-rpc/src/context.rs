@@ -155,6 +155,10 @@ pub trait RpcContextImpl<'a> {
             .expect("workspace not found");
         tokio::spawn(async move {
             while let Some(binary) = remote_rx.recv().await {
+                if binary == [0, 2, 2, 0, 0] {
+                    // skip empty update
+                    continue;
+                }
                 trace!("apply_change: recv binary: {:?}", binary);
                 let ts = Instant::now();
                 let message = workspace.sync_decode_message(&binary).await;

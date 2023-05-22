@@ -156,12 +156,14 @@ impl Workspace {
             })) {
                 warn!("failed to apply update: {:?}", e);
             }
+            #[cfg(feature = "workspace-auto-subscribe")]
             self.try_subscribe_all_blocks();
         }
 
         result
     }
 
+    #[cfg(feature = "workspace-auto-subscribe")]
     pub fn try_subscribe_all_blocks(&mut self) {
         if let Some(block_observer_config) = self.block_observer_config.clone() {
             // costing approximately 1ms per 500 blocks
@@ -174,7 +176,7 @@ impl Workspace {
                         })
                     });
                 },
-                10,
+                RETRY_NUM,
             ) {
                 error!("subscribe synchronized block callback failed: {}", e);
             }

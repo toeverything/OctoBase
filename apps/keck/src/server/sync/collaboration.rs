@@ -4,7 +4,8 @@ use axum::{
     response::Response,
     Json,
 };
-use jwst_rpc::{handle_connector, socket_connector};
+use futures::FutureExt;
+use jwst_rpc::{axum_socket_connector, handle_connector};
 use serde::Serialize;
 use std::sync::Arc;
 
@@ -31,8 +32,9 @@ pub async fn upgrade_handler(
     }
     ws.protocols(["AFFiNE"]).on_upgrade(move |socket| {
         handle_connector(context.clone(), workspace.clone(), identifier, move || {
-            socket_connector(socket, &workspace)
+            axum_socket_connector(socket, &workspace)
         })
+        .map(|_| ())
     })
 }
 
@@ -40,19 +42,41 @@ pub async fn upgrade_handler(
 mod test {
     use jwst::DocStorage;
     use jwst::{Block, Workspace};
-    use jwst_logger::{error, info};
-    use jwst_rpc::{get_workspace, start_sync_thread};
+    use jwst_logger::info;
+    use jwst_rpc::{start_client_sync, BroadcastChannels, RpcContextImpl};
     use jwst_storage::JwstStorage;
     use libc::{kill, SIGTERM};
     use rand::{thread_rng, Rng};
-    use std::collections::hash_map::Entry;
     use std::ffi::c_int;
     use std::io::{BufRead, BufReader};
     use std::process::{Child, Command, Stdio};
     use std::string::String;
     use std::sync::Arc;
     use tokio::runtime::Runtime;
-    use tokio::sync::mpsc::channel;
+
+    struct TestContext {
+        storage: Arc<JwstStorage>,
+        channel: Arc<BroadcastChannels>,
+    }
+
+    impl TestContext {
+        fn new(storage: Arc<JwstStorage>) -> Self {
+            Self {
+                storage,
+                channel: Arc::default(),
+            }
+        }
+    }
+
+    impl RpcContextImpl<'_> for TestContext {
+        fn get_storage(&self) -> &JwstStorage {
+            &self.storage
+        }
+
+        fn get_channel(&self) -> &BroadcastChannels {
+            &self.channel
+        }
+    }
 
     #[test]
     #[ignore = "not needed in ci"]
@@ -60,65 +84,33 @@ mod test {
         if dotenvy::var("KECK_DEBUG").is_ok() {
             jwst_logger::init_logger("keck");
         }
-        let mut rng = thread_rng();
-        let server_port = rng.gen_range(10000..=30000);
+
+        let server_port = thread_rng().gen_range(10000..=30000);
         let child = start_collaboration_server(server_port);
 
         let rt = Runtime::new().unwrap();
-        let (workspace_id, mut workspace, storage) = rt.block_on(async move {
-            let workspace_id = String::from("1");
-            let storage: Arc<JwstStorage> = Arc::new(
+        let (workspace_id, workspace) = rt.block_on(async move {
+            let workspace_id = "1";
+            let context = Arc::new(TestContext::new(Arc::new(
                 JwstStorage::new("sqlite::memory:")
                     .await
                     .expect("get storage: memory sqlite failed"),
+            )));
+            let remote = format!("ws://localhost:{server_port}/collaboration/1");
+
+            start_client_sync(
+                Arc::new(Runtime::new().unwrap()),
+                context.clone(),
+                Arc::default(),
+                remote,
+                workspace_id.to_owned(),
             );
-            let remote = String::from(format!("ws://localhost:{server_port}/collaboration/1"));
-            storage
-                .create_workspace(workspace_id.clone())
-                .await
-                .unwrap();
 
-            if let Entry::Vacant(entry) = storage
-                .docs()
-                .remote()
-                .write()
-                .await
-                .entry(workspace_id.clone())
-            {
-                let (tx, _rx) = tokio::sync::broadcast::channel(10);
-                entry.insert(tx);
-            };
-            let (sender, _receiver) = channel::<()>(10);
-
-            let (workspace, rx) = get_workspace(&storage, workspace_id.clone()).await.unwrap();
-            if !remote.is_empty() {
-                start_sync_thread(
-                    &workspace,
-                    remote,
-                    rx,
-                    None,
-                    Arc::new(Runtime::new().unwrap()),
-                    sender,
-                );
-            }
-
-            (workspace_id, workspace, storage)
+            (
+                workspace_id.to_owned(),
+                context.get_workspace(workspace_id).await.unwrap(),
+            )
         });
-
-        let workspace = {
-            let id = workspace_id.clone();
-            workspace.observe(move |_, e| {
-                let id = id.clone();
-                let rt = Runtime::new().unwrap();
-                if let Err(e) =
-                    rt.block_on(async { storage.docs().write_update(id, &e.update).await })
-                {
-                    error!("Failed to write update to storage: {:?}", e);
-                }
-            });
-
-            workspace
-        };
 
         for block_id in 0..3 {
             let block = create_block(&workspace, block_id.to_string(), "list".to_string());
@@ -157,8 +149,7 @@ mod test {
     #[test]
     #[ignore = "not needed in ci"]
     fn client_collaboration_with_server_with_poor_connection() {
-        let mut rng = thread_rng();
-        let server_port = rng.gen_range(30001..=65535);
+        let server_port = thread_rng().gen_range(30001..=65535);
         let child = start_collaboration_server(server_port);
 
         let rt = Runtime::new().unwrap();
@@ -188,56 +179,25 @@ mod test {
             get_block_from_server(workspace_id.clone(), "0".to_string(), server_port).is_empty()
         );
 
-        let (workspace_id, mut workspace, storage) = rt.block_on(async move {
-            let workspace_id = String::from("1");
-            let remote = String::from(format!("ws://localhost:{server_port}/collaboration/1"));
-            storage
-                .create_workspace(workspace_id.clone())
-                .await
-                .unwrap();
+        let rt = Runtime::new().unwrap();
+        let (workspace_id, workspace) = rt.block_on(async move {
+            let workspace_id = "1";
+            let context = Arc::new(TestContext::new(storage));
+            let remote = format!("ws://localhost:{server_port}/collaboration/1");
 
-            if let Entry::Vacant(entry) = storage
-                .docs()
-                .remote()
-                .write()
-                .await
-                .entry(workspace_id.clone())
-            {
-                let (tx, _rx) = tokio::sync::broadcast::channel(10);
-                entry.insert(tx);
-            };
+            start_client_sync(
+                Arc::new(Runtime::new().unwrap()),
+                context.clone(),
+                Arc::default(),
+                remote,
+                workspace_id.to_owned(),
+            );
 
-            let (workspace, rx) = get_workspace(&storage, workspace_id.clone()).await.unwrap();
-            let (sender, _receiver) = channel::<()>(10);
-            if !remote.is_empty() {
-                start_sync_thread(
-                    &workspace,
-                    remote,
-                    rx,
-                    None,
-                    Arc::new(Runtime::new().unwrap()),
-                    sender,
-                );
-            }
-
-            (workspace_id, workspace, storage)
+            (
+                workspace_id.to_owned(),
+                context.get_workspace(workspace_id).await.unwrap(),
+            )
         });
-
-        let workspace = {
-            let id = workspace_id.clone();
-            let sub = workspace.observe(move |_, e| {
-                let id = id.clone();
-                let rt = Runtime::new().unwrap();
-                if let Err(e) =
-                    rt.block_on(async { storage.docs().write_update(id, &e.update).await })
-                {
-                    error!("Failed to write update to storage: {:?}", e);
-                }
-            });
-            std::mem::forget(sub);
-
-            workspace
-        };
 
         info!("----------------start syncing from start_sync_thread()----------------");
 

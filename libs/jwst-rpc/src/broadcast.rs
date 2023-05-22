@@ -76,11 +76,6 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
             }
         });
     };
-    // let metadata = workspace.observe_metadata(move |_, _e| {
-    //     // context
-    //     //     .user_channel
-    //     //     .update_workspace(ws_id.clone(), context.clone());
-    // });
 
     let workspace_id = workspace.id();
     tokio::spawn(async move {
