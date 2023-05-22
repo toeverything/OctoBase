@@ -1,8 +1,10 @@
 use std::{thread::sleep, time::Duration};
+use std::cmp::max;
 
 use crate::utils::JS_INT_RANGE;
 
 use super::*;
+use crate::RETRY_NUM;
 use lib0::any::Any;
 use yrs::{Map, ReadTxn, Transact, TransactionMut};
 
@@ -99,26 +101,11 @@ impl WorkspaceTransaction<'_> {
 
 impl Workspace {
     pub fn with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> T {
-        let doc = self.doc();
-        let trx = WorkspaceTransaction {
-            trx: doc.transact_mut(),
-            ws: self,
-        };
-
-        f(trx)
+        self.retry_with_trx(f, RETRY_NUM).unwrap()
     }
 
     pub fn try_with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> Option<T> {
-        match self.doc().try_transact_mut() {
-            Ok(trx) => {
-                let trx = WorkspaceTransaction { trx, ws: self };
-                Some(f(trx))
-            }
-            Err(e) => {
-                info!("try_with_trx error: {}", e);
-                None
-            }
-        }
+        self.retry_with_trx(f, RETRY_NUM).ok()
     }
 
     pub fn retry_with_trx<T>(
@@ -126,6 +113,7 @@ impl Workspace {
         f: impl FnOnce(WorkspaceTransaction) -> T,
         mut retry: i32,
     ) -> JwstResult<T> {
+        retry = max(RETRY_NUM, retry);
         let trx = loop {
             match self.doc.try_transact_mut() {
                 Ok(trx) => break trx,

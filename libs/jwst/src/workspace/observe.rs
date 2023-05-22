@@ -5,18 +5,11 @@ use std::{
     thread::sleep,
     time::Duration,
 };
-use yrs::{types::map::MapEvent, Observable, TransactionMut, UpdateEvent};
+use yrs::{TransactionMut, UpdateEvent};
 
 use super::*;
 
 impl Workspace {
-    pub fn observe_metadata(
-        &mut self,
-        f: impl Fn(&TransactionMut, &MapEvent) + 'static,
-    ) -> MapSubscription {
-        self.metadata.observe(f)
-    }
-
     pub async fn on_awareness_update(
         &mut self,
         f: impl Fn(&Awareness, AwarenessEvent) + Send + Sync + 'static,

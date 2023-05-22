@@ -22,6 +22,8 @@ pub use workspace::{MapSubscription, Workspace, WorkspaceMetadata, WorkspaceTran
 #[cfg(feature = "workspace-search")]
 pub use workspace::{SearchResult, SearchResults};
 
+const RETRY_NUM: i32 = 200;
+
 #[inline]
 pub fn print_versions(pkg_name: &str, pkg_version: &str) {
     use convert_case::{Case, Casing};

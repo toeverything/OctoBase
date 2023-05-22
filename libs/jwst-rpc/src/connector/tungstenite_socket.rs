@@ -1,20 +1,15 @@
 use super::*;
-use axum::{
-    extract::ws::{Message as WebSocketMessage, WebSocket},
-    Error,
-};
 use futures::{sink::SinkExt, stream::StreamExt};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio_tungstenite::tungstenite::Error as SocketError;
+use tokio::{
+    net::TcpStream,
+    sync::mpsc::{channel, Receiver, Sender},
+};
+use tokio_tungstenite::{
+    tungstenite::{Error as SocketError, Message as WebSocketMessage},
+    MaybeTlsStream, WebSocketStream,
+};
 
-#[inline]
-fn is_connection_closed(error: Error) -> bool {
-    if let Ok(e) = error.into_inner().downcast::<SocketError>() {
-        matches!(e.as_ref(), SocketError::ConnectionClosed)
-    } else {
-        false
-    }
-}
+type WebSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 impl From<Message> for WebSocketMessage {
     fn from(value: Message) -> Self {
@@ -26,10 +21,10 @@ impl From<Message> for WebSocketMessage {
     }
 }
 
-pub fn socket_connector(
+pub fn tungstenite_socket_connector(
     socket: WebSocket,
     workspace_id: &str,
-) -> (Sender<Message>, Receiver<Vec<u8>>, Sender<bool>) {
+) -> (Sender<Message>, Receiver<Vec<u8>>) {
     let (mut socket_tx, mut socket_rx) = socket.split();
 
     // send to remote pipeline
@@ -41,7 +36,7 @@ pub fn socket_connector(
             while let Some(msg) = local_receiver.recv().await {
                 if let Err(e) = socket_tx.send(msg.into()).await {
                     let error = e.to_string();
-                    if is_connection_closed(e) {
+                    if matches!(e, SocketError::ConnectionClosed) {
                         break;
                     } else {
                         error!("socket send error: {}", error);
@@ -70,18 +65,5 @@ pub fn socket_connector(
         });
     }
 
-    let (first_init_tx, mut first_init_rx) = channel::<bool>(10);
-    {
-        // init notify thread
-        let workspace_id = workspace_id.to_owned();
-        tokio::spawn(async move {
-            if let Some(true) = first_init_rx.recv().await {
-                info!("socket init success: {}", workspace_id);
-            } else {
-                error!("socket init failed: {}", workspace_id);
-            }
-        });
-    }
-
-    (local_sender, remote_receiver, first_init_tx)
+    (local_sender, remote_receiver)
 }

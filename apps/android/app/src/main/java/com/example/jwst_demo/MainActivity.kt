@@ -20,9 +20,9 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         val database = File(filesDir, "jwst.db")
-        val storage = Storage(database.absolutePath, "ws://10.0.2.2:3001/collaboration", "trace")
+        val storage = Storage(database.absolutePath, "ws://10.0.2.2:3000/collaboration", "trace")
         storage.getWorkspace("test").unwrap()?.let { workspace ->
-            workspace.setCallback { block_ids -> println(block_ids) }
+            workspace.setCallback { block_ids -> Log.i("jwst", "change: $block_ids") }
             workspace.withTrx { trx -> workspace.get(trx, "a").unwrap() }?.let { block ->
                 // load the existing block on the second startup program.
                 val content = workspace.withTrx { trx -> block.get(trx, "a key") }?.get()
@@ -74,12 +74,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            println("getSyncState" + storage.getSyncState())
-            println("isOffline " + storage.isOffline())
-            println("isInitialized " + storage.isInitialized())
-            println("isSyncing " + storage.isSyncing())
-            println("isFinished " + storage.isFinished())
-            println("isError " + storage.isError())
+            Log.i("jwst", "getSyncState " + storage.getSyncState())
+            Log.i("jwst", "isOffline " + storage.isOffline())
+            Log.i("jwst", "isInitialized " + storage.isInitialized())
+            Log.i("jwst", "isSyncing " + storage.isSyncing())
+            Log.i("jwst", "isFinished " + storage.isFinished())
+            Log.i("jwst", "isError " + storage.isError())
 
 
             workspace.withTrx { trx ->
@@ -88,7 +88,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             val blocks = workspace.getBlocksByFlavour("list")
-            Log.i("getBlocksByFlavour", blocks.toString())
+            Log.i("jwst", "getBlocksByFlavour: $blocks")
 
             // search demo
             Log.i("jwst", "search demo")

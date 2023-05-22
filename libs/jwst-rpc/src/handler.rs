@@ -11,7 +11,7 @@ pub async fn handle_connector(
     workspace_id: String,
     identifier: String,
     get_channel: impl FnOnce() -> (Sender<Message>, Receiver<Vec<u8>>, Sender<bool>),
-) {
+) -> bool {
     info!("{} collaborate with workspace {}", identifier, workspace_id);
 
     // An abstraction of the established socket connection. Use tx to broadcast and rx to receive.
@@ -48,7 +48,7 @@ pub async fn handle_connector(
                     error!("failed to send close event: {}", e);
                 }
                 first_init.send(false).await.unwrap();
-                return;
+                return false;
             }
         }
         Err(e) => {
@@ -57,7 +57,7 @@ pub async fn handle_connector(
                 error!("failed to send close event: {}", e);
             }
             first_init.send(false).await.unwrap();
-            return;
+            return false;
         }
     }
 
@@ -75,7 +75,6 @@ pub async fn handle_connector(
                 if ts.elapsed().as_micros() > 100 {
                     debug!("process server update cost: {}ms", ts.elapsed().as_micros());
                 }
-
             },
             Ok(msg) = broadcast_rx.recv()=> {
                 let ts = Instant::now();
@@ -160,6 +159,7 @@ pub async fn handle_connector(
         "{} stop collaborate with workspace {}",
         identifier, workspace_id
     );
+    true
 }
 
 #[cfg(test)]

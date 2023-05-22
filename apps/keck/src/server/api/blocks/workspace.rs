@@ -15,9 +15,9 @@ use utoipa::IntoParams;
     get,
     tag = "Workspace",
     context_path = "/api/block",
-    path = "/{workspace_id}",
+    path = "/{workspace}",
     params(
-        ("workspace_id", description = "workspace id"),
+        ("workspace", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "Get workspace data", body = Workspace),
@@ -26,15 +26,15 @@ use utoipa::IntoParams;
 )]
 pub async fn get_workspace(
     Extension(context): Extension<Arc<Context>>,
-    Path(ws_id): Path<String>,
+    Path(workspace): Path<String>,
 ) -> Response {
-    info!("get_workspace: {}", ws_id);
-    if let Ok(workspace) = context.get_workspace(&ws_id).await {
+    info!("get_workspace: {}", workspace);
+    if let Ok(workspace) = context.get_workspace(&workspace).await {
         Json(workspace).into_response()
     } else {
         (
             StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
+            format!("Workspace({workspace:?}) not found"),
         )
             .into_response()
     }
@@ -47,9 +47,9 @@ pub async fn get_workspace(
     post,
     tag = "Workspace",
     context_path = "/api/block",
-    path = "/{workspace_id}",
+    path = "/{workspace}",
     params(
-        ("workspace_id", description = "workspace id"),
+        ("workspace", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "Return workspace data", body = Workspace),
@@ -78,9 +78,9 @@ pub async fn set_workspace(
     delete,
     tag = "Workspace",
     context_path = "/api/block",
-    path = "/{workspace_id}",
+    path = "/{workspace}",
     params(
-        ("workspace_id", description = "workspace id"),
+        ("workspace", description = "workspace id"),
     ),
     responses(
         (status = 204, description = "Workspace data deleted"),
@@ -110,9 +110,9 @@ pub async fn delete_workspace(
     get,
     tag = "Workspace",
     context_path = "/api/block",
-    path = "/{workspace_id}/client",
+    path = "/{workspace}/client",
     params(
-        ("workspace_id", description = "workspace id"),
+        ("workspace", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "Get workspace client id", body = u64),
@@ -121,14 +121,14 @@ pub async fn delete_workspace(
 )]
 pub async fn workspace_client(
     Extension(context): Extension<Arc<Context>>,
-    Path(ws_id): Path<String>,
+    Path(workspace): Path<String>,
 ) -> Response {
-    if let Ok(workspace) = context.get_workspace(&ws_id).await {
+    if let Ok(workspace) = context.get_workspace(&workspace).await {
         Json(workspace.client_id()).into_response()
     } else {
         (
             StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
+            format!("Workspace({workspace:?}) not found"),
         )
             .into_response()
     }
@@ -149,9 +149,9 @@ pub struct BlockSearchQuery {
     get,
     tag = "Workspace",
     context_path = "/api/search",
-    path = "/{workspace_id}",
+    path = "/{workspace}",
     params(
-        ("workspace_id", description = "workspace id"),
+        ("workspace", description = "workspace id"),
         BlockSearchQuery,
     ),
     responses(
@@ -160,10 +160,11 @@ pub struct BlockSearchQuery {
 )]
 pub async fn workspace_search(
     Extension(context): Extension<Arc<Context>>,
-    Path(ws_id): Path<String>,
+    Path(workspace): Path<String>,
     query: Query<BlockSearchQuery>,
 ) -> Response {
     let query_text = &query.query;
+    let ws_id = workspace;
     info!("workspace_search: {ws_id:?} query = {query_text:?}");
     if let Ok(workspace) = context.get_workspace(&ws_id).await {
         match workspace.search(query_text) {
@@ -189,9 +190,9 @@ pub async fn workspace_search(
     get,
     tag = "Workspace",
     context_path = "/api/search",
-    path = "/{workspace_id}/index",
+    path = "/{workspace}/index",
     params(
-        ("workspace_id", description = "workspace id"),
+        ("workspace", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "result", body = Vec<String>),
@@ -200,16 +201,16 @@ pub async fn workspace_search(
 )]
 pub async fn get_search_index(
     Extension(context): Extension<Arc<Context>>,
-    Path(ws_id): Path<String>,
+    Path(workspace): Path<String>,
 ) -> Response {
-    info!("get_search_index: {ws_id:?}");
+    info!("get_search_index: {workspace:?}");
 
-    if let Ok(workspace) = context.get_workspace(&ws_id).await {
+    if let Ok(workspace) = context.get_workspace(&workspace).await {
         Json(workspace.metadata().search_index).into_response()
     } else {
         (
             StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
+            format!("Workspace({workspace:?}) not found"),
         )
             .into_response()
     }
@@ -219,9 +220,9 @@ pub async fn get_search_index(
     post,
     tag = "Workspace",
     context_path = "/api/search",
-    path = "/{workspace_id}/index",
+    path = "/{workspace}/index",
     params(
-        ("workspace_id", description = "workspace id"),
+        ("workspace", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "success"),
@@ -231,12 +232,12 @@ pub async fn get_search_index(
 )]
 pub async fn set_search_index(
     Extension(context): Extension<Arc<Context>>,
-    Path(ws_id): Path<String>,
+    Path(workspace): Path<String>,
     Json(fields): Json<Vec<String>>,
 ) -> Response {
-    info!("set_search_index: {ws_id:?} fields = {fields:?}");
+    info!("set_search_index: {workspace:?} fields = {fields:?}");
 
-    if let Ok(workspace) = context.get_workspace(&ws_id).await {
+    if let Ok(workspace) = context.get_workspace(&workspace).await {
         if let Ok(true) = workspace.set_search_index(fields) {
             StatusCode::OK.into_response()
         } else {
@@ -245,7 +246,7 @@ pub async fn set_search_index(
     } else {
         (
             StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
+            format!("Workspace({workspace:?}) not found"),
         )
             .into_response()
     }
@@ -258,9 +259,9 @@ pub async fn set_search_index(
     get,
     tag = "Workspace",
     context_path = "/api/block",
-    path = "/{workspace_id}/blocks",
+    path = "/{workspace}/blocks",
     params(
-        ("workspace_id", description = "workspace id"),
+        ("workspace", description = "workspace id"),
         Pagination
     ),
     responses(
@@ -270,12 +271,12 @@ pub async fn set_search_index(
 )]
 pub async fn get_workspace_block(
     Extension(context): Extension<Arc<Context>>,
-    Path(ws_id): Path<String>,
+    Path(workspace): Path<String>,
     Query(pagination): Query<Pagination>,
 ) -> Response {
     let Pagination { offset, limit } = pagination;
-    info!("get_workspace_block: {ws_id:?}");
-    if let Ok(workspace) = context.get_workspace(&ws_id).await {
+    info!("get_workspace_block: {workspace:?}");
+    if let Ok(workspace) = context.get_workspace(&workspace).await {
         let (total, data) = workspace.with_trx(|mut t| {
             let space = t.get_blocks();
 
@@ -297,7 +298,7 @@ pub async fn get_workspace_block(
     } else {
         (
             StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
+            format!("Workspace({workspace:?}) not found"),
         )
             .into_response()
     }
@@ -318,9 +319,9 @@ pub async fn get_workspace_block(
     get,
     tag = "Workspace",
     context_path = "/api/block",
-    path = "/{workspace_id}/history",
+    path = "/{workspace}/history",
     params(
-        ("workspace_id", description = "workspace id"),
+        ("workspace", description = "workspace id"),
     ),
     responses(
         (status = 200, description = "Get workspace history client ids", body = [u64]),
@@ -329,9 +330,9 @@ pub async fn get_workspace_block(
 )]
 pub async fn history_workspace_clients(
     Extension(context): Extension<Arc<Context>>,
-    Path(ws_id): Path<String>,
+    Path(workspace): Path<String>,
 ) -> Response {
-    if let Ok(workspace) = context.get_workspace(&ws_id).await {
+    if let Ok(workspace) = context.get_workspace(&workspace).await {
         if let Some(history) = parse_history_client(&workspace.doc()) {
             Json(history).into_response()
         } else {
@@ -340,7 +341,7 @@ pub async fn history_workspace_clients(
     } else {
         (
             StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
+            format!("Workspace({workspace:?}) not found"),
         )
             .into_response()
     }
@@ -353,9 +354,9 @@ pub async fn history_workspace_clients(
     get,
     tag = "Workspace",
     context_path = "/api/block",
-    path = "/{workspace_id}/history/{client}",
+    path = "/{workspace}/history/{client}",
     params(
-        ("workspace_id", description = "workspace id"),
+        ("workspace", description = "workspace id"),
         ("client", description = "client id, is give 0 then return all clients histories"),
     ),
     responses(

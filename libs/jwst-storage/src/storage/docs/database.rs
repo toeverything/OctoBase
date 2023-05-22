@@ -136,10 +136,10 @@ impl DocDBStorage {
                 .map_err(JwstStorageError::DocMerge)??;
 
             Self::replace_with(conn, workspace, data).await?;
-        } else {
-            trace!("insert update: {workspace}, {update_size}");
-            Self::insert(conn, workspace, &blob).await?;
         }
+
+        trace!("insert update: {workspace}, {update_size}");
+        Self::insert(conn, workspace, &blob).await?;
         trace!("end update: {workspace}");
 
         trace!("update {}bytes to {}", blob.len(), workspace);

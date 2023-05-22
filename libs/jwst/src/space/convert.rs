@@ -162,6 +162,6 @@ impl Space {
             Ok::<_, JwstError>(())
         })?;
 
-        ws.sync_migration(10)
+        ws.sync_migration()
     }
 }
