@@ -225,6 +225,7 @@ impl<R: CrdtReader> CrdtRead<R> for RawRefs {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::doc::codec::item::ItemBuilder;
     use proptest::{collection::vec, prelude::*};
 
     #[test]
@@ -248,14 +249,58 @@ mod tests {
             assert_eq!(struct_info.client(), 2);
             assert_eq!(struct_info.clock(), 0);
         }
+
+        {
+            let item = ItemBuilder::new()
+                .left_id(None)
+                .right_id(None)
+                .parent(Some(Parent::String(String::from("parent"))))
+                .parent_sub(None)
+                .content(Content::String(String::from("content")))
+                .build();
+            let struct_info = StructInfo::Item {
+                id: Id::new(3, 0),
+                item: Box::new(item),
+            };
+
+            assert_eq!(struct_info.len(), 7);
+            assert_eq!(struct_info.client(), 3);
+            assert_eq!(struct_info.clock(), 0);
+        }
     }
 
     #[test]
     fn test_raw_struct_info() {
+        let has_not_parent_id_and_has_parent = RawStructInfo::Item(ItemBuilder::new()
+            .left_id(None)
+            .right_id(None)
+            .parent(Some(Parent::String(String::from("parent"))))
+            .parent_sub(None)
+            .content(Content::String(String::from("content")))
+            .build());
+
+        let has_not_parent_id_and_has_parent_with_key = RawStructInfo::Item(ItemBuilder::new()
+            .left_id(None)
+            .right_id(None)
+            .parent(Some(Parent::String(String::from("parent"))))
+            .parent_sub(Some(String::from("parent_sub")))
+            .content(Content::String(String::from("content")))
+            .build());
+
+        let has_parent_id = RawStructInfo::Item(ItemBuilder::new()
+            .left_id(Some((1, 2).into()))
+            .right_id(Some((2, 5).into()))
+            .parent(None)
+            .parent_sub(None)
+            .content(Content::String(String::from("content")))
+            .build());
+
         let raw_struct_infos = vec![
             RawStructInfo::GC(42),
             RawStructInfo::Skip(314),
-            // RawStructInfo::Item(Item::new()),
+            has_not_parent_id_and_has_parent,
+            has_not_parent_id_and_has_parent_with_key,
+            has_parent_id,
         ];
 
         for info in raw_struct_infos {
