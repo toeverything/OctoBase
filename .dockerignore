@@ -2,5 +2,4 @@ apps/android
 apps/homepage
 apps/swift
 apps/playground
-libs/jwst-binding
 node_modules
