@@ -14,6 +14,14 @@ impl<R: CrdtReader> CrdtRead<R> for Range<u64> {
     }
 }
 
+impl<W: CrdtWriter> CrdtWrite<W> for Range<u64> {
+    fn write(&self, encoder: &mut W) -> JwstCodecResult {
+        encoder.write_var_u64(self.start)?;
+        encoder.write_var_u64(self.end - self.start)?;
+        Ok(())
+    }
+}
+
 impl<R: CrdtReader> CrdtRead<R> for OrderRange {
     fn read(decoder: &mut R) -> JwstCodecResult<Self> {
         let num_of_deletes = decoder.read_var_u64()? as usize;
@@ -24,21 +32,6 @@ impl<R: CrdtReader> CrdtRead<R> for OrderRange {
         }
 
         Ok(OrderRange::Fragment(deletes))
-    }
-}
-
-impl<R: CrdtReader> CrdtRead<R> for DeleteSet {
-    fn read(decoder: &mut R) -> JwstCodecResult<Self> {
-        let num_of_clients = decoder.read_var_u64()? as usize;
-        let mut map = HashMap::with_capacity(num_of_clients);
-
-        for _ in 0..num_of_clients {
-            let client = decoder.read_var_u64()?;
-            let deletes = OrderRange::read(decoder)?;
-            map.insert(client, deletes);
-        }
-
-        Ok(DeleteSet(map))
     }
 }
 
@@ -112,5 +105,26 @@ impl DeleteSet {
                 }
             }
         }
+    }
+}
+
+impl<R: CrdtReader> CrdtRead<R> for DeleteSet {
+    fn read(decoder: &mut R) -> JwstCodecResult<Self> {
+        let num_of_clients = decoder.read_var_u64()? as usize;
+        let mut map = HashMap::with_capacity(num_of_clients);
+
+        for _ in 0..num_of_clients {
+            let client = decoder.read_var_u64()?;
+            let deletes = OrderRange::read(decoder)?;
+            map.insert(client, deletes);
+        }
+
+        Ok(DeleteSet(map))
+    }
+}
+
+impl<W: CrdtWriter> CrdtWrite<W> for DeleteSet {
+    fn write(&self, _encoder: &mut W) -> JwstCodecResult {
+        todo!()
     }
 }

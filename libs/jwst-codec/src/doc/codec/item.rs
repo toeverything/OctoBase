@@ -11,17 +11,19 @@ pub enum Parent {
 #[rustfmt::skip]
 #[allow(dead_code)]
 pub mod item_flags {
-    pub const ITEM_KEEP            : u8 = 0b0000_0001;
-    pub const ITEM_COUNTABLE       : u8 = 0b0000_0010;
-    pub const ITEM_DELETED         : u8 = 0b0000_0100;
-    pub const ITEM_MARKED          : u8 = 0b0000_1000;
-    pub const ITEM_HAS_PARENT_SUB  : u8 = 0b0010_0000;
-    pub const ITEM_HAS_RIGHT_ID    : u8 = 0b0100_0000;
-    pub const ITEM_HAS_LEFT_ID     : u8 = 0b1000_0000;
+    pub const ITEM_KEEP                 : u8 = 0b0000_0001;
+    pub const ITEM_COUNTABLE            : u8 = 0b0000_0010;
+    pub const ITEM_DELETED              : u8 = 0b0000_0100;
+    pub const ITEM_MARKED               : u8 = 0b0000_1000;
+    pub const ITEM_HAS_PARENT_SUB       : u8 = 0b0010_0000;
+    pub const ITEM_HAS_RIGHT_ID         : u8 = 0b0100_0000;
+    pub const ITEM_HAS_LEFT_ID          : u8 = 0b1000_0000;
+    pub const ITEM_HAS_PARENT_INFO      : u8 = 0b1100_0000;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct ItemFlags(u8);
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+pub struct ItemFlags(#[cfg_attr(test, proptest(value = 0))] u8);
 
 impl From<u8> for ItemFlags {
     fn from(flags: u8) -> Self {
@@ -154,7 +156,7 @@ impl Item {
         let has_left_id = flags.check(item_flags::ITEM_HAS_LEFT_ID);
         let has_right_id = flags.check(item_flags::ITEM_HAS_RIGHT_ID);
         let has_parent_sub = flags.check(item_flags::ITEM_HAS_PARENT_SUB);
-        let has_not_parent_info = !(has_left_id || has_right_id);
+        let has_not_parent_info = flags.not(item_flags::ITEM_HAS_PARENT_INFO);
 
         // NOTE: read order must keep the same as the order in yjs
         // TODO: this data structure design will break the cpu OOE, need to be optimized
