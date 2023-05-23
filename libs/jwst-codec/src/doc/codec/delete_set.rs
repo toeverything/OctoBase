@@ -58,7 +58,7 @@ impl<W: CrdtWriter> CrdtWrite<W> for OrderRange {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct DeleteSet(pub HashMap<Client, OrderRange>);
 
 impl Deref for DeleteSet {
@@ -155,5 +155,70 @@ impl<W: CrdtWriter> CrdtWrite<W> for DeleteSet {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_delete_set_add() {
+        let delete_set = DeleteSet::from([
+            (1, vec![0..10, 20..30]),
+            (2, vec![0..5, 10..20]),
+            (3, vec![15..20, 30..35]),
+            (4, vec![0..10]),
+        ]);
+
+        {
+            let mut delete_set = delete_set.clone();
+            delete_set.add(1, 5, 25);
+            assert_eq!(delete_set.get(&1), Some(&OrderRange::Range(0..30)));
+        }
+
+        {
+            let mut delete_set = delete_set.clone();
+            delete_set.add(1, 5, 10);
+            assert_eq!(
+                delete_set.get(&1),
+                Some(&OrderRange::Fragment(vec![0..15, 20..30]))
+            );
+        }
+    }
+
+    #[test]
+    fn test_delete_set_batch_push() {
+        let delete_set = DeleteSet::from([
+            (1, vec![0..10, 20..30]),
+            (2, vec![0..5, 10..20]),
+            (3, vec![15..20, 30..35]),
+            (4, vec![0..10]),
+        ]);
+
+        {
+            let mut delete_set = delete_set.clone();
+            delete_set.batch_push(1, vec![0..5, 10..20]);
+            assert_eq!(delete_set.get(&1), Some(&OrderRange::Range(0..30)));
+        }
+
+        {
+            let mut delete_set = delete_set.clone();
+            delete_set.batch_push(1, vec![40..50, 10..20]);
+            assert_eq!(
+                delete_set.get(&1),
+                Some(&OrderRange::Fragment(vec![0..30, 40..50]))
+            );
+        }
+    }
+
+    #[test]
+    fn test_encode_decode() {
+        let delete_set = DeleteSet::from([(1, vec![0..10, 20..30]), (2, vec![0..5, 10..20])]);
+        let mut encoder = RawEncoder::default();
+        delete_set.write(&mut encoder).unwrap();
+        let mut decoder = RawDecoder::new(encoder.into_inner());
+        let decoded = DeleteSet::read(&mut decoder).unwrap();
+        assert_eq!(delete_set, decoded);
     }
 }
