@@ -9,6 +9,7 @@ name = "affine_cloud_migration"
 path = "src/lib.rs"
 
 [dependencies]
+argon2 = "0.5.0"
 tokio = { version = "1.27.0", features = ["macros"] }
 
 [dependencies.sea-orm-migration]

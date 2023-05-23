@@ -85,9 +85,9 @@ impl CloudDatabase {
             };
 
         let hashed_password = user
-            .clone()
+            .as_ref()
+            .map(|u| u.password.clone())
             .ok_or(DbErr::RecordNotFound("Failed to find the user".to_string()))?
-            .password
             .ok_or(DbErr::RecordNotFound("Failed to find the user".to_string()))?;
 
         let parsed_hash = PasswordHash::new(&hashed_password).or(Err(DbErr::RecordNotFound(
