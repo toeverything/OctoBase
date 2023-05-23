@@ -54,7 +54,6 @@ export default function EditorLoader({workspace, editor, provider}: {workspace: 
             {!ready && <div className="tip">
                 <div>1. Please first start keck server with <code>cargo run -p keck</code>.</div>
                 <div>2. BlockSuite Editor will mount automatically after keck server is connected.</div>
-                <div>3. Try open more tabs / windows, all contents will be synchronized.</div>
             </div>}
             {ready && <div ref={ref} id="editor-container"/>}
         </>
