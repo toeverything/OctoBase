@@ -62,7 +62,7 @@ impl<R: CrdtReader> CrdtRead<R> for Any {
 }
 
 impl<W: CrdtWriter> CrdtWrite<W> for Any {
-    fn write(&self, writer: &mut W) -> JwstCodecResult<()> {
+    fn write(&self, writer: &mut W) -> JwstCodecResult {
         match self {
             Any::Undefined => writer.write_u8(127)?,
             Any::Null => writer.write_u8(127 - 1)?,
@@ -120,11 +120,7 @@ impl Any {
         Ok((key, value))
     }
 
-    fn write_key_value<W: CrdtWriter>(
-        writer: &mut W,
-        key: &str,
-        value: &Any,
-    ) -> JwstCodecResult<()> {
+    fn write_key_value<W: CrdtWriter>(writer: &mut W, key: &str, value: &Any) -> JwstCodecResult {
         writer.write_var_string(key)?;
         value.write(writer)?;
 
@@ -140,10 +136,7 @@ impl Any {
         Ok(any)
     }
 
-    pub(crate) fn write_multiple<W: CrdtWriter>(
-        writer: &mut W,
-        any: &[Any],
-    ) -> JwstCodecResult<()> {
+    pub(crate) fn write_multiple<W: CrdtWriter>(writer: &mut W, any: &[Any]) -> JwstCodecResult {
         writer.write_var_u64(any.len() as u64)?;
         for value in any {
             value.write(writer)?;

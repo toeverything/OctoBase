@@ -1,6 +1,8 @@
 use super::*;
 use std::collections::VecDeque;
 
+#[derive(Debug, PartialEq)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 enum RawStructInfo {
     GC(u64),
     Skip(u64),
@@ -27,7 +29,7 @@ impl<R: CrdtReader> CrdtRead<R> for RawStructInfo {
 }
 
 impl<W: CrdtWriter> CrdtWrite<W> for RawStructInfo {
-    fn write(&self, encoder: &mut W) -> JwstCodecResult<()> {
+    fn write(&self, encoder: &mut W) -> JwstCodecResult {
         match self {
             Self::GC(len) => {
                 encoder.write_info(0)?;
@@ -223,6 +225,7 @@ impl<R: CrdtReader> CrdtRead<R> for RawRefs {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::{collection::vec, prelude::*};
 
     #[test]
     fn test_struct_info() {
@@ -244,6 +247,57 @@ mod tests {
             assert_eq!(struct_info.len(), 20);
             assert_eq!(struct_info.client(), 2);
             assert_eq!(struct_info.clock(), 0);
+        }
+    }
+
+    #[test]
+    fn test_raw_struct_info() {
+        let raw_struct_infos = vec![
+            RawStructInfo::GC(42),
+            RawStructInfo::Skip(314),
+            // RawStructInfo::Item(Item::new()),
+        ];
+
+        for info in raw_struct_infos {
+            let mut encoder = RawEncoder::default();
+            info.write(&mut encoder).unwrap();
+
+            let mut decoder = RawDecoder::new(encoder.into_inner());
+            let decoded = RawStructInfo::read(&mut decoder).unwrap();
+
+            assert_eq!(info, decoded);
+        }
+    }
+
+    fn struct_info_round_trip(info: &mut RawStructInfo) -> JwstCodecResult {
+        if let RawStructInfo::Item(item) = info {
+            if !item.is_valid() {
+                return Ok(());
+            }
+
+            if item.content.countable() {
+                item.flags.set_countable();
+            }
+        }
+        let mut encoder = RawEncoder::default();
+        info.write(&mut encoder)?;
+
+        let ret = encoder.into_inner();
+        let mut decoder = RawDecoder::new(ret);
+
+        let decoded = RawStructInfo::read(&mut decoder)?;
+
+        assert_eq!(info, &decoded);
+
+        Ok(())
+    }
+
+    proptest! {
+        #[test]
+        fn test_random_struct_info(mut infos in vec(any::<RawStructInfo>(), 0..10)) {
+            for info in &mut infos {
+                struct_info_round_trip(info).unwrap();
+            }
         }
     }
 }
