@@ -1,6 +1,6 @@
 mod any;
 mod content;
-mod delete;
+mod delete_set;
 mod id;
 mod io;
 mod item;
@@ -8,12 +8,12 @@ mod refs;
 mod update;
 
 pub use any::Any;
-pub use content::Content;
-pub use delete::{Delete, DeleteSets};
+pub use content::{Content, YType};
+pub use delete_set::DeleteSet;
 pub use id::{Client, Clock, Id};
 pub use io::{CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, RawDecoder, RawEncoder};
-pub use item::{Item, Parent};
+pub use item::{item_flags, Item, ItemFlags, Parent};
 pub use refs::{RawRefs, StructInfo};
-pub use update::{Update, UpdateIterator};
+pub use update::Update;
 
 use super::*;

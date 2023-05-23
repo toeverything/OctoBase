@@ -46,27 +46,37 @@ impl<W: CrdtWriter> CrdtWrite<W> for RawStructInfo {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum StructInfo {
     GC { id: Id, len: u64 },
     Skip { id: Id, len: u64 },
     Item { id: Id, item: Box<Item> },
 }
 
+impl PartialEq for StructInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id()
+    }
+}
+
+impl Eq for StructInfo {
+    fn assert_receiver_is_total_eq(&self) {}
+}
+
 impl StructInfo {
-    pub fn id(&self) -> &Id {
-        match self {
-            Self::GC { id, .. } => id,
-            Self::Skip { id, .. } => id,
-            Self::Item { id, .. } => id,
+    pub fn id(&self) -> Id {
+        *match self {
+            StructInfo::GC { id, .. } => id,
+            StructInfo::Skip { id, .. } => id,
+            StructInfo::Item { id, .. } => id,
         }
     }
 
-    pub fn client_id(&self) -> u64 {
+    pub fn client(&self) -> Client {
         self.id().client
     }
 
-    pub fn clock(&self) -> u64 {
+    pub fn clock(&self) -> Clock {
         self.id().clock
     }
 
@@ -90,6 +100,22 @@ impl StructInfo {
         matches!(self, Self::Item { .. })
     }
 
+    pub fn flags(&self) -> ItemFlags {
+        if let StructInfo::Item { item, .. } = self {
+            item.flags
+        } else {
+            ItemFlags::from(0)
+        }
+    }
+
+    pub fn item(&self) -> Option<&Item> {
+        if let Self::Item { item, .. } = self {
+            Some(item.as_ref())
+        } else {
+            None
+        }
+    }
+
     pub fn left_id(&self) -> Option<Id> {
         if let Self::Item { item, .. } = self {
             item.left_id
@@ -106,34 +132,47 @@ impl StructInfo {
         }
     }
 
-    pub fn split_item(&self, diff: u64) -> JwstCodecResult<(Self, Self)> {
+    pub fn parent(&self) -> Option<&Parent> {
+        if let Self::Item { item, .. } = self {
+            item.parent.as_ref()
+        } else {
+            None
+        }
+    }
+
+    pub fn parent_sub(&self) -> Option<&String> {
+        if let Self::Item { item, .. } = self {
+            item.parent_sub.as_ref()
+        } else {
+            None
+        }
+    }
+
+    pub fn split_item(&mut self, diff: u64) -> JwstCodecResult<Self> {
         if let Self::Item { id, item } = self {
             let right_id = Id::new(id.client, id.clock + diff);
-            let (left_content, right_content) = item.content.split(diff)?;
-
-            let left_item = Self::Item {
-                id: *id,
-                item: Box::new(Item {
-                    right_id: Some(right_id),
-                    content: left_content,
-                    ..item.as_ref().clone()
-                }),
-            };
+            item.right_id = Some(right_id);
+            let right_content = item.content.split(diff)?;
 
             let right_item = Self::Item {
                 id: right_id,
                 item: Box::new(Item {
                     left_id: Some(Id::new(id.client, id.clock + diff - 1)),
                     right_id: item.right_id,
-                    parent: item.parent.clone(),
-                    parent_sub: item.parent_sub.clone(),
                     content: right_content,
+                    ..item.as_ref().clone()
                 }),
             };
 
-            Ok((left_item, right_item))
+            Ok(right_item)
         } else {
             Err(JwstCodecError::ItemSplitNotSupport)
+        }
+    }
+
+    pub fn delete(&mut self) {
+        if let StructInfo::Item { item, .. } = self {
+            item.delete()
         }
     }
 }
@@ -193,7 +232,7 @@ mod tests {
                 len: 10,
             };
             assert_eq!(struct_info.len(), 10);
-            assert_eq!(struct_info.client_id(), 1);
+            assert_eq!(struct_info.client(), 1);
             assert_eq!(struct_info.clock(), 0);
         }
 
@@ -203,7 +242,7 @@ mod tests {
                 len: 20,
             };
             assert_eq!(struct_info.len(), 20);
-            assert_eq!(struct_info.client_id(), 2);
+            assert_eq!(struct_info.client(), 2);
             assert_eq!(struct_info.clock(), 0);
         }
     }
