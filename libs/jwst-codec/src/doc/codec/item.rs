@@ -269,9 +269,13 @@ mod tests {
     use super::*;
     use proptest::{collection::vec, prelude::*};
 
-    fn item_round_trip(item: &Item) -> JwstCodecResult {
+    fn item_round_trip(item: &mut Item) -> JwstCodecResult {
         if !item.is_valid() {
             return Ok(());
+        }
+
+        if item.content.countable() {
+            item.flags.set_countable();
         }
 
         let mut encoder = RawEncoder::default();
@@ -290,8 +294,8 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_random_content(items in vec(any::<Item>(), 0..10)) {
-            for item in &items {
+        fn test_random_content(mut items in vec(any::<Item>(), 0..10)) {
+            for item in &mut items {
                 item_round_trip(item).unwrap();
             }
         }

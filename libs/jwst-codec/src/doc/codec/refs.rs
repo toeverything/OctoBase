@@ -269,10 +269,14 @@ mod tests {
         }
     }
 
-    fn struct_info_round_trip(info: &RawStructInfo) -> JwstCodecResult {
+    fn struct_info_round_trip(info: &mut RawStructInfo) -> JwstCodecResult {
         if let RawStructInfo::Item(item) = info {
             if !item.is_valid() {
                 return Ok(());
+            }
+
+            if item.content.countable() {
+                item.flags.set_countable();
             }
         }
         let mut encoder = RawEncoder::default();
@@ -290,8 +294,8 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_random_struct_info(infos in vec(any::<RawStructInfo>(), 0..10)) {
-            for info in &infos {
+        fn test_random_struct_info(mut infos in vec(any::<RawStructInfo>(), 0..10)) {
+            for info in &mut infos {
                 struct_info_round_trip(info).unwrap();
             }
         }
