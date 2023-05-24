@@ -88,11 +88,9 @@ impl Update {
         Update::read(&mut RawDecoder::new(buffer))
     }
 
-    pub fn into(self) -> JwstCodecResult<Vec<u8>> {
+    pub fn into_ybinary1(self) -> JwstCodecResult<Vec<u8>> {
         let mut encoder = RawEncoder::default();
-
         self.write(&mut encoder)?;
-
         Ok(encoder.into_inner())
     }
 
