@@ -18,20 +18,28 @@ pub struct Update {
     pub pending_delete_set: DeleteSet,
 }
 
-impl TryFrom<RawDecoder> for Update {
-    type Error = JwstCodecError;
+impl<R: CrdtReader> CrdtRead<R> for Update {
+    fn read(decoder: &mut R) -> JwstCodecResult<Self> {
+        let num_of_clients = decoder.read_var_u64()?;
 
-    fn try_from(mut decoder: RawDecoder) -> JwstCodecResult<Self> {
-        let structs: HashMap<u64, VecDeque<StructInfo>> = {
-            let num_of_updates = decoder.read_var_u64()?;
-            let updates = (0..num_of_updates)
-                .map(|_| RawRefs::read(&mut decoder))
-                .collect::<Result<Vec<_>, _>>()?;
+        let mut map = HashMap::with_capacity(num_of_clients as usize);
+        for _ in 0..num_of_clients {
+            let num_of_structs = decoder.read_var_u64()?;
+            let client = decoder.read_var_u64()?;
+            let mut clock = decoder.read_var_u64()?;
 
-            updates.into_iter().map(|u| (u.client, u.refs)).collect()
-        };
+            let mut structs = VecDeque::with_capacity(num_of_structs as usize);
 
-        let delete_set = DeleteSet::read(&mut decoder)?;
+            for _ in 0..num_of_structs {
+                let struct_info = StructInfo::read(decoder, Id::new(client, clock))?;
+                clock += struct_info.len();
+                structs.push_back(struct_info);
+            }
+
+            map.insert(client, structs);
+        }
+
+        let delete_set = DeleteSet::read(decoder)?;
 
         if !decoder.is_empty() {
             return Err(JwstCodecError::UpdateNotFullyConsumed(
@@ -40,23 +48,50 @@ impl TryFrom<RawDecoder> for Update {
         }
 
         Ok(Update {
-            structs,
+            structs: map,
             delete_set,
             ..Update::default()
         })
     }
 }
 
+impl<W: CrdtWriter> CrdtWrite<W> for Update {
+    fn write(&self, encoder: &mut W) -> JwstCodecResult {
+        encoder.write_var_u64(self.structs.len() as u64)?;
+
+        let mut clients = self.structs.keys().copied().collect::<Vec<_>>();
+
+        // Descending
+        clients.sort_by(|a, b| b.cmp(a));
+
+        for client in clients {
+            let structs = self.structs.get(&client).unwrap();
+
+            encoder.write_var_u64(structs.len() as u64)?;
+            encoder.write_var_u64(client)?;
+            encoder.write_var_u64(structs.front().map(|s| s.clock()).unwrap_or(0))?;
+
+            for struct_info in structs {
+                struct_info.write(encoder)?;
+            }
+        }
+
+        self.delete_set.write(encoder)?;
+
+        Ok(())
+    }
+}
+
 impl Update {
     // decode from ydoc v1
     pub fn from_ybinary1(buffer: Vec<u8>) -> JwstCodecResult<Update> {
-        Self::try_from(RawDecoder::new(buffer))
+        Update::read(&mut RawDecoder::new(buffer))
     }
 
     pub fn into(self) -> JwstCodecResult<Vec<u8>> {
-        let encoder = RawEncoder::default();
+        let mut encoder = RawEncoder::default();
 
-        // TODO: write updates
+        self.write(&mut encoder)?;
 
         Ok(encoder.into_inner())
     }
@@ -357,7 +392,7 @@ impl Iterator for DeleteSetIterator<'_> {
 mod tests {
     use crate::doc::common::OrderRange;
 
-    use super::{doc::RawDecoder, *};
+    use super::*;
     use serde::Deserialize;
     use std::{num::ParseIntError, path::PathBuf};
 
@@ -372,7 +407,7 @@ mod tests {
     }
 
     fn parse_doc_update(input: Vec<u8>) -> JwstCodecResult<Update> {
-        Update::try_from(RawDecoder::new(input))
+        Update::from_ybinary1(input)
     }
 
     #[test]

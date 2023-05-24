@@ -25,13 +25,36 @@ impl<W: CrdtWriter> CrdtWrite<W> for Range<u64> {
 impl<R: CrdtReader> CrdtRead<R> for OrderRange {
     fn read(decoder: &mut R) -> JwstCodecResult<Self> {
         let num_of_deletes = decoder.read_var_u64()? as usize;
-        let mut deletes = Vec::with_capacity(num_of_deletes);
+        if num_of_deletes == 1 {
+            Ok(OrderRange::Range(Range::<u64>::read(decoder)?))
+        } else {
+            let mut deletes = Vec::with_capacity(num_of_deletes);
 
-        for _ in 0..num_of_deletes {
-            deletes.push(Range::<u64>::read(decoder)?);
+            for _ in 0..num_of_deletes {
+                deletes.push(Range::<u64>::read(decoder)?);
+            }
+
+            Ok(OrderRange::Fragment(deletes))
+        }
+    }
+}
+
+impl<W: CrdtWriter> CrdtWrite<W> for OrderRange {
+    fn write(&self, encoder: &mut W) -> JwstCodecResult {
+        match self {
+            OrderRange::Range(range) => {
+                encoder.write_var_u64(1)?;
+                range.write(encoder)?;
+            }
+            OrderRange::Fragment(ranges) => {
+                encoder.write_var_u64(ranges.len() as u64)?;
+                for range in ranges {
+                    range.write(encoder)?;
+                }
+            }
         }
 
-        Ok(OrderRange::Fragment(deletes))
+        Ok(())
     }
 }
 
@@ -124,7 +147,13 @@ impl<R: CrdtReader> CrdtRead<R> for DeleteSet {
 }
 
 impl<W: CrdtWriter> CrdtWrite<W> for DeleteSet {
-    fn write(&self, _encoder: &mut W) -> JwstCodecResult {
-        todo!()
+    fn write(&self, encoder: &mut W) -> JwstCodecResult {
+        encoder.write_var_u64(self.len() as u64)?;
+        for (client, deletes) in self.iter() {
+            encoder.write_var_u64(*client)?;
+            deletes.write(encoder)?;
+        }
+
+        Ok(())
     }
 }

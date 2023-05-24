@@ -1,58 +1,27 @@
 use super::*;
-use std::collections::VecDeque;
-
-#[derive(Debug, PartialEq)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-enum RawStructInfo {
-    GC(u64),
-    Skip(u64),
-    Item(Item),
-}
-
-impl<R: CrdtReader> CrdtRead<R> for RawStructInfo {
-    fn read(decoder: &mut R) -> JwstCodecResult<Self> {
-        let info = decoder.read_info()?;
-        let first_5_bit = info & 0b11111;
-
-        match first_5_bit {
-            0 => {
-                let len = decoder.read_var_u64()?;
-                Ok(Self::GC(len))
-            }
-            10 => {
-                let len = decoder.read_var_u64()?;
-                Ok(Self::Skip(len))
-            }
-            _ => Ok(Self::Item(Item::read(decoder, info, first_5_bit)?)),
-        }
-    }
-}
-
-impl<W: CrdtWriter> CrdtWrite<W> for RawStructInfo {
-    fn write(&self, encoder: &mut W) -> JwstCodecResult {
-        match self {
-            Self::GC(len) => {
-                encoder.write_info(0)?;
-                encoder.write_var_u64(*len)?;
-            }
-            Self::Skip(len) => {
-                encoder.write_info(10)?;
-                encoder.write_var_u64(*len)?;
-            }
-            Self::Item(item) => {
-                item.write(encoder)?;
-            }
-        }
-
-        Ok(())
-    }
-}
 
 #[derive(Debug, Clone)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum StructInfo {
     GC { id: Id, len: u64 },
     Skip { id: Id, len: u64 },
     Item { id: Id, item: Box<Item> },
+}
+
+impl<W: CrdtWriter> CrdtWrite<W> for StructInfo {
+    fn write(&self, writer: &mut W) -> JwstCodecResult {
+        match self {
+            StructInfo::GC { len, .. } => {
+                writer.write_info(0)?;
+                writer.write_var_u64(*len)
+            }
+            StructInfo::Skip { len, .. } => {
+                writer.write_info(10)?;
+                writer.write_var_u64(*len)
+            }
+            StructInfo::Item { item, .. } => item.write(writer),
+        }
+    }
 }
 
 impl PartialEq for StructInfo {
@@ -66,6 +35,26 @@ impl Eq for StructInfo {
 }
 
 impl StructInfo {
+    pub fn read<R: CrdtReader>(decoder: &mut R, id: Id) -> JwstCodecResult<Self> {
+        let info = decoder.read_info()?;
+        let first_5_bit = info & 0b11111;
+
+        match first_5_bit {
+            0 => {
+                let len = decoder.read_var_u64()?;
+                Ok(StructInfo::GC { id, len })
+            }
+            10 => {
+                let len = decoder.read_var_u64()?;
+                Ok(StructInfo::Skip { id, len })
+            }
+            _ => Ok(StructInfo::Item {
+                id,
+                item: Box::new(Item::read(decoder, info, first_5_bit)?),
+            }),
+        }
+    }
+
     pub fn id(&self) -> Id {
         *match self {
             StructInfo::GC { id, .. } => id,
@@ -179,49 +168,6 @@ impl StructInfo {
     }
 }
 
-pub struct RawRefs {
-    pub(crate) client: u64,
-    pub(crate) refs: VecDeque<StructInfo>,
-}
-
-impl<R: CrdtReader> CrdtRead<R> for RawRefs {
-    fn read(decoder: &mut R) -> JwstCodecResult<Self> {
-        let num_of_structs = decoder.read_var_u64()?;
-        let client = decoder.read_var_u64()?;
-        let clock = decoder.read_var_u64()?;
-        let structs = (0..num_of_structs)
-            .map(|_| RawStructInfo::read(decoder))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let (refs, _) = structs.into_iter().fold(
-            (VecDeque::with_capacity(num_of_structs as usize), clock),
-            |(mut vec, clock), s| {
-                let id = Id::new(client, clock);
-                match s {
-                    RawStructInfo::GC(len) => {
-                        vec.push_back(StructInfo::GC { id, len });
-                        (vec, clock + len)
-                    }
-                    RawStructInfo::Skip(len) => {
-                        vec.push_back(StructInfo::Skip { id, len });
-                        (vec, clock + len)
-                    }
-                    RawStructInfo::Item(item) => {
-                        let len = item.content.clock_len();
-                        vec.push_back(StructInfo::Item {
-                            id,
-                            item: Box::new(item),
-                        });
-                        (vec, clock + len)
-                    }
-                }
-            },
-        );
-
-        Ok(Self { client, refs })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -251,26 +197,32 @@ mod tests {
     }
 
     #[test]
-    fn test_raw_struct_info() {
-        let raw_struct_infos = vec![
-            RawStructInfo::GC(42),
-            RawStructInfo::Skip(314),
+    fn test_read_write_struct_info() {
+        let struct_infos = vec![
+            StructInfo::GC {
+                id: (0, 0).into(),
+                len: 42,
+            },
+            StructInfo::Skip {
+                id: (0, 0).into(),
+                len: 314,
+            },
             // RawStructInfo::Item(Item::new()),
         ];
 
-        for info in raw_struct_infos {
+        for info in struct_infos {
             let mut encoder = RawEncoder::default();
             info.write(&mut encoder).unwrap();
 
             let mut decoder = RawDecoder::new(encoder.into_inner());
-            let decoded = RawStructInfo::read(&mut decoder).unwrap();
+            let decoded = StructInfo::read(&mut decoder, info.id()).unwrap();
 
             assert_eq!(info, decoded);
         }
     }
 
-    fn struct_info_round_trip(info: &mut RawStructInfo) -> JwstCodecResult {
-        if let RawStructInfo::Item(item) = info {
+    fn struct_info_round_trip(info: &mut StructInfo) -> JwstCodecResult {
+        if let StructInfo::Item { item, .. } = info {
             if !item.is_valid() {
                 return Ok(());
             }
@@ -285,7 +237,7 @@ mod tests {
         let ret = encoder.into_inner();
         let mut decoder = RawDecoder::new(ret);
 
-        let decoded = RawStructInfo::read(&mut decoder)?;
+        let decoded = StructInfo::read(&mut decoder, info.id())?;
 
         assert_eq!(info, &decoded);
 
@@ -294,7 +246,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn test_random_struct_info(mut infos in vec(any::<RawStructInfo>(), 0..10)) {
+        fn test_random_struct_info(mut infos in vec(any::<StructInfo>(), 0..10)) {
             for info in &mut infos {
                 struct_info_round_trip(info).unwrap();
             }
