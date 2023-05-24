@@ -138,40 +138,37 @@ impl OrderRange {
     }
 
     /// Merge all available ranges list into one.
-    pub fn squash(&mut self) {
+    fn squash(&mut self) {
         // merge all available ranges
-        match self {
-            OrderRange::Range(_) => {}
-            OrderRange::Fragment(ranges) => {
-                if ranges.is_empty() {
-                    *self = OrderRange::Range(0..0);
-                    return;
+        if let OrderRange::Fragment(ranges) = self {
+            if ranges.is_empty() {
+                *self = OrderRange::Range(0..0);
+                return;
+            }
+
+            let mut cur_idx = 0;
+            let mut next_idx = 1;
+            while next_idx < ranges.len() {
+                let cur = &ranges[cur_idx];
+                let next = &ranges[next_idx];
+                if is_continuous_range(cur, next) {
+                    ranges[cur_idx] = cur.start.min(next.start)..cur.end.max(next.end);
+                    ranges[next_idx] = 0..0;
+                } else {
+                    cur_idx = next_idx;
                 }
 
-                let mut cur_idx = 0;
-                let mut next_idx = 1;
-                while next_idx < ranges.len() {
-                    let cur = &ranges[cur_idx];
-                    let next = &ranges[next_idx];
-                    if is_continuous_range(cur, next) {
-                        ranges[cur_idx] = cur.start.min(next.start)..cur.end.max(next.end);
-                        ranges[next_idx] = 0..0;
-                    } else {
-                        cur_idx = next_idx;
-                    }
+                next_idx += 1;
+            }
 
-                    next_idx += 1;
-                }
-
-                ranges.retain(|r| !r.is_empty());
-                if ranges.len() == 1 {
-                    *self = OrderRange::Range(ranges[0].clone());
-                }
+            ranges.retain(|r| !r.is_empty());
+            if ranges.len() == 1 {
+                *self = OrderRange::Range(ranges[0].clone());
             }
         }
     }
 
-    pub fn sort(&mut self) {
+    fn sort(&mut self) {
         if let OrderRange::Fragment(ranges) = self {
             ranges.sort_by(|lhs, rhs| lhs.start.cmp(&rhs.start));
         }

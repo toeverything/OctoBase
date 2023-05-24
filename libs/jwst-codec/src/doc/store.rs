@@ -115,7 +115,7 @@ impl DocStore {
     }
 
     pub fn get_state_vector(&self) -> StateVector {
-        let mut state = StateVector::new();
+        let mut state = StateVector::default();
         for (client, structs) in self.items.read().unwrap().iter() {
             if let Some(last_struct) = structs.last() {
                 let last_struct = last_struct.as_ref();

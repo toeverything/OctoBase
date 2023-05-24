@@ -519,7 +519,7 @@ mod tests {
             ..Update::default()
         };
 
-        let mut iter = update.iter(StateVector::new());
+        let mut iter = update.iter(StateVector::default());
         assert_eq!(iter.next().unwrap().0.id(), (1, 0).into());
         assert_eq!(iter.next().unwrap().0.id(), (0, 0).into());
         assert_eq!(iter.next().unwrap().0.id(), (0, 1).into());

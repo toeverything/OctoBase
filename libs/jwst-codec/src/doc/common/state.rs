@@ -8,15 +8,11 @@ use std::{
 pub struct StateVector(HashMap<Client, Clock>);
 
 impl StateVector {
-    pub fn new() -> Self {
-        Self(HashMap::new())
-    }
-
     pub fn set_max(&mut self, client: Client, clock: Clock) {
         self.entry(client)
-            .and_modify(|mclock| {
-                if *mclock < clock {
-                    *mclock = clock;
+            .and_modify(|m_clock| {
+                if *m_clock < clock {
+                    *m_clock = clock;
                 }
             })
             .or_insert(clock);
@@ -32,9 +28,9 @@ impl StateVector {
 
     pub fn set_min(&mut self, client: Client, clock: Clock) {
         self.entry(client)
-            .and_modify(|mclock| {
-                if *mclock > clock {
-                    *mclock = clock;
+            .and_modify(|m_clock| {
+                if *m_clock > clock {
+                    *m_clock = clock;
                 }
             })
             .or_insert(clock);

@@ -1,5 +1,3 @@
-use self::item_flags::ITEM_HAS_PARENT_INFO;
-
 use super::*;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -216,7 +214,7 @@ impl Item {
         if self.right_id.is_some() {
             info |= item_flags::ITEM_HAS_RIGHT_ID;
         }
-        let has_not_parent_info = info & ITEM_HAS_PARENT_INFO == 0;
+        let has_not_parent_info = info & item_flags::ITEM_HAS_PARENT_INFO == 0;
         if has_not_parent_info && self.parent_sub.is_some() {
             info |= item_flags::ITEM_HAS_PARENT_SUB;
         }
