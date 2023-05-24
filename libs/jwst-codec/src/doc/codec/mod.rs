@@ -13,7 +13,7 @@ pub use delete_set::DeleteSet;
 pub use id::{Client, Clock, Id};
 pub use io::{CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, RawDecoder, RawEncoder};
 pub use item::{item_flags, Item, ItemFlags, Parent};
-pub use refs::{RawRefs, StructInfo};
+pub use refs::StructInfo;
 pub use update::Update;
 
 use super::*;
