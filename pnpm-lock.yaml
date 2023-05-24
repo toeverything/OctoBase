@@ -130,8 +130,8 @@ importers:
         specifier: ^0.5.0
         version: 0.5.0(lit@2.7.4)(yjs@13.5.51)
       '@toeverything/y-indexeddb':
-        specifier: 0.5.4-canary.19
-        version: 0.5.4-canary.19(yjs@13.5.51)
+        specifier: 0.6.0-canary.6
+        version: 0.6.0-canary.6(yjs@13.5.51)
       jotai:
         specifier: ^2.0.4
         version: 2.0.4(react@18.2.0)
@@ -1726,8 +1726,8 @@ packages:
     resolution: {integrity: sha512-N7a20mwbhrFXNqvd8Rxa0Btwu1Li5rQbqdIi3mzt5HRjP25PbyYuTU2BXbu8yMEnUk018Gi13gpS/jlMgXFuOw==}
     dev: false
 
-  /@toeverything/y-indexeddb@0.5.4-canary.19(yjs@13.5.51):
-    resolution: {integrity: sha512-jWmZR41YwFMJKM+GH23Fj6WDXC09BAyDAjBU0P6DinVJlN96+6K9i37ohe3pw8B4TewVfw6N9Hs7cxQI14WvKw==}
+  /@toeverything/y-indexeddb@0.6.0-canary.6(yjs@13.5.51):
+    resolution: {integrity: sha512-N+WLSCW8R+R9DbgkO+O5vQlya5AsTca0o/BslGaOJopNZMAM5NDBWrcKRdY8XYrPENRPi/68Vzv5ryYgF1rgCA==}
     peerDependencies:
       yjs: ^13.5.51
     dependencies:

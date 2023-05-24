@@ -10,12 +10,7 @@
 	},
 	"overview": "Overview",
 	"guide": "How To",
-	"implementation_separator": {
-		"title": "Internal implementation",
-		"type": "separator"
-	},
-	"implementation_sync": "🚧 Sync Protocol",
-	"implementation_storage": "🚧 Storage Backend",
+	"implementation": "Internal implementation",
 	"api_reference_separator": {
 		"title": "API Reference",
 		"type": "separator"

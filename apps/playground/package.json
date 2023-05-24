@@ -13,7 +13,7 @@
     "@blocksuite/blocks": "^0.5.0",
     "@blocksuite/editor": "^0.5.0",
     "@blocksuite/store": "^0.5.0",
-    "@toeverything/y-indexeddb": "0.5.4-canary.19",
+    "@toeverything/y-indexeddb": "0.6.0-canary.6",
     "jotai": "^2.0.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
