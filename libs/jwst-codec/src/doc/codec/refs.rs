@@ -170,8 +170,7 @@ impl StructInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::item_util::ItemBuilder;
-    use super::*;
+    use super::{utils::ItemBuilder, *};
     use proptest::{collection::vec, prelude::*};
 
     #[test]
