@@ -1,5 +1,6 @@
 use super::*;
 use crate::doc::StateVector;
+use std::collections::VecDeque;
 use std::{
     cell::{Ref, RefCell, RefMut},
     collections::{hash_map::Entry, HashMap},
@@ -407,40 +408,45 @@ impl DocStore {
         encoder: &mut W,
     ) -> JwstCodecResult {
         let local_state_vector = self.get_state_vector();
-        let mut diff = Self::diff_state_vectors(&local_state_vector, sv);
+        let diff = Self::diff_state_vectors(&local_state_vector, sv);
+        let mut update_structs: HashMap<u64, VecDeque<StructInfo>> = HashMap::new();
 
-        diff.sort_by(|a, b| b.0.cmp(&a.0));
-
-        encoder.write_var_u64(diff.len() as u64)?;
         for (client, clock) in diff {
             // We have made sure that the client is in the local state vector in diff_state_vectors()
             if let Some(items) = self.items.read().unwrap().get(&client) {
                 if items.is_empty() {
                     continue;
                 }
+
+                update_structs.insert(client, VecDeque::new());
+                let vec_struct_info = update_structs.get_mut(&client).unwrap();
+
                 // the smallest clock in items may exceed the clock
                 let clock = items.first().unwrap().id().clock.max(clock);
                 if let Some(index) = Self::get_item_index(items, clock) {
-                    encoder.write_var_u64((items.len() - index) as u64)?; // [index, items.len())
-                    encoder.write_var_u64(client)?;
-                    encoder.write_var_u64(clock)?;
                     let first_block = items.get(index).unwrap();
                     let offset = first_block.clock() - clock;
                     if offset != 0 {
                         // needs to implement Content split first
                         unimplemented!()
                     } else {
-                        first_block.write(encoder)?;
+                        vec_struct_info.push_back(first_block.borrow().clone());
                     }
 
                     for item in items.iter().skip(index + 1) {
-                        item.write(encoder)?;
+                        vec_struct_info.push_back(item.borrow().clone());
                     }
                 }
             }
         }
 
-        self.delete_set.write().unwrap().write(encoder)?;
+        let update = Update {
+            structs: update_structs,
+            delete_set: self.delete_set.read().unwrap().clone(),
+            ..Update::default()
+        };
+
+        update.write(encoder)?;
 
         Ok(())
     }
