@@ -16,6 +16,7 @@ pub use protocol::{
     SyncMessage, SyncMessageScanner,
 };
 
+use doc::TypeStoreKind;
 use jwst_logger::warn;
 use nanoid::nanoid;
 use nom::IResult;
@@ -47,6 +48,8 @@ pub enum JwstCodecError {
     InvalidParent,
     #[error("Parent not found")]
     ParentNotFound,
+    #[error("Already initialize with another type: {0:?}")]
+    InvalidType(TypeStoreKind),
 }
 
 pub type JwstCodecResult<T = ()> = Result<T, JwstCodecError>;

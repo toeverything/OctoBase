@@ -36,6 +36,7 @@ macro_rules! wrap_inner {
   };
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TypeStoreKind {
     Array,
     Map,
@@ -67,9 +68,12 @@ impl TypeStore {
         }
     }
 
-    pub fn set_kind(&mut self, kind: TypeStoreKind) {
+    pub fn set_kind(&mut self, kind: TypeStoreKind) -> Option<TypeStoreKind> {
         if let TypeStoreKind::Unknown = self.kind {
             self.kind = kind;
+            None
+        } else {
+            Some(self.kind)
         }
     }
 }

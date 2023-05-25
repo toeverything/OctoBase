@@ -423,7 +423,7 @@ impl Doc {
         })
     }
 
-    pub fn get_array(&self, str: &str) -> YArray {
+    pub fn get_array(&self, str: &str) -> JwstCodecResult<YArray> {
         self.store.get_array(str)
     }
 }
