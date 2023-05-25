@@ -416,4 +416,12 @@ impl Doc {
             Ok(())
         })
     }
+
+    pub fn encode_update_v1(self) -> JwstCodecResult<Vec<u8>> {
+        let store = self.store;
+        let mut encoder = RawEncoder::default();
+        store.encode_with_state_vector(&StateVector::default(), &mut encoder)?;
+
+        Ok(encoder.into_inner())
+    }
 }
