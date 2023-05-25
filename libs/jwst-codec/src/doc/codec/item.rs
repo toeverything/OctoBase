@@ -146,6 +146,19 @@ impl Item {
 
         self.flags.deleted();
     }
+
+    pub fn indexable(&self) -> bool {
+        self.flags.countable() && !self.deleted()
+    }
+
+    pub fn get_parent(&self, store: &DocStore) -> JwstCodecResult<Option<Box<Item>>> {
+        let parent = match &self.parent {
+            Some(Parent::Id(id)) => store.get_item(*id)?.as_ref().as_item(),
+            Some(Parent::String(_)) => None,
+            None => None,
+        };
+        Ok(parent)
+    }
 }
 
 impl Item {

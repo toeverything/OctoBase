@@ -1,8 +1,9 @@
 use super::*;
-use std::{cmp::max, collections::LinkedList};
+use std::{cmp::max, collections::LinkedList, sync::Mutex};
 
 const MAX_SEARCH_MARKER: usize = 80;
 
+#[derive(Clone)]
 struct SearchMarker {
     ptr: Box<Item>,
     index: u64,
@@ -23,31 +24,39 @@ pub struct MarkerList {
     // in yjs, a timestamp field is used to sort markers and the oldest marker is deleted once the limit is reached.
     // this was designed for optimization purposes for v8. In Rust, we can simply use a linked list and trust the compiler to optimize.
     // the linked list can naturally maintain the insertion order, allowing us to know which marker is the oldest without using an extra timestamp field.
-    search_marker: LinkedList<SearchMarker>,
+    search_marker: Mutex<LinkedList<SearchMarker>>,
     store: DocStore,
 }
 
 impl MarkerList {
     fn new(store: DocStore) -> Self {
         MarkerList {
-            search_marker: LinkedList::new(),
+            search_marker: Mutex::new(LinkedList::new()),
             store,
         }
     }
 
-    fn mark_position(&mut self, ptr: Box<Item>, index: u64) {
-        if self.search_marker.len() >= MAX_SEARCH_MARKER {
-            let mut oldest_marker = self.search_marker.pop_front().unwrap();
+    // mark pos and push to the end of the linked list
+    fn mark_position(
+        list: &mut LinkedList<SearchMarker>,
+        ptr: Box<Item>,
+        index: u64,
+    ) -> Option<SearchMarker> {
+        if list.len() >= MAX_SEARCH_MARKER {
+            let mut oldest_marker = list.pop_front().unwrap();
             oldest_marker.overwrite_marker(ptr, index);
-            self.search_marker.push_back(oldest_marker);
+            list.push_back(oldest_marker);
         } else {
             let marker = SearchMarker::new(ptr, index);
-            self.search_marker.push_back(marker);
+            list.push_back(marker);
         }
+        list.back().map(|m| m.clone())
     }
 
-    fn update_marker_changes(&mut self, index: u64, len: i64) {
-        for marker in self.search_marker.iter_mut() {
+    // update mark position if the index is within the range of the marker
+    fn update_marker_changes(&self, index: u64, len: i64) {
+        let mut list = self.search_marker.lock().unwrap();
+        for marker in list.iter_mut() {
             let mut ptr = marker.ptr.clone();
             if len > 0 {
                 while let Some(left_item) = ptr.left_id {
@@ -55,7 +64,7 @@ impl MarkerList {
                         if let Some(left_item) = left_item.as_ref().as_item() {
                             ptr = left_item;
                             if !ptr.deleted() && ptr.content.countable() {
-                                marker.index -= ptr.content.clock_len();
+                                marker.index -= ptr.len();
                             }
                         }
                     }
@@ -66,5 +75,99 @@ impl MarkerList {
                 marker.index = max(index, (marker.index as i64 + len) as u64);
             }
         }
+    }
+
+    // find and return the marker that is closest to the index
+    fn find_marker(
+        &self,
+        index: u64,
+        parent_start: Box<Item>,
+    ) -> JwstCodecResult<Option<SearchMarker>> {
+        let items = self.store.items.read().unwrap();
+        if items.is_empty() || index == 0 {
+            return Ok(None);
+        }
+
+        let mut list = self.search_marker.lock().unwrap();
+        let marker = list
+            .iter_mut()
+            .min_by_key(|a| (index as i64 - a.index as i64).abs());
+        let mut marker_index = marker.as_ref().map(|m| m.index).unwrap_or(0);
+        let mut item_ptr = marker
+            .as_ref()
+            .map_or(parent_start.clone(), |m| m.ptr.clone());
+
+        // TODO: this logic here is a bit messy
+        // i think it can be implemented with more streamlined code, and then optimized
+        {
+            // iterate to the right if possible
+            while item_ptr.right_id.is_some() && marker_index < index {
+                if item_ptr.indexable() {
+                    if index < marker_index + item_ptr.len() {
+                        break;
+                    }
+                    marker_index += item_ptr.len() as u64;
+                }
+                item_ptr = self
+                    .store
+                    .get_item(item_ptr.right_id.unwrap())?
+                    .as_ref()
+                    .as_item()
+                    .unwrap();
+            }
+
+            // iterate to the left if necessary (might be that marker_index > index)
+            while item_ptr.left_id.is_some() && marker_index > index {
+                item_ptr = self
+                    .store
+                    .get_item(item_ptr.left_id.unwrap())?
+                    .as_ref()
+                    .as_item()
+                    .unwrap();
+                if !item_ptr.deleted() && item_ptr.content.countable() {
+                    marker_index -= item_ptr.len() as u64;
+                }
+            }
+
+            // we want to make sure that item_ptr can't be merged with left, because that would screw up everything
+            // in that case just return what we have (it is most likely the best marker anyway)
+            // iterate to left until item_ptr can't be merged with left
+            while let Some(left_id) = item_ptr.left_id {
+                if let Some(left_item) = self.store.get_item(left_id)?.as_ref().as_item() {
+                    if left_item.id.client == item_ptr.id.client
+                        && left_item.id.clock + item_ptr.len() == item_ptr.id.clock
+                    {
+                        item_ptr = left_item;
+                        if !item_ptr.deleted() && item_ptr.content.countable() {
+                            marker_index -= item_ptr.len();
+                        }
+                        continue;
+                    }
+                }
+                break;
+            }
+        }
+
+        let marker = match marker {
+            Some(marker)
+                if parent_start
+                    .get_parent(&self.store)?
+                    .map(|ptr| {
+                        (marker.index as i64 - marker_index as i64).abs()
+                            < ptr.len() as i64 / MAX_SEARCH_MARKER as i64
+                    })
+                    .unwrap_or(false) =>
+            {
+                // adjust existing marker
+                marker.overwrite_marker(item_ptr.clone(), marker_index);
+                Some(marker.clone())
+            }
+            _ => {
+                // create new marker
+                Self::mark_position(&mut list, item_ptr.clone(), marker_index)
+            }
+        };
+
+        Ok(marker)
     }
 }
