@@ -50,7 +50,7 @@ impl MarkerList {
             let marker = SearchMarker::new(ptr, index);
             list.push_back(marker);
         }
-        list.back().map(|m| m.clone())
+        list.back().cloned()
     }
 
     // update mark position if the index is within the range of the marker
@@ -106,7 +106,7 @@ impl MarkerList {
                     if index < marker_index + item_ptr.len() {
                         break;
                     }
-                    marker_index += item_ptr.len() as u64;
+                    marker_index += item_ptr.len();
                 }
                 item_ptr = self
                     .store
@@ -125,7 +125,7 @@ impl MarkerList {
                     .as_item()
                     .unwrap();
                 if !item_ptr.deleted() && item_ptr.content.countable() {
-                    marker_index -= item_ptr.len() as u64;
+                    marker_index -= item_ptr.len();
                 }
             }
 
@@ -159,12 +159,12 @@ impl MarkerList {
                     .unwrap_or(false) =>
             {
                 // adjust existing marker
-                marker.overwrite_marker(item_ptr.clone(), marker_index);
+                marker.overwrite_marker(item_ptr, marker_index);
                 Some(marker.clone())
             }
             _ => {
                 // create new marker
-                Self::mark_position(&mut list, item_ptr.clone(), marker_index)
+                Self::mark_position(&mut list, item_ptr, marker_index)
             }
         };
 
