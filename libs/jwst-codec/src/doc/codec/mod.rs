@@ -6,6 +6,7 @@ mod io;
 mod item;
 mod refs;
 mod update;
+mod utils;
 
 pub use any::Any;
 pub use content::{Content, YType};
@@ -15,5 +16,8 @@ pub use io::{CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, RawDecoder, RawEncoder
 pub use item::{item_flags, Item, ItemFlags, Parent};
 pub use refs::StructInfo;
 pub use update::Update;
+
+#[cfg(test)]
+pub use utils::item_util;
 
 use super::*;

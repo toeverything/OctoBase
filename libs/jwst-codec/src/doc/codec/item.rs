@@ -249,6 +249,8 @@ impl Item {
                         encoder.write_item_id(id)?;
                     }
                 }
+            } else {
+                return Err(JwstCodecError::ParentNotFound);
             }
         }
 

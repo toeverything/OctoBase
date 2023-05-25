@@ -1,6 +1,6 @@
 use std::{mem, ops::Range};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum OrderRange {
     Range(Range<u64>),
     Fragment(Vec<Range<u64>>),
@@ -194,7 +194,7 @@ mod tests {
         let mut range: OrderRange = (0..10).into();
 
         range.push(5..15);
-        assert_eq!(range, (0..15).into());
+        assert_eq!(range, OrderRange::Range(0..15));
 
         // turn to fragment
         range.push(20..30);
@@ -207,6 +207,17 @@ mod tests {
         // squash
         range.push(16..20);
         assert_eq!(range, OrderRange::Range(0..30));
+    }
+
+    #[test]
+    fn test_range_pop() {
+        let mut range: OrderRange = vec![(0..10), (20..30)].into();
+        assert_eq!(range.pop(), Some(0..10));
+
+        let mut range: OrderRange = (0..10).into();
+        assert_eq!(range.pop(), Some(0..10));
+        assert!(range.is_empty());
+        assert_eq!(range.pop(), None);
     }
 
     #[test]
@@ -226,5 +237,34 @@ mod tests {
         range = OrderRange::Fragment(vec![(0..10), (10..20), (20..30)]);
         range.squash();
         assert_eq!(range, OrderRange::Range(0..30));
+    }
+
+    #[test]
+    fn test_range_sort() {
+        let mut range: OrderRange = vec![(20..30), (0..10), (10..50)].into();
+        range.sort();
+        assert_eq!(
+            range,
+            OrderRange::Fragment(vec![(0..10), (10..50), (20..30)])
+        );
+    }
+
+    #[test]
+    fn test_range_merge() {
+        let mut range: OrderRange = (0..10).into();
+        range.merge((20..30).into());
+        assert_eq!(range, OrderRange::Fragment(vec![(0..10), (20..30)]));
+
+        let mut range: OrderRange = (0..10).into();
+        range.merge(vec![(10..15), (20..30)].into());
+        assert_eq!(range, OrderRange::Fragment(vec![(0..15), (20..30)]));
+
+        let mut range: OrderRange = vec![(0..10), (20..30)].into();
+        range.merge((10..20).into());
+        assert_eq!(range, OrderRange::Range(0..30));
+
+        let mut range: OrderRange = vec![(0..10), (20..30)].into();
+        range.merge(vec![(10..20), (30..40)].into());
+        assert_eq!(range, OrderRange::Range(0..40));
     }
 }
