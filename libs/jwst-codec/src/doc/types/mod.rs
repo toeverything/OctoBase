@@ -1,10 +1,12 @@
+mod array;
 mod list;
 mod traits;
 
 use super::*;
+use list::*;
 use std::{cell::RefCell, collections::HashMap, sync::Arc};
 
-pub use list::*;
+pub use array::*;
 pub use traits::*;
 
 #[macro_export]

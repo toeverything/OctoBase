@@ -4,9 +4,9 @@ use std::{cmp::max, collections::LinkedList, sync::Mutex};
 const MAX_SEARCH_MARKER: usize = 80;
 
 #[derive(Clone)]
-struct SearchMarker {
-    ptr: Box<Item>,
-    index: u64,
+pub struct SearchMarker {
+    pub(super) ptr: Box<Item>,
+    pub(super) index: u64,
 }
 
 impl SearchMarker {
@@ -24,14 +24,14 @@ pub struct MarkerList {
     // in yjs, a timestamp field is used to sort markers and the oldest marker is deleted once the limit is reached.
     // this was designed for optimization purposes for v8. In Rust, we can simply use a linked list and trust the compiler to optimize.
     // the linked list can naturally maintain the insertion order, allowing us to know which marker is the oldest without using an extra timestamp field.
-    search_marker: Mutex<LinkedList<SearchMarker>>,
+    search_marker: Arc<Mutex<LinkedList<SearchMarker>>>,
     store: DocStore,
 }
 
 impl MarkerList {
-    fn new(store: DocStore) -> Self {
+    pub(super) fn new(store: DocStore) -> Self {
         MarkerList {
-            search_marker: Mutex::new(LinkedList::new()),
+            search_marker: Arc::new(Mutex::new(LinkedList::new())),
             store,
         }
     }
@@ -54,6 +54,7 @@ impl MarkerList {
     }
 
     // update mark position if the index is within the range of the marker
+    #[allow(dead_code)]
     fn update_marker_changes(&self, index: u64, len: i64) {
         let mut list = self.search_marker.lock().unwrap();
         for marker in list.iter_mut() {
@@ -78,7 +79,7 @@ impl MarkerList {
     }
 
     // find and return the marker that is closest to the index
-    fn find_marker(
+    pub(super) fn find_marker(
         &self,
         index: u64,
         parent_start: Box<Item>,

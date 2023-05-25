@@ -39,6 +39,10 @@ impl StructRef {
         self.0.borrow_mut()
     }
 
+    pub fn as_item(&self) -> Option<Box<Item>> {
+        self.0.borrow().as_item()
+    }
+
     pub fn modify<M>(&self, mut modifier: M)
     where
         M: FnMut(&mut StructInfo),
@@ -336,6 +340,10 @@ impl DocStore {
                 type_store
             }
         }
+    }
+
+    pub fn get_array(&self, str: &str) -> YArray {
+        YArray::new(self.clone(), self.get_or_create_type(str))
     }
 
     pub(crate) fn get_start_item(&self, s: StructRef) -> StructRef {

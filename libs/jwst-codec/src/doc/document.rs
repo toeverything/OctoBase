@@ -421,4 +421,8 @@ impl Doc {
             Ok(())
         })
     }
+
+    pub fn get_array(&self, str: &str) -> YArray {
+        self.store.get_array(str)
+    }
 }
