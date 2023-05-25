@@ -1,5 +1,6 @@
 use super::*;
 use crate::doc::StateVector;
+use std::collections::VecDeque;
 use std::{
     cell::{Ref, RefCell, RefMut},
     collections::{hash_map::Entry, HashMap},
@@ -9,6 +10,21 @@ use std::{
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct StructRef(Arc<RefCell<StructInfo>>);
+
+impl StructRef {
+    pub fn read<R: CrdtReader>(decoder: &mut R, id: Id) -> JwstCodecResult<Self> {
+        match StructInfo::read(decoder, id) {
+            Ok(info) => Ok(info.into()),
+            Err(err) => Err(err),
+        }
+    }
+}
+
+impl<W: CrdtWriter> CrdtWrite<W> for StructRef {
+    fn write(&self, writer: &mut W) -> JwstCodecResult {
+        self.0.borrow().write(writer)
+    }
+}
 
 impl From<StructInfo> for StructRef {
     fn from(info: StructInfo) -> Self {
@@ -91,8 +107,10 @@ impl StructRef {
 #[derive(Default)]
 pub struct DocStore {
     pub items: Arc<RwLock<HashMap<Client, Vec<StructRef>>>>,
-    pub types: Arc<RwLock<HashMap<String, TypeStoreRef>>>,
     pub delete_set: Arc<RwLock<DeleteSet>>,
+
+    // following fields are only used in memory
+    pub types: Arc<RwLock<HashMap<String, TypeStoreRef>>>,
     pub pending: Option<Update>,
 }
 
@@ -360,6 +378,77 @@ impl DocStore {
         if let Ok(mut delete_set) = self.delete_set.write() {
             delete_set.add(id.client, id.clock, len)
         }
+    }
+
+    fn diff_state_vectors(
+        local_state_vector: &StateVector,
+        remote_state_vector: &StateVector,
+    ) -> Vec<(Client, Clock)> {
+        let mut diff = Vec::new();
+
+        for (client, &remote_clock) in remote_state_vector.iter() {
+            let local_clock = local_state_vector.get(client);
+            if local_clock > remote_clock {
+                diff.push((*client, remote_clock));
+            }
+        }
+
+        for (client, _) in local_state_vector.iter() {
+            if remote_state_vector.get(client) == 0 {
+                diff.push((*client, 0));
+            }
+        }
+
+        diff
+    }
+
+    pub fn encode_with_state_vector<W: CrdtWriter>(
+        &self,
+        sv: &StateVector,
+        encoder: &mut W,
+    ) -> JwstCodecResult {
+        let local_state_vector = self.get_state_vector();
+        let diff = Self::diff_state_vectors(&local_state_vector, sv);
+        let mut update_structs: HashMap<u64, VecDeque<StructInfo>> = HashMap::new();
+
+        for (client, clock) in diff {
+            // We have made sure that the client is in the local state vector in diff_state_vectors()
+            if let Some(items) = self.items.read().unwrap().get(&client) {
+                if items.is_empty() {
+                    continue;
+                }
+
+                update_structs.insert(client, VecDeque::new());
+                let vec_struct_info = update_structs.get_mut(&client).unwrap();
+
+                // the smallest clock in items may exceed the clock
+                let clock = items.first().unwrap().id().clock.max(clock);
+                if let Some(index) = Self::get_item_index(items, clock) {
+                    let first_block = items.get(index).unwrap();
+                    let offset = first_block.clock() - clock;
+                    if offset != 0 {
+                        // needs to implement Content split first
+                        unimplemented!()
+                    } else {
+                        vec_struct_info.push_back(first_block.borrow().clone());
+                    }
+
+                    for item in items.iter().skip(index + 1) {
+                        vec_struct_info.push_back(item.borrow().clone());
+                    }
+                }
+            }
+        }
+
+        let update = Update {
+            structs: update_structs,
+            delete_set: self.delete_set.read().unwrap().clone(),
+            ..Update::default()
+        };
+
+        update.write(encoder)?;
+
+        Ok(())
     }
 }
 

@@ -393,6 +393,7 @@ mod tests {
     use super::*;
     use serde::Deserialize;
     use std::{num::ParseIntError, path::PathBuf};
+    use yrs::{Map, Transact};
 
     fn struct_item(id: (Client, Clock), len: usize) -> StructInfo {
         StructInfo::Item {
@@ -580,5 +581,24 @@ mod tests {
             update.pending_delete_set.get(&0).unwrap(),
             &OrderRange::from(vec![(10..12), (13..15)])
         );
+    }
+
+    #[test]
+    fn double_run_test_with_yrs_basic() {
+        let yrs_doc = yrs::Doc::new();
+
+        let map = yrs_doc.get_or_insert_map("abc");
+        let mut trx = yrs_doc.transact_mut();
+        map.insert(&mut trx, "a", 1).unwrap();
+
+        let binary_from_yrs = trx.encode_update_v1().unwrap();
+
+        let mut decoder = RawDecoder::new(binary_from_yrs.clone());
+        let update = Update::read(&mut decoder).unwrap();
+        let mut doc = Doc::default();
+        doc.apply_update(update).unwrap();
+        let binary = doc.encode_update_v1().unwrap();
+
+        assert_eq!(binary_from_yrs, binary);
     }
 }
