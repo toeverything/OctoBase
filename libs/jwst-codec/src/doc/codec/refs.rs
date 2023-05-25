@@ -91,6 +91,14 @@ impl StructInfo {
         matches!(self, Self::Item { .. })
     }
 
+    pub fn as_item(&self) -> Option<Box<Item>> {
+        if let Self::Item { item, .. } = self {
+            Some(item.clone())
+        } else {
+            None
+        }
+    }
+
     pub fn flags(&self) -> ItemFlags {
         if let StructInfo::Item { item, .. } = self {
             item.flags

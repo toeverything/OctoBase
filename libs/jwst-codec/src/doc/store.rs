@@ -4,7 +4,7 @@ use std::{
     cell::{Ref, RefCell, RefMut},
     collections::{hash_map::Entry, HashMap},
     ops::Deref,
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
 };
 
 #[derive(Clone, PartialEq, Debug)]
@@ -88,12 +88,12 @@ impl StructRef {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct DocStore {
     pub items: Arc<RwLock<HashMap<Client, Vec<StructRef>>>>,
     pub types: Arc<RwLock<HashMap<String, TypeStoreRef>>>,
     pub delete_set: Arc<RwLock<DeleteSet>>,
-    pub pending: Option<Update>,
+    pub pending: Arc<Mutex<Option<Update>>>,
 }
 
 impl DocStore {

@@ -1,10 +1,11 @@
+mod list;
 mod traits;
 
+use super::*;
 use std::{cell::RefCell, collections::HashMap, sync::Arc};
 
+pub use list::*;
 pub use traits::*;
-
-use super::{StructRef, YType};
 
 #[macro_export]
 macro_rules! wrap_inner {

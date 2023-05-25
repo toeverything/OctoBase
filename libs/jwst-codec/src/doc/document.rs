@@ -42,47 +42,52 @@ impl Doc {
                 self.delete_range(client, range)?;
             }
 
-            if let Some(mut pending_update) = self.store.pending.take() {
-                if pending_update
-                    .missing_state
-                    .iter()
-                    .any(|(client, clock)| self.store.get_state(*client) > *clock)
-                {
-                    // new update has been applied to the doc, need to re-integrate
-                    retry = true;
-                }
+            {
+                let pending = self.store.pending.clone();
+                let mut pending = pending.lock().unwrap();
+                if let Some(mut pending_update) = pending.take() {
+                    if pending_update
+                        .missing_state
+                        .iter()
+                        .any(|(client, clock)| self.store.get_state(*client) > *clock)
+                    {
+                        // new update has been applied to the doc, need to re-integrate
+                        retry = true;
+                    }
 
-                for (client, range) in pending_update.delete_set_iter(self.store.get_state_vector())
-                {
-                    self.delete_range(client, range)?;
-                }
+                    for (client, range) in
+                        pending_update.delete_set_iter(self.store.get_state_vector())
+                    {
+                        self.delete_range(client, range)?;
+                    }
 
-                if update.is_pending_empty() {
-                    update = pending_update;
+                    if update.is_pending_empty() {
+                        update = pending_update;
+                    } else {
+                        // drain all pending state to pending update for later iteration
+                        update.drain_pending_state();
+                        update = Update::merge([pending_update, update]);
+                    }
                 } else {
-                    // drain all pending state to pending update for later iteration
-                    update.drain_pending_state();
-                    update = Update::merge([pending_update, update]);
-                }
-            } else {
-                // no pending update at store
+                    // no pending update at store
 
-                // no pending update in current iteration
-                // thank god, all clean
-                if update.is_pending_empty() {
+                    // no pending update in current iteration
+                    // thank god, all clean
+                    if update.is_pending_empty() {
+                        break;
+                    } else {
+                        // need to turn all pending state into update for later iteration
+                        update.drain_pending_state();
+                    };
+                }
+
+                // can't integrate any more, save the pending update
+                if !retry {
+                    if !update.is_pending_empty() {
+                        pending.replace(update);
+                    }
                     break;
-                } else {
-                    // need to turn all pending state into update for later iteration
-                    update.drain_pending_state();
-                };
-            }
-
-            // can't integrate any more, save the pending update
-            if !retry {
-                if !update.is_pending_empty() {
-                    self.store.pending = Some(update)
                 }
-                break;
             }
         }
 
