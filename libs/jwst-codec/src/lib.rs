@@ -45,6 +45,8 @@ pub enum JwstCodecError {
     StructSequenceNotExists(u64),
     #[error("Invalid parent")]
     InvalidParent,
+    #[error("Parent not found")]
+    ParentNotFound,
 }
 
 pub type JwstCodecResult<T = ()> = Result<T, JwstCodecError>;
