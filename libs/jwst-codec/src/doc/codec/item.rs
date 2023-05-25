@@ -101,6 +101,7 @@ impl ItemFlags {
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct Item {
+    pub id: Id,
     pub left_id: Option<Id>,
     pub right_id: Option<Id>,
     pub parent: Option<Parent>,
@@ -112,6 +113,7 @@ pub struct Item {
 impl Default for Item {
     fn default() -> Self {
         Self {
+            id: Id::default(),
             left_id: None,
             right_id: None,
             parent: None,
@@ -149,6 +151,7 @@ impl Item {
 impl Item {
     pub(crate) fn read<R: CrdtReader>(
         decoder: &mut R,
+        id: Id,
         info: u8,
         first_5_bit: u8,
     ) -> JwstCodecResult<Self> {
@@ -161,6 +164,7 @@ impl Item {
         // NOTE: read order must keep the same as the order in yjs
         // TODO: this data structure design will break the cpu OOE, need to be optimized
         let mut item = Self {
+            id,
             left_id: if has_left_id {
                 Some(decoder.read_item_id()?)
             } else {
@@ -287,7 +291,7 @@ mod tests {
 
         let info = decoder.read_info()?;
         let first_5_bit = info & 0b11111;
-        let decoded_item = Item::read(&mut decoder, info, first_5_bit)?;
+        let decoded_item = Item::read(&mut decoder, item.id.clone(), info, first_5_bit)?;
 
         assert_eq!(item, &decoded_item);
 

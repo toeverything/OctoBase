@@ -17,7 +17,4 @@ pub use item::{item_flags, Item, ItemFlags, Parent};
 pub use refs::StructInfo;
 pub use update::Update;
 
-#[cfg(test)]
-pub use utils::item_util;
-
 use super::*;
