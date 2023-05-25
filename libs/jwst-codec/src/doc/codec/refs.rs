@@ -49,8 +49,8 @@ impl StructInfo {
                 Ok(StructInfo::Skip { id, len })
             }
             _ => Ok(StructInfo::Item {
-                id,
-                item: Box::new(Item::read(decoder, info, first_5_bit)?),
+                id: id.clone(),
+                item: Box::new(Item::read(decoder, id, info, first_5_bit)?),
             }),
         }
     }
@@ -170,9 +170,8 @@ impl StructInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{utils::ItemBuilder, *};
     use proptest::{collection::vec, prelude::*};
-    use super::item_util::ItemBuilder;
 
     #[test]
     fn test_struct_info() {
