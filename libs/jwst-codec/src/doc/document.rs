@@ -251,6 +251,7 @@ impl Doc {
                                 } else {
                                     parent.start.clone()
                                 };
+                                parent.start = Some(struct_info.clone().into());
                             }
                         }
 
