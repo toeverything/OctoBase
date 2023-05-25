@@ -291,7 +291,7 @@ mod tests {
 
         let info = decoder.read_info()?;
         let first_5_bit = info & 0b11111;
-        let decoded_item = Item::read(&mut decoder, item.id.clone(), info, first_5_bit)?;
+        let decoded_item = Item::read(&mut decoder, item.id, info, first_5_bit)?;
 
         assert_eq!(item, &decoded_item);
 

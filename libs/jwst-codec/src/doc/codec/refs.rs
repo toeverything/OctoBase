@@ -49,7 +49,7 @@ impl StructInfo {
                 Ok(StructInfo::Skip { id, len })
             }
             _ => Ok(StructInfo::Item {
-                id: id.clone(),
+                id,
                 item: Box::new(Item::read(decoder, id, info, first_5_bit)?),
             }),
         }

@@ -1,7 +1,9 @@
+mod text;
 mod traits;
 
 use std::{cell::RefCell, collections::HashMap, sync::Arc};
 
+pub use text::*;
 pub use traits::*;
 
 use super::{StructRef, YType};
