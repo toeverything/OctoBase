@@ -102,6 +102,10 @@ impl StructRef {
     pub fn deleted(&self) -> bool {
         self.0.borrow().flags().deleted()
     }
+
+    pub fn split_item(&mut self, diff: u64) -> JwstCodecResult<Self> {
+        self.0.borrow_mut().split_item(diff).map(|info| info.into())
+    }
 }
 
 #[derive(Default)]
@@ -423,12 +427,14 @@ impl DocStore {
 
                 // the smallest clock in items may exceed the clock
                 let clock = items.first().unwrap().id().clock.max(clock);
-                if let Some(index) = Self::get_item_index(items, clock) {
+                if let Some(index) = Self::get_item_index(&items, clock) {
                     let first_block = items.get(index).unwrap();
                     let offset = first_block.clock() - clock;
                     if offset != 0 {
                         // needs to implement Content split first
-                        unimplemented!()
+                        vec_struct_info.push_back(
+                            first_block.clone().borrow_mut().split_item(offset)?.clone(),
+                        );
                     } else {
                         vec_struct_info.push_back(first_block.borrow().clone());
                     }
