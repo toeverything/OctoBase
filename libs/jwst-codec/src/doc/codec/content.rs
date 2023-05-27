@@ -191,6 +191,7 @@ impl Content {
         )
     }
 
+    // [diff + 1, len - 1)
     pub fn split(&mut self, diff: u64) -> JwstCodecResult<Self> {
         match self {
             Self::String(str) => {
@@ -199,8 +200,8 @@ impl Content {
                 *str = left.to_string();
                 Ok(Self::String(right))
             }
-            Self::JSON(vec) => Ok(Self::JSON(vec.split_off(diff as usize))),
-            Self::Any(vec) => Ok(Self::Any(vec.split_off(diff as usize))),
+            Self::JSON(vec) => Ok(Self::JSON(vec.split_off((diff + 1) as usize))),
+            Self::Any(vec) => Ok(Self::Any(vec.split_off((diff + 1) as usize))),
             _ => Err(JwstCodecError::ContentSplitNotSupport(diff)),
         }
     }
@@ -212,7 +213,7 @@ impl Content {
         for ch in s.chars() {
             utf_16_offset += ch.len_utf16();
             utf_8_offset += ch.len_utf8();
-            if utf_16_offset as u64 >= offset - 1 {
+            if utf_16_offset as u64 >= offset {
                 break;
             }
         }

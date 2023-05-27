@@ -427,7 +427,7 @@ impl DocStore {
 
                 // the smallest clock in items may exceed the clock
                 let clock = items.first().unwrap().id().clock.max(clock);
-                if let Some(index) = Self::get_item_index(&items, clock) {
+                if let Some(index) = Self::get_item_index(items, clock) {
                     let first_block = items.get(index).unwrap();
                     let offset = first_block.clock() - clock;
                     if offset != 0 {
