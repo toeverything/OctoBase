@@ -16,7 +16,7 @@ pub struct Doc {
     // random id for each doc, use in sub doc
     guid: String,
     // root_type: HashMap<String, Item>,
-    store: DocStore,
+    pub(crate) store: DocStore,
 }
 
 impl Default for Doc {

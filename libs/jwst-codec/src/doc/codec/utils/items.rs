@@ -11,6 +11,11 @@ impl ItemBuilder {
         }
     }
 
+    pub fn id(mut self, id: Id) -> ItemBuilder {
+        self.item.id = id;
+        self
+    }
+
     pub fn left_id(mut self, left_id: Option<Id>) -> ItemBuilder {
         self.item.left_id = left_id;
         self
@@ -36,7 +41,11 @@ impl ItemBuilder {
         self
     }
 
-    pub fn build(self) -> Item {
+    pub fn build(mut self) -> Item {
+        if self.item.content.countable() {
+            self.item.flags.set(item_flags::ITEM_COUNTABLE);
+        }
+
         self.item
     }
 }

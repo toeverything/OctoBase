@@ -16,5 +16,7 @@ pub use io::{CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, RawDecoder, RawEncoder
 pub use item::{item_flags, Item, ItemFlags, Parent};
 pub use refs::StructInfo;
 pub use update::Update;
+#[cfg(test)]
+pub use utils::ItemBuilder;
 
 use super::*;

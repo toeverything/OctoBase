@@ -31,7 +31,7 @@ impl ListCore {
             loop {
                 if item_ptr.indexable() {
                     if index < item_ptr.len() {
-                        return Ok(item_ptr.content.at(index)?);
+                        return item_ptr.content.at(index);
                     }
                     index -= item_ptr.len();
                 }
