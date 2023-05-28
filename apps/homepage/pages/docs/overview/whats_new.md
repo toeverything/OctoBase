@@ -1,5 +1,20 @@
 # What's New
 
+## 0.5.1-canary.3-230528
+
+-   [+] added encoding for documents into binary
+-   [+] implemented storing of ID in items
+-   [+] added a guide on how to write a new connector to the documentation
+-   [+] updated the write implementation
+-   [+] completed the apply update implementation
+-   [+] refactored the client sync functionality
+-   [+] added read/write traits for raw CRDT types
+-   [+] implemented the application of awareness update
+-   [*] completed the codec unit test
+-   [*] refactored the read/write ybinary
+-   [*] migrated the Octobase playground to the homepage
+-   [*] fixed the issue of missing updates during full migration
+
 ## 0.5.1-canary.2-230515
 
 -   [+] feat: impl integrate update
