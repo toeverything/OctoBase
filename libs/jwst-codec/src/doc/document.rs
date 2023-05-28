@@ -40,7 +40,7 @@ impl Doc {
     pub fn apply_update_from_binary(&mut self, update: Vec<u8>) -> JwstCodecResult {
         let mut decoder = RawDecoder::new(update);
         let update = Update::read(&mut decoder)?;
-        self.apply_update(update).unwrap();
+        self.apply_update(update)?;
         Ok(())
     }
 
