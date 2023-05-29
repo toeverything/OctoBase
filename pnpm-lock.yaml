@@ -80,9 +80,15 @@ importers:
       '@toeverything/jwt-react':
         specifier: workspace:*
         version: link:../../libs/jwt-react
+      '@types/node':
+        specifier: ^18.15.10
+        version: 18.15.10
       concurrently:
         specifier: ^8.0.1
         version: 8.0.1
+      dotenv:
+        specifier: ^16.0.3
+        version: 16.0.3
       jotai:
         specifier: ^2.0.3
         version: 2.0.3(react@18.2.0)
@@ -1791,7 +1797,6 @@ packages:
 
   /@types/node@18.15.10:
     resolution: {integrity: sha512-9avDaQJczATcXgfmMAW3MIWArOO7A+m90vuCFLr8AotWf8igO/mRoYukrk2cqZVtv38tHs33retzHEilM7FpeQ==}
-    dev: true
 
   /@types/parse-json@4.0.0:
     resolution: {integrity: sha512-//oorEZjL6sbPcKUaCdIGlIUeH26mgzimjBB77G6XRgnDl/L5wOnpyBGRe/Mmf5CVW3PwEBE1NjiMZ/ssFh4wA==}
@@ -2513,7 +2518,6 @@ packages:
   /dotenv@16.0.3:
     resolution: {integrity: sha512-7GO6HghkA5fYG9TYnNxi14/7K9f5occMlp3zXAuSxn7CKCxt9xbNWG7yF8hTCSUchlfWSe3uLmlPfigevRItzQ==}
     engines: {node: '>=12'}
-    dev: true
 
   /ejs@3.1.9:
     resolution: {integrity: sha512-rC+QVNMJWv+MtPgkt0y+0rVEIdbtxVADApW9JXrUVlzHetgcyczP/E7DJmWJ4fJCZF2cPcBk0laWO9ZHMG3DmQ==}

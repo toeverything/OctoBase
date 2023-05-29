@@ -7,6 +7,7 @@ import styled from "@emotion/styled";
 import {useEffect, useRef, useState} from "react";
 import {ContentParser} from "@blocksuite/blocks/content-parser";
 import RichData from "./RichData";
+import {websocketPrefixUrl} from "./config";
 
 export default function Editor({editorNum, workspaceId}: { editorNum: number, workspaceId: string }) {
     return (
@@ -19,7 +20,7 @@ export default function Editor({editorNum, workspaceId}: { editorNum: number, wo
                 return <div key={id}>
                     <EditorLoader workspace={workspace}
                                   editor={new EditorContainer()}
-                                  provider={new WebsocketProvider('ws://localhost:3001/collaboration', workspace.id, workspace.doc)}/>
+                                  provider={new WebsocketProvider(`${websocketPrefixUrl}/collaboration`, workspace.id, workspace.doc)}/>
                 </div>
             })}
         </>
