@@ -1,7 +1,7 @@
 import w from 'nextra';
 import * as dotenv from 'dotenv';
 
-const env = dotenv.config().parsed;
+const env = dotenv.config().parsed || {};
 const DEBUG_LOCAL = process.env.DEBUG_LOCAL || env.DEBUG_LOCAL;
 const IS_DEBUG_LOCAL = !!DEBUG_LOCAL && DEBUG_LOCAL.toLocaleLowerCase() === 'true'
 const PORT = process.env.PORT || env.PORT;
