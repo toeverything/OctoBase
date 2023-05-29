@@ -2,122 +2,24 @@ use super::*;
 use crate::doc::StateVector;
 use std::collections::VecDeque;
 use std::{
-    cell::{Ref, RefCell, RefMut},
     collections::{hash_map::Entry, HashMap, HashSet},
-    ops::{Deref, DerefMut, Range},
-    sync::{Arc, RwLock},
+    ops::Range,
+    sync::{Arc, RwLock, Weak},
 };
-
-#[derive(Clone, PartialEq, Debug)]
-pub struct StructRef(Arc<RefCell<StructInfo>>);
-
-impl StructRef {
-    pub fn read<R: CrdtReader>(decoder: &mut R, id: Id) -> JwstCodecResult<Self> {
-        match StructInfo::read(decoder, id) {
-            Ok(info) => Ok(info.into()),
-            Err(err) => Err(err),
-        }
-    }
-}
-
-impl<W: CrdtWriter> CrdtWrite<W> for StructRef {
-    fn write(&self, writer: &mut W) -> JwstCodecResult {
-        self.0.borrow().write(writer)
-    }
-}
-
-impl From<StructInfo> for StructRef {
-    fn from(info: StructInfo) -> Self {
-        Self(Arc::new(RefCell::new(info)))
-    }
-}
-
-impl From<Arc<RefCell<StructInfo>>> for StructRef {
-    fn from(info: Arc<RefCell<StructInfo>>) -> Self {
-        Self(info)
-    }
-}
-
-impl Deref for StructRef {
-    type Target = Arc<RefCell<StructInfo>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl StructRef {
-    pub fn as_ref(&self) -> Ref<'_, StructInfo> {
-        self.0.borrow()
-    }
-
-    pub fn as_mut_ref(&self) -> RefMut<'_, StructInfo> {
-        self.0.borrow_mut()
-    }
-
-    pub fn modify<M>(&self, mut modifier: M)
-    where
-        M: FnMut(&mut StructInfo),
-    {
-        let mut borrow = self.0.borrow_mut();
-        modifier(&mut borrow);
-    }
-
-    pub fn id(&self) -> Id {
-        self.0.borrow().id()
-    }
-
-    pub fn client(&self) -> Client {
-        self.0.borrow().client()
-    }
-
-    pub fn clock(&self) -> Clock {
-        self.0.borrow().clock()
-    }
-
-    pub fn len(&self) -> u64 {
-        self.0.borrow().len()
-    }
-
-    pub fn is_item(&self) -> bool {
-        self.0.borrow().is_item()
-    }
-
-    pub fn is_gc(&self) -> bool {
-        self.0.borrow().is_gc()
-    }
-
-    pub fn is_skip(&self) -> bool {
-        self.0.borrow().is_skip()
-    }
-
-    pub fn left_id(&self) -> Option<Id> {
-        self.0.borrow().left_id()
-    }
-
-    pub fn right_id(&self) -> Option<Id> {
-        self.0.borrow().right_id()
-    }
-
-    pub fn deleted(&self) -> bool {
-        self.0.borrow().flags().deleted()
-    }
-
-    pub fn split_item(&mut self, diff: u64) -> JwstCodecResult<Self> {
-        self.0.borrow_mut().split_item(diff).map(|info| info.into())
-    }
-}
 
 #[derive(Default)]
 pub struct DocStore {
     client: Client,
-    pub items: Arc<RwLock<HashMap<Client, Vec<StructRef>>>>,
+    pub items: Arc<RwLock<HashMap<Client, Vec<StructInfo>>>>,
     pub delete_set: Arc<RwLock<DeleteSet>>,
 
     // following fields are only used in memory
-    pub types: Arc<RwLock<HashMap<String, TypeStoreRef>>>,
+    pub types: Arc<RwLock<HashMap<String, YType>>>,
     pub pending: Option<Update>,
 }
+
+pub(crate) type StoreRef = Arc<RwLock<DocStore>>;
+pub(crate) type WeakStoreRef = Weak<RwLock<DocStore>>;
 
 impl DocStore {
     pub fn new() -> Self {
@@ -152,7 +54,6 @@ impl DocStore {
         let mut state = StateVector::default();
         for (client, structs) in self.items.read().unwrap().iter() {
             if let Some(last_struct) = structs.last() {
-                let last_struct = last_struct.as_ref();
                 state.insert(*client, last_struct.clock() + last_struct.len());
             } else {
                 warn!("client {} has no struct info", client);
@@ -161,18 +62,12 @@ impl DocStore {
         state
     }
 
-    #[allow(dead_code)]
     pub fn add_item(&self, item: StructInfo) -> JwstCodecResult {
-        self.add_item_ref(item.into())
-    }
-
-    pub fn add_item_ref(&self, item: StructRef) -> JwstCodecResult {
         let client_id = item.client();
         match self.items.write().unwrap().entry(client_id) {
             Entry::Occupied(mut entry) => {
                 let structs = entry.get_mut();
                 if let Some(last_struct) = structs.last() {
-                    let last_struct = last_struct.as_ref();
                     let expect = last_struct.clock() + last_struct.len();
                     let actually = item.clock();
                     if expect != actually {
@@ -192,7 +87,7 @@ impl DocStore {
     }
 
     /// binary search struct info on a sorted array
-    pub fn get_item_index(items: &Vec<StructRef>, clock: Clock) -> Option<usize> {
+    pub fn get_item_index(items: &Vec<StructInfo>, clock: Clock) -> Option<usize> {
         let mut left = 0;
         let mut right = items.len() - 1;
         let middle = &items[right];
@@ -217,38 +112,54 @@ impl DocStore {
         None
     }
 
-    pub fn get_item<I: Into<Id>>(&self, id: I) -> JwstCodecResult<StructRef> {
+    fn modify_item<F>(&mut self, id: Id, mut f: F)
+    where
+        F: FnMut(&mut Item),
+    {
+        if let Some(items) = self.items.write().unwrap().get_mut(&id.client) {
+            if let Some(idx) = Self::get_item_index(items, id.clock) {
+                if let StructInfo::Item(item) = &mut items[idx] {
+                    let mut item = item.as_ref().clone();
+                    f(&mut item);
+
+                    items[idx] = item.into();
+                }
+            }
+        }
+    }
+
+    pub fn get_item<I: Into<Id>>(&self, id: I) -> Option<StructInfo> {
         self.get_item_with_idx(id).map(|(item, _)| item)
     }
 
-    pub fn get_item_with_idx<I: Into<Id>>(&self, id: I) -> JwstCodecResult<(StructRef, usize)> {
+    pub fn get_item_with_idx<I: Into<Id>>(&self, id: I) -> Option<(StructInfo, usize)> {
         let id = id.into();
         if let Some(items) = self.items.read().unwrap().get(&id.client) {
             if let Some(index) = Self::get_item_index(items, id.clock) {
-                return Ok((items.get(index).unwrap().clone(), index));
+                return items.get(index).map(|item| (item.clone(), index));
             }
         }
 
-        Err(JwstCodecError::StructSequenceNotExists(id.client))
+        None
     }
 
-    #[allow(dead_code)]
     pub fn split_item<I: Into<Id>>(
-        &mut self,
+        &self,
         id: I,
         diff: u64,
-    ) -> JwstCodecResult<(StructRef, StructRef)> {
+    ) -> JwstCodecResult<(StructInfo, StructInfo)> {
         debug_assert!(diff > 0);
 
         let id = id.into();
 
         if let Some(items) = self.items.write().unwrap().get_mut(&id.client) {
             if let Some(idx) = Self::get_item_index(items, id.clock) {
-                let item = items.get(idx).unwrap().clone();
+                let item = items.get(idx).unwrap();
                 if item.is_item() {
-                    let right_item: StructRef = item.borrow_mut().split_item(diff)?.into();
+                    let (left_item, right_item) = item.split_item(diff)?;
+                    items[idx] = left_item.clone();
                     items.insert(idx + 1, right_item.clone());
-                    return Ok((item, right_item));
+                    return Ok((left_item, right_item));
                 }
             }
         }
@@ -256,17 +167,18 @@ impl DocStore {
         Err(JwstCodecError::StructSequenceNotExists(id.client))
     }
 
-    pub fn get_item_clean_start<I: Into<Id>>(&self, id: I) -> JwstCodecResult<StructRef> {
+    pub fn get_item_clean_start<I: Into<Id>>(&self, id: I) -> JwstCodecResult<StructInfo> {
         let id = id.into();
         if let Some(items) = self.items.write().unwrap().get_mut(&id.client) {
             if let Some(index) = Self::get_item_index(items, id.clock) {
                 let item = items.get(index).unwrap().clone();
                 let offset = id.clock - item.clock();
                 if offset > 0 && item.is_item() {
-                    let right_item = item.borrow_mut().split_item(offset)?;
-                    items.insert(index + 1, right_item.into());
+                    let (left_item, right_item) = item.split_item(offset)?;
+                    items[index] = left_item;
+                    items.insert(index + 1, right_item.clone());
 
-                    return Ok((items.get(index + 1).unwrap()).clone());
+                    return Ok(right_item);
                 } else {
                     return Ok(item);
                 }
@@ -276,17 +188,18 @@ impl DocStore {
         Err(JwstCodecError::StructSequenceNotExists(id.client))
     }
 
-    pub fn get_item_clean_end<I: Into<Id>>(&self, id: I) -> JwstCodecResult<StructRef> {
+    pub fn get_item_clean_end<I: Into<Id>>(&self, id: I) -> JwstCodecResult<StructInfo> {
         let id = id.into();
         if let Some(items) = self.items.write().unwrap().get_mut(&id.client) {
             if let Some(index) = Self::get_item_index(items, id.clock) {
                 let item = items.get(index).unwrap().clone();
                 let offset = id.clock - item.clock();
                 if offset != item.len() - 1 && !item.is_gc() {
-                    let right_item = item.borrow_mut().split_item(offset + 1)?;
-                    items.insert(index + 1, right_item.into());
+                    let (left_item, right_item) = item.split_item(offset + 1)?;
+                    items[index] = left_item.clone();
+                    items.insert(index + 1, right_item);
 
-                    return Ok(items.get(index).unwrap().clone());
+                    return Ok(left_item);
                 } else {
                     return Ok(item);
                 }
@@ -308,7 +221,7 @@ impl DocStore {
             let middle = &structs[right];
             let middle_clock = middle.clock();
             if middle_clock == clock {
-                structs[middle_clock as usize] = item.into();
+                structs[middle_clock as usize] = item;
                 return Ok(());
             }
             let mut middle_index = (clock / (middle_clock + middle.len() - 1)) as usize * right;
@@ -317,7 +230,7 @@ impl DocStore {
                 let middle_clock = middle.clock();
                 if middle_clock <= clock {
                     if clock < middle_clock + middle.len() {
-                        structs[middle_index] = item.into();
+                        structs[middle_index] = item;
                         return Ok(());
                     }
                     left = middle_index + 1;
@@ -351,11 +264,11 @@ impl DocStore {
         Ok(())
     }
 
-    pub(crate) fn get_or_create_type(&self, str: &str) -> TypeStoreRef {
+    pub(crate) fn get_or_create_type(&self, str: &str) -> YType {
         match self.types.write().unwrap().entry(str.to_string()) {
             Entry::Occupied(e) => e.get().clone(),
             Entry::Vacant(e) => {
-                let type_store = Arc::new(RefCell::new(TypeStore::new(TypeStoreKind::Unknown)));
+                let type_store = YType::default();
                 e.insert(type_store.clone());
 
                 type_store
@@ -363,11 +276,11 @@ impl DocStore {
         }
     }
 
-    pub(crate) fn get_start_item(&self, s: StructRef) -> StructRef {
-        let mut o = s;
+    pub(crate) fn get_start_item(&self, s: &StructInfo) -> StructInfo {
+        let mut o = s.clone();
 
         while let Some(left_id) = o.left_id() {
-            if let Ok(left_struct) = self.get_item(left_id) {
+            if let Some(left_struct) = self.get_item(left_id) {
                 if left_struct.is_item() {
                     o = left_struct;
                 } else {
@@ -381,59 +294,58 @@ impl DocStore {
         o
     }
 
-    pub(crate) fn repair(&mut self, info: &mut StructInfo) -> JwstCodecResult {
-        if let StructInfo::Item { item, .. } = info {
-            if let Some(left_id) = item.left_id {
-                let left = self.get_item_clean_end(left_id)?;
-                item.left_id = Some(left.id());
-            }
+    pub(crate) fn repair(&mut self, item: &mut Item) -> JwstCodecResult {
+        if let Some(left_id) = item.left_id {
+            let left = self.get_item_clean_end(left_id)?;
+            item.left_id = Some(left.id());
+        }
 
-            if let Some(right_id) = item.right_id {
-                let right = self.get_item_clean_start(right_id)?;
-                item.right_id = Some(right.id());
-            }
+        if let Some(right_id) = item.right_id {
+            let right = self.get_item_clean_start(right_id)?;
+            item.right_id = Some(right.id());
+        }
 
-            match &item.parent {
-                // root level named type
-                Some(Parent::String(str)) => {
-                    self.get_or_create_type(str);
-                }
-                // type as item
-                Some(Parent::Id(parent_id)) => {
-                    let parent = self.get_item(*parent_id)?;
-                    match parent.borrow().deref() {
-                        StructInfo::Item { .. } => match &item.content {
-                            Content::Type(_) => {
-                                // do nothing but catch the variant.
-                            }
-                            // parent got deleted, take it.
-                            Content::Deleted(_) => {
-                                item.parent.take();
-                            }
-                            _ => {
-                                return Err(JwstCodecError::InvalidParent);
-                            }
-                        },
-                        // GC & Skip are not valid parent, take it.
-                        _ => {
+        match &item.parent {
+            // root level named type
+            // doc.get_or_create_text(Some("content"))
+            //               ^^^^^^^ Parent::String("content")
+            Some(Parent::String(str)) => {
+                self.get_or_create_type(str);
+            }
+            // type as item
+            // let text = doc.create_text("text")
+            // Item { id: (1, 0), content: Content::Type(YText) }
+            //        ^^ Parent::Id((1, 0))
+            Some(Parent::Id(parent_id)) => {
+                match self.get_item(*parent_id) {
+                    Some(StructInfo::Item(_)) => match &item.content.as_ref() {
+                        Content::Type(_) => {
+                            // do nothing but catch the variant.
+                        }
+                        // parent got deleted, take it.
+                        Content::Deleted(_) => {
                             item.parent.take();
                         }
-                    }
-                    if !parent.is_item() {
+                        _ => {
+                            return Err(JwstCodecError::InvalidParent);
+                        }
+                    },
+                    // GC & Skip are not valid parent, take it.
+                    _ => {
                         item.parent.take();
                     }
                 }
-                // no item.parent, borrow left.parent or right.parent
-                None => {
-                    if let Some(left_id) = item.left_id {
-                        let left = self.get_item(left_id)?;
-                        item.parent = left.borrow().parent().cloned();
-                        item.parent_sub = left.borrow().parent_sub().cloned();
-                    } else if let Some(right_id) = item.right_id {
-                        let right = self.get_item(right_id)?;
-                        item.parent = right.borrow().parent().cloned();
-                        item.parent_sub = right.borrow().parent_sub().cloned();
-                    }
+            }
+            // no item.parent, borrow left.parent or right.parent
+            None => {
+                if let Some(left) = item.left_id.and_then(|left_id| self.get_item(left_id)) {
+                    item.parent = left.parent().cloned();
+                    item.parent_sub = left.parent_sub().cloned();
+                } else if let Some(right) =
+                    item.right_id.and_then(|right_id| self.get_item(right_id))
+                {
+                    item.parent = right.parent().cloned();
+                    item.parent_sub = right.parent_sub().cloned();
                 }
             }
         }
@@ -446,32 +358,38 @@ impl DocStore {
         mut struct_info: StructInfo,
         offset: u64,
     ) -> JwstCodecResult {
-        self.repair(&mut struct_info)?;
-        let struct_info = Arc::new(RefCell::new(struct_info));
-        match struct_info.borrow_mut().deref_mut() {
-            StructInfo::Item { id, item } => {
-                let mut left = item
-                    .left_id
-                    .and_then(|left_id| match self.get_item(left_id) {
-                        Ok(left) => Some(left),
-                        _ => None,
-                    });
+        match &mut struct_info {
+            StructInfo::Item(item) => {
+                debug_assert_eq!(Arc::strong_count(item), 1);
+                // SAFETY:
+                // before we integrate struct into store,
+                // the struct => Arc<Item> is owned reference actually,
+                // no one else refer to such item yet, we can safely mutable refer to it now.
+                let mut item = unsafe { &mut *(Arc::as_ptr(item) as *mut Item) };
+                self.repair(item)?;
 
-                let mut right = item
-                    .right_id
-                    .and_then(|right_id| match self.get_item(right_id) {
-                        Ok(right) => Some(right),
-                        _ => None,
-                    });
+                if offset > 0 {
+                    item.id.clock += offset;
+                    let left =
+                        self.get_item_clean_end(Id::new(item.id.client, item.id.clock - 1))?;
+                    item.left_id = Some(Id::new(item.id.client, left.clock() + left.len() - 1));
+                    item.content = Arc::new(item.content.split(offset)?.1);
+                }
+
+                let id = item.id;
+
+                let mut left = item.left_id.and_then(|left_id| self.get_item(left_id));
+                let mut right = item.right_id.and_then(|right_id| self.get_item(right_id));
 
                 let parent = if let Some(parent) = &item.parent {
                     match parent {
                         Parent::String(name) => Some(self.get_or_create_type(name)),
                         Parent::Id(id) => {
-                            if let Some(item) = self.get_item(*id)?.borrow().item() {
-                                match &item.content {
+                            if let Some(item) = self.get_item(*id).and_then(|s| s.item()) {
+                                match item.content.as_ref() {
                                     Content::Type(ytype) => {
-                                        Some(Arc::new(RefCell::new(ytype.clone().into())))
+                                        // type.set_item = item
+                                        Some(YType::default())
                                     }
                                     _ => {
                                         return Err(JwstCodecError::InvalidParent);
@@ -486,14 +404,8 @@ impl DocStore {
                     None
                 };
 
-                if offset > 0 {
-                    id.clock += offset;
-                    left = Some(self.get_item_clean_end(Id::new(id.client, id.clock - 1))?);
-                    item.content.split(offset)?;
-                }
-
                 if let Some(parent) = parent {
-                    let mut parent = parent.borrow_mut();
+                    let mut parent = parent.write();
                     let right_is_null_or_has_left = match &right {
                         None => true,
                         Some(right) => right.left_id().is_some(),
@@ -509,14 +421,10 @@ impl DocStore {
                     {
                         // set the first conflicting item
                         let mut o = if let Some(left) = left.clone() {
-                            left.right_id()
-                                .and_then(|right_id| match self.get_item(right_id) {
-                                    Ok(item) => Some(item),
-                                    Err(_) => None,
-                                })
+                            left.right_id().and_then(|right_id| self.get_item(right_id))
                         } else if let Some(parent_sub) = &item.parent_sub {
-                            let o = parent.map.get(parent_sub).cloned();
-                            o.as_ref().map(|o| self.get_start_item(o.clone()))
+                            let o = parent.map.as_ref().and_then(|m| m.get(parent_sub).cloned());
+                            o.as_ref().map(|o| self.get_start_item(o))
                         } else {
                             parent.start.clone()
                         };
@@ -524,18 +432,16 @@ impl DocStore {
                         let mut conflicting_items = HashSet::new();
                         let mut items_before_origin = HashSet::new();
 
-                        while let Some(conflict) = o {
-                            if Some(conflict.clone()) == right {
+                        while let Some(conflict) = &o {
+                            if Some(conflict) == right.as_ref() {
                                 break;
                             }
 
                             items_before_origin.insert(conflict.id());
                             conflicting_items.insert(conflict.id());
-                            match conflict.borrow().deref() {
-                                StructInfo::Item {
-                                    id: conflict_id,
-                                    item: c,
-                                } => {
+                            match conflict {
+                                StructInfo::Item(c) => {
+                                    let conflict_id = item.id;
                                     if item.left_id == c.left_id {
                                         // case 1
                                         if conflict_id.client < id.client {
@@ -558,7 +464,7 @@ impl DocStore {
                                         break;
                                     }
                                     o = match c.right_id {
-                                        Some(right_id) => Some(self.get_item(right_id)?),
+                                        Some(right_id) => self.get_item(right_id),
                                         None => None,
                                     };
                                 }
@@ -568,15 +474,14 @@ impl DocStore {
                             }
                         }
 
+                        // now manipulating the store, so we gonna acquire the write lock.
                         // reconnect left/right
-                        match left.clone() {
+                        match &left {
                             // has left, connect left <-> self <-> left.right
                             Some(left) => {
                                 item.left_id = Some(left.id());
-                                left.modify(|left| {
-                                    if let StructInfo::Item { item: left, .. } = left {
-                                        left.right_id = left.right_id.replace(*id);
-                                    }
+                                self.modify_item(left.id(), |left| {
+                                    item.right_id = left.right_id.replace(id);
                                 });
                             }
                             // no left, right = parent.start
@@ -584,8 +489,8 @@ impl DocStore {
                                 right = if let Some(parent_sub) = &item.parent_sub {
                                     parent
                                         .map
-                                        .get(parent_sub)
-                                        .cloned()
+                                        .as_ref()
+                                        .and_then(|map| map.get(parent_sub))
                                         .map(|r| self.get_start_item(r))
                                 } else {
                                     parent.start.clone()
@@ -595,36 +500,38 @@ impl DocStore {
 
                         match right {
                             // has right, connect
-                            Some(right) => right.modify(|right| {
-                                if let StructInfo::Item { item: right, .. } = right {
-                                    right.left_id = right.left_id.replace(*id);
-                                }
+                            Some(right) => {
                                 item.right_id = Some(right.id());
-                            }),
+                                self.modify_item(right.id(), |right| {
+                                    item.left_id = right.left_id.replace(id);
+                                });
+                            }
+
                             // no right, parent.start = item, delete item.left
                             None => {
                                 if let Some(parent_sub) = &item.parent_sub {
                                     parent
                                         .map
-                                        .insert(parent_sub.to_string(), struct_info.clone().into());
+                                        .get_or_insert(HashMap::default())
+                                        .insert(parent_sub.to_string(), struct_info.clone());
                                 }
                                 if let Some(left) = &left {
                                     self.delete(left.id(), left.len());
-                                    left.as_mut_ref().delete();
+                                    left.delete();
                                 }
                             }
                         }
 
                         // should delete
-                        if parent.item.is_some() && parent.item.clone().unwrap().deleted()
+                        if parent.item.is_some() && parent.item.as_ref().unwrap().deleted()
                             || item.parent_sub.is_some() && item.right_id.is_some()
                         {
-                            self.delete(*id, item.len());
+                            self.delete(id, item.len());
                             item.delete();
                         } else {
                             // adjust parent length
                             if item.parent_sub.is_none() && item.flags.countable() {
-                                parent.len += item.len();
+                                parent.content_len += item.len();
                             }
                         }
                     }
@@ -640,7 +547,7 @@ impl DocStore {
                 // skip ignored
             }
         }
-        self.add_item_ref(struct_info.into())
+        self.add_item(struct_info)
     }
 
     pub(crate) fn delete(&self, id: Id, len: u64) {
@@ -653,50 +560,48 @@ impl DocStore {
         let end = range.end;
         if let Some(items) = self.items.write().unwrap().get_mut(&client) {
             if let Some(mut idx) = DocStore::get_item_index(items, start) {
-                let right = {
-                    let mut struct_info = items[idx].borrow_mut();
-                    let id = struct_info.id();
-
+                {
                     // id.clock <= range.start < id.end
                     // need to split the item and delete the right part
-                    if !struct_info.flags().deleted() && id.clock < range.start {
+                    // -----item-----
+                    //    ^start
+                    let struct_info = &items[idx];
+                    let id = struct_info.id();
+
+                    if !struct_info.deleted() && id.clock < range.start {
                         match struct_info.split_item(start - id.clock) {
-                            Ok(r) => Some(r),
+                            Ok((left, right)) => {
+                                items[idx] = left;
+                                items.insert(idx + 1, right);
+                                idx += 1;
+                            }
                             Err(e) => return Err(e),
                         }
-                    } else {
-                        None
                     }
                 };
 
-                if let Some(right) = right {
-                    items.insert(idx + 1, right.into());
-                    idx += 1;
-                }
-
                 while idx < items.len() {
-                    let right = {
-                        let mut struct_info = items[idx].borrow_mut();
-                        let id = struct_info.id();
+                    let mut struct_info = &items[idx];
+                    let id = struct_info.id();
 
-                        if !struct_info.flags().deleted() && id.clock < end {
-                            let right = if end < id.clock + struct_info.len() {
-                                match struct_info.split_item(end - id.clock) {
-                                    Ok(r) => Some(r),
-                                    Err(e) => return Err(e),
+                    if !struct_info.deleted() && id.clock < end {
+                        // need to split the item
+                        // -----item-----
+                        //           ^end
+                        if end < id.clock + struct_info.len() {
+                            match struct_info.split_item(end - id.clock) {
+                                Ok((left, right)) => {
+                                    items[idx] = left;
+                                    items.insert(idx + 1, right);
+                                    struct_info = &items[idx];
                                 }
-                            } else {
-                                None
-                            };
-                            self.delete(id, struct_info.len());
-                            struct_info.delete();
-                            right
-                        } else {
-                            break;
+                                Err(e) => return Err(e),
+                            }
                         }
-                    };
-                    if let Some(right) = right {
-                        items.insert(idx + 1, right.into());
+                        self.delete(id, struct_info.len());
+                        struct_info.delete();
+                    } else {
+                        break;
                     }
                     idx += 1;
                 }
@@ -754,15 +659,14 @@ impl DocStore {
                     let offset = first_block.clock() - clock;
                     if offset != 0 {
                         // needs to implement Content split first
-                        vec_struct_info.push_back(
-                            first_block.clone().borrow_mut().split_item(offset)?.clone(),
-                        );
+                        vec_struct_info
+                            .push_back(first_block.clone().split_item(offset)?.clone().1);
                     } else {
-                        vec_struct_info.push_back(first_block.borrow().clone());
+                        vec_struct_info.push_back(first_block.clone());
                     }
 
                     for item in items.iter().skip(index + 1) {
-                        vec_struct_info.push_back(item.borrow().clone());
+                        vec_struct_info.push_back(item.clone());
                     }
                 }
             }
@@ -806,10 +710,11 @@ mod tests {
                 len: 7,
             };
 
-            doc_store.items.write().unwrap().insert(
-                client_id,
-                vec![struct_info1.into(), struct_info2.clone().into()],
-            );
+            doc_store
+                .items
+                .write()
+                .unwrap()
+                .insert(client_id, vec![struct_info1, struct_info2.clone()]);
 
             let state = doc_store.get_state(client_id);
 
@@ -850,11 +755,12 @@ mod tests {
                 .items
                 .write()
                 .unwrap()
-                .insert(client1, vec![struct_info1.clone().into()]);
-            doc_store.items.write().unwrap().insert(
-                client2,
-                vec![struct_info2.into(), struct_info3.clone().into()],
-            );
+                .insert(client1, vec![struct_info1.clone()]);
+            doc_store
+                .items
+                .write()
+                .unwrap()
+                .insert(client2, vec![struct_info2, struct_info3.clone()]);
 
             let state_map = doc_store.get_state_vector();
 
@@ -918,7 +824,7 @@ mod tests {
             };
             doc_store.add_item(struct_info.clone()).unwrap();
 
-            assert_eq!(doc_store.get_item(Id::new(1, 9)), Ok(struct_info.into()));
+            assert_eq!(doc_store.get_item(Id::new(1, 9)), Some(struct_info));
         }
 
         {
@@ -934,16 +840,13 @@ mod tests {
             doc_store.add_item(struct_info1).unwrap();
             doc_store.add_item(struct_info2.clone()).unwrap();
 
-            assert_eq!(doc_store.get_item(Id::new(1, 25)), Ok(struct_info2.into()));
+            assert_eq!(doc_store.get_item(Id::new(1, 25)), Some(struct_info2));
         }
 
         {
             let doc_store = DocStore::new();
 
-            assert_eq!(
-                doc_store.get_item(Id::new(1, 0)),
-                Err(JwstCodecError::StructSequenceNotExists(1))
-            );
+            assert_eq!(doc_store.get_item(Id::new(1, 0)), None);
         }
 
         {
@@ -959,37 +862,30 @@ mod tests {
             doc_store.add_item(struct_info1).unwrap();
             doc_store.add_item(struct_info2).unwrap();
 
-            assert_eq!(
-                doc_store.get_item(Id::new(1, 35)),
-                Err(JwstCodecError::StructSequenceNotExists(1))
-            );
+            assert_eq!(doc_store.get_item(Id::new(1, 35)), None);
         }
     }
 
     #[test]
     fn test_get_item_clean() {
         let doc_store = DocStore::new();
-        let struct_info1 = StructInfo::Item {
-            id: Id::new(1, 0),
-            item: Box::new(Item {
-                content: Content::String(String::from("octo")),
-                ..Default::default()
-            }),
-        };
+        let struct_info1 = StructInfo::Item(Arc::new(Item {
+            id: (1, 0).into(),
+            content: Arc::new(Content::String(String::from("octo"))),
+            ..Default::default()
+        }));
 
-        let struct_info2 = StructInfo::Item {
+        let struct_info2 = StructInfo::Item(Arc::new(Item {
             id: Id::new(1, struct_info1.len()),
-            item: Box::new(Item {
-                left_id: Some(struct_info1.id()),
-                content: Content::String(String::from("base")),
-                ..Default::default()
-            }),
-        };
+            left_id: Some(struct_info1.id()),
+            content: Arc::new(Content::String(String::from("base"))),
+            ..Default::default()
+        }));
         doc_store.add_item(struct_info1.clone()).unwrap();
         doc_store.add_item(struct_info2).unwrap();
 
         let s1 = doc_store.get_item(Id::new(1, 0)).unwrap();
-        assert_eq!(s1, struct_info1.into());
+        assert_eq!(s1, struct_info1);
         let left = doc_store.get_item_clean_end((1, 1)).unwrap();
         assert_eq!(left.len(), 2); // octo => oc_to
 

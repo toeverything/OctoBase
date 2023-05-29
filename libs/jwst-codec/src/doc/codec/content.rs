@@ -191,17 +191,24 @@ impl Content {
         )
     }
 
-    // [diff + 1, len - 1)
-    pub fn split(&mut self, diff: u64) -> JwstCodecResult<Self> {
+    pub fn split(&self, diff: u64) -> JwstCodecResult<(Self, Self)> {
+        // TODO: implement split for other types
         match self {
             Self::String(str) => {
                 let (left, right) = Self::split_as_utf16_str(str.as_str(), diff);
-                let right = right.to_string();
-                *str = left.to_string();
-                Ok(Self::String(right))
+                Ok((
+                    Self::String(left.to_string()),
+                    Self::String(right.to_string()),
+                ))
             }
-            Self::JSON(vec) => Ok(Self::JSON(vec.split_off((diff + 1) as usize))),
-            Self::Any(vec) => Ok(Self::Any(vec.split_off((diff + 1) as usize))),
+            Self::JSON(vec) => {
+                let (left, right) = vec.split_at((diff + 1) as usize);
+                Ok((Self::JSON(left.to_owned()), Self::JSON(right.to_owned())))
+            }
+            Self::Any(vec) => {
+                let (left, right) = vec.split_at((diff + 1) as usize);
+                Ok((Self::Any(left.to_owned()), Self::Any(right.to_owned())))
+            }
             _ => Err(JwstCodecError::ContentSplitNotSupport(diff)),
         }
     }

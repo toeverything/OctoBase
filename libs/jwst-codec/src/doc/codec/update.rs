@@ -219,7 +219,8 @@ impl<'a> UpdateIterator<'a> {
     /// tell if current update's dependencies(left, right, parent) has already been consumed and recorded
     /// and return the client of them if not.
     fn get_missing_dep(&self, struct_info: &StructInfo) -> Option<Client> {
-        if let StructInfo::Item { id, item } = struct_info {
+        if let StructInfo::Item(item) = struct_info {
+            let id = item.id;
             if let Some(left) = &item.left_id {
                 if left.client != id.client && left.clock >= self.state.get(&left.client) {
                     return Some(left.client);
@@ -392,16 +393,14 @@ mod tests {
 
     use super::*;
     use serde::Deserialize;
-    use std::{num::ParseIntError, path::PathBuf};
+    use std::{num::ParseIntError, path::PathBuf, sync::Arc};
 
     fn struct_item(id: (Client, Clock), len: usize) -> StructInfo {
-        StructInfo::Item {
+        StructInfo::Item(Arc::new(Item {
             id: id.into(),
-            item: Box::new(Item {
-                content: Content::String("c".repeat(len)),
-                ..Item::default()
-            }),
-        }
+            content: Arc::new(Content::String("c".repeat(len))),
+            ..Item::default()
+        }))
     }
 
     fn parse_doc_update(input: Vec<u8>) -> JwstCodecResult<Update> {
@@ -502,15 +501,12 @@ mod tests {
                     1,
                     VecDeque::from([
                         struct_item((1, 0), 1),
-                        StructInfo::Item {
+                        StructInfo::Item(Arc::new(Item {
                             id: (1, 1).into(),
-                            item: Item {
-                                left_id: Some((0, 1).into()),
-                                content: Content::String("c".repeat(2)),
-                                ..Item::default()
-                            }
-                            .into(),
-                        },
+                            left_id: Some((0, 1).into()),
+                            content: Arc::new(Content::String("c".repeat(2))),
+                            ..Item::default()
+                        })),
                     ]),
                 ),
             ]),

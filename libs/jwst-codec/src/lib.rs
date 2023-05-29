@@ -47,6 +47,8 @@ pub enum JwstCodecError {
     InvalidParent,
     #[error("Parent not found")]
     ParentNotFound,
+    #[error("Can not cast known type to {0}")]
+    TypeCastError(&'static str),
 }
 
 pub type JwstCodecResult<T = ()> = Result<T, JwstCodecError>;

@@ -1,9 +1,15 @@
+use std::sync::{
+    atomic::{AtomicU8, Ordering},
+    Arc,
+};
+
 use super::*;
 
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(fuzzing, derive(arbitrary::Arbitrary))]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Parent {
+    // Type(YType),
     String(String),
     Id(Id),
 }
@@ -21,35 +27,46 @@ pub mod item_flags {
     pub const ITEM_HAS_PARENT_INFO      : u8 = 0b1100_0000;
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-pub struct ItemFlags(#[cfg_attr(test, proptest(value = 0))] u8);
+#[derive(Debug)]
+pub struct ItemFlags(AtomicU8);
+
+impl Default for ItemFlags {
+    fn default() -> Self {
+        Self(AtomicU8::new(0))
+    }
+}
+
+impl Clone for ItemFlags {
+    fn clone(&self) -> Self {
+        Self(AtomicU8::new(self.0.load(Ordering::Acquire)))
+    }
+}
 
 impl From<u8> for ItemFlags {
     fn from(flags: u8) -> Self {
-        Self(flags)
+        Self(AtomicU8::new(flags))
     }
 }
 
 impl ItemFlags {
     #[inline(always)]
-    pub fn set(&mut self, flag: u8) {
-        self.0 |= flag;
+    pub fn set(&self, flag: u8) {
+        self.0.fetch_or(flag, Ordering::SeqCst);
     }
 
     #[inline(always)]
-    pub fn clear(&mut self, flag: u8) {
-        self.0 &= !flag;
+    pub fn clear(&self, flag: u8) {
+        self.0.fetch_and(flag, Ordering::SeqCst);
     }
 
     #[inline(always)]
     pub fn check(&self, flag: u8) -> bool {
-        self.0 & flag == flag
+        self.0.load(Ordering::Acquire) & flag == flag
     }
 
     #[inline(always)]
     pub fn not(&self, flag: u8) -> bool {
-        self.0 & flag == 0
+        self.0.load(Ordering::Acquire) & flag == 0
     }
 
     #[inline(always)]
@@ -58,12 +75,12 @@ impl ItemFlags {
     }
 
     #[inline(always)]
-    pub fn set_keep(&mut self) {
+    pub fn set_keep(&self) {
         self.set(item_flags::ITEM_KEEP);
     }
 
     #[inline(always)]
-    pub fn clear_keep(&mut self) {
+    pub fn clear_keep(&self) {
         self.clear(item_flags::ITEM_KEEP);
     }
 
@@ -73,12 +90,12 @@ impl ItemFlags {
     }
 
     #[inline(always)]
-    pub fn set_countable(&mut self) {
+    pub fn set_countable(&self) {
         self.set(item_flags::ITEM_COUNTABLE);
     }
 
     #[inline(always)]
-    pub fn clear_countable(&mut self) {
+    pub fn clear_countable(&self) {
         self.clear(item_flags::ITEM_COUNTABLE);
     }
 
@@ -88,27 +105,42 @@ impl ItemFlags {
     }
 
     #[inline(always)]
-    pub fn set_deleted(&mut self) {
+    pub fn set_deleted(&self) {
         self.set(item_flags::ITEM_DELETED);
     }
 
     #[inline(always)]
-    pub fn clear_deleted(&mut self) {
+    pub fn clear_deleted(&self) {
         self.clear(item_flags::ITEM_DELETED);
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct Item {
     pub id: Id,
+    // fast reference, ensure left.id() always equals left_id
+    // left: Option<ItemRef>,
     pub left_id: Option<Id>,
+    // right: Option<ItemRef>
     pub right_id: Option<Id>,
     pub parent: Option<Parent>,
     pub parent_sub: Option<String>,
-    pub content: Content,
+    // make content Arc, so we can share the content between items
+    // and item can be readonly and cloned fast.
+    pub content: Arc<Content>,
+    #[cfg_attr(test, proptest(value = "ItemFlags::default()"))]
     pub flags: ItemFlags,
 }
+
+impl PartialEq for Item {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+// make all Item readonly
+pub type ItemRef = Arc<Item>;
 
 impl Default for Item {
     fn default() -> Self {
@@ -118,7 +150,7 @@ impl Default for Item {
             right_id: None,
             parent: None,
             parent_sub: None,
-            content: Content::String("".into()),
+            content: Arc::new(Content::String("".into())),
             flags: ItemFlags::from(item_flags::ITEM_COUNTABLE),
         }
     }
@@ -137,14 +169,14 @@ impl Item {
         self.flags.deleted()
     }
 
-    pub fn delete(&mut self) {
+    pub fn delete(&self) {
         if self.deleted() {
             return;
         }
 
         // self.content.delete();
 
-        self.flags.deleted();
+        self.flags.set_deleted();
     }
 }
 
@@ -163,7 +195,7 @@ impl Item {
 
         // NOTE: read order must keep the same as the order in yjs
         // TODO: this data structure design will break the cpu OOE, need to be optimized
-        let mut item = Self {
+        let item = Self {
             id,
             left_id: if has_left_id {
                 Some(decoder.read_item_id()?)
@@ -196,7 +228,7 @@ impl Item {
                 // tag must not GC or Skip, this must process in parse_struct
                 debug_assert_ne!(first_5_bit, 0);
                 debug_assert_ne!(first_5_bit, 10);
-                Content::read(decoder, first_5_bit)?
+                Arc::new(Content::read(decoder, first_5_bit)?)
             },
             flags: ItemFlags::from(0),
         };

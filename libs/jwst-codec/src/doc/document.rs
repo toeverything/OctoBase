@@ -1,16 +1,14 @@
-use super::*;
+use std::sync::{Arc, RwLock};
+
+use super::{store::StoreRef, *};
 
 pub struct Doc {
-    // TODO: use function in code
-    #[allow(dead_code)]
-    // random client id for each doc
     client_id: u64,
+    // random id for each doc, use in sub doc
     // TODO: use function in code
     #[allow(dead_code)]
-    // random id for each doc, use in sub doc
     guid: String,
-    // root_type: HashMap<String, Item>,
-    store: DocStore,
+    store: StoreRef,
 }
 
 impl Default for Doc {
@@ -20,7 +18,7 @@ impl Default for Doc {
             client_id: client,
             guid: nanoid!(),
             // share: HashMap::new(),
-            store: DocStore::with_client(client),
+            store: Arc::new(RwLock::new(DocStore::with_client(client))),
         }
     }
 }
@@ -44,29 +42,29 @@ impl Doc {
     }
 
     pub fn apply_update(&mut self, mut update: Update) -> JwstCodecResult {
+        let mut store = self.store.write().unwrap();
         let mut retry = false;
         loop {
-            for (s, offset) in update.iter(self.store.get_state_vector()) {
-                self.store.integrate_struct_info(s, offset)?;
+            for (s, offset) in update.iter(store.get_state_vector()) {
+                store.integrate_struct_info(s, offset)?;
             }
 
-            for (client, range) in update.delete_set_iter(self.store.get_state_vector()) {
-                self.store.delete_range(client, range)?;
+            for (client, range) in update.delete_set_iter(store.get_state_vector()) {
+                store.delete_range(client, range)?;
             }
 
-            if let Some(mut pending_update) = self.store.pending.take() {
+            if let Some(mut pending_update) = store.pending.take() {
                 if pending_update
                     .missing_state
                     .iter()
-                    .any(|(client, clock)| self.store.get_state(*client) > *clock)
+                    .any(|(client, clock)| store.get_state(*client) > *clock)
                 {
                     // new update has been applied to the doc, need to re-integrate
                     retry = true;
                 }
 
-                for (client, range) in pending_update.delete_set_iter(self.store.get_state_vector())
-                {
-                    self.store.delete_range(client, range)?;
+                for (client, range) in pending_update.delete_set_iter(store.get_state_vector()) {
+                    store.delete_range(client, range)?;
                 }
 
                 if update.is_pending_empty() {
@@ -92,7 +90,7 @@ impl Doc {
             // can't integrate any more, save the pending update
             if !retry {
                 if !update.is_pending_empty() {
-                    self.store.pending = Some(update)
+                    store.pending.replace(update);
                 }
                 break;
             }
@@ -101,10 +99,10 @@ impl Doc {
         Ok(())
     }
 
-    pub fn get_text(&mut self, name: &str) -> TypeStoreRef {
-        let text = self.store.get_or_create_type(name);
-        text.borrow_mut().set_kind(TypeStoreKind::Text);
-        text
+    pub fn get_or_crate_text(&mut self, name: &str) -> JwstCodecResult<Text> {
+        let mut text = self.store.write().unwrap().get_or_create_type(name);
+        text.set_kind(YTypeKind::Text)?;
+        Text::try_from(text)
     }
 
     pub fn encode_update_v1(&self) -> JwstCodecResult<Vec<u8>> {
@@ -114,13 +112,16 @@ impl Doc {
     pub fn encode_state_as_update_v1(&self, sv: &StateVector) -> JwstCodecResult<Vec<u8>> {
         let store = &self.store;
         let mut encoder = RawEncoder::default();
-        store.encode_with_state_vector(sv, &mut encoder)?;
+        store
+            .read()
+            .unwrap()
+            .encode_with_state_vector(sv, &mut encoder)?;
 
         Ok(encoder.into_inner())
     }
 
     pub fn get_state_vector(&self) -> StateVector {
-        self.store.get_state_vector()
+        self.store.read().unwrap().get_state_vector()
     }
 }
 
