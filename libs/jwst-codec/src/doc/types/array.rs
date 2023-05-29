@@ -24,7 +24,7 @@ impl YArray {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yrs::{Array, Transact};
+    use yrs::{Array, Text, Transact};
 
     #[test]
     fn test_yarray_equal() {
@@ -33,27 +33,99 @@ mod tests {
             let array = doc.get_or_insert_array("abc");
 
             let mut trx = doc.transact_mut();
-            array.insert(&mut trx, 0, 1).unwrap();
-            array.insert(&mut trx, 0, "a").unwrap();
+            array.insert(&mut trx, 0, " ").unwrap();
+            array.insert(&mut trx, 0, "Hello").unwrap();
+            array.insert(&mut trx, 2, "World").unwrap();
             trx.encode_update_v1().unwrap()
         };
 
         let mut decoder = RawDecoder::new(buffer);
         let update = Update::read(&mut decoder).unwrap();
-        println!("{:#?}", update);
+
         let mut doc = Doc::default();
         doc.apply_update(update).unwrap();
         let array = doc.get_array("abc").unwrap();
 
         assert_eq!(
             array.get(0).unwrap().unwrap(),
-            Content::Any(vec![Any::Integer(1)])
+            Content::Any(vec![Any::String("Hello".into())])
         );
-        // FIXME: it seems that some items were missed during apply_update
-        // so no non-root index could be found here
-        // assert_eq!(
-        //     array.get(1).unwrap().unwrap(),
-        //     Content::String("a".to_string())
-        // );
+        assert_eq!(
+            array.get(1).unwrap().unwrap(),
+            Content::Any(vec![Any::String(" ".into())])
+        );
+        assert_eq!(
+            array.get(2).unwrap().unwrap(),
+            Content::Any(vec![Any::String("World".into())])
+        );
+    }
+
+    #[test]
+    fn test_ytext_equal() {
+        {
+            let doc = yrs::Doc::new();
+            let array = doc.get_or_insert_text("abc");
+
+            let mut trx = doc.transact_mut();
+            array.insert(&mut trx, 0, " ").unwrap();
+            array.insert(&mut trx, 0, "Hello").unwrap();
+            array.insert(&mut trx, 6, "World").unwrap();
+            array.insert(&mut trx, 11, "!").unwrap();
+            let buffer = trx.encode_update_v1().unwrap();
+
+            let mut decoder = RawDecoder::new(buffer);
+            let update = Update::read(&mut decoder).unwrap();
+
+            let mut doc = Doc::default();
+            doc.apply_update(update).unwrap();
+            let array = doc.get_array("abc").unwrap();
+
+            assert_eq!(
+                (0..=12)
+                    .filter_map(|i| array.get(i).ok().flatten().and_then(|c| {
+                        if let Content::String(s) = c {
+                            Some(s)
+                        } else {
+                            None
+                        }
+                    }))
+                    .collect::<Vec<_>>()
+                    .join(""),
+                "Hello World!"
+            );
+        }
+
+        {
+            let doc = yrs::Doc::new();
+            let array = doc.get_or_insert_text("abc");
+
+            let mut trx = doc.transact_mut();
+            array.insert(&mut trx, 0, "Hello").unwrap();
+            array.insert(&mut trx, 5, " ").unwrap();
+            array.insert(&mut trx, 6, "World").unwrap();
+            array.insert(&mut trx, 11, "!").unwrap();
+            let buffer = trx.encode_update_v1().unwrap();
+
+            let mut decoder = RawDecoder::new(buffer);
+            let update = Update::read(&mut decoder).unwrap();
+
+            let mut doc = Doc::default();
+            doc.apply_update(update).unwrap();
+            let array = doc.get_array("abc").unwrap();
+
+            assert_eq!(
+                (0..=12)
+                    .filter_map(|i| array.get(i).ok().flatten().and_then(|c| {
+                        if let Content::String(s) = c {
+                            Some(s)
+                        } else {
+                            None
+                        }
+                    }))
+                    .collect::<Vec<_>>()
+                    .join(""),
+                "Hello World!"
+            );
+        }
     }
 }
