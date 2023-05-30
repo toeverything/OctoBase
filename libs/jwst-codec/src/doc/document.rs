@@ -2,6 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use super::{store::StoreRef, *};
 
+#[derive(Debug, Clone)]
 pub struct Doc {
     client_id: u64,
     // random id for each doc, use in sub doc
@@ -10,6 +11,9 @@ pub struct Doc {
     guid: String,
     store: StoreRef,
 }
+
+unsafe impl Send for Doc {}
+unsafe impl Sync for Doc {}
 
 impl Default for Doc {
     fn default() -> Self {
@@ -20,6 +24,12 @@ impl Default for Doc {
             // share: HashMap::new(),
             store: Arc::new(RwLock::new(DocStore::with_client(client))),
         }
+    }
+}
+
+impl PartialEq for Doc {
+    fn eq(&self, other: &Self) -> bool {
+        self.client_id == other.client_id
     }
 }
 
@@ -46,7 +56,7 @@ impl Doc {
         let mut retry = false;
         loop {
             for (s, offset) in update.iter(store.get_state_vector()) {
-                store.integrate_struct_info(s, offset)?;
+                store.integrate_struct_info(s, offset, None)?;
             }
 
             for (client, range) in update.delete_set_iter(store.get_state_vector()) {
@@ -100,9 +110,16 @@ impl Doc {
     }
 
     pub fn get_or_crate_text(&mut self, name: &str) -> JwstCodecResult<Text> {
-        let mut text = self.store.write().unwrap().get_or_create_type(name);
-        text.set_kind(YTypeKind::Text)?;
-        Text::try_from(text)
+        YTypeBuilder::new(self.store.clone())
+            .with_kind(YTypeKind::Text)
+            .set_name(name.to_string())
+            .build()
+    }
+
+    pub fn create_text(&mut self) -> JwstCodecResult<Text> {
+        YTypeBuilder::new(self.store.clone())
+            .with_kind(YTypeKind::Text)
+            .build()
     }
 
     pub fn encode_update_v1(&self) -> JwstCodecResult<Vec<u8>> {

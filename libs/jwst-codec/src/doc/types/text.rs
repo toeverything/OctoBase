@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     doc::{item_flags, DocStore, ItemFlags, Parent, StructInfo},
-    impl_type, Content, Item, JwstCodecResult,
+    impl_type, Content, Item, JwstCodecError, JwstCodecResult,
 };
 
 pub struct ItemPosition {
@@ -15,19 +15,18 @@ impl_type!(Text);
 
 impl Text {
     pub fn len(&self) -> u64 {
-        self.0.read().unwrap().content_len
+        self.read().content_len
     }
 
-    pub fn insert(&mut self, char_index: u64, str: String) -> JwstCodecResult {
-        let type_store = self.0.write().unwrap();
-        if char_index > type_store.content_len {
-            panic!("index out of bounds");
+    pub fn insert<T: ToString>(&mut self, char_index: u64, str: T) -> JwstCodecResult {
+        let mut inner = self.write();
+        if char_index > inner.content_len {
+            return Err(JwstCodecError::IndexOutOfBound(char_index));
         }
 
-        if let Some(store) = type_store.store.upgrade() {
+        if let Some(store) = inner.store.upgrade() {
             let mut store = store.write().unwrap();
-            if let Some(mut pos) = self.find_position(&store, type_store.start.clone(), char_index)
-            {
+            if let Some(mut pos) = self.find_position(&store, inner.start.clone(), char_index) {
                 // insert in between an splitable item.
                 if pos.offset > 0 {
                     debug_assert!(pos.left.is_some());
@@ -35,26 +34,23 @@ impl Text {
                     pos.left = Some(left);
                     pos.right = Some(right);
                     pos.offset = 0;
+                    inner.item_len += 1;
                 }
 
                 // insert new item
                 let new_item_id = (store.client(), store.get_state(store.client())).into();
+                // replace with char len
                 let item = StructInfo::Item(Arc::new(Item {
                     id: new_item_id,
-                    left_id: pos.left.map(|l| l.id()),
+                    left_id: pos.left.map(|l| l.id() + l.len() - 1),
                     right_id: pos.right.map(|r| r.id()),
-                    content: Arc::new(Content::String(str)),
-                    parent: Some(if let Some(parent_item) = type_store.item.as_ref() {
-                        Parent::Id(parent_item.id())
-                    } else {
-                        // FIXME: how could we get root parent name here?
-                        Parent::String("".into())
-                    }),
+                    content: Arc::new(Content::String(str.to_string())),
+                    parent: Some(Parent::Type(self.clone().into())),
                     parent_sub: None,
                     flags: ItemFlags::from(item_flags::ITEM_COUNTABLE),
                 }));
 
-                store.integrate_struct_info(item, 0)?;
+                store.integrate_struct_info(item, 0, Some(inner))?;
                 // TODO: deal with text attributes
             }
         }
@@ -99,5 +95,100 @@ impl Text {
         }
 
         Some(pos)
+    }
+}
+
+impl ToString for Text {
+    fn to_string(&self) -> String {
+        let inner = self.read();
+
+        let mut start = inner.start.clone();
+        let mut ret = String::with_capacity(inner.content_len as usize);
+
+        while let Some(cur) = start.take() {
+            match cur {
+                StructInfo::Item(item) => {
+                    if !item.deleted() {
+                        if let Content::String(str) = item.content.as_ref() {
+                            ret.push_str(str);
+                        }
+                        start = item.right_id.and_then(|right_id| {
+                            inner
+                                .store
+                                .upgrade()
+                                .unwrap()
+                                .read()
+                                .unwrap()
+                                .get_item(right_id)
+                        });
+                    }
+                }
+                _ => break,
+            }
+        }
+
+        ret
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rand::Rng;
+
+    use crate::Doc;
+
+    #[test]
+    fn test_manipulate_text() {
+        let mut doc = Doc::default();
+        let mut text = doc.create_text().unwrap();
+
+        text.insert(0, "hello").unwrap();
+        text.insert(5, " world").unwrap();
+        text.insert(6, "great ").unwrap();
+
+        assert_eq!(text.to_string(), "hello great world");
+    }
+
+    #[test]
+    fn test_parallel_manipulate_text() {
+        let mut doc = Doc::default();
+        let mut text = doc.get_or_crate_text("test").unwrap();
+        text.insert(0, "This is a string with length 32.").unwrap();
+        let mut handles = Vec::new();
+        let iteration = 10;
+
+        // parallel editing text
+        {
+            for i in 0..iteration {
+                let mut text = text.clone();
+                handles.push(std::thread::spawn(move || {
+                    let pos = rand::thread_rng().gen_range(0..text.len());
+                    text.insert(pos, format!("hello {i}")).unwrap();
+                }));
+            }
+        }
+
+        // parallel editing doc
+        {
+            for i in 0..iteration {
+                let mut doc = doc.clone();
+                handles.push(std::thread::spawn(move || {
+                    let mut text = doc.get_or_crate_text("test").unwrap();
+                    let pos = rand::thread_rng().gen_range(0..text.len());
+                    text.insert(pos, format!("hello doc{i}")).unwrap();
+                }));
+            }
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        assert_eq!(
+            text.to_string().len(),
+            32 + /* raw length */
+            7 * iteration +/* parallel text editing: insert(pos, "hello {i}") */
+            10 * iteration /* parallel doc editing: insert(pos, "hello doc{i}") */
+        );
     }
 }

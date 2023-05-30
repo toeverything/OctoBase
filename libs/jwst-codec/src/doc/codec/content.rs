@@ -1,20 +1,7 @@
 use super::*;
 use serde_json::Value as JsonValue;
 
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(fuzzing, derive(arbitrary::Arbitrary))]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-pub enum YType {
-    Array,
-    Map,
-    Text,
-    XmlElement(String),
-    XmlText,
-    XmlFragment,
-    XmlHook(String),
-}
-
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Content {
     Deleted(u64),
@@ -28,12 +15,43 @@ pub enum Content {
         key: String,
         value: JsonValue,
     },
+    #[cfg_attr(test, proptest(skip))]
     Type(YType),
     Any(Vec<Any>),
     Doc {
         guid: String,
         opts: Vec<Any>,
     },
+}
+
+impl std::fmt::Debug for Content {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Deleted(arg0) => f.debug_tuple("Deleted").field(arg0).finish(),
+            Self::JSON(arg0) => f
+                .debug_tuple("JSON")
+                .field(&format!("Vec [len: {}]", arg0.len()))
+                .finish(),
+            Self::Binary(arg0) => f
+                .debug_tuple("Binary")
+                .field(&format!("Binary [len: {}]", arg0.len()))
+                .finish(),
+            Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
+            Self::Embed(arg0) => f.debug_tuple("Embed").field(arg0).finish(),
+            Self::Format { key, value } => f
+                .debug_struct("Format")
+                .field("key", key)
+                .field("value", value)
+                .finish(),
+            Self::Type(arg0) => f.debug_tuple("Type").field(arg0).finish(),
+            Self::Any(arg0) => f.debug_tuple("Any").field(arg0).finish(),
+            Self::Doc { guid, opts } => f
+                .debug_struct("Doc")
+                .field("guid", guid)
+                .field("opts", opts)
+                .finish(),
+        }
+    }
 }
 
 impl Content {
@@ -71,20 +89,18 @@ impl Content {
             } // Format
             7 => {
                 let type_ref = decoder.read_var_u64()?;
-                let ytype = match type_ref {
-                    0 => YType::Array,
-                    1 => YType::Map,
-                    2 => YType::Text,
-                    3 => YType::XmlElement(decoder.read_var_string()?),
-                    4 => YType::XmlFragment,
-                    5 => YType::XmlHook(decoder.read_var_string()?),
-                    6 => YType::XmlText,
-                    type_ref => {
+                let kind = YTypeKind::from(type_ref);
+                let tag_name = match kind {
+                    YTypeKind::XMLElement | YTypeKind::XMLHook => Some(decoder.read_var_string()?),
+                    YTypeKind::Unknown => {
                         return Err(JwstCodecError::IncompleteDocument(format!(
                             "Unknown y type: {type_ref}"
-                        )))
+                        )));
                     }
+                    _ => None,
                 };
+
+                let ytype = YType::new(kind, tag_name);
                 Ok(Self::Type(ytype))
             } // YType
             8 => Ok(Self::Any(Any::read_multiple(decoder)?)), // Any
@@ -140,21 +156,22 @@ impl Content {
                 encoder.write_var_string(key)?;
                 encoder.write_var_string(value.to_string())?;
             }
-            Self::Type(ytype) => match ytype {
-                YType::Array => encoder.write_var_u64(0)?,
-                YType::Map => encoder.write_var_u64(1)?,
-                YType::Text => encoder.write_var_u64(2)?,
-                YType::XmlElement(string) => {
-                    encoder.write_var_u64(3)?;
-                    encoder.write_var_string(string)?;
+            Self::Type(y_type) => {
+                let type_ref = u64::from(y_type.kind());
+                encoder.write_var_u64(type_ref)?;
+
+                match y_type {
+                    YType::XMLElement(xml_element) => {
+                        encoder.write_var_string(
+                            xml_element.0.read().unwrap().name.as_ref().unwrap(),
+                        )?;
+                    }
+                    YType::XMLHook(hook) => {
+                        encoder.write_var_string(hook.0.read().unwrap().name.as_ref().unwrap())?;
+                    }
+                    _ => {}
                 }
-                YType::XmlFragment => encoder.write_var_u64(4)?,
-                YType::XmlHook(string) => {
-                    encoder.write_var_u64(5)?;
-                    encoder.write_var_string(string)?;
-                }
-                YType::XmlText => encoder.write_var_u64(6)?,
-            },
+            }
             Self::Any(any) => {
                 Any::write_multiple(encoder, any)?;
             }
@@ -263,13 +280,13 @@ mod tests {
                 key: "key".to_string(),
                 value: JsonValue::Number(42.into()),
             },
-            Content::Type(YType::Array),
-            Content::Type(YType::Map),
-            Content::Type(YType::Text),
-            Content::Type(YType::XmlElement("test".to_string())),
-            Content::Type(YType::XmlFragment),
-            Content::Type(YType::XmlHook("test".to_string())),
-            Content::Type(YType::XmlText),
+            Content::Type(YType::Array(Array::default())),
+            Content::Type(YType::Map(Map::default())),
+            Content::Type(YType::Text(Text::default())),
+            Content::Type(YType::new(YTypeKind::XMLElement, Some("test".to_string()))),
+            Content::Type(YType::XMLFragment(XMLFragment::default())),
+            Content::Type(YType::new(YTypeKind::XMLHook, Some("test".to_string()))),
+            Content::Type(YType::XMLText(XMLText::default())),
             Content::Any(vec![Any::BigInt64(42), Any::String("Test Any".to_string())]),
             Content::Doc {
                 guid: "my_guid".to_string(),

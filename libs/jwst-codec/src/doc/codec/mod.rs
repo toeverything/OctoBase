@@ -9,7 +9,7 @@ mod update;
 mod utils;
 
 pub use any::Any;
-pub use content::{Content, YType};
+pub use content::Content;
 pub use delete_set::DeleteSet;
 pub use id::{Client, Clock, Id};
 pub use io::{CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, RawDecoder, RawEncoder};

@@ -9,7 +9,8 @@ use super::*;
 #[cfg_attr(fuzzing, derive(arbitrary::Arbitrary))]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Parent {
-    // Type(YType),
+    #[cfg_attr(test, proptest(skip))]
+    Type(YType),
     String(String),
     Id(Id),
 }
@@ -115,7 +116,7 @@ impl ItemFlags {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct Item {
     pub id: Id,
@@ -136,6 +137,27 @@ pub struct Item {
 impl PartialEq for Item {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
+    }
+}
+
+impl std::fmt::Debug for Item {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Item")
+            .field("id", &self.id)
+            .field("left_id", &self.left_id)
+            .field("right_id", &self.right_id)
+            .field(
+                "parent",
+                &self.parent.as_ref().map(|p| match p {
+                    Parent::Type(ty) => format!("{:?}", ty.read().root_name),
+                    Parent::String(name) => format!("Parent({name})"),
+                    Parent::Id(id) => format!("({}, {})", id.client, id.clock),
+                }),
+            )
+            .field("parent_sub", &self.parent_sub)
+            .field("content", &self.content)
+            .field("flags", &self.flags)
+            .finish()
     }
 }
 
@@ -283,6 +305,16 @@ impl Item {
                     Parent::Id(id) => {
                         encoder.write_var_u64(0)?;
                         encoder.write_item_id(id)?;
+                    }
+                    Parent::Type(ty) => {
+                        let ty = ty.read();
+                        if let Some(item) = &ty.item {
+                            encoder.write_var_u64(0)?;
+                            encoder.write_item_id(&item.id())?;
+                        } else if let Some(name) = &ty.root_name {
+                            encoder.write_var_u64(1)?;
+                            encoder.write_var_string(name)?;
+                        }
                     }
                 }
             } else {

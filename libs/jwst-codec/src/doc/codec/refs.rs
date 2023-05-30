@@ -3,12 +3,22 @@ use std::sync::Arc;
 use super::*;
 
 // make fields Copy + Clone without much effort
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum StructInfo {
     GC { id: Id, len: u64 },
     Skip { id: Id, len: u64 },
     Item(ItemRef),
+}
+
+impl Clone for StructInfo {
+    fn clone(&self) -> Self {
+        match self {
+            Self::GC { id, len } => Self::GC { id: *id, len: *len },
+            Self::Skip { id, len } => Self::Skip { id: *id, len: *len },
+            Self::Item(item) => Self::Item(item.clone()),
+        }
+    }
 }
 
 impl<W: CrdtWriter> CrdtWrite<W> for StructInfo {
@@ -29,7 +39,12 @@ impl<W: CrdtWriter> CrdtWrite<W> for StructInfo {
 
 impl PartialEq for StructInfo {
     fn eq(&self, other: &Self) -> bool {
-        self.id() == other.id()
+        match (self, other) {
+            (StructInfo::GC { id: id1, .. }, StructInfo::GC { id: id2, .. }) => id1 == id2,
+            (StructInfo::Skip { id: id1, .. }, StructInfo::Skip { id: id2, .. }) => id1 == id2,
+            (StructInfo::Item(item1), StructInfo::Item(item2)) => item1.id == item2.id,
+            _ => false,
+        }
     }
 }
 
