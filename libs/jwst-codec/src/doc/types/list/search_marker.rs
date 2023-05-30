@@ -172,3 +172,52 @@ impl MarkerList {
         Ok(marker)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use yrs::{Array, Transact};
+
+    #[test]
+    fn test_marker_list() {
+        let (client_id, buffer) = {
+            let doc = yrs::Doc::new();
+            let array = doc.get_or_insert_array("abc");
+
+            let mut trx = doc.transact_mut();
+            array.insert(&mut trx, 0, " ").unwrap();
+            array.insert(&mut trx, 0, "Hello").unwrap();
+            array.insert(&mut trx, 2, "World").unwrap();
+            (doc.client_id(), trx.encode_update_v1().unwrap())
+        };
+
+        let mut decoder = RawDecoder::new(buffer);
+        let update = Update::read(&mut decoder).unwrap();
+
+        let mut doc = Doc::default();
+        doc.apply_update(update).unwrap();
+
+        let marker_list = MarkerList::new(doc.store.clone());
+
+        let marker = marker_list
+            .find_marker(
+                8,
+                doc.store
+                    .get_item(Id::new(client_id, 0))
+                    .unwrap()
+                    .as_item()
+                    .unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(marker.index, 1);
+        assert_eq!(
+            marker.ptr,
+            doc.store
+                .get_item(Id::new(client_id, 2))
+                .unwrap()
+                .as_item()
+                .unwrap()
+        );
+    }
+}
