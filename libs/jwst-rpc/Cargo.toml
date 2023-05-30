@@ -8,7 +8,7 @@ license = "AGPL-3.0-only"
 [features]
 default = ["websocket", "webrtc"]
 websocket = ["axum", "tokio-tungstenite", "url"]
-webrtc = ["bytes", "webrtcrs"]
+webrtc = ["bytes", "reqwest", "webrtcrs"]
 
 [dependencies]
 anyhow = "1.0.70"
@@ -36,6 +36,10 @@ url = { version = "2.3.1", optional = true }
 
 # ======== webrtc dependencies ========
 bytes = { version = "1.4", optional = true }
+reqwest = { version = "0.11.18", features = [
+	"json",
+	"rustls-tls",
+], optional = true }
 webrtcrs = { package = "webrtc", version = "0.7.3", optional = true }
 
 # ======= workspace dependencies =======

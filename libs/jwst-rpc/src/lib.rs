@@ -2,6 +2,8 @@
 mod broadcast;
 #[cfg(feature = "websocket")]
 mod client;
+#[cfg(feature = "webrtc")]
+mod client_webrtc;
 mod connector;
 mod context;
 mod handler;
@@ -12,6 +14,8 @@ mod utils;
 pub use client::start_client_sync;
 #[cfg(feature = "websocket")]
 pub use connector::{axum_socket_connector, tungstenite_socket_connector};
+#[cfg(feature = "webrtc")]
+pub use client_webrtc::start_webrtc_client_sync;
 #[cfg(feature = "webrtc")]
 pub use connector::webrtc_datachannel_client_begin;
 #[cfg(feature = "webrtc")]

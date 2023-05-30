@@ -22,4 +22,8 @@ pub fn sync_handler(router: Router) -> Router {
         "/collaboration/:workspace",
         post(collaboration::auth_handler).get(collaboration::upgrade_handler),
     )
+    .nest_service(
+        "/webrtc-sdp/:workspace",
+        post(collaboration::webrtc_handler),
+    )
 }

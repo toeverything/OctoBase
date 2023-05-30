@@ -2,12 +2,19 @@ use super::*;
 use axum::{
     extract::{ws::WebSocketUpgrade, Path},
     response::Response,
+    extract,
     Json,
 };
 use futures::FutureExt;
-use jwst_rpc::{axum_socket_connector, handle_connector};
+use jwst_rpc::{
+    axum_socket_connector,
+    handle_connector,
+    webrtc_datachannel_server_connector,
+    RTCSessionDescription,
+};
 use serde::Serialize;
 use std::sync::Arc;
+use tokio::sync::mpsc::channel;
 
 #[derive(Serialize)]
 pub struct WebSocketAuthentication {
@@ -38,12 +45,39 @@ pub async fn upgrade_handler(
     })
 }
 
+pub async fn webrtc_handler(
+    Extension(context): Extension<Arc<Context>>,
+    Path(workspace): Path<String>,
+    extract::Json(offer): extract::Json<RTCSessionDescription>,
+) -> Json<RTCSessionDescription> {
+    let (answer, tx, rx, _) = webrtc_datachannel_server_connector(offer).await;
+
+    let (first_init_tx, mut first_init_rx) = channel::<bool>(10);
+    let workspace_id = workspace.to_owned();
+    tokio::spawn(async move {
+        if let Some(true) = first_init_rx.recv().await {
+            info!("socket init success: {}", workspace_id);
+        } else {
+            error!("socket init failed: {}", workspace_id);
+        }
+    });
+
+    let identifier = nanoid!();
+    tokio::spawn(async move {
+        handle_connector(context.clone(), workspace.clone(), identifier, move || {
+            (tx, rx, first_init_tx)
+        }).await;
+    });
+
+    Json(answer)
+}
+
 #[cfg(test)]
 mod test {
     use jwst::DocStorage;
     use jwst::{Block, Workspace};
     use jwst_logger::info;
-    use jwst_rpc::{start_client_sync, BroadcastChannels, RpcContextImpl};
+    use jwst_rpc::{start_client_sync, start_webrtc_client_sync, BroadcastChannels, RpcContextImpl};
     use jwst_storage::JwstStorage;
     use libc::{kill, SIGTERM};
     use rand::{thread_rng, Rng};
@@ -76,6 +110,79 @@ mod test {
         fn get_channel(&self) -> &BroadcastChannels {
             &self.channel
         }
+    }
+    #[test]
+    fn client_collaboration_with_webrtc_server() {
+        if dotenvy::var("KECK_DEBUG").is_ok() {
+            jwst_logger::init_logger("keck");
+        }
+
+        // TODO:
+        // there has a weird question:
+        // use new terminal run keck is pass
+        // use `start_collaboration_server` funtion is high probability block
+
+        //let server_port = 3000;
+        let server_port = thread_rng().gen_range(10000..=30000);
+        let child = start_collaboration_server(server_port);
+
+        let rt = Runtime::new().unwrap();
+        let (workspace_id, workspace) = rt.block_on(async move {
+            let workspace_id = "1";
+            let context = Arc::new(TestContext::new(Arc::new(
+                        JwstStorage::new("sqlite::memory:")
+                        .await
+                        .expect("get storage: memory sqlite failed"),
+                        )));
+            let remote = format!("http://localhost:{server_port}/webrtc-sdp/1");
+
+            start_webrtc_client_sync(
+                Arc::new(Runtime::new().unwrap()),
+                context.clone(),
+                Arc::default(),
+                remote,
+                workspace_id.to_owned(),
+                );
+
+            (
+                workspace_id.to_owned(),
+                context.get_workspace(workspace_id).await.unwrap(),
+            )
+        });
+
+        for block_id in 0..3 {
+            let block = create_block(&workspace, block_id.to_string(), "list".to_string());
+            info!("from client, create a block: {:?}", block);
+        }
+
+        info!("------------------after sync------------------");
+        std::thread::sleep(std::time::Duration::from_secs(1));
+
+        for block_id in 0..3 {
+            info!(
+                "get block {block_id} from server: {}",
+                get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port)
+            );
+            assert!(!get_block_from_server(
+                workspace_id.clone(),
+                block_id.to_string(),
+                server_port
+            )
+            .is_empty());
+        }
+
+        workspace.with_trx(|mut trx| {
+            let space = trx.get_space("blocks");
+            let blocks = space.get_blocks_by_flavour(&trx.trx, "list");
+            let mut ids: Vec<_> = blocks.iter().map(|block| block.block_id()).collect();
+            assert_eq!(ids.sort(), vec!["7", "8", "9"].sort());
+            info!("blocks from local storage:");
+            for block in blocks {
+                info!("block: {:?}", block);
+            }
+        });
+
+        close_collaboration_server(child);
     }
 
     #[test]
