@@ -8,7 +8,7 @@ impl YArray {
     pub fn new(store: DocStore, root: TypeStoreRef) -> JwstCodecResult<YArray> {
         let origin_type = root.borrow_mut().set_kind(TypeStoreKind::Array);
         if let Some(type_kind) = origin_type {
-            Err(JwstCodecError::InvalidType(type_kind))
+            Err(JwstCodecError::InvalidInitType(type_kind))
         } else {
             Ok(Self {
                 core: ListCore::new(store, root),
@@ -18,6 +18,17 @@ impl YArray {
 
     pub fn get(&self, index: u64) -> JwstCodecResult<Option<Content>> {
         self.core.get(index)
+    }
+
+    pub fn iter(&self) -> ListIterator {
+        self.core.iter()
+    }
+
+    pub fn map<F, T>(&self, f: F) -> impl Iterator<Item = JwstCodecResult<T>>
+    where
+        F: FnMut(Content) -> JwstCodecResult<T>,
+    {
+        self.core.map(f)
     }
 }
 

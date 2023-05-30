@@ -47,4 +47,82 @@ impl ListCore {
 
         Ok(None)
     }
+
+    pub fn iter(&self) -> ListIterator {
+        ListIterator {
+            store: self.store.clone(),
+            next: self.root.borrow().start.clone(),
+            content: None,
+            content_idx: 0,
+        }
+    }
+
+    pub fn map<F, T>(&self, mut f: F) -> impl Iterator<Item = JwstCodecResult<T>>
+    where
+        F: FnMut(Content) -> JwstCodecResult<T>,
+    {
+        self.iter().flatten().map(move |content| f(content))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use yrs::{Array, Transact};
+
+    #[test]
+    fn test_core_iter() {
+        let buffer = {
+            let doc = yrs::Doc::new();
+            let array = doc.get_or_insert_array("abc");
+
+            let mut trx = doc.transact_mut();
+            array.insert(&mut trx, 0, " ").unwrap();
+            array.insert(&mut trx, 0, "Hello").unwrap();
+            array.insert(&mut trx, 2, "World").unwrap();
+            trx.encode_update_v1().unwrap()
+        };
+
+        let mut decoder = RawDecoder::new(buffer);
+        let update = Update::read(&mut decoder).unwrap();
+        let mut doc = Doc::default();
+        doc.apply_update(update).unwrap();
+        let array = doc.get_array("abc").unwrap();
+
+        let items = array.iter().flatten().collect::<Vec<_>>();
+        assert_eq!(
+            items,
+            vec![
+                Content::Any(vec![Any::String("Hello".into())]),
+                Content::Any(vec![Any::String(" ".into())]),
+                Content::Any(vec![Any::String("World".into())]),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_core_map() {
+        let buffer = {
+            let doc = yrs::Doc::new();
+            let array = doc.get_or_insert_array("abc");
+
+            let mut trx = doc.transact_mut();
+            array.insert(&mut trx, 0, " ").unwrap();
+            array.insert(&mut trx, 0, "Hello").unwrap();
+            array.insert(&mut trx, 2, "World").unwrap();
+            array.insert(&mut trx, 3, 1).unwrap();
+            trx.encode_update_v1().unwrap()
+        };
+
+        let mut decoder = RawDecoder::new(buffer);
+        let update = Update::read(&mut decoder).unwrap();
+        let mut doc = Doc::default();
+        doc.apply_update(update).unwrap();
+        let array = doc.get_array("abc").unwrap();
+
+        let items = array.map(|c| {
+            Ok(matches!(c, Content::Any(any) if any.len() == 1 && matches!(any[0], Any::String(_))))
+        }).flatten().collect::<Vec<_>>();
+        assert_eq!(items, vec![true, true, true, false]);
+    }
 }

@@ -103,7 +103,8 @@ impl StructInfo {
         if let StructInfo::Item { item, .. } = self {
             item.flags
         } else {
-            ItemFlags::from(0)
+            // deleted
+            ItemFlags::from(4)
         }
     }
 
