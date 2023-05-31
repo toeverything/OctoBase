@@ -1,12 +1,16 @@
 #![no_main]
 
+#[cfg(fuzzing)]
 use jwst_codec::{
     gen_nest_type_from_nest_type, gen_nest_type_from_root, CRDTParam, ManipulateSource, OpType,
     YrsMapOps, YrsNestType,
 };
+#[cfg(fuzzing)]
 use libfuzzer_sys::fuzz_target;
+#[cfg(fuzzing)]
 use yrs::Transact;
 
+#[cfg(fuzzing)]
 fuzz_target!(|crdt_params: Vec<CRDTParam>| {
     let mut doc = yrs::Doc::new();
     let mut cur_crdt_nest_type: Option<YrsNestType> = None;

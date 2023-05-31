@@ -12,10 +12,8 @@ rand = "0.8"
 libfuzzer-sys = "0.4"
 lib0 = "0.16.5"
 yrs = "0.16.5"
-jwst-codec = {path = ".." }
 
-#[dependencies.jwst-codec]
-#path = ".."
+jwst-codec = {path = "../../jwst-codec" }
 
 [profile.release]
 debug = 1
