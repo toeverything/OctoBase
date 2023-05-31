@@ -47,6 +47,7 @@ pub enum TypeStoreKind {
     Unknown,
 }
 
+#[derive(Debug)]
 pub struct TypeStore {
     pub start: Option<StructRef>,
     pub map: HashMap<String, StructRef>,

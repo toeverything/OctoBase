@@ -54,8 +54,7 @@ impl MarkerList {
     }
 
     // update mark position if the index is within the range of the marker
-    #[allow(dead_code)]
-    fn update_marker_changes(&self, index: u64, len: i64) {
+    pub(super) fn update_marker_changes(&self, index: u64, len: i64) {
         let mut list = self.search_marker.lock().unwrap();
         for marker in list.iter_mut() {
             let mut ptr = marker.ptr.clone();

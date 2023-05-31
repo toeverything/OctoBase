@@ -5,13 +5,13 @@ pub struct YArray {
 }
 
 impl YArray {
-    pub fn new(store: DocStore, root: TypeStoreRef) -> JwstCodecResult<YArray> {
+    pub fn new(client_id: Client, store: DocStore, root: TypeStoreRef) -> JwstCodecResult<YArray> {
         let origin_type = root.borrow_mut().set_kind(TypeStoreKind::Array);
         if let Some(type_kind) = origin_type {
             Err(JwstCodecError::InvalidInitType(type_kind))
         } else {
             Ok(Self {
-                core: ListCore::new(store, root),
+                core: ListCore::new(client_id, store, root),
             })
         }
     }
@@ -34,6 +34,18 @@ impl YArray {
 
     pub fn slice(&self, start: usize, end: usize) -> JwstCodecResult<Vec<Content>> {
         self.iter().skip(start).take(end - start).collect()
+    }
+
+    pub fn insert<S: Into<String>>(&mut self, idx: u64, val: S) -> JwstCodecResult {
+        self.core.insert(idx, vec![Any::String(val.into())])
+    }
+
+    pub fn push<S: Into<String>>(&mut self, val: S) -> JwstCodecResult {
+        todo!()
+    }
+
+    pub fn remove(&mut self, idx: u64) -> JwstCodecResult {
+        todo!()
     }
 }
 

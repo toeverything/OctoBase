@@ -10,7 +10,7 @@ pub struct ListIterator {
 impl ListIterator {
     pub fn new(store: DocStore, root: TypeStoreRef) -> ListIterator {
         Self {
-            store: store.clone(),
+            store,
             next: root.borrow().start.clone(),
             content: None,
             content_idx: 0,
@@ -53,18 +53,16 @@ impl Iterator for ListIterator {
 
             if let Some(content) = self.next_content() {
                 return Some(content);
-            } else {
-                if let Some(item) = n.as_item() {
-                    self.content = Some(item.content);
-                    self.content_idx = 0;
-                    if let Some(right_id) = item.right_id {
-                        self.next = self.store.get_item(right_id).ok();
-                    } else {
-                        self.next = None;
-                    }
+            } else if let Some(item) = n.as_item() {
+                self.content = Some(item.content);
+                self.content_idx = 0;
+                if let Some(right_id) = item.right_id {
+                    self.next = self.store.get_item(right_id).ok();
                 } else {
-                    return Some(Err(JwstCodecError::InvalidStructType(n.clone())));
+                    self.next = None;
                 }
+            } else {
+                return Some(Err(JwstCodecError::InvalidStructType(n)));
             }
         }
 

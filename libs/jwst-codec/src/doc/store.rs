@@ -112,7 +112,7 @@ impl StructRef {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct DocStore {
     pub items: Arc<RwLock<HashMap<Client, Vec<StructRef>>>>,
     pub delete_set: Arc<RwLock<DeleteSet>>,
@@ -364,8 +364,8 @@ impl DocStore {
         }
     }
 
-    pub fn get_array(&self, str: &str) -> JwstCodecResult<YArray> {
-        YArray::new(self.clone(), self.get_or_create_type(str))
+    pub fn get_array(&self, client_id: Client, str: &str) -> JwstCodecResult<YArray> {
+        YArray::new(client_id, self.clone(), self.get_or_create_type(str))
     }
 
     pub(crate) fn get_start_item(&self, s: StructRef) -> StructRef {

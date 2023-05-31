@@ -159,6 +159,14 @@ impl Item {
         };
         Ok(parent)
     }
+
+    pub fn get_last_id(&self) -> Id {
+        if self.len() == 1 {
+            self.id
+        } else {
+            Id::new(self.id.client, self.id.clock + self.len() - 1)
+        }
+    }
 }
 
 impl Item {
