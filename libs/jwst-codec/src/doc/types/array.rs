@@ -28,7 +28,8 @@ impl YArray {
     where
         F: FnMut(Content) -> JwstCodecResult<T>,
     {
-        self.core.map(f)
+        // TODO: the iterator should be short-circuited when it fails
+        self.core.iter().flatten().map(f)
     }
 }
 
@@ -138,5 +139,35 @@ mod tests {
                 "Hello World!"
             );
         }
+    }
+
+    #[test]
+    fn test_yarray_map() {
+        let buffer = {
+            let doc = yrs::Doc::new();
+            let array = doc.get_or_insert_array("abc");
+
+            let mut trx = doc.transact_mut();
+            array.insert(&mut trx, 0, " ").unwrap();
+            array.insert(&mut trx, 0, "Hello").unwrap();
+            array.insert(&mut trx, 2, "World").unwrap();
+            array.insert(&mut trx, 3, 1).unwrap();
+            trx.encode_update_v1().unwrap()
+        };
+
+        let mut decoder = RawDecoder::new(buffer);
+        let update = Update::read(&mut decoder).unwrap();
+        let mut doc = Doc::default();
+        doc.apply_update(update).unwrap();
+        let array = doc.get_array("abc").unwrap();
+
+        let items = array
+            .iter()
+            .filter_map(|c| {
+                c.ok()
+                    .map(|c| matches!(c, Content::Any(any) if any.len() == 1 && matches!(any[0], Any::String(_))))
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(items, vec![true, true, true, false]);
     }
 }
