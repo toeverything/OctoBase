@@ -426,4 +426,12 @@ jobs:
                 cargo fuzz run u64_decode -- -max_total_time=30
                 cargo fuzz run u64_encode -- -max_total_time=30
                 cargo fuzz run apply_update -- -max_total_time=30
+            
+            - name: upload fuzz artifacts
+              if: ${{ failure() }}
+              uses: actions/upload-artifact@v3
+              with:
+                name: fuzz-artifact
+                path: ./lib/jwst-codec/fuzz/artifacts/**/*
+
 
