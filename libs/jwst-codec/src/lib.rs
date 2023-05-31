@@ -7,6 +7,11 @@ pub use codec::{
     read_var_buffer, read_var_i64, read_var_string, read_var_u64, write_var_buffer, write_var_i64,
     write_var_string, write_var_u64,
 };
+#[cfg(fuzzing)]
+pub use doc::{
+    gen_nest_type_from_nest_type, gen_nest_type_from_root, CRDTParam, ManipulateSource, OpType,
+    YrsMapOps, YrsNestType,
+};
 pub use doc::{
     Any, Awareness, AwarenessEvent, Client, Clock, Content, CrdtRead, CrdtReader, CrdtWrite,
     CrdtWriter, Doc, Id, Item, RawDecoder, RawEncoder, Update,

@@ -14,7 +14,7 @@ members = [
     "libs/jwst-binding/jwst-swift/jwst-swift-integrate",
     # "libs/jwst-binding/jwst-wasm",
     "libs/jwst-codec",
-    # "libs/jwst-codec/fuzz",
+    "libs/jwst-codec/fuzz",
     "libs/jwst-logger",
     "libs/jwst-rpc",
     "libs/jwst-storage",

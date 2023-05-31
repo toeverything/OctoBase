@@ -425,4 +425,5 @@ jobs:
                 cargo fuzz run sync_message -- -max_total_time=30
                 cargo fuzz run u64_decode -- -max_total_time=30
                 cargo fuzz run u64_encode -- -max_total_time=30
+                cargo fuzz run apply_update -- -max_total_time=30
 

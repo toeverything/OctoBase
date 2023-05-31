@@ -11,13 +11,11 @@ cargo-fuzz = true
 rand = "0.8"
 libfuzzer-sys = "0.4"
 lib0 = "0.16.5"
+yrs = "0.16.5"
+jwst-codec = {path = ".." }
 
-[dependencies.jwst-codec]
-path = ".."
-
-# Prevent this from interfering with workspaces
-[workspace]
-members = ["."]
+#[dependencies.jwst-codec]
+#path = ".."
 
 [profile.release]
 debug = 1
@@ -68,5 +66,11 @@ doc = false
 [[bin]]
 name = "u64_encode"
 path = "fuzz_targets/u64_encode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "apply_update"
+path = "fuzz_targets/apply_update.rs"
 test = false
 doc = false
