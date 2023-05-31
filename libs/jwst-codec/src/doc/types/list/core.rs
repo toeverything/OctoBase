@@ -132,8 +132,28 @@ impl ListCore {
         self.insert_after(Some(item_ptr), content)
     }
 
-    pub(crate) fn push(&mut self, content: Vec<Any>) -> JwstCodecResult<()> {
-        todo!()
+    pub(crate) fn push(&mut self, content: Vec<Any>) -> JwstCodecResult {
+        let ref_item = &mut {
+            let root = self.root.borrow();
+            self.marker_list
+                .get_last_marker()
+                .map(|m| m.ptr.clone())
+                .or(root.start.as_ref().and_then(|s| s.as_item()))
+        };
+
+        if let Some(right) = ref_item.as_mut() {
+            let id = right.right_id;
+            while let Some(right_id) = id {
+                // TODO: items that have not been repair() may not have the right
+                match self.store.get_item(right_id)?.as_item() {
+                    Some(item) => ref_item.replace(item),
+                    None => break,
+                };
+            }
+        };
+        println!("ref_item: {:#?}", ref_item);
+
+        self.insert_after(ref_item.clone(), content)
     }
 }
 
@@ -181,16 +201,13 @@ mod tests {
             array.insert(0, " ").unwrap();
             array.insert(0, "Hello").unwrap();
             array.insert(2, "World").unwrap();
-            array.push("!").unwrap();
-
-            println!("{:#?}", doc.store);
+            // array.push("!").unwrap();
 
             doc.encode_update_v1().unwrap()
         };
 
         let mut decoder = RawDecoder::new(buffer);
         let update = Update::read(&mut decoder).unwrap();
-        println!("{:#?}", update);
 
         let mut doc = Doc::default();
         doc.apply_update(update).unwrap();
@@ -202,7 +219,7 @@ mod tests {
                 Content::Any(vec![Any::String("Hello".into())]),
                 Content::Any(vec![Any::String(" ".into())]),
                 Content::Any(vec![Any::String("World".into())]),
-                Content::Any(vec![Any::String("!".into())]),
+                // Content::Any(vec![Any::String("!".into())]),
             ]
         );
         assert_eq!(

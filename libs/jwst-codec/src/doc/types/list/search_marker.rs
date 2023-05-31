@@ -170,6 +170,10 @@ impl MarkerList {
 
         Ok(marker)
     }
+
+    pub(super) fn get_last_marker(&self) -> Option<SearchMarker> {
+        self.search_marker.lock().unwrap().back().cloned()
+    }
 }
 
 #[cfg(test)]
