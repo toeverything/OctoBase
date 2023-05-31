@@ -12,8 +12,6 @@ mod utils;
 
 #[cfg(feature = "websocket")]
 pub use client::start_client_sync;
-#[cfg(feature = "websocket")]
-pub use connector::{axum_socket_connector, tungstenite_socket_connector};
 #[cfg(feature = "webrtc")]
 pub use client_webrtc::start_webrtc_client_sync;
 #[cfg(feature = "webrtc")]
@@ -22,6 +20,8 @@ pub use connector::webrtc_datachannel_client_begin;
 pub use connector::webrtc_datachannel_client_commit;
 #[cfg(feature = "webrtc")]
 pub use connector::webrtc_datachannel_server_connector;
+#[cfg(feature = "websocket")]
+pub use connector::{axum_socket_connector, tungstenite_socket_connector};
 #[cfg(feature = "webrtc")]
 pub use webrtcrs::peer_connection::sdp::session_description::RTCSessionDescription;
 

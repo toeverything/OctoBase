@@ -1,11 +1,11 @@
 use super::*;
 use nanoid::nanoid;
+use reqwest::Client;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     RwLock,
 };
 use tokio::{runtime::Runtime, sync::mpsc::channel};
-use reqwest::Client;
 
 async fn webrtc_connection(remote: &str) -> (Sender<Message>, Receiver<Vec<u8>>) {
     warn!("webrtc_connection start");
@@ -14,7 +14,11 @@ async fn webrtc_connection(remote: &str) -> (Sender<Message>, Receiver<Vec<u8>>)
 
     match client.post(remote).json(&offer).send().await {
         Ok(res) => {
-            webrtc_datachannel_client_commit(res.json::<RTCSessionDescription>().await.unwrap(), pc).await;
+            webrtc_datachannel_client_commit(
+                res.json::<RTCSessionDescription>().await.unwrap(),
+                pc,
+            )
+            .await;
             s.recv().await.ok();
             warn!("client already connected");
         }
