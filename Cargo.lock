@@ -2578,17 +2578,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jwst-codec-fuzz"
-version = "0.0.0"
-dependencies = [
- "jwst-codec",
- "lib0",
- "libfuzzer-sys",
- "rand 0.8.5",
- "yrs",
-]
-
-[[package]]
 name = "jwst-jni"
 version = "0.1.0"
 dependencies = [
@@ -2828,17 +2817,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a52d3a8bfc85f250440e4424db7d857e241a3aebbbe301f3eb606ab15c39acbf"
 dependencies = [
  "rle-decode-fast",
-]
-
-[[package]]
-name = "libfuzzer-sys"
-version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "beb09950ae85a0a94b27676cccf37da5ff13f27076aa1adbc6545dd0d0e1bd4e"
-dependencies = [
- "arbitrary",
- "cc",
- "once_cell",
 ]
 
 [[package]]

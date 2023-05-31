@@ -10,7 +10,7 @@ pub use codec::{
 #[cfg(fuzzing)]
 pub use doc::{
     gen_nest_type_from_nest_type, gen_nest_type_from_root, CRDTParam, ManipulateSource, OpType,
-    YrsMapOps, YrsNestType,
+    OpsRegistry, YrsNestType,
 };
 pub use doc::{
     Any, Awareness, AwarenessEvent, Client, Clock, Content, CrdtRead, CrdtReader, CrdtWrite,

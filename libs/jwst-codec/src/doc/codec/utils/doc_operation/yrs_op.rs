@@ -1,8 +1,8 @@
 use super::*;
 use std::collections::HashMap;
-use yrs::{
-    Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, Text, TextPrelim, TextRef, Transact,
-};
+use yrs::{Array, ArrayPrelim, ArrayRef, Doc, Map, MapPrelim, MapRef, Text, TextPrelim, TextRef, Transact, XmlFragment, XmlTextPrelim};
+
+// use super::types::ArrayOpType;
 
 pub fn yrs_create_nest_type_from_root(
     doc: &yrs::Doc,
@@ -132,7 +132,7 @@ pub fn yrs_create_text_from_nest_type(
     insert_pos: &InsertPos,
     key: String,
 ) -> Option<TextRef> {
-    let cal_index_closure = |len: u32| -> u32 { pick_num(len, insert_pos) };
+    let cal_index_closure = |len: u32| -> u32 { random_pick_num(len, insert_pos) };
     let mut trx = doc.transact_mut();
     let text_prelim = TextPrelim::new("");
     match current {
@@ -190,7 +190,7 @@ pub fn gen_nest_type_from_nest_type(
     }
 }
 
-pub fn pick_num(len: u32, insert_pos: &InsertPos) -> u32 {
+pub fn random_pick_num(len: u32, insert_pos: &InsertPos) -> u32 {
     match insert_pos {
         InsertPos::BEGIN => 0,
         InsertPos::MID => len / 2,
@@ -198,56 +198,355 @@ pub fn pick_num(len: u32, insert_pos: &InsertPos) -> u32 {
     }
 }
 
-pub struct YrsMapOps {
-    ops: HashMap<MapOpType, Box<dyn Fn(&yrs::Doc, &MapRef, CRDTParam)>>,
-}
+pub struct OpsRegistry(
+    HashMap<CRDTNestType, HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>>>,
+);
 
-impl YrsMapOps {
-    pub fn operate_map_ref(&self, doc: &yrs::Doc, map_ref: &mut MapRef, crdt_param: CRDTParam) {
-        self.ops.get(&crdt_param.map_op_type).unwrap()(doc, map_ref, crdt_param);
+impl OpsRegistry {
+    pub fn new() -> Self {
+        let mut map = HashMap::new();
+        map.insert(CRDTNestType::Map, gen_map_ref_ops());
+        map.insert(CRDTNestType::Array, gen_array_ref_ops());
+        map.insert(CRDTNestType::Text, gen_text_ref_ops());
+        map.insert(CRDTNestType::XMLText, gen_xml_text_ref_ops());
+        map.insert(CRDTNestType::XMLElement, gen_xml_element_ref_ops());
+        map.insert(CRDTNestType::XMLFragment, gen_xml_fragment_ref_ops());
+
+        OpsRegistry(map)
     }
 
-    pub fn new() -> Self {
-        let mut ops: HashMap<MapOpType, Box<dyn Fn(&yrs::Doc, &MapRef, CRDTParam)>> =
-            HashMap::new();
+    pub fn get_ops(
+        &self,
+        crdt_nest_type: &CRDTNestType,
+    ) -> &HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> {
+        match crdt_nest_type {
+            CRDTNestType::Array => self.0.get(&CRDTNestType::Array).unwrap(),
+            CRDTNestType::Map => self.0.get(&CRDTNestType::Map).unwrap(),
+            CRDTNestType::Text => self.0.get(&CRDTNestType::Text).unwrap(),
+            CRDTNestType::XMLText => self.0.get(&CRDTNestType::XMLText).unwrap(),
+            CRDTNestType::XMLElement => self.0.get(&CRDTNestType::XMLElement).unwrap(),
+            CRDTNestType::XMLFragment => self.0.get(&CRDTNestType::XMLFragment).unwrap(),
+        }
+    }
 
-        let insert_op = |doc: &yrs::Doc, map: &MapRef, params: CRDTParam| {
-            let mut trx = doc.transact_mut();
-            map.insert(&mut trx, params.key, params.value).unwrap();
+    pub fn get_ops_from_yrs_nest_type(
+        &self,
+        yrs_nest_type: &YrsNestType,
+    ) -> &HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> {
+        match yrs_nest_type {
+            YrsNestType::ArrayType(_) => self.get_ops(&CRDTNestType::Array),
+            YrsNestType::MapType(_) => self.get_ops(&CRDTNestType::Map),
+            YrsNestType::TextType(_) => self.get_ops(&CRDTNestType::Text),
+            YrsNestType::XMLTextType(_) => self.get_ops(&CRDTNestType::XMLText),
+            YrsNestType::XMLElementType(_) => self.get_ops(&CRDTNestType::XMLElement),
+            YrsNestType::XMLFragmentType(_) => self.get_ops(&CRDTNestType::XMLFragment),
+        }
+    }
+
+    pub fn operate_yrs_nest_type(
+        &self,
+        doc: &yrs::Doc,
+        cur_crdt_nest_type: YrsNestType,
+        crdt_param: CRDTParam,
+    ) {
+        let ops = self.get_ops_from_yrs_nest_type(&cur_crdt_nest_type);
+        ops.get(&crdt_param.nest_data_op_type).unwrap()(doc, &cur_crdt_nest_type, crdt_param)
+    }
+}
+
+pub fn gen_array_ref_ops(
+) -> HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> {
+    let mut ops: HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> =
+        HashMap::new();
+
+    let insert_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
+        let array = match nest_input {
+            YrsNestType::ArrayType(array) => array,
+            _ => unreachable!(),
         };
+        let mut trx = doc.transact_mut();
+        let len = array.len(&trx);
+        let index = random_pick_num(len, &params.insert_pos);
+        array.insert(&mut trx, index, params.value).unwrap();
+    };
 
-        let remove_op = |doc: &yrs::Doc, map: &MapRef, params: CRDTParam| {
-            let rand_key = {
-                let trx = doc.transact_mut();
-                let iter = map.iter(&trx);
-                let len = map.len(&trx) as usize;
-                let skip_step = if len <= 1 {
-                    0
-                } else {
-                    pick_num((len - 1) as u32, &params.insert_pos)
-                };
+    let delete_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
+        let array = match nest_input {
+            YrsNestType::ArrayType(array) => array,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        let len = array.len(&trx);
+        if len >= 1 {
+            let index = random_pick_num(len - 1, &params.insert_pos);
+            array.remove(&mut trx, index).unwrap();
+        }
+    };
 
-                match iter.skip(skip_step as usize).next() {
-                    Some((key, _value)) => Some(key.to_string().clone()),
-                    None => None,
-                }
+    let clear_op = |doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam| {
+        let array = match nest_input {
+            YrsNestType::ArrayType(array) => array,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        let len = array.len(&trx);
+        for _ in 0..len {
+            array.remove(&mut trx, 0).unwrap();
+        }
+    };
+
+    ops.insert(NestDataOpType::Insert, Box::new(insert_op));
+    ops.insert(NestDataOpType::Delete, Box::new(delete_op));
+    ops.insert(NestDataOpType::Clear, Box::new(clear_op));
+
+    ops
+}
+
+pub fn gen_map_ref_ops() -> HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>>
+{
+    let mut ops: HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> =
+        HashMap::new();
+
+    let insert_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
+        let map = match nest_input {
+            YrsNestType::MapType(map) => map,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        map.insert(&mut trx, params.key, params.value).unwrap();
+    };
+
+    let remove_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
+        let map = match nest_input {
+            YrsNestType::MapType(map) => map,
+            _ => unreachable!(),
+        };
+        let rand_key = {
+            let trx = doc.transact_mut();
+            let iter = map.iter(&trx);
+            let len = map.len(&trx) as usize;
+            let skip_step = if len <= 1 {
+                0
+            } else {
+                random_pick_num((len - 1) as u32, &params.insert_pos)
             };
 
-            if let Some(key) = rand_key {
-                let mut trx = doc.transact_mut();
-                map.remove(&mut trx, &key).unwrap();
+            match iter.skip(skip_step as usize).next() {
+                Some((key, _value)) => Some(key.to_string().clone()),
+                None => None,
             }
         };
 
-        let clear_op = |doc: &yrs::Doc, map: &MapRef, _params: CRDTParam| {
+        if let Some(key) = rand_key {
             let mut trx = doc.transact_mut();
-            map.clear(&mut trx);
+            map.remove(&mut trx, &key).unwrap();
+        }
+    };
+
+    let clear_op = |doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam| {
+        let map = match nest_input {
+            YrsNestType::MapType(map) => map,
+            _ => unreachable!(),
         };
+        let mut trx = doc.transact_mut();
+        map.clear(&mut trx);
+    };
 
-        ops.insert(MapOpType::Insert, Box::new(insert_op));
-        ops.insert(MapOpType::Remove, Box::new(remove_op));
-        ops.insert(MapOpType::Clear, Box::new(clear_op));
+    ops.insert(NestDataOpType::Insert, Box::new(insert_op));
+    ops.insert(NestDataOpType::Delete, Box::new(remove_op));
+    ops.insert(NestDataOpType::Clear, Box::new(clear_op));
 
-        Self { ops }
-    }
+    ops
+}
+
+pub fn gen_text_ref_ops() -> HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>>
+{
+    let mut ops: HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> =
+        HashMap::new();
+
+    let insert_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
+        let text = match nest_input {
+            YrsNestType::TextType(text) => text,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        let len = text.len(&trx);
+        let index = random_pick_num(len, &params.insert_pos);
+        text.insert(&mut trx, index, &params.value).unwrap();
+    };
+
+    let remove_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
+        let text = match nest_input {
+            YrsNestType::TextType(text) => text,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        let len = text.len(&trx);
+        if len >= 1 {
+            let index = random_pick_num(len - 1, &params.insert_pos);
+            text.remove_range(&mut trx, index, 1).unwrap();
+        }
+    };
+
+    let clear_op = |doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam| {
+        let text = match nest_input {
+            YrsNestType::TextType(text) => text,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        let len = text.len(&trx);
+        for _ in 0..len {
+            text.remove_range(&mut trx, 0, 1).unwrap();
+        }
+    };
+
+    ops.insert(NestDataOpType::Insert, Box::new(insert_op));
+    ops.insert(NestDataOpType::Delete, Box::new(remove_op));
+    ops.insert(NestDataOpType::Clear, Box::new(clear_op));
+
+    ops
+}
+
+pub fn gen_xml_text_ref_ops(
+) -> HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> {
+    let mut ops: HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> =
+        HashMap::new();
+
+    let insert_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
+        let xml_text = match nest_input {
+            YrsNestType::XMLTextType(xml_text) => xml_text,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        let len = xml_text.len(&trx);
+        let index = random_pick_num(len, &params.insert_pos);
+        xml_text.insert(&mut trx, index, &params.value).unwrap();
+    };
+
+    let remove_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
+        let xml_text = match nest_input {
+            YrsNestType::XMLTextType(xml_text) => xml_text,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        let len = xml_text.len(&trx);
+        if len >= 1 {
+            let index = random_pick_num(len - 1, &params.insert_pos);
+            xml_text.remove_range(&mut trx, index, 1).unwrap();
+        }
+    };
+
+    let clear_op = |doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam| {
+        let xml_text = match nest_input {
+            YrsNestType::XMLTextType(xml_text) => xml_text,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        let len = xml_text.len(&trx);
+        for _ in 0..len {
+            xml_text.remove_range(&mut trx, 0, 1).unwrap();
+        }
+    };
+
+    ops.insert(NestDataOpType::Insert, Box::new(insert_op));
+    ops.insert(NestDataOpType::Delete, Box::new(remove_op));
+    ops.insert(NestDataOpType::Clear, Box::new(clear_op));
+
+    ops
+}
+
+pub fn gen_xml_fragment_ref_ops(
+) -> HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> {
+    let mut ops: HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> =
+        HashMap::new();
+
+    let insert_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
+        let xml_fragment = match nest_input {
+            YrsNestType::XMLFragmentType(xml_fragment) => xml_fragment,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        let len = xml_fragment.len(&trx);
+        let index = random_pick_num(len, &params.insert_pos);
+        xml_fragment.insert(&mut trx, index, XmlTextPrelim::new(params.value)).unwrap();
+    };
+
+    let remove_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
+        let xml_fragment = match nest_input {
+            YrsNestType::XMLFragmentType(xml_fragment) => xml_fragment,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        let len = xml_fragment.len(&trx);
+        if len >= 1 {
+            let index = random_pick_num(len - 1, &params.insert_pos);
+            xml_fragment.remove_range(&mut trx, index, 1).unwrap();
+        }
+    };
+
+    let clear_op = |doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam| {
+        let xml_fragment = match nest_input {
+            YrsNestType::XMLFragmentType(xml_fragment) => xml_fragment,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        let len = xml_fragment.len(&trx);
+        for _ in 0..len {
+            xml_fragment.remove_range(&mut trx, 0, 1).unwrap();
+        }
+    };
+
+    ops.insert(NestDataOpType::Insert, Box::new(insert_op));
+    ops.insert(NestDataOpType::Delete, Box::new(remove_op));
+    ops.insert(NestDataOpType::Clear, Box::new(clear_op));
+
+    ops
+}
+
+pub fn gen_xml_element_ref_ops(
+) -> HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> {
+    let mut ops: HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> =
+        HashMap::new();
+
+    let insert_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
+        let xml_element = match nest_input {
+            YrsNestType::XMLElementType(xml_element) => xml_element,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        let len = xml_element.len(&trx);
+        let index = random_pick_num(len, &params.insert_pos);
+        xml_element.insert(&mut trx, index, XmlTextPrelim::new(params.value)).unwrap();
+    };
+
+    let remove_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
+        let xml_element = match nest_input {
+            YrsNestType::XMLElementType(xml_element) => xml_element,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        let len = xml_element.len(&trx);
+        if len >= 1 {
+            let index = random_pick_num(len - 1, &params.insert_pos);
+            xml_element.remove_range(&mut trx, index, 1).unwrap();
+        }
+    };
+
+    let clear_op = |doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam| {
+        let xml_element = match nest_input {
+            YrsNestType::XMLElementType(xml_element) => xml_element,
+            _ => unreachable!(),
+        };
+        let mut trx = doc.transact_mut();
+        let len = xml_element.len(&trx);
+        for _ in 0..len {
+            xml_element.remove_range(&mut trx, 0, 1).unwrap();
+        }
+    };
+
+    ops.insert(NestDataOpType::Insert, Box::new(insert_op));
+    ops.insert(NestDataOpType::Delete, Box::new(remove_op));
+    ops.insert(NestDataOpType::Clear, Box::new(clear_op));
+
+    ops
 }
