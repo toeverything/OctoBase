@@ -184,17 +184,41 @@ impl Content {
         !matches!(self, Content::Format { .. } | Content::Deleted(_))
     }
 
+    pub fn splittable(&self) -> bool {
+        matches!(
+            self,
+            Self::String { .. } | Self::Any { .. } | Self::JSON { .. }
+        )
+    }
+
+    // [diff + 1, len - 1)
     pub fn split(&mut self, diff: u64) -> JwstCodecResult<Self> {
-        // TODO: implement split for other types
         match self {
             Self::String(str) => {
-                let (left, right) = str.split_at(diff as usize);
+                let (left, right) = Self::split_as_utf16_str(str.as_str(), diff);
                 let right = right.to_string();
                 *str = left.to_string();
                 Ok(Self::String(right))
             }
+            Self::JSON(vec) => Ok(Self::JSON(vec.split_off((diff + 1) as usize))),
+            Self::Any(vec) => Ok(Self::Any(vec.split_off((diff + 1) as usize))),
             _ => Err(JwstCodecError::ContentSplitNotSupport(diff)),
         }
+    }
+
+    /// consider `offset` as a utf-16 encoded string offset
+    fn split_as_utf16_str(s: &str, offset: u64) -> (&str, &str) {
+        let mut utf_16_offset = 0;
+        let mut utf_8_offset = 0;
+        for ch in s.chars() {
+            utf_16_offset += ch.len_utf16();
+            utf_8_offset += ch.len_utf8();
+            if utf_16_offset as u64 >= offset {
+                break;
+            }
+        }
+
+        s.split_at(utf_8_offset)
     }
 }
 
