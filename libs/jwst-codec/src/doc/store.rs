@@ -353,10 +353,13 @@ impl DocStore {
     }
 
     pub(crate) fn get_or_create_type(&self, str: &str) -> TypeStoreRef {
-        match self.types.write().unwrap().entry(str.to_string()) {
+        match self.types.write().unwrap().entry(str.into()) {
             Entry::Occupied(e) => e.get().clone(),
             Entry::Vacant(e) => {
-                let type_store = Arc::new(RefCell::new(TypeStore::new(TypeStoreKind::Unknown)));
+                let type_store = Arc::new(RefCell::new(TypeStore::new(
+                    TypeStoreKind::Unknown,
+                    str.into(),
+                )));
                 e.insert(type_store.clone());
 
                 type_store

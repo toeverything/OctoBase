@@ -50,7 +50,7 @@ impl ListCore {
         Ok(None)
     }
 
-    pub fn iter(&self) -> ListIterator {
+    pub(crate) fn iter(&self) -> ListIterator {
         ListIterator {
             store: self.store.clone(),
             next: self.root.borrow().start.clone(),
@@ -59,7 +59,7 @@ impl ListCore {
         }
     }
 
-    pub fn insert_after(
+    pub(crate) fn insert_after(
         &mut self,
         ref_item: Option<Box<Item>>,
         content: Vec<Any>,
@@ -78,24 +78,13 @@ impl ListCore {
                 Any::Binary(binary) => {
                     content_pack.pack()?;
                     content_pack.update_ref_item(content_pack.ref_item.clone());
-
                     let new_id = Id::new(self.client_id, self.store.get_state(self.client_id));
-                    let new_item = ItemBuilder::new()
-                        .id(new_id)
-                        .left_id(content_pack.ref_item.as_ref().map(|i| i.get_last_id()))
-                        .right_id(content_pack.ref_item.as_ref().and_then(|i| i.right_id))
-                        .content(Content::Binary(binary))
-                        .build();
+                    let new_struct = content_pack.build_item(new_id, |b| {
+                        b.content(Content::Binary(binary.clone())).build()
+                    });
 
-                    let new_item = Box::new(new_item);
-                    self.store.add_item_ref(
-                        StructInfo::Item {
-                            id: new_id,
-                            item: new_item.clone(),
-                        }
-                        .into(),
-                    )?;
-                    content_pack.update_ref_item(Some(new_item));
+                    self.store.add_item_ref(new_struct.clone())?;
+                    content_pack.update_ref_item(new_struct.as_item());
                 }
             }
         }
@@ -104,7 +93,7 @@ impl ListCore {
         Ok(())
     }
 
-    pub fn insert(&mut self, index: u64, content: Vec<Any>) -> JwstCodecResult {
+    pub(crate) fn insert(&mut self, index: u64, content: Vec<Any>) -> JwstCodecResult {
         if index == 0 {
             self.marker_list
                 .update_marker_changes(index, content.len() as i64);
@@ -142,63 +131,9 @@ impl ListCore {
 
         self.insert_after(Some(item_ptr), content)
     }
-}
 
-pub struct PackedContent {
-    content: Vec<Any>,
-    root: Option<StructRef>,
-    ref_item: Option<Box<Item>>,
-    client_id: Client,
-    store: DocStore,
-}
-
-impl PackedContent {
-    fn new(client_id: u64, root: TypeStoreRef, store: DocStore) -> Self {
-        let root: Option<StructRef> = root.borrow().start.clone();
-
-        Self {
-            content: Vec::new(),
-            root,
-            ref_item: None,
-            client_id,
-            store,
-        }
-    }
-
-    fn update_ref_item(&mut self, ref_item: Option<Box<Item>>) {
-        self.ref_item = ref_item
-    }
-
-    fn push(&mut self, content: Any) {
-        self.content.push(content);
-    }
-
-    fn pack(&mut self) -> JwstCodecResult<()> {
-        if !self.content.is_empty() {
-            let new_id = Id::new(self.client_id, self.store.get_state(self.client_id));
-            let new_item = ItemBuilder::new()
-                .id(new_id)
-                .left_id(self.ref_item.as_ref().map(|i| i.get_last_id()))
-                .right_id(
-                    self.ref_item
-                        .as_ref()
-                        .and_then(|i| i.right_id)
-                        .or(self.root.as_ref().and_then(|root| root.right_id())),
-                )
-                .content(Content::Any(std::mem::take(&mut self.content)))
-                .build();
-
-            let new_item = Box::new(new_item);
-            self.store.add_item_ref(
-                StructInfo::Item {
-                    id: new_id,
-                    item: new_item.clone(),
-                }
-                .into(),
-            )?;
-            self.ref_item = Some(new_item);
-        }
-        Ok(())
+    pub(crate) fn push(&mut self, content: Vec<Any>) -> JwstCodecResult<()> {
+        todo!()
     }
 }
 
@@ -241,12 +176,12 @@ mod tests {
     fn test_core_list() {
         let buffer = {
             let doc = Doc::default();
-            let mut array = doc.get_array("test").unwrap();
+            let mut array = doc.get_array("abc").unwrap();
 
             array.insert(0, " ").unwrap();
             array.insert(0, "Hello").unwrap();
-            // array.insert(2, "World").unwrap();
-            // array.push("!").unwrap();
+            array.insert(2, "World").unwrap();
+            array.push("!").unwrap();
 
             println!("{:#?}", doc.store);
 

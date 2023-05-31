@@ -53,18 +53,20 @@ pub struct TypeStore {
     pub map: HashMap<String, StructRef>,
     pub item: Option<StructRef>,
     pub len: u64,
+    pub name: String,
     kind: TypeStoreKind,
 }
 
 pub type TypeStoreRef = Arc<RefCell<TypeStore>>;
 
 impl TypeStore {
-    pub fn new(kind: TypeStoreKind) -> Self {
+    pub fn new(kind: TypeStoreKind, name: String) -> Self {
         Self {
             start: None,
             map: HashMap::new(),
             item: None,
             len: 0,
+            name,
             kind,
         }
     }
@@ -102,6 +104,7 @@ impl From<YType> for TypeStore {
             map: HashMap::new(),
             item: None,
             len: 0,
+            name: String::new(),
             kind: ty,
         }
     }

@@ -41,7 +41,7 @@ impl YArray {
     }
 
     pub fn push<S: Into<String>>(&mut self, val: S) -> JwstCodecResult {
-        todo!()
+        self.core.push(vec![Any::String(val.into())])
     }
 
     pub fn remove(&mut self, idx: u64) -> JwstCodecResult {
