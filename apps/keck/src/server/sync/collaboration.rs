@@ -1,15 +1,13 @@
 use super::*;
 use axum::{
+    extract,
     extract::{ws::WebSocketUpgrade, Path},
     response::Response,
-    extract,
     Json,
 };
 use futures::FutureExt;
 use jwst_rpc::{
-    axum_socket_connector,
-    handle_connector,
-    webrtc_datachannel_server_connector,
+    axum_socket_connector, handle_connector, webrtc_datachannel_server_connector,
     RTCSessionDescription,
 };
 use serde::Serialize;
@@ -66,7 +64,8 @@ pub async fn webrtc_handler(
     tokio::spawn(async move {
         handle_connector(context.clone(), workspace.clone(), identifier, move || {
             (tx, rx, first_init_tx)
-        }).await;
+        })
+        .await;
     });
 
     Json(answer)
@@ -77,7 +76,9 @@ mod test {
     use jwst::DocStorage;
     use jwst::{Block, Workspace};
     use jwst_logger::info;
-    use jwst_rpc::{start_client_sync, start_webrtc_client_sync, BroadcastChannels, RpcContextImpl};
+    use jwst_rpc::{
+        start_client_sync, start_webrtc_client_sync, BroadcastChannels, RpcContextImpl,
+    };
     use jwst_storage::JwstStorage;
     use libc::{kill, SIGTERM};
     use rand::{thread_rng, Rng};
@@ -130,10 +131,10 @@ mod test {
         let (workspace_id, workspace) = rt.block_on(async move {
             let workspace_id = "1";
             let context = Arc::new(TestContext::new(Arc::new(
-                        JwstStorage::new("sqlite::memory:")
-                        .await
-                        .expect("get storage: memory sqlite failed"),
-                        )));
+                JwstStorage::new("sqlite::memory:")
+                    .await
+                    .expect("get storage: memory sqlite failed"),
+            )));
             let remote = format!("http://localhost:{server_port}/webrtc-sdp/1");
 
             start_webrtc_client_sync(
@@ -142,7 +143,7 @@ mod test {
                 Arc::default(),
                 remote,
                 workspace_id.to_owned(),
-                );
+            );
 
             (
                 workspace_id.to_owned(),
@@ -393,6 +394,7 @@ mod test {
             .args(&["run", "-p", "keck"])
             .env("KECK_PORT", port.to_string())
             .env("USE_MEMORY_SQLITE", "true")
+            .env("KECK_LOG", "INFO")
             .stdout(Stdio::piped())
             .spawn()
             .expect("Failed to run command");
