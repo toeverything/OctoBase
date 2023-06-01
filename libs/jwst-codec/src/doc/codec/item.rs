@@ -199,6 +199,28 @@ impl Item {
 
         self.flags.set_deleted();
     }
+
+    pub fn indexable(&self) -> bool {
+        self.flags.countable() && !self.deleted()
+    }
+
+    pub fn get_parent(&self, store: &DocStore) -> JwstCodecResult<Option<Arc<Item>>> {
+        let parent = match &self.parent {
+            Some(Parent::Id(id)) => store.get_item(*id).and_then(|i| i.as_item()),
+            Some(Parent::String(_)) => None,
+            Some(Parent::Type(ty)) => ty.read().unwrap().start.as_ref().and_then(|i| i.as_item()),
+            None => None,
+        };
+        Ok(parent)
+    }
+
+    pub fn get_last_id(&self) -> Id {
+        if self.len() == 1 {
+            self.id
+        } else {
+            Id::new(self.id.client, self.id.clock + self.len() - 1)
+        }
+    }
 }
 
 impl Item {

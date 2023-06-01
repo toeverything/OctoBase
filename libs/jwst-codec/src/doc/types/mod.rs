@@ -1,11 +1,16 @@
+mod array;
+mod list;
 mod text;
 mod traits;
 
+use super::*;
+use list::*;
 use std::{
     collections::{hash_map::Entry, HashMap},
     sync::{Arc, RwLock, Weak},
 };
 
+pub use array::*;
 pub use text::*;
 pub use traits::*;
 
@@ -224,6 +229,8 @@ macro_rules! impl_type {
                     super::YTypeKind::$name => Ok($name::new(value.clone())),
                     super::YTypeKind::Unknown => {
                         inner.set_kind(super::YTypeKind::$name)?;
+                        // release lock guard
+                        drop(inner);
                         $name::try_from(value.clone())
                     }
                     _ => Err($crate::JwstCodecError::TypeCastError("Text")),

@@ -16,6 +16,7 @@ pub use protocol::{
     SyncMessage, SyncMessageScanner,
 };
 
+use doc::StructInfo;
 use jwst_logger::warn;
 use nanoid::nanoid;
 use nom::IResult;
@@ -47,6 +48,8 @@ pub enum JwstCodecError {
     InvalidParent,
     #[error("Parent not found")]
     ParentNotFound,
+    #[error("Invalid struct type, expect item, actually {0:?}")]
+    InvalidStructType(StructInfo),
     #[error("Can not cast known type to {0}")]
     TypeCastError(&'static str),
     #[error("Index {0} out of bound")]

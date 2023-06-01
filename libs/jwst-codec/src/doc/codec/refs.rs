@@ -120,6 +120,23 @@ impl StructInfo {
         matches!(self, Self::Item(_))
     }
 
+    pub fn as_item(&self) -> Option<Arc<Item>> {
+        if let Self::Item(item) = self {
+            Some(item.clone())
+        } else {
+            None
+        }
+    }
+
+    pub fn flags(&self) -> ItemFlags {
+        if let StructInfo::Item(item) = self {
+            item.flags.clone()
+        } else {
+            // deleted
+            ItemFlags::from(4)
+        }
+    }
+
     pub fn item(&self) -> Option<ItemRef> {
         if let Self::Item(item) = self {
             Some(item.clone())
@@ -195,6 +212,14 @@ impl StructInfo {
     pub fn delete(&self) {
         if let StructInfo::Item(item) = self {
             item.delete()
+        }
+    }
+
+    pub(crate) fn countable(&self) -> bool {
+        if let StructInfo::Item(item) = self {
+            item.flags.countable()
+        } else {
+            false
         }
     }
 

@@ -227,6 +227,47 @@ impl Content {
         !matches!(self, Content::Format { .. } | Content::Deleted(_))
     }
 
+    pub fn at(&self, index: u64) -> JwstCodecResult<Option<Self>> {
+        match self {
+            Self::Deleted(_) => Ok(None),
+            Self::JSON(strings) => {
+                if index < strings.len() as u64 {
+                    if let Some(string) = &strings[index as usize] {
+                        return Ok(Some(Self::String(string.clone())));
+                    }
+                }
+                Ok(None)
+            }
+            Self::String(string) => {
+                if index < string.len() as u64 {
+                    Ok(Some(Self::String(
+                        string[index as usize..=index as usize].to_string(),
+                    )))
+                } else {
+                    Ok(None)
+                }
+            }
+            Self::Any(any) => {
+                if index < any.len() as u64 {
+                    Ok(Some(Self::Any(vec![any[index as usize].clone()])))
+                } else {
+                    Ok(None)
+                }
+            }
+            Self::Binary(_)
+            | Self::Embed(_)
+            | Self::Format { .. }
+            | Self::Type(_)
+            | Self::Doc { .. } => {
+                if index == 0 {
+                    Ok(Some(self.clone()))
+                } else {
+                    Ok(None)
+                }
+            }
+        }
+    }
+
     pub fn splittable(&self) -> bool {
         matches!(
             self,

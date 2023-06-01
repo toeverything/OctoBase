@@ -31,6 +31,7 @@ impl ItemBuilder {
         self
     }
 
+    #[allow(dead_code)]
     pub fn parent_sub(mut self, parent_sub: Option<String>) -> ItemBuilder {
         self.item.parent_sub = parent_sub;
         self
@@ -42,6 +43,10 @@ impl ItemBuilder {
     }
 
     pub fn build(self) -> Item {
+        if self.item.content.countable() {
+            self.item.flags.set(item_flags::ITEM_COUNTABLE);
+        }
+
         self.item
     }
 }

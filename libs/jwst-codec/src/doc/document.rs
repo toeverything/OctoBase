@@ -9,7 +9,7 @@ pub struct Doc {
     // TODO: use function in code
     #[allow(dead_code)]
     guid: String,
-    store: StoreRef,
+    pub(super) store: StoreRef,
 }
 
 unsafe impl Send for Doc {}
@@ -129,6 +129,14 @@ impl Doc {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Text)
             .build()
+    }
+
+    pub fn get_or_crate_array(&self, str: &str) -> JwstCodecResult<YArray> {
+        let array = YTypeBuilder::new(self.store.clone())
+            .with_kind(YTypeKind::Array)
+            .set_name(str.to_string())
+            .build()?;
+        YArray::new(self.client_id, array)
     }
 
     pub fn encode_update_v1(&self) -> JwstCodecResult<Vec<u8>> {
