@@ -59,7 +59,7 @@ impl ListCore {
         Ok(None)
     }
 
-    pub(crate) fn iter<'a>(&'a self) -> ListIterator<'a> {
+    pub(crate) fn iter(&self) -> ListIterator<'_> {
         ListIterator {
             store: self.store.read().unwrap(),
             next: self.get_root(),
@@ -149,7 +149,7 @@ impl ListCore {
         let ref_item = &mut {
             self.marker_list
                 .get_last_marker()
-                .map(|m| m.ptr.clone())
+                .map(|m| m.ptr)
                 .or(self.get_root().and_then(|s| s.as_item()))
         };
 

@@ -41,7 +41,7 @@ impl ItemBuilder {
         self
     }
 
-    pub fn build(mut self) -> Item {
+    pub fn build(self) -> Item {
         if self.item.content.countable() {
             self.item.flags.set(item_flags::ITEM_COUNTABLE);
         }

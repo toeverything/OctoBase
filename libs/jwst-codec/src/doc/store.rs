@@ -384,7 +384,7 @@ impl DocStore {
                 // before we integrate struct into store,
                 // the struct => Arc<Item> is owned reference actually,
                 // no one else refer to such item yet, we can safely mutable refer to it now.
-                let mut item = unsafe { &mut *(Arc::as_ptr(item) as *mut Item) };
+                let item = unsafe { &mut *(Arc::as_ptr(item) as *mut Item) };
 
                 if offset > 0 {
                     item.id.clock += offset;
