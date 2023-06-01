@@ -2578,6 +2578,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jwst-codec-util"
+version = "0.1.0"
+dependencies = [
+ "arbitrary",
+ "jwst-codec",
+ "yrs",
+]
+
+[[package]]
 name = "jwst-jni"
 version = "0.1.0"
 dependencies = [

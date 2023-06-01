@@ -1,6 +1,6 @@
 #![no_main]
 
-use jwst_codec::{
+use jwst_codec_util::{
     gen_nest_type_from_nest_type, gen_nest_type_from_root, CRDTParam, ManipulateSource, OpType,
     OpsRegistry, YrsNestType,
 };
