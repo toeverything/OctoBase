@@ -2,24 +2,17 @@ use super::*;
 
 pub struct PackedContent<'a> {
     content: Vec<Any>,
-    root: Option<StructInfo>,
-    root_name: Option<String>,
+    list_store: YTypeRef,
     pub(super) ref_item: Option<Arc<Item>>,
     client_id: Client,
     store: &'a DocStore,
 }
 
 impl<'a> PackedContent<'a> {
-    pub(super) fn new(
-        client_id: u64,
-        root: Option<StructInfo>,
-        root_name: Option<String>,
-        store: &'a DocStore,
-    ) -> Self {
+    pub(super) fn new(client_id: u64, list_store: YTypeRef, store: &'a DocStore) -> Self {
         Self {
             content: Vec::new(),
-            root,
-            root_name,
+            list_store,
             ref_item: None,
             client_id,
             store,
@@ -35,6 +28,8 @@ impl<'a> PackedContent<'a> {
     }
 
     pub(super) fn build_item(&mut self, id: Id, cb: impl Fn(ItemBuilder) -> Item) -> StructInfo {
+        let mut list_store = self.list_store.write().unwrap();
+
         let item = cb(ItemBuilder::new()
             .id(id)
             .left_id(self.ref_item.as_ref().map(|i| i.get_last_id()))
@@ -42,13 +37,18 @@ impl<'a> PackedContent<'a> {
                 self.ref_item
                     .as_ref()
                     .and_then(|i| i.right_id)
-                    .or(self.root.as_ref().and_then(|root| root.right_id())),
+                    .or(list_store.start.as_ref().and_then(|root| root.right_id())),
             )
-            .parent(self.root_name.as_ref().map(|s| Parent::String(s.clone()))));
+            .parent(
+                list_store
+                    .root_name
+                    .as_ref()
+                    .map(|s| Parent::String(s.clone())),
+            ));
 
         let item = StructInfo::Item(Arc::new(item));
-        if self.root.is_none() {
-            self.root.replace(item.clone());
+        if list_store.start.is_none() {
+            list_store.start.replace(item.clone());
         }
         item
     }

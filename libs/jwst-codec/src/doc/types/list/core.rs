@@ -6,29 +6,28 @@ impl_type!(XMLFragment);
 pub struct ListCore {
     client_id: Client,
     store: StoreRef,
-    root: Option<StructInfo>,
-    root_name: Option<String>,
+    list_store: YTypeRef,
     marker_list: MarkerList,
 }
 
 impl ListCore {
     pub(crate) fn new(client_id: Client, list_store: YTypeRef) -> ListCore {
-        let list_store = list_store.read().unwrap();
-        let store = list_store.store.upgrade().unwrap();
-        let root = list_store.start.clone();
-        let root_name = list_store.root_name.clone();
+        let store = list_store.read().unwrap().store.upgrade().unwrap();
 
         Self {
             client_id,
             store: store.clone(),
-            root,
-            root_name,
+            list_store,
             marker_list: MarkerList::new(store),
         }
     }
 
+    fn get_root(&self) -> Option<StructInfo> {
+        self.list_store.read().unwrap().start.clone()
+    }
+
     pub(crate) fn get(&self, index: u64) -> JwstCodecResult<Option<Content>> {
-        if let Some(start) = self.root.as_ref().and_then(|s| s.as_item()) {
+        if let Some(start) = self.get_root().and_then(|s| s.as_item()) {
             let mut index = index;
 
             let mut item_ptr = match self.marker_list.find_marker(index, start.clone())? {
@@ -63,7 +62,7 @@ impl ListCore {
     pub(crate) fn iter<'a>(&'a self) -> ListIterator<'a> {
         ListIterator {
             store: self.store.read().unwrap(),
-            next: self.root.clone(),
+            next: self.get_root(),
             content: None,
             content_idx: 0,
         }
@@ -75,12 +74,7 @@ impl ListCore {
         content: Vec<Any>,
     ) -> JwstCodecResult<()> {
         let store = self.store.read().unwrap();
-        let mut content_pack = PackedContent::new(
-            self.client_id,
-            self.root.clone(),
-            self.root_name.clone(),
-            &store,
-        );
+        let mut content_pack = PackedContent::new(self.client_id, self.list_store.clone(), &store);
         content_pack.update_ref_item(ref_item);
 
         for c in content {
@@ -117,33 +111,35 @@ impl ListCore {
         }
 
         let mut curr_idx = index;
-        let Some(mut item_ptr) = self.root.as_ref().and_then(|s|s.as_item()) else {
+        let Some(mut item_ptr) = self.get_root().and_then(|s|s.as_item()) else {
             return Err(JwstCodecError::InvalidParent)
         };
 
-        let mut store = self.store.write().unwrap();
+        {
+            let mut store = self.store.write().unwrap();
 
-        loop {
-            if item_ptr.indexable() {
-                if curr_idx <= item_ptr.len() {
-                    if curr_idx < item_ptr.len() {
-                        store.split_at_and_get_right({
-                            let id = item_ptr.id;
-                            // split item
-                            Id::new(id.client, id.clock + curr_idx)
-                        })?;
+            loop {
+                if item_ptr.indexable() {
+                    if curr_idx <= item_ptr.len() {
+                        if curr_idx < item_ptr.len() {
+                            store.split_at_and_get_right({
+                                let id = item_ptr.id;
+                                // split item
+                                Id::new(id.client, id.clock + curr_idx)
+                            })?;
+                        }
+                        break;
                     }
-                    break;
+                    curr_idx -= item_ptr.len();
                 }
-                curr_idx -= item_ptr.len();
-            }
-            if let Some(right_id) = item_ptr.right_id {
-                if let Some(right_item) = store.get_item(right_id).and_then(|i| i.as_item()) {
-                    item_ptr = right_item;
-                    continue;
+                if let Some(right_id) = item_ptr.right_id {
+                    if let Some(right_item) = store.get_item(right_id).and_then(|i| i.as_item()) {
+                        item_ptr = right_item;
+                        continue;
+                    }
                 }
+                break;
             }
-            break;
         }
 
         self.insert_after(Some(item_ptr), content)
@@ -154,7 +150,7 @@ impl ListCore {
             self.marker_list
                 .get_last_marker()
                 .map(|m| m.ptr.clone())
-                .or(self.root.as_ref().and_then(|s| s.as_item()))
+                .or(self.get_root().and_then(|s| s.as_item()))
         };
 
         let store = self.store.read().unwrap();

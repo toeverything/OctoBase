@@ -219,7 +219,7 @@ mod tests {
             doc.store
                 .read()
                 .unwrap()
-                .get_item(Id::new(client_id, 0))
+                .get_item(Id::new(client_id, 2))
                 .and_then(|i| i.as_item())
                 .unwrap()
         );
