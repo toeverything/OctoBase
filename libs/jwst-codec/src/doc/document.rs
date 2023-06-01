@@ -1,6 +1,5 @@
-use std::sync::{Arc, RwLock};
-
 use super::{store::StoreRef, *};
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone)]
 pub struct Doc {

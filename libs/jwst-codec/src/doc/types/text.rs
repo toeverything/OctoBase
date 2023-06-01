@@ -1,9 +1,8 @@
-use std::sync::Arc;
-
 use crate::{
     doc::{item_flags, DocStore, ItemFlags, Parent, StructInfo},
     impl_type, Content, Item, JwstCodecError, JwstCodecResult,
 };
+use std::sync::Arc;
 
 pub struct ItemPosition {
     pub left: Option<StructInfo>,

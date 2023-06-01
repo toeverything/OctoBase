@@ -1,9 +1,8 @@
-use std::collections::HashMap;
-
 use super::*;
 use lib0::any::Any;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use yrs::{ArrayPrelim, ArrayRef, Map, MapRef, ReadTxn, Transact, TransactionMut};
 
 #[derive(Debug, Clone, JsonSchema, Serialize, Deserialize, PartialEq)]

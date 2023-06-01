@@ -1,6 +1,5 @@
-use std::sync::Arc;
-
 use super::*;
+use std::sync::Arc;
 
 // make fields Copy + Clone without much effort
 #[derive(Debug)]

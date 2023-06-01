@@ -1,6 +1,5 @@
-use crate::doc::OrderRange;
-
 use super::*;
+use crate::doc::OrderRange;
 use std::{
     collections::{hash_map::Entry, HashMap},
     ops::{Deref, DerefMut, Range},

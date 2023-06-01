@@ -1,6 +1,5 @@
-use crate::doc::StateVector;
-
 use super::*;
+use crate::doc::StateVector;
 use std::collections::{HashMap, VecDeque};
 use std::ops::Range;
 

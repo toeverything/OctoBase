@@ -1,3 +1,4 @@
+use super::*;
 use jwst_codec::{Awareness, AwarenessEvent};
 use nanoid::nanoid;
 use std::{
@@ -6,8 +7,6 @@ use std::{
     time::Duration,
 };
 use yrs::{TransactionMut, UpdateEvent};
-
-use super::*;
 
 impl Workspace {
     pub async fn on_awareness_update(

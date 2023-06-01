@@ -1,6 +1,5 @@
-use crate::infrastructure::auth::get_claim_from_token;
-
 use super::*;
+use crate::infrastructure::auth::get_claim_from_token;
 use axum::{
     extract::{ws::WebSocketUpgrade, Path},
     http::StatusCode,

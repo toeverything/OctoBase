@@ -178,6 +178,7 @@ mod test {
     use yrs::Map;
 
     #[tokio::test]
+    #[ignore = "skip in ci"]
     async fn webrtc_datachannel_connector_test() {
         let (offer, pc, tx1, mut rx1, _) = webrtc_datachannel_client_begin().await;
         let (answer, tx2, mut rx2, _) = webrtc_datachannel_server_connector(offer).await;

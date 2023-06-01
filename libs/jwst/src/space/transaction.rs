@@ -1,6 +1,5 @@
-use crate::utils::JS_INT_RANGE;
-
 use super::*;
+use crate::utils::JS_INT_RANGE;
 use lib0::any::Any;
 use yrs::{Map, TransactionMut};
 
