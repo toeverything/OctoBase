@@ -39,8 +39,8 @@ impl YArray {
         self.core.push(vec![Any::String(val.into())])
     }
 
-    pub fn remove(&mut self, idx: u64) -> JwstCodecResult {
-        todo!()
+    pub fn remove(&mut self, idx: u64, length: u64) -> JwstCodecResult {
+        self.core.remove(idx, length)
     }
 }
 

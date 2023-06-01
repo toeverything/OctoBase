@@ -215,6 +215,14 @@ impl StructInfo {
         }
     }
 
+    pub(crate) fn countable(&self) -> bool {
+        if let StructInfo::Item(item) = self {
+            item.flags.countable()
+        } else {
+            false
+        }
+    }
+
     pub(crate) fn deleted(&self) -> bool {
         if let StructInfo::Item(item) = self {
             item.deleted()

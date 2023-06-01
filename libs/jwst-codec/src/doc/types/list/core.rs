@@ -169,6 +169,65 @@ impl ListCore {
 
         self.insert_after(ref_item.clone(), content)
     }
+
+    pub(crate) fn remove(&self, idx: u64, length: u64) -> JwstCodecResult {
+        if length == 0 {
+            return Ok(());
+        }
+
+        let n = &mut self.get_root();
+        let mut index_remaining = idx;
+
+        let mut store = self.store.write().unwrap();
+        // compute the first item to be deleted
+        while let Some(node) = n {
+            if !node.deleted() && node.countable() {
+                let node_len = node.len();
+                if index_remaining < node_len {
+                    let origin_id = node.id();
+                    store.split_at_and_get_right(Id::new(
+                        origin_id.client,
+                        origin_id.clock + index_remaining,
+                    ))?;
+                }
+                index_remaining -= node_len;
+            }
+            if index_remaining == 0 {
+                break;
+            }
+            *n = node.right_id().and_then(|id| store.get_item(id));
+        }
+
+        // delete all items until done
+        let mut length_remaining = length;
+        while length_remaining > 0 {
+            if let Some(node) = n {
+                if !node.deleted() {
+                    let node_len = node.len();
+                    if length_remaining < node_len {
+                        let origin_id = node.id();
+                        store.split_at_and_get_right(Id::new(
+                            origin_id.client,
+                            origin_id.clock + length_remaining,
+                        ))?;
+                    }
+                    node.delete();
+                    length_remaining -= node_len;
+                }
+                *n = node.right_id().and_then(|id| store.get_item(id));
+            } else {
+                break;
+            }
+        }
+
+        store.delete(Id::new(self.client_id, idx + 1), length);
+
+        if length_remaining > 0 {
+            Err(JwstCodecError::IndexOutOfBound(length_remaining))
+        } else {
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -207,7 +266,7 @@ mod tests {
     }
 
     #[test]
-    fn test_core_list() {
+    fn test_core_insert() {
         let buffer = {
             let doc = Doc::default();
             let mut array = doc.get_or_crate_array("abc").unwrap();
@@ -240,6 +299,45 @@ mod tests {
             array.slice(1, 3).unwrap(),
             vec![
                 Content::Any(vec![Any::String(" ".into())]),
+                Content::Any(vec![Any::String("World".into())])
+            ]
+        );
+    }
+
+    #[test]
+    #[ignore = "need repair() in insert_after()"]
+    fn test_core_remove() {
+        let buffer = {
+            let doc = Doc::default();
+            let mut array = doc.get_or_crate_array("abc").unwrap();
+
+            array.insert(0, " ").unwrap();
+            array.insert(0, "Hello").unwrap();
+            array.insert(2, "World").unwrap();
+            array.remove(1, 1).unwrap();
+
+            doc.encode_update_v1().unwrap()
+        };
+
+        let mut decoder = RawDecoder::new(buffer);
+        let update = Update::read(&mut decoder).unwrap();
+
+        let mut doc = Doc::default();
+        doc.apply_update(update).unwrap();
+        let array = doc.get_or_crate_array("abc").unwrap();
+
+        assert_eq!(
+            array.iter().flatten().collect::<Vec<_>>(),
+            vec![
+                Content::Any(vec![Any::String("Hello".into())]),
+                Content::Any(vec![Any::String("World".into())]),
+                // Content::Any(vec![Any::String("!".into())]),
+            ]
+        );
+        assert_eq!(
+            array.slice(0, 2).unwrap(),
+            vec![
+                Content::Any(vec![Any::String("Hello".into())]),
                 Content::Any(vec![Any::String("World".into())])
             ]
         );
