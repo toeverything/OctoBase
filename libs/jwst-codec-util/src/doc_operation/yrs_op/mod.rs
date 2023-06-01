@@ -23,6 +23,12 @@ pub struct OpsRegistry(
     HashMap<CRDTNestType, HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>>>,
 );
 
+impl Default for OpsRegistry {
+    fn default() -> Self {
+        OpsRegistry::new()
+    }
+}
+
 impl OpsRegistry {
     pub fn new() -> Self {
         let mut map = HashMap::new();
@@ -95,32 +101,32 @@ pub fn yrs_create_nest_type_from_root(
 pub fn gen_nest_type_from_root(doc: &mut Doc, crdt_param: &CRDTParam) -> Option<YrsNestType> {
     match crdt_param.new_nest_type {
         CRDTNestType::Array => Some(yrs_create_nest_type_from_root(
-            &doc,
+            doc,
             CRDTNestType::Array,
             crdt_param.key.as_str(),
         )),
         CRDTNestType::Map => Some(yrs_create_nest_type_from_root(
-            &doc,
+            doc,
             CRDTNestType::Map,
             crdt_param.key.as_str(),
         )),
         CRDTNestType::Text => Some(yrs_create_nest_type_from_root(
-            &doc,
+            doc,
             CRDTNestType::Text,
             crdt_param.key.as_str(),
         )),
         CRDTNestType::XMLText => Some(yrs_create_nest_type_from_root(
-            &doc,
+            doc,
             CRDTNestType::XMLText,
             crdt_param.key.as_str(),
         )),
         CRDTNestType::XMLElement => Some(yrs_create_nest_type_from_root(
-            &doc,
+            doc,
             CRDTNestType::XMLElement,
             crdt_param.key.as_str(),
         )),
         CRDTNestType::XMLFragment => Some(yrs_create_nest_type_from_root(
-            &doc,
+            doc,
             CRDTNestType::XMLFragment,
             crdt_param.key.as_str(),
         )),
@@ -130,36 +136,21 @@ pub fn gen_nest_type_from_root(doc: &mut Doc, crdt_param: &CRDTParam) -> Option<
 pub fn gen_nest_type_from_nest_type(
     doc: &mut Doc,
     crdt_param: CRDTParam,
-    mut nest_type: &mut YrsNestType,
+    nest_type: &mut YrsNestType,
 ) -> Option<YrsNestType> {
     match crdt_param.new_nest_type {
-        CRDTNestType::Array => match yrs_create_array_from_nest_type(
-            &doc,
-            &mut nest_type,
-            &crdt_param.insert_pos,
-            crdt_param.key,
-        ) {
-            Some(array_ref) => Some(YrsNestType::ArrayType(array_ref)),
-            None => None,
-        },
-        CRDTNestType::Map => match yrs_create_map_from_nest_type(
-            &doc,
-            &mut nest_type,
-            &crdt_param.insert_pos,
-            crdt_param.key,
-        ) {
-            Some(map_ref) => Some(YrsNestType::MapType(map_ref)),
-            None => None,
-        },
-        CRDTNestType::Text => match yrs_create_text_from_nest_type(
-            &doc,
-            &mut nest_type,
-            &crdt_param.insert_pos,
-            crdt_param.key,
-        ) {
-            Some(text_ref) => Some(YrsNestType::TextType(text_ref)),
-            None => None,
-        },
+        CRDTNestType::Array => {
+            yrs_create_array_from_nest_type(doc, nest_type, &crdt_param.insert_pos, crdt_param.key)
+                .map(YrsNestType::ArrayType)
+        }
+        CRDTNestType::Map => {
+            yrs_create_map_from_nest_type(doc, nest_type, &crdt_param.insert_pos, crdt_param.key)
+                .map(YrsNestType::MapType)
+        }
+        CRDTNestType::Text => {
+            yrs_create_text_from_nest_type(doc, nest_type, &crdt_param.insert_pos, crdt_param.key)
+                .map(YrsNestType::TextType)
+        }
         _ => None,
     }
 }

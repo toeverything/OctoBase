@@ -21,7 +21,7 @@ pub fn gen_map_ref_ops() -> HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNe
         };
         let rand_key = {
             let trx = doc.transact_mut();
-            let iter = map.iter(&trx);
+            let mut iter = map.iter(&trx);
             let len = map.len(&trx) as usize;
             let skip_step = if len <= 1 {
                 0
@@ -29,10 +29,8 @@ pub fn gen_map_ref_ops() -> HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNe
                 random_pick_num((len - 1) as u32, &params.insert_pos)
             };
 
-            match iter.skip(skip_step as usize).next() {
-                Some((key, _value)) => Some(key.to_string().clone()),
-                None => None,
-            }
+            iter.nth(skip_step as usize)
+                .map(|(key, _value)| key.to_string())
         };
 
         if let Some(key) = rand_key {
@@ -81,7 +79,7 @@ pub fn yrs_create_map_from_nest_type(
         YrsNestType::TextType(text) => {
             let str = text.get_string(&trx);
             let len = str.chars().fold(0, |acc, _| acc + 1);
-            let index = random_pick_num(len, &insert_pos) as usize;
+            let index = random_pick_num(len, insert_pos) as usize;
             let byte_start_offset = str
                 .chars()
                 .take(index)
@@ -95,7 +93,7 @@ pub fn yrs_create_map_from_nest_type(
         YrsNestType::XMLTextType(xml_text) => {
             let str = xml_text.get_string(&trx);
             let len = str.chars().fold(0, |acc, _| acc + 1);
-            let index = random_pick_num(len, &insert_pos) as usize;
+            let index = random_pick_num(len, insert_pos) as usize;
             let byte_start_offset = str
                 .chars()
                 .take(index)

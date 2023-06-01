@@ -42,7 +42,7 @@ pub fn gen_xml_text_ref_ops(
             .take(index)
             .fold(0, |acc, ch| acc + ch.len_utf8());
 
-        let char_byte_len = str.chars().skip(index).next().unwrap().len_utf8();
+        let char_byte_len = str.chars().nth(index).unwrap().len_utf8();
         xml_text.remove_range(&mut trx, byte_start_offset as u32, char_byte_len as u32)
             .unwrap();
     };

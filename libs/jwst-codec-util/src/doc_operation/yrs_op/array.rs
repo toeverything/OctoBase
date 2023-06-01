@@ -72,7 +72,7 @@ pub fn yrs_create_array_from_nest_type(
         YrsNestType::TextType(text) => {
             let str = text.get_string(&trx);
             let len = str.chars().fold(0, |acc, _| acc + 1);
-            let index = random_pick_num(len, &insert_pos) as usize;
+            let index = random_pick_num(len, insert_pos) as usize;
             let byte_start_offset = str
                 .chars()
                 .take(index)
@@ -86,7 +86,7 @@ pub fn yrs_create_array_from_nest_type(
         YrsNestType::XMLTextType(xml_text) => {
             let str = xml_text.get_string(&trx);
             let len = str.chars().fold(0, |acc, _| acc + 1);
-            let index = random_pick_num(len, &insert_pos) as usize;
+            let index = random_pick_num(len, insert_pos) as usize;
             let byte_start_offset = str
                 .chars()
                 .take(index)

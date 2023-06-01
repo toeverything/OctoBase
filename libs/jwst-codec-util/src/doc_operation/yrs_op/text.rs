@@ -41,7 +41,7 @@ pub fn gen_text_ref_ops() -> HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsN
             .take(index)
             .fold(0, |acc, ch| acc + ch.len_utf8());
 
-        let char_byte_len = str.chars().skip(index).next().unwrap().len_utf8();
+        let char_byte_len = str.chars().nth(index).unwrap().len_utf8();
         text.remove_range(&mut trx, byte_start_offset as u32, char_byte_len as u32)
             .unwrap();
     };
@@ -84,7 +84,7 @@ pub fn yrs_create_text_from_nest_type(
         YrsNestType::TextType(text) => {
             let str = text.get_string(&trx);
             let len = str.chars().fold(0, |acc, _| acc + 1);
-            let index = random_pick_num(len, &insert_pos) as usize;
+            let index = random_pick_num(len, insert_pos) as usize;
             let byte_start_offset = str
                 .chars()
                 .take(index)
@@ -98,7 +98,7 @@ pub fn yrs_create_text_from_nest_type(
         YrsNestType::XMLTextType(xml_text) => {
             let str = xml_text.get_string(&trx);
             let len = str.chars().fold(0, |acc, _| acc + 1);
-            let index = random_pick_num(len, &insert_pos) as usize;
+            let index = random_pick_num(len, insert_pos) as usize;
             let byte_start_offset = str
                 .chars()
                 .take(index)
