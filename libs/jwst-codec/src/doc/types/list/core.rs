@@ -233,26 +233,23 @@ impl ListCore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yrs::{Array, Transact};
 
     #[test]
     fn test_core_iter() {
         let buffer = {
-            let doc = yrs::Doc::new();
-            let array = doc.get_or_insert_array("abc");
-
-            let mut trx = doc.transact_mut();
-            array.insert(&mut trx, 0, " ").unwrap();
-            array.insert(&mut trx, 0, "Hello").unwrap();
-            array.insert(&mut trx, 2, "World").unwrap();
-            trx.encode_update_v1().unwrap()
+            let doc = Doc::default();
+            let mut array = doc.get_or_create_array("abc").unwrap();
+            array.insert(0, " ").unwrap();
+            array.insert(0, "Hello").unwrap();
+            array.insert(2, "World").unwrap();
+            doc.encode_update_v1().unwrap()
         };
 
         let mut decoder = RawDecoder::new(buffer);
         let update = Update::read(&mut decoder).unwrap();
         let mut doc = Doc::default();
         doc.apply_update(update).unwrap();
-        let array = doc.get_or_crate_array("abc").unwrap();
+        let array = doc.get_or_create_array("abc").unwrap();
 
         let items = array.iter().flatten().collect::<Vec<_>>();
         assert_eq!(
@@ -269,7 +266,7 @@ mod tests {
     fn test_core_insert() {
         let buffer = {
             let doc = Doc::default();
-            let mut array = doc.get_or_crate_array("abc").unwrap();
+            let mut array = doc.get_or_create_array("abc").unwrap();
 
             array.insert(0, " ").unwrap();
             array.insert(0, "Hello").unwrap();
@@ -284,7 +281,7 @@ mod tests {
 
         let mut doc = Doc::default();
         doc.apply_update(update).unwrap();
-        let array = doc.get_or_crate_array("abc").unwrap();
+        let array = doc.get_or_create_array("abc").unwrap();
 
         assert_eq!(
             array.iter().flatten().collect::<Vec<_>>(),
@@ -309,7 +306,7 @@ mod tests {
     fn test_core_remove() {
         let buffer = {
             let doc = Doc::default();
-            let mut array = doc.get_or_crate_array("abc").unwrap();
+            let mut array = doc.get_or_create_array("abc").unwrap();
 
             array.insert(0, " ").unwrap();
             array.insert(0, "Hello").unwrap();
@@ -324,7 +321,7 @@ mod tests {
 
         let mut doc = Doc::default();
         doc.apply_update(update).unwrap();
-        let array = doc.get_or_crate_array("abc").unwrap();
+        let array = doc.get_or_create_array("abc").unwrap();
 
         assert_eq!(
             array.iter().flatten().collect::<Vec<_>>(),

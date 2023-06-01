@@ -117,20 +117,20 @@ impl Doc {
         Ok(())
     }
 
-    pub fn get_or_crate_text(&mut self, name: &str) -> JwstCodecResult<Text> {
+    pub fn get_or_crate_text(&self, name: &str) -> JwstCodecResult<Text> {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Text)
             .set_name(name.to_string())
             .build()
     }
 
-    pub fn create_text(&mut self) -> JwstCodecResult<Text> {
+    pub fn create_text(&self) -> JwstCodecResult<Text> {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Text)
             .build()
     }
 
-    pub fn get_or_crate_array(&self, str: &str) -> JwstCodecResult<YArray> {
+    pub fn get_or_create_array(&self, str: &str) -> JwstCodecResult<YArray> {
         let array = YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Array)
             .set_name(str.to_string())

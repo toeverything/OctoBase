@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_manipulate_text() {
-        let mut doc = Doc::default();
+        let doc = Doc::default();
         let mut text = doc.create_text().unwrap();
 
         text.insert(0, "hello").unwrap();
@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_parallel_manipulate_text() {
-        let mut doc = Doc::default();
+        let doc = Doc::default();
         let mut text = doc.get_or_crate_text("test").unwrap();
         text.insert(0, "This is a string with length 32.").unwrap();
         let mut handles = Vec::new();
@@ -170,7 +170,7 @@ mod tests {
         // parallel editing doc
         {
             for i in 0..iteration {
-                let mut doc = doc.clone();
+                let doc = doc.clone();
                 handles.push(std::thread::spawn(move || {
                     let mut text = doc.get_or_crate_text("test").unwrap();
                     let pos = rand::thread_rng().gen_range(0..text.len());
