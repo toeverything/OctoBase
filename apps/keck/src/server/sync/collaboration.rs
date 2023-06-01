@@ -113,6 +113,7 @@ mod test {
         }
     }
     #[test]
+    #[ignore = "not needed in ci"]
     fn client_collaboration_with_webrtc_server() {
         if dotenvy::var("KECK_DEBUG").is_ok() {
             jwst_logger::init_logger("keck");
