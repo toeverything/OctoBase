@@ -31,6 +31,7 @@ impl ItemBuilder {
         self
     }
 
+    #[allow(dead_code)]
     pub fn parent_sub(mut self, parent_sub: Option<String>) -> ItemBuilder {
         self.item.parent_sub = parent_sub;
         self
