@@ -11,6 +11,11 @@ impl ItemBuilder {
         }
     }
 
+    pub fn id(mut self, id: Id) -> ItemBuilder {
+        self.item.id = id;
+        self
+    }
+
     pub fn left_id(mut self, left_id: Option<Id>) -> ItemBuilder {
         self.item.left_id = left_id;
         self
@@ -32,7 +37,7 @@ impl ItemBuilder {
     }
 
     pub fn content(mut self, content: Content) -> ItemBuilder {
-        self.item.content = content;
+        self.item.content = std::sync::Arc::new(content);
         self
     }
 

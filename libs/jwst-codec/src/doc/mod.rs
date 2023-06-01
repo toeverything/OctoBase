@@ -11,5 +11,5 @@ pub use awareness::{Awareness, AwarenessEvent};
 pub use codec::*;
 pub use common::*;
 pub use document::Doc;
-pub use store::{DocStore, StructRef};
+pub use store::DocStore;
 pub use types::*;

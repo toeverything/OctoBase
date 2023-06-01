@@ -1,11 +1,24 @@
+use std::sync::Arc;
+
 use super::*;
 
-#[derive(Debug, Clone)]
+// make fields Copy + Clone without much effort
+#[derive(Debug)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum StructInfo {
     GC { id: Id, len: u64 },
     Skip { id: Id, len: u64 },
-    Item { id: Id, item: Box<Item> },
+    Item(ItemRef),
+}
+
+impl Clone for StructInfo {
+    fn clone(&self) -> Self {
+        match self {
+            Self::GC { id, len } => Self::GC { id: *id, len: *len },
+            Self::Skip { id, len } => Self::Skip { id: *id, len: *len },
+            Self::Item(item) => Self::Item(item.clone()),
+        }
+    }
 }
 
 impl<W: CrdtWriter> CrdtWrite<W> for StructInfo {
@@ -19,19 +32,30 @@ impl<W: CrdtWriter> CrdtWrite<W> for StructInfo {
                 writer.write_info(10)?;
                 writer.write_var_u64(*len)
             }
-            StructInfo::Item { item, .. } => item.write(writer),
+            StructInfo::Item(item) => item.write(writer),
         }
     }
 }
 
 impl PartialEq for StructInfo {
     fn eq(&self, other: &Self) -> bool {
-        self.id() == other.id()
+        match (self, other) {
+            (StructInfo::GC { id: id1, .. }, StructInfo::GC { id: id2, .. }) => id1 == id2,
+            (StructInfo::Skip { id: id1, .. }, StructInfo::Skip { id: id2, .. }) => id1 == id2,
+            (StructInfo::Item(item1), StructInfo::Item(item2)) => item1.id == item2.id,
+            _ => false,
+        }
     }
 }
 
 impl Eq for StructInfo {
     fn assert_receiver_is_total_eq(&self) {}
+}
+
+impl From<Item> for StructInfo {
+    fn from(value: Item) -> Self {
+        Self::Item(Arc::new(value))
+    }
 }
 
 impl StructInfo {
@@ -48,10 +72,15 @@ impl StructInfo {
                 let len = decoder.read_var_u64()?;
                 Ok(StructInfo::Skip { id, len })
             }
-            _ => Ok(StructInfo::Item {
-                id: id.clone(),
-                item: Box::new(Item::read(decoder, id, info, first_5_bit)?),
-            }),
+            _ => {
+                let item = Arc::new(Item::read(decoder, id, info, first_5_bit)?);
+
+                if let Content::Type(ty) = item.content.as_ref() {
+                    ty.write().unwrap().item = Some(Arc::downgrade(&item));
+                }
+
+                Ok(StructInfo::Item(item))
+            }
         }
     }
 
@@ -59,7 +88,7 @@ impl StructInfo {
         *match self {
             StructInfo::GC { id, .. } => id,
             StructInfo::Skip { id, .. } => id,
-            StructInfo::Item { id, .. } => id,
+            StructInfo::Item(item) => &item.id,
         }
     }
 
@@ -75,7 +104,7 @@ impl StructInfo {
         match self {
             Self::GC { len, .. } => *len,
             Self::Skip { len, .. } => *len,
-            Self::Item { item, .. } => item.content.clock_len(),
+            Self::Item(item) => item.len(),
         }
     }
 
@@ -88,27 +117,19 @@ impl StructInfo {
     }
 
     pub fn is_item(&self) -> bool {
-        matches!(self, Self::Item { .. })
+        matches!(self, Self::Item(_))
     }
 
-    pub fn flags(&self) -> ItemFlags {
-        if let StructInfo::Item { item, .. } = self {
-            item.flags
-        } else {
-            ItemFlags::from(0)
-        }
-    }
-
-    pub fn item(&self) -> Option<&Item> {
-        if let Self::Item { item, .. } = self {
-            Some(item.as_ref())
+    pub fn item(&self) -> Option<ItemRef> {
+        if let Self::Item(item) = self {
+            Some(item.clone())
         } else {
             None
         }
     }
 
     pub fn left_id(&self) -> Option<Id> {
-        if let Self::Item { item, .. } = self {
+        if let Self::Item(item) = self {
             item.left_id
         } else {
             None
@@ -116,7 +137,7 @@ impl StructInfo {
     }
 
     pub fn right_id(&self) -> Option<Id> {
-        if let Self::Item { item, .. } = self {
+        if let Self::Item(item) = self {
             item.right_id
         } else {
             None
@@ -124,7 +145,7 @@ impl StructInfo {
     }
 
     pub fn parent(&self) -> Option<&Parent> {
-        if let Self::Item { item, .. } = self {
+        if let Self::Item(item) = self {
             item.parent.as_ref()
         } else {
             None
@@ -132,38 +153,56 @@ impl StructInfo {
     }
 
     pub fn parent_sub(&self) -> Option<&String> {
-        if let Self::Item { item, .. } = self {
+        if let Self::Item(item) = self {
             item.parent_sub.as_ref()
         } else {
             None
         }
     }
 
-    pub fn split_item(&mut self, diff: u64) -> JwstCodecResult<Self> {
-        if let Self::Item { id, item } = self {
+    pub fn split_item(&self, diff: u64) -> JwstCodecResult<(Self, Self)> {
+        if let Self::Item(item) = self {
+            let id = item.id;
             let right_id = Id::new(id.client, id.clock + diff);
-            item.right_id = Some(right_id);
-            let right_content = item.content.split(diff)?;
+            let (left_content, right_content) = item.content.split(diff)?;
 
-            let right_item = Self::Item {
+            let left_item = Self::Item(Arc::new(Item {
+                id,
+                left_id: item.left_id,
+                right_id: Some(right_id),
+                parent: item.parent.clone(),
+                parent_sub: item.parent_sub.clone(),
+                content: Arc::new(left_content),
+                flags: item.flags.clone(),
+            }));
+
+            let right_item = Self::Item(Arc::new(Item {
                 id: right_id,
-                item: Box::new(Item {
-                    left_id: Some(Id::new(id.client, id.clock + diff - 1)),
-                    right_id: item.right_id,
-                    content: right_content,
-                    ..item.as_ref().clone()
-                }),
-            };
+                left_id: Some(item.id),
+                right_id: item.right_id,
+                parent: item.parent.clone(),
+                parent_sub: item.parent_sub.clone(),
+                content: Arc::new(right_content),
+                flags: item.flags.clone(),
+            }));
 
-            Ok(right_item)
+            Ok((left_item, right_item))
         } else {
             Err(JwstCodecError::ItemSplitNotSupport)
         }
     }
 
-    pub fn delete(&mut self) {
-        if let StructInfo::Item { item, .. } = self {
+    pub fn delete(&self) {
+        if let StructInfo::Item(item) = self {
             item.delete()
+        }
+    }
+
+    pub(crate) fn deleted(&self) -> bool {
+        if let StructInfo::Item(item) = self {
+            item.deleted()
+        } else {
+            false
         }
     }
 }
@@ -197,16 +236,14 @@ mod tests {
 
         {
             let item = ItemBuilder::new()
+                .id((3, 0).into())
                 .left_id(None)
                 .right_id(None)
                 .parent(Some(Parent::String(String::from("parent"))))
                 .parent_sub(None)
                 .content(Content::String(String::from("content")))
                 .build();
-            let struct_info = StructInfo::Item {
-                id: Id::new(3, 0),
-                item: Box::new(item),
-            };
+            let struct_info = StructInfo::Item(Arc::new(item));
 
             assert_eq!(struct_info.len(), 7);
             assert_eq!(struct_info.client(), 3);
@@ -216,44 +253,38 @@ mod tests {
 
     #[test]
     fn test_read_write_struct_info() {
-        let has_not_parent_id_and_has_parent = StructInfo::Item {
-            id: (0, 0).into(),
-            item: Box::new(
-                ItemBuilder::new()
-                    .left_id(None)
-                    .right_id(None)
-                    .parent(Some(Parent::String(String::from("parent"))))
-                    .parent_sub(None)
-                    .content(Content::String(String::from("content")))
-                    .build(),
-            ),
-        };
+        let has_not_parent_id_and_has_parent = StructInfo::Item(Arc::new(
+            ItemBuilder::new()
+                .id((0, 0).into())
+                .left_id(None)
+                .right_id(None)
+                .parent(Some(Parent::String(String::from("parent"))))
+                .parent_sub(None)
+                .content(Content::String(String::from("content")))
+                .build(),
+        ));
 
-        let has_not_parent_id_and_has_parent_with_key = StructInfo::Item {
-            id: (0, 0).into(),
-            item: Box::new(
-                ItemBuilder::new()
-                    .left_id(None)
-                    .right_id(None)
-                    .parent(Some(Parent::String(String::from("parent"))))
-                    .parent_sub(Some(String::from("parent_sub")))
-                    .content(Content::String(String::from("content")))
-                    .build(),
-            ),
-        };
+        let has_not_parent_id_and_has_parent_with_key = StructInfo::Item(Arc::new(
+            ItemBuilder::new()
+                .id((0, 0).into())
+                .left_id(None)
+                .right_id(None)
+                .parent(Some(Parent::String(String::from("parent"))))
+                .parent_sub(Some(String::from("parent_sub")))
+                .content(Content::String(String::from("content")))
+                .build(),
+        ));
 
-        let has_parent_id = StructInfo::Item {
-            id: (0, 0).into(),
-            item: Box::new(
-                ItemBuilder::new()
-                    .left_id(Some((1, 2).into()))
-                    .right_id(Some((2, 5).into()))
-                    .parent(None)
-                    .parent_sub(None)
-                    .content(Content::String(String::from("content")))
-                    .build(),
-            ),
-        };
+        let has_parent_id = StructInfo::Item(Arc::new(
+            ItemBuilder::new()
+                .id((0, 0).into())
+                .left_id(Some((1, 2).into()))
+                .right_id(Some((2, 5).into()))
+                .parent(None)
+                .parent_sub(None)
+                .content(Content::String(String::from("content")))
+                .build(),
+        ));
 
         let struct_infos = vec![
             StructInfo::GC {
@@ -281,7 +312,7 @@ mod tests {
     }
 
     fn struct_info_round_trip(info: &mut StructInfo) -> JwstCodecResult {
-        if let StructInfo::Item { item, .. } = info {
+        if let StructInfo::Item(item) = info {
             if !item.is_valid() {
                 return Ok(());
             }
