@@ -56,6 +56,15 @@ impl Doc {
         let mut retry = false;
         loop {
             for (s, offset) in update.iter(store.get_state_vector()) {
+                if let StructInfo::Item(item) = &s {
+                    debug_assert_eq!(Arc::strong_count(item), 1);
+                    // SAFETY:
+                    // before we integrate struct into store,
+                    // the struct => Arc<Item> is owned reference actually,
+                    // no one else refer to such item yet, we can safely mutable refer to it now.
+                    let item = unsafe { &mut *(Arc::as_ptr(item) as *mut Item) };
+                    store.repair(item, self.store.clone())?;
+                }
                 store.integrate_struct_info(s, offset, None)?;
             }
 

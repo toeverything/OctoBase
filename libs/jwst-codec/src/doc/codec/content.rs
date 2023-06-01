@@ -1,7 +1,9 @@
+use std::ops::Deref;
+
 use super::*;
 use serde_json::Value as JsonValue;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Content {
     Deleted(u64),
@@ -16,12 +18,40 @@ pub enum Content {
         value: JsonValue,
     },
     #[cfg_attr(test, proptest(skip))]
-    Type(YType),
+    Type(YTypeRef),
     Any(Vec<Any>),
     Doc {
         guid: String,
         opts: Vec<Any>,
     },
+}
+
+impl PartialEq for Content {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Deleted(len1), Self::Deleted(len2)) => len1 == len2,
+            (Self::JSON(vec1), Self::JSON(vec2)) => vec1 == vec2,
+            (Self::Binary(vec1), Self::Binary(vec2)) => vec1 == vec2,
+            (Self::String(str1), Self::String(str2)) => str1 == str2,
+            (Self::Embed(json1), Self::Embed(json2)) => json1 == json2,
+            (
+                Self::Format {
+                    key: key1,
+                    value: value1,
+                },
+                Self::Format {
+                    key: key2,
+                    value: value2,
+                },
+            ) => key1 == key2 && value1 == value2,
+            (Self::Any(any1), Self::Any(any2)) => any1 == any2,
+            (Self::Doc { guid: guid1, .. }, Self::Doc { guid: guid2, .. }) => guid1 == guid2,
+            (Self::Type(ty1), Self::Type(ty2)) => {
+                ty1.read().unwrap().deref() == ty2.read().unwrap().deref()
+            }
+            _ => false,
+        }
+    }
 }
 
 impl std::fmt::Debug for Content {
@@ -100,8 +130,8 @@ impl Content {
                     _ => None,
                 };
 
-                let ytype = YType::new(kind, tag_name);
-                Ok(Self::Type(ytype))
+                let ty = YType::new(kind, tag_name);
+                Ok(Self::Type(ty.into_ref()))
             } // YType
             8 => Ok(Self::Any(Any::read_multiple(decoder)?)), // Any
             9 => {
@@ -156,18 +186,14 @@ impl Content {
                 encoder.write_var_string(key)?;
                 encoder.write_var_string(value.to_string())?;
             }
-            Self::Type(y_type) => {
-                let type_ref = u64::from(y_type.kind());
+            Self::Type(ty) => {
+                let ty = ty.read().unwrap();
+                let type_ref = u64::from(ty.kind());
                 encoder.write_var_u64(type_ref)?;
 
-                match y_type {
-                    YType::XMLElement(xml_element) => {
-                        encoder.write_var_string(
-                            xml_element.0.read().unwrap().name.as_ref().unwrap(),
-                        )?;
-                    }
-                    YType::XMLHook(hook) => {
-                        encoder.write_var_string(hook.0.read().unwrap().name.as_ref().unwrap())?;
+                match ty.kind {
+                    YTypeKind::XMLElement | YTypeKind::XMLHook => {
+                        encoder.write_var_string(ty.name.as_ref().unwrap())?;
                     }
                     _ => {}
                 }
@@ -280,13 +306,13 @@ mod tests {
                 key: "key".to_string(),
                 value: JsonValue::Number(42.into()),
             },
-            Content::Type(YType::Array(Array::default())),
-            Content::Type(YType::Map(Map::default())),
-            Content::Type(YType::Text(Text::default())),
-            Content::Type(YType::new(YTypeKind::XMLElement, Some("test".to_string()))),
-            Content::Type(YType::XMLFragment(XMLFragment::default())),
-            Content::Type(YType::new(YTypeKind::XMLHook, Some("test".to_string()))),
-            Content::Type(YType::XMLText(XMLText::default())),
+            Content::Type(YType::new(YTypeKind::Array, None).into_ref()),
+            Content::Type(YType::new(YTypeKind::Map, None).into_ref()),
+            Content::Type(YType::new(YTypeKind::Text, None).into_ref()),
+            Content::Type(YType::new(YTypeKind::XMLElement, Some("test".to_string())).into_ref()),
+            Content::Type(YType::new(YTypeKind::XMLFragment, None).into_ref()),
+            Content::Type(YType::new(YTypeKind::XMLHook, Some("test".to_string())).into_ref()),
+            Content::Type(YType::new(YTypeKind::XMLText, None).into_ref()),
             Content::Any(vec![Any::BigInt64(42), Any::String("Test Any".to_string())]),
             Content::Doc {
                 guid: "my_guid".to_string(),

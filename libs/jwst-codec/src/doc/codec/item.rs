@@ -5,12 +5,11 @@ use std::sync::{
 
 use super::*;
 
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(fuzzing, derive(arbitrary::Arbitrary))]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Parent {
     #[cfg_attr(test, proptest(skip))]
-    Type(YType),
+    Type(YTypeRef),
     String(String),
     Id(Id),
 }
@@ -149,7 +148,7 @@ impl std::fmt::Debug for Item {
             .field(
                 "parent",
                 &self.parent.as_ref().map(|p| match p {
-                    Parent::Type(ty) => format!("{:?}", ty.read().root_name),
+                    Parent::Type(ty) => format!("{:?}", ty.read().unwrap().root_name),
                     Parent::String(name) => format!("Parent({name})"),
                     Parent::Id(id) => format!("({}, {})", id.client, id.clock),
                 }),
@@ -307,10 +306,10 @@ impl Item {
                         encoder.write_item_id(id)?;
                     }
                     Parent::Type(ty) => {
-                        let ty = ty.read();
+                        let ty = ty.read().unwrap();
                         if let Some(item) = &ty.item {
                             encoder.write_var_u64(0)?;
-                            encoder.write_item_id(&item.id())?;
+                            encoder.write_item_id(&item.upgrade().unwrap().id)?;
                         } else if let Some(name) = &ty.root_name {
                             encoder.write_var_u64(1)?;
                             encoder.write_var_string(name)?;

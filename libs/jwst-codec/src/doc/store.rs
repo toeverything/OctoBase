@@ -15,7 +15,7 @@ pub struct DocStore {
     pub delete_set: Arc<RwLock<DeleteSet>>,
 
     // following fields are only used in memory
-    pub types: Arc<RwLock<HashMap<String, YType>>>,
+    pub types: Arc<RwLock<HashMap<String, YTypeRef>>>,
     pub pending: Option<Update>,
 }
 
@@ -228,6 +228,7 @@ impl DocStore {
                 let offset = id.clock - item.clock();
                 if offset != item.len() - 1 && !item.is_gc() {
                     let (left_item, right_item) = item.split_item(offset + 1)?;
+                    items.insert(index + 1, right_item);
                     match (&item, &left_item) {
                         (StructInfo::Item(old_item), StructInfo::Item(new_item)) => {
                             // SAFETY:
@@ -236,14 +237,13 @@ impl DocStore {
                             let old_item = unsafe { &mut *(Arc::as_ptr(old_item) as *mut Item) };
                             let new_item = unsafe { &mut *(Arc::as_ptr(new_item) as *mut Item) };
                             std::mem::swap(old_item, new_item);
+                            return Ok(item);
                         }
                         _ => {
                             items[index] = left_item.clone();
+                            return Ok(left_item);
                         }
                     }
-                    items.insert(index + 1, right_item);
-
-                    return Ok(left_item);
                 } else {
                     return Ok(item);
                 }
@@ -272,25 +272,22 @@ impl DocStore {
         Ok(())
     }
 
-    pub(crate) fn get_or_create_type(&self, kind: YTypeKind, name: Option<&str>) -> YType {
-        if let Some(name) = name {
-            match self.types.write().unwrap().entry(name.to_string()) {
-                Entry::Occupied(e) => e.get().clone(),
-                Entry::Vacant(e) => {
-                    let y_type: YType = YTypeStore {
-                        kind,
-                        root_name: Some(name.to_string()),
-                        ..Default::default()
-                    }
-                    .into();
-
-                    e.insert(y_type.clone());
-
-                    y_type
+    // only for creating named type
+    pub(crate) fn get_or_create_type(&self, name: &str) -> YTypeRef {
+        match self.types.write().unwrap().entry(name.to_string()) {
+            Entry::Occupied(e) => e.get().clone(),
+            Entry::Vacant(e) => {
+                let ty = YType {
+                    kind: YTypeKind::Unknown,
+                    root_name: Some(name.to_string()),
+                    ..Default::default()
                 }
+                .into_ref();
+
+                e.insert(ty.clone());
+
+                ty
             }
-        } else {
-            YType::new(kind, None)
         }
     }
 
@@ -312,75 +309,65 @@ impl DocStore {
         o
     }
 
-    pub(crate) fn repair(&mut self, struct_info: &mut StructInfo) -> JwstCodecResult {
-        if let StructInfo::Item(item_ref) = struct_info {
-            debug_assert_eq!(Arc::strong_count(item_ref), 1);
-            // SAFETY:
-            // before we integrate struct into store,
-            // the struct => Arc<Item> is owned reference actually,
-            // no one else refer to such item yet, we can safely mutable refer to it now.
-            let mut item = unsafe { &mut *(Arc::as_ptr(item_ref) as *mut Item) };
-            if let Some(left_id) = item.left_id {
-                let left = self.split_at_and_get_left(left_id)?;
-                item.left_id = Some(left.id());
-            }
+    pub(crate) fn repair(&mut self, item: &mut Item, store_ref: StoreRef) -> JwstCodecResult {
+        if let Some(left_id) = item.left_id {
+            let left = self.split_at_and_get_left(left_id)?;
+            item.left_id = Some(left.id());
+        }
 
-            if let Some(right_id) = item.right_id {
-                let right = self.split_at_and_get_right(right_id)?;
-                item.right_id = Some(right.id());
-            }
+        if let Some(right_id) = item.right_id {
+            let right = self.split_at_and_get_right(right_id)?;
+            item.right_id = Some(right.id());
+        }
 
-            if let Content::Type(ty) = item.content.as_ref() {
-                ty.write().item = Some(struct_info.clone());
+        match &item.parent {
+            // root level named type
+            // doc.get_or_create_text(Some("content"))
+            //                              ^^^^^^^ Parent::String("content")
+            Some(Parent::String(str)) => {
+                let ty = self.get_or_create_type(str);
+                ty.write().unwrap().store = Arc::downgrade(&store_ref);
+                item.parent.replace(Parent::Type(ty));
             }
-
-            match &item.parent {
-                // root level named type
-                // doc.get_or_create_text(Some("content"))
-                //                              ^^^^^^^ Parent::String("content")
-                Some(Parent::String(str)) => {
-                    let ty = self.get_or_create_type(YTypeKind::Unknown, Some(str));
-                    item.parent.replace(Parent::Type(ty));
-                }
-                // type as item
-                // let text = doc.create_text("text")
-                // Item { id: (1, 0), content: Content::Type(YText) }
-                //        ^^ Parent::Id((1, 0))
-                Some(Parent::Id(parent_id)) => {
-                    match self.get_item(*parent_id) {
-                        Some(StructInfo::Item(_)) => match &item.content.as_ref() {
-                            Content::Type(ty) => {
-                                item.parent.replace(Parent::Type(ty.clone()));
-                            }
-                            Content::Deleted(_) => {
-                                // parent got deleted, take it.
-                                item.parent.take();
-                            }
-                            _ => {
-                                return Err(JwstCodecError::InvalidParent);
-                            }
-                        },
-                        _ => {
-                            // GC & Skip are not valid parent, take it.
+            // type as item
+            // let text = doc.create_text("text")
+            // Item { id: (1, 0), content: Content::Type(YText) }
+            //        ^^ Parent::Id((1, 0))
+            Some(Parent::Id(parent_id)) => {
+                match self.get_item(*parent_id) {
+                    Some(StructInfo::Item(_)) => match &item.content.as_ref() {
+                        Content::Type(ty) => {
+                            item.parent.replace(Parent::Type(ty.clone()));
+                        }
+                        Content::Deleted(_) => {
+                            // parent got deleted, take it.
                             item.parent.take();
                         }
+                        _ => {
+                            return Err(JwstCodecError::InvalidParent);
+                        }
+                    },
+                    _ => {
+                        // GC & Skip are not valid parent, take it.
+                        item.parent.take();
                     }
                 }
-                // no item.parent, borrow left.parent or right.parent
-                None => {
-                    if let Some(left) = item.left_id.and_then(|left_id| self.get_item(left_id)) {
-                        item.parent = left.parent().cloned();
-                        item.parent_sub = left.parent_sub().cloned();
-                    } else if let Some(right) =
-                        item.right_id.and_then(|right_id| self.get_item(right_id))
-                    {
-                        item.parent = right.parent().cloned();
-                        item.parent_sub = right.parent_sub().cloned();
-                    }
-                }
-                _ => {}
             }
-        }
+            // no item.parent, borrow left.parent or right.parent
+            None => {
+                if let Some(left) = item.left_id.and_then(|left_id| self.get_item(left_id)) {
+                    item.parent = left.parent().cloned();
+                    item.parent_sub = left.parent_sub().cloned();
+                } else if let Some(right) =
+                    item.right_id.and_then(|right_id| self.get_item(right_id))
+                {
+                    item.parent = right.parent().cloned();
+                    item.parent_sub = right.parent_sub().cloned();
+                }
+            }
+            _ => {}
+        };
+
         Ok(())
     }
 
@@ -388,7 +375,7 @@ impl DocStore {
         &mut self,
         mut struct_info: StructInfo,
         offset: u64,
-        parent: Option<RwLockWriteGuard<YTypeStore>>,
+        parent: Option<RwLockWriteGuard<YType>>,
     ) -> JwstCodecResult {
         match &mut struct_info {
             StructInfo::Item(item) => {
@@ -398,7 +385,6 @@ impl DocStore {
                 // the struct => Arc<Item> is owned reference actually,
                 // no one else refer to such item yet, we can safely mutable refer to it now.
                 let mut item = unsafe { &mut *(Arc::as_ptr(item) as *mut Item) };
-                self.repair(&mut struct_info)?;
 
                 if offset > 0 {
                     item.id.clock += offset;
@@ -416,7 +402,7 @@ impl DocStore {
                 let parent = parent.or_else(|| {
                     if let Some(parent) = &item.parent {
                         match parent {
-                            Parent::Type(ty) => Some(ty.write()),
+                            Parent::Type(ty) => Some(ty.write().unwrap()),
                             _ => {
                                 // we've already recovered all `item.parent` to `Parent::Type` branch in [repair] phase
                                 unreachable!()
@@ -547,7 +533,12 @@ impl DocStore {
                     }
 
                     // should delete
-                    if parent.item.is_some() && parent.item.as_ref().unwrap().deleted()
+                    if parent
+                        .item
+                        .as_ref()
+                        .and_then(|item| item.upgrade())
+                        .map(|item| item.deleted())
+                        .unwrap_or(false)
                         || item.parent_sub.is_some() && item.right_id.is_some()
                     {
                         self.delete(id, item.len());

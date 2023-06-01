@@ -72,12 +72,15 @@ impl StructInfo {
                 let len = decoder.read_var_u64()?;
                 Ok(StructInfo::Skip { id, len })
             }
-            _ => Ok(StructInfo::Item(Arc::new(Item::read(
-                decoder,
-                id,
-                info,
-                first_5_bit,
-            )?))),
+            _ => {
+                let item = Arc::new(Item::read(decoder, id, info, first_5_bit)?);
+
+                if let Content::Type(ty) = item.content.as_ref() {
+                    ty.write().unwrap().item = Some(Arc::downgrade(&item));
+                }
+
+                Ok(StructInfo::Item(item))
+            }
         }
     }
 

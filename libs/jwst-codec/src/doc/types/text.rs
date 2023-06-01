@@ -45,7 +45,7 @@ impl Text {
                     left_id: pos.left.map(|l| l.id() + l.len() - 1),
                     right_id: pos.right.map(|r| r.id()),
                     content: Arc::new(Content::String(str.to_string())),
-                    parent: Some(Parent::Type(self.clone().into())),
+                    parent: Some(Parent::Type(self.inner())),
                     parent_sub: None,
                     flags: ItemFlags::from(item_flags::ITEM_COUNTABLE),
                 }));
