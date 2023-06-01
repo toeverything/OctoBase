@@ -191,14 +191,26 @@ mod test {
         let data_b_2 = String::from("data_b_2");
         let data_b_3 = String::from("data_b_3");
 
-        tx1.send(Message::Binary(data_a_1.clone().into_bytes())).await.unwrap();
-        tx1.send(Message::Binary(data_a_2.clone().into_bytes())).await.unwrap();
+        tx1.send(Message::Binary(data_a_1.clone().into_bytes()))
+            .await
+            .unwrap();
+        tx1.send(Message::Binary(data_a_2.clone().into_bytes()))
+            .await
+            .unwrap();
 
-        tx2.send(Message::Binary(data_b_1.clone().into_bytes())).await.unwrap();
-        tx2.send(Message::Binary(data_b_2.clone().into_bytes())).await.unwrap();
+        tx2.send(Message::Binary(data_b_1.clone().into_bytes()))
+            .await
+            .unwrap();
+        tx2.send(Message::Binary(data_b_2.clone().into_bytes()))
+            .await
+            .unwrap();
 
-        tx1.send(Message::Binary(data_a_3.clone().into_bytes())).await.unwrap();
-        tx2.send(Message::Binary(data_b_3.clone().into_bytes())).await.unwrap();
+        tx1.send(Message::Binary(data_a_3.clone().into_bytes()))
+            .await
+            .unwrap();
+        tx2.send(Message::Binary(data_b_3.clone().into_bytes()))
+            .await
+            .unwrap();
 
         if let Some(message) = rx2.recv().await {
             assert_eq!(String::from_utf8(message).ok().unwrap(), data_a_1);
