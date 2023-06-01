@@ -38,6 +38,7 @@ impl ListCore {
                 None => start,
             };
 
+            // loop until find the content corresponding to the index or reach the far right
             let store = self.store.read().unwrap();
             loop {
                 if item_ptr.indexable() {
@@ -116,7 +117,7 @@ impl ListCore {
         };
 
         {
-            let mut store = self.store.write().unwrap();
+            let store = self.store.read().unwrap();
 
             loop {
                 if item_ptr.indexable() {
@@ -178,7 +179,7 @@ impl ListCore {
         let n = &mut self.get_root();
         let mut index_remaining = idx;
 
-        let mut store = self.store.write().unwrap();
+        let store = self.store.read().unwrap();
         // compute the first item to be deleted
         while let Some(node) = n {
             if !node.deleted() && node.countable() {

@@ -187,7 +187,7 @@ impl DocStore {
         Err(JwstCodecError::StructSequenceNotExists(id.client))
     }
 
-    pub fn split_at_and_get_right<I: Into<Id>>(&mut self, id: I) -> JwstCodecResult<StructInfo> {
+    pub fn split_at_and_get_right<I: Into<Id>>(&self, id: I) -> JwstCodecResult<StructInfo> {
         let id = id.into();
         if let Some(items) = self.items.write().unwrap().get_mut(&id.client) {
             if let Some(index) = Self::get_item_index(items, id.clock) {
@@ -220,7 +220,7 @@ impl DocStore {
         Err(JwstCodecError::StructSequenceNotExists(id.client))
     }
 
-    pub fn split_at_and_get_left<I: Into<Id>>(&mut self, id: I) -> JwstCodecResult<StructInfo> {
+    pub fn split_at_and_get_left<I: Into<Id>>(&self, id: I) -> JwstCodecResult<StructInfo> {
         let id = id.into();
         if let Some(items) = self.items.write().unwrap().get_mut(&id.client) {
             if let Some(index) = Self::get_item_index(items, id.clock) {
@@ -309,7 +309,7 @@ impl DocStore {
         o
     }
 
-    pub(crate) fn repair(&mut self, item: &mut Item, store_ref: StoreRef) -> JwstCodecResult {
+    pub(crate) fn repair(&self, item: &mut Item, store_ref: StoreRef) -> JwstCodecResult {
         if let Some(left_id) = item.left_id {
             let left = self.split_at_and_get_left(left_id)?;
             item.left_id = Some(left.id());
@@ -883,7 +883,7 @@ mod tests {
 
     #[test]
     fn test_split_and_get() {
-        let mut doc_store = DocStore::new();
+        let doc_store = DocStore::new();
         let struct_info1 = StructInfo::Item(Arc::new(Item {
             id: (1, 0).into(),
             content: Arc::new(Content::String(String::from("octo"))),

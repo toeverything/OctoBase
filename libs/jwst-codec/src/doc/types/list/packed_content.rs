@@ -1,10 +1,10 @@
 use super::*;
 
 pub struct PackedContent<'a> {
+    client_id: Client,
     content: Vec<Any>,
     list_store: YTypeRef,
     pub(super) ref_item: Option<Arc<Item>>,
-    client_id: Client,
     store: &'a DocStore,
 }
 
@@ -27,7 +27,7 @@ impl<'a> PackedContent<'a> {
         self.content.push(content);
     }
 
-    pub(super) fn build_item(&mut self, id: Id, cb: impl Fn(ItemBuilder) -> Item) -> StructInfo {
+    pub(super) fn build_item(&self, id: Id, cb: impl Fn(ItemBuilder) -> Item) -> StructInfo {
         let mut list_store = self.list_store.write().unwrap();
 
         let item = cb(ItemBuilder::new()
@@ -47,6 +47,8 @@ impl<'a> PackedContent<'a> {
             ));
 
         let item = StructInfo::Item(Arc::new(item));
+
+        // if start item is empty, set the newly created item as start
         if list_store.start.is_none() {
             list_store.start.replace(item.clone());
         }
