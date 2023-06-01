@@ -1,5 +1,5 @@
-use std::{thread::sleep, time::Duration};
 use std::cmp::max;
+use std::{thread::sleep, time::Duration};
 
 use crate::utils::JS_INT_RANGE;
 

@@ -52,8 +52,10 @@ pub enum JwstCodecError {
     InvalidInitType(TypeStoreKind),
     #[error("Invalid struct type, expect item, actually {0:?}")]
     InvalidStructType(StructRef),
-    #[error("Invalid content index {0}")]
-    InvalidContentIndex(u64),
+    #[error("Can not cast known type to {0}")]
+    TypeCastError(&'static str),
+    #[error("Index {0} out of bound")]
+    IndexOutOfBound(u64),
 }
 
 pub type JwstCodecResult<T = ()> = Result<T, JwstCodecError>;

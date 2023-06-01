@@ -164,6 +164,10 @@ pub async fn handle_connector(
 
 #[cfg(test)]
 mod test {
+    use crate::webrtc_datachannel_client_begin;
+    use crate::webrtc_datachannel_client_commit;
+    use crate::webrtc_datachannel_server_connector;
+
     use super::{
         super::{connect_memory_workspace, MinimumServerContext},
         *,
@@ -172,6 +176,51 @@ mod test {
     use jwst::{JwstError, JwstResult};
     use std::sync::atomic::{AtomicU64, Ordering};
     use yrs::Map;
+
+    #[tokio::test]
+    async fn webrtc_datachannel_connector_test() {
+        let (offer, pc, tx1, mut rx1, _) = webrtc_datachannel_client_begin().await;
+        let (answer, tx2, mut rx2, _) = webrtc_datachannel_server_connector(offer).await;
+        webrtc_datachannel_client_commit(answer, pc).await;
+
+        let data_a_1 = String::from("data_a_1");
+        let data_a_2 = String::from("data_a_2");
+        let data_a_3 = String::from("data_a_3");
+
+        let data_b_1 = String::from("data_b_1");
+        let data_b_2 = String::from("data_b_2");
+        let data_b_3 = String::from("data_b_3");
+
+        tx1.send(Message::Binary(data_a_1.clone().into_bytes())).await.unwrap();
+        tx1.send(Message::Binary(data_a_2.clone().into_bytes())).await.unwrap();
+
+        tx2.send(Message::Binary(data_b_1.clone().into_bytes())).await.unwrap();
+        tx2.send(Message::Binary(data_b_2.clone().into_bytes())).await.unwrap();
+
+        tx1.send(Message::Binary(data_a_3.clone().into_bytes())).await.unwrap();
+        tx2.send(Message::Binary(data_b_3.clone().into_bytes())).await.unwrap();
+
+        if let Some(message) = rx2.recv().await {
+            assert_eq!(String::from_utf8(message).ok().unwrap(), data_a_1);
+        }
+        if let Some(message) = rx2.recv().await {
+            assert_eq!(String::from_utf8(message).ok().unwrap(), data_a_2);
+        }
+
+        if let Some(message) = rx1.recv().await {
+            assert_eq!(String::from_utf8(message).ok().unwrap(), data_b_1);
+        }
+        if let Some(message) = rx1.recv().await {
+            assert_eq!(String::from_utf8(message).ok().unwrap(), data_b_2);
+        }
+
+        if let Some(message) = rx2.recv().await {
+            assert_eq!(String::from_utf8(message).ok().unwrap(), data_a_3);
+        }
+        if let Some(message) = rx1.recv().await {
+            assert_eq!(String::from_utf8(message).ok().unwrap(), data_b_3);
+        }
+    }
 
     #[tokio::test]
     async fn sync_test() -> JwstResult<()> {

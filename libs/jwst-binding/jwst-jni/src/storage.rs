@@ -5,8 +5,8 @@ use jwst::{error, JwstError, LevelFilter};
 use jwst_rpc::{start_client_sync, BroadcastChannels, RpcContextImpl, SyncState};
 use jwst_storage::{JwstStorage as AutoStorage, JwstStorageResult};
 use log::log::warn;
-use std::sync::{Arc, RwLock};
 use nanoid::nanoid;
+use std::sync::{Arc, RwLock};
 use tokio::runtime::Runtime;
 
 #[derive(Clone)]
@@ -134,11 +134,10 @@ impl JwstStorage {
 
                 Ok(Workspace { workspace })
             }
-            Err(e) => {
-                Err(e)
-            }
+            Err(e) => Err(e),
         }
-    }}
+    }
+}
 
 impl RpcContextImpl<'_> for JwstStorage {
     fn get_storage(&self) -> &AutoStorage {

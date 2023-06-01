@@ -37,7 +37,7 @@ impl ItemBuilder {
     }
 
     pub fn content(mut self, content: Content) -> ItemBuilder {
-        self.item.content = content;
+        self.item.content = std::sync::Arc::new(content);
         self
     }
 

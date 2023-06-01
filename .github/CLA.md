@@ -54,3 +54,4 @@ Example:
 -   Fangdun Tsai, @fundon, 2023/02/13
 -   Lin Onetwo, @linonetwo, 2023/02/14
 -   Thearas, @Thearas, 2023/03/18
+-   Metal A-wing, @a-wing, 2023/05/30

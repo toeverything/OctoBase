@@ -124,9 +124,7 @@ impl Storage {
 
                 Ok(Workspace { workspace })
             }
-            Err(e) => {
-                Err(e)
-            }
+            Err(e) => Err(e),
         }
     }
 }
