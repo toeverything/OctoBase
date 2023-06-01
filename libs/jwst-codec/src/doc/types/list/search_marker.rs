@@ -5,16 +5,16 @@ const MAX_SEARCH_MARKER: usize = 80;
 
 #[derive(Clone)]
 pub struct SearchMarker {
-    pub(super) ptr: Box<Item>,
+    pub(super) ptr: Arc<Item>,
     pub(super) index: u64,
 }
 
 impl SearchMarker {
-    fn new(ptr: Box<Item>, index: u64) -> Self {
+    fn new(ptr: Arc<Item>, index: u64) -> Self {
         SearchMarker { ptr, index }
     }
 
-    fn overwrite_marker(&mut self, ptr: Box<Item>, index: u64) {
+    fn overwrite_marker(&mut self, ptr: Arc<Item>, index: u64) {
         self.ptr = ptr;
         self.index = index;
     }
@@ -25,11 +25,11 @@ pub struct MarkerList {
     // this was designed for optimization purposes for v8. In Rust, we can simply use a linked list and trust the compiler to optimize.
     // the linked list can naturally maintain the insertion order, allowing us to know which marker is the oldest without using an extra timestamp field.
     search_marker: Arc<Mutex<LinkedList<SearchMarker>>>,
-    store: DocStore,
+    store: Arc<RwLock<DocStore>>,
 }
 
 impl MarkerList {
-    pub(super) fn new(store: DocStore) -> Self {
+    pub(super) fn new(store: Arc<RwLock<DocStore>>) -> Self {
         MarkerList {
             search_marker: Arc::new(Mutex::new(LinkedList::new())),
             store,
@@ -39,7 +39,7 @@ impl MarkerList {
     // mark pos and push to the end of the linked list
     fn mark_position(
         list: &mut LinkedList<SearchMarker>,
-        ptr: Box<Item>,
+        ptr: Arc<Item>,
         index: u64,
     ) -> Option<SearchMarker> {
         if list.len() >= MAX_SEARCH_MARKER {
@@ -56,12 +56,13 @@ impl MarkerList {
     // update mark position if the index is within the range of the marker
     pub(super) fn update_marker_changes(&self, index: u64, len: i64) {
         let mut list = self.search_marker.lock().unwrap();
+        let store = self.store.read().unwrap();
         for marker in list.iter_mut() {
             let mut ptr = marker.ptr.clone();
             if len > 0 {
                 while let Some(left_item) = ptr.left_id {
-                    if let Ok(left_item) = self.store.get_item(left_item) {
-                        if let Some(left_item) = left_item.as_ref().as_item() {
+                    if let Some(left_item) = store.get_item(left_item) {
+                        if let Some(left_item) = left_item.as_item() {
                             ptr = left_item;
                             if !ptr.deleted() && ptr.content.countable() {
                                 marker.index -= ptr.len();
@@ -81,14 +82,16 @@ impl MarkerList {
     pub(super) fn find_marker(
         &self,
         index: u64,
-        parent_start: Box<Item>,
+        parent_start: Arc<Item>,
     ) -> JwstCodecResult<Option<SearchMarker>> {
-        let items = self.store.items.read().unwrap();
+        let store = self.store.read().unwrap();
+        let items = store.items.read().unwrap();
         if items.is_empty() || index == 0 {
             return Ok(None);
         }
 
         let mut list = self.search_marker.lock().unwrap();
+
         let marker = list
             .iter_mut()
             .min_by_key(|a| (index as i64 - a.index as i64).abs());
@@ -108,21 +111,17 @@ impl MarkerList {
                     }
                     marker_index += item_ptr.len();
                 }
-                item_ptr = self
-                    .store
-                    .get_item(item_ptr.right_id.unwrap())?
-                    .as_ref()
-                    .as_item()
+                item_ptr = store
+                    .get_item(item_ptr.right_id.unwrap())
+                    .and_then(|i| i.as_item())
                     .unwrap();
             }
 
             // iterate to the left if necessary (might be that marker_index > index)
             while item_ptr.left_id.is_some() && marker_index > index {
-                item_ptr = self
-                    .store
-                    .get_item(item_ptr.left_id.unwrap())?
-                    .as_ref()
-                    .as_item()
+                item_ptr = store
+                    .get_item(item_ptr.left_id.unwrap())
+                    .and_then(|i| i.as_item())
                     .unwrap();
                 if !item_ptr.deleted() && item_ptr.content.countable() {
                     marker_index -= item_ptr.len();
@@ -133,7 +132,7 @@ impl MarkerList {
             // in that case just return what we have (it is most likely the best marker anyway)
             // iterate to left until item_ptr can't be merged with left
             while let Some(left_id) = item_ptr.left_id {
-                if let Some(left_item) = self.store.get_item(left_id)?.as_ref().as_item() {
+                if let Some(left_item) = store.get_item(left_id).and_then(|i| i.as_item()) {
                     if left_item.id.client == item_ptr.id.client
                         && left_item.id.clock + item_ptr.len() == item_ptr.id.clock
                     {
@@ -151,7 +150,7 @@ impl MarkerList {
         let marker = match marker {
             Some(marker)
                 if parent_start
-                    .get_parent(&self.store)?
+                    .get_parent(&store)?
                     .map(|ptr| {
                         (marker.index as i64 - marker_index as i64).abs()
                             < ptr.len() as i64 / MAX_SEARCH_MARKER as i64
@@ -206,9 +205,10 @@ mod tests {
             .find_marker(
                 8,
                 doc.store
-                    .get_item(Id::new(client_id, 0))
+                    .read()
                     .unwrap()
-                    .as_item()
+                    .get_item(Id::new(client_id, 0))
+                    .and_then(|i| i.as_item())
                     .unwrap(),
             )
             .unwrap()
@@ -217,9 +217,10 @@ mod tests {
         assert_eq!(
             marker.ptr,
             doc.store
-                .get_item(Id::new(client_id, 2))
+                .read()
                 .unwrap()
-                .as_item()
+                .get_item(Id::new(client_id, 0))
+                .and_then(|i| i.as_item())
                 .unwrap()
         );
     }

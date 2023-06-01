@@ -5,15 +5,10 @@ pub struct YArray {
 }
 
 impl YArray {
-    pub fn new(client_id: Client, store: DocStore, root: TypeStoreRef) -> JwstCodecResult<YArray> {
-        let origin_type = root.borrow_mut().set_kind(TypeStoreKind::Array);
-        if let Some(type_kind) = origin_type {
-            Err(JwstCodecError::InvalidInitType(type_kind))
-        } else {
-            Ok(Self {
-                core: ListCore::new(client_id, store, root),
-            })
-        }
+    pub fn new(client_id: Client, list: Array) -> JwstCodecResult<YArray> {
+        Ok(Self {
+            core: ListCore::new(client_id, list.inner()),
+        })
     }
 
     pub fn get(&self, index: u64) -> JwstCodecResult<Option<Content>> {
@@ -24,9 +19,9 @@ impl YArray {
         self.core.iter()
     }
 
-    pub fn map<F, T>(&self, f: F) -> impl Iterator<Item = JwstCodecResult<T>>
+    pub fn map<'a, F, T>(&'a self, f: F) -> impl Iterator<Item = JwstCodecResult<T>> + 'a
     where
-        F: FnMut(Content) -> JwstCodecResult<T>,
+        F: FnMut(Content) -> JwstCodecResult<T> + 'a,
     {
         // TODO: the iterator should be short-circuited when it fails
         self.core.iter().flatten().map(f)
@@ -72,7 +67,7 @@ mod tests {
 
         let mut doc = Doc::default();
         doc.apply_update(update).unwrap();
-        let array = doc.get_array("abc").unwrap();
+        let array = doc.get_or_crate_array("abc").unwrap();
 
         assert_eq!(
             array.get(0).unwrap().unwrap(),
@@ -106,7 +101,7 @@ mod tests {
 
             let mut doc = Doc::default();
             doc.apply_update(update).unwrap();
-            let array = doc.get_array("abc").unwrap();
+            let array = doc.get_or_crate_array("abc").unwrap();
 
             assert_eq!(
                 (0..=12)
@@ -139,7 +134,7 @@ mod tests {
 
             let mut doc = Doc::default();
             doc.apply_update(update).unwrap();
-            let array = doc.get_array("abc").unwrap();
+            let array = doc.get_or_crate_array("abc").unwrap();
 
             assert_eq!(
                 (0..=12)
@@ -175,7 +170,7 @@ mod tests {
         let update = Update::read(&mut decoder).unwrap();
         let mut doc = Doc::default();
         doc.apply_update(update).unwrap();
-        let array = doc.get_array("abc").unwrap();
+        let array = doc.get_or_crate_array("abc").unwrap();
 
         let items = array
             .iter()
@@ -205,7 +200,7 @@ mod tests {
         let update = Update::read(&mut decoder).unwrap();
         let mut doc = Doc::default();
         doc.apply_update(update).unwrap();
-        let array = doc.get_array("abc").unwrap();
+        let array = doc.get_or_crate_array("abc").unwrap();
 
         let items = array.slice(1, 3).unwrap();
         assert_eq!(

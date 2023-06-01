@@ -3,7 +3,7 @@ mod iterator;
 mod packed_content;
 mod search_marker;
 
-pub use self::core::ListCore;
+pub use self::core::{Array, ListCore, XMLFragment};
 pub use iterator::ListIterator;
 
 use super::*;

@@ -291,10 +291,6 @@ impl DocStore {
         }
     }
 
-    pub fn get_array(&self, client_id: Client, str: &str) -> JwstCodecResult<YArray> {
-        YArray::new(client_id, self.clone(), self.get_or_create_type(str))
-    }
-
     pub(crate) fn get_start_item(&self, s: &StructInfo) -> StructInfo {
         let mut o = s.clone();
 

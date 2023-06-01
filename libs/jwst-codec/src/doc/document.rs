@@ -9,7 +9,7 @@ pub struct Doc {
     // TODO: use function in code
     #[allow(dead_code)]
     guid: String,
-    store: StoreRef,
+    pub(super) store: StoreRef,
 }
 
 unsafe impl Send for Doc {}
@@ -86,31 +86,19 @@ impl Doc {
                     store.delete_range(client, range)?;
                 }
 
-                    if update.is_pending_empty() {
-                        update = pending_update;
-                    } else {
-                        // drain all pending state to pending update for later iteration
-                        update.drain_pending_state();
-                        update = Update::merge([pending_update, update]);
-                    }
+                if update.is_pending_empty() {
+                    update = pending_update;
                 } else {
-                    // no pending update at store
-
-                    // no pending update in current iteration
-                    // thank god, all clean
-                    if update.is_pending_empty() {
-                        break;
-                    } else {
-                        // need to turn all pending state into update for later iteration
-                        update.drain_pending_state();
-                    };
+                    // drain all pending state to pending update for later iteration
+                    update.drain_pending_state();
+                    update = Update::merge([pending_update, update]);
                 }
+            } else {
+                // no pending update at store
 
-                // can't integrate any more, save the pending update
-                if !retry {
-                    if !update.is_pending_empty() {
-                        pending.replace(update);
-                    }
+                // no pending update in current iteration
+                // thank god, all clean
+                if update.is_pending_empty() {
                     break;
                 } else {
                     // need to turn all pending state into update for later iteration
@@ -123,6 +111,7 @@ impl Doc {
                 if !update.is_pending_empty() {
                     store.pending.replace(update);
                 }
+                break;
             }
         }
 
@@ -142,6 +131,14 @@ impl Doc {
             .build()
     }
 
+    pub fn get_or_crate_array(&self, str: &str) -> JwstCodecResult<YArray> {
+        let array = YTypeBuilder::new(self.store.clone())
+            .with_kind(YTypeKind::Array)
+            .set_name(str.to_string())
+            .build()?;
+        YArray::new(self.client_id, array)
+    }
+
     pub fn encode_update_v1(&self) -> JwstCodecResult<Vec<u8>> {
         self.encode_state_as_update_v1(&StateVector::default())
     }
@@ -159,10 +156,6 @@ impl Doc {
 
     pub fn get_state_vector(&self) -> StateVector {
         self.store.read().unwrap().get_state_vector()
-    }
-
-    pub fn get_array(&self, str: &str) -> JwstCodecResult<YArray> {
-        self.store.get_array(self.client_id, str)
     }
 }
 

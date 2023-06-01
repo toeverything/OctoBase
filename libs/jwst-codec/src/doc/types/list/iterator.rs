@@ -1,17 +1,18 @@
 use super::*;
+use std::sync::RwLockReadGuard;
 
-pub struct ListIterator {
-    pub(super) store: DocStore,
-    pub(super) next: Option<StructRef>,
-    pub(super) content: Option<Content>,
+pub struct ListIterator<'a> {
+    pub(super) store: RwLockReadGuard<'a, DocStore>,
+    pub(super) next: Option<StructInfo>,
+    pub(super) content: Option<Arc<Content>>,
     pub(super) content_idx: u64,
 }
 
-impl ListIterator {
-    pub fn new(store: DocStore, root: TypeStoreRef) -> ListIterator {
+impl<'a> ListIterator<'a> {
+    pub fn new(store: RwLockReadGuard<'a, DocStore>, root: StructInfo) -> ListIterator {
         Self {
             store,
-            next: root.borrow().start.clone(),
+            next: Some(root),
             content: None,
             content_idx: 0,
         }
@@ -29,7 +30,7 @@ impl ListIterator {
                         return Some(Ok(value));
                     }
                     Ok(None) => {
-                        return Some(Err(JwstCodecError::InvalidContentIndex(self.content_idx)))
+                        return Some(Err(JwstCodecError::IndexOutOfBound(self.content_idx)))
                     }
                     Err(e) => return Some(Err(e)),
                 }
@@ -41,23 +42,23 @@ impl ListIterator {
     }
 }
 
-impl Iterator for ListIterator {
+impl Iterator for ListIterator<'_> {
     type Item = JwstCodecResult<Content>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(n) = self.next.clone() {
             if n.deleted() {
-                self.next = self.store.get_item(n.right_id()?).ok();
+                self.next = self.store.get_item(n.right_id()?);
                 continue;
             }
 
             if let Some(content) = self.next_content() {
                 return Some(content);
             } else if let Some(item) = n.as_item() {
-                self.content = Some(item.content);
+                self.content = Some(item.content.clone());
                 self.content_idx = 0;
                 if let Some(right_id) = item.right_id {
-                    self.next = self.store.get_item(right_id).ok();
+                    self.next = self.store.get_item(right_id);
                 } else {
                     self.next = None;
                 }

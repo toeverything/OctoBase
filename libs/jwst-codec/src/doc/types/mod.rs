@@ -3,6 +3,7 @@ mod list;
 mod text;
 mod traits;
 
+use super::*;
 use list::*;
 use std::{
     collections::{hash_map::Entry, HashMap},

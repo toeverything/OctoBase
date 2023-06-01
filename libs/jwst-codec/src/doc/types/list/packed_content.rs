@@ -1,25 +1,32 @@
 use super::*;
 
-pub struct PackedContent {
+pub struct PackedContent<'a> {
     content: Vec<Any>,
-    root: TypeStoreRef,
-    pub(super) ref_item: Option<Box<Item>>,
+    root: Option<StructInfo>,
+    root_name: Option<String>,
+    pub(super) ref_item: Option<Arc<Item>>,
     client_id: Client,
-    store: DocStore,
+    store: &'a DocStore,
 }
 
-impl PackedContent {
-    pub(super) fn new(client_id: u64, root: TypeStoreRef, store: DocStore) -> Self {
+impl<'a> PackedContent<'a> {
+    pub(super) fn new(
+        client_id: u64,
+        root: Option<StructInfo>,
+        root_name: Option<String>,
+        store: &'a DocStore,
+    ) -> Self {
         Self {
             content: Vec::new(),
             root,
+            root_name,
             ref_item: None,
             client_id,
             store,
         }
     }
 
-    pub(super) fn update_ref_item(&mut self, ref_item: Option<Box<Item>>) {
+    pub(super) fn update_ref_item(&mut self, ref_item: Option<Arc<Item>>) {
         self.ref_item = ref_item
     }
 
@@ -27,8 +34,7 @@ impl PackedContent {
         self.content.push(content);
     }
 
-    pub(super) fn build_item(&self, id: Id, cb: impl Fn(ItemBuilder) -> Item) -> StructRef {
-        let mut root = self.root.borrow_mut();
+    pub(super) fn build_item(&mut self, id: Id, cb: impl Fn(ItemBuilder) -> Item) -> StructInfo {
         let item = cb(ItemBuilder::new()
             .id(id)
             .left_id(self.ref_item.as_ref().map(|i| i.get_last_id()))
@@ -36,19 +42,15 @@ impl PackedContent {
                 self.ref_item
                     .as_ref()
                     .and_then(|i| i.right_id)
-                    .or(root.start.as_ref().and_then(|root| root.right_id())),
+                    .or(self.root.as_ref().and_then(|root| root.right_id())),
             )
-            .parent(Some(Parent::String(root.name.clone()))));
+            .parent(self.root_name.as_ref().map(|s| Parent::String(s.clone()))));
 
-        let item = Box::new(item);
-
-        let struct_ref: StructRef = StructInfo::Item { id, item }.into();
-
-        if root.start.is_none() {
-            root.start.replace(struct_ref.clone());
+        let item = StructInfo::Item(Arc::new(item));
+        if self.root.is_none() {
+            self.root.replace(item.clone());
         }
-
-        struct_ref
+        item
     }
 
     pub(super) fn pack(&mut self) -> JwstCodecResult<()> {
@@ -59,7 +61,7 @@ impl PackedContent {
             let new_struct =
                 self.build_item(new_id, |b| b.content(Content::Any(content.clone())).build());
 
-            self.store.add_item_ref(new_struct.clone())?;
+            self.store.add_item(new_struct.clone())?;
             self.ref_item = new_struct.as_item();
         }
         Ok(())

@@ -120,7 +120,7 @@ impl StructInfo {
         matches!(self, Self::Item(_))
     }
 
-    pub fn as_item(&self) -> Option<Box<Item>> {
+    pub fn as_item(&self) -> Option<Arc<Item>> {
         if let Self::Item(item) = self {
             Some(item.clone())
         } else {
@@ -129,8 +129,8 @@ impl StructInfo {
     }
 
     pub fn flags(&self) -> ItemFlags {
-        if let StructInfo::Item { item, .. } = self {
-            item.flags
+        if let StructInfo::Item(item) = self {
+            item.flags.clone()
         } else {
             // deleted
             ItemFlags::from(4)

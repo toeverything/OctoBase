@@ -204,10 +204,11 @@ impl Item {
         self.flags.countable() && !self.deleted()
     }
 
-    pub fn get_parent(&self, store: &DocStore) -> JwstCodecResult<Option<Box<Item>>> {
+    pub fn get_parent(&self, store: &DocStore) -> JwstCodecResult<Option<Arc<Item>>> {
         let parent = match &self.parent {
-            Some(Parent::Id(id)) => store.get_item(*id)?.as_ref().as_item(),
+            Some(Parent::Id(id)) => store.get_item(*id).and_then(|i| i.as_item()),
             Some(Parent::String(_)) => None,
+            Some(Parent::Type(ty)) => ty.read().unwrap().start.as_ref().and_then(|i| i.as_item()),
             None => None,
         };
         Ok(parent)
