@@ -101,3 +101,87 @@ pub fn yrs_create_array_from_nest_type(
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use yrs::Doc;
+
+    #[test]
+    fn basic() {
+        assert_eq!(gen_array_ref_ops().len(), 3);
+    }
+
+    #[test]
+    fn test_gen_array_ref_ops() {
+        let doc = Doc::new();
+        let array_ref = doc.get_or_insert_array("test_array");
+
+        let ops_registry = OpsRegistry::new();
+
+        let mut params = CRDTParam {
+            op_type: OpType::CreateCRDTNestType,
+            new_nest_type: CRDTNestType::Array,
+            manipulate_source: ManipulateSource::NewNestTypeFromYDocRoot,
+            insert_pos: InsertPos::BEGIN,
+            key: String::from("test_key"),
+            value: String::from("test_value"),
+            nest_data_op_type: NestDataOpType::Insert,
+        };
+
+        ops_registry.operate_yrs_nest_type(
+            &doc,
+            YrsNestType::ArrayType(array_ref.clone()),
+            params.clone(),
+        );
+        assert_eq!(array_ref.len(&doc.transact()), 1);
+        params.nest_data_op_type = NestDataOpType::Delete;
+        ops_registry.operate_yrs_nest_type(
+            &doc,
+            YrsNestType::ArrayType(array_ref.clone()),
+            params.clone(),
+        );
+        assert_eq!(array_ref.len(&doc.transact()), 0);
+
+        params.nest_data_op_type = NestDataOpType::Clear;
+        ops_registry.operate_yrs_nest_type(
+            &doc,
+            YrsNestType::ArrayType(array_ref.clone()),
+            params.clone(),
+        );
+        assert_eq!(array_ref.len(&doc.transact()), 0);
+    }
+
+    #[test]
+    fn test_yrs_create_array_from_nest_type() {
+        let doc = Doc::new();
+        let array_ref = doc.get_or_insert_array("test_array");
+        let key = String::from("test_key");
+
+        let new_array_ref = yrs_create_array_from_nest_type(
+            &doc,
+            &mut YrsNestType::ArrayType(array_ref.clone()),
+            &InsertPos::BEGIN,
+            key.clone(),
+        );
+        assert!(new_array_ref.is_some());
+
+        let map_ref = doc.get_or_insert_map("test_map");
+        let new_array_ref = yrs_create_array_from_nest_type(
+            &doc,
+            &mut YrsNestType::MapType(map_ref.clone()),
+            &InsertPos::BEGIN,
+            key.clone(),
+        );
+        assert!(new_array_ref.is_some());
+
+        let text_ref = doc.get_or_insert_text("test_text");
+        let new_array_ref = yrs_create_array_from_nest_type(
+            &doc,
+            &mut YrsNestType::TextType(text_ref.clone()),
+            &InsertPos::BEGIN,
+            key.clone(),
+        );
+        assert!(new_array_ref.is_some());
+    }
+}

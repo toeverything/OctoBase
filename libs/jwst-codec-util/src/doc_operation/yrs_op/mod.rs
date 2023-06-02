@@ -162,3 +162,30 @@ pub fn random_pick_num(len: u32, insert_pos: &InsertPos) -> u32 {
         InsertPos::END => len,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ops_registry_new() {
+        let ops_registry = OpsRegistry::new();
+        assert_eq!(ops_registry.0.len(), 6);
+    }
+
+    #[test]
+    fn test_ops_registry_get_ops() {
+        let ops_registry = OpsRegistry::new();
+        let ops = ops_registry.get_ops(&CRDTNestType::Array);
+        assert!(ops.len() > 0);
+    }
+
+    #[test]
+    fn test_ops_registry_get_ops_from_yrs_nest_type() {
+        let doc = yrs::Doc::new();
+        let array = doc.get_or_insert_array("array");
+        let ops_registry = OpsRegistry::new();
+        let ops = ops_registry.get_ops_from_yrs_nest_type(&YrsNestType::ArrayType(array));
+        assert!(ops.len() > 0);
+    }
+}

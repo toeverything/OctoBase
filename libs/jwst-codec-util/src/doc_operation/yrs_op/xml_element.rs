@@ -49,3 +49,13 @@ pub fn gen_xml_element_ref_ops(
 
     ops
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basic() {
+        assert_eq!(gen_xml_element_ref_ops().len(), 3);
+    }
+}
