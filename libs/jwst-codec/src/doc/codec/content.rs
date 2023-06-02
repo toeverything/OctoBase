@@ -2,7 +2,7 @@ use super::*;
 use serde_json::Value as JsonValue;
 use std::ops::Deref;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Content {
     Deleted(u64),
@@ -53,35 +53,35 @@ impl PartialEq for Content {
     }
 }
 
-impl std::fmt::Debug for Content {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Deleted(arg0) => f.debug_tuple("Deleted").field(arg0).finish(),
-            Self::JSON(arg0) => f
-                .debug_tuple("JSON")
-                .field(&format!("Vec [len: {}]", arg0.len()))
-                .finish(),
-            Self::Binary(arg0) => f
-                .debug_tuple("Binary")
-                .field(&format!("Binary [len: {}]", arg0.len()))
-                .finish(),
-            Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
-            Self::Embed(arg0) => f.debug_tuple("Embed").field(arg0).finish(),
-            Self::Format { key, value } => f
-                .debug_struct("Format")
-                .field("key", key)
-                .field("value", value)
-                .finish(),
-            Self::Type(arg0) => f.debug_tuple("Type").field(arg0).finish(),
-            Self::Any(arg0) => f.debug_tuple("Any").field(arg0).finish(),
-            Self::Doc { guid, opts } => f
-                .debug_struct("Doc")
-                .field("guid", guid)
-                .field("opts", opts)
-                .finish(),
-        }
-    }
-}
+// impl std::fmt::Debug for Content {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         match self {
+//             Self::Deleted(arg0) => f.debug_tuple("Deleted").field(arg0).finish(),
+//             Self::JSON(arg0) => f
+//                 .debug_tuple("JSON")
+//                 .field(&format!("Vec [len: {}]", arg0.len()))
+//                 .finish(),
+//             Self::Binary(arg0) => f
+//                 .debug_tuple("Binary")
+//                 .field(&format!("Binary [len: {}]", arg0.len()))
+//                 .finish(),
+//             Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
+//             Self::Embed(arg0) => f.debug_tuple("Embed").field(arg0).finish(),
+//             Self::Format { key, value } => f
+//                 .debug_struct("Format")
+//                 .field("key", key)
+//                 .field("value", value)
+//                 .finish(),
+//             Self::Type(arg0) => f.debug_tuple("Type").field(arg0).finish(),
+//             Self::Any(arg0) => f.debug_tuple("Any").field(arg0).finish(),
+//             Self::Doc { guid, opts } => f
+//                 .debug_struct("Doc")
+//                 .field("guid", guid)
+//                 .field("opts", opts)
+//                 .finish(),
+//         }
+//     }
+// }
 
 impl Content {
     pub(crate) fn read<R: CrdtReader>(decoder: &mut R, tag_type: u8) -> JwstCodecResult<Self> {
@@ -362,6 +362,52 @@ mod tests {
 
         for content in &contents {
             content_round_trip(content).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_content_split() {
+        let contents = [
+            Content::String("hello".to_string()),
+            Content::JSON(vec![
+                None,
+                Some("test_1".to_string()),
+                Some("test_2".to_string()),
+            ]),
+            Content::Any(vec![Any::BigInt64(42), Any::String("Test Any".to_string())]),
+            Content::Binary(vec![]),
+        ];
+
+        {
+            let (left, right) = contents[0].split(1).unwrap();
+            assert!(contents[0].splittable());
+            assert_eq!(left, Content::String("h".to_string()));
+            assert_eq!(right, Content::String("ello".to_string()));
+        }
+
+        {
+            let (left, right) = contents[1].split(1).unwrap();
+            assert!(contents[1].splittable());
+            assert_eq!(left, Content::JSON(vec![None, Some("test_1".to_string())]));
+            assert_eq!(right, Content::JSON(vec![Some("test_2".to_string())]));
+        }
+
+        {
+            let (left, right) = contents[2].split(1).unwrap();
+            assert!(contents[2].splittable());
+            assert_eq!(
+                left,
+                Content::Any(vec![Any::BigInt64(42), Any::String("Test Any".to_string())])
+            );
+            assert_eq!(right, Content::Any(vec![]));
+        }
+
+        {
+            assert!(!contents[3].splittable());
+            assert_eq!(
+                contents[3].split(2),
+                Err(JwstCodecError::ContentSplitNotSupport(2))
+            );
         }
     }
 
