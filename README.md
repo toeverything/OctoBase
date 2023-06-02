@@ -56,7 +56,7 @@ OctoBase has been used in [AFFiNE Cloud]. We are currently working on the follow
         -   🚧 S3
     -   ✅ [Collaboration abstraction]
         -   ✅ [WebSocket connector]
-        -   🚧 WebRTC connector
+        -   ✅ [WebRTC connector]
         -   🚧 libp2p connector
 -   Storage
     -   ✅ Storage agnostic CRDT data storage
@@ -145,6 +145,7 @@ Currently, this repository is under **active development** and most components a
 [jwst-codec]: ./libs/jwst-codec/
 [blocksuite]: https://github.com/toeverything/blocksuite
 [Collaboration abstraction]: https://github.com/toeverything/OctoBase/issues/287
-[WebSocket connector]: ./libs/jwst-rpc/src/connector/socket.rs
+[WebSocket connector]: ./libs/jwst-rpc/src/connector/tungstenite_socket.rs
+[WebRTC connector]: ./libs/jwst-rpc/src/connector/webrtc.rs
 [Java binding]: ./libs/jwst-binding/jwst-jni
 [Swift binding]: ./libs/jwst-binding/jwst-swift
