@@ -2,7 +2,7 @@ use super::*;
 use serde_json::Value as JsonValue;
 use std::ops::Deref;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Content {
     Deleted(u64),
@@ -53,35 +53,35 @@ impl PartialEq for Content {
     }
 }
 
-// impl std::fmt::Debug for Content {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         match self {
-//             Self::Deleted(arg0) => f.debug_tuple("Deleted").field(arg0).finish(),
-//             Self::JSON(arg0) => f
-//                 .debug_tuple("JSON")
-//                 .field(&format!("Vec [len: {}]", arg0.len()))
-//                 .finish(),
-//             Self::Binary(arg0) => f
-//                 .debug_tuple("Binary")
-//                 .field(&format!("Binary [len: {}]", arg0.len()))
-//                 .finish(),
-//             Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
-//             Self::Embed(arg0) => f.debug_tuple("Embed").field(arg0).finish(),
-//             Self::Format { key, value } => f
-//                 .debug_struct("Format")
-//                 .field("key", key)
-//                 .field("value", value)
-//                 .finish(),
-//             Self::Type(arg0) => f.debug_tuple("Type").field(arg0).finish(),
-//             Self::Any(arg0) => f.debug_tuple("Any").field(arg0).finish(),
-//             Self::Doc { guid, opts } => f
-//                 .debug_struct("Doc")
-//                 .field("guid", guid)
-//                 .field("opts", opts)
-//                 .finish(),
-//         }
-//     }
-// }
+impl std::fmt::Debug for Content {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Deleted(arg0) => f.debug_tuple("Deleted").field(arg0).finish(),
+            Self::JSON(arg0) => f
+                .debug_tuple("JSON")
+                .field(&format!("Vec [len: {}]", arg0.len()))
+                .finish(),
+            Self::Binary(arg0) => f
+                .debug_tuple("Binary")
+                .field(&format!("Binary [len: {}]", arg0.len()))
+                .finish(),
+            Self::String(arg0) => f.debug_tuple("String").field(arg0).finish(),
+            Self::Embed(arg0) => f.debug_tuple("Embed").field(arg0).finish(),
+            Self::Format { key, value } => f
+                .debug_struct("Format")
+                .field("key", key)
+                .field("value", value)
+                .finish(),
+            Self::Type(arg0) => f.debug_tuple("Type").field(arg0).finish(),
+            Self::Any(arg0) => f.debug_tuple("Any").field(arg0).finish(),
+            Self::Doc { guid, opts } => f
+                .debug_struct("Doc")
+                .field("guid", guid)
+                .field("opts", opts)
+                .finish(),
+        }
+    }
+}
 
 impl Content {
     pub(crate) fn read<R: CrdtReader>(decoder: &mut R, tag_type: u8) -> JwstCodecResult<Self> {
