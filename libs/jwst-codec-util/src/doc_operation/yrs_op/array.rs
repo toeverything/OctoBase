@@ -1,52 +1,50 @@
+use phf::phf_map;
 use super::*;
 
-pub fn gen_array_ref_ops(
-) -> HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> {
-    let mut ops: HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> =
-        HashMap::new();
-
-    let insert_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
-        let array = match nest_input {
-            YrsNestType::ArrayType(array) => array,
-            _ => unreachable!(),
-        };
-        let mut trx = doc.transact_mut();
-        let len = array.len(&trx);
-        let index = random_pick_num(len, &params.insert_pos);
-        array.insert(&mut trx, index, params.value).unwrap();
+fn insert_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
+    let array = match nest_input {
+        YrsNestType::ArrayType(array) => array,
+        _ => unreachable!(),
     };
-
-    let delete_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
-        let array = match nest_input {
-            YrsNestType::ArrayType(array) => array,
-            _ => unreachable!(),
-        };
-        let mut trx = doc.transact_mut();
-        let len = array.len(&trx);
-        if len >= 1 {
-            let index = random_pick_num(len - 1, &params.insert_pos);
-            array.remove(&mut trx, index).unwrap();
-        }
-    };
-
-    let clear_op = |doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam| {
-        let array = match nest_input {
-            YrsNestType::ArrayType(array) => array,
-            _ => unreachable!(),
-        };
-        let mut trx = doc.transact_mut();
-        let len = array.len(&trx);
-        for _ in 0..len {
-            array.remove(&mut trx, 0).unwrap();
-        }
-    };
-
-    ops.insert(NestDataOpType::Insert, Box::new(insert_op));
-    ops.insert(NestDataOpType::Delete, Box::new(delete_op));
-    ops.insert(NestDataOpType::Clear, Box::new(clear_op));
-
-    ops
+    let mut trx = doc.transact_mut();
+    let len = array.len(&trx);
+    let index = random_pick_num(len, &params.insert_pos);
+    array.insert(&mut trx, index, params.value).unwrap();
 }
+
+fn delete_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
+    let array = match nest_input {
+        YrsNestType::ArrayType(array) => array,
+        _ => unreachable!(),
+    };
+    let mut trx = doc.transact_mut();
+    let len = array.len(&trx);
+    if len >= 1 {
+        let index = random_pick_num(len - 1, &params.insert_pos);
+        array.remove(&mut trx, index).unwrap();
+    }
+}
+
+fn clear_op(doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam) {
+    let array = match nest_input {
+        YrsNestType::ArrayType(array) => array,
+        _ => unreachable!(),
+    };
+    let mut trx = doc.transact_mut();
+    let len = array.len(&trx);
+    for _ in 0..len {
+        array.remove(&mut trx, 0).unwrap();
+    }
+}
+
+pub static ARRAY_OPS: phf::Map<
+    &'static str,
+    fn(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) -> (),
+> = phf_map! {
+    "insert" => insert_op,
+    "delete" => delete_op,
+    "clear" => clear_op,
+};
 
 pub fn yrs_create_array_from_nest_type(
     doc: &yrs::Doc,
@@ -106,11 +104,6 @@ pub fn yrs_create_array_from_nest_type(
 mod tests {
     use super::*;
     use yrs::Doc;
-
-    #[test]
-    fn basic() {
-        assert_eq!(gen_array_ref_ops().len(), 3);
-    }
 
     #[test]
     fn test_gen_array_ref_ops() {

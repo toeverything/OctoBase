@@ -1,59 +1,57 @@
 use super::*;
+use phf::phf_map;
 
-pub fn gen_map_ref_ops() -> HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>>
-{
-    let mut ops: HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> =
-        HashMap::new();
-
-    let insert_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
-        let map = match nest_input {
-            YrsNestType::MapType(map) => map,
-            _ => unreachable!(),
-        };
-        let mut trx = doc.transact_mut();
-        map.insert(&mut trx, params.key, params.value).unwrap();
+fn insert_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
+    let map = match nest_input {
+        YrsNestType::MapType(map) => map,
+        _ => unreachable!(),
     };
-
-    let remove_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
-        let map = match nest_input {
-            YrsNestType::MapType(map) => map,
-            _ => unreachable!(),
-        };
-        let rand_key = {
-            let trx = doc.transact_mut();
-            let mut iter = map.iter(&trx);
-            let len = map.len(&trx) as usize;
-            let skip_step = if len <= 1 {
-                0
-            } else {
-                random_pick_num((len - 1) as u32, &params.insert_pos)
-            };
-
-            iter.nth(skip_step as usize)
-                .map(|(key, _value)| key.to_string())
-        };
-
-        if let Some(key) = rand_key {
-            let mut trx = doc.transact_mut();
-            map.remove(&mut trx, &key).unwrap();
-        }
-    };
-
-    let clear_op = |doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam| {
-        let map = match nest_input {
-            YrsNestType::MapType(map) => map,
-            _ => unreachable!(),
-        };
-        let mut trx = doc.transact_mut();
-        map.clear(&mut trx);
-    };
-
-    ops.insert(NestDataOpType::Insert, Box::new(insert_op));
-    ops.insert(NestDataOpType::Delete, Box::new(remove_op));
-    ops.insert(NestDataOpType::Clear, Box::new(clear_op));
-
-    ops
+    let mut trx = doc.transact_mut();
+    map.insert(&mut trx, params.key, params.value).unwrap();
 }
+
+fn remove_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
+    let map = match nest_input {
+        YrsNestType::MapType(map) => map,
+        _ => unreachable!(),
+    };
+    let rand_key = {
+        let trx = doc.transact_mut();
+        let mut iter = map.iter(&trx);
+        let len = map.len(&trx) as usize;
+        let skip_step = if len <= 1 {
+            0
+        } else {
+            random_pick_num((len - 1) as u32, &params.insert_pos)
+        };
+
+        iter.nth(skip_step as usize)
+            .map(|(key, _value)| key.to_string())
+    };
+
+    if let Some(key) = rand_key {
+        let mut trx = doc.transact_mut();
+        map.remove(&mut trx, &key).unwrap();
+    }
+}
+
+fn clear_op(doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam) {
+    let map = match nest_input {
+        YrsNestType::MapType(map) => map,
+        _ => unreachable!(),
+    };
+    let mut trx = doc.transact_mut();
+    map.clear(&mut trx);
+}
+
+pub static MAP_OPS: phf::Map<
+    &'static str,
+    fn(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) -> (),
+> = phf_map! {
+    "insert" => insert_op,
+    "delete" => remove_op,
+    "clear" => clear_op,
+};
 
 pub fn yrs_create_map_from_nest_type(
     doc: &yrs::Doc,
@@ -113,11 +111,6 @@ pub fn yrs_create_map_from_nest_type(
 mod tests {
     use super::*;
     use yrs::Doc;
-
-    #[test]
-    fn basic() {
-        assert_eq!(gen_map_ref_ops().len(), 3);
-    }
 
     #[test]
     fn test_gen_map_ref_ops() {

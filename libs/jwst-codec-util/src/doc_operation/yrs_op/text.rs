@@ -1,70 +1,69 @@
+use phf::phf_map;
 use super::*;
-pub fn gen_text_ref_ops() -> HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>>
-{
-    let mut ops: HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> =
-        HashMap::new();
 
-    let insert_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
-        let text = match nest_input {
-            YrsNestType::TextType(text) => text,
-            _ => unreachable!(),
-        };
-        let mut trx = doc.transact_mut();
-
-        let str = text.get_string(&trx);
-        let len = str.chars().fold(0, |acc, _| acc + 1);
-        let index = random_pick_num(len, &params.insert_pos) as usize;
-        let byte_start_offset = str
-            .chars()
-            .take(index)
-            .fold(0, |acc, ch| acc + ch.len_utf8());
-
-        text.insert(&mut trx, byte_start_offset as u32, &params.value)
-            .unwrap();
+fn insert_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
+    let text = match nest_input {
+        YrsNestType::TextType(text) => text,
+        _ => unreachable!(),
     };
+    let mut trx = doc.transact_mut();
 
-    let remove_op = |doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam| {
-        let text = match nest_input {
-            YrsNestType::TextType(text) => text,
-            _ => unreachable!(),
-        };
-        let mut trx = doc.transact_mut();
+    let str = text.get_string(&trx);
+    let len = str.chars().fold(0, |acc, _| acc + 1);
+    let index = random_pick_num(len, &params.insert_pos) as usize;
+    let byte_start_offset = str
+        .chars()
+        .take(index)
+        .fold(0, |acc, ch| acc + ch.len_utf8());
 
-        let str = text.get_string(&trx);
-        let len = str.chars().fold(0, |acc, _| acc + 1);
-        if len < 1 {
-            return;
-        }
-        let index = random_pick_num(len - 1, &params.insert_pos) as usize;
-        let byte_start_offset = str
-            .chars()
-            .take(index)
-            .fold(0, |acc, ch| acc + ch.len_utf8());
-
-        let char_byte_len = str.chars().nth(index).unwrap().len_utf8();
-        text.remove_range(&mut trx, byte_start_offset as u32, char_byte_len as u32)
-            .unwrap();
-    };
-
-    let clear_op = |doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam| {
-        let text = match nest_input {
-            YrsNestType::TextType(text) => text,
-            _ => unreachable!(),
-        };
-        let mut trx = doc.transact_mut();
-
-        let str = text.get_string(&trx);
-        let byte_len = str.chars().fold(0, |acc, ch| acc + ch.len_utf8());
-
-        text.remove_range(&mut trx, 0, byte_len as u32).unwrap();
-    };
-
-    ops.insert(NestDataOpType::Insert, Box::new(insert_op));
-    ops.insert(NestDataOpType::Delete, Box::new(remove_op));
-    ops.insert(NestDataOpType::Clear, Box::new(clear_op));
-
-    ops
+    text.insert(&mut trx, byte_start_offset as u32, &params.value)
+        .unwrap();
 }
+
+fn remove_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
+    let text = match nest_input {
+        YrsNestType::TextType(text) => text,
+        _ => unreachable!(),
+    };
+    let mut trx = doc.transact_mut();
+
+    let str = text.get_string(&trx);
+    let len = str.chars().fold(0, |acc, _| acc + 1);
+    if len < 1 {
+        return;
+    }
+    let index = random_pick_num(len - 1, &params.insert_pos) as usize;
+    let byte_start_offset = str
+        .chars()
+        .take(index)
+        .fold(0, |acc, ch| acc + ch.len_utf8());
+
+    let char_byte_len = str.chars().nth(index).unwrap().len_utf8();
+    text.remove_range(&mut trx, byte_start_offset as u32, char_byte_len as u32)
+        .unwrap();
+}
+
+fn clear_op(doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam) {
+    let text = match nest_input {
+        YrsNestType::TextType(text) => text,
+        _ => unreachable!(),
+    };
+    let mut trx = doc.transact_mut();
+
+    let str = text.get_string(&trx);
+    let byte_len = str.chars().fold(0, |acc, ch| acc + ch.len_utf8());
+
+    text.remove_range(&mut trx, 0, byte_len as u32).unwrap();
+}
+
+pub static TEXT_OPS: phf::Map<
+    &'static str,
+    fn(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) -> (),
+> = phf_map! {
+    "insert" => insert_op,
+    "delete" => remove_op,
+    "clear" => clear_op,
+};
 
 pub fn yrs_create_text_from_nest_type(
     doc: &yrs::Doc,
@@ -116,11 +115,6 @@ pub fn yrs_create_text_from_nest_type(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn basic() {
-        assert_eq!(gen_text_ref_ops().len(), 3);
-    }
 
     #[test]
     fn test_gen_array_ref_ops() {

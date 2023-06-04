@@ -19,25 +19,31 @@ use xml_element::*;
 use xml_fragment::*;
 use xml_text::*;
 
-pub struct OpsRegistry(
-    HashMap<CRDTNestType, HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>>>,
+pub struct OpsRegistry<'a>(
+    HashMap<
+        CRDTNestType,
+        &'a phf::Map<
+            &'static str,
+            fn(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) -> (),
+        >,
+    >,
 );
 
-impl Default for OpsRegistry {
+impl<'a> Default for OpsRegistry<'a> {
     fn default() -> Self {
         OpsRegistry::new()
     }
 }
 
-impl OpsRegistry {
+impl<'a> OpsRegistry<'a> {
     pub fn new() -> Self {
         let mut map = HashMap::new();
-        map.insert(CRDTNestType::Map, gen_map_ref_ops());
-        map.insert(CRDTNestType::Array, gen_array_ref_ops());
-        map.insert(CRDTNestType::Text, gen_text_ref_ops());
-        map.insert(CRDTNestType::XMLText, gen_xml_text_ref_ops());
-        map.insert(CRDTNestType::XMLElement, gen_xml_element_ref_ops());
-        map.insert(CRDTNestType::XMLFragment, gen_xml_fragment_ref_ops());
+        map.insert(CRDTNestType::Map, &MAP_OPS);
+        map.insert(CRDTNestType::Array, &ARRAY_OPS);
+        map.insert(CRDTNestType::Text, &TEXT_OPS);
+        map.insert(CRDTNestType::XMLElement, &XML_ELEMENT_OPS);
+        map.insert(CRDTNestType::XMLText, &XML_TEXT_OPS);
+        map.insert(CRDTNestType::XMLFragment, &XML_FRAGMENT_OPS);
 
         OpsRegistry(map)
     }
@@ -45,27 +51,27 @@ impl OpsRegistry {
     pub fn get_ops(
         &self,
         crdt_nest_type: &CRDTNestType,
-    ) -> &HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> {
+    ) -> &phf::map::Map<&'static str, fn(&Doc, &YrsNestType, CRDTParam) -> ()> {
         match crdt_nest_type {
-            CRDTNestType::Array => self.0.get(&CRDTNestType::Array).unwrap(),
             CRDTNestType::Map => self.0.get(&CRDTNestType::Map).unwrap(),
+            CRDTNestType::Array => self.0.get(&CRDTNestType::Array).unwrap(),
             CRDTNestType::Text => self.0.get(&CRDTNestType::Text).unwrap(),
-            CRDTNestType::XMLText => self.0.get(&CRDTNestType::XMLText).unwrap(),
             CRDTNestType::XMLElement => self.0.get(&CRDTNestType::XMLElement).unwrap(),
             CRDTNestType::XMLFragment => self.0.get(&CRDTNestType::XMLFragment).unwrap(),
+            CRDTNestType::XMLText => self.0.get(&CRDTNestType::XMLText).unwrap(),
         }
     }
 
     pub fn get_ops_from_yrs_nest_type(
         &self,
         yrs_nest_type: &YrsNestType,
-    ) -> &HashMap<NestDataOpType, Box<dyn Fn(&yrs::Doc, &YrsNestType, CRDTParam)>> {
+    ) -> &phf::map::Map<&'static str, fn(&Doc, &YrsNestType, CRDTParam) -> ()> {
         match yrs_nest_type {
-            YrsNestType::ArrayType(_) => self.get_ops(&CRDTNestType::Array),
             YrsNestType::MapType(_) => self.get_ops(&CRDTNestType::Map),
+            YrsNestType::ArrayType(_) => self.get_ops(&CRDTNestType::Array),
             YrsNestType::TextType(_) => self.get_ops(&CRDTNestType::Text),
-            YrsNestType::XMLTextType(_) => self.get_ops(&CRDTNestType::XMLText),
             YrsNestType::XMLElementType(_) => self.get_ops(&CRDTNestType::XMLElement),
+            YrsNestType::XMLTextType(_) => self.get_ops(&CRDTNestType::XMLText),
             YrsNestType::XMLFragmentType(_) => self.get_ops(&CRDTNestType::XMLFragment),
         }
     }
@@ -77,7 +83,12 @@ impl OpsRegistry {
         crdt_param: CRDTParam,
     ) {
         let ops = self.get_ops_from_yrs_nest_type(&cur_crdt_nest_type);
-        ops.get(&crdt_param.nest_data_op_type).unwrap()(doc, &cur_crdt_nest_type, crdt_param)
+        ops.get(match &crdt_param.nest_data_op_type {
+            NestDataOpType::Insert => NEST_DATA_INSERT,
+            NestDataOpType::Delete => NEST_DATA_DELETE,
+            NestDataOpType::Clear => NEST_DATA_CLEAR,
+        })
+        .unwrap()(doc, &cur_crdt_nest_type, crdt_param)
     }
 }
 
