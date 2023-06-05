@@ -3,7 +3,7 @@ use std::{cmp::max, collections::LinkedList, sync::Mutex};
 
 const MAX_SEARCH_MARKER: usize = 80;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SearchMarker {
     pub(super) ptr: Arc<Item>,
     pub(super) index: u64,
@@ -20,6 +20,7 @@ impl SearchMarker {
     }
 }
 
+#[derive(Debug)]
 pub struct MarkerList {
     // in yjs, a timestamp field is used to sort markers and the oldest marker is deleted once the limit is reached.
     // this was designed for optimization purposes for v8. In Rust, we can simply use a linked list and trust the compiler to optimize.

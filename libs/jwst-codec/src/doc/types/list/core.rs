@@ -74,7 +74,7 @@ impl ListCore {
         ref_item: Option<Arc<Item>>,
         content: Vec<Any>,
     ) -> JwstCodecResult<()> {
-        let store = self.store.read().unwrap();
+        let mut store = self.store.write().unwrap();
         let mut content_pack = PackedContent::new(self.client_id, self.list_store.clone(), &store);
         content_pack.update_ref_item(ref_item);
 
@@ -212,7 +212,7 @@ impl ListCore {
                             origin_id.clock + length_remaining,
                         ))?;
                     }
-                    node.delete();
+                    store.delete(node);
                     length_remaining -= node_len;
                 }
                 *n = node.right_id().and_then(|id| store.get_item(id));
@@ -220,8 +220,6 @@ impl ListCore {
                 break;
             }
         }
-
-        store.delete(Id::new(self.client_id, idx + 1), length);
 
         if length_remaining > 0 {
             Err(JwstCodecError::IndexOutOfBound(length_remaining))

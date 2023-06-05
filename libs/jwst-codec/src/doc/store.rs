@@ -175,7 +175,7 @@ impl DocStore {
                             std::mem::swap(old_item, new_item);
                         }
                         _ => {
-                            items[idx] = left_item.clone();
+                            items[idx] = left_item;
                         }
                     }
                     items.insert(idx + 1, right_item.clone());
@@ -525,8 +525,7 @@ impl DocStore {
                                     .insert(parent_sub.to_string(), struct_info.clone());
 
                                 if let Some(left) = &left {
-                                    self.delete(left.id(), left.len());
-                                    left.delete();
+                                    self.delete(left);
                                 }
                             }
                         }
@@ -541,8 +540,7 @@ impl DocStore {
                         .unwrap_or(false)
                         || item.parent_sub.is_some() && item.right_id.is_some()
                     {
-                        self.delete(id, item.len());
-                        item.delete();
+                        self.delete(&struct_info);
                     } else {
                         // adjust parent length
                         if item.parent_sub.is_none() && item.countable() {
@@ -565,9 +563,35 @@ impl DocStore {
         self.add_item(struct_info)
     }
 
-    pub(crate) fn delete(&self, id: Id, len: u64) {
-        let mut delete_set = self.delete_set.write().unwrap();
-        delete_set.add(id.client, id.clock, len);
+    pub(crate) fn delete(&self, struct_info: &StructInfo) {
+        if let StructInfo::Item(item) = struct_info {
+            if item.deleted() {
+                return;
+            }
+
+            let id = item.id;
+            item.delete();
+            let mut delete_set = self.delete_set.write().unwrap();
+            delete_set.add(id.client, id.clock, item.len());
+
+            if let Some(Parent::Type(parent)) = &item.parent {
+                if item.parent_sub.is_none() && item.countable() {
+                    let mut parent = parent.write().unwrap();
+                    parent.item_len -= 1;
+                    parent.content_len -= item.len();
+                }
+            }
+
+            match item.content.as_ref() {
+                Content::Type(_) => {
+                    // TODO: remove all type items
+                }
+                Content::Doc { .. } => {
+                    // TODO: remove subdoc
+                }
+                _ => {}
+            }
+        }
     }
 
     pub(crate) fn delete_range(&mut self, client: u64, range: Range<u64>) -> JwstCodecResult {
@@ -586,7 +610,21 @@ impl DocStore {
                     if !struct_info.deleted() && id.clock < range.start {
                         match struct_info.split_item(start - id.clock) {
                             Ok((left, right)) => {
-                                items[idx] = left;
+                                match (&struct_info, &left) {
+                                    (StructInfo::Item(old_item), StructInfo::Item(new_item)) => {
+                                        // SAFETY:
+                                        // we make sure store is the only entry of mutating an item,
+                                        // and we already hold mutable reference of store, so it's safe to do so
+                                        let old_item =
+                                            unsafe { &mut *(Arc::as_ptr(old_item) as *mut Item) };
+                                        let new_item =
+                                            unsafe { &mut *(Arc::as_ptr(new_item) as *mut Item) };
+                                        std::mem::swap(old_item, new_item);
+                                    }
+                                    _ => {
+                                        items[idx] = left;
+                                    }
+                                }
                                 items.insert(idx + 1, right);
                                 idx += 1;
                             }
@@ -613,8 +651,7 @@ impl DocStore {
                                 Err(e) => return Err(e),
                             }
                         }
-                        self.delete(id, struct_info.len());
-                        struct_info.delete();
+                        self.delete(struct_info);
                     } else {
                         break;
                     }
@@ -794,7 +831,7 @@ mod tests {
 
     #[test]
     fn test_add_item() {
-        let doc_store = DocStore::new();
+        let mut doc_store = DocStore::new();
 
         let struct_info1 = StructInfo::GC {
             id: Id::new(1, 0),
@@ -832,7 +869,7 @@ mod tests {
     #[test]
     fn test_get_item() {
         {
-            let doc_store = DocStore::new();
+            let mut doc_store = DocStore::new();
             let struct_info = StructInfo::GC {
                 id: Id::new(1, 0),
                 len: 10,
@@ -843,7 +880,7 @@ mod tests {
         }
 
         {
-            let doc_store = DocStore::new();
+            let mut doc_store = DocStore::new();
             let struct_info1 = StructInfo::GC {
                 id: Id::new(1, 0),
                 len: 10,
@@ -865,7 +902,7 @@ mod tests {
         }
 
         {
-            let doc_store = DocStore::new();
+            let mut doc_store = DocStore::new();
             let struct_info1 = StructInfo::GC {
                 id: Id::new(1, 0),
                 len: 10,

@@ -34,6 +34,7 @@ pub struct YType {
     /// The name of the type that directly belongs the store.
     pub root_name: Option<String>,
     pub kind: YTypeKind,
+    pub markers: Option<MarkerList>,
 }
 
 pub type YTypeRef = Arc<RwLock<YType>>;
@@ -191,6 +192,11 @@ macro_rules! impl_variants {
     };
 }
 
+pub(crate) trait AsInner {
+    type Inner;
+    fn as_inner(&self) -> &Self::Inner;
+}
+
 #[macro_export(local_inner_macros)]
 macro_rules! impl_type {
     ($name: ident) => {
@@ -213,10 +219,13 @@ macro_rules! impl_type {
             fn write(&self) -> std::sync::RwLockWriteGuard<super::YType> {
                 self.0.write().unwrap()
             }
+        }
 
-            #[allow(dead_code)]
-            fn inner(&self) -> super::YTypeRef {
-                self.0.clone()
+        impl super::AsInner for $name {
+            type Inner = super::YTypeRef;
+
+            fn as_inner(&self) -> &Self::Inner {
+                &self.0
             }
         }
 
@@ -229,9 +238,7 @@ macro_rules! impl_type {
                     super::YTypeKind::$name => Ok($name::new(value.clone())),
                     super::YTypeKind::Unknown => {
                         inner.set_kind(super::YTypeKind::$name)?;
-                        // release lock guard
-                        drop(inner);
-                        $name::try_from(value.clone())
+                        Ok($name::new(value.clone()))
                     }
                     _ => Err($crate::JwstCodecError::TypeCastError("Text")),
                 }

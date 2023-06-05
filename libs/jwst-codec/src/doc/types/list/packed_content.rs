@@ -39,12 +39,7 @@ impl<'a> PackedContent<'a> {
                     .and_then(|i| i.right_id)
                     .or(list_store.start.as_ref().and_then(|root| root.right_id())),
             )
-            .parent(
-                list_store
-                    .root_name
-                    .as_ref()
-                    .map(|s| Parent::String(s.clone())),
-            ));
+            .parent(Some(Parent::Type(self.list_store.clone()))));
 
         let item = StructInfo::Item(Arc::new(item));
 

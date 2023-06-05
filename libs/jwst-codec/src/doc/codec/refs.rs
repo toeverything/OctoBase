@@ -136,14 +136,6 @@ impl StructInfo {
         }
     }
 
-    pub fn item(&self) -> Option<ItemRef> {
-        if let Self::Item(item) = self {
-            Some(item.clone())
-        } else {
-            None
-        }
-    }
-
     pub fn left_id(&self) -> Option<Id> {
         if let Self::Item(item) = self {
             item.left_id

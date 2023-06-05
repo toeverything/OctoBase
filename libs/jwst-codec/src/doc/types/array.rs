@@ -7,7 +7,7 @@ pub struct YArray {
 impl YArray {
     pub fn new(client_id: Client, list: Array) -> JwstCodecResult<YArray> {
         Ok(Self {
-            core: ListCore::new(client_id, list.inner()),
+            core: ListCore::new(client_id, list.as_inner().clone()),
         })
     }
 
