@@ -26,14 +26,12 @@ pub struct MarkerList {
     // this was designed for optimization purposes for v8. In Rust, we can simply use a linked list and trust the compiler to optimize.
     // the linked list can naturally maintain the insertion order, allowing us to know which marker is the oldest without using an extra timestamp field.
     search_marker: Arc<Mutex<LinkedList<SearchMarker>>>,
-    store: Arc<RwLock<DocStore>>,
 }
 
 impl MarkerList {
-    pub(super) fn new(store: Arc<RwLock<DocStore>>) -> Self {
+    pub(crate) fn new() -> Self {
         MarkerList {
             search_marker: Arc::new(Mutex::new(LinkedList::new())),
-            store,
         }
     }
 
@@ -55,9 +53,8 @@ impl MarkerList {
     }
 
     // update mark position if the index is within the range of the marker
-    pub(super) fn update_marker_changes(&self, index: u64, len: i64) {
+    pub(super) fn update_marker_changes(&self, store: &DocStore, index: u64, len: i64) {
         let mut list = self.search_marker.lock().unwrap();
-        let store = self.store.read().unwrap();
         for marker in list.iter_mut() {
             let mut ptr = marker.ptr.clone();
             if len > 0 {
@@ -82,13 +79,13 @@ impl MarkerList {
     // find and return the marker that is closest to the index
     pub(super) fn find_marker(
         &self,
+        store: &DocStore,
         index: u64,
         parent_start: Arc<Item>,
-    ) -> JwstCodecResult<Option<SearchMarker>> {
-        let store = self.store.read().unwrap();
+    ) -> Option<SearchMarker> {
         let items = store.items.read().unwrap();
         if items.is_empty() || index == 0 {
-            return Ok(None);
+            return None;
         }
 
         let mut list = self.search_marker.lock().unwrap();
@@ -97,9 +94,7 @@ impl MarkerList {
             .iter_mut()
             .min_by_key(|a| (index as i64 - a.index as i64).abs());
         let mut marker_index = marker.as_ref().map(|m| m.index).unwrap_or(0);
-        let mut item_ptr = marker
-            .as_ref()
-            .map_or(parent_start.clone(), |m| m.ptr.clone());
+        let mut item_ptr = marker.as_ref().map_or(parent_start, |m| m.ptr.clone());
 
         // TODO: this logic here is a bit messy
         // i think it can be implemented with more streamlined code, and then optimized
@@ -148,27 +143,27 @@ impl MarkerList {
             }
         }
 
-        let marker = match marker {
-            Some(marker)
-                if parent_start
-                    .get_parent(&store)?
-                    .map(|ptr| {
-                        (marker.index as i64 - marker_index as i64).abs()
-                            < ptr.len() as i64 / MAX_SEARCH_MARKER as i64
-                    })
-                    .unwrap_or(false) =>
-            {
-                // adjust existing marker
-                marker.overwrite_marker(item_ptr, marker_index);
-                Some(marker.clone())
-            }
+        match marker {
+            // Q: get_parent requires a lock and would result in deadlock
+            // Some(marker)
+            //     if parent_start
+            //         .get_parent(&store)?
+            //         .map(|ptr| {
+            //             (marker.index as i64 - marker_index as i64).abs()
+            //                 < ptr.len() as i64 / MAX_SEARCH_MARKER as i64
+            //         })
+            //         .unwrap_or(false) =>
+            // {
+            //     // adjust existing marker
+            //     marker.overwrite_marker(item_ptr, marker_index);
+            //     Some(marker.clone())
+            // }
+            Some(marker) => Some(marker.clone()),
             _ => {
                 // create new marker
                 Self::mark_position(&mut list, item_ptr, marker_index)
             }
-        };
-
-        Ok(marker)
+        }
     }
 
     pub(super) fn get_last_marker(&self) -> Option<SearchMarker> {
@@ -200,10 +195,11 @@ mod tests {
         let mut doc = Doc::default();
         doc.apply_update(update).unwrap();
 
-        let marker_list = MarkerList::new(doc.store.clone());
+        let marker_list = MarkerList::new();
 
         let marker = marker_list
             .find_marker(
+                &doc.store.read().unwrap(),
                 8,
                 doc.store
                     .read()
@@ -212,7 +208,6 @@ mod tests {
                     .and_then(|i| i.as_item())
                     .unwrap(),
             )
-            .unwrap()
             .unwrap();
         assert_eq!(marker.index, 1);
         assert_eq!(

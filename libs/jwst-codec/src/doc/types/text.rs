@@ -1,53 +1,44 @@
-use crate::{doc::StructInfo, impl_type, Content, JwstCodecResult};
+use crate::{impl_type, Content, JwstCodecResult};
 
 use super::list::ListType;
 
 impl_type!(Text);
 
-impl ListType for Text {
-    fn len(&self) -> u64 {
-        self.read().content_len
-    }
-}
+impl ListType for Text {}
 
 impl Text {
+    #[inline]
     pub fn len(&self) -> u64 {
-        self.read().content_len
+        self.content_len()
     }
 
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    #[inline]
     pub fn insert<T: ToString>(&mut self, char_index: u64, str: T) -> JwstCodecResult {
-        self.insert_content_at(char_index, Content::String(str.to_string()))
+        self.insert_at(char_index, vec![Content::String(str.to_string())])
+    }
+
+    #[inline]
+    pub fn remove(&mut self, char_index: u64, len: u64) -> JwstCodecResult {
+        self.remove_at(char_index, len)
     }
 }
 
 impl ToString for Text {
     fn to_string(&self) -> String {
-        let inner = self.read();
+        let mut ret = String::with_capacity(self.len() as usize);
 
-        let mut start = inner.start.clone();
-        let mut ret = String::with_capacity(inner.content_len as usize);
-
-        while let Some(cur) = start.take() {
-            match cur {
-                StructInfo::Item(item) => {
-                    if !item.deleted() {
-                        if let Content::String(str) = item.content.as_ref() {
-                            ret.push_str(str);
-                        }
-                        start = item.right_id.and_then(|right_id| {
-                            inner
-                                .store
-                                .upgrade()
-                                .unwrap()
-                                .read()
-                                .unwrap()
-                                .get_item(right_id)
-                        });
-                    }
-                }
-                _ => break,
+        self.iter_item().fold(&mut ret, |ret, item| {
+            if let Content::String(str) = item.content.as_ref() {
+                ret.push_str(str);
             }
-        }
+
+            ret
+        });
 
         ret
     }
@@ -55,6 +46,11 @@ impl ToString for Text {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    };
+
     use crate::Doc;
     use rand::Rng;
     use yrs::{Text, Transact};
@@ -71,10 +67,15 @@ mod tests {
         text.insert(17, '!').unwrap();
 
         assert_eq!(text.to_string(), "hello great world!");
+        assert_eq!(text.len(), 18);
+
+        text.remove(4, 4).unwrap();
+        assert_eq!(text.to_string(), "helleat world!");
+        assert_eq!(text.len(), 14);
     }
 
     #[test]
-    fn test_parallel_manipulate_text() {
+    fn test_parallel_insert_text() {
         let doc = Doc::default();
         let mut text = doc.get_or_crate_text("test").unwrap();
         text.insert(0, "This is a string with length 32.").unwrap();
@@ -117,9 +118,45 @@ mod tests {
     }
 
     #[test]
-    fn test_recover_from_ybinary() {
+    fn test_parallel_ins_del_text() {
+        let doc = Doc::default();
+        let mut text = doc.get_or_crate_text("test").unwrap();
+        text.insert(0, "This is a string with length 32.").unwrap();
+
+        let mut handles = Vec::new();
+        let iteration = 2;
+        let len = Arc::new(AtomicU64::new(32));
+
+        for i in 0..iteration {
+            let mut text = text.clone();
+            let len = len.clone();
+            handles.push(std::thread::spawn(move || {
+                let ins_del = rand::random::<bool>();
+                if ins_del {
+                    let str = format!("hello {i}");
+                    let pos = rand::thread_rng().gen_range(0..text.len());
+                    text.insert(pos, &str).unwrap();
+                    len.fetch_add(str.len() as u64, Ordering::SeqCst);
+                } else {
+                    let pos = rand::thread_rng().gen_range(0..text.len() / 2);
+                    text.remove(pos, 6).unwrap();
+                    len.fetch_sub(6, Ordering::SeqCst);
+                }
+            }));
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        assert_eq!(text.to_string().len() as u64, len.load(Ordering::SeqCst));
+        assert_eq!(text.len(), len.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_recover_from_yjs_encoder() {
         let binary = {
-            let doc = yrs::Doc::new();
+            let doc = yrs::Doc::with_client_id(1);
             let text = doc.get_or_insert_text("greating");
             let mut trx = doc.transact_mut();
             text.insert(&mut trx, 0, "hello").unwrap();
@@ -132,7 +169,30 @@ mod tests {
         let doc = Doc::new_from_binary(binary).unwrap();
         let mut text = doc.get_or_crate_text("greating").unwrap();
 
-        assert_eq!(text.len(), 11);
+        assert_eq!(text.to_string(), "hello world");
+
+        text.insert(6, "great ").unwrap();
+        text.insert(17, '!').unwrap();
+        assert_eq!(text.to_string(), "hello great world!");
+    }
+
+    #[test]
+    #[ignore = "encoder output suspicious binary"]
+    fn test_recover_from_octobase_encoder() {
+        let binary = {
+            let doc = Doc::with_client(1);
+            let mut text = doc.get_or_crate_text("greating").unwrap();
+            text.insert(0, "hello").unwrap();
+            text.insert(5, " world!").unwrap();
+            text.remove(11, 1).unwrap();
+
+            doc.encode_update_v1().unwrap()
+        };
+
+        let doc = Doc::new_from_binary(binary).unwrap();
+        let mut text = doc.get_or_crate_text("greating").unwrap();
+
+        assert_eq!(text.to_string(), "hello world");
 
         text.insert(6, "great ").unwrap();
         text.insert(17, '!').unwrap();
