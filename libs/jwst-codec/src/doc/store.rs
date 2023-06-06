@@ -939,18 +939,20 @@ mod tests {
     #[test]
     fn test_split_and_get() {
         let doc_store = DocStore::new();
-        let struct_info1 = StructInfo::Item(Arc::new(Item {
-            id: (1, 0).into(),
-            content: Arc::new(Content::String(String::from("octo"))),
-            ..Default::default()
-        }));
+        let struct_info1 = StructInfo::Item(Arc::new(
+            ItemBuilder::new()
+                .id((1, 0).into())
+                .content(Content::String(String::from("octo")))
+                .build(),
+        ));
 
-        let struct_info2 = StructInfo::Item(Arc::new(Item {
-            id: Id::new(1, struct_info1.len()),
-            left_id: Some(struct_info1.id()),
-            content: Arc::new(Content::String(String::from("base"))),
-            ..Default::default()
-        }));
+        let struct_info2 = StructInfo::Item(Arc::new(
+            ItemBuilder::new()
+                .id((1, struct_info1.len()).into())
+                .left_id(Some(struct_info1.id()))
+                .content(Content::String(String::from("base")))
+                .build(),
+        ));
         doc_store.add_item(struct_info1.clone()).unwrap();
         doc_store.add_item(struct_info2).unwrap();
 

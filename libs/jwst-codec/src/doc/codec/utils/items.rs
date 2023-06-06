@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::Arc;
 
 pub struct ItemBuilder {
     item: Item,
@@ -38,7 +39,12 @@ impl ItemBuilder {
     }
 
     pub fn content(mut self, content: Content) -> ItemBuilder {
-        self.item.content = std::sync::Arc::new(content);
+        self.item.content = Arc::new(content);
+        self
+    }
+
+    pub fn flags(mut self, flags: ItemFlags) -> ItemBuilder {
+        self.item.flags = flags;
         self
     }
 

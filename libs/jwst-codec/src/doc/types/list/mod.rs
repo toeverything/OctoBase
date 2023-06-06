@@ -111,15 +111,15 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
 
         for content in contents {
             let new_item_id = (store.client(), store.get_state(store.client())).into();
-            let item = Arc::new(Item {
-                id: new_item_id,
-                left_id: pos.left.map(|l| l.id),
-                right_id: pos.right.clone().map(|r| r.id),
-                content: Arc::new(content),
-                parent: Some(Parent::Type(pos.parent.clone())),
-                parent_sub: None,
-                flags: ItemFlags::from(item_flags::ITEM_COUNTABLE),
-            });
+            let item = Arc::new(
+                ItemBuilder::new()
+                    .id(new_item_id)
+                    .left_id(pos.left.map(|l| l.id))
+                    .right_id(pos.right.clone().map(|r| r.id))
+                    .content(content)
+                    .parent(Some(Parent::Type(pos.parent.clone())))
+                    .build(),
+            );
             store.integrate_struct_info(StructInfo::Item(item.clone()), 0, Some(&mut lock))?;
             len += item.len();
             pos.left = Some(item);

@@ -395,11 +395,12 @@ mod tests {
     use std::{num::ParseIntError, path::PathBuf, sync::Arc};
 
     fn struct_item(id: (Client, Clock), len: usize) -> StructInfo {
-        StructInfo::Item(Arc::new(Item {
-            id: id.into(),
-            content: Arc::new(Content::String("c".repeat(len))),
-            ..Item::default()
-        }))
+        StructInfo::Item(Arc::new(
+            ItemBuilder::new()
+                .id(id.into())
+                .content(Content::String("c".repeat(len)))
+                .build(),
+        ))
     }
 
     fn parse_doc_update(input: Vec<u8>) -> JwstCodecResult<Update> {
@@ -500,12 +501,13 @@ mod tests {
                     1,
                     VecDeque::from([
                         struct_item((1, 0), 1),
-                        StructInfo::Item(Arc::new(Item {
-                            id: (1, 1).into(),
-                            left_id: Some((0, 1).into()),
-                            content: Arc::new(Content::String("c".repeat(2))),
-                            ..Item::default()
-                        })),
+                        StructInfo::Item(Arc::new(
+                            ItemBuilder::new()
+                                .id((1, 1).into())
+                                .left_id(Some((0, 1).into()))
+                                .content(Content::String("c".repeat(2)))
+                                .build(),
+                        )),
                     ]),
                 ),
             ]),

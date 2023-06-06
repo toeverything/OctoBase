@@ -174,25 +174,29 @@ impl StructInfo {
             let right_id = Id::new(id.client, id.clock + diff);
             let (left_content, right_content) = item.content.split(diff)?;
 
-            let left_item = Self::Item(Arc::new(Item {
-                id,
-                left_id: item.left_id,
-                right_id: Some(right_id),
-                parent: item.parent.clone(),
-                parent_sub: item.parent_sub.clone(),
-                content: Arc::new(left_content),
-                flags: item.flags.clone(),
-            }));
+            let left_item = Self::Item(Arc::new(
+                ItemBuilder::new()
+                    .id(id)
+                    .left_id(item.left_id)
+                    .right_id(Some(right_id))
+                    .parent(item.parent.clone())
+                    .parent_sub(item.parent_sub.clone())
+                    .content(left_content)
+                    .flags(item.flags.clone())
+                    .build(),
+            ));
 
-            let right_item = Self::Item(Arc::new(Item {
-                id: right_id,
-                left_id: Some(item.id),
-                right_id: item.right_id,
-                parent: item.parent.clone(),
-                parent_sub: item.parent_sub.clone(),
-                content: Arc::new(right_content),
-                flags: item.flags.clone(),
-            }));
+            let right_item = Self::Item(Arc::new(
+                ItemBuilder::new()
+                    .id(right_id)
+                    .left_id(Some(item.id))
+                    .right_id(item.right_id)
+                    .parent(item.parent.clone())
+                    .parent_sub(item.parent_sub.clone())
+                    .content(right_content)
+                    .flags(item.flags.clone())
+                    .build(),
+            ));
 
             Ok((left_item, right_item))
         } else {
@@ -206,6 +210,7 @@ impl StructInfo {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn countable(&self) -> bool {
         if let StructInfo::Item(item) = self {
             item.flags.countable()
