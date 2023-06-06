@@ -1,5 +1,5 @@
-use phf::phf_map;
 use super::*;
+use phf::phf_map;
 
 fn insert_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
     let text = match nest_input {
@@ -56,10 +56,7 @@ fn clear_op(doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam) {
     text.remove_range(&mut trx, 0, byte_len as u32).unwrap();
 }
 
-pub static TEXT_OPS: phf::Map<
-    &'static str,
-    fn(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) -> (),
-> = phf_map! {
+pub static TEXT_OPS: TestOps = phf_map! {
     "insert" => insert_op,
     "delete" => remove_op,
     "clear" => clear_op,

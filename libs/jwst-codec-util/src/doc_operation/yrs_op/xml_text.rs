@@ -1,5 +1,5 @@
-use phf::phf_map;
 use super::*;
+use phf::phf_map;
 
 fn insert_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
     let xml_text = match nest_input {
@@ -16,9 +16,9 @@ fn insert_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
         .take(index)
         .fold(0, |acc, ch| acc + ch.len_utf8());
 
-    xml_text.insert(&mut trx, byte_start_offset as u32, &params.value)
+    xml_text
+        .insert(&mut trx, byte_start_offset as u32, &params.value)
         .unwrap();
-
 }
 
 fn remove_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
@@ -40,7 +40,8 @@ fn remove_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
         .fold(0, |acc, ch| acc + ch.len_utf8());
 
     let char_byte_len = str.chars().nth(index).unwrap().len_utf8();
-    xml_text.remove_range(&mut trx, byte_start_offset as u32, char_byte_len as u32)
+    xml_text
+        .remove_range(&mut trx, byte_start_offset as u32, char_byte_len as u32)
         .unwrap();
 }
 
@@ -57,10 +58,7 @@ fn clear_op(doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam) {
     xml_text.remove_range(&mut trx, 0, byte_len as u32).unwrap();
 }
 
-pub static XML_TEXT_OPS: phf::Map<
-    &'static str,
-    fn(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) -> (),
-> = phf_map! {
+pub static XML_TEXT_OPS: TestOps = phf_map! {
     "insert" => insert_op,
     "delete" => remove_op,
     "clear" => clear_op,

@@ -1,5 +1,5 @@
-use phf::phf_map;
 use super::*;
+use phf::phf_map;
 
 fn insert_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
     let array = match nest_input {
@@ -37,10 +37,7 @@ fn clear_op(doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam) {
     }
 }
 
-pub static ARRAY_OPS: phf::Map<
-    &'static str,
-    fn(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) -> (),
-> = phf_map! {
+pub static ARRAY_OPS: TestOps = phf_map! {
     "insert" => insert_op,
     "delete" => delete_op,
     "clear" => clear_op,

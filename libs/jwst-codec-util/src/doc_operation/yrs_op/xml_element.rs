@@ -1,5 +1,5 @@
-use phf::phf_map;
 use super::*;
+use phf::phf_map;
 
 fn insert_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
     let xml_element = match nest_input {
@@ -39,10 +39,7 @@ fn clear_op(doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam) {
     }
 }
 
-pub static XML_ELEMENT_OPS: phf::Map<
-    &'static str,
-    fn(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) -> (),
-> = phf_map! {
+pub static XML_ELEMENT_OPS: TestOps = phf_map! {
     "insert" => insert_op,
     "delete" => remove_op,
     "clear" => clear_op,

@@ -200,8 +200,12 @@ impl Item {
         self.flags.set_deleted();
     }
 
+    pub fn countable(&self) -> bool {
+        self.flags.countable()
+    }
+
     pub fn indexable(&self) -> bool {
-        self.flags.countable() && !self.deleted()
+        self.countable() && !self.deleted()
     }
 
     pub fn get_parent(&self, store: &DocStore) -> JwstCodecResult<Option<Arc<Item>>> {

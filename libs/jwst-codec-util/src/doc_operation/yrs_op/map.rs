@@ -44,10 +44,7 @@ fn clear_op(doc: &yrs::Doc, nest_input: &YrsNestType, _params: CRDTParam) {
     map.clear(&mut trx);
 }
 
-pub static MAP_OPS: phf::Map<
-    &'static str,
-    fn(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) -> (),
-> = phf_map! {
+pub static MAP_OPS: TestOps = phf_map! {
     "insert" => insert_op,
     "delete" => remove_op,
     "clear" => clear_op,

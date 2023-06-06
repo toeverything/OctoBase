@@ -19,17 +19,12 @@ use xml_element::*;
 use xml_fragment::*;
 use xml_text::*;
 
-pub struct OpsRegistry<'a>(
-    HashMap<
-        CRDTNestType,
-        &'a phf::Map<
-            &'static str,
-            fn(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) -> (),
-        >,
-    >,
-);
+type TestOp = fn(doc: &Doc, nest_input: &YrsNestType, params: CRDTParam) -> ();
+type TestOps = phf::Map<&'static str, TestOp>;
 
-impl<'a> Default for OpsRegistry<'a> {
+pub struct OpsRegistry<'a>(HashMap<CRDTNestType, &'a TestOps>);
+
+impl Default for OpsRegistry<'_> {
     fn default() -> Self {
         OpsRegistry::new()
     }
@@ -48,10 +43,7 @@ impl<'a> OpsRegistry<'a> {
         OpsRegistry(map)
     }
 
-    pub fn get_ops(
-        &self,
-        crdt_nest_type: &CRDTNestType,
-    ) -> &phf::map::Map<&'static str, fn(&Doc, &YrsNestType, CRDTParam) -> ()> {
+    pub fn get_ops(&self, crdt_nest_type: &CRDTNestType) -> &TestOps {
         match crdt_nest_type {
             CRDTNestType::Map => self.0.get(&CRDTNestType::Map).unwrap(),
             CRDTNestType::Array => self.0.get(&CRDTNestType::Array).unwrap(),
@@ -62,10 +54,7 @@ impl<'a> OpsRegistry<'a> {
         }
     }
 
-    pub fn get_ops_from_yrs_nest_type(
-        &self,
-        yrs_nest_type: &YrsNestType,
-    ) -> &phf::map::Map<&'static str, fn(&Doc, &YrsNestType, CRDTParam) -> ()> {
+    pub fn get_ops_from_yrs_nest_type(&self, yrs_nest_type: &YrsNestType) -> &TestOps {
         match yrs_nest_type {
             YrsNestType::MapType(_) => self.get_ops(&CRDTNestType::Map),
             YrsNestType::ArrayType(_) => self.get_ops(&CRDTNestType::Array),
