@@ -11,6 +11,9 @@ cargo-fuzz = true
 rand = "0.8"
 libfuzzer-sys = "0.4"
 lib0 = "0.16.5"
+yrs = "0.16.5"
+
+jwst-codec-util = { path = "../../jwst-codec-util" }
 
 [dependencies.jwst-codec]
 path = ".."
@@ -70,3 +73,13 @@ name = "u64_encode"
 path = "fuzz_targets/u64_encode.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "apply_update"
+path = "fuzz_targets/apply_update.rs"
+test = false
+doc = false
+
+[patch.crates-io]
+lib0 = { git = "https://github.com/toeverything/y-crdt", rev = "a700f09" }
+yrs = { git = "https://github.com/toeverything/y-crdt", rev = "a700f09" }

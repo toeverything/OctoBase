@@ -17,5 +17,7 @@ pub use item::{item_flags, Item, ItemFlags, ItemRef, Parent};
 pub use refs::StructInfo;
 pub use update::Update;
 pub use utils::ItemBuilder;
+#[cfg(any(fuzzing, test))]
+pub use utils::*;
 
 use super::*;
