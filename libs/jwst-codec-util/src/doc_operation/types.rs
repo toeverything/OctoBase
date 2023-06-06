@@ -1,8 +1,8 @@
 use yrs::{ArrayRef, MapRef, TextRef, XmlElementRef, XmlFragmentRef, XmlTextRef};
 
-pub const NEST_DATA_INSERT: &'static str = "insert";
-pub const NEST_DATA_DELETE: &'static str = "delete";
-pub const NEST_DATA_CLEAR: &'static str = "clear";
+pub const NEST_DATA_INSERT: &str = "insert";
+pub const NEST_DATA_DELETE: &str = "delete";
+pub const NEST_DATA_CLEAR: &str = "clear";
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug, arbitrary::Arbitrary)]
 pub enum OpType {
