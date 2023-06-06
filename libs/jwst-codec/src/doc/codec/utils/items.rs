@@ -50,3 +50,29 @@ impl ItemBuilder {
         self.item
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_item_builder() {
+        let item = ItemBuilder::new()
+            .id(Id::new(0, 1))
+            .left_id(Some(Id::new(2, 3)))
+            .right_id(Some(Id::new(4, 5)))
+            .parent(Some(Parent::String("test".into())))
+            .content(Content::Any(vec![Any::String("Hello".into())]))
+            .build();
+
+        assert_eq!(item.id, Id::new(0, 1));
+        assert_eq!(item.left_id, Some(Id::new(2, 3)));
+        assert_eq!(item.right_id, Some(Id::new(4, 5)));
+        assert!(matches!(item.parent, Some(Parent::String(text)) if text == "test"));
+        assert_eq!(item.parent_sub, None);
+        assert_eq!(
+            item.content,
+            std::sync::Arc::new(Content::Any(vec![Any::String("Hello".into())]))
+        );
+    }
+}

@@ -365,6 +365,52 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_content_split() {
+        let contents = [
+            Content::String("hello".to_string()),
+            Content::JSON(vec![
+                None,
+                Some("test_1".to_string()),
+                Some("test_2".to_string()),
+            ]),
+            Content::Any(vec![Any::BigInt64(42), Any::String("Test Any".to_string())]),
+            Content::Binary(vec![]),
+        ];
+
+        {
+            let (left, right) = contents[0].split(1).unwrap();
+            assert!(contents[0].splittable());
+            assert_eq!(left, Content::String("h".to_string()));
+            assert_eq!(right, Content::String("ello".to_string()));
+        }
+
+        {
+            let (left, right) = contents[1].split(1).unwrap();
+            assert!(contents[1].splittable());
+            assert_eq!(left, Content::JSON(vec![None, Some("test_1".to_string())]));
+            assert_eq!(right, Content::JSON(vec![Some("test_2".to_string())]));
+        }
+
+        {
+            let (left, right) = contents[2].split(1).unwrap();
+            assert!(contents[2].splittable());
+            assert_eq!(
+                left,
+                Content::Any(vec![Any::BigInt64(42), Any::String("Test Any".to_string())])
+            );
+            assert_eq!(right, Content::Any(vec![]));
+        }
+
+        {
+            assert!(!contents[3].splittable());
+            assert_eq!(
+                contents[3].split(2),
+                Err(JwstCodecError::ContentSplitNotSupport(2))
+            );
+        }
+    }
+
     proptest! {
         #[test]
         fn test_random_content(contents in vec(any::<Content>(), 0..10)) {

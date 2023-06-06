@@ -545,7 +545,7 @@ impl DocStore {
                         item.delete();
                     } else {
                         // adjust parent length
-                        if item.parent_sub.is_none() && item.flags.countable() {
+                        if item.parent_sub.is_none() && item.countable() {
                             parent.content_len += item.len();
                             parent.item_len += 1;
                         }
