@@ -30,7 +30,7 @@ impl Default for OpsRegistry<'_> {
     }
 }
 
-impl<'a> OpsRegistry<'a> {
+impl OpsRegistry<'_> {
     pub fn new() -> Self {
         let mut map = HashMap::new();
         map.insert(CRDTNestType::Map, &MAP_OPS);
