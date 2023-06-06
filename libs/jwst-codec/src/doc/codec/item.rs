@@ -128,6 +128,7 @@ pub struct Item {
     pub parent_sub: Option<String>,
     // make content Arc, so we can share the content between items
     // and item can be readonly and cloned fast.
+    // TODO: considering using Cow
     pub content: Arc<Content>,
     #[cfg_attr(test, proptest(value = "ItemFlags::default()"))]
     pub flags: ItemFlags,

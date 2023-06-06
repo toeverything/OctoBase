@@ -20,7 +20,6 @@ impl Default for Doc {
         Self {
             client_id: client,
             guid: nanoid!(),
-            // share: HashMap::new(),
             store: Arc::new(RwLock::new(DocStore::with_client(client))),
         }
     }
@@ -33,6 +32,14 @@ impl PartialEq for Doc {
 }
 
 impl Doc {
+    pub fn with_client(client: u64) -> Self {
+        Self {
+            client_id: client,
+            store: Arc::new(RwLock::new(DocStore::with_client(client))),
+            ..Default::default()
+        }
+    }
+
     pub fn client(&self) -> Client {
         self.client_id
     }
@@ -130,12 +137,11 @@ impl Doc {
             .build()
     }
 
-    pub fn get_or_create_array(&self, str: &str) -> JwstCodecResult<YArray> {
-        let array = YTypeBuilder::new(self.store.clone())
+    pub fn get_or_create_array(&self, str: &str) -> JwstCodecResult<Array> {
+        YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Array)
             .set_name(str.to_string())
-            .build()?;
-        YArray::new(self.client_id, array)
+            .build()
     }
 
     pub fn encode_update_v1(&self) -> JwstCodecResult<Vec<u8>> {

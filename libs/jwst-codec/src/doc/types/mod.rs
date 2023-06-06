@@ -7,7 +7,7 @@ use super::*;
 use list::*;
 use std::{
     collections::{hash_map::Entry, HashMap},
-    sync::{Arc, RwLock, Weak},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak},
 };
 
 pub use array::*;
@@ -24,16 +24,16 @@ use super::{
 #[derive(Debug, Default)]
 pub struct YType {
     pub store: WeakStoreRef,
-    pub item: Option<Weak<Item>>,
     pub start: Option<StructInfo>,
+    pub item: Option<Weak<Item>>,
     pub map: Option<HashMap<String, StructInfo>>,
-    pub item_len: u64,
-    pub content_len: u64,
+    pub len: u64,
     /// The tag name of XMLElement and XMLHook type
     pub name: Option<String>,
     /// The name of the type that directly belongs the store.
     pub root_name: Option<String>,
     pub kind: YTypeKind,
+    pub markers: Option<MarkerList>,
 }
 
 pub type YTypeRef = Arc<RwLock<YType>>;
@@ -75,6 +75,34 @@ impl YType {
         }
 
         Ok(())
+    }
+
+    pub fn start(&self) -> Option<ItemRef> {
+        self.start.as_ref().and_then(|s| s.as_item())
+    }
+
+    pub fn store<'a>(&self) -> Option<RwLockReadGuard<'a, DocStore>> {
+        if let Some(store) = self.store.upgrade() {
+            let ptr = unsafe { &*Arc::as_ptr(&store) };
+
+            Some(ptr.read().unwrap())
+        } else {
+            None
+        }
+    }
+
+    pub fn store_mut<'a>(&mut self) -> Option<RwLockWriteGuard<'a, DocStore>> {
+        if let Some(store) = self.store.upgrade() {
+            let ptr = unsafe { &*Arc::as_ptr(&store) };
+
+            Some(ptr.write().unwrap())
+        } else {
+            None
+        }
+    }
+
+    pub fn item(&self) -> Option<ItemRef> {
+        self.item.as_ref().and_then(|i| i.upgrade())
     }
 }
 
@@ -123,11 +151,12 @@ impl YTypeBuilder {
             match types.entry(root_name.clone()) {
                 Entry::Occupied(e) => e.get().clone(),
                 Entry::Vacant(e) => {
-                    let y_type = Arc::new(RwLock::new(YType {
+                    let y_type: Arc<RwLock<YType>> = Arc::new(RwLock::new(YType {
                         kind: self.kind,
                         name: self.name,
                         root_name: Some(root_name),
                         store: Arc::downgrade(&self.store),
+                        markers: Self::markers(self.kind),
                         ..Default::default()
                     }));
 
@@ -142,17 +171,25 @@ impl YTypeBuilder {
                 name: self.name,
                 root_name: self.root_name.clone(),
                 store: Arc::downgrade(&self.store),
+                markers: Self::markers(self.kind),
                 ..YType::default()
             }))
         };
 
         T::try_from(ty)
     }
+
+    fn markers(kind: YTypeKind) -> Option<MarkerList> {
+        match kind {
+            YTypeKind::Map => None,
+            _ => Some(MarkerList::new()),
+        }
+    }
 }
 
 #[macro_export(local_inner_macros)]
 macro_rules! impl_variants {
-    ({$($name: ident: $id: literal),*}) => {
+    ({$($name: ident: $codec_ref: literal),*}) => {
         #[derive(Debug, Clone, Copy, PartialEq, Default)]
         pub enum YTypeKind {
             $($name,)*
@@ -172,7 +209,7 @@ macro_rules! impl_variants {
         impl From<u64> for YTypeKind {
             fn from(value: u64) -> Self {
                 match value {
-                    $($id => YTypeKind::$name,)*
+                    $($codec_ref => YTypeKind::$name,)*
                     _ => YTypeKind::Unknown,
                 }
             }
@@ -183,12 +220,17 @@ macro_rules! impl_variants {
             fn from(value: YTypeKind) -> Self {
                 std::debug_assert!(value != YTypeKind::Unknown);
                 match value {
-                    $(YTypeKind::$name => $id,)*
+                    $(YTypeKind::$name => $codec_ref,)*
                     _ => std::unreachable!(),
                 }
             }
         }
     };
+}
+
+pub(crate) trait AsInner {
+    type Inner;
+    fn as_inner(&self) -> &Self::Inner;
 }
 
 #[macro_export(local_inner_macros)]
@@ -205,18 +247,24 @@ macro_rules! impl_type {
             }
 
             #[allow(dead_code)]
+            #[inline(always)]
             fn read(&self) -> std::sync::RwLockReadGuard<super::YType> {
                 self.0.read().unwrap()
             }
 
             #[allow(dead_code)]
+            #[inline(always)]
             fn write(&self) -> std::sync::RwLockWriteGuard<super::YType> {
                 self.0.write().unwrap()
             }
+        }
 
-            #[allow(dead_code)]
-            fn inner(&self) -> super::YTypeRef {
-                self.0.clone()
+        impl super::AsInner for $name {
+            type Inner = super::YTypeRef;
+
+            #[inline(always)]
+            fn as_inner(&self) -> &Self::Inner {
+                &self.0
             }
         }
 
@@ -229,9 +277,7 @@ macro_rules! impl_type {
                     super::YTypeKind::$name => Ok($name::new(value.clone())),
                     super::YTypeKind::Unknown => {
                         inner.set_kind(super::YTypeKind::$name)?;
-                        // release lock guard
-                        drop(inner);
-                        $name::try_from(value.clone())
+                        Ok($name::new(value.clone()))
                     }
                     _ => Err($crate::JwstCodecError::TypeCastError("Text")),
                 }

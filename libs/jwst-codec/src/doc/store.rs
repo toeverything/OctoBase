@@ -175,7 +175,7 @@ impl DocStore {
                             std::mem::swap(old_item, new_item);
                         }
                         _ => {
-                            items[idx] = left_item.clone();
+                            items[idx] = left_item;
                         }
                     }
                     items.insert(idx + 1, right_item.clone());
@@ -375,11 +375,10 @@ impl DocStore {
         &mut self,
         mut struct_info: StructInfo,
         offset: u64,
-        parent: Option<RwLockWriteGuard<YType>>,
+        parent: Option<&mut YType>,
     ) -> JwstCodecResult {
         match &mut struct_info {
             StructInfo::Item(item) => {
-                debug_assert_eq!(Arc::strong_count(item), 1);
                 // SAFETY:
                 // before we integrate struct into store,
                 // the struct => Arc<Item> is owned reference actually,
@@ -396,24 +395,19 @@ impl DocStore {
 
                 let id = item.id;
 
-                let mut left = item.left_id.and_then(|left_id| self.get_item(left_id));
-                let mut right = item.right_id.and_then(|right_id| self.get_item(right_id));
-
-                let parent = parent.or_else(|| {
-                    if let Some(parent) = &item.parent {
-                        match parent {
-                            Parent::Type(ty) => Some(ty.write().unwrap()),
-                            _ => {
-                                // we've already recovered all `item.parent` to `Parent::Type` branch in [repair] phase
-                                unreachable!()
-                            }
-                        }
+                if let Some(Parent::Type(ty)) = &item.parent {
+                    let mut parent_lock: Option<RwLockWriteGuard<YType>> = None;
+                    let parent = if let Some(p) = parent {
+                        p
                     } else {
-                        None
-                    }
-                });
+                        let lock = ty.write().unwrap();
+                        parent_lock = Some(lock);
+                        parent_lock.as_deref_mut().unwrap()
+                    };
 
-                if let Some(mut parent) = parent {
+                    let mut left = item.left_id.and_then(|left_id| self.get_item(left_id));
+                    let mut right = item.right_id.and_then(|right_id| self.get_item(right_id));
+
                     let right_is_null_or_has_left = match &right {
                         None => true,
                         Some(right) => right.left_id().is_some(),
@@ -525,31 +519,30 @@ impl DocStore {
                                     .insert(parent_sub.to_string(), struct_info.clone());
 
                                 if let Some(left) = &left {
-                                    self.delete(left.id(), left.len());
-                                    left.delete();
+                                    self.delete(left, Some(parent));
                                 }
                             }
                         }
                     }
 
                     // should delete
-                    if parent
+                    let parent_deleted = parent
                         .item
                         .as_ref()
                         .and_then(|item| item.upgrade())
                         .map(|item| item.deleted())
-                        .unwrap_or(false)
-                        || item.parent_sub.is_some() && item.right_id.is_some()
-                    {
-                        self.delete(id, item.len());
-                        item.delete();
+                        .unwrap_or(false);
+
+                    if parent_deleted || item.parent_sub.is_some() && item.right_id.is_some() {
+                        self.delete_item(item, Some(parent));
                     } else {
                         // adjust parent length
                         if item.parent_sub.is_none() && item.countable() {
-                            parent.content_len += item.len();
-                            parent.item_len += 1;
+                            parent.len += item.len();
                         }
                     }
+
+                    parent_lock.take();
                 }
             }
             StructInfo::GC { id, len } => {
@@ -565,9 +558,39 @@ impl DocStore {
         self.add_item(struct_info)
     }
 
-    pub(crate) fn delete(&self, id: Id, len: u64) {
+    pub(crate) fn delete_item(&self, item: &Item, parent: Option<&mut YType>) {
+        if item.deleted() {
+            return;
+        }
+
+        let id = item.id;
+        item.delete();
         let mut delete_set = self.delete_set.write().unwrap();
-        delete_set.add(id.client, id.clock, len);
+        delete_set.add(id.client, id.clock, item.len());
+
+        if item.parent_sub.is_none() && item.countable() {
+            if let Some(parent) = parent {
+                parent.len -= item.len();
+            } else if let Some(Parent::Type(ty)) = &item.parent {
+                ty.write().unwrap().len -= item.len();
+            }
+        }
+
+        match item.content.as_ref() {
+            Content::Type(_) => {
+                // TODO: remove all type items
+            }
+            Content::Doc { .. } => {
+                // TODO: remove subdoc
+            }
+            _ => {}
+        }
+    }
+
+    pub(crate) fn delete(&self, struct_info: &StructInfo, parent: Option<&mut YType>) {
+        if let StructInfo::Item(item) = struct_info {
+            self.delete_item(item.as_ref(), parent);
+        }
     }
 
     pub(crate) fn delete_range(&mut self, client: u64, range: Range<u64>) -> JwstCodecResult {
@@ -586,7 +609,21 @@ impl DocStore {
                     if !struct_info.deleted() && id.clock < range.start {
                         match struct_info.split_item(start - id.clock) {
                             Ok((left, right)) => {
-                                items[idx] = left;
+                                match (&struct_info, &left) {
+                                    (StructInfo::Item(old_item), StructInfo::Item(new_item)) => {
+                                        // SAFETY:
+                                        // we make sure store is the only entry of mutating an item,
+                                        // and we already hold mutable reference of store, so it's safe to do so
+                                        let old_item =
+                                            unsafe { &mut *(Arc::as_ptr(old_item) as *mut Item) };
+                                        let new_item =
+                                            unsafe { &mut *(Arc::as_ptr(new_item) as *mut Item) };
+                                        std::mem::swap(old_item, new_item);
+                                    }
+                                    _ => {
+                                        items[idx] = left;
+                                    }
+                                }
                                 items.insert(idx + 1, right);
                                 idx += 1;
                             }
@@ -606,15 +643,33 @@ impl DocStore {
                         if end < id.clock + struct_info.len() {
                             match struct_info.split_item(end - id.clock) {
                                 Ok((left, right)) => {
-                                    items[idx] = left;
+                                    match (&struct_info, &left) {
+                                        (
+                                            StructInfo::Item(old_item),
+                                            StructInfo::Item(new_item),
+                                        ) => {
+                                            // SAFETY:
+                                            // we make sure store is the only entry of mutating an item,
+                                            // and we already hold mutable reference of store, so it's safe to do so
+                                            let old_item = unsafe {
+                                                &mut *(Arc::as_ptr(old_item) as *mut Item)
+                                            };
+                                            let new_item = unsafe {
+                                                &mut *(Arc::as_ptr(new_item) as *mut Item)
+                                            };
+                                            std::mem::swap(old_item, new_item);
+                                        }
+                                        _ => {
+                                            items[idx] = left;
+                                        }
+                                    }
                                     items.insert(idx + 1, right);
                                     struct_info = &items[idx];
                                 }
                                 Err(e) => return Err(e),
                             }
                         }
-                        self.delete(id, struct_info.len());
-                        struct_info.delete();
+                        self.delete(struct_info, None);
                     } else {
                         break;
                     }

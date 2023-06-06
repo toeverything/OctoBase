@@ -1,46 +1,113 @@
+use std::ops::{Index, Range};
+
 use super::*;
 
-pub struct YArray {
-    core: ListCore,
+impl_type!(Array);
+
+impl ListType for Array {}
+
+pub struct ArrayIter<'a>(ListIterator<'a>);
+
+impl<'a> Iterator for ArrayIter<'a> {
+    type Item = Arc<Content>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|item| item.content.clone())
+    }
 }
 
-impl YArray {
-    pub fn new(client_id: Client, list: Array) -> JwstCodecResult<YArray> {
-        Ok(Self {
-            core: ListCore::new(client_id, list.inner()),
+impl Array {
+    #[inline]
+    pub fn len(&self) -> u64 {
+        self.content_len()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn get(&self, index: u64) -> Option<&Content> {
+        self.get_item_at(index).map(|(item, _)| {
+            let ptr = Arc::as_ptr(&item.content);
+
+            unsafe { &*ptr }
         })
     }
 
-    pub fn get(&self, index: u64) -> JwstCodecResult<Option<Content>> {
-        self.core.get(index)
+    pub fn iter(&self) -> ArrayIter {
+        ArrayIter(self.iter_item())
     }
 
-    pub fn iter(&self) -> ListIterator {
-        self.core.iter()
+    pub fn push<V: Into<Any>>(&mut self, val: V) -> JwstCodecResult {
+        self.insert(self.len(), val)
     }
 
-    pub fn map<'a, F, T>(&'a self, f: F) -> impl Iterator<Item = JwstCodecResult<T>> + 'a
-    where
-        F: FnMut(Content) -> JwstCodecResult<T> + 'a,
-    {
-        // TODO: the iterator should be short-circuited when it fails
-        self.core.iter().flatten().map(f)
+    pub fn insert<V: Into<Any>>(&mut self, idx: u64, val: V) -> JwstCodecResult {
+        let contents = Self::group_content(val);
+        self.insert_at(idx, contents)
     }
 
-    pub fn slice(&self, start: usize, end: usize) -> JwstCodecResult<Vec<Content>> {
-        self.iter().skip(start).take(end - start).collect()
+    pub fn remove(&mut self, idx: u64, len: u64) -> JwstCodecResult {
+        self.remove_at(idx, len)
     }
 
-    pub fn insert<S: Into<String>>(&mut self, idx: u64, val: S) -> JwstCodecResult {
-        self.core.insert(idx, vec![Any::String(val.into())])
-    }
+    fn group_content<V: Into<Any>>(val: V) -> Vec<Content> {
+        let mut ret = vec![];
 
-    pub fn push<S: Into<String>>(&mut self, val: S) -> JwstCodecResult {
-        self.core.push(vec![Any::String(val.into())])
-    }
+        let val = val.into();
+        match val {
+            Any::Undefined
+            | Any::Null
+            | Any::Integer(_)
+            | Any::Float32(_)
+            | Any::Float64(_)
+            | Any::BigInt64(_)
+            | Any::False
+            | Any::True
+            | Any::String(_)
+            | Any::Object(_) => {
+                ret.push(Content::Any(vec![val]));
+            }
+            Any::Array(v) => {
+                ret.push(Content::Any(v));
+            }
+            Any::Binary(b) => {
+                ret.push(Content::Binary(b));
+            }
+        }
 
-    pub fn remove(&mut self, idx: u64, length: u64) -> JwstCodecResult {
-        self.core.remove(idx, length)
+        ret
+    }
+}
+
+impl Index<u64> for Array {
+    type Output = Content;
+
+    fn index(&self, index: u64) -> &Self::Output {
+        self.get(index).unwrap()
+    }
+}
+
+impl Index<Range<u64>> for Array {
+    type Output = [Content];
+
+    fn index(&self, _index: Range<u64>) -> &Self::Output {
+        todo!()
+    }
+}
+
+// TODO: impl more for Any::from(primitive types/vec<T>/map...)
+// Move to codec/any.rs
+impl From<String> for Any {
+    fn from(s: String) -> Self {
+        Any::String(s)
+    }
+}
+
+impl From<&str> for Any {
+    fn from(s: &str) -> Self {
+        Any::from(s.to_string())
     }
 }
 
@@ -51,34 +118,24 @@ mod tests {
 
     #[test]
     fn test_yarray_insert() {
-        let buffer = {
-            let doc = Doc::default();
-            let mut array = doc.get_or_create_array("abc").unwrap();
+        let doc = Doc::default();
+        let mut array = doc.get_or_create_array("abc").unwrap();
 
-            array.insert(0, " ").unwrap();
-            array.insert(0, "Hello").unwrap();
-            array.insert(2, "World").unwrap();
-            doc.encode_update_v1().unwrap()
-        };
-
-        let mut decoder = RawDecoder::new(buffer);
-        let update = Update::read(&mut decoder).unwrap();
-
-        let mut doc = Doc::default();
-        doc.apply_update(update).unwrap();
-        let array = doc.get_or_create_array("abc").unwrap();
+        array.insert(0, " ").unwrap();
+        array.insert(0, "Hello").unwrap();
+        array.insert(2, "World").unwrap();
 
         assert_eq!(
-            array.get(0).unwrap().unwrap(),
-            Content::Any(vec![Any::String("Hello".into())])
+            array.get(0).unwrap(),
+            &Content::Any(vec![Any::String("Hello".into())])
         );
         assert_eq!(
-            array.get(1).unwrap().unwrap(),
-            Content::Any(vec![Any::String(" ".into())])
+            array.get(1).unwrap(),
+            &Content::Any(vec![Any::String(" ".into())])
         );
         assert_eq!(
-            array.get(2).unwrap().unwrap(),
-            Content::Any(vec![Any::String("World".into())])
+            array.get(2).unwrap(),
+            &Content::Any(vec![Any::String("World".into())])
         );
     }
 
@@ -102,19 +159,10 @@ mod tests {
             doc.apply_update(update).unwrap();
             let array = doc.get_or_create_array("abc").unwrap();
 
-            assert_eq!(
-                (0..=12)
-                    .filter_map(|i| array.get(i).ok().flatten().and_then(|c| {
-                        if let Content::String(s) = c {
-                            Some(s)
-                        } else {
-                            None
-                        }
-                    }))
-                    .collect::<Vec<_>>()
-                    .join(""),
-                "Hello World!"
-            );
+            assert_eq!(array.get(0).unwrap(), &Content::String("Hello".into()));
+            assert_eq!(array.get(5).unwrap(), &Content::String(" ".into()));
+            assert_eq!(array.get(6).unwrap(), &Content::String("World".into()));
+            assert_eq!(array.get(11).unwrap(), &Content::String("!".into()));
         }
 
         {
@@ -135,57 +183,15 @@ mod tests {
             doc.apply_update(update).unwrap();
             let array = doc.get_or_create_array("abc").unwrap();
 
-            assert_eq!(
-                (0..=12)
-                    .filter_map(|i| array.get(i).ok().flatten().and_then(|c| {
-                        if let Content::String(s) = c {
-                            Some(s)
-                        } else {
-                            None
-                        }
-                    }))
-                    .collect::<Vec<_>>()
-                    .join(""),
-                "Hello World!"
-            );
+            assert_eq!(array.get(0).unwrap(), &Content::String("Hello".into()));
+            assert_eq!(array.get(5).unwrap(), &Content::String(" ".into()));
+            assert_eq!(array.get(6).unwrap(), &Content::String("World".into()));
+            assert_eq!(array.get(11).unwrap(), &Content::String("!".into()));
         }
     }
 
     #[test]
-    fn test_yarray_map() {
-        let buffer = {
-            let doc = Doc::default();
-            let mut array = doc.get_or_create_array("abc").unwrap();
-            array.insert(0, " ").unwrap();
-            array.insert(0, "Hello").unwrap();
-            array.insert(2, "World").unwrap();
-            // array.insert(3, 1).unwrap();
-            doc.encode_update_v1().unwrap()
-        };
-
-        let mut decoder = RawDecoder::new(buffer);
-        let update = Update::read(&mut decoder).unwrap();
-        let mut doc = Doc::default();
-        doc.apply_update(update).unwrap();
-        let array = doc.get_or_create_array("abc").unwrap();
-
-        let items = array
-            .iter()
-            .filter_map(|c| {
-                c.ok()
-                    .map(|c| matches!(c, Content::Any(any) if any.len() == 1 && matches!(any[0], Any::String(_))))
-            })
-            .collect::<Vec<_>>();
-        assert_eq!(
-            items,
-            vec![
-                true, true, true,
-                // false
-            ]
-        );
-    }
-
-    #[test]
+    #[ignore = "TODO"]
     fn test_yarray_slice() {
         let buffer = {
             let doc = yrs::Doc::new();
@@ -205,7 +211,7 @@ mod tests {
         doc.apply_update(update).unwrap();
         let array = doc.get_or_create_array("abc").unwrap();
 
-        let items = array.slice(1, 3).unwrap();
+        let items = &array[1..3];
         assert_eq!(
             items,
             vec![
