@@ -60,11 +60,9 @@ impl MarkerList {
             if len > 0 {
                 while let Some(left_item) = ptr.left_id {
                     if let Some(left_item) = store.get_item(left_item) {
-                        if let Some(left_item) = left_item.as_item() {
-                            ptr = left_item;
-                            if !ptr.deleted() && ptr.content.countable() {
-                                marker.index -= ptr.len();
-                            }
+                        ptr = left_item;
+                        if !ptr.deleted() && ptr.content.countable() {
+                            marker.index -= ptr.len();
                         }
                     }
                 }
@@ -92,62 +90,67 @@ impl MarkerList {
 
         let marker = list
             .iter_mut()
-            .min_by_key(|a| (index as i64 - a.index as i64).abs());
+            .min_by_key(|m| (index as i64 - m.index as i64).abs());
         let mut marker_index = marker.as_ref().map(|m| m.index).unwrap_or(0);
-        let mut item_ptr = marker.as_ref().map_or(parent_start, |m| m.ptr.clone());
+        let mut item_ptr = marker
+            .as_ref()
+            .map_or(parent_start.clone(), |m| m.ptr.clone());
 
         // TODO: this logic here is a bit messy
         // i think it can be implemented with more streamlined code, and then optimized
         {
             // iterate to the right if possible
-            while item_ptr.right_id.is_some() && marker_index < index {
-                if item_ptr.indexable() {
-                    if index < marker_index + item_ptr.len() {
-                        break;
+            while let Some(right_item) = item_ptr.right(store) {
+                if marker_index < index {
+                    if item_ptr.indexable() {
+                        if index < marker_index + item_ptr.len() {
+                            break;
+                        }
+                        marker_index += item_ptr.len();
                     }
-                    marker_index += item_ptr.len();
+                    item_ptr = right_item;
                 }
-                item_ptr = store
-                    .get_item(item_ptr.right_id.unwrap())
-                    .and_then(|i| i.as_item())
-                    .unwrap();
+                break;
             }
 
             // iterate to the left if necessary (might be that marker_index > index)
-            while item_ptr.left_id.is_some() && marker_index > index {
-                item_ptr = store
-                    .get_item(item_ptr.left_id.unwrap())
-                    .and_then(|i| i.as_item())
-                    .unwrap();
-                if !item_ptr.deleted() && item_ptr.content.countable() {
-                    marker_index -= item_ptr.len();
+            while let Some(left_item) = item_ptr.left(store) {
+                if marker_index > index {
+                    item_ptr = left_item;
+                    if item_ptr.indexable() {
+                        let item_len = item_ptr.len();
+                        if marker_index > item_len {
+                            marker_index -= item_ptr.len();
+                        }
+                    }
                 }
+                break;
             }
 
             // we want to make sure that item_ptr can't be merged with left, because that would screw up everything
             // in that case just return what we have (it is most likely the best marker anyway)
             // iterate to left until item_ptr can't be merged with left
-            while let Some(left_id) = item_ptr.left_id {
-                if let Some(left_item) = store.get_item(left_id).and_then(|i| i.as_item()) {
-                    if left_item.id.client == item_ptr.id.client
-                        && left_item.id.clock + item_ptr.len() == item_ptr.id.clock
-                    {
-                        item_ptr = left_item;
-                        if !item_ptr.deleted() && item_ptr.content.countable() {
-                            marker_index -= item_ptr.len();
-                        }
-                        continue;
+            while let Some(left_item) = item_ptr.left(store) {
+                if left_item.id.client == item_ptr.id.client
+                    && left_item.id.clock + item_ptr.len() == item_ptr.id.clock
+                {
+                    item_ptr = left_item;
+                    if item_ptr.indexable() {
+                        marker_index -= item_ptr.len();
                     }
+                    continue;
                 }
                 break;
             }
         }
 
         match marker {
-            // Q: get_parent requires a lock and would result in deadlock
+            // FIXME: get_parent requires a lock and would result in deadlock
             // Some(marker)
             //     if parent_start
-            //         .get_parent(&store)?
+            //         .get_parent(&store)
+            //         .ok()
+            //         .flatten()
             //         .map(|ptr| {
             //             (marker.index as i64 - marker_index as i64).abs()
             //                 < ptr.len() as i64 / MAX_SEARCH_MARKER as i64
@@ -175,6 +178,8 @@ impl MarkerList {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaCha20Rng;
     use yrs::{Array, Transact};
 
     #[test]
@@ -206,7 +211,6 @@ mod tests {
                     .read()
                     .unwrap()
                     .get_item(Id::new(client_id, 0))
-                    .and_then(|i| i.as_item())
                     .unwrap(),
             )
             .unwrap();
@@ -217,8 +221,46 @@ mod tests {
                 .read()
                 .unwrap()
                 .get_item(Id::new(client_id, 2))
-                .and_then(|i| i.as_item())
                 .unwrap()
         );
+    }
+
+    fn search_with_seed(seed: u64) {
+        let rand = ChaCha20Rng::seed_from_u64(seed);
+        let iteration = 10;
+
+        let doc = Doc::default();
+        let mut text = doc.get_or_crate_text("test").unwrap();
+        text.insert(0, "This is a string with length 32.").unwrap();
+
+        for i in 0..iteration {
+            let mut text = text.clone();
+            let mut rand = rand.clone();
+            let pos = rand.gen_range(0..text.len());
+            text.insert(pos, format!("hello {i}")).unwrap();
+        }
+
+        for i in 0..iteration {
+            let doc = doc.clone();
+            let mut rand = rand.clone();
+            let mut text = doc.get_or_crate_text("test").unwrap();
+            let pos = rand.gen_range(0..text.len());
+            text.insert(pos, format!("hello doc{i}")).unwrap();
+        }
+
+        assert_eq!(
+            text.to_string().len(),
+            32 /* raw length */
+        + 7 * iteration /* parallel text editing: insert(pos, "hello {i}") */
+        + 10 * iteration /* parallel doc editing: insert(pos, "hello doc{i}") */
+        );
+    }
+
+    #[test]
+    fn test_marker_list_with_seed() {
+        // search_with_seed(785590655803394607);
+        search_with_seed(12958877733367615);
+        search_with_seed(71776330571528794);
+        search_with_seed(2207805473582911);
     }
 }

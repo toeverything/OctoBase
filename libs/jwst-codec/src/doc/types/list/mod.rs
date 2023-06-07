@@ -81,13 +81,9 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
             return Err(JwstCodecError::IndexOutOfBound(index));
         }
 
-        let inner = self.as_inner().read().unwrap();
-        if let Some(store) = inner.store.upgrade() {
-            let mut store = store.write().unwrap();
+        let mut inner = self.as_inner().write().unwrap();
+        if let Some(mut store) = inner.store_mut() {
             let pos = self.find_pos(&inner, &store, index);
-            drop(inner);
-
-            let inner = self.as_inner().write().unwrap();
             Self::insert_after(inner, &mut store, pos, contents)?;
         }
 
@@ -138,10 +134,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         }
 
         let inner = self.as_inner().read().unwrap();
-
-        if let Some(store) = inner.store.upgrade() {
-            let store = store.read().unwrap();
-
+        if let Some(store) = inner.store() {
             let pos = self.find_pos(&inner, &store, index);
 
             if pos.offset == 0 {
