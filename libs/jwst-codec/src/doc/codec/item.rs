@@ -179,6 +179,14 @@ impl Default for Item {
 }
 
 impl Item {
+    pub fn left(&self, store: &DocStore) -> Option<Arc<Item>> {
+        self.left_id.and_then(|id| store.get_item(id))
+    }
+
+    pub fn right(&self, store: &DocStore) -> Option<Arc<Item>> {
+        self.right_id.and_then(|id| store.get_item(id))
+    }
+
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -211,7 +219,7 @@ impl Item {
 
     pub fn get_parent(&self, store: &DocStore) -> JwstCodecResult<Option<Arc<Item>>> {
         let parent = match &self.parent {
-            Some(Parent::Id(id)) => store.get_item(*id).and_then(|i| i.as_item()),
+            Some(Parent::Id(id)) => store.get_node(*id).and_then(|i| i.as_item()),
             Some(Parent::String(_)) => None,
             Some(Parent::Type(ty)) => ty.read().unwrap().start.as_ref().and_then(|i| i.as_item()),
             None => None,

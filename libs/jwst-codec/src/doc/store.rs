@@ -136,11 +136,16 @@ impl DocStore {
         }
     }
 
-    pub fn get_item<I: Into<Id>>(&self, id: I) -> Option<StructInfo> {
-        self.get_item_with_idx(id).map(|(item, _)| item)
+    pub fn get_item<I: Into<Id>>(&self, id: I) -> Option<Arc<Item>> {
+        self.get_node_with_idx(id)
+            .and_then(|(item, _)| item.as_item())
     }
 
-    pub fn get_item_with_idx<I: Into<Id>>(&self, id: I) -> Option<(StructInfo, usize)> {
+    pub fn get_node<I: Into<Id>>(&self, id: I) -> Option<StructInfo> {
+        self.get_node_with_idx(id).map(|(item, _)| item)
+    }
+
+    pub fn get_node_with_idx<I: Into<Id>>(&self, id: I) -> Option<(StructInfo, usize)> {
         let id = id.into();
         if let Some(items) = self.items.read().unwrap().get(&id.client) {
             if let Some(index) = Self::get_item_index(items, id.clock) {
@@ -151,7 +156,7 @@ impl DocStore {
         None
     }
 
-    pub fn split_item<I: Into<Id>>(
+    pub fn split_node<I: Into<Id>>(
         &mut self,
         id: I,
         diff: u64,
@@ -295,7 +300,7 @@ impl DocStore {
         let mut o = s.clone();
 
         while let Some(left_id) = o.left_id() {
-            if let Some(left_struct) = self.get_item(left_id) {
+            if let Some(left_struct) = self.get_node(left_id) {
                 if left_struct.is_item() {
                     o = left_struct;
                 } else {
@@ -334,7 +339,7 @@ impl DocStore {
             // Item { id: (1, 0), content: Content::Type(YText) }
             //        ^^ Parent::Id((1, 0))
             Some(Parent::Id(parent_id)) => {
-                match self.get_item(*parent_id) {
+                match self.get_node(*parent_id) {
                     Some(StructInfo::Item(_)) => match &item.content.as_ref() {
                         Content::Type(ty) => {
                             item.parent.replace(Parent::Type(ty.clone()));
@@ -355,11 +360,11 @@ impl DocStore {
             }
             // no item.parent, borrow left.parent or right.parent
             None => {
-                if let Some(left) = item.left_id.and_then(|left_id| self.get_item(left_id)) {
+                if let Some(left) = item.left_id.and_then(|left_id| self.get_node(left_id)) {
                     item.parent = left.parent().cloned();
                     item.parent_sub = left.parent_sub().cloned();
                 } else if let Some(right) =
-                    item.right_id.and_then(|right_id| self.get_item(right_id))
+                    item.right_id.and_then(|right_id| self.get_node(right_id))
                 {
                     item.parent = right.parent().cloned();
                     item.parent_sub = right.parent_sub().cloned();
@@ -405,8 +410,8 @@ impl DocStore {
                         parent_lock.as_deref_mut().unwrap()
                     };
 
-                    let mut left = item.left_id.and_then(|left_id| self.get_item(left_id));
-                    let mut right = item.right_id.and_then(|right_id| self.get_item(right_id));
+                    let mut left = item.left_id.and_then(|left_id| self.get_node(left_id));
+                    let mut right = item.right_id.and_then(|right_id| self.get_node(right_id));
 
                     let right_is_null_or_has_left = match &right {
                         None => true,
@@ -423,7 +428,7 @@ impl DocStore {
                     {
                         // set the first conflicting item
                         let mut o = if let Some(left) = left.clone() {
-                            left.right_id().and_then(|right_id| self.get_item(right_id))
+                            left.right_id().and_then(|right_id| self.get_node(right_id))
                         } else if let Some(parent_sub) = &item.parent_sub {
                             let o = parent.map.as_ref().and_then(|m| m.get(parent_sub).cloned());
                             o.as_ref().map(|o| self.get_start_item(o))
@@ -466,7 +471,7 @@ impl DocStore {
                                         break;
                                     }
                                     o = match c.right_id {
-                                        Some(right_id) => self.get_item(right_id),
+                                        Some(right_id) => self.get_node(right_id),
                                         None => None,
                                     };
                                 }
@@ -894,7 +899,7 @@ mod tests {
             };
             doc_store.add_item(struct_info.clone()).unwrap();
 
-            assert_eq!(doc_store.get_item(Id::new(1, 9)), Some(struct_info));
+            assert_eq!(doc_store.get_node(Id::new(1, 9)), Some(struct_info));
         }
 
         {
@@ -910,13 +915,13 @@ mod tests {
             doc_store.add_item(struct_info1).unwrap();
             doc_store.add_item(struct_info2.clone()).unwrap();
 
-            assert_eq!(doc_store.get_item(Id::new(1, 25)), Some(struct_info2));
+            assert_eq!(doc_store.get_node(Id::new(1, 25)), Some(struct_info2));
         }
 
         {
             let doc_store = DocStore::new();
 
-            assert_eq!(doc_store.get_item(Id::new(1, 0)), None);
+            assert_eq!(doc_store.get_node(Id::new(1, 0)), None);
         }
 
         {
@@ -932,7 +937,7 @@ mod tests {
             doc_store.add_item(struct_info1).unwrap();
             doc_store.add_item(struct_info2).unwrap();
 
-            assert_eq!(doc_store.get_item(Id::new(1, 35)), None);
+            assert_eq!(doc_store.get_node(Id::new(1, 35)), None);
         }
     }
 
@@ -956,7 +961,7 @@ mod tests {
         doc_store.add_item(struct_info1.clone()).unwrap();
         doc_store.add_item(struct_info2).unwrap();
 
-        let s1 = doc_store.get_item(Id::new(1, 0)).unwrap();
+        let s1 = doc_store.get_node(Id::new(1, 0)).unwrap();
         assert_eq!(s1, struct_info1);
         let left = doc_store.split_at_and_get_left((1, 1)).unwrap();
         assert_eq!(left.len(), 2); // octo => oc_to

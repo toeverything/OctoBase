@@ -66,10 +66,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
                     }
                 }
 
-                pos.right = item
-                    .right_id
-                    .and_then(|right_id| store.get_item(right_id))
-                    .and_then(|right| right.as_item());
+                pos.right = item.right(store);
                 pos.left = Some(item);
             } else {
                 break;
@@ -84,10 +81,13 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
             return Err(JwstCodecError::IndexOutOfBound(index));
         }
 
-        let inner = self.as_inner().write().unwrap();
+        let inner = self.as_inner().read().unwrap();
         if let Some(store) = inner.store.upgrade() {
             let mut store = store.write().unwrap();
             let pos = self.find_pos(&inner, &store, index);
+            drop(inner);
+
+            let inner = self.as_inner().write().unwrap();
             Self::insert_after(inner, &mut store, pos, contents)?;
         }
 
@@ -103,7 +103,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         // insert in between an splitable item.
         if pos.offset > 0 {
             debug_assert!(pos.left.is_some());
-            let (_, right) = store.split_item(pos.left.as_ref().unwrap().id, pos.offset)?;
+            let (_, right) = store.split_node(pos.left.as_ref().unwrap().id, pos.offset)?;
             pos.right = right.as_item();
         }
 
@@ -183,7 +183,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         // delete in between an splitable item.
         if pos.offset > 0 {
             debug_assert!(pos.left.is_some());
-            let (_, right) = store.split_item(pos.left.as_ref().unwrap().id, pos.offset)?;
+            let (_, right) = store.split_node(pos.left.as_ref().unwrap().id, pos.offset)?;
             pos.right = right.as_item();
         }
 
@@ -192,7 +192,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
                 if !item.deleted() {
                     let content_len = item.len() as i64;
                     if remaining < content_len {
-                        store.split_item(item.id, remaining as u64)?;
+                        store.split_node(item.id, remaining as u64)?;
                     }
                     remaining -= content_len;
                     store.delete_item(&item, Some(&mut lock));
@@ -200,7 +200,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
 
                 pos.right = item
                     .right_id
-                    .and_then(|right_id| store.get_item(right_id))
+                    .and_then(|right_id| store.get_node(right_id))
                     .and_then(|right| right.as_item());
                 pos.left = Some(item);
             } else {
