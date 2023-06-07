@@ -146,7 +146,10 @@ impl MarkerList {
 
         match marker {
             // FIXME: get_parent requires a lock and would result in deadlock
-            // Some(marker)
+            // the original logic will filter out the update of the too short clock
+            // due to the deadlock, we will ignore the problem first
+            // if there is a performance problem, deal with the problem
+            Some(marker) => 
             //     if parent_start
             //         .get_parent(&store)
             //         .ok()
@@ -156,12 +159,11 @@ impl MarkerList {
             //                 < ptr.len() as i64 / MAX_SEARCH_MARKER as i64
             //         })
             //         .unwrap_or(false) =>
-            // {
-            //     // adjust existing marker
-            //     marker.overwrite_marker(item_ptr, marker_index);
-            //     Some(marker.clone())
-            // }
-            Some(marker) => Some(marker.clone()),
+            {
+                // adjust existing marker
+                marker.overwrite_marker(item_ptr, marker_index);
+                Some(marker.clone())
+            }
             _ => {
                 // create new marker
                 Self::mark_position(&mut list, item_ptr, marker_index)
