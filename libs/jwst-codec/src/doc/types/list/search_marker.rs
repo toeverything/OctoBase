@@ -56,17 +56,20 @@ impl MarkerList {
     pub(super) fn update_marker_changes(&self, store: &DocStore, index: u64, len: i64) {
         let mut list = self.search_marker.lock().unwrap();
         for marker in list.iter_mut() {
-            let mut ptr = marker.ptr.clone();
             if len > 0 {
-                while let Some(left_item) = ptr.left_id {
-                    if let Some(left_item) = store.get_item(left_item) {
+            let mut ptr = marker.ptr.clone();
+                while let Some(left_item) = ptr.left(store) {
+                    if !ptr.indexable() {
                         ptr = left_item;
-                        if !ptr.deleted() && ptr.content.countable() {
+                        if ptr.indexable() {
                             marker.index -= ptr.len();
+                            marker.ptr = ptr;
+                            break;
                         }
+                    } else {
+                        break;
                     }
                 }
-                marker.ptr = ptr;
             }
             if index < marker.index || (len > 0 && index == marker.index) {
                 marker.index = max(index, (marker.index as i64 + len) as u64);
@@ -149,7 +152,7 @@ impl MarkerList {
             // the original logic will filter out the update of the too short clock
             // due to the deadlock, we will ignore the problem first
             // if there is a performance problem, deal with the problem
-            Some(marker) => 
+            // Some(marker)
             //     if parent_start
             //         .get_parent(&store)
             //         .ok()
@@ -159,7 +162,7 @@ impl MarkerList {
             //                 < ptr.len() as i64 / MAX_SEARCH_MARKER as i64
             //         })
             //         .unwrap_or(false) =>
-            {
+            Some(marker) => {
                 // adjust existing marker
                 marker.overwrite_marker(item_ptr, marker_index);
                 Some(marker.clone())
@@ -225,6 +228,15 @@ mod tests {
                 .get_item(Id::new(client_id, 2))
                 .unwrap()
         );
+    }
+
+    #[test]
+    fn test_search_marker_flaky() {
+        let doc = Doc::default();
+        let mut text = doc.get_or_crate_text("test").unwrap();
+        text.insert(0, "0").unwrap();
+        text.insert(1, "1").unwrap();
+        text.insert(0, "0").unwrap();
     }
 
     fn search_with_seed(seed: u64) {
