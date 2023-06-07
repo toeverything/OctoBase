@@ -119,11 +119,12 @@ impl ItemFlags {
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct Item {
     pub id: Id,
-    // fast reference, ensure left.id() always equals left_id
-    // left: Option<ItemRef>,
-    pub left_id: Option<Id>,
-    // right: Option<ItemRef>
-    pub right_id: Option<Id>,
+    pub origin_left_id: Option<Id>,
+    pub origin_right_id: Option<Id>,
+    #[cfg_attr(test, proptest(value = "None"))]
+    pub left: Option<StructInfo>,
+    #[cfg_attr(test, proptest(value = "None"))]
+    pub right: Option<StructInfo>,
     pub parent: Option<Parent>,
     pub parent_sub: Option<String>,
     // make content Arc, so we can share the content between items
@@ -144,12 +145,14 @@ impl std::fmt::Debug for Item {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Item")
             .field("id", &self.id)
-            .field("left_id", &self.left_id)
-            .field("right_id", &self.right_id)
+            .field("origin_left_id", &self.origin_left_id)
+            .field("origin_right_id", &self.origin_right_id)
+            .field("left_id", &self.left.as_ref().map(|i| i.id()))
+            .field("right_id", &self.right.as_ref().map(|i| i.id()))
             .field(
                 "parent",
                 &self.parent.as_ref().map(|p| match p {
-                    Parent::Type(ty) => format!("{:?}", ty.read().unwrap().root_name),
+                    Parent::Type(_) => "[Type]".to_string(),
                     Parent::String(name) => format!("Parent({name})"),
                     Parent::Id(id) => format!("({}, {})", id.client, id.clock),
                 }),
@@ -168,25 +171,19 @@ impl Default for Item {
     fn default() -> Self {
         Self {
             id: Id::default(),
-            left_id: None,
-            right_id: None,
+            origin_left_id: None,
+            origin_right_id: None,
+            left: None,
+            right: None,
             parent: None,
             parent_sub: None,
-            content: Arc::new(Content::String("".into())),
-            flags: ItemFlags::from(item_flags::ITEM_COUNTABLE),
+            content: Arc::new(Content::Deleted(0)),
+            flags: ItemFlags::from(0),
         }
     }
 }
 
 impl Item {
-    pub fn left(&self, store: &DocStore) -> Option<Arc<Item>> {
-        self.left_id.and_then(|id| store.get_item(id))
-    }
-
-    pub fn right(&self, store: &DocStore) -> Option<Arc<Item>> {
-        self.right_id.and_then(|id| store.get_item(id))
-    }
-
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -217,22 +214,79 @@ impl Item {
         self.countable() && !self.deleted()
     }
 
-    pub fn get_parent(&self, store: &DocStore) -> JwstCodecResult<Option<Arc<Item>>> {
-        let parent = match &self.parent {
-            Some(Parent::Id(id)) => store.get_node(*id).and_then(|i| i.as_item()),
-            Some(Parent::String(_)) => None,
-            Some(Parent::Type(ty)) => ty.read().unwrap().start.as_ref().and_then(|i| i.as_item()),
-            None => None,
-        };
-        Ok(parent)
+    pub fn last_id(&self) -> Id {
+        let Id { client, clock } = self.id;
+
+        Id::new(client, clock + self.len() - 1)
     }
 
-    pub fn get_last_id(&self) -> Id {
-        if self.len() == 1 {
-            self.id
-        } else {
-            Id::new(self.id.client, self.id.clock + self.len() - 1)
+    /// Safety:
+    /// 1. We make items always readonly in the whole system
+    /// 2. Only take inner mutable reference when we are sure that the item is not shared,
+    ///    at least before the item is adding to a [DocStore].
+    /// 3. do `debug_assert_eq!(Arc::strong_count(&item), 1);` before if we can.
+    pub(crate) unsafe fn inner_mut(item: &Arc<Item>) -> &'static mut Item {
+        &mut *(Arc::as_ptr(item) as *mut Item)
+    }
+
+    /// Safety:
+    /// see [inner_mut]
+    pub(crate) unsafe fn swap(one: &Arc<Item>, other: &Arc<Item>) {
+        let one = Self::inner_mut(one);
+        let other = Self::inner_mut(other);
+
+        std::mem::swap(one, other);
+    }
+
+    #[allow(dead_code)]
+    #[cfg(any(debug, test))]
+    pub(crate) fn print_left(&self) {
+        let mut ret = String::new();
+        ret.push_str(&format!("Self{}", self.id));
+
+        let mut left = self.left.clone();
+
+        while let Some(n) = left {
+            ret.insert_str(
+                0,
+                &format!(
+                    "{}{} <- ",
+                    match n {
+                        StructInfo::Item(_) => "Item",
+                        StructInfo::GC { .. } => "GC",
+                        StructInfo::Skip { .. } => "Skip",
+                    },
+                    n.id()
+                ),
+            );
+            left = n.left();
         }
+
+        println!("{ret}");
+    }
+
+    #[allow(dead_code)]
+    #[cfg(any(debug, test))]
+    pub(crate) fn print_right(&self) {
+        let mut ret = String::new();
+        ret.push_str(&format!("Self{}", self.id));
+
+        let mut right = self.right.clone();
+
+        while let Some(n) = right {
+            ret.push_str(&format!(
+                " -> {}{}",
+                match n {
+                    StructInfo::Item(_) => "Item",
+                    StructInfo::GC { .. } => "GC",
+                    StructInfo::Skip { .. } => "Skip",
+                },
+                n.id()
+            ));
+            right = n.right();
+        }
+
+        println!("{ret}");
     }
 }
 
@@ -253,12 +307,12 @@ impl Item {
         // TODO: this data structure design will break the cpu OOE, need to be optimized
         let item = Self {
             id,
-            left_id: if has_left_id {
+            origin_left_id: if has_left_id {
                 Some(decoder.read_item_id()?)
             } else {
                 None
             },
-            right_id: if has_right_id {
+            origin_right_id: if has_right_id {
                 Some(decoder.read_item_id()?)
             } else {
                 None
@@ -286,7 +340,7 @@ impl Item {
                 debug_assert_ne!(first_5_bit, 10);
                 Arc::new(Content::read(decoder, first_5_bit)?)
             },
-            flags: ItemFlags::from(0),
+            ..Default::default()
         };
 
         if item.content.countable() {
@@ -300,10 +354,10 @@ impl Item {
 
     fn get_info(&self) -> (u8, bool) {
         let mut info = self.content.get_info();
-        if self.left_id.is_some() {
+        if self.origin_left_id.is_some() {
             info |= item_flags::ITEM_HAS_LEFT_ID;
         }
-        if self.right_id.is_some() {
+        if self.origin_right_id.is_some() {
             info |= item_flags::ITEM_HAS_RIGHT_ID;
         }
         let has_not_parent_info = info & item_flags::ITEM_HAS_PARENT_INFO == 0;
@@ -314,7 +368,7 @@ impl Item {
     }
 
     pub(crate) fn is_valid(&self) -> bool {
-        let has_id = self.left_id.is_some() || self.right_id.is_some();
+        let has_id = self.origin_left_id.is_some() || self.origin_right_id.is_some();
         !has_id && self.parent.is_some()
             || has_id && self.parent.is_none() && self.parent_sub.is_none()
     }
@@ -323,10 +377,10 @@ impl Item {
         let (info, has_not_parent_info) = self.get_info();
         encoder.write_info(info)?;
 
-        if let Some(left_id) = self.left_id {
+        if let Some(left_id) = self.origin_left_id {
             encoder.write_item_id(&left_id)?;
         }
-        if let Some(right_id) = self.right_id {
+        if let Some(right_id) = self.origin_right_id {
             encoder.write_item_id(&right_id)?;
         }
         if has_not_parent_info {

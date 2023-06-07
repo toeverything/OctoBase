@@ -50,14 +50,14 @@ mod tests {
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha20Rng;
     use std::sync::{
-        atomic::{AtomicU64, AtomicUsize, Ordering},
+        atomic::{AtomicUsize, Ordering},
         Arc,
     };
     use yrs::{Text, Transact};
 
     #[test]
     fn test_manipulate_text() {
-        let doc = Doc::default();
+        let doc = Doc::with_client(1);
         let mut text = doc.create_text().unwrap();
 
         text.insert(0, "llo").unwrap();
@@ -75,16 +75,15 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "block by faster left/right refactoring"]
     fn test_parallel_insert_text() {
         let iteration = 10;
         let rand = ChaCha20Rng::seed_from_u64(rand::thread_rng().gen());
-        let added_len = Arc::new(AtomicUsize::new(0));
         let mut handles = Vec::new();
 
-        let doc = Doc::default();
+        let doc = Doc::with_client(1);
         let mut text = doc.get_or_crate_text("test").unwrap();
         text.insert(0, "This is a string with length 32.").unwrap();
+        let added_len = Arc::new(AtomicUsize::new(32));
 
         // parallel editing text
         {
@@ -123,22 +122,19 @@ mod tests {
             handle.join().unwrap();
         }
 
-        assert_eq!(
-            text.to_string().len(),
-            32 /* raw length */
-            + added_len.load(Ordering::SeqCst) /* parallel text editing: insert(pos, string) */
-        );
+        assert_eq!(text.to_string().len(), added_len.load(Ordering::SeqCst));
+        assert_eq!(text.len(), added_len.load(Ordering::SeqCst) as u64);
     }
 
     #[test]
     fn test_parallel_ins_del_text() {
-        let doc = Doc::default();
+        let doc = Doc::with_client(1);
         let mut text = doc.get_or_crate_text("test").unwrap();
         text.insert(0, "This is a string with length 32.").unwrap();
 
         let mut handles = Vec::new();
         let iteration = 2;
-        let len = Arc::new(AtomicU64::new(32));
+        let len = Arc::new(AtomicUsize::new(32));
 
         for i in 0..iteration {
             let mut text = text.clone();
@@ -149,7 +145,7 @@ mod tests {
                     let str = format!("hello {i}");
                     let pos = rand::thread_rng().gen_range(0..text.len());
                     text.insert(pos, &str).unwrap();
-                    len.fetch_add(str.len() as u64, Ordering::SeqCst);
+                    len.fetch_add(str.len(), Ordering::SeqCst);
                 } else {
                     let pos = rand::thread_rng().gen_range(0..text.len() / 2);
                     text.remove(pos, 6).unwrap();
@@ -162,8 +158,8 @@ mod tests {
             handle.join().unwrap();
         }
 
-        assert_eq!(text.to_string().len() as u64, len.load(Ordering::SeqCst));
-        assert_eq!(text.len(), len.load(Ordering::SeqCst));
+        assert_eq!(text.to_string().len(), len.load(Ordering::SeqCst));
+        assert_eq!(text.len(), len.load(Ordering::SeqCst) as u64);
     }
 
     #[test]
@@ -190,7 +186,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "encoder output suspicious binary"]
     fn test_recover_from_octobase_encoder() {
         let binary = {
             let doc = Doc::with_client(1);

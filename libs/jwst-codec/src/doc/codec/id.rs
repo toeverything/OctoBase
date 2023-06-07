@@ -1,5 +1,6 @@
 use std::{
     cmp::Ordering,
+    fmt::Display,
     hash::Hash,
     ops::{Add, Sub},
 };
@@ -55,6 +56,12 @@ impl PartialOrd for Id {
 impl Ord for Id {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.clock.cmp(&other.clock)
+    }
+}
+
+impl Display for Id {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.client, self.clock)
     }
 }
 
