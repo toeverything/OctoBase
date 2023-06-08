@@ -115,4 +115,19 @@ mod tests {
         map.remove("1");
         assert!(!map.contains_key("1"));
     }
+
+    #[test]
+    fn test_ymap_equal() {
+        let doc = Doc::default();
+        let mut map = doc.get_or_create_map("map").unwrap();
+        map.insert("1", "value").unwrap();
+
+        let binary = doc.encode_update_v1().unwrap();
+        let new_doc = Doc::new_from_binary(binary).unwrap();
+        let map = new_doc.get_or_create_map("map").unwrap();
+        assert_eq!(
+            map.get("1"),
+            Some(&Content::Any(vec![Any::String("value".to_string())]))
+        );
+    }
 }
