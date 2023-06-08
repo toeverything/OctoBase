@@ -8,9 +8,9 @@ impl_type!(Map);
 pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
     fn insert(&mut self, key: String, value: Content) -> JwstCodecResult {
         let mut inner = self.as_inner().write().unwrap();
-        let left_id = inner.map.as_ref().and_then(|map| {
+        let left = inner.map.as_ref().and_then(|map| {
             map.get(key.as_str())
-                .and_then(|struct_info| struct_info.left_id())
+                .and_then(|struct_info| struct_info.left())
         });
         if let Some(store) = inner.store.upgrade() {
             let mut store = store.write().unwrap();
@@ -18,13 +18,13 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
             let item = Arc::new(
                 ItemBuilder::new()
                     .id(new_item_id)
-                    .left_id(left_id)
+                    .left(left)
                     .content(value)
                     .parent(Some(Parent::Type(self.as_inner().clone())))
                     .parent_sub(Some(key))
                     .build(),
             );
-            store.integrate_struct_info(StructInfo::Item(item), 0, Some(&mut inner))?;
+            store.integrate(StructInfo::Item(item), 0, Some(&mut inner))?;
         }
 
         Ok(())
