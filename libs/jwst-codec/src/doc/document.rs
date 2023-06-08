@@ -68,10 +68,10 @@ impl Doc {
                     // before we integrate struct into store,
                     // the struct => Arc<Item> is owned reference actually,
                     // no one else refer to such item yet, we can safely mutable refer to it now.
-                    let item = unsafe { &mut *(Arc::as_ptr(item) as *mut Item) };
+                    let item = unsafe { Item::inner_mut(item) };
                     store.repair(item, self.store.clone())?;
                 }
-                store.integrate_struct_info(s, offset, None)?;
+                store.integrate(s, offset, None)?;
             }
 
             for (client, range) in update.delete_set_iter(store.get_state_vector()) {

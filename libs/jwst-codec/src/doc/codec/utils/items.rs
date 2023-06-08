@@ -17,13 +17,27 @@ impl ItemBuilder {
         self
     }
 
+    pub fn left(mut self, left: Option<StructInfo>) -> ItemBuilder {
+        let origin_id = left.as_ref().map(|i| i.last_id());
+        self.item.left = left;
+        self.item.origin_left_id = origin_id;
+        self
+    }
+
+    pub fn right(mut self, right: Option<StructInfo>) -> ItemBuilder {
+        let origin_id = right.as_ref().map(|i| i.id());
+        self.item.right = right;
+        self.item.origin_right_id = origin_id;
+        self
+    }
+
     pub fn left_id(mut self, left_id: Option<Id>) -> ItemBuilder {
-        self.item.left_id = left_id;
+        self.item.origin_left_id = left_id;
         self
     }
 
     pub fn right_id(mut self, right_id: Option<Id>) -> ItemBuilder {
-        self.item.right_id = right_id;
+        self.item.origin_right_id = right_id;
         self
     }
 
@@ -72,8 +86,8 @@ mod tests {
             .build();
 
         assert_eq!(item.id, Id::new(0, 1));
-        assert_eq!(item.left_id, Some(Id::new(2, 3)));
-        assert_eq!(item.right_id, Some(Id::new(4, 5)));
+        assert_eq!(item.origin_left_id, Some(Id::new(2, 3)));
+        assert_eq!(item.origin_right_id, Some(Id::new(4, 5)));
         assert!(matches!(item.parent, Some(Parent::String(text)) if text == "test"));
         assert_eq!(item.parent_sub, None);
         assert_eq!(

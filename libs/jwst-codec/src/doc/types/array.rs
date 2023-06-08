@@ -6,9 +6,9 @@ impl_type!(Array);
 
 impl ListType for Array {}
 
-pub struct ArrayIter<'a>(ListIterator<'a>);
+pub struct ArrayIter(ListIterator);
 
-impl<'a> Iterator for ArrayIter<'a> {
+impl Iterator for ArrayIter {
     type Item = Arc<Content>;
 
     fn next(&mut self) -> Option<Self::Item> {

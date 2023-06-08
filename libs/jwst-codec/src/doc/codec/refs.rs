@@ -127,6 +127,34 @@ impl StructInfo {
         }
     }
 
+    pub fn left(&self) -> Option<Self> {
+        if let StructInfo::Item(item) = self {
+            item.left.clone()
+        } else {
+            None
+        }
+    }
+
+    pub fn right(&self) -> Option<Self> {
+        if let StructInfo::Item(item) = self {
+            item.right.clone()
+        } else {
+            None
+        }
+    }
+
+    pub fn head(&self) -> Self {
+        let mut cur = self.clone();
+
+        while let Some(Self::Item(i)) = cur.left() {
+            if i.left.is_some() {
+                cur = i.left.clone().unwrap();
+            }
+        }
+
+        cur
+    }
+
     pub fn flags(&self) -> ItemFlags {
         if let StructInfo::Item(item) = self {
             item.flags.clone()
@@ -136,69 +164,51 @@ impl StructInfo {
         }
     }
 
-    pub fn left_id(&self) -> Option<Id> {
-        if let Self::Item(item) = self {
-            item.left_id
-        } else {
-            None
-        }
+    pub fn last_id(&self) -> Id {
+        let Id { client, clock } = self.id();
+
+        Id::new(client, clock + self.len() - 1)
     }
 
-    pub fn right_id(&self) -> Option<Id> {
+    pub fn split_at(&self, offset: u64) -> JwstCodecResult<(Self, Self)> {
         if let Self::Item(item) = self {
-            item.right_id
-        } else {
-            None
-        }
-    }
-
-    pub fn parent(&self) -> Option<&Parent> {
-        if let Self::Item(item) = self {
-            item.parent.as_ref()
-        } else {
-            None
-        }
-    }
-
-    pub fn parent_sub(&self) -> Option<&String> {
-        if let Self::Item(item) = self {
-            item.parent_sub.as_ref()
-        } else {
-            None
-        }
-    }
-
-    pub fn split_item(&self, diff: u64) -> JwstCodecResult<(Self, Self)> {
-        if let Self::Item(item) = self {
+            debug_assert!(offset > 0 && item.len() > 1 && offset < item.len());
             let id = item.id;
-            let right_id = Id::new(id.client, id.clock + diff);
-            let (left_content, right_content) = item.content.split(diff)?;
+            let right_id = Id::new(id.client, id.clock + offset);
+            let (left_content, right_content) = item.content.split(offset)?;
 
-            let left_item = Self::Item(Arc::new(
+            let left_item = Arc::new(
                 ItemBuilder::new()
                     .id(id)
-                    .left_id(item.left_id)
-                    .right_id(Some(right_id))
+                    .left(item.left.clone())
+                    // left origin may not equal left.id
+                    .left_id(item.origin_left_id)
+                    .right_id(item.origin_right_id)
                     .parent(item.parent.clone())
                     .parent_sub(item.parent_sub.clone())
                     .content(left_content)
                     .flags(item.flags.clone())
                     .build(),
-            ));
+            );
 
-            let right_item = Self::Item(Arc::new(
+            let right_item = Arc::new(
                 ItemBuilder::new()
                     .id(right_id)
-                    .left_id(Some(item.id))
-                    .right_id(item.right_id)
+                    .left(Some(Self::Item(left_item.clone())))
+                    .right(item.right.clone())
+                    // right origin may not equal right.id
+                    .right_id(item.origin_right_id)
                     .parent(item.parent.clone())
                     .parent_sub(item.parent_sub.clone())
                     .content(right_content)
                     .flags(item.flags.clone())
                     .build(),
-            ));
+            );
 
-            Ok((left_item, right_item))
+            // connect left.right = right
+            unsafe { Item::inner_mut(&left_item).right = Some(Self::Item(right_item.clone())) };
+
+            Ok((Self::Item(left_item), Self::Item(right_item)))
         } else {
             Err(JwstCodecError::ItemSplitNotSupport)
         }
