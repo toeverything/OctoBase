@@ -144,6 +144,13 @@ impl Doc {
             .build()
     }
 
+    pub fn get_or_create_map(&self, str: &str) -> JwstCodecResult<Map> {
+        YTypeBuilder::new(self.store.clone())
+            .with_kind(YTypeKind::Map)
+            .set_name(str.to_string())
+            .build()
+    }
+
     pub fn encode_update_v1(&self) -> JwstCodecResult<Vec<u8>> {
         self.encode_state_as_update_v1(&StateVector::default())
     }

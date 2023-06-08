@@ -1,3 +1,4 @@
+use ordered_float::OrderedFloat;
 use std::ops::{Index, Range};
 
 use super::*;
@@ -52,32 +53,10 @@ impl Array {
         self.remove_at(idx, len)
     }
 
+    #[inline(always)]
     fn group_content<V: Into<Any>>(val: V) -> Vec<Content> {
-        let mut ret = vec![];
-
-        let val = val.into();
-        match val {
-            Any::Undefined
-            | Any::Null
-            | Any::Integer(_)
-            | Any::Float32(_)
-            | Any::Float64(_)
-            | Any::BigInt64(_)
-            | Any::False
-            | Any::True
-            | Any::String(_)
-            | Any::Object(_) => {
-                ret.push(Content::Any(vec![val]));
-            }
-            Any::Array(v) => {
-                ret.push(Content::Any(v));
-            }
-            Any::Binary(b) => {
-                ret.push(Content::Binary(b));
-            }
-        }
-
-        ret
+        let any = val.into();
+        vec![any.into()]
     }
 }
 
@@ -97,7 +76,7 @@ impl Index<Range<u64>> for Array {
     }
 }
 
-// TODO: impl more for Any::from(primitive types/vec<T>/map...)
+// TODO: impl for Any::Undefined
 // Move to codec/any.rs
 impl From<String> for Any {
     fn from(s: String) -> Self {
@@ -108,6 +87,68 @@ impl From<String> for Any {
 impl From<&str> for Any {
     fn from(s: &str) -> Self {
         Any::from(s.to_string())
+    }
+}
+
+impl<T: Into<Any>> From<Option<T>> for Any {
+    fn from(value: Option<T>) -> Self {
+        if let Some(val) = value {
+            value.into()
+        } else {
+            Any::Null
+        }
+    }
+}
+
+impl From<u64> for Any {
+    fn from(value: u64) -> Self {
+        Any::Integer(value)
+    }
+}
+
+impl From<OrderedFloat<f32>> for Any {
+    fn from(value: OrderedFloat<f32>) -> Self {
+        Any::Float32(value)
+    }
+}
+
+impl From<OrderedFloat<f64>> for Any {
+    fn from(value: OrderedFloat<f64>) -> Self {
+        Any::Float64(value)
+    }
+}
+
+impl From<i64> for Any {
+    fn from(value: i64) -> Self {
+        Any::BigInt64(value)
+    }
+}
+
+impl From<bool> for Any {
+    fn from(value: bool) -> Self {
+        if value {
+            Any::True
+        } else {
+            Any::False
+        }
+    }
+}
+
+impl From<HashMap<String, Any>> for Any {
+    fn from(value: HashMap<String, Any>) -> Self {
+        Any::Object(value)
+    }
+}
+
+impl From<Vec<Any>> for Any {
+    fn from(value: Vec<Any>) -> Self {
+        Any::Array(value)
+    }
+}
+
+impl From<Vec<u8>> for Any {
+    fn from(value: Vec<u8>) -> Self {
+        Any::Binary(value)
     }
 }
 
