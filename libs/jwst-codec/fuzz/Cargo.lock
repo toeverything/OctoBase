@@ -230,6 +230,7 @@ dependencies = [
  "lib0",
  "libfuzzer-sys",
  "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "yrs",
 ]
 

@@ -13,7 +13,7 @@ impl Iterator for ListIterator<'_> {
         while let Some(n) = self.next.take() {
             self.next = n
                 .right_id()
-                .and_then(|right_id| self.store.get_item(right_id));
+                .and_then(|right_id| self.store.get_node(right_id));
 
             if n.deleted() {
                 continue;

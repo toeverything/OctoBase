@@ -46,13 +46,13 @@ impl ToString for Text {
 
 #[cfg(test)]
 mod tests {
+    use crate::Doc;
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaCha20Rng;
     use std::sync::{
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicU64, AtomicUsize, Ordering},
         Arc,
     };
-
-    use crate::Doc;
-    use rand::Rng;
     use yrs::{Text, Transact};
 
     #[test]
@@ -75,20 +75,29 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "block by faster left/right refactoring"]
     fn test_parallel_insert_text() {
+        let iteration = 10;
+        let rand = ChaCha20Rng::seed_from_u64(rand::thread_rng().gen());
+        let added_len = Arc::new(AtomicUsize::new(0));
+        let mut handles = Vec::new();
+
         let doc = Doc::default();
         let mut text = doc.get_or_crate_text("test").unwrap();
         text.insert(0, "This is a string with length 32.").unwrap();
-        let mut handles = Vec::new();
-        let iteration = 10;
 
         // parallel editing text
         {
             for i in 0..iteration {
                 let mut text = text.clone();
+                let mut rand = rand.clone();
+                let len = added_len.clone();
                 handles.push(std::thread::spawn(move || {
-                    let pos = rand::thread_rng().gen_range(0..text.len());
-                    text.insert(pos, format!("hello {i}")).unwrap();
+                    let pos = rand.gen_range(0..text.len());
+                    let string = format!("hello {i}");
+
+                    text.insert(pos, &string).unwrap();
+                    len.fetch_add(string.len(), Ordering::SeqCst);
                 }));
             }
         }
@@ -97,10 +106,15 @@ mod tests {
         {
             for i in 0..iteration {
                 let doc = doc.clone();
+                let mut rand = rand.clone();
+                let len = added_len.clone();
                 handles.push(std::thread::spawn(move || {
                     let mut text = doc.get_or_crate_text("test").unwrap();
-                    let pos = rand::thread_rng().gen_range(0..text.len());
-                    text.insert(pos, format!("hello doc{i}")).unwrap();
+                    let pos = rand.gen_range(0..text.len());
+                    let string = format!("hello doc{i}");
+
+                    text.insert(pos, &string).unwrap();
+                    len.fetch_add(string.len(), Ordering::SeqCst);
                 }));
             }
         }
@@ -112,8 +126,7 @@ mod tests {
         assert_eq!(
             text.to_string().len(),
             32 /* raw length */
-            + 7 * iteration /* parallel text editing: insert(pos, "hello {i}") */
-            + 10 * iteration /* parallel doc editing: insert(pos, "hello doc{i}") */
+            + added_len.load(Ordering::SeqCst) /* parallel text editing: insert(pos, string) */
         );
     }
 

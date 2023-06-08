@@ -8,8 +8,9 @@ edition = "2021"
 cargo-fuzz = true
 
 [dependencies]
-rand = "0.8"
-libfuzzer-sys = "0.4"
+rand = "0.8.5"
+rand_chacha = "0.3.1"
+libfuzzer-sys = "0.4.6"
 lib0 = "0.16.5"
 yrs = "0.16.5"
 
@@ -40,6 +41,12 @@ doc = false
 [[bin]]
 name = "decode_bytes"
 path = "fuzz_targets/decode_bytes.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "parallel_insert_text"
+path = "fuzz_targets/parallel_insert_text.rs"
 test = false
 doc = false
 
