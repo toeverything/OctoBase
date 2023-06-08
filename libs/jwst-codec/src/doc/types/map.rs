@@ -68,11 +68,9 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
 
     fn remove(&mut self, key: String) {
         let inner = self.as_inner().write().unwrap();
-        inner
-            .map
-            .as_ref()
-            .and_then(|map| map.get(key.as_str()))
-            .map(|struct_info| struct_info.delete());
+        if let Some(struct_info) = inner.map.as_ref().and_then(|map| map.get(key.as_str())) {
+            struct_info.delete();
+        }
     }
 
     fn len(&self) -> u64 {
