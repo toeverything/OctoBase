@@ -220,13 +220,13 @@ impl<'a> UpdateIterator<'a> {
     fn get_missing_dep(&self, struct_info: &StructInfo) -> Option<Client> {
         if let StructInfo::Item(item) = struct_info {
             let id = item.id;
-            if let Some(left) = &item.left_id {
+            if let Some(left) = &item.origin_left_id {
                 if left.client != id.client && left.clock >= self.state.get(&left.client) {
                     return Some(left.client);
                 }
             }
 
-            if let Some(right) = &item.right_id {
+            if let Some(right) = &item.origin_right_id {
                 if right.client != id.client && right.clock >= self.state.get(&right.client) {
                     return Some(right.client);
                 }

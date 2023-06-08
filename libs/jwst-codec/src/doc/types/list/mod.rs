@@ -22,32 +22,38 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         self.as_inner().read().unwrap().len
     }
 
-    fn iter_item(&self) -> ListIterator<'_> {
+    fn iter_item(&self) -> ListIterator {
         let inner = self.as_inner().read().unwrap();
         ListIterator {
-            store: inner.store().unwrap(),
             next: inner.start.clone(),
         }
     }
 
-    fn find_pos(&self, inner: &YType, store: &DocStore, index: u64) -> ItemPosition {
+    fn find_pos(&self, inner: &YType, index: u64) -> Option<ItemPosition> {
         let mut remaining = index;
+        let start = inner.start();
+
         let mut pos = ItemPosition {
             parent: self.as_inner().clone(),
             left: None,
-            right: inner.start(),
+            right: start,
             index: 0,
             offset: 0,
         };
 
         if pos.right.is_none() {
-            return pos;
+            return Some(pos);
         }
 
         if let Some(markers) = &inner.markers {
-            if let Some(marker) = markers.find_marker(store, index, pos.right.clone().unwrap()) {
-                remaining -= marker.index;
+            if let Some(marker) = markers.find_marker(inner, index) {
+                if marker.index > remaining {
+                    remaining = 0
+                } else {
+                    remaining -= marker.index;
+                }
                 pos.index = marker.index;
+                pos.left = marker.ptr.left.as_ref().and_then(|left| left.as_item());
                 pos.right = Some(marker.ptr);
             }
         };
@@ -66,14 +72,19 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
                     }
                 }
 
-                pos.right = item.right(store);
+                if let Some(StructInfo::Item(right)) = &item.right {
+                    pos.right = Some(right.clone());
+                } else if remaining > 0 {
+                    return None;
+                }
+
                 pos.left = Some(item);
             } else {
-                break;
+                return None;
             }
         }
 
-        pos
+        Some(pos)
     }
 
     fn insert_at(&mut self, index: u64, contents: Vec<Content>) -> JwstCodecResult {
@@ -81,10 +92,11 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
             return Err(JwstCodecError::IndexOutOfBound(index));
         }
 
-        let mut inner = self.as_inner().write().unwrap();
-        if let Some(mut store) = inner.store_mut() {
-            let pos = self.find_pos(&inner, &store, index);
-            Self::insert_after(inner, &mut store, pos, contents)?;
+        let inner = self.as_inner().write().unwrap();
+        if let Some(pos) = self.find_pos(&inner, index) {
+            if let Some(mut store) = inner.store_mut() {
+                Self::insert_after(inner, &mut store, pos, contents)?;
+            }
         }
 
         Ok(())
@@ -110,19 +122,23 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
             let item = Arc::new(
                 ItemBuilder::new()
                     .id(new_item_id)
-                    .left_id(pos.left.map(|l| l.id))
-                    .right_id(pos.right.clone().map(|r| r.id))
+                    .left(pos.left.as_ref().map(|item| StructInfo::Item(item.clone())))
+                    .right(
+                        pos.right
+                            .as_ref()
+                            .map(|item| StructInfo::Item(item.clone())),
+                    )
                     .content(content)
                     .parent(Some(Parent::Type(pos.parent.clone())))
                     .build(),
             );
-            store.integrate_struct_info(StructInfo::Item(item.clone()), 0, Some(&mut lock))?;
+            store.integrate(StructInfo::Item(item.clone()), 0, Some(&mut lock))?;
             len += item.len();
             pos.left = Some(item);
         }
 
         if let Some(markers) = &lock.markers {
-            markers.update_marker_changes(store, pos.index, len as i64);
+            markers.update_marker_changes(pos.index, len as i64);
         }
 
         Ok(())
@@ -134,9 +150,8 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         }
 
         let inner = self.as_inner().read().unwrap();
-        if let Some(store) = inner.store() {
-            let pos = self.find_pos(&inner, &store, index);
 
+        if let Some(pos) = self.find_pos(&inner, index) {
             if pos.offset == 0 {
                 return pos.right.map(|r| (r, 0));
             } else {
@@ -156,10 +171,11 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
             return Err(JwstCodecError::IndexOutOfBound(idx));
         }
 
-        let mut inner = self.as_inner().write().unwrap();
-        if let Some(mut store) = inner.store_mut() {
-            let pos = self.find_pos(&inner, &store, idx);
-            Self::remove_after(inner, &mut store, pos, len)?;
+        let inner = self.as_inner().write().unwrap();
+        if let Some(pos) = self.find_pos(&inner, idx) {
+            if let Some(mut store) = inner.store_mut() {
+                Self::remove_after(inner, &mut store, pos, len)?;
+            }
         }
 
         Ok(())
@@ -191,10 +207,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
                     store.delete_item(&item, Some(&mut lock));
                 }
 
-                pos.right = item
-                    .right_id
-                    .and_then(|right_id| store.get_node(right_id))
-                    .and_then(|right| right.as_item());
+                pos.right = item.right.as_ref().and_then(|right| right.as_item());
                 pos.left = Some(item);
             } else {
                 break;
@@ -202,7 +215,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         }
 
         if let Some(markers) = &lock.markers {
-            markers.update_marker_changes(store, pos.index, -(len as i64) + remaining);
+            markers.update_marker_changes(pos.index, -(len as i64) + remaining);
         }
 
         Ok(())

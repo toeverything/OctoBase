@@ -77,10 +77,6 @@ impl YType {
         Ok(())
     }
 
-    pub fn start(&self) -> Option<ItemRef> {
-        self.start.as_ref().and_then(|s| s.as_item())
-    }
-
     pub fn store<'a>(&self) -> Option<RwLockReadGuard<'a, DocStore>> {
         if let Some(store) = self.store.upgrade() {
             let ptr = unsafe { &*Arc::as_ptr(&store) };
@@ -91,7 +87,7 @@ impl YType {
         }
     }
 
-    pub fn store_mut<'a>(&mut self) -> Option<RwLockWriteGuard<'a, DocStore>> {
+    pub fn store_mut<'a>(&self) -> Option<RwLockWriteGuard<'a, DocStore>> {
         if let Some(store) = self.store.upgrade() {
             let ptr = unsafe { &*Arc::as_ptr(&store) };
 
@@ -102,7 +98,11 @@ impl YType {
     }
 
     pub fn item(&self) -> Option<ItemRef> {
-        self.item.as_ref().and_then(|i| i.upgrade())
+        self.item.as_ref().and_then(|n| n.upgrade())
+    }
+
+    pub fn start(&self) -> Option<ItemRef> {
+        self.start.as_ref().and_then(|n| n.as_item())
     }
 }
 
@@ -248,13 +248,13 @@ macro_rules! impl_type {
 
             #[allow(dead_code)]
             #[inline(always)]
-            fn read(&self) -> std::sync::RwLockReadGuard<super::YType> {
+            pub(crate) fn read(&self) -> std::sync::RwLockReadGuard<super::YType> {
                 self.0.read().unwrap()
             }
 
             #[allow(dead_code)]
             #[inline(always)]
-            fn write(&self) -> std::sync::RwLockWriteGuard<super::YType> {
+            pub(crate) fn write(&self) -> std::sync::RwLockWriteGuard<super::YType> {
                 self.0.write().unwrap()
             }
         }
@@ -298,7 +298,6 @@ impl_variants!({
 });
 
 // TODO: move to separated impl files.
-impl_type!(Array);
 impl_type!(Map);
 impl_type!(XMLElement);
 impl_type!(XMLFragment);
