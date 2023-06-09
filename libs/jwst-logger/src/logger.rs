@@ -1,7 +1,10 @@
 use super::*;
 use std::io::{stderr, stdout};
+use std::sync::Once;
 use tracing::Level;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+
+static INIT: Once = Once::new();
 
 /// Initialize a logger with the value of the given environment variable.
 ///
@@ -26,14 +29,16 @@ pub fn init_logger_with(directives: &str) {
 fn init_logger_with_env_filter(env_filter: EnvFilter) {
     let writer = stderr.with_max_level(Level::WARN).or_else(stdout);
 
-    tracing_subscriber::registry()
-        .with(
-            fmt::layer()
-                .map_writer(move |_| writer)
-                .map_event_format(|_| JWSTFormatter),
-        )
-        .with(env_filter)
-        .init();
+    INIT.call_once(|| {
+        tracing_subscriber::registry()
+            .with(
+                fmt::layer()
+                    .map_writer(move |_| writer)
+                    .map_event_format(|_| JWSTFormatter),
+            )
+            .with(env_filter)
+            .init()
+    });
 }
 
 #[test]
