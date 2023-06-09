@@ -47,11 +47,7 @@ pub fn start_client_sync(
             };
             if !workspace.is_empty() {
                 info!("Workspace not empty, starting async remote connection");
-                let first_sync = first_sync_cloned.clone();
-                tokio::spawn(async move {
-                    sleep(Duration::from_secs(2)).await;
-                    first_sync.store(true, Ordering::Release);
-                });
+                first_sync_cloned.store(true, Ordering::Release);
             } else {
                 info!("Workspace empty, starting sync remote connection");
             }
