@@ -85,7 +85,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         let inner = self.as_inner().read().unwrap();
         let map = inner.map.as_ref().map(|map| {
             map.values()
-                .map(|struct_info| struct_info.clone())
+                .cloned()
                 .collect::<Vec<StructInfo>>()
         });
 
