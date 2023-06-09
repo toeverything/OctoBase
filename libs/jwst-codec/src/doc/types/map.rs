@@ -1,7 +1,7 @@
-use crate::doc::{AsInner, DocStore, ItemBuilder, ItemRef, Parent, StructInfo, YTypeRef};
-use crate::{impl_type, Any, Content, Id, JwstCodecResult};
+use crate::doc::{AsInner, ItemBuilder, ItemRef, Parent, StructInfo, YTypeRef};
+use crate::{impl_type, Any, Content, JwstCodecResult};
 use std::collections::HashMap;
-use std::sync::{Arc, RwLockReadGuard};
+use std::sync::Arc;
 
 impl_type!(Map);
 
@@ -81,51 +81,43 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
             .map_or(0, |map| map.values().filter(|v| !v.deleted()).count()) as u64
     }
 
-    fn iter(&self) -> MapIterator<'_> {
+    fn iter(&self) -> MapIterator {
         let inner = self.as_inner().read().unwrap();
-        let map = inner.map.as_ref().cloned().map(|map| {
+        let map = inner.map.as_ref().map(|map| {
             map.values()
-                .map(|struct_info| struct_info.id())
-                .collect::<Vec<Id>>()
+                .map(|struct_info| struct_info.clone())
+                .collect::<Vec<StructInfo>>()
         });
 
         MapIterator {
-            store: inner.store().unwrap(),
-            ids: map.unwrap_or(vec![]),
+            struct_info_vec: map.unwrap_or(vec![]),
             index: 0,
         }
     }
 }
 
-pub struct MapIterator<'a> {
-    pub(super) store: RwLockReadGuard<'a, DocStore>,
-    pub(super) ids: Vec<Id>,
+pub struct MapIterator {
+    pub(super) struct_info_vec: Vec<StructInfo>,
     pub(super) index: usize,
 }
 
-impl<'a> Iterator for MapIterator<'a> {
+impl Iterator for MapIterator {
     type Item = ItemRef;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let len = self.ids.len();
+        let len = self.struct_info_vec.len();
         if self.index >= len {
             return None;
         }
 
         while self.index < len {
-            let id = self.ids[self.index];
+            let struct_info = self.struct_info_vec[self.index].clone();
             self.index += 1;
-            let struct_info = self.store.get_node(id);
-
-            if let Some(struct_info) = struct_info {
-                if struct_info.deleted() {
-                    continue;
-                }
-
-                return struct_info.as_item();
-            } else {
+            if struct_info.deleted() {
                 continue;
             }
+
+            return struct_info.as_item();
         }
 
         None
