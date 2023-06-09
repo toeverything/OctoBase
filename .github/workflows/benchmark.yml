@@ -22,12 +22,14 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v3
               with:
-                  ref: master # Checkout master first because the cache is warm
+                  ref: master
 
-            - name: Install Rust Toolchain
-              uses: ./.github/actions/rustup
+            - name: Install Rust
+              uses: actions-rs/toolchain@v1
               with:
-                  shared-key: benchmark
+                  profile: minimal
+                  toolchain: stable
+                  override: true
 
             - name: Run Bench on Master Branch
               run: |
