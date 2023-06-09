@@ -26,14 +26,17 @@ pub fn init_logger_with(directives: &str) {
 fn init_logger_with_env_filter(env_filter: EnvFilter) {
     let writer = stderr.with_max_level(Level::WARN).or_else(stdout);
 
-    tracing_subscriber::registry()
+    if let Err(e) = tracing_subscriber::registry()
         .with(
             fmt::layer()
                 .map_writer(move |_| writer)
                 .map_event_format(|_| JWSTFormatter),
         )
         .with(env_filter)
-        .init();
+        .try_init()
+    {
+        error!("init logger failed: {}", e);
+    }
 }
 
 #[test]
