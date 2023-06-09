@@ -10,7 +10,7 @@ lib0 = "0.16.5"
 yrs = "0.16.5"
 
 # ======= workspace dependencies =======
-jwst = { path = "../../jwst" }
+jwst = { workspace = true }
 
 [lib]
 crate-type = ["staticlib"]

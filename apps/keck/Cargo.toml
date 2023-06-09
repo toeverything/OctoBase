@@ -60,10 +60,10 @@ reqwest = { version = "0.11.14", default-features = false, features = [
 
 # ======= workspace dependencies =======
 cloud-infra = { path = "../../libs/cloud-infra" }
-jwst = { path = "../../libs/jwst", features = ["workspace-auto-subscribe"] }
-jwst-logger = { path = "../../libs/jwst-logger" }
-jwst-rpc = { path = "../../libs/jwst-rpc", features = ["websocket"] }
-jwst-storage = { path = "../../libs/jwst-storage" }
+jwst = { workspace = true, features = ["workspace-auto-subscribe"] }
+jwst-logger = { workspace = true }
+jwst-rpc = { workspace = true, features = ["websocket"] }
+jwst-storage = { workspace = true }
 
 [dev-dependencies]
 axum-test-helper = "0.2.0"

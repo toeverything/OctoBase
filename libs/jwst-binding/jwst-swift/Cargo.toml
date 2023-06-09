@@ -14,10 +14,10 @@ yrs = "0.16.5"
 nanoid = "0.4.0"
 
 # ======= workspace dependencies =======
-jwst = { path = "../../jwst" }
-jwst-rpc = { path = "../../jwst-rpc" }
-jwst-storage = { path = "../../jwst-storage", features = ["sqlite"] }
-jwst-logger = { path = "../../jwst-logger" }
+jwst = { workspace = true }
+jwst-rpc = { workspace = true }
+jwst-storage = { workspace = true, features = ["sqlite"] }
+jwst-logger = { workspace = true }
 
 [lib]
 name = "octobase"

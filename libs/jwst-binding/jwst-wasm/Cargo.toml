@@ -19,7 +19,7 @@ wasm-bindgen = "^0.2.83"
 wee_alloc = { version = "^0.4.5", optional = true }
 
 # ======= workspace dependencies =======
-jwst = { path = "../../jwst" }
+jwst = { workspace = true }
 yrs = "=0.12.0"
 
 [lib]

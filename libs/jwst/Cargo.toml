@@ -40,7 +40,7 @@ tokio = { version = "1.27.0", features = [
 yrs = "0.16.5"
 
 # ======= workspace dependencies =======
-jwst-codec = { path = "../jwst-codec" }
+jwst-codec = { workspace = true }
 
 [dev-dependencies]
 assert-json-diff = "2.0.2"

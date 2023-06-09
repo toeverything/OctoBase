@@ -42,4 +42,4 @@ x509-parser = "0.15.0"
 
 # ======= workspace dependencies =======
 cloud-database = { path = "../cloud-database" }
-jwst = { path = "../jwst" }
+jwst = { workspace = true }
