@@ -17,7 +17,7 @@ futures-util = "0.3.27"
 http-body = "0.4.5"
 jsonwebtoken = "8.2.0"
 lettre = { version = "0.10.3", default-features = false }
-image =  "0.24.5" 
+image = "0.24.5"
 lib0 = "0.16.5"
 mime = "0.3.16"
 mimalloc = "0.1.34"
@@ -44,10 +44,10 @@ yrs = "0.16.5"
 # ======= workspace dependencies =======
 cloud-database = { path = "../../libs/cloud-database" }
 cloud-infra = { path = "../../libs/cloud-infra" }
-jwst = { path = "../../libs/jwst" }
-jwst-logger = { path = "../../libs/jwst-logger" }
-jwst-rpc = { path = "../../libs/jwst-rpc" }
-jwst-storage = { path = "../../libs/jwst-storage" }
+jwst = { workspace = true }
+jwst-logger = { workspace = true }
+jwst-rpc = { workspace = true }
+jwst-storage = { workspace = true }
 
 [dev-dependencies]
 axum-test-helper = "0.2.0"

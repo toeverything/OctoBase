@@ -19,9 +19,9 @@ yrs = "0.16.5"
 nanoid = "0.4.0"
 
 # ======= workspace dependencies =======
-jwst = { path = "../../jwst" }
-jwst-rpc = { path = "../../jwst-rpc" }
-jwst-storage = { path = "../../jwst-storage", features = ["sqlite"] }
+jwst = { workspace = true }
+jwst-rpc = { workspace = true }
+jwst-storage = { workspace = true, features = ["sqlite"] }
 
 [build-dependencies]
 flapigen = { git = "https://github.com/Dushistov/flapigen-rs", rev = "7d343c6" } # 0.6.0-pre13

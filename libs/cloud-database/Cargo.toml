@@ -29,8 +29,8 @@ yrs = "0.16.5"
 
 # ======= workspace dependencies =======
 affine-cloud-migration = { path = "./migration" }
-jwst = { path = "../jwst" }
-jwst-logger = { path = "../jwst-logger" }
+jwst = { workspace = true }
+jwst-logger = { workspace = true }
 
 [dev-dependencies]
 anyhow = "1.0.69"

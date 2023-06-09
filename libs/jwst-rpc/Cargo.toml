@@ -37,15 +37,15 @@ url = { version = "2.3.1", optional = true }
 # ======== webrtc dependencies ========
 bytes = { version = "1.4", optional = true }
 reqwest = { version = "0.11.18", default-features = false, features = [
-	"json",
-	"rustls-tls",
+    "json",
+    "rustls-tls",
 ], optional = true }
 webrtcrs = { package = "webrtc", version = "0.7.3", optional = true }
 
 # ======= workspace dependencies =======
-jwst = { path = "../jwst" }
-jwst-codec = { path = "../jwst-codec" }
-jwst-storage = { path = "../jwst-storage" }
+jwst = { workspace = true }
+jwst-codec = { workspace = true }
+jwst-storage = { workspace = true }
 
 [dev-dependencies]
 indicatif = "0.17.3"
