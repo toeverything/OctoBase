@@ -144,7 +144,7 @@ impl Doc {
             .build()
     }
 
-    pub fn create_array(&self) -> JwstCodecResult<Text> {
+    pub fn create_array(&self) -> JwstCodecResult<Array> {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Array)
             .build()
@@ -225,5 +225,32 @@ mod tests {
             doc.encode_update_v1().unwrap(),
             doc_new.encode_update_v1().unwrap()
         );
+    }
+
+    #[test]
+    fn test_array_create() {
+        let binary = {
+            let doc = Doc::default();
+            let mut array = doc.get_or_create_array("abc").unwrap();
+            array.insert(0, 42).unwrap();
+            array.insert(1, -42).unwrap();
+            array.insert(2, true).unwrap();
+            array.insert(3, false).unwrap();
+            array.insert(4, "hello").unwrap();
+            array.insert(5, "world").unwrap();
+
+            let mut sub_array = doc.create_array().unwrap();
+            sub_array.insert(0, "test").unwrap();
+            array.insert(6, sub_array).unwrap();
+            println!("{:?}", array);
+            doc.encode_update_v1().unwrap()
+        };
+
+        {
+            let mut doc = Doc::default();
+            doc.apply_update_from_binary(binary).unwrap();
+            let array = doc.get_or_create_array("abc").unwrap();
+            println!("{:?}", array);
+        }
     }
 }

@@ -279,7 +279,9 @@ macro_rules! impl_type {
                         inner.set_kind(super::YTypeKind::$name)?;
                         Ok($name::new(value.clone()))
                     }
-                    _ => Err($crate::JwstCodecError::TypeCastError("Text")),
+                    _ => Err($crate::JwstCodecError::TypeCastError(std::stringify!(
+                        $name
+                    ))),
                 }
             }
         }

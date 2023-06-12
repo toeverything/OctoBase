@@ -312,6 +312,40 @@ impl Content {
     }
 }
 
+macro_rules! impl_primitive_from {
+    (any => $($ty:ty),* $(,)?) => {
+        $(
+            impl From<$ty> for Content {
+                fn from(value: $ty) -> Self {
+                    Self::Any(vec![value.into()])
+                }
+            }
+        )*
+    };
+    (raw => $($ty:ty: $v:ident),* $(,)?) => {
+        $(
+            impl From<$ty> for Content {
+                fn from(value: $ty) -> Self {
+                    Self::$v(value)
+                }
+            }
+        )*
+    };
+    (type_ref => $($ty:ty),* $(,)?) => {
+        $(
+            impl From<$ty> for Content {
+                fn from(value: $ty) -> Self {
+                    Self::Type(value.as_inner().clone())
+                }
+            }
+        )*
+    }
+}
+
+impl_primitive_from! { any => u8, u16, u32, u64, i8, i16, i32, i64, String, &str, f32, f64, bool }
+impl_primitive_from! { raw => Vec<u8>: Binary, YTypeRef: Type }
+impl_primitive_from! { type_ref => Array, Text }
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -151,7 +151,7 @@ macro_rules! impl_primitive_from {
         $(
             impl From<$ty> for Any {
                 fn from(value: $ty) -> Self {
-                    Any::Integer(value.into())
+                    Self::Integer(value.into())
                 }
             }
         )*
@@ -160,7 +160,7 @@ macro_rules! impl_primitive_from {
         $(
             impl From<$ty> for Any {
                 fn from(value: $ty) -> Self {
-                    Any::BigInt64(value.into())
+                    Self::BigInt64(value.into())
                 }
             }
         )*
@@ -169,7 +169,7 @@ macro_rules! impl_primitive_from {
         $(
             impl From<$ty> for Any {
                 fn from(value: $ty) -> Self {
-                    Any::String(value.into())
+                    Self::String(value.into())
                 }
             }
         )*
@@ -182,35 +182,35 @@ impl_primitive_from!(string, String, &str);
 
 impl From<f32> for Any {
     fn from(value: f32) -> Self {
-        Any::Float32(value.into())
+        Self::Float32(value.into())
     }
 }
 
 impl From<f64> for Any {
     fn from(value: f64) -> Self {
-        Any::Float64(value.into())
+        Self::Float64(value.into())
     }
 }
 
 impl From<bool> for Any {
     fn from(value: bool) -> Self {
         if value {
-            Any::True
+            Self::True
         } else {
-            Any::False
+            Self::False
         }
     }
 }
 
 impl FromIterator<Any> for Any {
     fn from_iter<I: IntoIterator<Item = Any>>(iter: I) -> Self {
-        Any::Array(iter.into_iter().collect())
+        Self::Array(iter.into_iter().collect())
     }
 }
 
 impl<'a> FromIterator<&'a Any> for Any {
     fn from_iter<I: IntoIterator<Item = &'a Any>>(iter: I) -> Self {
-        Any::Array(iter.into_iter().cloned().collect())
+        Self::Array(iter.into_iter().cloned().collect())
     }
 }
 
@@ -218,25 +218,25 @@ impl FromIterator<(String, Any)> for Any {
     fn from_iter<I: IntoIterator<Item = (String, Any)>>(iter: I) -> Self {
         let mut map = HashMap::new();
         map.extend(iter);
-        Any::Object(map)
+        Self::Object(map)
     }
 }
 
 impl From<HashMap<String, Any>> for Any {
     fn from(value: HashMap<String, Any>) -> Self {
-        Any::Object(value)
+        Self::Object(value)
     }
 }
 
 impl From<Vec<u8>> for Any {
     fn from(value: Vec<u8>) -> Self {
-        Any::Binary(value)
+        Self::Binary(value)
     }
 }
 
 impl From<&[u8]> for Any {
     fn from(value: &[u8]) -> Self {
-        Any::Binary(value.into())
+        Self::Binary(value.into())
     }
 }
 

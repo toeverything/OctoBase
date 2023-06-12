@@ -39,45 +39,17 @@ impl Array {
         ArrayIter(self.iter_item())
     }
 
-    pub fn push<V: Into<Any>>(&mut self, val: V) -> JwstCodecResult {
+    pub fn push<V: Into<Content>>(&mut self, val: V) -> JwstCodecResult {
         self.insert(self.len(), val)
     }
 
-    pub fn insert<V: Into<Any>>(&mut self, idx: u64, val: V) -> JwstCodecResult {
-        let contents = Self::group_content(val);
+    pub fn insert<V: Into<Content>>(&mut self, idx: u64, val: V) -> JwstCodecResult {
+        let contents = vec![val.into()];
         self.insert_at(idx, contents)
     }
 
     pub fn remove(&mut self, idx: u64, len: u64) -> JwstCodecResult {
         self.remove_at(idx, len)
-    }
-
-    fn group_content<V: Into<Any>>(val: V) -> Vec<Content> {
-        let mut ret = vec![];
-
-        let val = val.into();
-        match val {
-            Any::Undefined
-            | Any::Null
-            | Any::Integer(_)
-            | Any::Float32(_)
-            | Any::Float64(_)
-            | Any::BigInt64(_)
-            | Any::False
-            | Any::True
-            | Any::String(_)
-            | Any::Object(_) => {
-                ret.push(Content::Any(vec![val]));
-            }
-            Any::Array(v) => {
-                ret.push(Content::Any(v));
-            }
-            Any::Binary(b) => {
-                ret.push(Content::Binary(b));
-            }
-        }
-
-        ret
     }
 }
 
