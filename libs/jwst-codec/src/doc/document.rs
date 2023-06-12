@@ -173,7 +173,7 @@ impl Doc {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yrs::{Array, Map, Transact};
+    use yrs::{types::ToJson, updates::decoder::Decode, Array, Map, Transact};
 
     #[test]
     fn double_run_test_with_yrs_basic() {
@@ -230,7 +230,7 @@ mod tests {
     #[test]
     fn test_array_create() {
         let binary = {
-            let doc = Doc::default();
+            let doc = Doc::with_client(0);
             let mut array = doc.get_or_create_array("abc").unwrap();
             array.insert(0, 42).unwrap();
             array.insert(1, -42).unwrap();
@@ -240,17 +240,25 @@ mod tests {
             array.insert(5, "world").unwrap();
 
             let mut sub_array = doc.create_array().unwrap();
-            sub_array.insert(0, "test").unwrap();
-            array.insert(6, sub_array).unwrap();
-            println!("{:?}", array);
+            array.insert(6, sub_array.clone()).unwrap();
+            // FIXME: array need insert first to compatible with yrs
+            sub_array.insert(0, 1).unwrap();
+
             doc.encode_update_v1().unwrap()
         };
 
         {
-            let mut doc = Doc::default();
-            doc.apply_update_from_binary(binary).unwrap();
-            let array = doc.get_or_create_array("abc").unwrap();
-            println!("{:?}", array);
+            use yrs::{Doc, Update};
+
+            let ydoc = Doc::new();
+            let array = ydoc.get_or_insert_array("abc");
+            let mut trx = ydoc.transact_mut();
+            trx.apply_update(Update::decode_v1(&binary).unwrap());
+
+            assert_json_diff::assert_json_eq!(
+                array.to_json(&trx),
+                serde_json::json!([42, -42, true, false, "hello", "world", [1]])
+            );
         }
     }
 }
