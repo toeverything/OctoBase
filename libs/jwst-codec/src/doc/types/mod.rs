@@ -77,6 +77,10 @@ impl YType {
         Ok(())
     }
 
+    pub fn set_item(&mut self, item: ItemRef) {
+        self.item = Some(Arc::downgrade(&item));
+    }
+
     pub fn store<'a>(&self) -> Option<RwLockReadGuard<'a, DocStore>> {
         if let Some(store) = self.store.upgrade() {
             let ptr = unsafe { &*Arc::as_ptr(&store) };

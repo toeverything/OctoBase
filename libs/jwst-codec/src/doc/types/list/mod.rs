@@ -164,6 +164,11 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
                     .parent(Some(Parent::Type(pos.parent.clone())))
                     .build(),
             );
+
+            if let Content::Type(t) = item.content.as_ref() {
+                t.write().unwrap().set_item(item.clone());
+            }
+
             store.integrate(StructInfo::Item(item.clone()), 0, Some(&mut lock))?;
 
             pos.right = Some(item);

@@ -310,6 +310,13 @@ impl Content {
 
         s.split_at(utf_8_offset)
     }
+
+    pub fn as_array(&self) -> Option<Array> {
+        if let Self::Type(type_ref) = self {
+            return Array::try_from(type_ref.clone()).ok();
+        }
+        None
+    }
 }
 
 macro_rules! impl_primitive_from {
@@ -334,8 +341,8 @@ macro_rules! impl_primitive_from {
     (type_ref => $($ty:ty),* $(,)?) => {
         $(
             impl From<$ty> for Content {
-                fn from(value: $ty) -> Self {
-                    Self::Type(value.as_inner().clone())
+                fn from(type_ref: $ty) -> Self {
+                    Self::Type(type_ref.as_inner().clone())
                 }
             }
         )*
