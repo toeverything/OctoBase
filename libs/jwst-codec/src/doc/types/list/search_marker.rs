@@ -2,7 +2,7 @@ use super::*;
 use std::{
     cell::RefCell,
     cmp::max,
-    collections::LinkedList,
+    collections::VecDeque,
     ops::{Deref, DerefMut},
 };
 
@@ -26,18 +26,18 @@ impl SearchMarker {
 }
 
 /// in yjs, a timestamp field is used to sort markers and the oldest marker is deleted once the limit is reached.
-/// this was designed for optimization purposes for v8. In Rust, we can simply use a linked list and trust the compiler to optimize.
-/// the linked list can naturally maintain the insertion order, allowing us to know which marker is the oldest without using an extra timestamp field.
+/// this was designed for optimization purposes for v8. In Rust, we can simply use a [VecDeque] and trust the compiler to optimize.
+/// the [VecDeque] can naturally maintain the insertion order, allowing us to know which marker is the oldest without using an extra timestamp field.
 ///
 /// NOTE:
 /// A [MarkerList] is always belonging to a [YType],
 /// which means whenever [MakerList] is used, we actually have a [YType] instance behind [RwLock] guard already,
 /// so it's safe to make the list internal mutable.
 #[derive(Debug)]
-pub struct MarkerList(RefCell<LinkedList<SearchMarker>>);
+pub struct MarkerList(RefCell<VecDeque<SearchMarker>>);
 
 impl Deref for MarkerList {
-    type Target = RefCell<LinkedList<SearchMarker>>;
+    type Target = RefCell<VecDeque<SearchMarker>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -52,12 +52,12 @@ impl DerefMut for MarkerList {
 
 impl MarkerList {
     pub(crate) fn new() -> Self {
-        MarkerList(RefCell::new(LinkedList::new()))
+        MarkerList(RefCell::new(VecDeque::new()))
     }
 
     // mark pos and push to the end of the linked list
     fn mark_position(
-        list: &mut LinkedList<SearchMarker>,
+        list: &mut VecDeque<SearchMarker>,
         ptr: Arc<Item>,
         index: u64,
     ) -> Option<SearchMarker> {
@@ -75,26 +75,32 @@ impl MarkerList {
     // update mark position if the index is within the range of the marker
     pub(super) fn update_marker_changes(&self, index: u64, len: i64) {
         let mut list = self.borrow_mut();
+
         for marker in list.iter_mut() {
             let mut ptr = marker.ptr.clone();
+            // current marker item has been deleted
+            // we should move the pos to prev undeleted item
             if len > 0 {
-                while let Some(StructInfo::Item(left_item)) = &ptr.left {
-                    if ptr.indexable() {
+                while !ptr.indexable() {
+                    if let Some(StructInfo::Item(left)) = &ptr.left {
+                        ptr = left.clone();
+                        if ptr.indexable() {
+                            marker.index -= ptr.len();
+                        }
+                    } else {
+                        // remove marker
+                        marker.index = 0;
                         break;
-                    }
-
-                    ptr = left_item.clone();
-
-                    if ptr.indexable() {
-                        marker.index -= ptr.len();
                     }
                 }
             }
             if index < marker.index || (len > 0 && index == marker.index) {
-                marker.index = max(index, (marker.index as i64 + len) as u64);
+                marker.index = max(index as i64, marker.index as i64 + len) as u64;
             }
             marker.ptr = ptr;
         }
+
+        list.retain(|marker| marker.index > 0);
     }
 
     // find and return the marker that is closest to the index
@@ -150,7 +156,7 @@ impl MarkerList {
             // iterate to left until item_ptr can't be merged with left
             while let Some(StructInfo::Item(left_item)) = &item_ptr.left {
                 if left_item.id.client == item_ptr.id.client
-                    && left_item.id.clock + item_ptr.len() == item_ptr.id.clock
+                    && left_item.id.clock + left_item.len() == item_ptr.id.clock
                 {
                     item_ptr = left_item.clone();
                     if item_ptr.indexable() {
@@ -164,13 +170,8 @@ impl MarkerList {
 
         match marker {
             Some(marker)
-                if parent
-                    .item()
-                    .map(|ptr| {
-                        (marker.index as i64 - marker_index as i64).abs()
-                            < ptr.len() as i64 / MAX_SEARCH_MARKER as i64
-                    })
-                    .unwrap_or(false) =>
+                if (marker.index as f64 - marker_index as f64).abs()
+                    < parent.len as f64 / MAX_SEARCH_MARKER as f64 =>
             {
                 // adjust existing marker
                 marker.overwrite_marker(item_ptr, marker_index);

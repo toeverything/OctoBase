@@ -164,6 +164,12 @@ impl std::fmt::Debug for Item {
     }
 }
 
+impl std::fmt::Display for Item {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Item{}: [{:?}]", self.id, self.content)
+    }
+}
+
 // make all Item readonly
 pub type ItemRef = Arc<Item>;
 
@@ -241,52 +247,60 @@ impl Item {
     #[allow(dead_code)]
     #[cfg(any(debug, test))]
     pub(crate) fn print_left(&self) {
-        let mut ret = String::new();
-        ret.push_str(&format!("Self{}", self.id));
-
+        let mut ret = vec![format!("Self{}: [{:?}]", self.id, self.content)];
         let mut left = self.left.clone();
 
         while let Some(n) = left {
-            ret.insert_str(
-                0,
-                &format!(
-                    "{}{} <- ",
-                    match n {
-                        StructInfo::Item(_) => "Item",
-                        StructInfo::GC { .. } => "GC",
-                        StructInfo::Skip { .. } => "Skip",
-                    },
-                    n.id()
-                ),
-            );
             left = n.left();
+            if n.deleted() {
+                continue;
+            }
+            match &n {
+                StructInfo::Item(item) => {
+                    ret.push(format!("{item}"));
+                }
+                StructInfo::GC { id, len } => {
+                    ret.push(format!("GC{id}: {len}"));
+                    break;
+                }
+                StructInfo::Skip { id, len } => {
+                    ret.push(format!("Skip{id}: {len}"));
+                    break;
+                }
+            }
         }
+        ret.reverse();
 
-        println!("{ret}");
+        println!("{}", ret.join(" <- "));
     }
 
     #[allow(dead_code)]
     #[cfg(any(debug, test))]
     pub(crate) fn print_right(&self) {
-        let mut ret = String::new();
-        ret.push_str(&format!("Self{}", self.id));
-
+        let mut ret = vec![format!("Self{}: [{:?}]", self.id, self.content)];
         let mut right = self.right.clone();
 
         while let Some(n) = right {
-            ret.push_str(&format!(
-                " -> {}{}",
-                match n {
-                    StructInfo::Item(_) => "Item",
-                    StructInfo::GC { .. } => "GC",
-                    StructInfo::Skip { .. } => "Skip",
-                },
-                n.id()
-            ));
             right = n.right();
+            if n.deleted() {
+                continue;
+            }
+            match &n {
+                StructInfo::Item(item) => {
+                    ret.push(format!("{item}"));
+                }
+                StructInfo::GC { id, len } => {
+                    ret.push(format!("GC{id}: {len}"));
+                    break;
+                }
+                StructInfo::Skip { id, len } => {
+                    ret.push(format!("Skip{id}: {len}"));
+                    break;
+                }
+            }
         }
 
-        println!("{ret}");
+        println!("{}", ret.join(" -> "));
     }
 }
 

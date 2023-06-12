@@ -45,8 +45,8 @@ test = false
 doc = false
 
 [[bin]]
-name = "parallel_insert_text"
-path = "fuzz_targets/parallel_insert_text.rs"
+name = "ins_del_text"
+path = "fuzz_targets/ins_del_text.rs"
 test = false
 doc = false
 
