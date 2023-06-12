@@ -16,6 +16,46 @@ pub(crate) struct ItemPosition {
     pub offset: u64,
 }
 
+impl ItemPosition {
+    pub fn forward(&mut self) {
+        if let Some(right) = self.right.take() {
+            if !right.deleted() {
+                self.index += right.len();
+            }
+
+            self.left = Some(right.clone());
+            self.right = right.right.as_ref().and_then(|right| right.as_item());
+        } else {
+            // FAIL
+        }
+    }
+
+    /// we found a position cursor point in between a splitable item,
+    /// we need to split the item by the offset.
+    ///
+    /// before:
+    /// ---------------------------------
+    ///    ^left                ^right
+    ///            ^offset
+    /// after:
+    /// ---------------------------------
+    ///    ^left   ^right
+    ///
+    pub fn normalize(&mut self, store: &mut DocStore) -> JwstCodecResult {
+        if self.offset > 0 {
+            debug_assert!(self.left.is_some());
+            if let Some(left) = &self.left {
+                store.split_node(self.left.as_ref().unwrap().id, self.offset)?;
+                self.right = left.right.as_ref().and_then(|right| right.as_item());
+                self.index += self.offset;
+                self.offset = 0;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
     #[inline(always)]
     fn content_len(&self) -> u64 {
@@ -59,12 +99,11 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         };
 
         while remaining > 0 {
-            if let Some(item) = pos.right.take() {
+            if let Some(item) = &pos.right {
                 if !item.deleted() {
                     let content_len = item.len();
                     if remaining < content_len {
                         pos.offset = remaining;
-                        pos.index += remaining;
                         remaining = 0;
                     } else {
                         pos.index += content_len;
@@ -72,13 +111,8 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
                     }
                 }
 
-                if let Some(StructInfo::Item(right)) = &item.right {
-                    pos.right = Some(right.clone());
-                } else if remaining > 0 {
-                    return None;
-                }
-
-                pos.left = Some(item);
+                pos.left = Some(item.clone());
+                pos.right = item.right.as_ref().and_then(|right| right.as_item());
             } else {
                 return None;
             }
@@ -108,17 +142,15 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         mut pos: ItemPosition,
         contents: Vec<Content>,
     ) -> JwstCodecResult {
-        // insert in between an splitable item.
-        if pos.offset > 0 {
-            debug_assert!(pos.left.is_some());
-            let (_, right) = store.split_node(pos.left.as_ref().unwrap().id, pos.offset)?;
-            pos.right = right.as_item();
-        }
-
-        let mut len = 0;
+        pos.normalize(store)?;
 
         for content in contents {
             let new_item_id = (store.client(), store.get_state(store.client())).into();
+
+            if let Some(markers) = &lock.markers {
+                markers.update_marker_changes(pos.index, content.clock_len() as i64);
+            }
+
             let item = Arc::new(
                 ItemBuilder::new()
                     .id(new_item_id)
@@ -133,12 +165,9 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
                     .build(),
             );
             store.integrate(StructInfo::Item(item.clone()), 0, Some(&mut lock))?;
-            len += item.len();
-            pos.left = Some(item);
-        }
 
-        if let Some(markers) = &lock.markers {
-            markers.update_marker_changes(pos.index, len as i64);
+            pos.right = Some(item);
+            pos.forward();
         }
 
         Ok(())
@@ -187,28 +216,23 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         mut pos: ItemPosition,
         len: u64,
     ) -> JwstCodecResult {
+        pos.normalize(store)?;
         let mut remaining = len as i64;
 
-        // delete in between an splitable item.
-        if pos.offset > 0 {
-            debug_assert!(pos.left.is_some());
-            let (_, right) = store.split_node(pos.left.as_ref().unwrap().id, pos.offset)?;
-            pos.right = right.as_item();
-        }
-
         while remaining > 0 {
-            if let Some(item) = pos.right.take() {
+            if let Some(item) = &pos.right {
                 if !item.deleted() {
                     let content_len = item.len() as i64;
                     if remaining < content_len {
                         store.split_node(item.id, remaining as u64)?;
+                        remaining = 0;
+                    } else {
+                        remaining -= content_len;
                     }
-                    remaining -= content_len;
-                    store.delete_item(&item, Some(&mut lock));
+                    store.delete_item(item, Some(&mut lock));
                 }
 
-                pos.right = item.right.as_ref().and_then(|right| right.as_item());
-                pos.left = Some(item);
+                pos.forward();
             } else {
                 break;
             }

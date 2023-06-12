@@ -146,9 +146,25 @@ impl StructInfo {
     pub fn head(&self) -> Self {
         let mut cur = self.clone();
 
-        while let Some(Self::Item(i)) = cur.left() {
-            if i.left.is_some() {
-                cur = i.left.clone().unwrap();
+        while let Some(left) = cur.left() {
+            if left.is_item() {
+                cur = left
+            } else {
+                break;
+            }
+        }
+
+        cur
+    }
+
+    pub fn tail(&self) -> Self {
+        let mut cur = self.clone();
+
+        while let Some(right) = cur.right() {
+            if right.is_item() {
+                cur = right
+            } else {
+                break;
             }
         }
 
@@ -177,26 +193,15 @@ impl StructInfo {
             let right_id = Id::new(id.client, id.clock + offset);
             let (left_content, right_content) = item.content.split(offset)?;
 
-            let left_item = Arc::new(
-                ItemBuilder::new()
-                    .id(id)
-                    .left(item.left.clone())
-                    // left origin may not equal left.id
-                    .left_id(item.origin_left_id)
-                    .right_id(item.origin_right_id)
-                    .parent(item.parent.clone())
-                    .parent_sub(item.parent_sub.clone())
-                    .content(left_content)
-                    .flags(item.flags.clone())
-                    .build(),
-            );
+            let left_item = Arc::new(Item {
+                content: Arc::new(left_content),
+                ..item.as_ref().clone()
+            });
 
             let right_item = Arc::new(
                 ItemBuilder::new()
                     .id(right_id)
-                    .left(Some(Self::Item(left_item.clone())))
-                    .right(item.right.clone())
-                    // right origin may not equal right.id
+                    .left_id(Some(left_item.last_id()))
                     .right_id(item.origin_right_id)
                     .parent(item.parent.clone())
                     .parent_sub(item.parent_sub.clone())
@@ -204,9 +209,6 @@ impl StructInfo {
                     .flags(item.flags.clone())
                     .build(),
             );
-
-            // connect left.right = right
-            unsafe { Item::inner_mut(&left_item).right = Some(Self::Item(right_item.clone())) };
 
             Ok((Self::Item(left_item), Self::Item(right_item)))
         } else {

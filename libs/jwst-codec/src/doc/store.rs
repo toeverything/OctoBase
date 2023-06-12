@@ -139,38 +139,64 @@ impl DocStore {
         None
     }
 
-    pub fn split_node<I: Into<Id>>(
-        &mut self,
-        id: I,
-        diff: u64,
-    ) -> JwstCodecResult<(StructInfo, StructInfo)> {
+    pub fn split_node<I: Into<Id>>(&mut self, id: I, diff: u64) -> JwstCodecResult {
         debug_assert!(diff > 0);
 
         let id = id.into();
 
         if let Some(items) = self.items.write().unwrap().get_mut(&id.client) {
             if let Some(idx) = Self::get_item_index(items, id.clock) {
-                let item = items.get(idx).unwrap().clone();
-                if item.is_item() {
-                    let (left_item, right_item) = item.split_at(diff)?;
-                    match (&item, &left_item) {
-                        (StructInfo::Item(old_item), StructInfo::Item(new_item)) => {
-                            // SAFETY:
-                            // we make sure store is the only entry of mutating an item,
-                            // and we already hold mutable reference of store, so it's safe to do so
-                            unsafe { Item::swap(old_item, new_item) };
-                        }
-                        _ => {
-                            items[idx] = left_item;
-                        }
-                    }
-                    items.insert(idx + 1, right_item.clone());
-                    return Ok((item, right_item));
-                }
+                Self::split_node_at(items, idx, diff)?;
+
+                return Ok(());
             }
         }
 
         Err(JwstCodecError::StructSequenceNotExists(id.client))
+    }
+
+    pub fn split_node_at(
+        items: &mut Vec<StructInfo>,
+        idx: usize,
+        diff: u64,
+    ) -> JwstCodecResult<(StructInfo, StructInfo)> {
+        debug_assert!(diff > 0);
+
+        let node = items.get(idx).unwrap().clone();
+        debug_assert!(node.is_item());
+        let (left_node, right_node) = node.split_at(diff)?;
+        match (&node, &left_node, &right_node) {
+            (StructInfo::Item(item), StructInfo::Item(left_item), StructInfo::Item(right_item)) => {
+                // SAFETY:
+                // we make sure store is the only entry of mutating an item,
+                // and we already hold mutable reference of store, so it's safe to do so
+                unsafe {
+                    // we directly swap the inner pointed item
+                    // so we can keep all old_item ref can see the new content.
+                    Item::swap(item, left_item);
+
+                    // we had the correct left/right content
+                    // now build the references
+                    let item = Item::inner_mut(item);
+                    let right_item = Item::inner_mut(right_item);
+
+                    item.right = Some(right_node.clone());
+                    if let Some(StructInfo::Item(right_right)) = &left_item.right {
+                        Item::inner_mut(right_right).left = Some(right_node.clone());
+                    }
+
+                    right_item.left = Some(node.clone());
+                    right_item.origin_right_id = left_item.origin_right_id;
+                    right_item.right = left_item.right.clone();
+                };
+            }
+            _ => {
+                items[idx] = left_node;
+            }
+        }
+        items.insert(idx + 1, right_node.clone());
+
+        Ok((node, right_node))
     }
 
     pub fn split_at_and_get_right<I: Into<Id>>(&self, id: I) -> JwstCodecResult<StructInfo> {
@@ -180,21 +206,8 @@ impl DocStore {
                 let item = items.get(index).unwrap().clone();
                 let offset = id.clock - item.clock();
                 if offset > 0 && item.is_item() {
-                    let (left_item, right_item) = item.split_at(offset)?;
-                    match (&item, &left_item) {
-                        (StructInfo::Item(old_item), StructInfo::Item(new_item)) => {
-                            // SAFETY:
-                            // we make sure store is the only entry of mutating an item,
-                            // and we already hold mutable reference of store, so it's safe to do so
-                            unsafe { Item::swap(old_item, new_item) };
-                        }
-                        _ => {
-                            items[index] = left_item.clone();
-                        }
-                    }
-                    items.insert(index + 1, right_item.clone());
-
-                    return Ok(right_item);
+                    let (_, right) = Self::split_node_at(items, index, offset)?;
+                    return Ok(right);
                 } else {
                     return Ok(item);
                 }
@@ -211,21 +224,8 @@ impl DocStore {
                 let item = items.get(index).unwrap().clone();
                 let offset = id.clock - item.clock();
                 if offset != item.len() - 1 && !item.is_gc() {
-                    let (left_item, right_item) = item.split_at(offset + 1)?;
-                    items.insert(index + 1, right_item);
-                    match (&item, &left_item) {
-                        (StructInfo::Item(old_item), StructInfo::Item(new_item)) => {
-                            // SAFETY:
-                            // we make sure store is the only entry of mutating an item,
-                            // and we already hold mutable reference of store, so it's safe to do so
-                            unsafe { Item::swap(old_item, new_item) };
-                            return Ok(item);
-                        }
-                        _ => {
-                            items[index] = left_item.clone();
-                            return Ok(left_item);
-                        }
-                    }
+                    let (left, _) = Self::split_node_at(items, index, offset + 1)?;
+                    return Ok(left);
                 } else {
                     return Ok(item);
                 }
@@ -566,29 +566,13 @@ impl DocStore {
                     let id = struct_info.id();
 
                     if !struct_info.deleted() && id.clock < range.start {
-                        match struct_info.split_at(start - id.clock) {
-                            Ok((left, right)) => {
-                                match (&struct_info, &left) {
-                                    (StructInfo::Item(old_item), StructInfo::Item(new_item)) => {
-                                        // SAFETY:
-                                        // we make sure store is the only entry of mutating an item,
-                                        // and we already hold mutable reference of store, so it's safe to do so
-                                        unsafe { Item::swap(old_item, new_item) };
-                                    }
-                                    _ => {
-                                        items[idx] = left;
-                                    }
-                                }
-                                items.insert(idx + 1, right);
-                                idx += 1;
-                            }
-                            Err(e) => return Err(e),
-                        }
+                        DocStore::split_node_at(items, idx, start - id.clock)?;
+                        idx += 1;
                     }
                 };
 
                 while idx < items.len() {
-                    let mut struct_info = &items[idx];
+                    let struct_info = items[idx].clone();
                     let id = struct_info.id();
 
                     if !struct_info.deleted() && id.clock < end {
@@ -596,29 +580,9 @@ impl DocStore {
                         // -----item-----
                         //           ^end
                         if end < id.clock + struct_info.len() {
-                            match struct_info.split_at(end - id.clock) {
-                                Ok((left, right)) => {
-                                    match (&struct_info, &left) {
-                                        (
-                                            StructInfo::Item(old_item),
-                                            StructInfo::Item(new_item),
-                                        ) => {
-                                            // SAFETY:
-                                            // we make sure store is the only entry of mutating an item,
-                                            // and we already hold mutable reference of store, so it's safe to do so
-                                            unsafe { Item::swap(old_item, new_item) };
-                                        }
-                                        _ => {
-                                            items[idx] = left;
-                                        }
-                                    }
-                                    items.insert(idx + 1, right);
-                                    struct_info = &items[idx];
-                                }
-                                Err(e) => return Err(e),
-                            }
+                            DocStore::split_node_at(items, idx, end - id.clock)?;
                         }
-                        self.delete(struct_info, None);
+                        self.delete(&struct_info, None);
                     } else {
                         break;
                     }

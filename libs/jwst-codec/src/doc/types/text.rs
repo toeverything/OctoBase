@@ -126,28 +126,27 @@ mod tests {
         assert_eq!(text.len(), added_len.load(Ordering::SeqCst) as u64);
     }
 
-    #[test]
-    fn test_parallel_ins_del_text() {
+    fn parallel_ins_del_text(seed: u64) {
         let doc = Doc::with_client(1);
+        let mut rand = ChaCha20Rng::seed_from_u64(seed);
         let mut text = doc.get_or_crate_text("test").unwrap();
         text.insert(0, "This is a string with length 32.").unwrap();
 
         let mut handles = Vec::new();
-        let iteration = 2;
+        let iteration = 20;
         let len = Arc::new(AtomicUsize::new(32));
 
         for i in 0..iteration {
             let mut text = text.clone();
             let len = len.clone();
+            let ins = i % 2 == 0;
+            let pos = rand.gen_range(0..16);
             handles.push(std::thread::spawn(move || {
-                let ins_del = rand::random::<bool>();
-                if ins_del {
+                if ins {
                     let str = format!("hello {i}");
-                    let pos = rand::thread_rng().gen_range(0..text.len());
                     text.insert(pos, &str).unwrap();
                     len.fetch_add(str.len(), Ordering::SeqCst);
                 } else {
-                    let pos = rand::thread_rng().gen_range(0..text.len() / 2);
                     text.remove(pos, 6).unwrap();
                     len.fetch_sub(6, Ordering::SeqCst);
                 }
@@ -160,6 +159,14 @@ mod tests {
 
         assert_eq!(text.to_string().len(), len.load(Ordering::SeqCst));
         assert_eq!(text.len(), len.load(Ordering::SeqCst) as u64);
+    }
+
+    #[test]
+    fn test_parallel_ins_del_text() {
+        // cases that ever broken
+        // wrong left/right ref
+        parallel_ins_del_text(973078538);
+        parallel_ins_del_text(18414938500869652479);
     }
 
     #[test]
