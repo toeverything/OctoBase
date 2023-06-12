@@ -124,7 +124,7 @@ impl Doc {
         Ok(())
     }
 
-    pub fn get_or_crate_text(&self, name: &str) -> JwstCodecResult<Text> {
+    pub fn get_or_create_text(&self, name: &str) -> JwstCodecResult<Text> {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Text)
             .set_name(name.to_string())
@@ -141,6 +141,12 @@ impl Doc {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Array)
             .set_name(str.to_string())
+            .build()
+    }
+
+    pub fn create_array(&self) -> JwstCodecResult<Text> {
+        YTypeBuilder::new(self.store.clone())
+            .with_kind(YTypeKind::Array)
             .build()
     }
 

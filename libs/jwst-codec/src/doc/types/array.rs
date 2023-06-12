@@ -97,20 +97,6 @@ impl Index<Range<u64>> for Array {
     }
 }
 
-// TODO: impl more for Any::from(primitive types/vec<T>/map...)
-// Move to codec/any.rs
-impl From<String> for Any {
-    fn from(s: String) -> Self {
-        Any::String(s)
-    }
-}
-
-impl From<&str> for Any {
-    fn from(s: &str) -> Self {
-        Any::from(s.to_string())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

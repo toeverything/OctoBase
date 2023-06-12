@@ -81,7 +81,7 @@ mod tests {
         let mut handles = Vec::new();
 
         let doc = Doc::with_client(1);
-        let mut text = doc.get_or_crate_text("test").unwrap();
+        let mut text = doc.get_or_create_text("test").unwrap();
         text.insert(0, "This is a string with length 32.").unwrap();
         let added_len = Arc::new(AtomicUsize::new(32));
 
@@ -108,7 +108,7 @@ mod tests {
                 let mut rand = rand.clone();
                 let len = added_len.clone();
                 handles.push(std::thread::spawn(move || {
-                    let mut text = doc.get_or_crate_text("test").unwrap();
+                    let mut text = doc.get_or_create_text("test").unwrap();
                     let pos = rand.gen_range(0..text.len());
                     let string = format!("hello doc{i}");
 
@@ -129,7 +129,7 @@ mod tests {
     fn parallel_ins_del_text(seed: u64) {
         let doc = Doc::with_client(1);
         let mut rand = ChaCha20Rng::seed_from_u64(seed);
-        let mut text = doc.get_or_crate_text("test").unwrap();
+        let mut text = doc.get_or_create_text("test").unwrap();
         text.insert(0, "This is a string with length 32.").unwrap();
 
         let mut handles = Vec::new();
@@ -183,7 +183,7 @@ mod tests {
         };
 
         let doc = Doc::new_from_binary(binary).unwrap();
-        let mut text = doc.get_or_crate_text("greating").unwrap();
+        let mut text = doc.get_or_create_text("greating").unwrap();
 
         assert_eq!(text.to_string(), "hello world");
 
@@ -196,7 +196,7 @@ mod tests {
     fn test_recover_from_octobase_encoder() {
         let binary = {
             let doc = Doc::with_client(1);
-            let mut text = doc.get_or_crate_text("greating").unwrap();
+            let mut text = doc.get_or_create_text("greating").unwrap();
             text.insert(0, "hello").unwrap();
             text.insert(5, " world!").unwrap();
             text.remove(11, 1).unwrap();
@@ -205,7 +205,7 @@ mod tests {
         };
 
         let doc = Doc::new_from_binary(binary).unwrap();
-        let mut text = doc.get_or_crate_text("greating").unwrap();
+        let mut text = doc.get_or_create_text("greating").unwrap();
 
         assert_eq!(text.to_string(), "hello world");
 
