@@ -52,32 +52,10 @@ impl Array {
         self.remove_at(idx, len)
     }
 
+    #[inline(always)]
     fn group_content<V: Into<Any>>(val: V) -> Vec<Content> {
-        let mut ret = vec![];
-
-        let val = val.into();
-        match val {
-            Any::Undefined
-            | Any::Null
-            | Any::Integer(_)
-            | Any::Float32(_)
-            | Any::Float64(_)
-            | Any::BigInt64(_)
-            | Any::False
-            | Any::True
-            | Any::String(_)
-            | Any::Object(_) => {
-                ret.push(Content::Any(vec![val]));
-            }
-            Any::Array(v) => {
-                ret.push(Content::Any(v));
-            }
-            Any::Binary(b) => {
-                ret.push(Content::Binary(b));
-            }
-        }
-
-        ret
+        let any = val.into();
+        vec![any.into()]
     }
 }
 
@@ -94,20 +72,6 @@ impl Index<Range<u64>> for Array {
 
     fn index(&self, _index: Range<u64>) -> &Self::Output {
         todo!()
-    }
-}
-
-// TODO: impl more for Any::from(primitive types/vec<T>/map...)
-// Move to codec/any.rs
-impl From<String> for Any {
-    fn from(s: String) -> Self {
-        Any::String(s)
-    }
-}
-
-impl From<&str> for Any {
-    fn from(s: &str) -> Self {
-        Any::from(s.to_string())
     }
 }
 

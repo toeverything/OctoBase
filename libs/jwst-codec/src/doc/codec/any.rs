@@ -112,6 +112,81 @@ impl<W: CrdtWriter> CrdtWrite<W> for Any {
     }
 }
 
+// TODO: impl for Any::Undefined
+impl From<String> for Any {
+    fn from(s: String) -> Self {
+        Any::String(s)
+    }
+}
+
+impl From<&str> for Any {
+    fn from(s: &str) -> Self {
+        Any::from(s.to_string())
+    }
+}
+
+impl<T: Into<Any>> From<Option<T>> for Any {
+    fn from(value: Option<T>) -> Self {
+        if let Some(val) = value {
+            val.into()
+        } else {
+            Any::Null
+        }
+    }
+}
+
+impl From<u64> for Any {
+    fn from(value: u64) -> Self {
+        Any::Integer(value)
+    }
+}
+
+impl From<OrderedFloat<f32>> for Any {
+    fn from(value: OrderedFloat<f32>) -> Self {
+        Any::Float32(value)
+    }
+}
+
+impl From<OrderedFloat<f64>> for Any {
+    fn from(value: OrderedFloat<f64>) -> Self {
+        Any::Float64(value)
+    }
+}
+
+impl From<i64> for Any {
+    fn from(value: i64) -> Self {
+        Any::BigInt64(value)
+    }
+}
+
+impl From<bool> for Any {
+    fn from(value: bool) -> Self {
+        if value {
+            Any::True
+        } else {
+            Any::False
+        }
+    }
+}
+
+impl From<HashMap<String, Any>> for Any {
+    fn from(value: HashMap<String, Any>) -> Self {
+        Any::Object(value)
+    }
+}
+
+impl From<Vec<Any>> for Any {
+    fn from(value: Vec<Any>) -> Self {
+        Any::Array(value)
+    }
+}
+
+impl From<Vec<u8>> for Any {
+    fn from(value: Vec<u8>) -> Self {
+        Any::Binary(value)
+    }
+}
+
 impl Any {
     fn read_key_value<R: CrdtReader>(reader: &mut R) -> JwstCodecResult<(String, Any)> {
         let key = reader.read_var_string()?;

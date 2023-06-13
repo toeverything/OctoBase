@@ -1,6 +1,7 @@
 mod array;
 mod list;
 mod text;
+mod map;
 mod traits;
 
 use super::*;
@@ -12,6 +13,7 @@ use std::{
 
 pub use array::*;
 pub use text::*;
+pub use map::*;
 pub use traits::*;
 
 use crate::{Item, JwstCodecError, JwstCodecResult};
@@ -298,7 +300,6 @@ impl_variants!({
 });
 
 // TODO: move to separated impl files.
-impl_type!(Map);
 impl_type!(XMLElement);
 impl_type!(XMLFragment);
 impl_type!(XMLText);
