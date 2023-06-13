@@ -6,7 +6,7 @@ fn operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("ops/text");
     group.measurement_time(Duration::from_secs(15));
 
-    group.bench_function("jwst insert", |b| {
+    group.bench_function("jwst/insert", |b| {
         let base_text = "test1 test2 test3 test4 test5 test6 test7 test8 test9";
         let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(1234);
 
@@ -26,7 +26,7 @@ fn operations(c: &mut Criterion) {
         });
     });
 
-    group.bench_function("yrs insert", |b| {
+    group.bench_function("yrs/insert", |b| {
         let base_text = "test1 test2 test3 test4 test5 test6 test7 test8 test9";
         let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(1234);
 
@@ -48,7 +48,7 @@ fn operations(c: &mut Criterion) {
         });
     });
 
-    group.bench_function("jwst remove", |b| {
+    group.bench_function("jwst/remove", |b| {
         let base_text = "test1 test2 test3 test4 test5 test6 test7 test8 test9";
 
         b.iter(|| {
@@ -65,7 +65,7 @@ fn operations(c: &mut Criterion) {
         });
     });
 
-    group.bench_function("yrs remove", |b| {
+    group.bench_function("yrs/remove", |b| {
         let base_text = "test1 test2 test3 test4 test5 test6 test7 test8 test9";
 
         b.iter(|| {
