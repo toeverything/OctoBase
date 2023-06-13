@@ -9,7 +9,7 @@ fuzz_target!(|seed: u64| {
     println!("seed: {}", seed);
     let doc = Doc::with_client(1);
     let mut rand = ChaCha20Rng::seed_from_u64(seed);
-    let mut text = doc.get_or_crate_text("test").unwrap();
+    let mut text = doc.get_or_create_text("test").unwrap();
     text.insert(0, "This is a string with length 32.").unwrap();
 
     let iteration = 20;
