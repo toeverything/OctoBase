@@ -25,6 +25,25 @@ pub enum Content {
     },
 }
 
+impl From<Any> for Content {
+    fn from(value: Any) -> Self {
+        match value {
+            Any::Undefined
+            | Any::Null
+            | Any::Integer(_)
+            | Any::Float32(_)
+            | Any::Float64(_)
+            | Any::BigInt64(_)
+            | Any::False
+            | Any::True
+            | Any::String(_)
+            | Any::Object(_) => Content::Any(vec![value]),
+            Any::Array(v) => Content::Any(v),
+            Any::Binary(b) => Content::Binary(b),
+        }
+    }
+}
+
 impl PartialEq for Content {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
