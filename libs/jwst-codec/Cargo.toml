@@ -47,6 +47,10 @@ name = "codec_benchmarks"
 harness = false
 
 [[bench]]
+name = "map_ops_benchmarks"
+harness = false
+
+[[bench]]
 name = "text_ops_benchmarks"
 harness = false
 

@@ -1,5 +1,5 @@
 use crate::doc::{AsInner, ItemBuilder, ItemRef, Parent, StructInfo, YTypeRef};
-use crate::{impl_type, Any, Content, JwstCodecResult};
+use crate::{impl_type, Content, JwstCodecResult};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -83,11 +83,10 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
 
     fn iter(&self) -> MapIterator {
         let inner = self.as_inner().read().unwrap();
-        let map = inner.map.as_ref().map(|map| {
-            map.values()
-                .cloned()
-                .collect::<Vec<StructInfo>>()
-        });
+        let map = inner
+            .map
+            .as_ref()
+            .map(|map| map.values().cloned().collect::<Vec<StructInfo>>());
 
         MapIterator {
             struct_info_vec: map.unwrap_or(vec![]),
@@ -127,24 +126,23 @@ impl Iterator for MapIterator {
 impl MapType for Map {}
 
 impl Map {
-    pub fn insert<K: Into<String>, V: Into<Any>>(&mut self, key: K, value: V) -> JwstCodecResult {
-        let any = value.into();
-        MapType::insert(self, key.into(), any.into())
+    pub fn insert<K: AsRef<str>, V: Into<Content>>(&mut self, key: K, value: V) -> JwstCodecResult {
+        MapType::insert(self, key.as_ref().into(), value.into())
     }
 
     #[inline]
-    pub fn get<K: Into<String>>(&self, key: K) -> Option<&Content> {
-        MapType::get(self, key.into())
+    pub fn get<K: AsRef<str>>(&self, key: K) -> Option<&Content> {
+        MapType::get(self, key.as_ref().into())
     }
 
     #[inline]
-    pub fn remove<K: Into<String>>(&mut self, key: K) {
-        MapType::remove(self, key.into())
+    pub fn remove<K: AsRef<str>>(&mut self, key: K) {
+        MapType::remove(self, key.as_ref().into())
     }
 
     #[inline]
-    pub fn contains_key<K: Into<String>>(&self, key: K) -> bool {
-        MapType::contains_key(self, key.into())
+    pub fn contains_key<K: AsRef<str>>(&self, key: K) -> bool {
+        MapType::contains_key(self, key.as_ref().into())
     }
 }
 
