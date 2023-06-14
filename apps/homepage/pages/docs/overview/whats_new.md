@@ -1,5 +1,13 @@
 # What's New
 
+## 0.5.1-canary.4-230614
+
+-   [+] Expanded CRDT capabilities with new operations and types
+-   [+] Introduced new testing and benchmarking
+-   [+] Integrated Webrtc signalling and connectors
+-   [*] Refactored several functionalities for efficiency and ease of use by
+-   [*] Fixed potential issues in marker, logger and network connection
+
 ## 0.5.1-canary.3-230528
 
 -   [+] added encoding for documents into binary
