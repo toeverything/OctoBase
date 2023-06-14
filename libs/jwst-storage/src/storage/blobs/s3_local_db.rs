@@ -10,11 +10,15 @@ use sea_orm::{DatabaseConnection, EntityTrait};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+#[allow(unused)]
 pub(super) type S3BlobModel = <S3Blobs as EntityTrait>::Model;
+#[allow(unused)]
 type BlobActiveModel = entities::s3_blobs::ActiveModel;
+#[allow(unused)]
 type BlobColumn = <S3Blobs as EntityTrait>::Column;
 
 #[derive(Clone)]
+#[allow(unused)]
 pub struct BlobS3DBStorage {
     bucket: Arc<Bucket>,
     pub(super) pool: DatabaseConnection,
@@ -29,7 +33,7 @@ impl AsRef<DatabaseConnection> for BlobS3DBStorage {
 
 impl SharedDBOps for BlobS3DBStorage {}
 
-#[allow(unused_variables)]
+#[allow(unused)]
 impl BlobS3DBStorage {
     pub async fn init_with_pool() -> JwstStorageResult<Self> {
         todo!()
@@ -91,7 +95,7 @@ impl BlobStorage<JwstStorageError> for S3Storage {
         id: String,
     ) -> JwstResult<bool, JwstStorageError> {
         let workspace_id = workspace.unwrap_or("__default__".into());
-        match self.op.delete(&*format!("{}/{}", workspace_id, id)).await {
+        match self.op.delete(&format!("{}/{}", workspace_id, id)).await {
             Ok(_) => Ok(true),
             Err(e) => Err(JwstStorageError::from(e)),
         }
