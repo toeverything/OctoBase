@@ -124,7 +124,7 @@ impl Doc {
         Ok(())
     }
 
-    pub fn get_or_crate_text(&self, name: &str) -> JwstCodecResult<Text> {
+    pub fn get_or_create_text(&self, name: &str) -> JwstCodecResult<Text> {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Text)
             .set_name(name.to_string())
@@ -141,6 +141,12 @@ impl Doc {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Array)
             .set_name(str.to_string())
+            .build()
+    }
+
+    pub fn create_array(&self) -> JwstCodecResult<Array> {
+        YTypeBuilder::new(self.store.clone())
+            .with_kind(YTypeKind::Array)
             .build()
     }
 
@@ -174,7 +180,7 @@ impl Doc {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yrs::{Array, Map, Transact};
+    use yrs::{types::ToJson, updates::decoder::Decode, Array, Map, Transact};
 
     #[test]
     fn double_run_test_with_yrs_basic() {
@@ -226,5 +232,40 @@ mod tests {
             doc.encode_update_v1().unwrap(),
             doc_new.encode_update_v1().unwrap()
         );
+    }
+
+    #[test]
+    fn test_array_create() {
+        let binary = {
+            let doc = Doc::with_client(0);
+            let mut array = doc.get_or_create_array("abc").unwrap();
+            array.insert(0, 42).unwrap();
+            array.insert(1, -42).unwrap();
+            array.insert(2, true).unwrap();
+            array.insert(3, false).unwrap();
+            array.insert(4, "hello").unwrap();
+            array.insert(5, "world").unwrap();
+
+            let mut sub_array = doc.create_array().unwrap();
+            array.insert(6, sub_array.clone()).unwrap();
+            // FIXME: array need insert first to compatible with yrs
+            sub_array.insert(0, 1).unwrap();
+
+            doc.encode_update_v1().unwrap()
+        };
+
+        {
+            use yrs::{Doc, Update};
+
+            let ydoc = Doc::new();
+            let array = ydoc.get_or_insert_array("abc");
+            let mut trx = ydoc.transact_mut();
+            trx.apply_update(Update::decode_v1(&binary).unwrap());
+
+            assert_json_diff::assert_json_eq!(
+                array.to_json(&trx),
+                serde_json::json!([42, -42, true, false, "hello", "world", [1]])
+            );
+        }
     }
 }

@@ -2583,6 +2583,7 @@ name = "jwst-codec"
 version = "0.1.0"
 dependencies = [
  "arbitrary",
+ "assert-json-diff",
  "bitvec",
  "byteorder",
  "criterion",

@@ -235,7 +235,7 @@ mod tests {
     #[test]
     fn test_search_marker_flaky() {
         let doc = Doc::default();
-        let mut text = doc.get_or_crate_text("test").unwrap();
+        let mut text = doc.get_or_create_text("test").unwrap();
         text.insert(0, "0").unwrap();
         text.insert(1, "1").unwrap();
         text.insert(0, "0").unwrap();
@@ -246,7 +246,7 @@ mod tests {
         let iteration = 20;
 
         let doc = Doc::with_client(1);
-        let mut text = doc.get_or_crate_text("test").unwrap();
+        let mut text = doc.get_or_create_text("test").unwrap();
         text.insert(0, "This is a string with length 32.").unwrap();
         let mut len = text.len();
 

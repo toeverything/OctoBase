@@ -39,23 +39,17 @@ impl Array {
         ArrayIter(self.iter_item())
     }
 
-    pub fn push<V: Into<Any>>(&mut self, val: V) -> JwstCodecResult {
+    pub fn push<V: Into<Content>>(&mut self, val: V) -> JwstCodecResult {
         self.insert(self.len(), val)
     }
 
-    pub fn insert<V: Into<Any>>(&mut self, idx: u64, val: V) -> JwstCodecResult {
-        let contents = Self::group_content(val);
+    pub fn insert<V: Into<Content>>(&mut self, idx: u64, val: V) -> JwstCodecResult {
+        let contents = vec![val.into()];
         self.insert_at(idx, contents)
     }
 
     pub fn remove(&mut self, idx: u64, len: u64) -> JwstCodecResult {
         self.remove_at(idx, len)
-    }
-
-    #[inline(always)]
-    fn group_content<V: Into<Any>>(val: V) -> Vec<Content> {
-        let any = val.into();
-        vec![any.into()]
     }
 }
 
