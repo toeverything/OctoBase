@@ -49,7 +49,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         let inner = self.as_inner().read().unwrap();
         if let Some(map) = inner.map.as_ref() {
             for key in map.keys() {
-                ret.insert(key.clone(), self.get(key.to_string()));
+                ret.insert(key.clone(), self.get(key));
             }
         }
 
