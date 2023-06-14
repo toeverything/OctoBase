@@ -1,14 +1,15 @@
-mod database;
+mod local_db;
+mod s3_local_db;
 mod utils;
 
 #[cfg(test)]
-pub use database::blobs_storage_test;
+pub use local_db::blobs_storage_test;
 
 use super::{entities::prelude::*, *};
 use bytes::Bytes;
-use database::BlobDBStorage;
 use image::ImageError;
 use jwst::{BlobMetadata, BlobStorage};
+use local_db::BlobDBStorage;
 use thiserror::Error;
 use tokio::task::JoinError;
 use utils::{ImageParams, InternalBlobMetadata};
@@ -277,6 +278,25 @@ impl BlobStorage<JwstStorageError> for BlobAutoStorage {
         let size = self.db.get_blobs_size(&workspace_id).await?;
 
         return Ok(size.unwrap_or(0));
+    }
+}
+
+#[async_trait]
+pub trait SharedDBOps: AsRef<DatabaseConnection> {
+    async fn exists(&self, workspace: &str, hash: &str) -> Result<bool, DbErr> {
+        let pool = self.as_ref();
+        Blobs::find_by_id((workspace.into(), hash.into()))
+            .count(pool)
+            .await
+            .map(|c| c > 0)
+    }
+
+    async fn delete(&self, workspace: &str, hash: &str) -> Result<bool, DbErr> {
+        let pool = self.as_ref();
+        Blobs::delete_by_id((workspace.into(), hash.into()))
+            .exec(pool)
+            .await
+            .map(|r| r.rows_affected == 1)
     }
 }
 

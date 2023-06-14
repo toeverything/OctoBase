@@ -12,6 +12,14 @@ pub struct BlobDBStorage {
     pub(super) pool: DatabaseConnection,
 }
 
+impl AsRef<DatabaseConnection> for BlobDBStorage {
+    fn as_ref(&self) -> &DatabaseConnection {
+        &self.pool
+    }
+}
+
+impl SharedDBOps for BlobDBStorage {}
+
 impl BlobDBStorage {
     pub async fn init_with_pool(
         pool: DatabaseConnection,
@@ -42,13 +50,6 @@ impl BlobDBStorage {
             .filter(BlobColumn::Workspace.eq(table))
             .count(&self.pool)
             .await
-    }
-
-    async fn exists(&self, table: &str, hash: &str) -> Result<bool, DbErr> {
-        Blobs::find_by_id((table.into(), hash.into()))
-            .count(&self.pool)
-            .await
-            .map(|c| c > 0)
     }
 
     pub(super) async fn metadata(
@@ -100,13 +101,6 @@ impl BlobDBStorage {
             .await
             .map_err(|e| e.into())
             .and_then(|r| r.ok_or(JwstBlobError::BlobNotFound(hash.into())))
-    }
-
-    async fn delete(&self, table: &str, hash: &str) -> Result<bool, DbErr> {
-        Blobs::delete_by_id((table.into(), hash.into()))
-            .exec(&self.pool)
-            .await
-            .map(|r| r.rows_affected == 1)
     }
 
     async fn drop(&self, table: &str) -> Result<(), DbErr> {

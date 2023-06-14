@@ -29,3 +29,13 @@ pub enum OptimizedBlobs {
     Timestamp,
     Params,
 }
+
+#[derive(Iden)]
+pub enum S3Blobs {
+    Table,
+    Workspace,
+    Hash,
+    Length,
+    Timestamp,
+    Params,
+}
