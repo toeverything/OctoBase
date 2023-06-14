@@ -6,7 +6,7 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
 fuzz_target!(|seed: u64| {
-    println!("seed: {}", seed);
+    // println!("seed: {}", seed);
     let doc = Doc::with_client(1);
     let mut rand = ChaCha20Rng::seed_from_u64(seed);
     let mut text = doc.get_or_create_text("test").unwrap();
