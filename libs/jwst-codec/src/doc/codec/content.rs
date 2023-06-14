@@ -368,7 +368,7 @@ macro_rules! impl_primitive_from {
     }
 }
 
-impl_primitive_from! { any => u8, u16, u32, u64, i8, i16, i32, i64, String, &str, f32, f64, bool }
+impl_primitive_from! { any => u8, u16, u32, u64, usize, i8, i16, i32, i64, isize, String, &str, f32, f64, bool }
 impl_primitive_from! { raw => Vec<u8>: Binary, YTypeRef: Type }
 impl_primitive_from! { type_ref => Array, Text }
 

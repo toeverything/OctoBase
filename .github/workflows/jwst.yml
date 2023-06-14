@@ -416,22 +416,23 @@ jobs:
             - name: fuzzing
               working-directory: ./libs/jwst-codec
               run: |
-                cargo install cargo-fuzz
-                cargo fuzz run codec_doc_any_struct -- -max_total_time=30
-                cargo fuzz run codec_doc_any -- -max_total_time=30
-                cargo fuzz run decode_bytes -- -max_total_time=30
-                cargo fuzz run i64_decode -- -max_total_time=30
-                cargo fuzz run i64_encode -- -max_total_time=30
-                cargo fuzz run sync_message -- -max_total_time=30
-                cargo fuzz run u64_decode -- -max_total_time=30
-                cargo fuzz run u64_encode -- -max_total_time=30
-                cargo fuzz run apply_update -- -max_total_time=30
-            
+                  cargo install cargo-fuzz
+                  cargo fuzz run apply_update -- -max_total_time=30
+                  cargo fuzz run codec_doc_any_struct -- -max_total_time=30
+                  cargo fuzz run codec_doc_any -- -max_total_time=30
+                  cargo fuzz run decode_bytes -- -max_total_time=30
+                  cargo fuzz run i64_decode -- -max_total_time=30
+                  cargo fuzz run i64_encode -- -max_total_time=30
+                  # skip due to memory leak
+                  # cargo fuzz run ins_del_text -- -max_total_time=30
+                  cargo fuzz run sync_message -- -max_total_time=30
+                  cargo fuzz run u64_decode -- -max_total_time=30
+                  cargo fuzz run u64_encode -- -max_total_time=30
+                  cargo fuzz run apply_update -- -max_total_time=30
+
             - name: upload fuzz artifacts
               if: ${{ failure() }}
               uses: actions/upload-artifact@v3
               with:
-                name: fuzz-artifact
-                path: ./lib/jwst-codec/fuzz/artifacts/**/*
-
-
+                  name: fuzz-artifact
+                  path: ./lib/jwst-codec/fuzz/artifacts/**/*
