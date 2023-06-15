@@ -39,11 +39,19 @@ y-sync = { git = "https://github.com/toeverything/y-sync", rev = "aeb0010" }
 yrs = "0.16.5"
 
 [[bench]]
+name = "array_ops_benchmarks"
+harness = false
+
+[[bench]]
 name = "codec_benchmarks"
 harness = false
 
 [[bench]]
-name = "ops_benchmarks"
+name = "map_ops_benchmarks"
+harness = false
+
+[[bench]]
+name = "text_ops_benchmarks"
 harness = false
 
 [[bench]]

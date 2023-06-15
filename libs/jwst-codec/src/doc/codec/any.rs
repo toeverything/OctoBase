@@ -180,6 +180,18 @@ impl_primitive_from!(unsigned, u8, u16, u32, u64);
 impl_primitive_from!(signed, i8, i16, i32, i64);
 impl_primitive_from!(string, String, &str);
 
+impl From<usize> for Any {
+    fn from(value: usize) -> Self {
+        Self::Integer(value as u64)
+    }
+}
+
+impl From<isize> for Any {
+    fn from(value: isize) -> Self {
+        Self::BigInt64(value as i64)
+    }
+}
+
 impl From<f32> for Any {
     fn from(value: f32) -> Self {
         Self::Float32(value.into())
