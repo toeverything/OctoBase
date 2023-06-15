@@ -5,4 +5,4 @@ pub mod prelude;
 pub mod blobs;
 pub mod docs;
 pub mod optimized_blobs;
-pub mod s3_blobs;
+pub mod bucket_blobs;

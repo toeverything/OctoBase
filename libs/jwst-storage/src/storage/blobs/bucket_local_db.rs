@@ -1,5 +1,4 @@
 use super::*;
-use crate::entities::prelude::S3Blobs;
 use crate::rate_limiter::Bucket;
 use crate::JwstStorageError;
 use bytes::Bytes;
@@ -11,28 +10,28 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[allow(unused)]
-pub(super) type S3BlobModel = <S3Blobs as EntityTrait>::Model;
+pub(super) type BucketBlobModel = <BucketBlobs as EntityTrait>::Model;
 #[allow(unused)]
-type BlobActiveModel = entities::s3_blobs::ActiveModel;
+type BlobActiveModel = entities::bucket_blobs::ActiveModel;
 #[allow(unused)]
-type BlobColumn = <S3Blobs as EntityTrait>::Column;
+type BlobColumn = <BucketBlobs as EntityTrait>::Column;
 
 #[derive(Clone)]
 #[allow(unused)]
-pub struct BlobS3DBStorage {
+pub struct BlobBucketDBStorage {
     bucket: Arc<Bucket>,
     pub(super) pool: DatabaseConnection,
-    pub(super) s3_storage: S3Storage,
+    pub(super) bucket_storage: BucketStorage,
 }
 
-impl AsRef<DatabaseConnection> for BlobS3DBStorage {
+impl AsRef<DatabaseConnection> for BlobBucketDBStorage {
     fn as_ref(&self) -> &DatabaseConnection {
         &self.pool
     }
 }
 
 #[allow(unused)]
-impl BlobS3DBStorage {
+impl BlobBucketDBStorage {
     pub async fn init_with_pool() -> JwstStorageResult<Self> {
         todo!()
     }
@@ -43,16 +42,16 @@ impl BlobS3DBStorage {
 }
 
 #[derive(Clone)]
-pub struct S3Storage {
+pub struct BucketStorage {
     pub(super) op: Operator,
 }
 
-// TODO Builder for S3Storage;
+// TODO Builder for BucketStorage;
 // TODO add retry layer
 
 #[allow(unused_variables)]
 #[async_trait]
-impl BlobStorage<JwstStorageError> for S3Storage {
+impl BlobStorage<JwstStorageError> for BucketStorage {
     async fn check_blob(
         &self,
         workspace: Option<String>,
@@ -110,7 +109,7 @@ impl BlobStorage<JwstStorageError> for S3Storage {
 
 #[allow(unused_variables)]
 #[async_trait]
-impl BlobStorage<JwstStorageError> for BlobS3DBStorage {
+impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
     // only db operation
     async fn check_blob(
         &self,
@@ -127,7 +126,7 @@ impl BlobStorage<JwstStorageError> for BlobS3DBStorage {
         id: String,
         params: Option<HashMap<String, String>>,
     ) -> JwstResult<Vec<u8>, JwstStorageError> {
-        self.s3_storage.get_blob(workspace, id, params).await
+        self.bucket_storage.get_blob(workspace, id, params).await
     }
 
     // only db operation
@@ -146,7 +145,7 @@ impl BlobStorage<JwstStorageError> for BlobS3DBStorage {
         workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
     ) -> JwstResult<String, JwstStorageError> {
-        self.s3_storage
+        self.bucket_storage
             .put_blob(workspace.clone(), stream).await?;
         todo!()
     }
@@ -157,13 +156,13 @@ impl BlobStorage<JwstStorageError> for BlobS3DBStorage {
         workspace: Option<String>,
         id: String,
     ) -> JwstResult<bool, JwstStorageError> {
-        self.s3_storage.delete_blob(workspace.clone(), id.clone()).await?;
+        self.bucket_storage.delete_blob(workspace.clone(), id.clone()).await?;
         todo!()
     }
 
     // db and s3 operation
     async fn delete_workspace(&self, workspace_id: String) -> JwstResult<(), JwstStorageError> {
-        self.s3_storage.delete_workspace(workspace_id.clone()).await?;
+        self.bucket_storage.delete_workspace(workspace_id.clone()).await?;
         todo!()
     }
 

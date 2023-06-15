@@ -31,7 +31,7 @@ pub enum OptimizedBlobs {
 }
 
 #[derive(Iden)]
-pub enum S3Blobs {
+pub enum BucketBlobs {
     Table,
     Workspace,
     Hash,

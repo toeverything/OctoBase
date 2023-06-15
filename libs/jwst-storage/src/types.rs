@@ -18,8 +18,8 @@ pub enum JwstStorageError {
     Jwst(#[from] jwst::JwstError),
     #[error("failed to process blob")]
     JwstBlob(#[from] crate::storage::blobs::JwstBlobError),
-    #[error("s3 error")]
-    JwstS3Error(#[from] opendal::Error),
+    #[error("bucket error")]
+    JwstBucketError(#[from] opendal::Error),
 
 }
 

@@ -1,5 +1,5 @@
 mod local_db;
-mod s3_local_db;
+mod bucket_local_db;
 mod utils;
 
 #[cfg(test)]
