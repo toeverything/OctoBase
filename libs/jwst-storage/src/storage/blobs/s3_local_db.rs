@@ -31,8 +31,6 @@ impl AsRef<DatabaseConnection> for BlobS3DBStorage {
     }
 }
 
-impl SharedDBOps for BlobS3DBStorage {}
-
 #[allow(unused)]
 impl BlobS3DBStorage {
     pub async fn init_with_pool() -> JwstStorageResult<Self> {
