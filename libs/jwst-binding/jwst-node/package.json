@@ -1,0 +1,40 @@
+{
+  "name": "jwst-node",
+  "version": "1.0.0",
+  "main": "index1.js",
+  "types": "index1.d.ts",
+  "type": "module",
+  "engines": {
+    "node": ">= 12.22.0 < 13 || >= 14.17.0 < 15 || >= 15.12.0"
+  },
+  "exports": {
+    "import": "./index.mjs",
+    "require": "./index.cjs",
+    "types": "./index.d.ts"
+  },
+  "napi": {
+    "binaryName": "jwst-node",
+    "targets": [
+      "aarch64-apple-darwin",
+      "aarch64-unknown-linux-gnu",
+      "aarch64-unknown-linux-musl",
+      "aarch64-pc-windows-msvc",
+      "x86_64-apple-darwin",
+      "x86_64-pc-windows-msvc",
+      "x86_64-unknown-linux-gnu",
+      "x86_64-unknown-linux-musl",
+      "universal-apple-darwin"
+    ]
+  },
+  "scripts": {
+    "test": "node -e \"assert(require('.').sum(1, 2) === 3)\"",
+    "build": "napi build --release --platform --strip",
+    "build:debug": "napi build",
+    "prepublishOnly": "napi prepublish -t npm",
+    "artifacts": "napi artifacts",
+    "version": "napi version"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.0.0-alpha.4"
+  }
+}

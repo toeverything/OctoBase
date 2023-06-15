@@ -1,0 +1,25 @@
+[package]
+name = "jwst-node"
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+jwst = { workspace = true }
+jwst-storage = { workspace = true }
+yrs = { version = '0.16.5'}
+
+[dependencies.napi]
+version = "2"
+default-features = false
+# see https://nodejs.org/api/n-api.html#node-api-version-matrix
+features = ["napi8", "async"]
+
+[dependencies.napi-derive]
+version = "2"
+features = ["type-def"]
+
+[build-dependencies]
+napi-build = "2"
