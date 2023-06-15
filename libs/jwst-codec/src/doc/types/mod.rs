@@ -1,8 +1,7 @@
 mod array;
 mod list;
-mod text;
 mod map;
-mod traits;
+mod text;
 
 use super::*;
 use list::*;
@@ -12,9 +11,8 @@ use std::{
 };
 
 pub use array::*;
-pub use text::*;
 pub use map::*;
-pub use traits::*;
+pub use text::*;
 
 use crate::{Item, JwstCodecError, JwstCodecResult};
 

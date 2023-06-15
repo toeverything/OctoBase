@@ -8,8 +8,8 @@ pub use codec::{
     write_var_string, write_var_u64,
 };
 pub use doc::{
-    Any, Awareness, AwarenessEvent, Client, Clock, Content, CrdtRead, CrdtReader, CrdtWrite,
-    CrdtWriter, Doc, Id, Item, RawDecoder, RawEncoder, Update,
+    Any, Array, Awareness, AwarenessEvent, Client, Clock, Content, CrdtRead, CrdtReader, CrdtWrite,
+    CrdtWriter, Doc, Id, Item, Map, RawDecoder, RawEncoder, Text, Update,
 };
 pub use protocol::{
     read_sync_message, write_sync_message, AwarenessState, AwarenessStates, DocMessage,

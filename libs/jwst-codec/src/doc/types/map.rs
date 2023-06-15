@@ -6,10 +6,10 @@ use std::sync::Arc;
 impl_type!(Map);
 
 pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
-    fn insert(&mut self, key: String, value: Content) -> JwstCodecResult {
+    fn insert(&mut self, key: impl AsRef<str>, value: impl Into<Content>) -> JwstCodecResult {
         let mut inner = self.as_inner().write().unwrap();
         let left = inner.map.as_ref().and_then(|map| {
-            map.get(key.as_str())
+            map.get(key.as_ref())
                 .and_then(|struct_info| struct_info.left())
         });
         if let Some(store) = inner.store.upgrade() {
@@ -19,9 +19,9 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
                 ItemBuilder::new()
                     .id(new_item_id)
                     .left(left)
-                    .content(value)
+                    .content(value.into())
                     .parent(Some(Parent::Type(self.as_inner().clone())))
-                    .parent_sub(Some(key))
+                    .parent_sub(Some(key.as_ref().into()))
                     .build(),
             );
             store.integrate(StructInfo::Item(item), 0, Some(&mut inner))?;
@@ -30,12 +30,12 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         Ok(())
     }
 
-    fn get(&self, key: String) -> Option<&Content> {
+    fn get(&self, key: impl AsRef<str>) -> Option<&Content> {
         let inner = self.as_inner().read().unwrap();
         inner
             .map
             .as_ref()
-            .and_then(|map| map.get(key.as_str()))
+            .and_then(|map| map.get(key.as_ref()))
             .filter(|struct_info| !struct_info.deleted())
             .and_then(|struct_info| struct_info.as_item())
             .map(|item| {
@@ -49,26 +49,26 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         let inner = self.as_inner().read().unwrap();
         if let Some(map) = inner.map.as_ref() {
             for key in map.keys() {
-                ret.insert(key.clone(), self.get(key.to_string()));
+                ret.insert(key.clone(), self.get(key));
             }
         }
 
         ret
     }
 
-    fn contains_key(&self, key: String) -> bool {
+    fn contains_key(&self, key: impl AsRef<str>) -> bool {
         let inner = self.as_inner().read().unwrap();
         inner
             .map
             .as_ref()
-            .and_then(|map| map.get(key.as_str()))
+            .and_then(|map| map.get(key.as_ref()))
             .map(|struct_info| !struct_info.deleted())
             .unwrap_or(false)
     }
 
-    fn remove(&mut self, key: String) {
+    fn remove(&mut self, key: impl AsRef<str>) {
         let inner = self.as_inner().write().unwrap();
-        if let Some(struct_info) = inner.map.as_ref().and_then(|map| map.get(key.as_str())) {
+        if let Some(struct_info) = inner.map.as_ref().and_then(|map| map.get(key.as_ref())) {
             struct_info.delete();
         }
     }
@@ -127,33 +127,33 @@ impl MapType for Map {}
 
 impl Map {
     pub fn insert<K: AsRef<str>, V: Into<Content>>(&mut self, key: K, value: V) -> JwstCodecResult {
-        MapType::insert(self, key.as_ref().into(), value.into())
+        MapType::insert(self, key, value)
     }
 
     #[inline]
     pub fn get<K: AsRef<str>>(&self, key: K) -> Option<&Content> {
-        MapType::get(self, key.as_ref().into())
+        MapType::get(self, key)
     }
 
     #[inline]
     pub fn remove<K: AsRef<str>>(&mut self, key: K) {
-        MapType::remove(self, key.as_ref().into())
+        MapType::remove(self, key)
     }
 
     #[inline]
     pub fn contains_key<K: AsRef<str>>(&self, key: K) -> bool {
-        MapType::contains_key(self, key.as_ref().into())
+        MapType::contains_key(self, key)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::doc::MapType;
+    use super::*;
     use crate::{Any, Content, Doc};
     use std::sync::Arc;
 
     #[test]
-    fn test_ymap_basic() {
+    fn test_map_basic() {
         let doc = Doc::default();
         let mut map = doc.get_or_create_map("map").unwrap();
         map.insert("1", "value").unwrap();
@@ -161,13 +161,16 @@ mod tests {
             map.get("1"),
             Some(&Content::Any(vec![Any::String("value".to_string())]))
         );
+        assert!(!map.contains_key("nonexistent_key"));
+        assert_eq!(map.len(), 1);
         assert!(map.contains_key("1"));
         map.remove("1");
         assert!(!map.contains_key("1"));
+        assert_eq!(map.len(), 0);
     }
 
     #[test]
-    fn test_ymap_equal() {
+    fn test_map_equal() {
         let doc = Doc::default();
         let mut map = doc.get_or_create_map("map").unwrap();
         map.insert("1", "value").unwrap();
@@ -185,7 +188,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ymap_iter() {
+    fn test_map_iter() {
         let doc = Doc::default();
         let mut map = doc.get_or_create_map("map").unwrap();
         map.insert("1", "value1").unwrap();
@@ -204,5 +207,29 @@ mod tests {
             vec[1].content,
             Arc::new(Content::Any(vec![Any::String("value2".to_string())]))
         );
+    }
+
+    #[test]
+    fn test_map_re_encode() {
+        let binary = {
+            let doc = Doc::default();
+            let mut map = doc.get_or_create_map("map").unwrap();
+            map.insert("1", "value1").unwrap();
+            map.insert("2", "value2").unwrap();
+            doc.encode_update_v1().unwrap()
+        };
+
+        {
+            let doc = Doc::new_from_binary(binary).unwrap();
+            let map = doc.get_or_create_map("map").unwrap();
+            assert_eq!(
+                map.get("1"),
+                Some(&Content::Any(vec![Any::String("value1".to_string())]))
+            );
+            assert_eq!(
+                map.get("2"),
+                Some(&Content::Any(vec![Any::String("value2".to_string())]))
+            );
+        }
     }
 }
