@@ -3,7 +3,7 @@ use crate::rate_limiter::Bucket;
 use crate::JwstStorageError;
 use bytes::Bytes;
 use futures::Stream;
-use jwst::{BlobMetadata, BlobStorage, JwstResult};
+use jwst::{BlobMetadata, BlobStorage, BucketBlobStorage, JwstResult};
 use opendal::Operator;
 use sea_orm::{DatabaseConnection, EntityTrait};
 use std::collections::HashMap;
@@ -12,9 +12,9 @@ use std::sync::Arc;
 #[allow(unused)]
 pub(super) type BucketBlobModel = <BucketBlobs as EntityTrait>::Model;
 #[allow(unused)]
-type BlobActiveModel = entities::bucket_blobs::ActiveModel;
+type BucketBlobActiveModel = entities::bucket_blobs::ActiveModel;
 #[allow(unused)]
-type BlobColumn = <BucketBlobs as EntityTrait>::Column;
+type BucketBlobColumn = <BucketBlobs as EntityTrait>::Column;
 
 #[derive(Clone)]
 #[allow(unused)]
@@ -51,15 +51,7 @@ pub struct BucketStorage {
 
 #[allow(unused_variables)]
 #[async_trait]
-impl BlobStorage<JwstStorageError> for BucketStorage {
-    async fn check_blob(
-        &self,
-        workspace: Option<String>,
-        id: String,
-    ) -> JwstResult<bool, JwstStorageError> {
-        todo!()
-    }
-
+impl BucketBlobStorage<JwstStorageError> for BucketStorage {
     async fn get_blob(
         &self,
         workspace: Option<String>,
@@ -69,19 +61,11 @@ impl BlobStorage<JwstStorageError> for BucketStorage {
         todo!()
     }
 
-    async fn get_metadata(
-        &self,
-        workspace: Option<String>,
-        id: String,
-        params: Option<HashMap<String, String>>,
-    ) -> JwstResult<BlobMetadata, JwstStorageError> {
-        todo!()
-    }
-
     async fn put_blob(
         &self,
         workspace: Option<String>,
-        stream: impl Stream<Item = Bytes> + Send,
+        hash: String,
+        blob: Vec<u8>,
     ) -> JwstResult<String, JwstStorageError> {
         todo!()
     }
@@ -99,10 +83,6 @@ impl BlobStorage<JwstStorageError> for BucketStorage {
     }
 
     async fn delete_workspace(&self, workspace_id: String) -> JwstResult<(), JwstStorageError> {
-        todo!()
-    }
-
-    async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64, JwstStorageError> {
         todo!()
     }
 }
@@ -145,8 +125,6 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
     ) -> JwstResult<String, JwstStorageError> {
-        self.bucket_storage
-            .put_blob(workspace.clone(), stream).await?;
         todo!()
     }
 
@@ -156,13 +134,17 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         workspace: Option<String>,
         id: String,
     ) -> JwstResult<bool, JwstStorageError> {
-        self.bucket_storage.delete_blob(workspace.clone(), id.clone()).await?;
+        self.bucket_storage
+            .delete_blob(workspace.clone(), id.clone())
+            .await?;
         todo!()
     }
 
     // db and s3 operation
     async fn delete_workspace(&self, workspace_id: String) -> JwstResult<(), JwstStorageError> {
-        self.bucket_storage.delete_workspace(workspace_id.clone()).await?;
+        self.bucket_storage
+            .delete_workspace(workspace_id.clone())
+            .await?;
         todo!()
     }
 
