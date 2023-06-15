@@ -11,8 +11,6 @@ pub struct Model {
     pub hash: String,
     pub length: i64,
     pub timestamp: DateTimeWithTimeZone,
-    #[sea_orm(primary_key, auto_increment = false)]
-    pub params: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

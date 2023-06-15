@@ -17,28 +17,18 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(BucketBlobs::Table)
-                    .col(
-                        ColumnDef::new(BucketBlobs::Workspace)
-                            .string()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(BucketBlobs::Workspace).string().not_null())
                     .col(ColumnDef::new(BucketBlobs::Hash).string().not_null())
-                    .col(
-                        ColumnDef::new(BucketBlobs::Length)
-                            .big_integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(BucketBlobs::Length).big_integer().not_null())
                     .col(
                         ColumnDef::new(BucketBlobs::Timestamp)
                             .timestamp_with_time_zone()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(BucketBlobs::Params).string().not_null())
                     .primary_key(
                         Index::create()
                             .col(BucketBlobs::Workspace)
-                            .col(BucketBlobs::Hash)
-                            .col(BucketBlobs::Params),
+                            .col(BucketBlobs::Hash),
                     )
                     .to_owned(),
             )

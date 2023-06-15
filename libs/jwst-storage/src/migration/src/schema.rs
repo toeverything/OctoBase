@@ -37,5 +37,4 @@ pub enum BucketBlobs {
     Hash,
     Length,
     Timestamp,
-    Params,
 }
