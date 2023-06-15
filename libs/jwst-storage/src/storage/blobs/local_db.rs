@@ -12,6 +12,12 @@ pub struct BlobDBStorage {
     pub(super) pool: DatabaseConnection,
 }
 
+impl AsRef<DatabaseConnection> for BlobDBStorage {
+    fn as_ref(&self) -> &DatabaseConnection {
+        &self.pool
+    }
+}
+
 impl BlobDBStorage {
     pub async fn init_with_pool(
         pool: DatabaseConnection,

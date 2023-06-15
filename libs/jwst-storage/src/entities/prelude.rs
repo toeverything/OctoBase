@@ -3,3 +3,4 @@
 pub use super::blobs::Entity as Blobs;
 pub use super::docs::Entity as Docs;
 pub use super::optimized_blobs::Entity as OptimizedBlobs;
+pub use super::bucket_blobs::Entity as BucketBlobs;

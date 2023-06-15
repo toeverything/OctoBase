@@ -21,6 +21,7 @@ members = [
     "libs/jwst-storage",
     "libs/jwst-storage/src/migration",
 ]
+resolver = "2"
 
 [workspace.dependencies]
 jwst = { workspace = true, path = "libs/jwst" }

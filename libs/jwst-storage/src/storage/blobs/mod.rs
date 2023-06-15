@@ -1,14 +1,15 @@
-mod database;
+mod local_db;
+mod bucket_local_db;
 mod utils;
 
 #[cfg(test)]
-pub use database::blobs_storage_test;
+pub use local_db::blobs_storage_test;
 
 use super::{entities::prelude::*, *};
 use bytes::Bytes;
-use database::BlobDBStorage;
 use image::ImageError;
 use jwst::{BlobMetadata, BlobStorage};
+use local_db::BlobDBStorage;
 use thiserror::Error;
 use tokio::task::JoinError;
 use utils::{ImageParams, InternalBlobMetadata};
