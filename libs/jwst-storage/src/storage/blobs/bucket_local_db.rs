@@ -237,7 +237,7 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
             .delete_workspace(workspace_id.clone())
             .await?;
         let _lock = self.bucket.write().await;
-        if let Ok(_) = self.drop(&workspace_id).await {
+        if self.drop(&workspace_id).await.is_ok() {
             Ok(())
         } else {
             Err(JwstStorageError::WorkspaceNotFound(workspace_id))
