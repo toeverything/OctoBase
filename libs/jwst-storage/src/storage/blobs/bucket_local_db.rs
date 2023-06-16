@@ -5,20 +5,19 @@ use crate::JwstStorageError;
 use bytes::Bytes;
 use futures::Stream;
 use jwst::{BlobMetadata, BlobStorage, BucketBlobStorage, JwstResult};
+use jwst_storage_migration::Migrator;
+use opendal::services::S3;
 use opendal::Operator;
 use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm_migration::MigratorTrait;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-#[allow(unused)]
 pub(super) type BucketBlobModel = <BucketBlobs as EntityTrait>::Model;
-#[allow(unused)]
 type BucketBlobActiveModel = entities::bucket_blobs::ActiveModel;
-#[allow(unused)]
 type BucketBlobColumn = <BucketBlobs as EntityTrait>::Column;
 
 #[derive(Clone)]
-#[allow(unused)]
 pub struct BlobBucketDBStorage {
     bucket: Arc<Bucket>,
     pub(super) pool: DatabaseConnection,
@@ -31,17 +30,53 @@ impl AsRef<DatabaseConnection> for BlobBucketDBStorage {
     }
 }
 
-#[allow(unused)]
 impl BlobBucketDBStorage {
+    #[allow(unused)]
     pub async fn init_with_pool(
         pool: DatabaseConnection,
         bucket: Arc<Bucket>,
+        bucket_storage: Option<BucketStorage>,
     ) -> JwstStorageResult<Self> {
-        todo!()
+        Migrator::up(&pool, None).await?;
+        Ok(Self {
+            bucket,
+            pool,
+            bucket_storage: bucket_storage.unwrap_or(BucketStorage::new()?),
+        })
     }
 
-    pub async fn init_pool(database: &str) -> JwstStorageResult<Self> {
-        todo!()
+    #[allow(unused)]
+    pub async fn init_pool(
+        database: &str,
+        bucket_storage: Option<BucketStorage>,
+    ) -> JwstStorageResult<Self> {
+        let is_sqlite = is_sqlite(database);
+        let pool = create_connection(database, is_sqlite).await?;
+
+        Self::init_with_pool(pool, get_bucket(is_sqlite), bucket_storage).await
+    }
+
+    #[allow(unused)]
+    async fn all(&self, workspace: &str) -> Result<Vec<BucketBlobModel>, DbErr> {
+        BucketBlobs::find()
+            .filter(BucketBlobColumn::Workspace.eq(workspace))
+            .all(&self.pool)
+            .await
+    }
+
+    #[allow(unused)]
+    async fn count(&self, workspace: &str) -> Result<u64, DbErr> {
+        BucketBlobs::find()
+            .filter(BucketBlobColumn::Workspace.eq(workspace))
+            .count(&self.pool)
+            .await
+    }
+
+    async fn exists(&self, workspace: &str, hash: &str) -> Result<bool, DbErr> {
+        BucketBlobs::find_by_id((workspace.into(), hash.into()))
+            .count(&self.pool)
+            .await
+            .map(|c| c > 0)
     }
 
     pub(super) async fn metadata(
@@ -58,13 +93,6 @@ impl BlobBucketDBStorage {
             .await
             .map_err(|e| e.into())
             .and_then(|r| r.ok_or(JwstBlobError::BlobNotFound(hash.into())))
-    }
-
-    async fn exists(&self, workspace: &str, hash: &str) -> Result<bool, DbErr> {
-        BucketBlobs::find_by_id((workspace.into(), hash.into()))
-            .count(&self.pool)
-            .await
-            .map(|c| c > 0)
     }
 
     pub(super) async fn get_blobs_size(&self, workspace: &str) -> Result<Option<i64>, DbErr> {
@@ -115,7 +143,29 @@ pub struct BucketStorage {
     pub(super) op: Operator,
 }
 
-// TODO Builder for BucketStorage;
+impl BucketStorage {
+    #[allow(unused)]
+    pub fn new() -> JwstStorageResult<Self> {
+        let access_key = dotenvy::var("BUCKET_ACCESS_TOKEN")?;
+        let secret_access_key = dotenvy::var("BUCKET_SECRET_TOKEN")?;
+        let endpoint = dotenvy::var("BUCKET_ENDPOINT")?;
+        let bucket = dotenvy::var("BUCKET_NAME");
+        let root = dotenvy::var("BUCKET_ROOT");
+
+        let mut builder = S3::default();
+
+        builder.bucket(bucket.unwrap_or("default_bucket".to_string()).as_str());
+        builder.root(root.unwrap_or("default_root".to_string()).as_str());
+        builder.endpoint(endpoint.as_str());
+        builder.access_key_id(access_key.as_str());
+        builder.secret_access_key(secret_access_key.as_str());
+
+        Ok(Self {
+            op: Operator::new(builder)?.finish(),
+        })
+    }
+}
+
 // TODO add retry layer
 
 #[allow(unused_variables)]
@@ -248,5 +298,25 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         let _lock = self.bucket.read().await;
         let size = self.get_blobs_size(&workspace_id).await?;
         return Ok(size.unwrap_or(0));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::storage::blobs::utils::BucketStorageBuilder;
+
+    #[tokio::test]
+    #[ignore = "need to config bucket auth"]
+    async fn test_init_bucket_storage() {
+        let bucket_storage = BucketStorageBuilder::new()
+            .bucket("bucket")
+            .root("root")
+            .build()
+            .unwrap();
+
+        BlobBucketDBStorage::init_pool("sqlite::memory:", Some(bucket_storage))
+            .await
+            .unwrap();
     }
 }

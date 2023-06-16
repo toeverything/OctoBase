@@ -14,6 +14,9 @@ use thiserror::Error;
 use tokio::task::JoinError;
 use utils::{ImageParams, InternalBlobMetadata};
 
+pub use utils::BucketStorageBuilder;
+pub use bucket_local_db::BlobBucketDBStorage;
+
 #[derive(Debug, Error)]
 pub enum JwstBlobError {
     #[error("blob not found: {0}")]
