@@ -3,6 +3,7 @@ mod docs;
 mod test;
 
 use super::*;
+use crate::storage::blobs::{BlobBucketDBStorage, BlobStorageType, JwstBlobStorage};
 use crate::types::JwstStorageError;
 use blobs::BlobAutoStorage;
 use docs::SharedDocDBStorage;
@@ -11,13 +12,16 @@ use tokio::sync::Mutex;
 
 pub struct JwstStorage {
     pool: DatabaseConnection,
-    blobs: BlobAutoStorage,
+    blobs: JwstBlobStorage,
     docs: SharedDocDBStorage,
     last_migrate: Mutex<HashMap<String, Instant>>,
 }
 
 impl JwstStorage {
-    pub async fn new(database: &str) -> JwstStorageResult<Self> {
+    pub async fn new(
+        database: &str,
+        blob_storage_type: BlobStorageType,
+    ) -> JwstStorageResult<Self> {
         let is_sqlite = is_sqlite(database);
         let pool = create_connection(database, is_sqlite).await?;
         let bucket = get_bucket(is_sqlite);
@@ -28,7 +32,19 @@ impl JwstStorage {
                 .unwrap();
         }
 
-        let blobs = BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone()).await?;
+        let blobs = match blob_storage_type {
+            BlobStorageType::DB => JwstBlobStorage::DB(
+                BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone()).await?,
+            ),
+            BlobStorageType::MixedBucketDB(param) => JwstBlobStorage::MixedBucketDB(
+                BlobBucketDBStorage::init_with_pool(
+                    pool.clone(),
+                    bucket.clone(),
+                    Some(param.try_into()?),
+                )
+                .await?,
+            ),
+        };
         let docs = SharedDocDBStorage::init_with_pool(pool.clone(), bucket.clone()).await?;
 
         Ok(Self {
@@ -39,7 +55,10 @@ impl JwstStorage {
         })
     }
 
-    pub async fn new_with_sqlite(file: &str) -> JwstStorageResult<Self> {
+    pub async fn new_with_sqlite(
+        file: &str,
+        blob_storage_type: BlobStorageType,
+    ) -> JwstStorageResult<Self> {
         use std::fs::create_dir;
 
         let data = PathBuf::from("./data");
@@ -47,12 +66,15 @@ impl JwstStorage {
             create_dir(&data).map_err(JwstStorageError::CreateDataFolder)?;
         }
 
-        Self::new(&format!(
-            "sqlite:{}?mode=rwc",
-            data.join(PathBuf::from(file).name_str())
-                .with_extension("db")
-                .display()
-        ))
+        Self::new(
+            &format!(
+                "sqlite:{}?mode=rwc",
+                data.join(PathBuf::from(file).name_str())
+                    .with_extension("db")
+                    .display(),
+            ),
+            blob_storage_type,
+        )
         .await
     }
 
@@ -60,7 +82,7 @@ impl JwstStorage {
         format!("{:?}", self.pool)
     }
 
-    pub fn blobs(&self) -> &BlobAutoStorage {
+    pub fn blobs(&self) -> &JwstBlobStorage {
         &self.blobs
     }
 
@@ -180,12 +202,29 @@ impl JwstStorage {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
+    use crate::storage::blobs::MixedBucketDBParam;
 
     #[tokio::test]
     async fn test_sqlite_storage() {
-        let storage = JwstStorage::new_with_sqlite(":memory:").await.unwrap();
+        let storage = JwstStorage::new_with_sqlite(":memory:", BlobStorageType::DB)
+            .await
+            .unwrap();
         assert_eq!(storage.database(), "SqlxSqlitePoolConnection");
+    }
+
+    #[tokio::test]
+    async fn test_bucket_storage() {
+        let bucket_params = MixedBucketDBParam {
+            access_key: dotenvy::var("BUCKET_ACCESS_TOKEN").unwrap().to_string(),
+            secret_access_key: dotenvy::var("BUCKET_SECRET_TOKEN").unwrap().to_string(),
+            endpoint: dotenvy::var("BUCKET_ENDPOINT").unwrap().to_string(),
+            bucket: Some(dotenvy::var("BUCKET_NAME").unwrap()),
+            root: Some(dotenvy::var("BUCKET_ROOT").unwrap()),
+        };
+        let _storage =
+            JwstStorage::new_with_sqlite(":memory:", BlobStorageType::MixedBucketDB(bucket_params))
+                .await
+                .unwrap();
     }
 }

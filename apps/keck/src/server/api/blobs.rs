@@ -208,10 +208,17 @@ mod tests {
     use axum::body::{Body, Bytes};
     use axum_test_helper::TestClient;
     use futures::stream;
+    use jwst_storage::BlobStorageType;
 
     #[tokio::test]
     async fn test_blobs_apis() {
-        let ctx = Context::new(JwstStorage::new("sqlite::memory:").await.ok(), None).await;
+        let ctx = Context::new(
+            JwstStorage::new("sqlite::memory:", BlobStorageType::DB)
+                .await
+                .ok(),
+            None,
+        )
+        .await;
         let client = TestClient::new(blobs_apis(Router::new()).layer(Extension(Arc::new(ctx))));
 
         let test_data: Vec<u8> = (0..=255).collect();

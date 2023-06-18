@@ -3,7 +3,7 @@ use android_logger::Config;
 use futures::TryFutureExt;
 use jwst::{error, JwstError, LevelFilter};
 use jwst_rpc::{start_client_sync, BroadcastChannels, RpcContextImpl, SyncState};
-use jwst_storage::{JwstStorage as AutoStorage, JwstStorageResult};
+use jwst_storage::{BlobStorageType, JwstStorage as AutoStorage, JwstStorageResult};
 use log::log::warn;
 use nanoid::nanoid;
 use std::sync::{Arc, RwLock};
@@ -37,13 +37,15 @@ impl JwstStorage {
 
         let storage = rt
             .block_on(
-                AutoStorage::new(&format!("sqlite:{path}?mode=rwc")).or_else(|e| {
-                    warn!(
-                        "Failed to open storage, falling back to memory storage: {}",
-                        e
-                    );
-                    AutoStorage::new("sqlite::memory:")
-                }),
+                AutoStorage::new(&format!("sqlite:{path}?mode=rwc"), BlobStorageType::DB).or_else(
+                    |e| {
+                        warn!(
+                            "Failed to open storage, falling back to memory storage: {}",
+                            e
+                        );
+                        AutoStorage::new("sqlite::memory:", BlobStorageType::DB)
+                    },
+                ),
             )
             .unwrap();
 

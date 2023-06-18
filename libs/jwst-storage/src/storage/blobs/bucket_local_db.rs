@@ -95,7 +95,7 @@ impl BlobBucketDBStorage {
             .and_then(|r| r.ok_or(JwstBlobError::BlobNotFound(hash.into())))
     }
 
-    pub(super) async fn get_blobs_size(&self, workspace: &str) -> Result<Option<i64>, DbErr> {
+    async fn get_blobs_size(&self, workspace: &str) -> Result<Option<i64>, DbErr> {
         BucketBlobs::find()
             .filter(BucketBlobColumn::Workspace.eq(workspace))
             .column_as(BucketBlobColumn::Length, "size")
@@ -154,8 +154,8 @@ impl BucketStorage {
 
         let mut builder = S3::default();
 
-        builder.bucket(bucket.unwrap_or("default_bucket".to_string()).as_str());
-        builder.root(root.unwrap_or("default_root".to_string()).as_str());
+        builder.bucket(bucket.unwrap_or("__default_bucket__".to_string()).as_str());
+        builder.root(root.unwrap_or("__default_root__".to_string()).as_str());
         builder.endpoint(endpoint.as_str());
         builder.access_key_id(access_key.as_str());
         builder.secret_access_key(secret_access_key.as_str());
@@ -310,6 +310,9 @@ mod tests {
     #[ignore = "need to config bucket auth"]
     async fn test_init_bucket_storage() {
         let bucket_storage = BucketStorageBuilder::new()
+            .endpoint("endpoint")
+            .access_key("access_key")
+            .secret_access_key("secret_access_key")
             .bucket("bucket")
             .root("root")
             .build()

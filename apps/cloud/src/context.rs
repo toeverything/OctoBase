@@ -5,7 +5,7 @@ use cloud_infra::{FirebaseContext, KeyContext, MailContext};
 use jwst::SearchResults;
 use jwst_logger::{error, info, warn};
 use jwst_rpc::{BroadcastChannels, BroadcastType, RpcContextImpl};
-use jwst_storage::JwstStorage;
+use jwst_storage::{BlobStorageType, JwstStorage};
 use std::{collections::HashMap, path::Path};
 use tempfile::{tempdir, TempDir};
 use tokio::sync::{Mutex, RwLock};
@@ -51,7 +51,7 @@ impl Context {
         let db = CloudDatabase::init_pool(&cloud)
             .await
             .expect("Cannot create cloud database");
-        let storage = JwstStorage::new(&storage)
+        let storage = JwstStorage::new(&storage, BlobStorageType::DB)
             .await
             .expect("Cannot create storage");
 

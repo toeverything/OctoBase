@@ -1,5 +1,5 @@
-mod local_db;
 mod bucket_local_db;
+mod local_db;
 mod utils;
 
 #[cfg(test)]
@@ -14,8 +14,8 @@ use thiserror::Error;
 use tokio::task::JoinError;
 use utils::{ImageParams, InternalBlobMetadata};
 
-pub use utils::BucketStorageBuilder;
 pub use bucket_local_db::BlobBucketDBStorage;
+pub use utils::BucketStorageBuilder;
 
 #[derive(Debug, Error)]
 pub enum JwstBlobError {
@@ -40,6 +40,24 @@ type OptimizedBlobColumn = <OptimizedBlobs as EntityTrait>::Column;
 pub struct BlobAutoStorage {
     pub(super) db: Arc<BlobDBStorage>,
     pool: DatabaseConnection,
+}
+
+pub enum JwstBlobStorage {
+    DB(BlobAutoStorage),
+    MixedBucketDB(BlobBucketDBStorage),
+}
+
+pub enum BlobStorageType {
+    DB,
+    MixedBucketDB(MixedBucketDBParam),
+}
+
+pub struct MixedBucketDBParam {
+    pub(crate) access_key: String,
+    pub(crate) secret_access_key: String,
+    pub(crate) endpoint: String,
+    pub(crate) bucket: Option<String>,
+    pub(crate) root: Option<String>,
 }
 
 impl BlobAutoStorage {
@@ -281,6 +299,96 @@ impl BlobStorage<JwstStorageError> for BlobAutoStorage {
         let size = self.db.get_blobs_size(&workspace_id).await?;
 
         return Ok(size.unwrap_or(0));
+    }
+}
+
+#[async_trait]
+impl BlobStorage<JwstStorageError> for JwstBlobStorage {
+    async fn check_blob(
+        &self,
+        workspace: Option<String>,
+        id: String,
+    ) -> JwstResult<bool, JwstStorageError> {
+        match self {
+            JwstBlobStorage::DB(db) => db.check_blob(workspace, id).await,
+            JwstBlobStorage::MixedBucketDB(db) => db.check_blob(workspace, id).await,
+        }
+    }
+
+    async fn get_blob(
+        &self,
+        workspace: Option<String>,
+        id: String,
+        params: Option<HashMap<String, String>>,
+    ) -> JwstResult<Vec<u8>, JwstStorageError> {
+        match self {
+            JwstBlobStorage::DB(db) => db.get_blob(workspace, id, params).await,
+            JwstBlobStorage::MixedBucketDB(db) => db.get_blob(workspace, id, params).await,
+        }
+    }
+
+    async fn get_metadata(
+        &self,
+        workspace: Option<String>,
+        id: String,
+        params: Option<HashMap<String, String>>,
+    ) -> JwstResult<BlobMetadata, JwstStorageError> {
+        match self {
+            JwstBlobStorage::DB(db) => db.get_metadata(workspace, id, params).await,
+            JwstBlobStorage::MixedBucketDB(db) => db.get_metadata(workspace, id, params).await,
+        }
+    }
+
+    async fn put_blob(
+        &self,
+        workspace: Option<String>,
+        stream: impl Stream<Item = Bytes> + Send,
+    ) -> JwstResult<String, JwstStorageError> {
+        match self {
+            JwstBlobStorage::DB(db) => db.put_blob(workspace, stream).await,
+            JwstBlobStorage::MixedBucketDB(db) => db.put_blob(workspace, stream).await,
+        }
+    }
+
+    async fn delete_blob(
+        &self,
+        workspace: Option<String>,
+        id: String,
+    ) -> JwstResult<bool, JwstStorageError> {
+        match self {
+            JwstBlobStorage::DB(db) => db.delete_blob(workspace, id).await,
+            JwstBlobStorage::MixedBucketDB(db) => db.delete_blob(workspace, id).await,
+        }
+    }
+
+    async fn delete_workspace(&self, workspace_id: String) -> JwstResult<(), JwstStorageError> {
+        match self {
+            JwstBlobStorage::DB(db) => db.delete_workspace(workspace_id).await,
+            JwstBlobStorage::MixedBucketDB(db) => db.delete_workspace(workspace_id).await,
+        }
+    }
+
+    async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64, JwstStorageError> {
+        match self {
+            JwstBlobStorage::DB(db) => db.get_blobs_size(workspace_id).await,
+            JwstBlobStorage::MixedBucketDB(db) => db.get_blobs_size(workspace_id).await,
+        }
+    }
+}
+
+impl JwstBlobStorage {
+    pub fn get_blob_db(&self) -> Option<Arc<BlobDBStorage>> {
+        match self {
+            JwstBlobStorage::DB(db) => Some(db.db.clone()),
+            JwstBlobStorage::MixedBucketDB(_) => None,
+        }
+    }
+
+    pub fn get_mixed_bucket_db(&self) -> Option<BlobBucketDBStorage> {
+        match self {
+            JwstBlobStorage::DB(_) => None,
+            JwstBlobStorage::MixedBucketDB(db) => Some(db.clone()),
+        }
     }
 }
 

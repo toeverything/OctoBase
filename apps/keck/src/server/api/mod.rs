@@ -15,7 +15,7 @@ use axum::{
 };
 use doc::doc_apis;
 use jwst_rpc::{BroadcastChannels, RpcContextImpl};
-use jwst_storage::{JwstStorage, JwstStorageResult};
+use jwst_storage::{BlobStorageType, JwstStorage, JwstStorageResult};
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
@@ -51,13 +51,13 @@ impl Context {
             Ok(storage)
         } else if dotenvy::var("USE_MEMORY_SQLITE").is_ok() {
             info!("use memory sqlite database");
-            JwstStorage::new("sqlite::memory:").await
+            JwstStorage::new("sqlite::memory:", BlobStorageType::DB).await
         } else if let Ok(database_url) = dotenvy::var("DATABASE_URL") {
             info!("use external database: {}", database_url);
-            JwstStorage::new(&database_url).await
+            JwstStorage::new(&database_url, BlobStorageType::DB).await
         } else {
             info!("use sqlite database: jwst.db");
-            JwstStorage::new_with_sqlite("jwst").await
+            JwstStorage::new_with_sqlite("jwst", BlobStorageType::DB).await
         }
         .expect("Cannot create database");
 

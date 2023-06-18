@@ -79,7 +79,7 @@ mod test {
     use jwst_rpc::{
         start_client_sync, start_webrtc_client_sync, BroadcastChannels, RpcContextImpl,
     };
-    use jwst_storage::JwstStorage;
+    use jwst_storage::{BlobStorageType, JwstStorage};
     use libc::{kill, SIGTERM};
     use rand::{thread_rng, Rng};
     use std::ffi::c_int;
@@ -132,7 +132,7 @@ mod test {
         let (workspace_id, workspace) = rt.block_on(async move {
             let workspace_id = "1";
             let context = Arc::new(TestContext::new(Arc::new(
-                JwstStorage::new("sqlite::memory:")
+                JwstStorage::new("sqlite::memory:", BlobStorageType::DB)
                     .await
                     .expect("get storage: memory sqlite failed"),
             )));
@@ -201,7 +201,7 @@ mod test {
         let (workspace_id, workspace) = rt.block_on(async move {
             let workspace_id = "1";
             let context = Arc::new(TestContext::new(Arc::new(
-                JwstStorage::new("sqlite::memory:")
+                JwstStorage::new("sqlite::memory:", BlobStorageType::DB)
                     .await
                     .expect("get storage: memory sqlite failed"),
             )));
@@ -265,7 +265,7 @@ mod test {
         let workspace_id = String::from("1");
         let (storage, workspace) = rt.block_on(async {
             let storage: Arc<JwstStorage> = Arc::new(
-                JwstStorage::new("sqlite::memory:")
+                JwstStorage::new("sqlite::memory:", BlobStorageType::DB)
                     .await
                     .expect("get storage: memory sqlite failed"),
             );

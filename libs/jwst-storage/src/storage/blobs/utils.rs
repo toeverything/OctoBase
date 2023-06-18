@@ -1,4 +1,5 @@
 use crate::storage::blobs::bucket_local_db::BucketStorage;
+use crate::storage::blobs::MixedBucketDBParam;
 use crate::{JwstStorageError, JwstStorageResult};
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
@@ -175,6 +176,21 @@ impl TryFrom<HashMap<String, String>> for BucketStorage {
     }
 }
 
+impl TryFrom<MixedBucketDBParam> for BucketStorage {
+    type Error = JwstStorageError;
+
+    fn try_from(value: MixedBucketDBParam) -> Result<Self, Self::Error> {
+        let mut builder = BucketStorageBuilder::new();
+        builder = builder.access_key(&value.access_key);
+        builder = builder.secret_access_key(&value.secret_access_key);
+        builder = builder.endpoint(&value.endpoint);
+        builder = builder.bucket(&value.bucket.unwrap_or("__default_bucket__".to_string()));
+        builder = builder.root(&value.root.unwrap_or("__default_root__".to_string()));
+        builder.build()
+    }
+}
+
+#[derive(Default)]
 pub struct BucketStorageBuilder {
     access_key: String,
     secret_access_key: String,
@@ -185,21 +201,7 @@ pub struct BucketStorageBuilder {
 
 impl BucketStorageBuilder {
     pub fn new() -> Self {
-        let access_key =
-            dotenvy::var("BUCKET_ACCESS_TOKEN").unwrap_or("default_access_key".to_string());
-        let secret_access_key =
-            dotenvy::var("BUCKET_SECRET_TOKEN").unwrap_or("default_secret_key".to_string());
-        let endpoint = dotenvy::var("BUCKET_ENDPOINT").unwrap_or("default_endpoint".to_string());
-        let bucket = dotenvy::var("BUCKET_NAME").unwrap_or("__default_bucket__".to_string());
-        let root = dotenvy::var("BUCKET_ROOT").unwrap_or("__default_root__".to_string());
-
-        Self {
-            access_key,
-            secret_access_key,
-            endpoint,
-            bucket,
-            root,
-        }
+        Self::default()
     }
 
     pub fn access_key(mut self, access_key: &str) -> Self {
