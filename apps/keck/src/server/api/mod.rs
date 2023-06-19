@@ -5,6 +5,7 @@ mod blocks;
 mod doc;
 
 use super::*;
+use anyhow::Context as AnyhowContext;
 use axum::Router;
 #[cfg(feature = "api")]
 use axum::{
@@ -15,7 +16,7 @@ use axum::{
 };
 use doc::doc_apis;
 use jwst_rpc::{BroadcastChannels, RpcContextImpl};
-use jwst_storage::{BlobStorageType, JwstStorage, JwstStorageResult};
+use jwst_storage::{BlobStorageType, JwstStorage, JwstStorageResult, MixedBucketDBParam};
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
@@ -46,18 +47,31 @@ pub struct Context {
 
 impl Context {
     pub async fn new(storage: Option<JwstStorage>, cb: WorkspaceRetrievalCallback) -> Self {
+        let use_bucket_storage =
+            dotenvy::var("ENABLE_BUCKET_STORAGE").map_or(false, |v| v.eq("true"));
+
+        let blob_storage_type = if use_bucket_storage {
+            BlobStorageType::MixedBucketDB(
+                MixedBucketDBParam::new_from_env()
+                    .context("failed to load bucket param from env")
+                    .unwrap(),
+            )
+        } else {
+            BlobStorageType::DB
+        };
+
         let storage = if let Some(storage) = storage {
             info!("use external storage instance: {}", storage.database());
             Ok(storage)
         } else if dotenvy::var("USE_MEMORY_SQLITE").is_ok() {
             info!("use memory sqlite database");
-            JwstStorage::new("sqlite::memory:", BlobStorageType::DB).await
+            JwstStorage::new("sqlite::memory:", blob_storage_type).await
         } else if let Ok(database_url) = dotenvy::var("DATABASE_URL") {
             info!("use external database: {}", database_url);
-            JwstStorage::new(&database_url, BlobStorageType::DB).await
+            JwstStorage::new(&database_url, blob_storage_type).await
         } else {
             info!("use sqlite database: jwst.db");
-            JwstStorage::new_with_sqlite("jwst", BlobStorageType::DB).await
+            JwstStorage::new_with_sqlite("jwst", blob_storage_type).await
         }
         .expect("Cannot create database");
 

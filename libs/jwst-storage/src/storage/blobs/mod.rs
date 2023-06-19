@@ -60,6 +60,18 @@ pub struct MixedBucketDBParam {
     pub(crate) root: Option<String>,
 }
 
+impl MixedBucketDBParam {
+    pub fn new_from_env() -> JwstResult<Self, JwstStorageError> {
+        Ok(MixedBucketDBParam {
+            access_key: dotenvy::var("BUCKET_ACCESS_TOKEN")?,
+            secret_access_key: dotenvy::var("BUCKET_SECRET_TOKEN")?,
+            endpoint: dotenvy::var("BUCKET_ENDPOINT")?,
+            bucket: dotenvy::var("BUCKET_NAME").ok(),
+            root: dotenvy::var("BUCKET_ROOT").ok(),
+        })
+    }
+}
+
 impl BlobAutoStorage {
     pub async fn init_with_pool(
         pool: DatabaseConnection,

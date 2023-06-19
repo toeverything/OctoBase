@@ -310,11 +310,11 @@ mod tests {
     #[ignore = "need to config bucket auth"]
     async fn test_init_bucket_storage() {
         let bucket_storage = BucketStorageBuilder::new()
-            .endpoint("endpoint")
-            .access_key("access_key")
-            .secret_access_key("secret_access_key")
-            .bucket("bucket")
-            .root("root")
+            .endpoint("ENDPOINT")
+            .access_key("ACCESS_KEY")
+            .secret_access_key("SECRET_ACCESS_KEY")
+            .bucket("__default_bucket__")
+            .root("__default_root__")
             .build()
             .unwrap();
 

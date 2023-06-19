@@ -214,6 +214,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore = "need to config bucket auth"]
     async fn test_bucket_storage() {
         let bucket_params = MixedBucketDBParam {
             access_key: dotenvy::var("BUCKET_ACCESS_TOKEN").unwrap().to_string(),
