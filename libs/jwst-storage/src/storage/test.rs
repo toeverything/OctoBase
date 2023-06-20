@@ -24,8 +24,9 @@ async fn postgres_storage_test() -> anyhow::Result<()> {
 
     let db = "postgresql://affine:affine@localhost:5432/affine_binary";
     let storage = JwstStorage::new(db, BlobStorageType::DB).await?;
+    let blob_db = storage.blobs().get_blob_db().unwrap();
     let (r1, r2, r3, r4) = tokio::join!(
-        blobs_storage_test(&storage.blobs().get_blob_db().unwrap()),
+        blobs_storage_test(&blob_db),
         docs_storage_test(&storage.docs().0),
         docs_storage_partial_test(&storage.docs().0),
         full_migration_stress_test(&storage.docs().0),
