@@ -124,6 +124,13 @@ pub async fn get_hash(stream: impl Stream<Item = Bytes> + Send) -> (String, Vec<
     (hash, buffer)
 }
 
+/// Calculate sha256 hash for given blob
+pub fn calculate_hash(blob: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(blob);
+    URL_SAFE_ENGINE.encode(hasher.finalize())
+}
+
 #[derive(FromQueryResult)]
 pub(super) struct InternalBlobMetadata {
     pub(super) size: i64,

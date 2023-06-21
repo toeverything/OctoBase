@@ -1,3 +1,5 @@
+use super::utils::calculate_hash;
+use super::utils::get_hash;
 use super::*;
 use crate::rate_limiter::Bucket;
 use crate::JwstStorageError;
@@ -13,7 +15,6 @@ use std::sync::Arc;
 pub(super) type BucketBlobModel = <BucketBlobs as EntityTrait>::Model;
 #[allow(unused)]
 type BucketBlobActiveModel = entities::bucket_blobs::ActiveModel;
-#[allow(unused)]
 type BucketBlobColumn = <BucketBlobs as EntityTrait>::Column;
 
 #[derive(Clone)]
@@ -39,28 +40,28 @@ impl BlobBucketDBStorage {
     pub async fn init_pool(database: &str) -> JwstStorageResult<Self> {
         todo!()
     }
+
+    /// TODO: can we merge with BlobDBStorage::metadata?
+    pub(super) async fn metadata(
+        &self,
+        table: &str,
+        hash: &str,
+    ) -> JwstBlobResult<InternalBlobMetadata> {
+        Blobs::find_by_id((table.into(), hash.into()))
+            .select_only()
+            .column_as(BucketBlobColumn::Length, "size")
+            .column_as(BucketBlobColumn::Timestamp, "created_at")
+            .into_model::<InternalBlobMetadata>()
+            .one(&self.pool)
+            .await
+            .map_err(|e| e.into())
+            .and_then(|r| r.ok_or(JwstBlobError::BlobNotFound(hash.into())))
+    }
 }
 
 #[derive(Clone)]
 pub struct BucketStorage {
     pub(super) op: Operator,
-}
-
-impl BucketStorage {
-    /// get_workspace will get the workspace name from the input.
-    ///
-    /// If the input is None, it will return the default workspace name.
-    fn get_workspace(&self, workspace: Option<String>) -> String {
-        match workspace {
-            Some(w) => w,
-            None => "__default__".into(),
-        }
-    }
-
-    /// build_key will build the request key for the bucket storage.
-    fn build_key(&self, workspace: String, id: String) -> String {
-        format!("{}/{}", workspace, id)
-    }
 }
 
 // TODO Builder for BucketStorage;
@@ -74,8 +75,8 @@ impl BucketBlobStorage<JwstStorageError> for BucketStorage {
         // TODO: params is not used for now.
         _params: Option<HashMap<String, String>>,
     ) -> JwstResult<Vec<u8>, JwstStorageError> {
-        let workspace = self.get_workspace(workspace);
-        let key = self.build_key(workspace, id);
+        let workspace = get_workspace(workspace);
+        let key = build_key(workspace, id);
         let bs = self.op.read(&key).await?;
 
         Ok(bs)
@@ -87,8 +88,8 @@ impl BucketBlobStorage<JwstStorageError> for BucketStorage {
         hash: String,
         blob: Vec<u8>,
     ) -> JwstResult<String, JwstStorageError> {
-        let workspace = self.get_workspace(workspace);
-        let key = self.build_key(workspace, hash);
+        let workspace = get_workspace(workspace);
+        let key = build_key(workspace, hash);
         let _ = self.op.write(&key, blob).await?;
 
         // FIXME: what's the meaning of string?
@@ -100,8 +101,8 @@ impl BucketBlobStorage<JwstStorageError> for BucketStorage {
         workspace: Option<String>,
         id: String,
     ) -> JwstResult<bool, JwstStorageError> {
-        let workspace = self.get_workspace(workspace);
-        let key = self.build_key(workspace, id);
+        let workspace = get_workspace(workspace);
+        let key = build_key(workspace, id);
 
         match self.op.delete(&key).await {
             Ok(_) => Ok(true),
@@ -125,7 +126,14 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         workspace: Option<String>,
         id: String,
     ) -> JwstResult<bool, JwstStorageError> {
-        todo!()
+        let workspace = get_workspace(workspace);
+        let key = build_key(workspace, id);
+
+        self.bucket_storage
+            .op
+            .is_exist(&key)
+            .await
+            .map_err(JwstStorageError::from)
     }
 
     // only s3_storage operation
@@ -145,7 +153,11 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         id: String,
         params: Option<HashMap<String, String>>,
     ) -> JwstResult<BlobMetadata, JwstStorageError> {
-        todo!()
+        let workspace = get_workspace(workspace);
+        let key = build_key(workspace.clone(), id);
+
+        let metadata = self.metadata(&workspace, &key).await?;
+        Ok(metadata.into())
     }
 
     // db and s3 operation
@@ -154,7 +166,9 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
     ) -> JwstResult<String, JwstStorageError> {
-        todo!()
+        let (hash, bs) = get_hash(stream).await;
+
+        self.bucket_storage.put_blob(workspace, hash, bs).await
     }
 
     async fn put_blob(
@@ -162,7 +176,9 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         workspace: Option<String>,
         blob: Vec<u8>,
     ) -> JwstResult<String, JwstStorageError> {
-        todo!()
+        let hash = calculate_hash(&blob);
+
+        self.bucket_storage.put_blob(workspace, hash, blob).await
     }
 
     // db and s3 operation
@@ -171,22 +187,31 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         workspace: Option<String>,
         id: String,
     ) -> JwstResult<bool, JwstStorageError> {
-        self.bucket_storage
-            .delete_blob(workspace.clone(), id.clone())
-            .await?;
-        todo!()
+        self.bucket_storage.delete_blob(workspace, id).await
     }
 
     // db and s3 operation
     async fn delete_workspace(&self, workspace_id: String) -> JwstResult<(), JwstStorageError> {
-        self.bucket_storage
-            .delete_workspace(workspace_id.clone())
-            .await?;
-        todo!()
+        self.bucket_storage.delete_workspace(workspace_id).await
     }
 
     // only db operation
     async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64, JwstStorageError> {
         todo!()
     }
+}
+
+/// get_workspace will get the workspace name from the input.
+///
+/// If the input is None, it will return the default workspace name.
+fn get_workspace(workspace: Option<String>) -> String {
+    match workspace {
+        Some(w) => w,
+        None => "__default__".into(),
+    }
+}
+
+/// build_key will build the request key for the bucket storage.
+fn build_key(workspace: String, id: String) -> String {
+    format!("{}/{}", workspace, id)
 }
