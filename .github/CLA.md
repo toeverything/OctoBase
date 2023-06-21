@@ -55,3 +55,4 @@ Example:
 -   Lin Onetwo, @linonetwo, 2023/02/14
 -   Thearas, @Thearas, 2023/03/18
 -   Metal A-wing, @a-wing, 2023/05/30
+-   Xuanwo, @Xuanwo, 2023/06/21
