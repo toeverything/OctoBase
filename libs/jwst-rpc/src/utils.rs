@@ -20,7 +20,7 @@ impl MinimumServerContext {
     pub async fn new() -> Arc<Self> {
         let storage = 'connect: loop {
             let mut retry = 3;
-            match JwstStorage::new(
+            match JwstStorage::new_with_migration(
                 &std::env::var("DATABASE_URL")
                     .map(|url| format!("{url}_binary"))
                     .unwrap_or("sqlite::memory:".into()),

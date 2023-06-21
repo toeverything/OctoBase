@@ -120,10 +120,18 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
     }
 
     // db and s3 operation
-    async fn put_blob(
+    async fn put_blob_stream(
         &self,
         workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
+    ) -> JwstResult<String, JwstStorageError> {
+        todo!()
+    }
+
+    async fn put_blob(
+        &self,
+        workspace: Option<String>,
+        blob: Vec<u8>,
     ) -> JwstResult<String, JwstStorageError> {
         todo!()
     }

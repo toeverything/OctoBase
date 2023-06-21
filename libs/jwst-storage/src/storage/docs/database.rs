@@ -1,7 +1,6 @@
 use super::{entities::prelude::*, *};
 use crate::types::JwstStorageResult;
 use jwst::{sync_encode_update, DocStorage, Workspace};
-use jwst_storage_migration::{Migrator, MigratorTrait};
 use std::collections::hash_map::Entry;
 use yrs::{Doc, ReadTxn, StateVector, Transact};
 
@@ -23,8 +22,6 @@ impl DocDBStorage {
         pool: DatabaseConnection,
         bucket: Arc<Bucket>,
     ) -> JwstStorageResult<Self> {
-        Migrator::up(&pool, None).await?;
-
         Ok(Self {
             bucket,
             pool,

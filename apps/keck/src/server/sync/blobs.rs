@@ -108,7 +108,7 @@ impl Context {
         if let Ok(id) = self
             .get_storage()
             .blobs()
-            .put_blob(workspace.clone(), stream)
+            .put_blob_stream(workspace.clone(), stream)
             .await
         {
             if has_error {
