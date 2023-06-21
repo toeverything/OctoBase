@@ -1,7 +1,8 @@
 use super::{utils::get_hash, *};
 use crate::types::JwstStorageResult;
-use jwst_storage_migration::{Migrator, MigratorTrait};
+use jwst::{Base64Engine, URL_SAFE_ENGINE};
 
+use sha2::{Digest, Sha256};
 pub(super) type BlobModel = <Blobs as EntityTrait>::Model;
 type BlobActiveModel = super::entities::blobs::ActiveModel;
 type BlobColumn = <Blobs as EntityTrait>::Column;
@@ -23,7 +24,6 @@ impl BlobDBStorage {
         pool: DatabaseConnection,
         bucket: Arc<Bucket>,
     ) -> JwstStorageResult<Self> {
-        Migrator::up(&pool, None).await?;
         Ok(Self { bucket, pool })
     }
 
@@ -167,7 +167,7 @@ impl BlobStorage<JwstStorageError> for BlobDBStorage {
         }
     }
 
-    async fn put_blob(
+    async fn put_blob_stream(
         &self,
         workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
@@ -176,6 +176,25 @@ impl BlobStorage<JwstStorageError> for BlobDBStorage {
         let workspace = workspace.unwrap_or("__default__".into());
 
         let (hash, blob) = get_hash(stream).await;
+
+        if self.insert(&workspace, &hash, &blob).await.is_ok() {
+            Ok(hash)
+        } else {
+            Err(JwstStorageError::WorkspaceNotFound(workspace))
+        }
+    }
+
+    async fn put_blob(
+        &self,
+        workspace: Option<String>,
+        blob: Vec<u8>,
+    ) -> JwstStorageResult<String> {
+        let _lock = self.bucket.write().await;
+        let workspace = workspace.unwrap_or("__default__".into());
+        let mut hasher = Sha256::new();
+
+        hasher.update(&blob);
+        let hash = URL_SAFE_ENGINE.encode(hasher.finalize());
 
         if self.insert(&workspace, &hash, &blob).await.is_ok() {
             Ok(hash)

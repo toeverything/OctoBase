@@ -65,10 +65,10 @@ impl Context {
             Ok(storage)
         } else if dotenvy::var("USE_MEMORY_SQLITE").is_ok() {
             info!("use memory sqlite database");
-            JwstStorage::new("sqlite::memory:", blob_storage_type).await
+            JwstStorage::new_with_migration("sqlite::memory:", blob_storage_type).await
         } else if let Ok(database_url) = dotenvy::var("DATABASE_URL") {
             info!("use external database: {}", database_url);
-            JwstStorage::new(&database_url, blob_storage_type).await
+            JwstStorage::new_with_migration(&database_url, blob_storage_type).await
         } else {
             info!("use sqlite database: jwst.db");
             JwstStorage::new_with_sqlite("jwst", blob_storage_type).await

@@ -125,7 +125,7 @@ pub async fn set_blob(
     if let Ok(id) = context
         .storage
         .blobs()
-        .put_blob(Some(workspace.clone()), body)
+        .put_blob_stream(Some(workspace.clone()), body)
         .await
     {
         if has_error {
@@ -213,7 +213,7 @@ mod tests {
     #[tokio::test]
     async fn test_blobs_apis() {
         let ctx = Context::new(
-            JwstStorage::new("sqlite::memory:", BlobStorageType::DB)
+            JwstStorage::new_with_migration("sqlite::memory:", BlobStorageType::DB)
                 .await
                 .ok(),
             None,

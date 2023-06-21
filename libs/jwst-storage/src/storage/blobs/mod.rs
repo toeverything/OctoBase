@@ -271,12 +271,20 @@ impl BlobStorage<JwstStorageError> for BlobAutoStorage {
         Ok(metadata)
     }
 
-    async fn put_blob(
+    async fn put_blob_stream(
         &self,
         workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
     ) -> JwstStorageResult<String> {
-        self.db.put_blob(workspace, stream).await
+        self.db.put_blob_stream(workspace, stream).await
+    }
+
+    async fn put_blob(
+        &self,
+        workspace: Option<String>,
+        blob: Vec<u8>,
+    ) -> JwstStorageResult<String> {
+        self.db.put_blob(workspace, blob).await
     }
 
     async fn delete_blob(
@@ -414,11 +422,15 @@ mod tests {
     #[tokio::test]
     async fn test_blob_auto_storage() {
         let storage = BlobAutoStorage::init_pool("sqlite::memory:").await.unwrap();
+        Migrator::up(&storage.pool, None).await.unwrap();
 
         let blob = Vec::from_iter((0..100).map(|_| rand::random()));
 
         let stream = async { Bytes::from(blob.clone()) }.into_stream();
-        let hash = storage.put_blob(Some("blob".into()), stream).await.unwrap();
+        let hash = storage
+            .put_blob_stream(Some("blob".into()), stream)
+            .await
+            .unwrap();
 
         // check origin blob result
         assert_eq!(
@@ -456,7 +468,10 @@ mod tests {
             image.into_inner()
         };
         let stream = async { Bytes::from(image.clone()) }.into_stream();
-        let hash = storage.put_blob(Some("blob".into()), stream).await.unwrap();
+        let hash = storage
+            .put_blob_stream(Some("blob".into()), stream)
+            .await
+            .unwrap();
 
         // check origin blob result
         assert_eq!(

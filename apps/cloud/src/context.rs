@@ -65,7 +65,7 @@ impl Context {
             BlobStorageType::DB
         };
 
-        let storage = JwstStorage::new(&storage, storage_type)
+        let storage = JwstStorage::new_with_migration(&storage, storage_type)
             .await
             .expect("Cannot create storage");
 

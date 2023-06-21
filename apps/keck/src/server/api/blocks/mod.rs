@@ -112,7 +112,15 @@ mod tests {
                 workspace.set_callback(generate_ws_callback(&workspace_changed_blocks, &runtime));
             })))
         };
-        let ctx = Arc::new(Context::new(JwstStorage::new("sqlite::memory:", BlobStorageType::DB).await.ok(), cb).await);
+        let ctx = Arc::new(
+            Context::new(
+                JwstStorage::new_with_migration("sqlite::memory:", BlobStorageType::DB)
+                    .await
+                    .ok(),
+                cb,
+            )
+            .await,
+        );
         let client = TestClient::new(
             workspace_apis(Router::new())
                 .layer(Extension(ctx.clone()))
