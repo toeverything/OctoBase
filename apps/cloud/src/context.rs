@@ -51,7 +51,7 @@ impl Context {
         let db = CloudDatabase::init_pool(&cloud)
             .await
             .expect("Cannot create cloud database");
-        let storage = JwstStorage::new(&storage)
+        let storage = JwstStorage::new_with_migration(&storage)
             .await
             .expect("Cannot create storage");
 

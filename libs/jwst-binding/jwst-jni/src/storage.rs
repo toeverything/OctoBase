@@ -37,12 +37,12 @@ impl JwstStorage {
 
         let storage = rt
             .block_on(
-                AutoStorage::new(&format!("sqlite:{path}?mode=rwc")).or_else(|e| {
+                AutoStorage::new_with_migration(&format!("sqlite:{path}?mode=rwc")).or_else(|e| {
                     warn!(
                         "Failed to open storage, falling back to memory storage: {}",
                         e
                     );
-                    AutoStorage::new("sqlite::memory:")
+                    AutoStorage::new_with_migration("sqlite::memory:")
                 }),
             )
             .unwrap();

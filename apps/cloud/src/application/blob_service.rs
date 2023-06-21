@@ -274,7 +274,7 @@ impl BlobService {
         let id = match ctx
             .storage
             .blobs()
-            .put_blob(workspace.clone(), stream)
+            .put_blob_stream(workspace.clone(), stream)
             .await
         {
             Ok(id) => id,

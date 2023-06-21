@@ -132,7 +132,7 @@ mod test {
         let (workspace_id, workspace) = rt.block_on(async move {
             let workspace_id = "1";
             let context = Arc::new(TestContext::new(Arc::new(
-                JwstStorage::new("sqlite::memory:")
+                JwstStorage::new_with_migration("sqlite::memory:")
                     .await
                     .expect("get storage: memory sqlite failed"),
             )));
@@ -201,7 +201,7 @@ mod test {
         let (workspace_id, workspace) = rt.block_on(async move {
             let workspace_id = "1";
             let context = Arc::new(TestContext::new(Arc::new(
-                JwstStorage::new("sqlite::memory:")
+                JwstStorage::new_with_migration("sqlite::memory:")
                     .await
                     .expect("get storage: memory sqlite failed"),
             )));
@@ -265,7 +265,7 @@ mod test {
         let workspace_id = String::from("1");
         let (storage, workspace) = rt.block_on(async {
             let storage: Arc<JwstStorage> = Arc::new(
-                JwstStorage::new("sqlite::memory:")
+                JwstStorage::new_with_migration("sqlite::memory:")
                     .await
                     .expect("get storage: memory sqlite failed"),
             );

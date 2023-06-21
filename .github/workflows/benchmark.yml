@@ -34,7 +34,6 @@ jobs:
             - name: Run Bench on Master Branch
               run: |
                   cargo bench --bench codec_benchmarks -- --save-baseline master
-                  cargo bench --bench ops_benchmarks -- --save-baseline master
                   cargo bench --bench update_benchmarks -- --save-baseline master
 
             - name: Checkout master branch

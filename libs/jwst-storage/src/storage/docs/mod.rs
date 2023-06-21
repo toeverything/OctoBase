@@ -60,7 +60,9 @@ impl DocStorage<JwstStorageError> for SharedDocDBStorage {
 mod test {
     use super::{error, info, DocStorage, SharedDocDBStorage};
     use crate::{JwstStorageError, JwstStorageResult};
+    use jwst_storage_migration::Migrator;
     use rand::random;
+    use sea_orm_migration::MigratorTrait;
     use std::collections::HashSet;
     use tokio::task::JoinSet;
 
@@ -116,6 +118,7 @@ mod test {
     async fn sqlite_create_workspace_stress_test_faster() -> anyhow::Result<()> {
         jwst_logger::init_logger("jwst-storage");
         let storage = SharedDocDBStorage::init_pool("sqlite::memory:").await?;
+        Migrator::up(&storage.0.pool, None).await.unwrap();
         create_workspace_stress_test(storage.clone(), 100).await?;
 
         Ok(())

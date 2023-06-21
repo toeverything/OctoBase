@@ -6,6 +6,7 @@ use super::*;
 use crate::types::JwstStorageError;
 use blobs::BlobAutoStorage;
 use docs::SharedDocDBStorage;
+use jwst_storage_migration::{Migrator, MigratorTrait};
 use std::{collections::HashMap, time::Instant};
 use tokio::sync::Mutex;
 
@@ -39,6 +40,19 @@ impl JwstStorage {
         })
     }
 
+    pub async fn new_with_migration(database: &str) -> JwstStorageResult<Self> {
+        let storage = Self::new(database).await?;
+
+        storage.db_migrate().await?;
+
+        Ok(storage)
+    }
+
+    async fn db_migrate(&self) -> JwstStorageResult<()> {
+        Migrator::up(&self.pool, None).await?;
+        Ok(())
+    }
+
     pub async fn new_with_sqlite(file: &str) -> JwstStorageResult<Self> {
         use std::fs::create_dir;
 
@@ -47,7 +61,7 @@ impl JwstStorage {
             create_dir(&data).map_err(JwstStorageError::CreateDataFolder)?;
         }
 
-        Self::new(&format!(
+        Self::new_with_migration(&format!(
             "sqlite:{}?mode=rwc",
             data.join(PathBuf::from(file).name_str())
                 .with_extension("db")
