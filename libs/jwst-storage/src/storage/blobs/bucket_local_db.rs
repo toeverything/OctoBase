@@ -46,19 +46,39 @@ pub struct BucketStorage {
     pub(super) op: Operator,
 }
 
+impl BucketStorage {
+    /// get_workspace will get the workspace name from the input.
+    ///
+    /// If the input is None, it will return the default workspace name.
+    fn get_workspace(&self, workspace: Option<String>) -> String {
+        match workspace {
+            Some(w) => w,
+            None => "__default__".into(),
+        }
+    }
+
+    /// build_key will build the request key for the bucket storage.
+    fn build_key(&self, workspace: String, id: String) -> String {
+        format!("{}/{}", workspace, id)
+    }
+}
+
 // TODO Builder for BucketStorage;
 // TODO add retry layer
-
-#[allow(unused_variables)]
 #[async_trait]
 impl BucketBlobStorage<JwstStorageError> for BucketStorage {
     async fn get_blob(
         &self,
         workspace: Option<String>,
         id: String,
-        params: Option<HashMap<String, String>>,
+        // TODO: params is not used for now.
+        _params: Option<HashMap<String, String>>,
     ) -> JwstResult<Vec<u8>, JwstStorageError> {
-        todo!()
+        let workspace = self.get_workspace(workspace);
+        let key = self.build_key(workspace, id);
+        let bs = self.op.read(&key).await?;
+
+        Ok(bs)
     }
 
     async fn put_blob(
@@ -67,7 +87,12 @@ impl BucketBlobStorage<JwstStorageError> for BucketStorage {
         hash: String,
         blob: Vec<u8>,
     ) -> JwstResult<String, JwstStorageError> {
-        todo!()
+        let workspace = self.get_workspace(workspace);
+        let key = self.build_key(workspace, hash);
+        let _ = self.op.write(&key, blob).await?;
+
+        // FIXME: what's the meaning of string?
+        Ok("".to_string())
     }
 
     async fn delete_blob(
@@ -75,15 +100,19 @@ impl BucketBlobStorage<JwstStorageError> for BucketStorage {
         workspace: Option<String>,
         id: String,
     ) -> JwstResult<bool, JwstStorageError> {
-        let workspace_id = workspace.unwrap_or("__default__".into());
-        match self.op.delete(&format!("{}/{}", workspace_id, id)).await {
+        let workspace = self.get_workspace(workspace);
+        let key = self.build_key(workspace, id);
+
+        match self.op.delete(&key).await {
             Ok(_) => Ok(true),
             Err(e) => Err(JwstStorageError::from(e)),
         }
     }
 
     async fn delete_workspace(&self, workspace_id: String) -> JwstResult<(), JwstStorageError> {
-        todo!()
+        self.op.remove_all(&workspace_id).await?;
+
+        Ok(())
     }
 }
 
