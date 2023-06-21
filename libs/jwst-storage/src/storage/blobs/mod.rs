@@ -359,14 +359,21 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
         }
     }
 
-    async fn put_blob(
+    async fn put_blob_stream(
         &self,
         workspace: Option<String>,
         stream: impl Stream<Item = Bytes> + Send,
     ) -> JwstResult<String, JwstStorageError> {
         match self {
-            JwstBlobStorage::DB(db) => db.put_blob(workspace, stream).await,
-            JwstBlobStorage::MixedBucketDB(db) => db.put_blob(workspace, stream).await,
+            JwstBlobStorage::DB(db) => db.put_blob_stream(workspace, stream).await,
+            JwstBlobStorage::MixedBucketDB(db) => db.put_blob_stream(workspace, stream).await,
+        }
+    }
+
+    async fn put_blob(&self, workspace: Option<String>, blob: Vec<u8>) -> JwstResult<String, JwstStorageError> {
+        match self {
+            JwstBlobStorage::DB(db) => db.put_blob(workspace, blob).await,
+            JwstBlobStorage::MixedBucketDB(db) => db.put_blob(workspace, blob).await
         }
     }
 

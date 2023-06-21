@@ -4,12 +4,16 @@ use crate::storage::blobs::utils::get_hash;
 use crate::JwstStorageError;
 use bytes::Bytes;
 use futures::Stream;
-use jwst::{BlobMetadata, BlobStorage, BucketBlobStorage, JwstResult};
+use jwst::{
+    Base64Engine, BlobMetadata, BlobStorage, BucketBlobStorage, JwstResult, URL_SAFE_ENGINE,
+};
 use jwst_storage_migration::Migrator;
 use opendal::services::S3;
 use opendal::Operator;
 use sea_orm::{DatabaseConnection, EntityTrait};
 use sea_orm_migration::MigratorTrait;
+
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -273,7 +277,6 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         }
     }
 
-    // db and s3 operation
     async fn put_blob_stream(
         &self,
         workspace: Option<String>,
@@ -298,7 +301,21 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         workspace: Option<String>,
         blob: Vec<u8>,
     ) -> JwstResult<String, JwstStorageError> {
-        todo!()
+        let mut hasher = Sha256::new();
+        hasher.update(&blob);
+        let hash = URL_SAFE_ENGINE.encode(hasher.finalize());
+        self.bucket_storage
+            .put_blob(workspace.clone(), hash.clone(), blob.clone())
+            .await?;
+
+        let _lock = self.bucket.write().await;
+        let workspace = workspace.unwrap_or("__default__".into());
+
+        if self.insert(&workspace, &hash, &blob).await.is_ok() {
+            Ok(hash)
+        } else {
+            Err(JwstStorageError::WorkspaceNotFound(workspace))
+        }
     }
 
     async fn delete_blob(
