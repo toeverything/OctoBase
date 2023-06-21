@@ -48,8 +48,6 @@ pub struct BucketStorage {
     pub(super) op: Operator,
 }
 
-impl BucketStorage {}
-
 // TODO Builder for BucketStorage;
 // TODO add retry layer
 #[async_trait]
