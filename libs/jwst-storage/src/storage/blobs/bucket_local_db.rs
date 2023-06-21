@@ -15,7 +15,6 @@ use std::sync::Arc;
 pub(super) type BucketBlobModel = <BucketBlobs as EntityTrait>::Model;
 #[allow(unused)]
 type BucketBlobActiveModel = entities::bucket_blobs::ActiveModel;
-#[allow(unused)]
 type BucketBlobColumn = <BucketBlobs as EntityTrait>::Column;
 
 #[derive(Clone)]
@@ -40,6 +39,23 @@ impl BlobBucketDBStorage {
 
     pub async fn init_pool(database: &str) -> JwstStorageResult<Self> {
         todo!()
+    }
+
+    /// TODO: can we merge with BlobDBStorage::metadata?
+    pub(super) async fn metadata(
+        &self,
+        table: &str,
+        hash: &str,
+    ) -> JwstBlobResult<InternalBlobMetadata> {
+        Blobs::find_by_id((table.into(), hash.into()))
+            .select_only()
+            .column_as(BucketBlobColumn::Length, "size")
+            .column_as(BucketBlobColumn::Timestamp, "created_at")
+            .into_model::<InternalBlobMetadata>()
+            .one(&self.pool)
+            .await
+            .map_err(|e| e.into())
+            .and_then(|r| r.ok_or(JwstBlobError::BlobNotFound(hash.into())))
     }
 }
 
@@ -138,21 +154,10 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         params: Option<HashMap<String, String>>,
     ) -> JwstResult<BlobMetadata, JwstStorageError> {
         let workspace = get_workspace(workspace);
-        let key = build_key(workspace, id);
+        let key = build_key(workspace.clone(), id);
 
-        let metadata = self.bucket_storage.op.stat(&key).await?;
-
-        Ok(BlobMetadata {
-            content_type: metadata
-                .content_type()
-                .map(|s| s.to_string())
-                .unwrap_or_default(),
-            last_modified: metadata
-                .last_modified()
-                .map(|v| v.naive_utc())
-                .unwrap_or_default(),
-            size: metadata.content_length(),
-        })
+        let metadata = self.metadata(&workspace, &key).await?;
+        Ok(metadata.into())
     }
 
     // db and s3 operation
