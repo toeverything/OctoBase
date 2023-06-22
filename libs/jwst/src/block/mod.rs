@@ -252,9 +252,9 @@ impl Block {
             }
             Any::BigInt(number) => {
                 if JS_INT_RANGE.contains(&number) {
-                    self.block.insert(trx, key, number as f64)?;
-                } else {
                     self.block.insert(trx, key, number)?;
+                } else {
+                    self.block.insert(trx, key, number as f64)?;
                 }
                 self.log_update(trx, HistoryOperation::Update);
             }
