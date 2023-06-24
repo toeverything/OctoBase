@@ -51,12 +51,14 @@ impl Context {
             dotenvy::var("ENABLE_BUCKET_STORAGE").map_or(false, |v| v.eq("true"));
 
         let blob_storage_type = if use_bucket_storage {
+            info!("use database and s3 bucket as blob storage");
             BlobStorageType::MixedBucketDB(
                 MixedBucketDBParam::new_from_env()
                     .context("failed to load bucket param from env")
                     .unwrap(),
             )
         } else {
+            info!("use database as blob storage");
             BlobStorageType::DB
         };
 

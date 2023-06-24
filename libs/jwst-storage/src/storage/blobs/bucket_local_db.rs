@@ -33,7 +33,6 @@ impl AsRef<DatabaseConnection> for BlobBucketDBStorage {
 }
 
 impl BlobBucketDBStorage {
-    #[allow(unused)]
     pub async fn init_with_pool(
         pool: DatabaseConnection,
         bucket: Arc<Bucket>,

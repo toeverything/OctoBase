@@ -70,6 +70,22 @@ impl MixedBucketDBParam {
             root: dotenvy::var("BUCKET_ROOT").ok(),
         })
     }
+
+    pub fn new(
+        access_key: String,
+        secret_access_key: String,
+        endpoint: String,
+        bucket: Option<String>,
+        root: Option<String>,
+    ) -> Self {
+        MixedBucketDBParam {
+            access_key,
+            secret_access_key,
+            endpoint,
+            bucket,
+            root,
+        }
+    }
 }
 
 impl BlobAutoStorage {
@@ -370,10 +386,14 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
         }
     }
 
-    async fn put_blob(&self, workspace: Option<String>, blob: Vec<u8>) -> JwstResult<String, JwstStorageError> {
+    async fn put_blob(
+        &self,
+        workspace: Option<String>,
+        blob: Vec<u8>,
+    ) -> JwstResult<String, JwstStorageError> {
         match self {
             JwstBlobStorage::DB(db) => db.put_blob(workspace, blob).await,
-            JwstBlobStorage::MixedBucketDB(db) => db.put_blob(workspace, blob).await
+            JwstBlobStorage::MixedBucketDB(db) => db.put_blob(workspace, blob).await,
         }
     }
 
