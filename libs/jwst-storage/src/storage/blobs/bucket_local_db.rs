@@ -1,19 +1,17 @@
+use super::utils::calculate_hash;
+use super::utils::get_hash;
 use super::*;
 use crate::rate_limiter::Bucket;
-use crate::storage::blobs::utils::get_hash;
 use crate::JwstStorageError;
 use bytes::Bytes;
 use futures::Stream;
-use jwst::{
-    Base64Engine, BlobMetadata, BlobStorage, BucketBlobStorage, JwstResult, URL_SAFE_ENGINE,
-};
+use jwst::{BlobMetadata, BlobStorage, BucketBlobStorage, JwstResult};
 use jwst_storage_migration::Migrator;
 use opendal::services::S3;
 use opendal::Operator;
 use sea_orm::{DatabaseConnection, EntityTrait};
 use sea_orm_migration::MigratorTrait;
 
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -168,35 +166,17 @@ impl BucketStorage {
             op: Operator::new(builder)?.finish(),
         })
     }
-
-    /// get_workspace will get the workspace name from the input.
-    ///
-    /// If the input is None, it will return the default workspace name.
-    fn get_workspace(&self, workspace: Option<String>) -> String {
-        match workspace {
-            Some(w) => w,
-            None => "__default__".into(),
-        }
-    }
-
-    /// build_key will build the request key for the bucket storage.
-    fn build_key(&self, workspace: String, id: String) -> String {
-        format!("{}/{}", workspace, id)
-    }
 }
 
-// TODO add retry layer
 #[async_trait]
 impl BucketBlobStorage<JwstStorageError> for BucketStorage {
     async fn get_blob(
         &self,
         workspace: Option<String>,
         id: String,
-        // TODO: params is not used for now.
-        _params: Option<HashMap<String, String>>,
     ) -> JwstResult<Vec<u8>, JwstStorageError> {
-        let workspace = self.get_workspace(workspace);
-        let key = self.build_key(workspace, id);
+        let workspace = get_workspace(workspace);
+        let key = build_key(workspace, id);
         let bs = self.op.read(&key).await?;
 
         Ok(bs)
@@ -207,13 +187,12 @@ impl BucketBlobStorage<JwstStorageError> for BucketStorage {
         workspace: Option<String>,
         hash: String,
         blob: Vec<u8>,
-    ) -> JwstResult<String, JwstStorageError> {
-        let workspace = self.get_workspace(workspace);
-        let key = self.build_key(workspace, hash);
+    ) -> JwstResult<(), JwstStorageError> {
+        let workspace = get_workspace(workspace);
+        let key = build_key(workspace, hash);
         let _ = self.op.write(&key, blob).await?;
 
-        // FIXME: what's the meaning of string?
-        Ok("".to_string())
+        Ok(())
     }
 
     async fn delete_blob(
@@ -221,8 +200,8 @@ impl BucketBlobStorage<JwstStorageError> for BucketStorage {
         workspace: Option<String>,
         id: String,
     ) -> JwstResult<bool, JwstStorageError> {
-        let workspace = self.get_workspace(workspace);
-        let key = self.build_key(workspace, id);
+        let workspace = get_workspace(workspace);
+        let key = build_key(workspace, id);
 
         match self.op.delete(&key).await {
             Ok(_) => Ok(true),
@@ -257,9 +236,9 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         &self,
         workspace: Option<String>,
         id: String,
-        params: Option<HashMap<String, String>>,
+        _params: Option<HashMap<String, String>>,
     ) -> JwstResult<Vec<u8>, JwstStorageError> {
-        self.bucket_storage.get_blob(workspace, id, params).await
+        self.bucket_storage.get_blob(workspace, id).await
     }
 
     async fn get_metadata(
@@ -269,7 +248,7 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         _params: Option<HashMap<String, String>>,
     ) -> JwstResult<BlobMetadata, JwstStorageError> {
         let _lock = self.bucket.read().await;
-        let workspace = workspace.unwrap_or("__default__".into());
+        let workspace = get_workspace(workspace);
         if let Ok(metadata) = self.metadata(&workspace, &id).await {
             Ok(metadata.into())
         } else {
@@ -287,7 +266,7 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
             .put_blob(workspace.clone(), hash.clone(), blob.clone())
             .await?;
         let _lock = self.bucket.write().await;
-        let workspace = workspace.unwrap_or("__default__".into());
+        let workspace = get_workspace(workspace);
 
         if self.insert(&workspace, &hash, &blob).await.is_ok() {
             Ok(hash)
@@ -301,15 +280,13 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         workspace: Option<String>,
         blob: Vec<u8>,
     ) -> JwstResult<String, JwstStorageError> {
-        let mut hasher = Sha256::new();
-        hasher.update(&blob);
-        let hash = URL_SAFE_ENGINE.encode(hasher.finalize());
+        let hash = calculate_hash(&blob);
         self.bucket_storage
             .put_blob(workspace.clone(), hash.clone(), blob.clone())
             .await?;
 
         let _lock = self.bucket.write().await;
-        let workspace = workspace.unwrap_or("__default__".into());
+        let workspace = get_workspace(workspace);
 
         if self.insert(&workspace, &hash, &blob).await.is_ok() {
             Ok(hash)
@@ -327,7 +304,7 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
             .delete_blob(workspace.clone(), id.clone())
             .await?;
         let _lock = self.bucket.write().await;
-        let workspace = workspace.unwrap_or("__default__".into());
+        let workspace = get_workspace(workspace);
         if let Ok(success) = self.delete(&workspace, &id).await {
             Ok(success)
         } else {
@@ -375,4 +352,19 @@ mod tests {
             .await
             .unwrap();
     }
+}
+
+/// get_workspace will get the workspace name from the input.
+///
+/// If the input is None, it will return the default workspace name.
+fn get_workspace(workspace: Option<String>) -> String {
+    match workspace {
+        Some(w) => w,
+        None => "__default__".into(),
+    }
+}
+
+/// build_key will build the request key for the bucket storage.
+fn build_key(workspace: String, id: String) -> String {
+    format!("{}/{}", workspace, id)
 }
