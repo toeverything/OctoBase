@@ -9,7 +9,9 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 use yrs::{
     types::{map::MapEvent, ToJson},
-    Doc, Map, MapRef, Subscription, Transact, TransactionMut, UpdateSubscription,
+    updates::decoder::Decode,
+    Doc, Map, MapRef, ReadTxn, StateVector, Subscription, Transact, TransactionMut, Update,
+    UpdateSubscription,
 };
 
 pub type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>;
@@ -107,16 +109,19 @@ impl Workspace {
     }
 
     pub fn state_vector(&self) -> StateVector {
-        self.content.awareness.doc().transact().state_vector()
+        self.doc.transact().state_vector()
     }
 
-    pub fn encode_state_as_update(&self, sv: &StateVector) -> Vec<u8> {
-        self.content.awareness.doc().encode_state_as_update_v1(sv)
+    pub fn encode_state_as_update(&self, sv: &StateVector) -> Result<Vec<u8>, lib0::error::Error> {
+        self.doc.transact().encode_state_as_update_v1(sv)
     }
 
     // The returned update is the difference between before apply and after apply.
-    pub fn sync_apply_update(&mut self, updates: &[u8]) -> Result<Vec<u8>, Error> {
-        self.content.sync_apply_update(updates)
+    pub fn sync_apply_update(&mut self, updates: &[u8]) -> Result<Vec<u8>, lib0::error::Error> {
+        let mut txn = self.doc.transact_mut();
+        txn.apply_update(Update::decode_v1(&updates)?);
+        txn.commit();
+        txn.encode_update_v1()
     }
 }
 

@@ -42,6 +42,7 @@ log = { version = "0.4.17", features = [
   "max_level_trace",
   "release_max_level_info",
 ] }
+dashmap = "5.4.0"
 dotenvy = "0.15.7"
 mimalloc = "0.1.36"
 nanoid = "0.4.0"

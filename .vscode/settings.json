@@ -50,8 +50,8 @@
 		"Multiaddr",
 		"Muxer",
 		"muxing",
-		"nodelay",
 		"nextra",
+		"nodelay",
 		"nrwl",
 		"octobase",
 		"phdthesis",
@@ -74,6 +74,7 @@
 		"utoipa",
 		"uuidv",
 		"webm",
+		"webrtc",
 		"yamux",
 		"yarray",
 		"ymap"

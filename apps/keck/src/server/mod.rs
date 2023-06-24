@@ -134,29 +134,16 @@ pub async fn start_server() {
     ));
     info!("listening on {}", addr);
 
-    context
-        .collaboration
-        .connect(port)
+    if let Err(e) = Server::bind(&addr)
+        .serve(app.into_make_service())
+        .with_graceful_shutdown(shutdown_signal())
         .await
-        .expect(&format!("Cannot listen on port {port}"));
-
-    tokio::select! {
-        Err(e) = Server::bind(&addr)
-            .serve(app.into_make_service())
-            .with_graceful_shutdown(shutdown_signal()) => {
-            error!("Server shutdown due to error: {}", e);
-        }
-        Err(e) = context.collaboration.serve() => {
-            error!("Collaboration server shutdown due to error: {}", e);
-        }
-        else => {
-            info!("Server shutdown complete");
-        }
-    };
+    {
+        error!("Server shutdown due to error: {}", e);
+    }
 
     // context.docs.close().await;
     // context.blobs.close().await;
 
     info!("Server shutdown complete");
-    return;
 }

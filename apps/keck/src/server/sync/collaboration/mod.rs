@@ -9,4 +9,4 @@ use topic::SubscribeTopic;
 use types::CollaborationResult;
 
 pub use p2p::CollaborationServer;
-pub use websocket::{auth_handler, upgrade_handler};
+pub use websocket::{auth_handler, upgrade_handler, webrtc_handler};

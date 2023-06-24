@@ -89,7 +89,9 @@ impl CollaborationServer {
                 (publish, workspace)
             });
 
-            if let Err(e) = publish.publish(&on_sv_update, workspace.state_vector().encode_v1()) {
+            if let Err(e) =
+                publish.publish(&on_sv_update, workspace.state_vector().encode_v1().unwrap())
+            {
                 log::error!("Failed to publish state vector: {}", e);
             }
             if let Err(e) = publish.publish(&on_update, update) {
@@ -128,7 +130,7 @@ impl CollaborationServer {
             Ok(sv) => {
                 self.state_vectors.insert(peer_id, sv.clone());
                 if sv != workspace.state_vector() {
-                    return Some(workspace.encode_state_as_update(&sv));
+                    return Some(workspace.encode_state_as_update(&sv).unwrap());
                 }
             }
             Err(err) => {
@@ -148,7 +150,7 @@ impl CollaborationServer {
             Ok(data) => {
                 self.apply_state_vector(
                     broadcast.peer_id(),
-                    &workspace.state_vector().encode_v1(),
+                    &workspace.state_vector().encode_v1().unwrap(),
                     &workspace,
                 );
                 if let Err(e) =
