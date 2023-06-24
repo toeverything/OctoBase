@@ -10,10 +10,7 @@ fn main() {
     Generator::new(TypeCases::CamelCase, Language::Java, "src").generate_interface(in_src);
 
     let template = fs::read_to_string(in_src).unwrap();
-    let template = template
-        .split("use jni_sys::*;")
-        .into_iter()
-        .collect::<Vec<_>>();
+    let template = template.split("use jni_sys::*;").collect::<Vec<_>>();
     let template = template
         .first()
         .into_iter()
@@ -23,7 +20,15 @@ r#"foreign_class!(
     class JwstStorage {
         self_type JwstStorage;
         constructor JwstStorage::new(path: String) -> JwstStorage;
+        constructor JwstStorage::new_with_logger_level(path: String, level: String) -> JwstStorage;
         fn JwstStorage::error(&self) -> Option<String>; alias error;
+        fn JwstStorage::is_offline(&self) -> bool;
+        fn JwstStorage::is_initialized(&self) -> bool;
+        fn JwstStorage::is_syncing(&self) -> bool;
+        fn JwstStorage::is_finished(&self) -> bool;
+        fn JwstStorage::is_error(&self) -> bool;
+        fn JwstStorage::get_sync_state(&self) -> String;
+        fn JwstStorage::connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace>; alias connect;
     }
 );"#,
 r#"foreign_class!(
@@ -33,7 +38,7 @@ r#"foreign_class!(
             unimplemented!()
         }
         fn WorkspaceTransaction::remove(& mut self , block_id : String)->bool; alias remove;
-        fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavor : String)->Block; alias create;
+        fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavour : String)->Block; alias create;
         fn WorkspaceTransaction::commit(& mut self); alias commit;
     }
 );"#,
@@ -42,7 +47,53 @@ r#"foreign_callback!(
         self_type OnWorkspaceTransaction;
         onTrx = OnWorkspaceTransaction::on_trx(& self , trx : WorkspaceTransaction);
     }
-);"#].iter())
+);"#,
+r#"
+pub type VecOfStrings = Vec<String>;
+foreign_class!(
+    class VecOfStrings {
+        self_type VecOfStrings;
+
+        constructor default() -> VecOfStrings {
+            Vec::<String>::default()
+        }
+
+        fn at(&self, i: usize) -> &str {
+            this[i].as_str()
+        }
+
+        fn len(&self) -> usize {
+            this.len()
+        }
+
+        fn push(&mut self, s: String) {
+            this.push(s);
+        }
+
+        fn insert(&mut self, i: usize, s: String) {
+            this.insert(i, s);
+        }
+
+        fn clear(&mut self) {
+            this.clear();
+        }
+
+        fn remove(&mut self, i: usize) {
+            this.remove(i);
+        }
+
+        fn remove_item(&mut self, s: String) {
+            this.retain(|x| x != &s);
+        }
+    }
+);"#,
+r#"foreign_callback!(
+    callback BlockObserver {
+        self_type BlockObserver;
+        onChange = BlockObserver::on_change(& self , block_ids : VecOfStrings);
+    }
+);"#,
+].iter())
         .chain(template.iter().skip(1))
         .cloned()
         .collect::<Vec<_>>()
@@ -65,7 +116,7 @@ r#"foreign_callback!(
     swig_gen.expand(
         "android bindings",
         in_src,
-        &Path::new(&out_dir).join("java_glue.rs"),
+        Path::new(&out_dir).join("java_glue.rs"),
     );
 
     println!("cargo:rerun-if-changed=src");

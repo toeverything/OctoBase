@@ -1,42 +1,57 @@
+use crate::Workspace;
 use android_logger::Config;
-use jwst::{error, DocStorage};
-use jwst_storage::DocAutoStorage;
-use log::Level;
-use std::{
-    io::Result,
-    sync::{Arc, RwLock},
-};
+use futures::TryFutureExt;
+use jwst::{error, JwstError, LevelFilter};
+use jwst_rpc::{start_client_sync, BroadcastChannels, RpcContextImpl, SyncState};
+use jwst_storage::{JwstStorage as AutoStorage, JwstStorageResult};
+use log::log::warn;
+use nanoid::nanoid;
+use std::sync::{Arc, RwLock};
 use tokio::runtime::Runtime;
-use yrs::{updates::decoder::Decode, Doc, Update};
 
 #[derive(Clone)]
 pub struct JwstStorage {
-    storage: Option<Arc<RwLock<DocAutoStorage>>>,
+    storage: Arc<AutoStorage>,
+    channel: Arc<BroadcastChannels>,
     error: Option<String>,
+    sync_state: Arc<RwLock<SyncState>>,
 }
 
 impl JwstStorage {
     pub fn new(path: String) -> Self {
-        android_logger::init_once(
-            Config::default()
-                .with_min_level(Level::Info)
-                .with_tag("jwst"),
-        );
+        Self::new_with_logger_level(path, "debug".to_string())
+    }
+
+    pub fn new_with_logger_level(path: String, level: String) -> Self {
+        let level = match level.to_lowercase().as_str() {
+            "trace" => LevelFilter::Trace,
+            "debug" => LevelFilter::Debug,
+            "info" => LevelFilter::Info,
+            "warn" => LevelFilter::Warn,
+            "error" => LevelFilter::Error,
+            _ => LevelFilter::Debug,
+        };
+        android_logger::init_once(Config::default().with_max_level(level).with_tag("jwst"));
 
         let rt = Runtime::new().unwrap();
 
-        match rt.block_on(DocAutoStorage::init_pool(&format!(
-            "sqlite:{}?mode=rwc",
-            path
-        ))) {
-            Ok(pool) => Self {
-                storage: Some(Arc::new(RwLock::new(pool))),
-                error: None,
-            },
-            Err(e) => Self {
-                storage: None,
-                error: Some(e.to_string()),
-            },
+        let storage = rt
+            .block_on(
+                AutoStorage::new_with_migration(&format!("sqlite:{path}?mode=rwc")).or_else(|e| {
+                    warn!(
+                        "Failed to open storage, falling back to memory storage: {}",
+                        e
+                    );
+                    AutoStorage::new_with_migration("sqlite::memory:")
+                }),
+            )
+            .unwrap();
+
+        Self {
+            storage: Arc::new(storage),
+            channel: Arc::default(),
+            error: None,
+            sync_state: Arc::new(RwLock::new(SyncState::Offline)),
         }
     }
 
@@ -44,36 +59,92 @@ impl JwstStorage {
         self.error.clone()
     }
 
-    pub fn reload(&self, workspace_id: String, doc: &Doc) {
-        if let Some(storage) = &self.storage {
-            let storage = storage.write().unwrap();
-            let rt = Runtime::new().unwrap();
-            rt.block_on(async {
-                let updates = storage
-                    .all(&workspace_id)
-                    .await
-                    .expect("Failed to get all updates");
-                if updates.len() > 0 {
-                    let mut trx = doc.transact();
-                    for update in updates {
-                        if let Ok(update) = Update::decode_v1(&update.blob) {
-                            trx.apply_update(update);
-                        } else {
-                            error!("Failed to decode update: {}", update.timestamp);
-                        }
-                    }
-                }
-            });
+    pub fn is_offline(&self) -> bool {
+        let sync_state = self.sync_state.read().unwrap();
+        matches!(*sync_state, SyncState::Offline)
+    }
+
+    pub fn is_initialized(&self) -> bool {
+        let sync_state = self.sync_state.read().unwrap();
+        matches!(*sync_state, SyncState::Initialized)
+    }
+
+    pub fn is_syncing(&self) -> bool {
+        let sync_state = self.sync_state.read().unwrap();
+        matches!(*sync_state, SyncState::Syncing)
+    }
+
+    pub fn is_finished(&self) -> bool {
+        let sync_state = self.sync_state.read().unwrap();
+        matches!(*sync_state, SyncState::Finished)
+    }
+
+    pub fn is_error(&self) -> bool {
+        let sync_state = self.sync_state.read().unwrap();
+        matches!(*sync_state, SyncState::Error(_))
+    }
+
+    pub fn get_sync_state(&self) -> String {
+        let sync_state = self.sync_state.read().unwrap();
+        match *sync_state {
+            SyncState::Offline => "offline".to_string(),
+            SyncState::Syncing => "syncing".to_string(),
+            SyncState::Initialized => "initialized".to_string(),
+            SyncState::Finished => "finished".to_string(),
+            SyncState::Error(_) => "Error".to_string(),
         }
     }
 
-    pub fn write_update(&self, workspace_id: String, update: &[u8]) -> Result<()> {
-        if let Some(storage) = &self.storage {
-            let storage = storage.write().unwrap();
-            let rt = Runtime::new().unwrap();
-            log::info!("update: {:?}", update);
-            rt.block_on(storage.write_update(workspace_id, update))?;
+    pub fn connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace> {
+        match self.sync(workspace_id, remote) {
+            Ok(workspace) => Some(workspace),
+            Err(e) => {
+                error!("Failed to connect to workspace: {:?}", e);
+                self.error = Some(e.to_string());
+                None
+            }
         }
-        Ok(())
+    }
+
+    fn sync(&self, workspace_id: String, remote: String) -> JwstStorageResult<Workspace> {
+        let rt = Arc::new(Runtime::new().map_err(JwstError::Io)?);
+        let is_offline = remote.is_empty();
+
+        let workspace = rt.block_on(async { self.get_workspace(&workspace_id).await });
+
+        match workspace {
+            Ok(mut workspace) => {
+                if is_offline {
+                    let identifier = nanoid!();
+                    rt.block_on(async {
+                        self.join_broadcast(&mut workspace, identifier.clone())
+                            .await;
+                    });
+                    // prevent rt from being dropped, which will cause dropping the broadcast channel
+                    std::mem::forget(rt);
+                } else {
+                    start_client_sync(
+                        rt,
+                        Arc::new(self.clone()),
+                        self.sync_state.clone(),
+                        remote,
+                        workspace_id,
+                    );
+                }
+
+                Ok(Workspace { workspace })
+            }
+            Err(e) => Err(e),
+        }
+    }
+}
+
+impl RpcContextImpl<'_> for JwstStorage {
+    fn get_storage(&self) -> &AutoStorage {
+        &self.storage
+    }
+
+    fn get_channel(&self) -> &BroadcastChannels {
+        &self.channel
     }
 }

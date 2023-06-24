@@ -1,0 +1,14 @@
+
+ARG BASE_IMAGE=localhost:5000/toeverything/relocate:latest
+
+FROM ${BASE_IMAGE} as builder
+
+FROM alpine:latest as relocate
+ARG TARGETPLATFORM
+WORKDIR /app
+COPY --from=builder /app/${TARGETPLATFORM}/affine ./affine
+
+FROM alpine:latest as affine
+WORKDIR /app
+COPY --from=relocate /app .
+ENTRYPOINT /app/affine

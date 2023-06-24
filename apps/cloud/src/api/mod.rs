@@ -1,93 +1,137 @@
-mod blobs;
-mod permissions;
+pub mod blobs;
+pub mod permissions;
 
+mod collaboration;
+mod common;
+mod user_channel;
+mod workspace;
+
+pub use collaboration::make_ws_route;
+
+use crate::{
+    context::Context, infrastructure::error_status::ErrorStatus, layer::make_firebase_auth_layer,
+};
 use axum::{
-    extract::{Path, Query},
+    extract::Query,
     response::{IntoResponse, Response},
     routing::{delete, get, post, put, Router},
     Extension, Json,
 };
-use base64::Engine;
-use chrono::{Duration, Utc};
-use cloud_database::{
-    Claims, MakeToken, RefreshToken, UpdateWorkspace, UserQuery, UserToken, UserWithNonce,
-    WorkspaceSearchInput,
-};
-use http::StatusCode;
-use jwst::BlobStorage;
+use chrono::Utc;
+use cloud_database::{Claims, MakeToken, RefreshToken, User, UserQuery, UserToken};
+use jwst_logger::{error, info, instrument, tracing};
 use lib0::any::Any;
 use std::sync::Arc;
-use tower::ServiceBuilder;
-
-use crate::{
-    context::{Context, ContextRequestError},
-    error_info::{
-        bad_request_error, forbidden_error, internal_server_error, not_found_workspace_error,
-        unauthorized_error,
-    },
-    layer::make_firebase_auth_layer,
-    login::ThirdPartyLogin,
-    utils::URL_SAFE_ENGINE,
-};
-
-mod ws;
-pub use ws::*;
-
-mod user_channel;
 pub use user_channel::*;
+use utoipa::OpenApi;
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        query_user,
+        make_token,
+        common::health_check,
+        workspace::get_doc,
+        workspace::get_public_doc,
+        workspace::get_public_page,
+        workspace::get_workspaces,
+        workspace::get_workspace_by_id,
+        workspace::create_workspace,
+        workspace::update_workspace,
+        workspace::delete_workspace,
+        workspace::search_workspace,
+        blobs::get_blob_in_workspace,
+        blobs::upload_blob_in_workspace,
+        blobs::get_user_resource_usage,
+        permissions::get_members,
+        permissions::invite_member,
+        permissions::accept_invitation,
+        permissions::leave_workspace,
+        permissions::remove_user,
+    ),
+    tags(
+        (name = "Workspace", description = "Read and write remote workspace"),
+        (name = "Blob", description = "Read and write blob"),
+        (name = "Permission", description = "Read and write permission"),
+    )
+)]
+struct ApiDoc;
+
+pub fn make_api_doc_route(route: Router) -> Router {
+    cloud_infra::with_api_doc(route, ApiDoc::openapi(), env!("CARGO_PKG_NAME"))
+}
 
 pub fn make_rest_route(ctx: Arc<Context>) -> Router {
     Router::new()
-        .route("/healthz", get(health_check))
+        .route("/healthz", get(common::health_check))
         .route("/user", get(query_user))
         .route("/user/token", post(make_token))
-        .route("/blob", put(blobs::upload_blob))
-        .route("/blob/:name", get(blobs::get_blob))
         .route("/invitation/:path", post(permissions::accept_invitation))
         .nest_service("/global/sync", get(global_ws_handler))
-        .route("/public/doc/:id", get(get_public_doc))
+        .route("/public/workspace/:id", get(workspace::get_public_doc))
+        .route(
+            "/public/workspace/:id/:page_id",
+            get(workspace::get_public_page),
+        )
+        // TODO: Will consider this permission in the future
+        .route(
+            "/workspace/:id/blob/:name",
+            get(blobs::get_blob_in_workspace),
+        )
         .nest(
             "/",
             Router::new()
                 .route(
                     "/workspace",
-                    get(get_workspaces).post(blobs::create_workspace),
+                    get(workspace::get_workspaces).post(workspace::create_workspace),
                 )
                 .route(
                     "/workspace/:id",
-                    get(get_workspace_by_id)
-                        .post(update_workspace)
-                        .delete(delete_workspace),
+                    get(workspace::get_workspace_by_id)
+                        .post(workspace::update_workspace)
+                        .delete(workspace::delete_workspace),
                 )
+                .route("/workspace/:id/doc", get(workspace::get_doc))
+                .route("/workspace/:id/search", post(workspace::search_workspace))
                 .route(
                     "/workspace/:id/permission",
                     get(permissions::get_members)
                         .post(permissions::invite_member)
                         .delete(permissions::leave_workspace),
                 )
-                .route("/workspace/:id/doc", get(get_doc))
-                .route("/workspace/:id/search", post(search_workspace))
                 .route("/workspace/:id/blob", put(blobs::upload_blob_in_workspace))
-                .route(
-                    "/workspace/:id/blob/:name",
-                    get(blobs::get_blob_in_workspace),
-                )
                 .route("/permission/:id", delete(permissions::remove_user))
-                .layer(
-                    ServiceBuilder::new()
-                        .layer(make_firebase_auth_layer(ctx.key.jwt_decode.clone())),
-                ),
+                .route("/resource/usage", get(blobs::get_user_resource_usage))
+                .layer(make_firebase_auth_layer(ctx.key.jwt_decode.clone())),
         )
 }
 
-async fn health_check() -> Response {
-    StatusCode::OK.into_response()
-}
-
-async fn query_user(
+///  Get `user`'s data by email.
+/// - Return 200 ok and `user`'s data.
+/// - Return 400 bad request if `email` or `workspace_id` is not provided.
+/// - Return 500 internal server error if database error.
+#[utoipa::path(get, tag = "Workspace", context_path = "/api", path = "/user",
+params(
+    ("email",Query, description = "email of user" ),
+    ( "workspace_id",Query, description = "workspace id of user")),
+    responses(
+        (status = 200, description = "Return workspace data", body = [UserInWorkspace],example = json!([
+            {
+              "type": "UnRegistered",
+              "email": "toeverything@toeverything.info",
+              "in_workspace": false
+            }
+          ])),
+        (status = 400, description = "Request parameter error."),
+        (status = 500, description = "Server error, please try again later.")
+    )
+)]
+#[instrument(skip(ctx))]
+pub async fn query_user(
     Extension(ctx): Extension<Arc<Context>>,
     Query(payload): Query<UserQuery>,
 ) -> Response {
+    info!("query_user enter");
     if let (Some(email), Some(workspace_id)) = (payload.email, payload.workspace_id) {
         if let Ok(user) = ctx
             .db
@@ -96,40 +140,94 @@ async fn query_user(
         {
             Json(vec![user]).into_response()
         } else {
-            internal_server_error()
+            ErrorStatus::InternalServerError.into_response()
         }
     } else {
-        bad_request_error()
+        ErrorStatus::BadRequest.into_response()
     }
 }
 
-async fn make_token(
+///  create `token` for user.
+/// - Return 200 ok and `token`.
+/// - Return 400 bad request if request parameter error.
+/// - Return 401 unauthorized if user unauthorized.
+/// - Return 500 internal server error if database error.
+#[utoipa::path(post, tag = "Workspace", context_path = "/api/user", path = "/token",
+request_body(content = MakeToken, description = "Request body for make token",content_type = "application/json",example = json!({
+    "type": "Google",
+    "token": "google token",
+}
+)),
+responses(
+    (status = 200, description = "Return token", body = UserToken,
+    example=json!({
+        "refresh":"refresh token",
+        "token":"token",
+    }
+    )),
+    (status = 400, description = "Request parameter error."),
+    (status = 401, description = "Unauthorized."),
+    (status = 500, description = "Server error, please try again later.")
+)
+)]
+#[instrument(skip(ctx, payload))] // payload need to be safe
+pub async fn make_token(
     Extension(ctx): Extension<Arc<Context>>,
     Json(payload): Json<MakeToken>,
 ) -> Response {
+    info!("make_token enter");
+    // TODO: too complex type, need to refactor
     let (user, refresh) = match payload {
-        MakeToken::User(user) => (ctx.db.user_login(user).await, None),
-        MakeToken::Google { token } => (
-            if let Some(claims) = ctx.decode_google_token(token).await {
-                ctx.google_user_login(&claims).await.map(|user| Some(user))
+        MakeToken::DebugCreateUser(user) => {
+            if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
+                if let Ok(model) = ctx.db.create_user(user).await {
+                    (Ok(Some(model)), None)
+                } else {
+                    return ErrorStatus::BadRequest.into_response();
+                }
             } else {
-                Ok(None)
-            },
-            None,
-        ),
+                return ErrorStatus::BadRequest.into_response();
+            }
+        }
+        MakeToken::DebugLoginUser(user) => {
+            if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
+                (ctx.db.user_login(user).await, None)
+            } else {
+                return ErrorStatus::BadRequest.into_response();
+            }
+        }
+        MakeToken::Google { token } => {
+            match ctx
+                .firebase
+                .lock()
+                .await
+                .decode_google_token(token, ctx.config.refresh_token_expires_in)
+                .await
+            {
+                Ok(claims) => match ctx.db.firebase_user_login(&claims).await {
+                    Ok(user) => (Ok(Some(user)), None),
+                    Err(e) => {
+                        error!("failed to auth: {:?}", e,);
+                        return ErrorStatus::InternalServerError.into_response();
+                    }
+                },
+                Err(e) => {
+                    error!("failed to check token: {:?}", e);
+                    return ErrorStatus::Unauthorized.into_response();
+                }
+            }
+        }
         MakeToken::Refresh { token } => {
-            let Ok(input) = URL_SAFE_ENGINE.decode(token.clone()) else {
-                return bad_request_error();
+            let Ok(data) = ctx.key.decrypt_aes_base64(token.clone()) else {
+                return ErrorStatus::BadRequest.into_response();
             };
-            let Some(data) = ctx.decrypt_aes(input) else {
-                return bad_request_error();
-            };
+
             let Ok(data) = serde_json::from_slice::<RefreshToken>(&data) else {
-                return bad_request_error();
+                return ErrorStatus::BadRequest.into_response();
             };
 
             if data.expires < Utc::now().naive_utc() {
-                return unauthorized_error();
+                return ErrorStatus::Unauthorized.into_response();
             }
 
             (ctx.db.refresh_token(data).await, Some(token))
@@ -137,200 +235,251 @@ async fn make_token(
     };
 
     match user {
-        Ok(Some(UserWithNonce { user, token_nonce })) => {
-            let refresh = refresh.unwrap_or_else(|| {
+        Ok(Some(user)) => {
+            let Some(refresh) = refresh.or_else(|| {
                 let refresh = RefreshToken {
-                    expires: Utc::now().naive_utc() + Duration::days(180),
-                    user_id: user.id,
-                    token_nonce,
+                    expires: Utc::now().naive_utc() + ctx.config.refresh_token_expires_in,
+                    user_id: user.id.clone(),
+                    token_nonce: user.token_nonce.unwrap(),
                 };
 
                 let json = serde_json::to_string(&refresh).unwrap();
 
-                let data = ctx.encrypt_aes(json.as_bytes());
-
-                base64::encode_engine(data, &URL_SAFE_ENGINE)
-            });
+                ctx.key.encrypt_aes_base64(json.as_bytes()).ok()
+            }) else {
+                return ErrorStatus::InternalServerError.into_response();
+            };
 
             let claims = Claims {
-                exp: Utc::now().naive_utc() + Duration::minutes(10),
-                user,
+                exp: Utc::now().naive_utc() + ctx.config.access_token_expires_in,
+                user: User {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    avatar_url: user.avatar_url,
+                    created_at: user.created_at.unwrap_or_default().naive_local(),
+                },
             };
-            let token = ctx.sign_jwt(&claims);
+            let token = ctx.key.sign_jwt(&claims);
 
             Json(UserToken { token, refresh }).into_response()
         }
-        Ok(None) => unauthorized_error(),
-        Err(_) => internal_server_error(),
-    }
-}
-
-async fn get_workspaces(
-    Extension(ctx): Extension<Arc<Context>>,
-    Extension(claims): Extension<Arc<Claims>>,
-) -> Response {
-    // TODO should print error
-    if let Ok(data) = ctx.db.get_user_workspaces(claims.user.id).await {
-        Json(data).into_response()
-    } else {
-        internal_server_error()
-    }
-}
-
-impl IntoResponse for ContextRequestError {
-    fn into_response(self) -> Response {
-        match self {
-            ContextRequestError::BadUserInput { user_message } => {
-                (StatusCode::BAD_REQUEST, user_message).into_response()
-            }
-            ContextRequestError::WorkspaceNotFound { workspace_id } => (
-                StatusCode::NOT_FOUND,
-                format!("Workspace({workspace_id:?}) not found."),
-            )
-                .into_response(),
-            ContextRequestError::Other(err) => internal_server_error(),
+        Ok(None) => ErrorStatus::Unauthorized.into_response(),
+        Err(e) => {
+            error!("Failed to make token: {:?}", e);
+            ErrorStatus::InternalServerError.into_response()
         }
     }
 }
 
-async fn get_workspace_by_id(
-    Extension(ctx): Extension<Arc<Context>>,
-    Extension(claims): Extension<Arc<Claims>>,
-    Path(workspace_id): Path<String>,
-) -> Response {
-    match ctx
-        .db
-        .get_permission(claims.user.id, workspace_id.clone())
-        .await
-    {
-        Ok(Some(_)) => (),
-        Ok(None) => return forbidden_error(),
-        Err(_) => return internal_server_error(),
+#[cfg(test)]
+mod test {
+    use super::*;
+    use axum::http::StatusCode;
+    use axum_test_helper::TestClient;
+    use cloud_database::{CloudDatabase, CreateUser};
+    use serde_json::json;
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn test_query_user() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test_client(pool).await;
+        let new_user = context
+            .db
+            .create_user(CreateUser {
+                avatar_url: Some("xxx".to_string()),
+                email: "xxx@xxx.xx".to_string(),
+                name: "xxx".to_string(),
+                password: "xxx".to_string(),
+            })
+            .await
+            .unwrap();
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
+
+        let client = TestClient::new(app);
+        let url = format!("/user?email={}&workspace_id=212312", new_user.email);
+        let resp = client.get(&url).send().await;
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_text = resp.text().await;
+        assert!(resp_text.contains(new_user.id.as_str()));
+        assert!(resp_text.contains(new_user.name.as_str()));
+        assert!(resp_text.contains(new_user.email.as_str()));
+
+        let resp = client.get("/user").send().await;
+        assert_eq!(resp.status().is_client_error(), true);
+        let resp = client.get("/user?email=fake_email").send().await;
+        assert_eq!(resp.status().is_client_error(), true);
+        let resp = client.get("/user?user_name=fake_parameter").send().await;
+        assert_eq!(resp.status().is_client_error(), true);
     }
 
-    match ctx.db.get_workspace_by_id(workspace_id.clone()).await {
-        Ok(Some(data)) => Json(data).into_response(),
-        Ok(None) => not_found_workspace_error(workspace_id),
-        Err(_) => internal_server_error(),
-    }
-}
+    #[tokio::test]
+    async fn test_with_token_expire() {
+        std::env::set_var("JWT_REFRESH_TOKEN_EXPIRES_IN", "10");
+        std::env::set_var("JWT_ACCESS_TOKEN_EXPIRES_IN", "10");
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test_client(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
-async fn update_workspace(
-    Extension(ctx): Extension<Arc<Context>>,
-    Extension(claims): Extension<Arc<Claims>>,
-    Path(workspace_id): Path<String>,
-    Json(payload): Json<UpdateWorkspace>,
-) -> Response {
-    match ctx
-        .db
-        .get_permission(claims.user.id, workspace_id.clone())
-        .await
-    {
-        Ok(Some(p)) if p.can_admin() => (),
-        Ok(_) => return forbidden_error(),
-        Err(_) => return internal_server_error(),
-    }
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        let resp_json: serde_json::Value = resp.json().await;
+        let access_token = resp_json["token"].as_str().unwrap().to_string();
+        let refresh_token = resp_json["refresh"].as_str().unwrap().to_string();
 
-    match ctx.db.update_workspace(workspace_id.clone(), payload).await {
-        Ok(Some(data)) => {
-            ctx.user_channel
-                .update_workspace(workspace_id.clone(), ctx.clone());
-            Json(data).into_response()
-        }
-        Ok(None) => not_found_workspace_error(workspace_id),
-        Err(_) => internal_server_error(),
-    }
-}
-
-async fn delete_workspace(
-    Extension(ctx): Extension<Arc<Context>>,
-    Extension(claims): Extension<Arc<Claims>>,
-    Path(workspace_id): Path<String>,
-) -> Response {
-    match ctx
-        .db
-        .get_permission(claims.user.id, workspace_id.clone())
-        .await
-    {
-        Ok(Some(p)) if p.is_owner() => (),
-        Ok(_) => return forbidden_error(),
-        Err(_) => return internal_server_error(),
-    }
-
-    match ctx.db.delete_workspace(workspace_id.clone()).await {
-        Ok(true) => {
-            ctx.user_channel
-                .update_workspace(workspace_id.clone(), ctx.clone());
-            let _ = ctx.blob.delete_workspace(workspace_id).await;
-            StatusCode::OK.into_response()
-        }
-        Ok(false) => not_found_workspace_error(workspace_id),
-        Err(_) => internal_server_error(),
-    }
-}
-
-async fn get_doc(
-    Extension(ctx): Extension<Arc<Context>>,
-    Extension(claims): Extension<Arc<Claims>>,
-    Path(workspace_id): Path<String>,
-) -> Response {
-    match ctx
-        .db
-        .can_read_workspace(claims.user.id, workspace_id.clone())
-        .await
-    {
-        Ok(true) => (),
-        Ok(false) => return forbidden_error(),
-        Err(_) => return internal_server_error(),
+        let resp = client
+            .get("/workspace")
+            .header("authorization", format!("{}", access_token))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        std::thread::sleep(std::time::Duration::from_secs(10));
+        let body_data = json!({
+            "type": "Refresh",
+            "token": refresh_token
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+        let resp = client
+            .get("/workspace")
+            .header("authorization", format!("{}", access_token))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     }
 
-    get_workspace_doc(ctx, workspace_id).await
-}
+    #[tokio::test]
+    async fn test_make_token_with_valid_request() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test_client(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
-pub async fn get_public_doc(
-    Extension(ctx): Extension<Arc<Context>>,
-    Path(workspace_id): Path<String>,
-) -> Response {
-    match ctx.db.is_public_workspace(workspace_id.clone()).await {
-        Ok(true) => (),
-        Ok(false) => return forbidden_error(),
-        Err(_) => return internal_server_error(),
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "name": "my_username",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let refresh_token = resp_json["refresh"].as_str().unwrap().to_string();
+        let body_data = json!({
+            "type": "Refresh",
+            "token": refresh_token,
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
     }
 
-    get_workspace_doc(ctx, workspace_id).await
-}
+    #[tokio::test]
+    async fn test_make_token_with_invalid_request() {
+        let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();
+        let context = Context::new_test_client(pool).await;
+        let ctx = Arc::new(context);
+        let app = super::make_rest_route(ctx.clone()).layer(Extension(ctx.clone()));
 
-async fn get_workspace_doc(ctx: Arc<Context>, workspace_id: String) -> Response {
-    ctx.doc
-        .get_workspace(workspace_id)
-        .await
-        .read()
-        .await
-        .sync_migration()
-        .into_response()
-}
-
-/// Resolves to [WorkspaceSearchResults]
-async fn search_workspace(
-    Extension(ctx): Extension<Arc<Context>>,
-    Extension(claims): Extension<Arc<Claims>>,
-    Path(workspace_id): Path<String>,
-    Json(payload): Json<WorkspaceSearchInput>,
-) -> Response {
-    match ctx
-        .db
-        .can_read_workspace(claims.user.id, workspace_id.clone())
-        .await
-    {
-        Ok(true) => (),
-        Ok(false) => return forbidden_error(),
-        Err(_) => return internal_server_error(),
-    };
-
-    let search_results = match ctx.search_workspace(workspace_id, &payload.query).await {
-        Ok(results) => results,
-        Err(err) => return err.into_response(),
-    };
-
-    Json(search_results).into_response()
+        let client = TestClient::new(app);
+        let body_data = json!({
+            "type": "DebugCreateUser",
+            "avatar_url": "my_avatar_url",
+            "email": "my_email",
+            "password": "my_password",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status().is_client_error(), true);
+        let body_data = json!({
+            "type": "DebugLoginUser",
+            "email": "my_email",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status().is_client_error(), true);
+        let body_data = json!({
+            "type": "Refresh",
+            "token": "my_token",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status().is_client_error(), true);
+        let body_data = json!({
+            "type": "Google",
+            "token": "my_token",
+        });
+        let body_string = serde_json::to_string(&body_data).unwrap();
+        let resp = client
+            .post("/user/token")
+            .header("Content-Type", "application/json")
+            .body(body_string)
+            .send()
+            .await;
+        assert_eq!(resp.status().is_client_error(), true);
+    }
 }

@@ -1,0 +1,36 @@
+{
+	"name": "@toeverything/jwt-react",
+	"version": "0.1.0",
+	"license": "AGPL-3.0-only",
+	"author": "DarkSky <darksky2048@gmail.com>",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"publishConfig": {
+		"access": "public",
+		"exports": {
+			".": {
+				"module": "./dist/index.js",
+				"import": "./dist/index.js"
+			}
+		},
+		"@toeverything:registry": "https://npm.pkg.github.com"
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "vite build"
+	},
+	"dependencies": {
+		"jotai": "^2.0.3",
+		"nanoid": "^4.0.2"
+	},
+	"peerDependencies": {
+		"react": "^18"
+	},
+	"devDependencies": {
+		"@toeverything/jwt": "workspace:*",
+		"@types/node": "^18.15.10"
+	}
+}

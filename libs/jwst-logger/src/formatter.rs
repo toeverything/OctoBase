@@ -1,12 +1,10 @@
 use nu_ansi_term::{AnsiGenericString, Color};
 use std::fmt::Result;
-use tracing::{Event, Level, Subscriber};
+use tracing::{Event, Level, Metadata, Subscriber};
 use tracing_log::NormalizeEvent;
 use tracing_subscriber::{
     fmt::{
-        format::{Format, Full, Writer},
-        time::FormatTime,
-        FmtContext, FormatEvent, FormatFields, FormattedFields,
+        format::Writer, time::FormatTime, FmtContext, FormatEvent, FormatFields, FormattedFields,
     },
     registry::LookupSpan,
 };
@@ -29,9 +27,7 @@ impl FormatTime for LogTime {
     }
 }
 
-pub struct JWSTFormatter {
-    pub(super) default: Format<Full, LogTime>,
-}
+pub struct JWSTFormatter;
 
 impl JWSTFormatter {
     fn format_level(level: &Level) -> AnsiGenericString<str> {
@@ -41,6 +37,25 @@ impl JWSTFormatter {
             Level::INFO => Color::Green.paint(" INFO"),
             Level::DEBUG => Color::Blue.paint("DEBUG"),
             Level::TRACE => Color::Purple.paint("TRACE"),
+        }
+    }
+
+    #[inline]
+    fn render_log(meta: &Metadata<'_>) -> String {
+        if std::env::var("JWST_COLORFUL_LOGS").is_ok() || cfg!(debug_assertions) {
+            format!(
+                "\r[{}][{}][{}] ",
+                Color::DarkGray.paint(LogTime::get_time()),
+                Self::format_level(meta.level()),
+                Color::LightMagenta.paint(meta.target())
+            )
+        } else {
+            format!(
+                "\r[{}][{}][{}] ",
+                LogTime::get_time(),
+                meta.level().as_str(),
+                meta.target()
+            )
         }
     }
 }
@@ -56,48 +71,37 @@ where
         mut writer: Writer<'_>,
         event: &Event<'_>,
     ) -> Result {
-        if cfg!(debug_assertions) {
-            let normalized_meta = event.normalized_metadata();
-            let meta = normalized_meta.as_ref().unwrap_or_else(|| event.metadata());
+        let normalized_meta = event.normalized_metadata();
+        let meta = normalized_meta.as_ref().unwrap_or_else(|| event.metadata());
 
-            if option_env!("JWST_DEV").is_none()
-                && (meta.target() == "sqlx::query" || meta.target() == "runtime.spawn")
-            {
-                return Ok(());
-            }
-
-            write!(
-                &mut writer,
-                "\r[{}][{}][{}] ",
-                Color::DarkGray.paint(LogTime::get_time()),
-                Self::format_level(meta.level()),
-                Color::LightMagenta.paint(meta.target())
-            )?;
-
-            // Format all the spans in the event's span context.
-            if let Some(scope) = ctx.event_scope() {
-                for span in scope.from_root() {
-                    write!(writer, "{}", span.name())?;
-
-                    let ext = span.extensions();
-                    let fields = &ext
-                        .get::<FormattedFields<N>>()
-                        .expect("will never be `None`");
-
-                    // Skip formatting the fields if the span had no fields.
-                    if !fields.is_empty() {
-                        write!(writer, "{{{fields}}}")?;
-                    }
-                    write!(writer, ": ")?;
-                }
-            }
-
-            // Write fields on the event
-            ctx.field_format().format_fields(writer.by_ref(), event)?;
-
-            writeln!(writer)
-        } else {
-            self.default.format_event(ctx, writer, event)
+        if std::env::var("JWST_DEV").is_err()
+            && (meta.target() == "sqlx::query" || meta.target() == "runtime.spawn")
+        {
+            return Ok(());
         }
+
+        write!(&mut writer, "{}", Self::render_log(meta))?;
+
+        // Format all the spans in the event's span context.
+        if let Some(scope) = ctx.event_scope() {
+            for span in scope.from_root() {
+                let ext = span.extensions();
+                let fields = &ext
+                    .get::<FormattedFields<N>>()
+                    .expect("will never be `None`");
+
+                // Skip formatting the fields if the span had no fields.
+                let fields_name = match fields.is_empty() {
+                    true => "none",
+                    false => fields,
+                };
+                write!(writer, "[{}:{}] ", span.name(), fields_name)?;
+            }
+        }
+
+        // Write fields on the event
+        ctx.field_format().format_fields(writer.by_ref(), event)?;
+
+        writeln!(writer)
     }
 }

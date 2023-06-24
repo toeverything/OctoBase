@@ -13,5 +13,5 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.17.3" }
 
 # ======= workspace dependencies =======
-jwst = { path = "../../jwst" }
-yrs = { path = "../../vendors/y-crdt/yrs" }
+jwst = { workspace = true }
+yrs = "=0.12.0"

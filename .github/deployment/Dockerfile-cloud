@@ -1,24 +1,15 @@
-FROM messense/rust-musl-cross:x86_64-musl AS builder-dependencies
+FROM messense/rust-musl-cross:x86_64-musl AS builder-amd64
 ENV CARGO_TERM_COLOR="always"
 COPY . .
-RUN cargo vendor > .cargo/config
+RUN cargo build --release --no-default-features --features affine --package affine-cloud && \
+    mv /home/rust/src/target/x86_64-unknown-linux-musl/release/affine-cloud /tmp/cloud-amd64
 
-FROM messense/rust-musl-cross:x86_64-musl AS builder-amd64
-ENV CARGO_TERM_COLOR="always" CARGO_BUILD_JOBS=2
-COPY . .
-COPY --from=builder-dependencies /home/rust/src/vendor /home/rust/src/vendor
-COPY --from=builder-dependencies /home/rust/src/.cargo/config /home/rust/src/.cargo/config
-RUN --mount=type=cache,target=/home/rust/src/target,rw,id=cloud_amd64 \
-    cargo build --release --no-default-features --features affine --package affine-cloud && \
-    mv /home/rust/src/target/x86_64-unknown-linux-musl/release/affine-cloud /tmp/cloud-amd64 && \
-    mv /home/rust/src/apps/cloud/static /tmp/static
-
-FROM ghcr.io/toeverything/affine-pathfinder:nightly-latest as relocate
+FROM alpine:latest as relocate
 WORKDIR /app
 COPY --from=builder-amd64 /tmp/cloud-amd64 ./cloud
-COPY --from=builder-amd64 /tmp/static ./
 
 FROM alpine:latest as cloud
+EXPOSE 3000
 WORKDIR /app
 COPY --from=relocate /app .
 ENTRYPOINT /app/cloud

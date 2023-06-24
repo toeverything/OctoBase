@@ -4,68 +4,50 @@ edition = "2021"
 version = "0.1.0"
 
 [features]
-default = ["sqlite"]
-affine = ["postgres", "jwst-storage/sqlite"]
-sqlite = ["cloud-database/sqlite", "jwst-storage/sqlite"]
-postgres = ["cloud-database/postgres", "jwst-storage/postgres"]
+default = ["affine"]
+affine = ["cloud-database/postgres", "jwst-storage/postgres"]
 
 [dependencies]
-async-trait = "0.1.60"
-anyhow = "^1.0.68"
-aes-gcm = "0.10.1"
-bytes = "1.3.0"
-axum = { version = "0.6.1", features = ["headers", "ws"] }
-base64 = "0.21.0"
+bytes = "1.4.0"
+axum = { version = "0.6.10", features = ["headers", "ws"] }
 chrono = { version = "0.4.23", features = ["serde"] }
-dashmap = "5.4.0"
 dotenvy = "0.15.6"
-futures = "0.3.25"
-handlebars = "4.3.6"
-hmac = "0.12.1"
-http = "0.2.8"
+futures = "0.3.27"
+futures-util = "0.3.27"
 http-body = "0.4.5"
-jsonwebtoken = "8.1.1"
-lettre = { version = "0.10.1", default-features = false, features = [
-    "builder",
-    "tokio1",
-    "pool",
-    "smtp-transport",
-    "tokio1-rustls-tls",
-] }
-lib0 = "0.12.2"
+jsonwebtoken = "8.2.0"
+lettre = { version = "0.10.3", default-features = false }
+image = "0.24.5"
+lib0 = "0.16.5"
 mime = "0.3.16"
-moka = { version = "0.9.6", features = ["future"] }
-pem = "1.1.0"
-rand = "0.8.5"
-reqwest = { version = "0.11.13", default-features = false, features = [
-    "json",
-    "rustls-tls",
-] }
-serde = { version = "1.0.151", features = ["derive"] }
-serde_json = "1.0.91"
-serde_repr = "0.1.10"
-sha2 = "0.10.6"
-sqlx = { version = "0.6.2", features = [
-    "chrono",
-    "macros",
-    "migrate",
-    "runtime-tokio-rustls",
-] }
-tokio = { version = "1.23.0", features = [
+mimalloc = "0.1.34"
+nanoid = "0.4.0"
+serde = { version = "1.0.155", features = ["derive"] }
+serde_json = "1.0.94"
+tempfile = "3.4.0"
+tokio = { version = "1.26.0", features = [
     "macros",
     "rt-multi-thread",
     "signal",
 ] }
-tokio-util = { version = "^0.7.4", features = ["io"] }
-tower = "0.4.13"
-tower-http = { version = "0.3.5", features = ["auth", "cors", "fs"] }
-uuid = { version = "^1.2.2", default-features = false, features = ["v4"] }
-x509-parser = "0.14.0"
+tower-http = { version = "0.4.0", features = [
+    "auth",
+    "cors",
+    "propagate-header",
+    "request-id",
+    "trace",
+] }
+utoipa = { version = "3.1.0", features = ["axum_extras"] }
+form_urlencoded = "1.1.0"
+yrs = "0.16.5"
 
 # ======= workspace dependencies =======
 cloud-database = { path = "../../libs/cloud-database" }
-jwst = { path = "../../libs/jwst" }
-jwst-logger = { path = "../../libs/jwst-logger" }
-jwst-storage = { path = "../../libs/jwst-storage" }
-y-sync = { path = "../../libs/vendors/y-sync" }
-yrs = { path = "../../libs/vendors/y-crdt/yrs" }
+cloud-infra = { path = "../../libs/cloud-infra" }
+jwst = { workspace = true }
+jwst-logger = { workspace = true }
+jwst-rpc = { workspace = true }
+jwst-storage = { workspace = true }
+
+[dev-dependencies]
+axum-test-helper = "0.2.0"

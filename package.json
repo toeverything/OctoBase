@@ -1,0 +1,40 @@
+{
+	"name": "OctoBase",
+	"version": "0.5.0",
+	"private": true,
+	"packageManager": "pnpm@8.1.0",
+	"scripts": {
+		"dev": "turbo --filter @toeverything/octobase dev",
+		"build": "turbo --filter @toeverything/octobase build",
+		"publish:jwt": "pnpm publish --filter @toeverything/jwt"
+	},
+	"pnpm": {
+		"peerDependencyRules": {
+			"ignoreMissing": [
+				"react",
+				"react-dom",
+				"rollup",
+				"vite"
+			]
+		}
+	},
+	"dependencies": {
+		"nanoid": "^4.0.1",
+		"prettier": "^2.8.4",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0"
+	},
+	"devDependencies": {
+		"@types/react": "^18.0.29",
+		"@types/react-dom": "^18.0.11",
+		"@vitejs/plugin-react-swc": "^3.2.0",
+		"rollup-plugin-typescript2": "^0.34.1",
+		"rollup-plugin-visualizer": "^5.9.0",
+		"terser": "^5.16.8",
+		"turbo": "^1.8.5",
+		"typescript": "^5.0.2",
+		"vite": "^4.2.1",
+		"vite-plugin-html": "^3.2.0",
+		"vite-plugin-singlefile": "^0.13.3"
+	}
+}

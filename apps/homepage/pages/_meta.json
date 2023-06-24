@@ -1,0 +1,50 @@
+{
+	"index": {
+		"title": "HomePage",
+		"display": "hidden",
+		"theme": {
+			"layout": "full",
+			"breadcrumb": false,
+			"footer": true,
+			"sidebar": false,
+			"toc": false,
+			"pagination": false
+		}
+	},
+	"docs": {
+		"title": "Documentation",
+		"type": "page"
+	},
+	"projects": {
+		"title": "Our Projects",
+		"type": "menu",
+		"items": {
+			"affine": {
+				"title": "AFFiNE",
+				"href": "https://github.com/toeverything/affine",
+				"newWindow": true
+			},
+			"blocksuite": {
+				"title": "BlockSuite",
+				"href": "https://github.com/toeverything/blocksuite",
+				"newWindow": true
+			},
+			"octobase": {
+				"title": "OctoBase",
+				"href": "https://github.com/toeverything/octobase",
+				"newWindow": true
+			}
+		}
+	},
+	"try_projects": {
+		"title": "Try Online",
+		"type": "menu",
+		"items": {
+			"affine": {
+				"title": "AFFiNE",
+				"href": "https://app.affine.pro",
+				"newWindow": true
+			}
+		}
+	}
+}

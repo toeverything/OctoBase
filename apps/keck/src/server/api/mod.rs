@@ -2,20 +2,22 @@
 mod blobs;
 #[cfg(feature = "api")]
 mod blocks;
+mod doc;
 
-use super::{sync::CollaborationServer, *};
-use axum::{extract::ws::Message, Router};
+use super::*;
+use axum::Router;
 #[cfg(feature = "api")]
 use axum::{
     extract::{Json, Path},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, head},
+    routing::{delete, get, head, post},
 };
-use dashmap::DashMap;
-use jwst::Workspace;
-use jwst_storage::{BlobAutoStorage, DocAutoStorage};
-use tokio::sync::{mpsc::Sender, Mutex};
+use doc::doc_apis;
+use jwst_rpc::{BroadcastChannels, RpcContextImpl};
+use jwst_storage::{JwstStorage, JwstStorageResult};
+use std::collections::HashMap;
+use tokio::sync::RwLock;
 
 #[derive(Deserialize)]
 #[cfg_attr(feature = "api", derive(utoipa::IntoParams))]
@@ -37,30 +39,67 @@ pub struct PageData<T> {
 }
 
 pub struct Context {
-    pub workspace: DashMap<String, Arc<Mutex<Workspace>>>,
-    pub channel: DashMap<(String, String), Sender<Message>>,
-    pub collaboration: CollaborationServer,
-    pub docs: DocAutoStorage,
-    pub blobs: BlobAutoStorage,
+    channel: BroadcastChannels,
+    storage: JwstStorage,
+    callback: WorkspaceRetrievalCallback,
 }
 
 impl Context {
-    pub async fn new(docs: Option<DocAutoStorage>, blobs: Option<BlobAutoStorage>) -> Self {
-        Context {
-            workspace: DashMap::new(),
-            channel: DashMap::new(),
-            collaboration: CollaborationServer::new().expect("Cannot init collaboration server"),
-            docs: docs.unwrap_or(
-                DocAutoStorage::init_sqlite_pool_with_name("jwst")
-                    .await
-                    .expect("Cannot create database"),
-            ),
-            blobs: blobs.unwrap_or(
-                BlobAutoStorage::init_sqlite_pool_with_name("blobs")
-                    .await
-                    .expect("Cannot create database"),
-            ),
+    pub async fn new(storage: Option<JwstStorage>, cb: WorkspaceRetrievalCallback) -> Self {
+        let storage = if let Some(storage) = storage {
+            info!("use external storage instance: {}", storage.database());
+            Ok(storage)
+        } else if dotenvy::var("USE_MEMORY_SQLITE").is_ok() {
+            info!("use memory sqlite database");
+            JwstStorage::new_with_migration("sqlite::memory:").await
+        } else if let Ok(database_url) = dotenvy::var("DATABASE_URL") {
+            info!("use external database: {}", database_url);
+            JwstStorage::new_with_migration(&database_url).await
+        } else {
+            info!("use sqlite database: jwst.db");
+            JwstStorage::new_with_sqlite("jwst").await
         }
+        .expect("Cannot create database");
+
+        Context {
+            channel: RwLock::new(HashMap::new()),
+            storage,
+            callback: cb,
+        }
+    }
+
+    pub async fn get_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
+    where
+        S: AsRef<str>,
+    {
+        let workspace = self.storage.get_workspace(workspace_id).await?;
+        if let Some(cb) = self.callback.clone() {
+            cb(&workspace);
+        }
+
+        Ok(workspace)
+    }
+
+    pub async fn create_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
+    where
+        S: AsRef<str>,
+    {
+        let workspace = self.storage.create_workspace(workspace_id).await?;
+        if let Some(cb) = self.callback.clone() {
+            cb(&workspace);
+        }
+
+        Ok(workspace)
+    }
+}
+
+impl RpcContextImpl<'_> for Context {
+    fn get_storage(&self) -> &JwstStorage {
+        &self.storage
+    }
+
+    fn get_channel(&self) -> &BroadcastChannels {
+        &self.channel
     }
 }
 

@@ -1,0 +1,92 @@
+[package]
+name = "jwst-codec-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+rand = "0.8.5"
+rand_chacha = "0.3.1"
+libfuzzer-sys = "0.4.6"
+lib0 = "0.16.5"
+yrs = "0.16.5"
+
+jwst-codec-util = { path = "../../jwst-codec-util" }
+
+[dependencies.jwst-codec]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "codec_doc_any_struct"
+path = "fuzz_targets/codec_doc_any_struct.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "codec_doc_any"
+path = "fuzz_targets/codec_doc_any.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "decode_bytes"
+path = "fuzz_targets/decode_bytes.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "ins_del_text"
+path = "fuzz_targets/ins_del_text.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "sync_message"
+path = "fuzz_targets/sync_message.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "i64_decode"
+path = "fuzz_targets/i64_decode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "i64_encode"
+path = "fuzz_targets/i64_encode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "u64_decode"
+path = "fuzz_targets/u64_decode.rs"
+test = false
+doc = false
+
+
+[[bin]]
+name = "u64_encode"
+path = "fuzz_targets/u64_encode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "apply_update"
+path = "fuzz_targets/apply_update.rs"
+test = false
+doc = false
+
+[patch.crates-io]
+lib0 = { git = "https://github.com/toeverything/y-crdt", rev = "a700f09" }
+yrs = { git = "https://github.com/toeverything/y-crdt", rev = "a700f09" }

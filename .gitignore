@@ -1,6 +1,16 @@
 target
-
+.turbo
 .env
 .DS_Store
 *.db*
 /data/*
+**/.next
+**/out
+**/dist
+**/node_modules
+**/stats.html
+.npmrc
+**/.idea
+**/.swiftpm
+**/*.xcodeproj
+**/*.xcworkspace

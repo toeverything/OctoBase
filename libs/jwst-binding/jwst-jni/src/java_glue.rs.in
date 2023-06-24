@@ -6,7 +6,15 @@ foreign_class!(
     class JwstStorage {
         self_type JwstStorage;
         constructor JwstStorage::new(path: String) -> JwstStorage;
+        constructor JwstStorage::new_with_logger_level(path: String, level: String) -> JwstStorage;
         fn JwstStorage::error(&self) -> Option<String>; alias error;
+        fn JwstStorage::is_offline(&self) -> bool;
+        fn JwstStorage::is_initialized(&self) -> bool;
+        fn JwstStorage::is_syncing(&self) -> bool;
+        fn JwstStorage::is_finished(&self) -> bool;
+        fn JwstStorage::is_error(&self) -> bool;
+        fn JwstStorage::get_sync_state(&self) -> String;
+        fn JwstStorage::connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace>; alias connect;
     }
 );
 foreign_class!(
@@ -16,7 +24,7 @@ foreign_class!(
             unimplemented!()
         }
         fn WorkspaceTransaction::remove(& mut self , block_id : String)->bool; alias remove;
-        fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavor : String)->Block; alias create;
+        fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavour : String)->Block; alias create;
         fn WorkspaceTransaction::commit(& mut self); alias commit;
     }
 );
@@ -27,47 +35,96 @@ foreign_callback!(
     }
 );
 
+pub type VecOfStrings = Vec<String>;
+foreign_class!(
+    class VecOfStrings {
+        self_type VecOfStrings;
+
+        constructor default() -> VecOfStrings {
+            Vec::<String>::default()
+        }
+
+        fn at(&self, i: usize) -> &str {
+            this[i].as_str()
+        }
+
+        fn len(&self) -> usize {
+            this.len()
+        }
+
+        fn push(&mut self, s: String) {
+            this.push(s);
+        }
+
+        fn insert(&mut self, i: usize, s: String) {
+            this.insert(i, s);
+        }
+
+        fn clear(&mut self) {
+            this.clear();
+        }
+
+        fn remove(&mut self, i: usize) {
+            this.remove(i);
+        }
+
+        fn remove_item(&mut self, s: String) {
+            this.retain(|x| x != &s);
+        }
+    }
+);
+foreign_callback!(
+    callback BlockObserver {
+        self_type BlockObserver;
+        onChange = BlockObserver::on_change(& self , block_ids : VecOfStrings);
+    }
+);
+
 foreign_class!(
 	class Block {
 		self_type Block;
-		constructor Block::new(workspace : & Workspace , block_id : String , flavor : String , operator : u64)->Block;
+		constructor Block::new(trx : & mut WorkspaceTransaction , block_id : String , flavour : String , operator : u64 ,)->Block;
 		fn Block::set_bool(& self , trx : & mut WorkspaceTransaction , key : String , value : bool); alias setBool;
 		fn Block::set_string(& self , trx : & mut WorkspaceTransaction , key : String , value : String); alias setString;
 		fn Block::set_float(& self , trx : & mut WorkspaceTransaction , key : String , value : f64); alias setFloat;
 		fn Block::set_integer(& self , trx : & mut WorkspaceTransaction , key : String , value : i64); alias setInteger;
 		fn Block::set_null(& self , trx : & mut WorkspaceTransaction , key : String); alias setNull;
-		fn Block::is_bool(& self , key : String)->bool; alias isBool;
-		fn Block::is_string(& self , key : String)->bool; alias isString;
-		fn Block::is_float(& self , key : String)->bool; alias isFloat;
-		fn Block::is_integer(& self , key : String)->bool; alias isInteger;
-		fn Block::get_bool(& self , key : String)->Option<i64>; alias getBool;
-		fn Block::get_string(& self , key : String)->Option<String>; alias getString;
-		fn Block::get_float(& self , key : String)->Option<f64>; alias getFloat;
-		fn Block::get_integer(& self , key : String)->Option<i64>; alias getInteger;
+		fn Block::is_bool(& self , trx : & WorkspaceTransaction , key : String)->bool; alias isBool;
+		fn Block::is_string(& self , trx : & WorkspaceTransaction , key : String)->bool; alias isString;
+		fn Block::is_float(& self , trx : & WorkspaceTransaction , key : String)->bool; alias isFloat;
+		fn Block::is_integer(& self , trx : & WorkspaceTransaction , key : String)->bool; alias isInteger;
+		fn Block::get_bool(& self , trx : & WorkspaceTransaction , key : String)->Option<i64>; alias getBool;
+		fn Block::get_string(& self , trx : & WorkspaceTransaction , key : String)->Option<String>; alias getString;
+		fn Block::get_float(& self , trx : & WorkspaceTransaction , key : String)->Option<f64>; alias getFloat;
+		fn Block::get_integer(& self , trx : & WorkspaceTransaction , key : String)->Option<i64>; alias getInteger;
 		fn Block::id(& self)->String; alias id;
-		fn Block::flavor(& self)->String; alias flavor;
-		fn Block::version(& self)->String; alias version;
-		fn Block::created(& self)->u64; alias created;
-		fn Block::updated(& self)->u64; alias updated;
-		fn Block::parent(& self)->Option<String>; alias parent;
-		fn Block::children(& self)->Vec<String>; alias children;
+		fn Block::flavour(& self , trx : & WorkspaceTransaction)->String; alias flavour;
+		fn Block::created(& self , trx : & WorkspaceTransaction)->u64; alias created;
+		fn Block::updated(& self , trx : & WorkspaceTransaction)->u64; alias updated;
+		fn Block::parent(& self , trx : & WorkspaceTransaction)->Option<String>; alias parent;
+		fn Block::children(& self , trx : & WorkspaceTransaction)->Vec<String>; alias children;
 		fn Block::push_children(& self , trx : & mut WorkspaceTransaction , block : & Block); alias pushChildren;
 		fn Block::insert_children_at(& self , trx : & mut WorkspaceTransaction , block : & Block , pos : u32); alias insertChildrenAt;
 		fn Block::insert_children_before(& self , trx : & mut WorkspaceTransaction , block : & Block , reference : & str ,); alias insertChildrenBefore;
 		fn Block::insert_children_after(& self , trx : & mut WorkspaceTransaction , block : & Block , reference : & str ,); alias insertChildrenAfter;
 		fn Block::remove_children(& self , trx : & mut WorkspaceTransaction , block : & Block); alias removeChildren;
-		fn Block::exists_children(& self , block_id : & str)->i32; alias existsChildren;
+		fn Block::exists_children(& self , trx : & WorkspaceTransaction , block_id : & str)->i32; alias existsChildren;
 	}
 );
 foreign_class!(
 	class Workspace {
 		self_type Workspace;
-		constructor Workspace::new(id : String)->Workspace;
+		constructor Workspace::new(_id : String)->Workspace;
 		fn Workspace::id(& self)->String; alias id;
 		fn Workspace::client_id(& self)->u64; alias clientId;
-		fn Workspace::get(& self , block_id : String)->Option<Block>; alias get;
-		fn Workspace::exists(& self , block_id : & str)->bool; alias exists;
-		fn Workspace::with_trx(& self , on_trx : Box < dyn OnWorkspaceTransaction >); alias withTrx;
-		fn Workspace::with_storage(& mut self , storage : JwstStorage); alias withStorage;
+		fn Workspace::get(& self , trx : & mut WorkspaceTransaction , block_id : String)->Option<Block>; alias get;
+		fn Workspace::exists(& self , trx : & mut WorkspaceTransaction , block_id : & str)->bool; alias exists;
+		fn Workspace::with_trx(& self , on_trx : Box < dyn OnWorkspaceTransaction >)->bool; alias withTrx;
+		fn Workspace::get_blocks_by_flavour(& self , flavour : & str)->Vec<Block>; alias getBlocksByFlavour;
+		fn Workspace::drop_trx(& self , trx : WorkspaceTransaction); alias dropTrx;
+		fn Workspace::search(& self , query : String)->String; alias search;
+		fn Workspace::get_search_index(& self)->Vec<String>; alias getSearchIndex;
+		fn Workspace::set_search_index(& self , fields : VecOfStrings)->bool; alias setSearchIndex;
+		fn Workspace::set_callback(& self , observer : Box < dyn BlockObserver >)->bool; alias setCallback;
 	}
 );

@@ -6,23 +6,24 @@ on:
         branches: [master]
         paths:
             - 'apps/cloud/**'
-            - 'apps/handbook/**'
+            - 'apps/homepage/**'
             - 'apps/keck/**'
             - 'libs/**'
             - '.github/deployment/Dockerfile-cloud'
             - '.github/deployment/Dockerfile-jwst'
-            - '.github/deployment/Dockerfile-mysc'
+            - '.github/deployment/Dockerfile-mt-cloud'
             - '.github/workflows/jwst.yml'
     pull_request:
         branches: [master]
         paths:
             - 'apps/cloud/**'
-            - 'apps/handbook/**'
+            - 'apps/homepage/**'
+            - 'apps/playground/**'
             - 'apps/keck/**'
             - 'libs/**'
             - '.github/deployment/Dockerfile-cloud'
             - '.github/deployment/Dockerfile-jwst'
-            - '.github/deployment/Dockerfile-mysc'
+            - '.github/deployment/Dockerfile-mt-cloud'
             - '.github/workflows/jwst.yml'
 
 # Cancels all previous workflow runs for pull requests that have not completed.
@@ -36,14 +37,109 @@ concurrency:
 env:
     REGISTRY: ghcr.io
     NAMESPACE: toeverything
+
     APIPROXY_IMAGE_NAME: apiproxy
-    CLOUD_IMAGE_NAME: cloud
+    CLOUD_IMAGE_NAME: cloud-self-hosted
     JWST_IMAGE_NAME: jwst
-    MYSC_IMAGE_NAME: mysc
+
     IMAGE_TAG: canary-${{ github.sha }}
     IMAGE_TAG_LATEST: nightly-latest
 
+    LOCAL_CACHE: localhost:5000/toeverything/relocate:latest
+    IMAGE_TAG_MT: canary-mt-${{ github.sha }}
+    IMAGE_TAG_MT_LATEST: mt-latest
+
 jobs:
+    aio-cloud-baseline:
+        if: github.ref == 'refs/heads/master'
+        runs-on: self-hosted
+        environment: development
+        permissions:
+            contents: read
+            packages: write
+
+        services:
+            registry:
+                image: registry:2
+                ports:
+                    - 5000:5000
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+
+            - name: Install Rust
+              uses: actions-rs/toolchain@v1
+              with:
+                  profile: minimal
+                  toolchain: stable
+                  override: true
+
+            - uses: Swatinem/rust-cache@v2
+            - name: Set up pnpm cache
+              uses: actions/cache@v3
+              continue-on-error: false
+              with:
+                  path: ./node_modules/.pnpm-store
+                  key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+                  restore-keys: ${{ runner.os }}-pnpm-
+
+            - name: Cargo Vendor
+              run: cargo vendor > .cargo/config
+
+            - name: Log in to the Container registry
+              uses: docker/login-action@v2
+              if: github.ref == 'refs/heads/master'
+              with:
+                  registry: ${{ env.REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
+
+            - name: Set up QEMU
+              uses: docker/setup-qemu-action@v1
+
+            - name: Set up Docker Buildx
+              id: buildx
+              uses: docker/setup-buildx-action@v1
+              with:
+                  driver-opts: network=host
+
+            - name: Build and push Docker image (cloud-mt-baseline)
+              uses: docker/build-push-action@v3
+              if: github.ref == 'refs/heads/master'
+              with:
+                  context: .
+                  file: ./.github/deployment/Dockerfile-mt-cloud
+                  push: true
+                  tags: ${{ env.LOCAL_CACHE }}
+                  target: jwst
+
+            - name: Get current time
+              id: time
+              run: echo "::set-output name=time::$(date +'%Y%m%d-%H%M')"
+
+            - name: Extract metadata (tags, labels) for Docker (mt-cloud)
+              id: meta_mt_cloud
+              uses: docker/metadata-action@v4
+              with:
+                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.CLOUD_IMAGE_NAME }}
+                  tags: |
+                      ${{ env.IMAGE_TAG_MT }}-${{ steps.time.outputs.time }}
+                      ${{ env.IMAGE_TAG_MT_LATEST }}
+
+            - name: Build and push Docker image (mt-cloud)
+              uses: docker/build-push-action@v3
+              with:
+                  context: .
+                  platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
+                  file: ./.github/deployment/Dockerfile-mt-cloud-prod
+                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
+                  tags: ${{ steps.meta_mt_cloud.outputs.tags }}
+                  labels: ${{ steps.meta_mt_cloud.outputs.labels }}
+                  target: affine
+                  build-args: |
+                      BASE_IMAGE=${{ env.LOCAL_CACHE }}
+
     cloud:
         runs-on: self-hosted
         environment: development
@@ -54,15 +150,37 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v2
+
+            - name: Install Rust
+              uses: actions-rs/toolchain@v1
               with:
-                  submodules: true
+                  profile: minimal
+                  toolchain: stable
+                  override: true
+
+            - uses: Swatinem/rust-cache@v2
+            - name: Set up pnpm cache
+              uses: actions/cache@v3
+              continue-on-error: false
+              with:
+                  path: ./node_modules/.pnpm-store
+                  key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+                  restore-keys: ${{ runner.os }}-pnpm-
+
+            - name: Cargo Vendor
+              run: cargo vendor > .cargo/config
 
             - name: Log in to the Container registry
               uses: docker/login-action@v2
+              if: github.ref == 'refs/heads/master'
               with:
                   registry: ${{ env.REGISTRY }}
                   username: ${{ github.actor }}
                   password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
+
+            - name: Get current time
+              id: time
+              run: echo "::set-output name=time::$(date +'%H%M')"
 
             - name: Extract metadata (tags, labels) for Docker (cloud)
               id: meta_cloud
@@ -70,95 +188,31 @@ jobs:
               with:
                   images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.CLOUD_IMAGE_NAME }}
                   tags: |
-                      ${{ env.IMAGE_TAG }}
+                      ${{ env.IMAGE_TAG }}-${{ steps.time.outputs.time }}
                       ${{ env.IMAGE_TAG_LATEST }}
 
-            - name: Build and push Docker image (cloud)
+            - name: Build Docker image (pull request)
               uses: docker/build-push-action@v3
+              if: github.ref != 'refs/heads/master'
               with:
                   context: .
                   file: ./.github/deployment/Dockerfile-cloud
-                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
                   tags: ${{ steps.meta_cloud.outputs.tags }}
                   labels: ${{ steps.meta_cloud.outputs.labels }}
                   target: cloud
+
+            - name: Build and push Docker image (cloud)
+              uses: docker/build-push-action@v3
+              if: github.ref == 'refs/heads/master'
+              with:
+                  context: .
+                  file: ./.github/deployment/Dockerfile-cloud
+                  push: true
+                  tags: ${{ steps.meta_cloud.outputs.tags }}
+                  labels: ${{ steps.meta_cloud.outputs.labels }}
+                  target: cloud
+
     jwst:
-        runs-on: self-hosted
-        environment: development
-        permissions:
-            contents: read
-            packages: write
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v2
-              with:
-                  submodules: true
-
-            - name: Log in to the Container registry
-              uses: docker/login-action@v2
-              with:
-                  registry: ${{ env.REGISTRY }}
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
-
-            - name: Extract metadata (tags, labels) for Docker (jwst)
-              id: meta_jwst
-              uses: docker/metadata-action@v4
-              with:
-                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}
-                  tags: ${{ env.IMAGE_TAG_LATEST }}
-
-            - name: Build and push Docker image (jwst)
-              uses: docker/build-push-action@v3
-              with:
-                  context: .
-                  file: ./.github/deployment/Dockerfile-jwst
-                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
-                  tags: ${{ steps.meta_jwst.outputs.tags }}
-                  labels: ${{ steps.meta_jwst.outputs.labels }}
-                  target: jwst
-
-    mysc:
-        runs-on: self-hosted
-        environment: development
-        permissions:
-            contents: read
-            packages: write
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v2
-              with:
-                  submodules: true
-
-            - name: Log in to the Container registry
-              uses: docker/login-action@v2
-              with:
-                  registry: ${{ env.REGISTRY }}
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
-
-            - name: Extract metadata (tags, labels) for Docker (mysc)
-              id: meta_mysc
-              uses: docker/metadata-action@v4
-              with:
-                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.MYSC_IMAGE_NAME }}
-                  tags: |
-                      ${{ env.IMAGE_TAG }}
-                      ${{ env.IMAGE_TAG_LATEST }}
-
-            - name: Build and push Docker image (mysc)
-              uses: docker/build-push-action@v3
-              with:
-                  context: .
-                  file: ./.github/deployment/Dockerfile-mysc
-                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
-                  tags: ${{ steps.meta_mysc.outputs.tags }}
-                  labels: ${{ steps.meta_mysc.outputs.labels }}
-                  target: mysc
-
-    apiproxy:
         runs-on: ubuntu-latest
         environment: development
         permissions:
@@ -169,7 +223,79 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v2
               with:
-                  submodules: true
+                  fetch-depth: 0
+
+            - uses: pnpm/action-setup@v2
+            - name: Install Rust
+              uses: actions-rs/toolchain@v1
+              with:
+                  profile: minimal
+                  toolchain: stable
+                  target: x86_64-unknown-linux-musl
+                  override: true
+
+            - uses: Swatinem/rust-cache@v2
+            - name: Set up pnpm cache
+              uses: actions/cache@v3
+              continue-on-error: false
+              with:
+                  path: ./node_modules/.pnpm-store
+                  key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+                  restore-keys: ${{ runner.os }}-pnpm-
+
+            - name: Build & Check
+              run: |
+                  sudo apt install -yq musl-tools musl-dev
+                  pnpm i --frozen-lockfile --store=node_modules/.pnpm-store
+                  cargo vendor > .cargo/config
+                  cargo build --profile fast-release --package keck --target x86_64-unknown-linux-musl
+              env:
+                  CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: x86_64-linux-musl-gcc
+                  CARGO_TERM_COLOR: always
+
+            - name: Log in to the Container registry
+              if: github.ref == 'refs/heads/master'
+              uses: docker/login-action@v2
+              with:
+                  registry: ${{ env.REGISTRY }}
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.ACTIONS_PACKAGE_PUBLISH }}
+
+            - name: Get current time
+              id: time
+              run: echo "::set-output name=time::$(date +'%H%M')"
+
+            - name: Extract metadata (tags, labels) for Docker
+              id: meta_jwst
+              uses: docker/metadata-action@v4
+              with:
+                  images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.JWST_IMAGE_NAME }}
+                  tags: |
+                      ${{ env.IMAGE_TAG }}-${{ steps.time.outputs.time }}
+                      ${{ env.IMAGE_TAG_LATEST }}
+
+            - name: Build and push Docker image (jwst)
+              uses: docker/build-push-action@v3
+              with:
+                  context: .
+                  file: ./.github/deployment/Dockerfile-jwst
+                  push: ${{ github.ref == 'refs/heads/master' && true || false }}
+                  tags: ${{ steps.meta_jwst.outputs.tags }}
+                  labels: ${{ steps.meta_jwst.outputs.labels }}
+                  target: jwst
+                  network: host
+
+    apiproxy:
+        if: github.ref == 'refs/heads/master'
+        runs-on: ubuntu-latest
+        environment: development
+        permissions:
+            contents: read
+            packages: write
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
 
             - name: Log in to the Container registry
               uses: docker/login-action@v2
@@ -197,42 +323,116 @@ jobs:
                   labels: ${{ steps.meta_apiproxy.outputs.labels }}
                   target: apiproxy
 
-    test:
+    lint:
         runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v1
-              with:
-                  submodules: true
-            - uses: actions-rs/toolchain@v1
-              with:
-                  toolchain: nightly
-                  override: true
-            - uses: actions-rs/cargo@v1
-              with:
-                  command: test
-                  args: -p affine-cloud -p keck -p jwst -p jwst-storage --no-fail-fast
+        environment: development
+        permissions:
+            contents: read
+            security-events: write
 
-#     lint:
-#         runs-on: ubuntu-latest
-#         steps:
-#             - uses: actions/checkout@v1
-#               with:
-#                   submodules: true
-#             - uses: actions-rs/toolchain@v1
-#               with:
-#                   toolchain: nightly
-#                   override: true
-#             - name: Run cargo-tarpaulin
-#               uses: actions-rs/tarpaulin@v0.1
-#               with:
-#                   version: '0.22.0'
-#                   out-type: 'Html'
-#                   args: '-p affine-cloud,keck,jwst,jwst-storage --no-fail-fast --engine Llvm'
-#               env:
-#                   CARGO_INCREMENTAL: '0'
-#                   RUSTFLAGS: '-Zprofile -C opt-level=0 -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-#                   RUSTDOCFLAGS: '-Zprofile-C opt-level=0 -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-#             - uses: actions/upload-artifact@v2
-#               with:
-#                   name: tarpaulin-report
-#                   path: apps/keck/tarpaulin-report.html
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+              with:
+                  fetch-depth: 0
+
+            - name: Install Rust
+              uses: actions-rs/toolchain@v1
+              with:
+                  profile: minimal
+                  toolchain: stable
+                  components: clippy
+                  override: true
+
+            - uses: Swatinem/rust-cache@v2
+            - name: Set up pnpm cache
+              uses: actions/cache@v3
+              continue-on-error: false
+              with:
+                  path: ./node_modules/.pnpm-store
+                  key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+                  restore-keys: ${{ runner.os }}-pnpm-
+
+            - name: Install required cargo components
+              uses: taiki-e/install-action@v2
+              with:
+                  tool: clippy-sarif,sarif-fmt
+
+            - name: Build & Check
+              run: |
+                  cargo vendor > .cargo/config
+                  cargo clippy --all-features --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+                  RUSTDOCFLAGS="-D rustdoc::broken-intra-doc-links" cargo doc --workspace --all-features --no-deps
+              env:
+                  CARGO_TERM_COLOR: always
+
+            - name: Upload analysis results to GitHub
+              uses: github/codeql-action/upload-sarif@v2
+              with:
+                  sarif_file: rust-clippy-results.sarif
+                  wait-for-processing: true
+
+    test:
+        name: test & collect coverage
+        runs-on: ubuntu-latest
+        continue-on-error: true
+        env:
+            RUSTFLAGS: -D warnings
+            CARGO_TERM_COLOR: always
+        steps:
+            - uses: actions/checkout@v3
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  components: llvm-tools-preview
+            - uses: Swatinem/rust-cache@v2
+
+            - name: Install latest nextest release
+              uses: taiki-e/install-action@nextest
+            - name: Install cargo-llvm-cov
+              uses: taiki-e/install-action@cargo-llvm-cov
+
+            - name: Collect coverage data
+              run: cargo llvm-cov nextest --lcov --output-path lcov.info
+            - name: Upload coverage data to codecov
+              uses: codecov/codecov-action@v3
+              with:
+                  name: tests
+                  files: lcov.info
+
+    fuzzing:
+        name: fuzzing
+        runs-on: ubuntu-latest
+        continue-on-error: true
+        env:
+            RUSTFLAGS: -D warnings
+            CARGO_TERM_COLOR: always
+        steps:
+            - uses: actions/checkout@v3
+            - uses: dtolnay/rust-toolchain@master
+              with:
+                  toolchain: nightly-2023-03-08
+            - uses: Swatinem/rust-cache@v2
+
+            - name: fuzzing
+              working-directory: ./libs/jwst-codec
+              run: |
+                  cargo install cargo-fuzz
+                  cargo fuzz run apply_update -- -max_total_time=30
+                  cargo fuzz run codec_doc_any_struct -- -max_total_time=30
+                  cargo fuzz run codec_doc_any -- -max_total_time=30
+                  cargo fuzz run decode_bytes -- -max_total_time=30
+                  cargo fuzz run i64_decode -- -max_total_time=30
+                  cargo fuzz run i64_encode -- -max_total_time=30
+                  # skip due to memory leak
+                  # cargo fuzz run ins_del_text -- -max_total_time=30
+                  cargo fuzz run sync_message -- -max_total_time=30
+                  cargo fuzz run u64_decode -- -max_total_time=30
+                  cargo fuzz run u64_encode -- -max_total_time=30
+                  cargo fuzz run apply_update -- -max_total_time=30
+
+            - name: upload fuzz artifacts
+              if: ${{ failure() }}
+              uses: actions/upload-artifact@v3
+              with:
+                  name: fuzz-artifact
+                  path: ./lib/jwst-codec/fuzz/artifacts/**/*

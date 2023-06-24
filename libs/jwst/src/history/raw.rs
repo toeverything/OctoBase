@@ -1,12 +1,12 @@
-use log::{debug, info};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet, VecDeque};
+use tracing::{debug, info};
 use utoipa::ToSchema;
 use yrs::{
     block::{Item, ItemContent, ID},
     types::TypePtr,
     updates::decoder::Decode,
-    Doc, StateVector, Update,
+    Doc, ReadTxn, StateVector, Transact, Update,
 };
 
 struct ParentMap(HashMap<ID, String>);
@@ -26,9 +26,12 @@ impl ParentMap {
 
     fn from(items: &[&Item]) -> Self {
         let mut name_map: HashMap<ID, String> = HashMap::new();
-        // println!("{:?}", items);
-        let mut padding_ptr: VecDeque<(&Item, usize)> =
-            VecDeque::from(items.iter().map(|i| (i.clone(), 0)).collect::<Vec<_>>());
+        let mut padding_ptr: VecDeque<(&Item, usize)> = VecDeque::from(
+            items
+                .iter()
+                .map(|i| (<&Item>::clone(i), 0))
+                .collect::<Vec<_>>(),
+        );
 
         while let Some((item, retry)) = padding_ptr.pop_back() {
             if retry > 5 {
@@ -80,8 +83,11 @@ pub struct RawHistory {
 }
 
 pub fn parse_history_client(doc: &Doc) -> Option<Vec<u64>> {
-    let update = doc.encode_state_as_update_v1(&StateVector::default());
-    let update = Update::decode_v1(&update).ok()?;
+    let update = doc
+        .transact()
+        .encode_state_as_update_v1(&StateVector::default())
+        .and_then(|update| Update::decode_v1(&update))
+        .ok()?;
 
     Some(
         update
@@ -95,8 +101,11 @@ pub fn parse_history_client(doc: &Doc) -> Option<Vec<u64>> {
 }
 
 pub fn parse_history(doc: &Doc, client: u64) -> Option<Vec<RawHistory>> {
-    let update = doc.encode_state_as_update_v1(&StateVector::default());
-    let update = Update::decode_v1(&update).ok()?;
+    let update = doc
+        .transact()
+        .encode_state_as_update_v1(&StateVector::default())
+        .and_then(|update| Update::decode_v1(&update))
+        .ok()?;
     let items = update.as_items();
 
     let mut histories = vec![];
@@ -124,7 +133,7 @@ pub fn parse_history(doc: &Doc, client: u64) -> Option<Vec<RawHistory>> {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
     use crate::Workspace;
 
@@ -132,33 +141,40 @@ mod tests {
     fn parse_history_client_test() {
         let workspace = Workspace::new("test");
         workspace.with_trx(|mut t| {
-            let block = t.create("test", "text");
-            block.set(&mut t.trx, "test", "test");
+            let space = t.get_space("test");
+
+            let block = space.create(&mut t.trx, "test", "text").unwrap();
+            block.set(&mut t.trx, "test", "test").unwrap();
         });
 
         let doc = workspace.doc();
 
         let client = parse_history_client(&doc).unwrap();
 
-        assert_eq!(client[0], doc.client_id);
+        assert_eq!(client[0], doc.client_id());
     }
 
     #[test]
     fn parse_history_test() {
         let workspace = Workspace::new("test");
-        workspace.with_trx(|t| {
-            t.create("test", "text");
+        workspace.with_trx(|mut t| {
+            t.get_space("test")
+                .create(&mut t.trx, "test", "text")
+                .unwrap();
         });
         let doc = workspace.doc();
 
         let history = parse_history(&doc, 0).unwrap();
 
-        let update = doc.encode_state_as_update_v1(&StateVector::default());
+        let update = doc
+            .transact()
+            .encode_state_as_update_v1(&StateVector::default())
+            .unwrap();
         let update = Update::decode_v1(&update).unwrap();
-        let mut items = update.as_items();
+        let items = update.as_items();
 
         let mut mock_histories: Vec<RawHistory> = vec![];
-        let parent_map = ParentMap::from(&mut items);
+        let parent_map = ParentMap::from(&items);
         for item in items {
             if let Some(parent) = parent_map.get(&item.id) {
                 let id = format!("{}:{}", item.id.clock, item.id.client);

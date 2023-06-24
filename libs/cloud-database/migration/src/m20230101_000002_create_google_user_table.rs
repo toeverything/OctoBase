@@ -14,17 +14,11 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(
                         ColumnDef::new(GoogleUsers::Id)
-                            .integer()
+                            .string()
                             .not_null()
-                            .auto_increment()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(GoogleUsers::UserId)
-                            .integer()
-                            .not_null()
-                            .unique_key(),
-                    )
+                    .col(ColumnDef::new(GoogleUsers::UserId).string().not_null())
                     .col(
                         ColumnDef::new(GoogleUsers::GoogleId)
                             .string()
@@ -34,8 +28,8 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("google_users_user_id_fkey")
-                            .from(Users::Table, Users::Id)
-                            .to(GoogleUsers::Table, GoogleUsers::UserId)
+                            .from(GoogleUsers::Table, GoogleUsers::UserId)
+                            .to(Users::Table, Users::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                             .on_update(ForeignKeyAction::Cascade),
                     )
@@ -61,7 +55,7 @@ impl MigrationTrait for Migration {
 #[derive(Iden)]
 enum GoogleUsers {
     Table,
-    Id,       // SERIAL PRIMARY KEY,
+    Id,       // STRING PRIMARY KEY,
     UserId,   // INTEGER REFERENCES users(id),
     GoogleId, // TEXT NOT NULL UNIQUE (google_id)
 }

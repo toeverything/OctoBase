@@ -1,0 +1,45 @@
+[package]
+name = "cloud-infra"
+version = "0.1.0"
+authors = ["DarkSky <darksky2048@gmail.com>"]
+edition = "2021"
+license = "AGPL-3.0-only"
+
+[dependencies]
+aes-gcm = "0.10.1"
+axum = "0.6.16"
+chrono = "0.4.24"
+dotenvy = "0.15.7"
+handlebars = "4.3.6"
+jsonwebtoken = "8.3.0"
+lettre = { version = "0.10.4", default-features = false, features = [
+    "builder",
+    "tokio1",
+    "pool",
+    "smtp-transport",
+    "tokio1-rustls-tls",
+] }
+nanoid = "0.4.0"
+pem = "1.1.1"
+rand = "0.8.5"
+reqwest = { version = "0.11.16", default-features = false, features = [
+    "json",
+    "rustls-tls",
+] }
+rust-embed = { version = "6.6.1", features = [
+    "compression",
+    "include-exclude",
+    "mime-guess",
+] }
+serde = { version = "1.0.160", features = ["derive"] }
+sha2 = "0.10.6"
+thiserror = "1.0.40"
+url = "2.3.1"
+url-escape = "0.1.1"
+utoipa = "3.3.0"
+utoipa-swagger-ui = { version = "3.1.3", features = ["axum"] }
+x509-parser = "0.15.0"
+
+# ======= workspace dependencies =======
+cloud-database = { path = "../cloud-database" }
+jwst = { workspace = true }

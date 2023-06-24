@@ -1,6 +1,6 @@
-mod block;
-mod schema;
-mod workspace;
+pub mod block;
+pub mod schema;
+pub mod workspace;
 
 pub use block::{
     delete_block, get_block, get_block_history, insert_block_children, remove_block_children,
@@ -8,90 +8,12 @@ pub use block::{
 };
 pub use workspace::{
     delete_workspace, get_workspace, history_workspace, history_workspace_clients, set_workspace,
-    workspace_client,
+    subscribe_workspace, workspace_client,
 };
 
 use super::*;
 use schema::InsertChildren;
-use utoipa::OpenApi;
-
-#[derive(OpenApi)]
-#[openapi(
-    paths(
-        workspace::get_workspace,
-        workspace::set_workspace,
-        workspace::delete_workspace,
-        workspace::workspace_client,
-        workspace::history_workspace_clients,
-        workspace::history_workspace,
-        workspace::get_workspace_block,
-        workspace::workspace_search,
-        block::get_block,
-        block::set_block,
-        block::get_block_history,
-        block::get_block_children,
-        block::delete_block,
-        block::insert_block_children,
-        block::remove_block_children,
-    ),
-    components(
-        schemas(
-            schema::InsertChildren,
-            schema::Workspace, schema::Block, schema::BlockRawHistory,
-            jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory,
-            jwst::SearchResults, jwst::SearchResult
-        )
-    ),
-    tags(
-        (name = "Workspace", description = "Read and write remote workspace"),
-        (name = "Blocks", description = "Read and write remote blocks")
-    )
-)]
-struct ApiDoc;
-
-const README: &str = include_str!("../../../../../handbook/src/README.md");
-const CORE_CONCEPT: &str = include_str!("../../../../../handbook/src/core_concept.md");
-
-fn doc_apis(router: Router) -> Router {
-    if cfg!(feature = "schema") {
-        use utoipa_swagger_ui::{serve, Config, Url};
-
-        async fn serve_swagger_ui(
-            tail: Option<Path<String>>,
-            Extension(state): Extension<Arc<Config<'static>>>,
-        ) -> impl IntoResponse {
-            match serve(&tail.map(|p| p.to_string()).unwrap_or("".into()), state) {
-                Ok(file) => file
-                    .map(|file| {
-                        (
-                            StatusCode::OK,
-                            [("Content-Type", file.content_type)],
-                            file.bytes,
-                        )
-                            .into_response()
-                    })
-                    .unwrap_or_else(|| StatusCode::NOT_FOUND.into_response()),
-                Err(error) => {
-                    (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response()
-                }
-            }
-        }
-
-        let mut openapi = ApiDoc::openapi();
-        openapi.info.description = Some(vec![README, CORE_CONCEPT].join("\n"));
-
-        router
-            .route("/jwst.json", get(move || async { Json(openapi) }))
-            .route("/docs/", get(serve_swagger_ui))
-            .route("/docs/*tail", get(serve_swagger_ui))
-            .layer(Extension(Arc::new(Config::new(vec![Url::new(
-                "JWST Api Docs",
-                "/api/jwst.json",
-            )]))))
-    } else {
-        router
-    }
-}
+pub use schema::SubscribeWorkspace;
 
 fn block_apis(router: Router) -> Router {
     let block_operation = Router::new()
@@ -130,12 +52,136 @@ fn workspace_apis(router: Router) -> Router {
                 .delete(workspace::delete_workspace),
         )
         .route(
+            "/block/:workspace/flavour/:flavour",
+            get(block::get_block_by_flavour),
+        )
+        .route(
             "/block/:workspace/blocks",
             get(workspace::get_workspace_block),
         )
         .route("/search/:workspace", get(workspace::workspace_search))
+        .route(
+            "/search/:workspace/index",
+            get(workspace::get_search_index).post(workspace::set_search_index),
+        )
+        .route("/subscribe", post(subscribe_workspace))
 }
 
 pub fn blocks_apis(router: Router) -> Router {
     workspace_apis(block_apis(router))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum_test_helper::TestClient;
+    use serde_json::{from_str, json, to_string, Value};
+
+    #[tokio::test]
+    async fn test_doc_apis() {
+        let client = TestClient::new(doc_apis(Router::new()));
+
+        // basic workspace apis
+        let resp = client.get("/jwst.json").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let text = resp.text().await;
+        assert!(from_str::<Value>(text.as_str()).is_ok());
+
+        let resp = client.get("/docs/").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_workspace_apis() {
+        let client = Arc::new(reqwest::Client::builder().no_proxy().build().unwrap());
+        let runtime = Arc::new(
+            runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .enable_time()
+                .enable_io()
+                .build()
+                .expect("Failed to create runtime"),
+        );
+        let workspace_changed_blocks =
+            Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
+        let hook_endpoint = Arc::new(RwLock::new(String::new()));
+        let cb: WorkspaceRetrievalCallback = {
+            let workspace_changed_blocks = workspace_changed_blocks.clone();
+            let runtime = runtime.clone();
+            Some(Arc::new(Box::new(move |workspace: &Workspace| {
+                workspace.set_callback(generate_ws_callback(&workspace_changed_blocks, &runtime));
+            })))
+        };
+        let ctx = Arc::new(
+            Context::new(
+                JwstStorage::new_with_migration("sqlite::memory:")
+                    .await
+                    .ok(),
+                cb,
+            )
+            .await,
+        );
+        let client = TestClient::new(
+            workspace_apis(Router::new())
+                .layer(Extension(ctx.clone()))
+                .layer(Extension(client.clone()))
+                .layer(Extension(runtime.clone()))
+                .layer(Extension(workspace_changed_blocks.clone()))
+                .layer(Extension(hook_endpoint.clone())),
+        );
+
+        // basic workspace apis
+        let resp = client.get("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        let resp = client.post("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client.get("/block/test/client").send().await;
+        assert_eq!(
+            resp.text().await.parse::<u64>().unwrap(),
+            ctx.storage.get_workspace("test").await.unwrap().client_id()
+        );
+        let resp = client.get("/block/test/history").send().await;
+        assert_eq!(resp.json::<Vec<u64>>().await, Vec::<u64>::new());
+        let resp = client.get("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = client.delete("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+        let resp = client.get("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+        // workspace history apis
+        let resp = client.post("/block/test").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = client.get("/search/test/index").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let index = resp.json::<Vec<String>>().await;
+        assert_eq!(index, vec!["title".to_owned(), "text".to_owned()]);
+
+        let body = to_string(&json!(["test"])).unwrap();
+        let resp = client
+            .post("/search/test/index")
+            .header("content-type", "application/json")
+            .body(body)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = client.get("/search/test/index").send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let index = resp.json::<Vec<String>>().await;
+        assert_eq!(index, vec!["test".to_owned()]);
+
+        let body = json!({
+            "hookEndpoint": "localhost:3000/api/hook"
+        })
+        .to_string();
+        let resp = client
+            .post("/subscribe")
+            .header("content-type", "application/json")
+            .body(body)
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
 }

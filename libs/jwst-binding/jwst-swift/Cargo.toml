@@ -1,0 +1,34 @@
+[package]
+name = "jwst-swift"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+futures = "0.3.28"
+lib0 = "0.16.5"
+swift-bridge = "0.1.51"
+tokio = "1.27.0"
+yrs = "0.16.5"
+nanoid = "0.4.0"
+
+# ======= workspace dependencies =======
+jwst = { workspace = true }
+jwst-rpc = { workspace = true }
+jwst-storage = { workspace = true, features = ["sqlite"] }
+jwst-logger = { workspace = true }
+
+[lib]
+name = "octobase"
+crate-type = ["staticlib"]
+
+[build-dependencies]
+swift-bridge-build = "0.1.51"
+
+[dev-dependencies]
+reqwest = { version = "0.11.14", default-features = false, features = [
+    "json",
+    "rustls-tls",
+] }
+regex = "1.7.1"

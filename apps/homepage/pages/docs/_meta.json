@@ -1,0 +1,38 @@
+{
+	"introduction_separator": {
+		"title": "Introduction",
+		"type": "separator"
+	},
+	"introduction": "Introduction",
+	"using_octobase_separator": {
+		"title": "Using OctoBase",
+		"type": "separator"
+	},
+	"overview": "Overview",
+	"guide": "How To",
+	"implementation": "Internal implementation",
+	"api_reference_separator": {
+		"title": "API Reference",
+		"type": "separator"
+	},
+	"api_restful": "🚧 HTTP RESTful API",
+	"api_android": "🚧 Android Binding",
+	"api_ios": "🚧 iOS Binding",
+	"developing_octobase_separator": {
+		"title": "Developing OctoBase",
+		"type": "separator"
+	},
+	"building_guide": "Developing Sync Server",
+	"binding_guide": "Developing Binding",
+	"testing_guide": "🚧 How to Test",
+	"collaborative_with_octobase": {
+		"title": "Collaboratived with OctoBase",
+		"type": "separator"
+	},
+	"affine": {
+		"title": "AFFiNE",
+		"href": "https://github.com/toeverything/affine",
+		"newWindow": true
+	},
+	"collaborate_with_blocksuite": "Blocksuite"
+}

@@ -1,22 +1,18 @@
 use super::{
-    generate_interface, Block, JwstStorage, JwstWorkspace, OnWorkspaceTransaction,
+    generate_interface, Block, JwstWorkspace, OnWorkspaceTransaction, VecOfStrings,
     WorkspaceTransaction,
 };
-use jwst::error;
-use yrs::{Subscription, UpdateEvent};
+use crate::block_observer::{BlockObserver, BlockObserverWrapper};
+use std::sync::Arc;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
-    sub: Option<Subscription<UpdateEvent>>,
 }
 
 impl Workspace {
     #[generate_interface(constructor)]
-    pub fn new(id: String) -> Workspace {
-        Self {
-            workspace: JwstWorkspace::new(id),
-            sub: None,
-        }
+    pub fn new(_id: String) -> Workspace {
+        unimplemented!("Workspace::new")
     }
 
     #[generate_interface]
@@ -30,30 +26,62 @@ impl Workspace {
     }
 
     #[generate_interface]
-    pub fn get(&self, block_id: String) -> Option<Block> {
-        self.workspace.get(block_id).map(Block)
+    pub fn get(&self, trx: &mut WorkspaceTransaction, block_id: String) -> Option<Block> {
+        trx.0.get_blocks().get(&trx.0.trx, block_id).map(Block)
     }
 
     #[generate_interface]
-    pub fn exists(&self, block_id: &str) -> bool {
-        self.workspace.exists(block_id)
+    pub fn exists(&self, trx: &mut WorkspaceTransaction, block_id: &str) -> bool {
+        trx.0.get_blocks().exists(&trx.0.trx, block_id)
     }
 
     #[generate_interface]
-    pub fn with_trx(&self, on_trx: Box<dyn OnWorkspaceTransaction>) {
+    pub fn with_trx(&self, on_trx: Box<dyn OnWorkspaceTransaction>) -> bool {
         self.workspace
-            .with_trx(|trx| on_trx.on_trx(WorkspaceTransaction(trx)))
+            .try_with_trx(|trx| on_trx.on_trx(WorkspaceTransaction(trx)))
+            .is_some()
     }
 
     #[generate_interface]
-    pub fn with_storage(&mut self, storage: JwstStorage) {
-        let storage = storage.clone();
-        let id = self.id();
-        storage.reload(id.clone(), self.workspace.doc());
-        self.sub = Some(self.workspace.observe(move |_, e| {
-            if let Err(e) = storage.write_update(id.clone(), &e.update) {
-                error!("Failed to write update to storage: {}", e);
-            }
-        }));
+    pub fn get_blocks_by_flavour(&self, flavour: &str) -> Vec<Block> {
+        self.workspace.with_trx(|mut trx| {
+            trx.get_blocks()
+                .get_blocks_by_flavour(&trx.trx, flavour)
+                .iter()
+                .map(|item| Block(item.clone()))
+                .collect()
+        })
+    }
+
+    #[generate_interface]
+    pub fn drop_trx(&self, trx: WorkspaceTransaction) {
+        drop(trx)
+    }
+
+    #[generate_interface]
+    pub fn search(&self, query: String) -> String {
+        self.workspace.search_result(query)
+    }
+
+    #[generate_interface]
+    pub fn get_search_index(&self) -> Vec<String> {
+        self.workspace.metadata().search_index
+    }
+
+    #[generate_interface]
+    pub fn set_search_index(&self, fields: VecOfStrings) -> bool {
+        self.workspace
+            .set_search_index(fields)
+            .expect("failed to set search index")
+    }
+
+    #[generate_interface]
+    pub fn set_callback(&self, observer: Box<dyn BlockObserver>) -> bool {
+        let observer = BlockObserverWrapper::new(observer);
+        self.workspace
+            .set_callback(Arc::new(Box::new(move |_workspace_id, block_ids| {
+                observer.on_change(block_ids);
+            })));
+        true
     }
 }

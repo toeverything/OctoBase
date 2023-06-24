@@ -1,0 +1,27 @@
+FROM messense/rust-musl-cross:aarch64-musl AS builder-aarch64
+ENV CARGO_TERM_COLOR="always"
+COPY . .
+RUN --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_aarch64 \
+    cargo build --release --no-default-features --features affine --package affine-cloud && \
+    mv /home/rust/src/target/aarch64-unknown-linux-musl/release/affine-cloud /tmp/cloud-aarch64
+
+FROM messense/rust-musl-cross:x86_64-musl AS builder-amd64
+ENV CARGO_TERM_COLOR="always"
+COPY . .
+RUN --mount=type=cache,target=/home/rust/src/target,rw,id=cloud_amd64 \
+    cargo build --release --no-default-features --features affine --package affine-cloud && \
+    mv /home/rust/src/target/x86_64-unknown-linux-musl/release/affine-cloud /tmp/cloud-amd64
+
+FROM messense/rust-musl-cross:armv7-musleabi AS builder-armv7
+ENV CARGO_TERM_COLOR="always"
+COPY . .
+RUN --mount=type=cache,target=/home/rust/src/target,rw,id=jwst_armv7 \
+    cargo build --release --no-default-features --features affine --package affine-cloud && \
+    mv /home/rust/src/target/armv7-unknown-linux-musleabi/release/affine-cloud /tmp/cloud-armv7
+
+FROM alpine:latest as jwst
+EXPOSE 3000
+WORKDIR /app
+COPY --from=builder-aarch64 /tmp/cloud-aarch64 /app/linux/arm64/affine
+COPY --from=builder-amd64 /tmp/cloud-amd64 /app/linux/amd64/affine
+COPY --from=builder-armv7 /tmp/cloud-armv7 /app/linux/arm/v7/affine

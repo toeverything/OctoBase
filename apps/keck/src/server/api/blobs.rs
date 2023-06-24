@@ -1,10 +1,12 @@
 use super::*;
-
-use axum::{body::Bytes, response::Response};
+use axum::{extract::BodyStream, response::Response, routing::post};
+use futures::{future, StreamExt};
+use jwst::BlobStorage;
 use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
-struct BlobStatus {
+pub struct BlobStatus {
+    id: Option<String>,
     exists: bool,
 }
 
@@ -15,9 +17,9 @@ struct BlobStatus {
     head,
     tag = "Blobs",
     context_path = "/api/blobs",
-    path = "/{workspace}/{hash}",
+    path = "/{workspace_id}/{hash}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
         ("hash", description = "blob hash"),
     ),
     responses(
@@ -32,7 +34,12 @@ pub async fn check_blob(
 ) -> Response {
     let (workspace, hash) = params;
     info!("check_blob: {}, {}", workspace, hash);
-    if let Ok(exists) = context.blobs.exists(&workspace, &hash).await {
+    if let Ok(exists) = context
+        .storage
+        .blobs()
+        .check_blob(Some(workspace), hash)
+        .await
+    {
         if exists {
             StatusCode::OK
         } else {
@@ -51,9 +58,9 @@ pub async fn check_blob(
     get,
     tag = "Blobs",
     context_path = "/api/blobs",
-    path = "/{workspace}/{hash}",
+    path = "/{workspace_id}/{hash}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
         ("hash", description = "blob hash"),
     ),
     responses(
@@ -67,8 +74,13 @@ pub async fn get_blob(
 ) -> Response {
     let (workspace, hash) = params;
     info!("get_blob: {}, {}", workspace, hash);
-    if let Ok(blob) = context.blobs.get(&workspace, &hash).await {
-        blob.blob.into_response()
+    if let Ok(blob) = context
+        .storage
+        .blobs()
+        .get_blob(Some(workspace), hash, None)
+        .await
+    {
+        blob.into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
     }
@@ -81,13 +93,14 @@ pub async fn get_blob(
     post,
     tag = "Blobs",
     context_path = "/api/blobs",
-    path = "/{workspace}/{hash}",
+    path = "/{workspace_id}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
         ("hash", description = "blob hash"),
     ),
     request_body(
-        content = Vec<u8>,
+        content = BodyStream,
+        content_type="application/octet-stream"
     ),
     responses(
         (status = 200, description = "Blob was saved", body = BlobStatus),
@@ -96,21 +109,48 @@ pub async fn get_blob(
 )]
 pub async fn set_blob(
     Extension(context): Extension<Arc<Context>>,
-    Path(params): Path<(String, String)>,
-    body: Bytes,
+    Path(workspace): Path<String>,
+    body: BodyStream,
 ) -> Response {
-    let (workspace, hash) = params;
-    info!("set_blob: {}, {}", workspace, hash);
+    info!("set_blob: {}", workspace);
 
-    if context
-        .blobs
-        .insert(&workspace, &hash, &body.to_vec())
+    let mut has_error = false;
+    let body = body
+        .take_while(|x| {
+            has_error = x.is_err();
+            future::ready(x.is_ok())
+        })
+        .filter_map(|data| future::ready(data.ok()));
+
+    if let Ok(id) = context
+        .storage
+        .blobs()
+        .put_blob_stream(Some(workspace.clone()), body)
         .await
-        .is_ok()
     {
-        Json(BlobStatus { exists: true }).into_response()
+        if has_error {
+            let _ = context
+                .storage
+                .blobs()
+                .delete_blob(Some(workspace), id)
+                .await;
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        } else {
+            Json(BlobStatus {
+                id: Some(id),
+                exists: true,
+            })
+            .into_response()
+        }
     } else {
-        (StatusCode::NOT_FOUND, Json(BlobStatus { exists: false })).into_response()
+        (
+            StatusCode::NOT_FOUND,
+            Json(BlobStatus {
+                id: None,
+                exists: false,
+            }),
+        )
+            .into_response()
     }
 }
 
@@ -121,9 +161,9 @@ pub async fn set_blob(
     delete,
     tag = "Blobs",
     context_path = "/api/blobs",
-    path = "/{workspace}/{hash}",
+    path = "/{workspace_id}/{hash}",
     params(
-        ("workspace", description = "workspace id"),
+        ("workspace_id", description = "workspace id"),
         ("hash", description = "blob hash"),
     ),
     responses(
@@ -138,7 +178,12 @@ pub async fn delete_blob(
     let (workspace, hash) = params;
     info!("delete_blob: {}, {}", workspace, hash);
 
-    if let Ok(success) = context.blobs.delete(&workspace, &hash).await {
+    if let Ok(success) = context
+        .storage
+        .blobs()
+        .delete_blob(Some(workspace), hash)
+        .await
+    {
         if success {
             StatusCode::NO_CONTENT
         } else {
@@ -151,11 +196,70 @@ pub async fn delete_blob(
 }
 
 pub fn blobs_apis(router: Router) -> Router {
-    router.route(
+    router.route("/blobs/:workspace", post(set_blob)).route(
         "/blobs/:workspace/:blob",
-        head(check_blob)
-            .get(get_blob)
-            .post(set_blob)
-            .delete(delete_blob),
+        head(check_blob).get(get_blob).delete(delete_blob),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::{Body, Bytes};
+    use axum_test_helper::TestClient;
+    use futures::stream;
+
+    #[tokio::test]
+    async fn test_blobs_apis() {
+        let ctx = Context::new(
+            JwstStorage::new_with_migration("sqlite::memory:")
+                .await
+                .ok(),
+            None,
+        )
+        .await;
+        let client = TestClient::new(blobs_apis(Router::new()).layer(Extension(Arc::new(ctx))));
+
+        let test_data: Vec<u8> = (0..=255).collect();
+        let test_data_len = test_data.len();
+        let test_data_stream = stream::iter(
+            test_data
+                .clone()
+                .into_iter()
+                .map(|byte| Ok::<_, std::io::Error>(Bytes::from(vec![byte]))),
+        );
+
+        //upload blob in workspace
+        let resp = client
+            .post("/blobs/test")
+            .header("Content-Length", test_data_len.clone().to_string())
+            .body(Body::wrap_stream(test_data_stream.clone()))
+            .send()
+            .await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp_json: serde_json::Value = resp.json().await;
+        let hash = resp_json["id"].as_str().unwrap().to_string();
+
+        let resp = client.head(&format!("/blobs/test/{}", hash)).send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let resp = client.get(&format!("/blobs/test/{}", hash)).send().await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(test_data, resp.bytes().await.to_vec());
+
+        let resp = client.delete(&format!("/blobs/test/{}", hash)).send().await;
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+
+        let resp = client.delete(&format!("/blobs/test/{}", hash)).send().await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+        let resp = client.head(&format!("/blobs/test/{}", hash)).send().await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+        let resp = client.get(&format!("/blobs/test/{}", hash)).send().await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+        let resp = client.get("/blobs/test/not_exists_id").send().await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
 }

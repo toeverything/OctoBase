@@ -1,0 +1,19 @@
+{
+	"$schema": "https://turbo.build/schema.json",
+	"pipeline": {
+		"dev": {
+			"dependsOn": ["@toeverything/jwt-react#build"]
+		},
+		"build": {
+			"outputs": ["dist/**"]
+		},
+		"lint": {},
+		"@toeverything/jwt-react#build": {
+			"dependsOn": ["@toeverything/jwt#build"]
+		},
+		"@toeverything/octobase#build": {
+			"dependsOn": ["@toeverything/jwt-react#build"],
+			"outputs": [".next/**", "out/**"]
+		}
+	}
+}

@@ -1,20 +1,21 @@
 use super::*;
+use crate::infrastructure::auth::get_claim_from_token;
 use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     response::Response,
 };
-use base64::Engine;
 use cloud_database::{WorkspaceDetail, WorkspaceWithPermission};
-use dashmap::DashMap;
-use dashmap::DashSet;
 use futures::{sink::SinkExt, stream::StreamExt};
 use jwst_logger::error;
+use nanoid::nanoid;
 use serde::Deserialize;
 use serde::Serialize;
-use std::{collections::HashMap, sync::Arc};
-use tokio::sync::mpsc::channel;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use tokio::sync::mpsc::Sender;
-use uuid::Uuid;
+use tokio::sync::{mpsc::channel, RwLock};
 
 #[derive(Deserialize)]
 pub struct Param {
@@ -40,83 +41,77 @@ pub struct AllWorkspaceInfo {
 // }
 
 pub struct UserChannel {
-    workspace_map: DashMap<String, DashSet<i32>>,
-    user_map: DashMap<i32, DashSet<String>>,
-    channel: DashMap<(i32, String), Sender<Message>>,
+    workspace_map: RwLock<HashMap<String, RwLock<HashSet<String>>>>,
+    user_map: RwLock<HashMap<String, RwLock<HashSet<String>>>>,
+    channel: RwLock<HashMap<(String, String), Sender<Message>>>,
 }
 
 impl UserChannel {
     pub fn new() -> Self {
         Self {
-            workspace_map: DashMap::new(),
-            user_map: DashMap::new(),
-            channel: DashMap::new(),
+            workspace_map: RwLock::new(HashMap::new()),
+            user_map: RwLock::new(HashMap::new()),
+            channel: RwLock::new(HashMap::new()),
         }
     }
 
-    pub fn update_workspace(&self, workspace_id: String, context: Arc<Context>) {
-        let users = self.workspace_map.get(&workspace_id);
-        if users.is_none() {
-            return;
-        }
-        let users_clone = users.unwrap().clone();
-        let context = context.clone();
-        tokio::spawn(async move {
-            for user in users_clone.iter() {
-                let _ = context
+    pub(super) async fn update_workspace(&self, workspace_id: String, context: Arc<Context>) {
+        if let Some(users) = self.workspace_map.read().await.get(&workspace_id) {
+            for user in users.read().await.iter() {
+                context
                     .user_channel
                     .update(user.clone(), context.clone())
                     .await;
             }
-        });
+        }
     }
 
-    pub fn update_user(&self, user_id: i32, context: Arc<Context>) {
+    pub fn update_user(&self, user_id: String, context: Arc<Context>) {
         tokio::spawn(async move {
-            let _ = context
+            context
                 .user_channel
                 .update(user_id.clone(), context.clone())
                 .await;
         });
     }
 
-    pub async fn add_user_observe(&self, user_id: i32, context: Arc<Context>) {
-        self.remove_user_observe(user_id);
-        if let Ok(data) = context.db.get_user_workspaces(user_id).await {
-            data.iter().for_each(|item| {
-                let mut user_option_set = self.workspace_map.get(&item.workspace.id.to_string());
-                if user_option_set.is_none() {
-                    self.workspace_map
-                        .insert(item.workspace.id.to_string(), DashSet::new());
-                    user_option_set = self.workspace_map.get(&item.workspace.id.to_string());
+    pub async fn add_user_observe(&self, user_id: String, context: Arc<Context>) {
+        self.remove_user_observe(user_id.clone()).await;
+        if let Ok(data) = context.db.get_user_workspaces(user_id.clone()).await {
+            for item in data {
+                let mut workspace_map = self.workspace_map.write().await;
+                if let Some(user_set) = workspace_map.get(&item.id.to_string()) {
+                    user_set.write().await.insert(user_id.clone());
+                } else {
+                    workspace_map.insert(
+                        item.id.to_string(),
+                        RwLock::new(HashSet::from([user_id.clone()])),
+                    );
                 }
-                let user_set = user_option_set.unwrap();
-                user_set.insert(user_id);
-            });
-            let _ = self.update(user_id.clone(), context.clone()).await;
+            }
+
+            self.update(user_id.clone(), context.clone()).await;
         }
     }
 
-    pub fn remove_user_observe(&self, user_id: i32) {
-        let workspace_set = self.user_map.get(&user_id);
-        if workspace_set.is_none() {
-            return;
+    async fn remove_user_observe(&self, user_id: String) {
+        let mut user_map = self.user_map.write().await;
+        if let Some(workspace_set) = user_map.get(&user_id) {
+            for item in workspace_set.read().await.iter() {
+                if let Some(user_set) = self.workspace_map.read().await.get(&item.clone()) {
+                    user_set.write().await.remove(&user_id.clone());
+                }
+            }
+            user_map.remove(&user_id);
         }
-        for item in workspace_set.unwrap().iter() {
-            let user_option_set = self.workspace_map.get(&item.clone());
-            user_option_set.unwrap().remove(&user_id);
-        }
-        self.user_map.remove(&user_id);
     }
 
-    async fn update(&self, user_id: i32, context: Arc<Context>) {
-        let all_workspace_info = self.get_workspace_list(user_id, context).await;
+    async fn update(&self, user_id: String, context: Arc<Context>) {
+        let all_workspace_info = self.get_workspace_list(user_id.clone(), context).await;
         let message_text = serde_json::to_string(&all_workspace_info).unwrap();
 
-        let channel = self.channel.clone();
         let mut closed = vec![];
-        for item in channel.iter() {
-            let ((user, id), tx) = item.pair();
+        for ((user, id), tx) in self.channel.read().await.iter() {
             if &user_id == user {
                 if tx.is_closed() {
                     closed.push((user.clone(), id.clone()));
@@ -127,27 +122,32 @@ impl UserChannel {
                 }
             }
         }
+
+        let mut channel = self.channel.write().await;
         for item in closed {
-            let _ = &self.channel.remove(&item);
+            channel.remove(&item);
         }
     }
 
-    async fn get_workspace_list(&self, user_id: i32, context: Arc<Context>) -> AllWorkspaceInfo {
+    async fn get_workspace_list(&self, user_id: String, context: Arc<Context>) -> AllWorkspaceInfo {
         let workspace_list = context.db.get_user_workspaces(user_id).await.unwrap();
         let mut workspace_detail_list: HashMap<String, Option<WorkspaceDetail>> = HashMap::new();
         let mut workspace_metadata_list: HashMap<String, Any> = HashMap::new();
         for item in workspace_list.iter() {
             let workspace_detail = context
                 .db
-                .get_workspace_by_id(item.workspace.id.clone())
+                .get_workspace_by_id(item.id.clone())
                 .await
                 .unwrap();
-            workspace_detail_list.insert(item.workspace.id.to_string(), workspace_detail);
-            let workspace = context.doc.get_workspace(item.workspace.id.clone()).await;
-            workspace_metadata_list.insert(
-                item.workspace.id.to_string(),
-                workspace.read().await.metadata().to_json(),
-            );
+            workspace_detail_list.insert(item.id.to_string(), workspace_detail);
+
+            match context.storage.get_workspace(item.id.clone()).await {
+                Ok(workspace) => {
+                    workspace_metadata_list
+                        .insert(item.id.to_string(), workspace.metadata().into());
+                }
+                Err(e) => error!("get workspace {} metadata error: {}", item.id, e),
+            }
         }
         AllWorkspaceInfo {
             ws_list: workspace_list,
@@ -157,33 +157,24 @@ impl UserChannel {
     }
 }
 
+#[instrument(skip(context, token))]
 pub async fn global_ws_handler(
-    Extension(ctx): Extension<Arc<Context>>,
+    Extension(context): Extension<Arc<Context>>,
     Query(Param { token }): Query<Param>,
     ws: WebSocketUpgrade,
 ) -> Response {
-    let user: Option<RefreshToken> = URL_SAFE_ENGINE
-        .decode(token)
-        .ok()
-        .and_then(|byte| ctx.decrypt_aes(byte))
-        .and_then(|data| serde_json::from_slice(&data).ok());
-
-    let user = if let Some(user) = user {
-        if let Ok(true) = ctx.db.verify_refresh_token(&user).await {
-            Some(user.user_id)
-        } else {
-            None
-        }
-    } else {
-        None
+    let user = match get_claim_from_token(&token, &context.key.jwt_decode) {
+        Some(claims) => Some(claims.user.id),
+        None => None,
     };
+
     ws.protocols(["AFFiNE"])
-        .on_upgrade(move |socket| async move { handle_socket(socket, user, ctx.clone()).await })
+        .on_upgrade(move |socket| handle_socket(socket, user, context))
 }
 
-async fn handle_socket(socket: WebSocket, user: Option<i32>, context: Arc<Context>) {
+async fn handle_socket(socket: WebSocket, user: Option<String>, context: Arc<Context>) {
     // TODO check user
-    let user_id = user.unwrap_or(0);
+    let user_id = user.unwrap_or('0'.to_string());
     let (mut socket_tx, mut socket_rx) = socket.split();
     let (tx, mut rx) = channel(100);
 
@@ -199,14 +190,16 @@ async fn handle_socket(socket: WebSocket, user: Option<i32>, context: Arc<Contex
         });
     }
 
-    let uuid = Uuid::new_v4().to_string();
+    let uuid = nanoid!();
     context
         .user_channel
         .channel
+        .write()
+        .await
         .insert((user_id.clone(), uuid.clone()), tx.clone());
     context
         .user_channel
-        .add_user_observe(user.unwrap(), context.clone())
+        .add_user_observe(user_id.clone(), context.clone())
         .await;
 
     while let Some(msg) = socket_rx.next().await {
@@ -215,5 +208,10 @@ async fn handle_socket(socket: WebSocket, user: Option<i32>, context: Arc<Contex
         }
     }
 
-    context.user_channel.channel.remove(&(user_id, uuid));
+    context
+        .user_channel
+        .channel
+        .write()
+        .await
+        .remove(&(user_id, uuid));
 }

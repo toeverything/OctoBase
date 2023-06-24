@@ -1,6 +1,6 @@
+use jwst::{Block as JwstBlock, Workspace as JwstWorkspace};
 use pyo3::prelude::*;
 use pyo3::types::PyList;
-use jwst::{Block as JwstBlock, Workspace as JwstWorkspace};
 use yrs::{Doc as YrsDoc, Map as YrsMap, Subscription as YrsSubscription, UpdateEvent};
 
 #[pyclass(subclass)]
@@ -32,8 +32,8 @@ impl Workspace {
         self.0.client_id() as f64
     }
 
-    pub fn create(&self, block_id: String, flavor: String) -> Block {
-        Block(self.0.with_trx(|mut t| t.create(block_id, &flavor)))
+    pub fn create(&self, block_id: String, flavour: String) -> Block {
+        Block(self.0.with_trx(|mut t| t.create(block_id, &flavour)))
     }
 
     pub fn get(&self, block_id: String) -> Option<Block> {
@@ -72,10 +72,7 @@ impl Block {
     }
 
     pub fn client_id(&self) -> Vec<String> {
-        self.0
-            .children()
-            .into_iter()
-            .collect::<Vec<String>>()
+        self.0.children().into_iter().collect::<Vec<String>>()
     }
 }
 

@@ -1,72 +1,131 @@
-use crate::utils::JS_INT_RANGE;
-
 use super::*;
+use crate::{utils::JS_INT_RANGE, RETRY_NUM};
 use lib0::any::Any;
-use yrs::Transaction;
+use std::cmp::max;
+use std::{thread::sleep, time::Duration};
+use yrs::{Map, ReadTxn, Transact, TransactionMut};
 
 pub struct WorkspaceTransaction<'a> {
     pub ws: &'a Workspace,
-    pub trx: Transaction,
+    pub trx: TransactionMut<'a>,
 }
 
-unsafe impl Send for WorkspaceTransaction<'_> {}
+const RESERVE_SPACE: [&str; 2] = [constants::space::META, constants::space::UPDATED];
 
 impl WorkspaceTransaction<'_> {
-    pub fn remove<S: AsRef<str>>(&mut self, block_id: S) -> bool {
-        info!("remove block: {}", block_id.as_ref());
-        self.ws
-            .content
-            .blocks
-            .remove(&mut self.trx, block_id.as_ref())
-            .is_some()
-            && self
-                .ws
-                .updated()
-                .remove(&mut self.trx, block_id.as_ref())
-                .is_some()
+    pub fn get_space<S: AsRef<str>>(&mut self, space_id: S) -> Space {
+        let pages = self.ws.pages(&mut self.trx).unwrap();
+        Space::new(
+            &mut self.trx,
+            self.ws.doc(),
+            Pages::new(pages),
+            self.ws.id(),
+            space_id,
+            self.ws.block_observer_config.clone(),
+        )
     }
 
-    // create a block with specified flavor
-    // if block exists, return the exists block
-    pub fn create<B, F>(&self, block_id: B, flavor: F) -> Block
-    where
-        B: AsRef<str>,
-        F: AsRef<str>,
-    {
-        info!("create block: {}", block_id.as_ref());
-        Block::new(self.ws, block_id, flavor, self.ws.client_id())
+    pub fn get_exists_space<S: AsRef<str>>(&self, space_id: S) -> Option<Space> {
+        Space::from_exists(
+            &self.trx,
+            self.ws.doc(),
+            self.ws.id(),
+            space_id,
+            self.ws.block_observer_config.clone(),
+        )
     }
 
-    pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) {
+    /// The compatibility interface for keck/jni/swift, this api was outdated.
+    pub fn get_blocks(&mut self) -> Space {
+        self.get_space("blocks")
+    }
+
+    #[inline]
+    pub fn spaces<R>(&self, cb: impl FnOnce(Box<dyn Iterator<Item = Space> + '_>) -> R) -> R {
+        let keys = self.trx.store().root_keys();
+        let iterator = keys.iter().filter_map(|key| {
+            if key.starts_with("space:") && !RESERVE_SPACE.contains(&key.as_str()) {
+                Space::from_exists(
+                    &self.trx,
+                    self.ws.doc(),
+                    self.ws.id(),
+                    &key[6..],
+                    self.ws.block_observer_config.clone(),
+                )
+            } else {
+                None
+            }
+        });
+
+        cb(Box::new(iterator))
+    }
+
+    pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) -> JwstResult<()> {
         info!("set metadata: {}", key);
         let key = key.to_string();
         match value.into() {
             Any::Bool(bool) => {
-                self.ws.metadata().insert(&mut self.trx, key, bool);
+                self.ws.metadata.insert(&mut self.trx, key, bool)?;
             }
             Any::String(text) => {
                 self.ws
-                    .metadata()
-                    .insert(&mut self.trx, key, text.to_string());
+                    .metadata
+                    .insert(&mut self.trx, key, text.to_string())?;
             }
             Any::Number(number) => {
-                self.ws.metadata().insert(&mut self.trx, key, number);
+                self.ws.metadata.insert(&mut self.trx, key, number)?;
             }
             Any::BigInt(number) => {
                 if JS_INT_RANGE.contains(&number) {
-                    self.ws.metadata().insert(&mut self.trx, key, number as f64);
+                    self.ws.metadata.insert(&mut self.trx, key, number as f64)?;
                 } else {
-                    self.ws.metadata().insert(&mut self.trx, key, number);
+                    self.ws.metadata.insert(&mut self.trx, key, number)?;
                 }
             }
             Any::Null | Any::Undefined => {
-                self.ws.metadata().remove(&mut self.trx, &key);
+                self.ws.metadata.remove(&mut self.trx, &key);
             }
             Any::Buffer(_) | Any::Array(_) | Any::Map(_) => {}
         }
+
+        Ok(())
     }
 
     pub fn commit(&mut self) {
         self.trx.commit();
+    }
+}
+
+impl Workspace {
+    pub fn with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> T {
+        self.retry_with_trx(f, RETRY_NUM).unwrap()
+    }
+
+    pub fn try_with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T) -> Option<T> {
+        self.retry_with_trx(f, RETRY_NUM).ok()
+    }
+
+    pub fn retry_with_trx<T>(
+        &self,
+        f: impl FnOnce(WorkspaceTransaction) -> T,
+        mut retry: i32,
+    ) -> JwstResult<T> {
+        retry = max(RETRY_NUM, retry);
+        let trx = loop {
+            match self.doc.try_transact_mut() {
+                Ok(trx) => break trx,
+                Err(e) => {
+                    if retry > 0 {
+                        retry -= 1;
+                        sleep(Duration::from_micros(10));
+                    } else {
+                        info!("retry_with_trx error");
+                        return Err(JwstError::DocTransaction(e.to_string()));
+                    }
+                }
+            }
+        };
+
+        Ok(f(WorkspaceTransaction { trx, ws: self }))
     }
 }

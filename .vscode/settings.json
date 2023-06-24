@@ -2,8 +2,8 @@
 	"editor.defaultFormatter": "esbenp.prettier-vscode",
 	"editor.formatOnSave": true,
 	"editor.formatOnSaveMode": "file",
-	"editor.codeActionsOnSave": ["source.fixAll", "source.organizeImports"],
-	"prettier.prettierPath": "./apps/frontend/node_modules/prettier",
+	"editor.codeActionsOnSave": ["source.organizeImports"],
+	// "prettier.prettierPath": "./apps/frontend/node_modules/prettier",
 	"cSpell.words": [
 		"AUTOINCREMENT",
 		"Backlinks",
@@ -18,7 +18,6 @@
 		"clsx",
 		"CRDT",
 		"cssmodule",
-		"dashmap",
 		"datasource",
 		"Deque",
 		"dotenvy",
@@ -27,11 +26,13 @@
 		"fstore",
 		"Gossipsub",
 		"groq",
+		"healthz",
 		"howpublished",
 		"Iden",
 		"immer",
 		"inbook",
 		"incollection",
+		"indicatif",
 		"inproceedings",
 		"jsonwebtoken",
 		"JWST",
@@ -50,10 +51,14 @@
 		"Muxer",
 		"muxing",
 		"nodelay",
+		"nextra",
 		"nrwl",
 		"octobase",
 		"phdthesis",
+		"Pinboard",
 		"pnpm",
+		"proptest",
+		"referer",
 		"reindex",
 		"rifgen",
 		"ROOTNODE",
@@ -63,6 +68,7 @@
 		"tldraw",
 		"tldtaw",
 		"toeverything",
+		"tungstenite",
 		"Unstyled",
 		"unversioned",
 		"utoipa",
@@ -88,5 +94,8 @@
 	},
 	"[hcl]": {
 		"editor.defaultFormatter": "fredwangwang.vscode-hcl-format"
+	},
+	"[md]": {
+		"editor.defaultFormatter": "vscode.markdown-language-features"
 	}
 }
