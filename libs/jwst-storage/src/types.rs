@@ -1,3 +1,4 @@
+use jwst_codec::JwstCodecError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -10,6 +11,8 @@ pub enum JwstStorageError {
     Db(#[from] sea_orm::DbErr),
     #[error("failed to process doc")]
     DocCodec(#[from] lib0::error::Error),
+    #[error("doc codec error")]
+    DocJwstCodec(#[from] JwstCodecError),
     #[error("merge thread panic")]
     DocMerge(tokio::task::JoinError),
     #[error("workspace {0} not found")]
@@ -20,7 +23,6 @@ pub enum JwstStorageError {
     JwstBlob(#[from] crate::storage::blobs::JwstBlobError),
     #[error("bucket error")]
     JwstBucketError(#[from] opendal::Error),
-
 }
 
 pub type JwstStorageResult<T> = Result<T, JwstStorageError>;

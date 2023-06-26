@@ -93,7 +93,13 @@ pub async fn delete_workspace(
     Path(workspace): Path<String>,
 ) -> Response {
     info!("delete_workspace: {}", workspace);
-    if context.storage.docs().delete(workspace).await.is_err() {
+    if context
+        .storage
+        .docs()
+        .delete_workspace(&workspace)
+        .await
+        .is_err()
+    {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
 

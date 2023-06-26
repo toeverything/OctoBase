@@ -36,6 +36,7 @@ opendal = { version = "0.37.0", default-features = false, features = [
 
 # ======= workspace dependencies =======
 jwst = { workspace = true }
+jwst-codec = { workspace = true }
 jwst-logger = { workspace = true }
 jwst-storage-migration = { path = "./src/migration" }
 

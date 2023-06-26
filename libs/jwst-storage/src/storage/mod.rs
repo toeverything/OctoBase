@@ -97,7 +97,7 @@ impl JwstStorage {
         info!("create_workspace: {}", workspace_id.as_ref());
 
         self.docs
-            .get(workspace_id.as_ref().into())
+            .get_or_create_workspace(workspace_id.as_ref().into())
             .await
             .map_err(|_err| {
                 JwstStorageError::Crud(format!(
@@ -114,7 +114,7 @@ impl JwstStorage {
         trace!("get_workspace: {}", workspace_id.as_ref());
         if self
             .docs
-            .exists(workspace_id.as_ref().into())
+            .detect_workspace(workspace_id.as_ref())
             .await
             .map_err(|_err| {
                 JwstStorageError::Crud(format!(
@@ -125,7 +125,7 @@ impl JwstStorage {
         {
             Ok(self
                 .docs
-                .get(workspace_id.as_ref().into())
+                .get_or_create_workspace(workspace_id.as_ref().into())
                 .await
                 .map_err(|_err| {
                     JwstStorageError::Crud(format!(
@@ -151,10 +151,14 @@ impl JwstStorage {
 
         if ts.elapsed().as_secs() > 5 || force {
             debug!("full migrate: {workspace_id}");
-            match self.docs.get(workspace_id.clone()).await {
+            match self
+                .docs
+                .get_or_create_workspace(workspace_id.clone())
+                .await
+            {
                 Ok(workspace) => {
                     let update = if let Some(update) = update {
-                        if let Err(e) = self.docs.delete(workspace_id.clone()).await {
+                        if let Err(e) = self.docs.delete_workspace(&workspace_id).await {
                             error!("full_migrate write error: {}", e.to_string());
                             return false;
                         };
@@ -169,7 +173,7 @@ impl JwstStorage {
                     };
                     if let Err(e) = self
                         .docs
-                        .write_full_update(workspace_id.clone(), update)
+                        .flush_workspace(workspace_id.clone(), update)
                         .await
                     {
                         error!("db write error: {}", e.to_string());

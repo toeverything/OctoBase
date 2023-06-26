@@ -271,7 +271,7 @@ mod test {
             );
             let workspace = storage
                 .docs()
-                .get(workspace_id.clone())
+                .get_or_create_workspace(workspace_id.clone())
                 .await
                 .expect("get workspace: {workspace_id} failed");
             (storage, workspace)

@@ -37,7 +37,7 @@ impl BlobDBStorage {
     #[allow(unused)]
     async fn all(&self, table: &str) -> Result<Vec<BlobModel>, DbErr> {
         Blobs::find()
-            .filter(BlobColumn::Workspace.eq(table))
+            .filter(BlobColumn::WorkspaceId.eq(table))
             .all(&self.pool)
             .await
     }
@@ -45,7 +45,7 @@ impl BlobDBStorage {
     #[allow(unused)]
     async fn count(&self, table: &str) -> Result<u64, DbErr> {
         Blobs::find()
-            .filter(BlobColumn::Workspace.eq(table))
+            .filter(BlobColumn::WorkspaceId.eq(table))
             .count(&self.pool)
             .await
     }
@@ -65,7 +65,7 @@ impl BlobDBStorage {
         Blobs::find_by_id((table.into(), hash.into()))
             .select_only()
             .column_as(BlobColumn::Length, "size")
-            .column_as(BlobColumn::Timestamp, "created_at")
+            .column_as(BlobColumn::CreatedAt, "created_at")
             .into_model::<InternalBlobMetadata>()
             .one(&self.pool)
             .await
@@ -75,9 +75,9 @@ impl BlobDBStorage {
 
     pub(super) async fn get_blobs_size(&self, workspace: &str) -> Result<Option<i64>, DbErr> {
         Blobs::find()
-            .filter(BlobColumn::Workspace.eq(workspace))
+            .filter(BlobColumn::WorkspaceId.eq(workspace))
             .column_as(BlobColumn::Length, "size")
-            .column_as(BlobColumn::Timestamp, "created_at")
+            .column_as(BlobColumn::CreatedAt, "created_at")
             .into_model::<InternalBlobMetadata>()
             .all(&self.pool)
             .await
@@ -87,11 +87,11 @@ impl BlobDBStorage {
     async fn insert(&self, table: &str, hash: &str, blob: &[u8]) -> Result<(), DbErr> {
         if !self.exists(table, hash).await? {
             Blobs::insert(BlobActiveModel {
-                workspace: Set(table.into()),
+                workspace_id: Set(table.into()),
                 hash: Set(hash.into()),
                 blob: Set(blob.into()),
                 length: Set(blob.len().try_into().unwrap()),
-                timestamp: Set(Utc::now().into()),
+                created_at: Set(Utc::now().into()),
             })
             .exec(&self.pool)
             .await?;
@@ -117,7 +117,7 @@ impl BlobDBStorage {
 
     async fn drop(&self, table: &str) -> Result<(), DbErr> {
         Blobs::delete_many()
-            .filter(BlobColumn::Workspace.eq(table))
+            .filter(BlobColumn::WorkspaceId.eq(table))
             .exec(&self.pool)
             .await?;
 
@@ -246,11 +246,11 @@ pub async fn blobs_storage_test(pool: &BlobDBStorage) -> anyhow::Result<()> {
     assert_eq!(
         all,
         vec![BlobModel {
-            workspace: "basic".into(),
+            workspace_id: "basic".into(),
             hash: "test".into(),
             blob: vec![1, 2, 3, 4],
             length: 4,
-            timestamp: all.get(0).unwrap().timestamp
+            created_at: all.get(0).unwrap().created_at
         }]
     );
     assert_eq!(pool.count("basic").await?, 1);
@@ -264,11 +264,11 @@ pub async fn blobs_storage_test(pool: &BlobDBStorage) -> anyhow::Result<()> {
     assert_eq!(
         all,
         vec![BlobModel {
-            workspace: "basic".into(),
+            workspace_id: "basic".into(),
             hash: "test1".into(),
             blob: vec![1, 2, 3, 4],
             length: 4,
-            timestamp: all.get(0).unwrap().timestamp
+            created_at: all.get(0).unwrap().created_at
         }]
     );
     assert_eq!(pool.count("basic").await?, 1);

@@ -2807,6 +2807,7 @@ dependencies = [
  "governor",
  "image",
  "jwst",
+ "jwst-codec",
  "jwst-logger",
  "jwst-storage-migration",
  "lib0",

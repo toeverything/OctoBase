@@ -1,37 +1,38 @@
+use std::collections::HashMap;
+
 use super::{
     broadcast::{subscribe, BroadcastChannels, BroadcastType},
     *,
 };
 use async_trait::async_trait;
 use jwst::{DocStorage, Workspace};
+use jwst_codec::{CrdtReader, RawDecoder};
 use jwst_storage::{JwstStorage, JwstStorageResult};
-use std::ops::Deref;
 use tokio::sync::{
     broadcast::{channel as broadcast, Receiver as BroadcastReceiver, Sender as BroadcastSender},
     mpsc::{Receiver as MpscReceiver, Sender as MpscSender},
     Mutex,
 };
+
 use yrs::merge_updates_v1;
 
-fn merge_updates(id: &str, updates: &[Vec<u8>]) -> Option<Vec<u8>> {
+fn merge_updates(id: &str, updates: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
     match merge_updates_v1(
-        updates
+        &updates
             .iter()
-            .map(Deref::deref)
-            .collect::<Vec<_>>()
-            .as_slice(),
+            .map(std::ops::Deref::deref)
+            .collect::<Vec<_>>(),
     ) {
         Ok(update) => {
             info!("merge {} updates", updates.len());
-            Some(update)
+            vec![update]
         }
         Err(e) => {
             error!("failed to merge update of {}: {}", id, e);
-            None
+            updates
         }
     }
 }
-
 #[async_trait]
 pub trait RpcContextImpl<'a> {
     fn get_storage(&self) -> &JwstStorage;
@@ -92,7 +93,7 @@ pub trait RpcContextImpl<'a> {
         let id = id.to_string();
 
         tokio::spawn(async move {
-            let updates = Arc::new(Mutex::new(vec![]));
+            let updates = Arc::new(Mutex::new(HashMap::<String, Vec<Vec<u8>>>::new()));
 
             let handler = {
                 let id = id.clone();
@@ -102,7 +103,17 @@ pub trait RpcContextImpl<'a> {
                         match data {
                             BroadcastType::BroadcastRawContent(update) => {
                                 trace!("receive update: {}", update.len());
-                                updates.lock().await.push(update);
+                                let mut decoder = RawDecoder::new(update);
+                                if let Ok(guid) = decoder.read_var_string() {
+                                    match updates.lock().await.entry(guid) {
+                                        Entry::Occupied(mut updates) => {
+                                            updates.get_mut().push(decoder.drain());
+                                        }
+                                        Entry::Vacant(v) => {
+                                            v.insert(vec![decoder.drain()]);
+                                        }
+                                    };
+                                };
                             }
                             BroadcastType::CloseUser(user) if user == identifier => break,
                             BroadcastType::CloseAll => break,
@@ -116,20 +127,20 @@ pub trait RpcContextImpl<'a> {
             loop {
                 {
                     let mut updates = updates.lock().await;
-                    if updates.len() > 0 {
-                        debug!("save {} updates", updates.len());
-                        if let Some(update) = merge_updates(&id, &updates) {
-                            if let Err(e) = docs.write_update(id.clone(), &update).await {
-                                error!("failed to save update of {}: {:?}", id, e);
-                            }
-                        } else {
-                            for update in updates.as_slice() {
-                                if let Err(e) = docs.write_update(id.clone(), update).await {
+                    if !updates.is_empty() {
+                        for (guid, updates) in updates.drain() {
+                            debug!("save {} updates from {guid}", updates.len());
+
+                            let updates = merge_updates(&id, updates);
+
+                            for update in updates {
+                                if let Err(e) =
+                                    docs.update_doc(id.clone(), guid.clone(), &update).await
+                                {
                                     error!("failed to save update of {}: {:?}", id, e);
                                 }
                             }
                         }
-                        updates.clear();
                     } else if handler.is_finished() {
                         break;
                     }

@@ -98,6 +98,10 @@ impl Workspace {
         self.workspace_id.clone()
     }
 
+    pub fn doc_guid(&self) -> &str {
+        self.doc.guid()
+    }
+
     pub fn client_id(&self) -> u64 {
         self.doc.client_id()
     }

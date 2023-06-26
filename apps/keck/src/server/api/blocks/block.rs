@@ -115,7 +115,12 @@ pub async fn set_block(
             }
         }) {
             if let Some(update) = update {
-                if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
+                if let Err(e) = context
+                    .storage
+                    .docs()
+                    .update_doc(ws_id, workspace.doc_guid().to_string(), &update)
+                    .await
+                {
                     error!("db write error: {:?}", e);
                 }
             }
@@ -243,7 +248,12 @@ pub async fn delete_block(
                 None
             }
         }) {
-            if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
+            if let Err(e) = context
+                .storage
+                .docs()
+                .update_doc(ws_id, workspace.doc_guid().to_string(), &update)
+                .await
+            {
                 error!("db write error: {:?}", e);
             }
             return StatusCode::NO_CONTENT;
@@ -395,7 +405,12 @@ pub async fn insert_block_children(
                 Some(block)
             }) {
                 if let Some(update) = update {
-                    if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
+                    if let Err(e) = context
+                        .storage
+                        .docs()
+                        .update_doc(ws_id, workspace.doc_guid().to_string(), &update)
+                        .await
+                    {
                         error!("db write error: {:?}", e);
                     }
                 }
@@ -451,7 +466,12 @@ pub async fn remove_block_children(
             }
             None
         }) {
-            if let Err(e) = context.storage.docs().write_update(ws_id, &update).await {
+            if let Err(e) = context
+                .storage
+                .docs()
+                .update_doc(ws_id, workspace.doc_guid().to_string(), &update)
+                .await
+            {
                 error!("db write error: {:?}", e);
             }
             // response block content

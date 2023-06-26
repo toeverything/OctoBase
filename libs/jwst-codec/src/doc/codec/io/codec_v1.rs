@@ -13,6 +13,28 @@ impl RawDecoder {
             buffer: Cursor::new(buffer),
         }
     }
+
+    pub fn rest_ref(&self) -> &[u8] {
+        let pos = self.buffer.position();
+        let buf = self.buffer.get_ref();
+
+        if pos == 0 {
+            buf
+        } else {
+            &buf[(pos as usize).min(buf.len())..]
+        }
+    }
+
+    pub fn drain(self) -> Vec<u8> {
+        let pos = self.buffer.position();
+        let mut buf = self.buffer.into_inner();
+
+        if pos == 0 {
+            buf
+        } else {
+            buf.split_off(pos as usize)
+        }
+    }
 }
 
 impl CrdtReader for RawDecoder {
