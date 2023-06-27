@@ -142,7 +142,7 @@ impl From<InternalBlobMetadata> for BlobMetadata {
         BlobMetadata {
             content_type: "application/octet-stream".into(),
             last_modified: val.created_at.naive_local(),
-            size: val.size as u64,
+            size: val.size,
         }
     }
 }

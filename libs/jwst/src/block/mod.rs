@@ -579,7 +579,7 @@ mod test {
             block
                 .set(&mut t.trx, "text_owned", "hello world".to_owned())
                 .unwrap();
-            block.set(&mut t.trx, "num", 123_i64).unwrap();
+            block.set(&mut t.trx, "num", 123_i32).unwrap();
             block
                 .set(&mut t.trx, "bigint", 9007199254740992_i64)
                 .unwrap();
@@ -606,7 +606,7 @@ mod test {
                     ("text".to_owned(), Any::String("hello world".into())),
                     ("text_owned".to_owned(), Any::String("hello world".into())),
                     ("num".to_owned(), Any::Number(123.0)),
-                    ("bigint".to_owned(), Any::BigInt(9007199254740992)),
+                    ("bigint".to_owned(), Any::Number(9007199254740992.0)),
                 ]
                 .iter()
                 .cloned()

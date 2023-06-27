@@ -10,7 +10,7 @@ pub fn migrate_update(
     {
         let mut trx = doc.transact_mut();
         for record in update_records {
-            let id = record.timestamp;
+            let id = record.created_at;
             match Update::decode_v1(&record.blob) {
                 Ok(update) => {
                     if let Err(e) = catch_unwind(AssertUnwindSafe(|| trx.apply_update(update))) {

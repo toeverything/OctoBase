@@ -73,12 +73,12 @@ impl BlobAutoStorage {
     ) -> JwstBlobResult<()> {
         if !self.exists(table, hash, params).await? {
             OptimizedBlobs::insert(OptimizedBlobActiveModel {
-                workspace: Set(table.into()),
+                workspace_id: Set(table.into()),
                 hash: Set(hash.into()),
                 blob: Set(blob.into()),
                 length: Set(blob.len().try_into().unwrap()),
-                timestamp: Set(Utc::now().into()),
                 params: Set(params.into()),
+                created_at: Set(Utc::now().into()),
             })
             .exec(&self.pool)
             .await?;
@@ -109,7 +109,7 @@ impl BlobAutoStorage {
         OptimizedBlobs::find_by_id((table.into(), hash.into(), params.into()))
             .select_only()
             .column_as(OptimizedBlobColumn::Length, "size")
-            .column_as(OptimizedBlobColumn::Timestamp, "created_at")
+            .column_as(OptimizedBlobColumn::CreatedAt, "created_at")
             .into_model::<InternalBlobMetadata>()
             .one(&self.pool)
             .await
@@ -193,7 +193,7 @@ impl BlobAutoStorage {
     async fn delete(&self, table: &str, hash: &str) -> JwstBlobResult<u64> {
         Ok(OptimizedBlobs::delete_many()
             .filter(
-                OptimizedBlobColumn::Workspace
+                OptimizedBlobColumn::WorkspaceId
                     .eq(table)
                     .and(OptimizedBlobColumn::Hash.eq(hash)),
             )
@@ -204,7 +204,7 @@ impl BlobAutoStorage {
 
     async fn drop(&self, table: &str) -> Result<(), DbErr> {
         OptimizedBlobs::delete_many()
-            .filter(OptimizedBlobColumn::Workspace.eq(table))
+            .filter(OptimizedBlobColumn::WorkspaceId.eq(table))
             .exec(&self.pool)
             .await?;
 

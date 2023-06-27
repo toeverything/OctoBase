@@ -1,6 +1,8 @@
 mod database;
 mod utils;
 
+use std::ops::Deref;
+
 use super::*;
 use database::DocDBStorage;
 use tokio::sync::{broadcast::Sender, RwLock};
@@ -33,26 +35,11 @@ impl SharedDocDBStorage {
     }
 }
 
-#[async_trait]
-impl DocStorage<JwstStorageError> for SharedDocDBStorage {
-    async fn exists(&self, id: String) -> JwstStorageResult<bool> {
-        self.0.exists(id).await
-    }
+impl Deref for SharedDocDBStorage {
+    type Target = DocDBStorage;
 
-    async fn get(&self, id: String) -> JwstStorageResult<Workspace> {
-        self.0.get(id).await
-    }
-
-    async fn write_full_update(&self, id: String, data: Vec<u8>) -> JwstStorageResult<()> {
-        self.0.write_full_update(id, data).await
-    }
-
-    async fn write_update(&self, id: String, data: &[u8]) -> JwstStorageResult<()> {
-        self.0.write_update(id, data).await
-    }
-
-    async fn delete(&self, id: String) -> JwstStorageResult<()> {
-        self.0.delete(id).await
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -80,7 +67,7 @@ mod test {
 
             join_set.spawn(async move {
                 info!("create workspace: {}", id);
-                let workspace = storage.get(id.clone()).await?;
+                let workspace = storage.get_or_create_workspace(id.clone()).await?;
                 info!("create workspace finish: {}", id);
                 assert_eq!(workspace.id(), id);
                 Ok::<_, JwstStorageError>(())
@@ -99,7 +86,7 @@ mod test {
             let id = id.clone();
             tokio::spawn(async move {
                 info!("get workspace: {}", id);
-                let workspace = storage.get(id.clone()).await?;
+                let workspace = storage.get_or_create_workspace(id.clone()).await?;
                 assert_eq!(workspace.id(), id);
                 Ok::<_, JwstStorageError>(())
             });

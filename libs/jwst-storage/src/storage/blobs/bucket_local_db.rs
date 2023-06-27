@@ -50,7 +50,7 @@ impl BlobBucketDBStorage {
         Blobs::find_by_id((table.into(), hash.into()))
             .select_only()
             .column_as(BucketBlobColumn::Length, "size")
-            .column_as(BucketBlobColumn::Timestamp, "created_at")
+            .column_as(BucketBlobColumn::CreatedAt, "created_at")
             .into_model::<InternalBlobMetadata>()
             .one(&self.pool)
             .await

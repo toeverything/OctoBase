@@ -19,6 +19,12 @@ pub struct SearchResult {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SearchResults(Vec<SearchResult>);
 
+impl SearchResults {
+    pub fn into_inner(self) -> Vec<SearchResult> {
+        self.0
+    }
+}
+
 pub struct IndexingPluginImpl {
     // /// `true` if the text search has not yet populated the Tantivy index
     // /// `false` if there should only be incremental changes necessary to the blocks.
