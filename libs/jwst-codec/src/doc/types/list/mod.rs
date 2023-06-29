@@ -71,7 +71,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
 
     fn find_pos(&self, inner: &YType, index: u64) -> Option<ItemPosition> {
         let mut remaining = index;
-        let start = inner.start().as_ref().map(|a| Arc::downgrade(a));
+        let start = inner.start().as_ref().map(Arc::downgrade);
 
         let mut pos = ItemPosition {
             parent: self.as_inner().clone(),
@@ -114,7 +114,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
                     }
                 }
 
-                pos.left = Some(Arc::downgrade(&item));
+                pos.left = Some(Arc::downgrade(item));
                 pos.right = item.right.as_ref().and_then(|right| right.as_weak_item());
             } else {
                 return None;
