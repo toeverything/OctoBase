@@ -137,7 +137,7 @@ impl StructInfo {
         }
     }
 
-    pub fn as_week_item(&self) -> Option<Weak<Item>> {
+    pub fn as_weak_item(&self) -> Option<Weak<Item>> {
         if let Self::Item(item) = self {
             Some(Arc::downgrade(item))
         } else if let Self::WeakItem(item) = self {
@@ -147,9 +147,27 @@ impl StructInfo {
         }
     }
 
+    pub fn as_strong(&self) -> Option<Self> {
+        if let Self::WeakItem(item) = self {
+            item.upgrade().map(Self::Item)
+        } else {
+            Some(self.clone())
+        }
+    }
+
+    pub fn as_weak(&self) -> Self {
+        if let Self::Item(item) = self {
+            Self::WeakItem(Arc::downgrade(item))
+        } else {
+            self.clone()
+        }
+    }
+
     pub fn left(&self) -> Option<Self> {
         if let StructInfo::Item(item) = self {
             item.left.clone()
+        } else if let StructInfo::WeakItem(item) = self {
+            item.upgrade().and_then(|i| i.left.clone())
         } else {
             None
         }
@@ -158,6 +176,8 @@ impl StructInfo {
     pub fn right(&self) -> Option<Self> {
         if let StructInfo::Item(item) = self {
             item.right.clone()
+        } else if let StructInfo::WeakItem(item) = self {
+            item.upgrade().and_then(|i| i.right.clone())
         } else {
             None
         }

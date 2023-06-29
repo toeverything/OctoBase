@@ -180,12 +180,12 @@ impl DocStore {
                     let item = Item::inner_mut(item);
                     let right_item = Item::inner_mut(right_item);
 
-                    item.right = right_node.as_week_item().map(StructInfo::WeakItem);
+                    item.right = Some(right_node.as_weak());
                     if let Some(right_right) = &left_item.right.as_ref().and_then(|i| i.as_item()) {
                         Item::inner_mut(right_right).left = Some(right_node.clone());
                     }
 
-                    right_item.left = node.as_week_item().map(StructInfo::WeakItem);
+                    right_item.left = Some(node.as_weak());
                     right_item.origin_right_id = left_item.origin_right_id;
                     right_item.right = left_item.right.clone();
                 };
