@@ -60,7 +60,7 @@ impl BlobBucketDBStorage {
     #[allow(unused)]
     async fn all(&self, workspace: &str) -> Result<Vec<BucketBlobModel>, DbErr> {
         BucketBlobs::find()
-            .filter(BucketBlobColumn::Workspace.eq(workspace))
+            .filter(BucketBlobColumn::WorkspaceId.eq(workspace))
             .all(&self.pool)
             .await
     }
@@ -68,7 +68,7 @@ impl BlobBucketDBStorage {
     #[allow(unused)]
     async fn count(&self, workspace: &str) -> Result<u64, DbErr> {
         BucketBlobs::find()
-            .filter(BucketBlobColumn::Workspace.eq(workspace))
+            .filter(BucketBlobColumn::WorkspaceId.eq(workspace))
             .count(&self.pool)
             .await
     }
@@ -98,9 +98,9 @@ impl BlobBucketDBStorage {
 
     async fn get_blobs_size(&self, workspace: &str) -> Result<Option<i64>, DbErr> {
         BucketBlobs::find()
-            .filter(BucketBlobColumn::Workspace.eq(workspace))
+            .filter(BucketBlobColumn::WorkspaceId.eq(workspace))
             .column_as(BucketBlobColumn::Length, "size")
-            .column_as(BucketBlobColumn::Timestamp, "created_at")
+            .column_as(BucketBlobColumn::CreatedAt, "created_at")
             .into_model::<InternalBlobMetadata>()
             .all(&self.pool)
             .await
@@ -110,10 +110,10 @@ impl BlobBucketDBStorage {
     async fn insert(&self, workspace: &str, hash: &str, blob: &[u8]) -> Result<(), DbErr> {
         if !self.exists(workspace, hash).await? {
             BucketBlobs::insert(BucketBlobActiveModel {
-                workspace: Set(workspace.into()),
+                workspace_id: Set(workspace.into()),
                 hash: Set(hash.into()),
                 length: Set(blob.len().try_into().unwrap()),
-                timestamp: Set(Utc::now().into()),
+                created_at: Set(Utc::now().into()),
             })
             .exec(&self.pool)
             .await?;
@@ -131,7 +131,7 @@ impl BlobBucketDBStorage {
 
     async fn drop(&self, workspace: &str) -> Result<(), DbErr> {
         BucketBlobs::delete_many()
-            .filter(BucketBlobColumn::Workspace.eq(workspace))
+            .filter(BucketBlobColumn::WorkspaceId.eq(workspace))
             .exec(&self.pool)
             .await?;
 
@@ -270,6 +270,9 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         if self.insert(&workspace, &hash, &blob).await.is_ok() {
             Ok(hash)
         } else {
+            self.bucket_storage
+                .delete_blob(Some(workspace.clone()), hash)
+                .await?;
             Err(JwstStorageError::WorkspaceNotFound(workspace))
         }
     }
@@ -290,6 +293,9 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         if self.insert(&workspace, &hash, &blob).await.is_ok() {
             Ok(hash)
         } else {
+            self.bucket_storage
+                .delete_blob(Some(workspace.clone()), hash)
+                .await?;
             Err(JwstStorageError::WorkspaceNotFound(workspace))
         }
     }
