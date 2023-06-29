@@ -39,11 +39,7 @@ pub trait BlobStorage<E = JwstError> {
 
 #[async_trait]
 pub trait BucketBlobStorage<E = JwstError> {
-    async fn get_blob(
-        &self,
-        workspace: Option<String>,
-        id: String,
-    ) -> JwstResult<Vec<u8>, E>;
+    async fn get_blob(&self, workspace: Option<String>, id: String) -> JwstResult<Vec<u8>, E>;
     async fn put_blob(
         &self,
         workspace: Option<String>,

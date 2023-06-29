@@ -56,7 +56,10 @@ impl JwstStorage {
         })
     }
 
-    pub async fn new_with_migration(database: &str, blob_storage_type: BlobStorageType,) -> JwstStorageResult<Self> {
+    pub async fn new_with_migration(
+        database: &str,
+        blob_storage_type: BlobStorageType,
+    ) -> JwstStorageResult<Self> {
         let storage = Self::new(database, blob_storage_type).await?;
 
         storage.db_migrate().await?;
@@ -69,7 +72,10 @@ impl JwstStorage {
         Ok(())
     }
 
-    pub async fn new_with_sqlite(file: &str, blob_storage_type: BlobStorageType,) -> JwstStorageResult<Self> {
+    pub async fn new_with_sqlite(
+        file: &str,
+        blob_storage_type: BlobStorageType,
+    ) -> JwstStorageResult<Self> {
         use std::fs::create_dir;
 
         let data = PathBuf::from("./data");
@@ -77,12 +83,15 @@ impl JwstStorage {
             create_dir(&data).map_err(JwstStorageError::CreateDataFolder)?;
         }
 
-        Self::new_with_migration(&format!(
-            "sqlite:{}?mode=rwc",
-            data.join(PathBuf::from(file).name_str())
-                .with_extension("db")
-                .display()
-        ), blob_storage_type)
+        Self::new_with_migration(
+            &format!(
+                "sqlite:{}?mode=rwc",
+                data.join(PathBuf::from(file).name_str())
+                    .with_extension("db")
+                    .display()
+            ),
+            blob_storage_type,
+        )
         .await
     }
 
