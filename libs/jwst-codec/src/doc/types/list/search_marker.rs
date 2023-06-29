@@ -82,7 +82,7 @@ impl MarkerList {
             // we should move the pos to prev undeleted item
             if len > 0 {
                 while !ptr.indexable() {
-                    if let Some(StructInfo::Item(left)) = &ptr.left {
+                    if let Some(left) = &ptr.left.as_ref().and_then(|i| i.as_item()) {
                         ptr = left.clone();
                         if ptr.indexable() {
                             marker.index -= ptr.len();
@@ -125,7 +125,7 @@ impl MarkerList {
         // i think it can be implemented with more streamlined code, and then optimized
         {
             // iterate to the right if possible
-            while let Some(StructInfo::Item(right_item)) = &item_ptr.right {
+            while let Some(right_item) = item_ptr.right.as_ref().and_then(|i| i.as_item()) {
                 if marker_index >= index {
                     break;
                 }
@@ -140,7 +140,7 @@ impl MarkerList {
             }
 
             // iterate to the left if necessary (might be that marker_index > index)
-            while let Some(StructInfo::Item(left_item)) = &item_ptr.left {
+            while let Some(left_item) = item_ptr.left.as_ref().and_then(|i| i.as_item()) {
                 if marker_index <= index {
                     break;
                 }
@@ -154,7 +154,7 @@ impl MarkerList {
             // we want to make sure that item_ptr can't be merged with left, because that would screw up everything
             // in that case just return what we have (it is most likely the best marker anyway)
             // iterate to left until item_ptr can't be merged with left
-            while let Some(StructInfo::Item(left_item)) = &item_ptr.left {
+            while let Some(left_item) = item_ptr.left.as_ref().and_then(|i| i.as_item()) {
                 if left_item.id.client == item_ptr.id.client
                     && left_item.id.clock + left_item.len() == item_ptr.id.clock
                 {

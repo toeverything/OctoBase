@@ -259,6 +259,9 @@ impl Item {
                 StructInfo::Item(item) => {
                     ret.push(format!("{item}"));
                 }
+                StructInfo::WeakItem(item) => {
+                    ret.push(format!("{:?}", item.upgrade()));
+                }
                 StructInfo::GC { id, len } => {
                     ret.push(format!("GC{id}: {len}"));
                     break;
@@ -288,6 +291,9 @@ impl Item {
             match &n {
                 StructInfo::Item(item) => {
                     ret.push(format!("{item}"));
+                }
+                StructInfo::WeakItem(item) => {
+                    ret.push(format!("{:?}", item.upgrade()));
                 }
                 StructInfo::GC { id, len } => {
                     ret.push(format!("GC{id}: {len}"));

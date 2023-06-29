@@ -180,12 +180,12 @@ impl DocStore {
                     let item = Item::inner_mut(item);
                     let right_item = Item::inner_mut(right_item);
 
-                    item.right = Some(right_node.clone());
-                    if let Some(StructInfo::Item(right_right)) = &left_item.right {
+                    item.right = right_node.as_week_item().map(StructInfo::WeakItem);
+                    if let Some(right_right) = &left_item.right.as_ref().and_then(|i| i.as_item()) {
                         Item::inner_mut(right_right).left = Some(right_node.clone());
                     }
 
-                    right_item.left = Some(node.clone());
+                    right_item.left = node.as_week_item().map(StructInfo::WeakItem);
                     right_item.origin_right_id = left_item.origin_right_id;
                     right_item.right = left_item.right.clone();
                 };
@@ -325,10 +325,10 @@ impl DocStore {
             }
             // no item.parent, borrow left.parent or right.parent
             None => {
-                if let Some(StructInfo::Item(left)) = &item.left {
+                if let Some(left) = item.left.as_ref().and_then(|i| i.as_item()) {
                     item.parent = left.parent.clone();
                     item.parent_sub = left.parent_sub.clone();
-                } else if let Some(StructInfo::Item(right)) = &item.right {
+                } else if let Some(right) = item.right.as_ref().and_then(|i| i.as_item()) {
                     item.parent = right.parent.clone();
                     item.parent_sub = right.parent_sub.clone();
                 }
@@ -341,10 +341,16 @@ impl DocStore {
 
     pub(crate) fn integrate(
         &mut self,
-        mut struct_info: StructInfo,
+        struct_info: StructInfo,
         offset: u64,
         parent: Option<&mut YType>,
     ) -> JwstCodecResult {
+        let mut struct_info = if let StructInfo::WeakItem(item) = struct_info {
+            StructInfo::Item(item.upgrade().unwrap())
+        } else {
+            struct_info
+        };
+
         match &mut struct_info {
             StructInfo::Item(item) => {
                 // SAFETY:
@@ -375,10 +381,16 @@ impl DocStore {
                     let right_is_null_or_has_left = match &this.right {
                         None => true,
                         Some(StructInfo::Item(right)) => right.left.is_some(),
+                        Some(StructInfo::WeakItem(right)) => {
+                            right.upgrade().unwrap().left.is_some()
+                        }
                         _ => false,
                     };
                     let left_has_other_right_than_self = match &this.left {
                         Some(StructInfo::Item(left)) => left.right != this.right,
+                        Some(StructInfo::WeakItem(left)) => {
+                            left.upgrade().unwrap().right != this.right
+                        }
                         _ => false,
                     };
 
@@ -446,12 +458,12 @@ impl DocStore {
 
                     // reconnect left/right
                     // has left, connect left <-> self <-> left.right
-                    if let Some(StructInfo::Item(left)) = &this.left {
+                    if let Some(left) = this.left.as_ref().and_then(|i| i.as_item()) {
                         // Safety:
                         // we are in the process of integrating a new item.
                         // we got the write lock of store, parent.
                         // it's safe to modify the internal item.
-                        let left = unsafe { Item::inner_mut(left) };
+                        let left = unsafe { Item::inner_mut(&left) };
                         this.right = left.right.replace(struct_info.clone());
                     } else {
                         // no left, parent.start = this
@@ -467,7 +479,7 @@ impl DocStore {
                     }
 
                     // has right, connect
-                    if let Some(StructInfo::Item(right)) = &this.right {
+                    if let Some(right) = &this.right.as_ref().and_then(|i| i.as_item()) {
                         // Safety:
                         // we are in the process of integrating a new item.
                         // we got the write lock of store, parent.
@@ -504,6 +516,7 @@ impl DocStore {
                     parent_lock.take();
                 }
             }
+            StructInfo::WeakItem(_) => unreachable!(),
             StructInfo::GC { id, len } => {
                 if offset > 0 {
                     id.clock += offset;
@@ -547,7 +560,7 @@ impl DocStore {
     }
 
     pub(crate) fn delete(&self, struct_info: &StructInfo, parent: Option<&mut YType>) {
-        if let StructInfo::Item(item) = struct_info {
+        if let Some(item) = struct_info.as_item() {
             self.delete_item(item.as_ref(), parent);
         }
     }
