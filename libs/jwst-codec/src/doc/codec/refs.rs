@@ -3,11 +3,18 @@ use std::sync::{Arc, Weak};
 
 // make fields Copy + Clone without much effort
 #[derive(Debug)]
-// #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum StructInfo {
-    GC { id: Id, len: u64 },
-    Skip { id: Id, len: u64 },
+    GC {
+        id: Id,
+        len: u64,
+    },
+    Skip {
+        id: Id,
+        len: u64,
+    },
     Item(ItemRef),
+    #[cfg_attr(test, proptest(skip))]
     WeakItem(Weak<Item>),
 }
 
@@ -407,12 +414,12 @@ mod tests {
         Ok(())
     }
 
-    // proptest! {
-    //     #[test]
-    //     fn test_random_struct_info(mut infos in vec(any::<StructInfo>(), 0..10)) {
-    //         for info in &mut infos {
-    //             struct_info_round_trip(info).unwrap();
-    //         }
-    //     }
-    // }
+    proptest! {
+        #[test]
+        fn test_random_struct_info(mut infos in vec(any::<StructInfo>(), 0..10)) {
+            for info in &mut infos {
+                struct_info_round_trip(info).unwrap();
+            }
+        }
+    }
 }
