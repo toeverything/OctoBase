@@ -55,7 +55,7 @@ impl MinimumServerContext {
         server
             .get_storage()
             .docs()
-            .delete(workspace_id.into())
+            .delete_workspace(workspace_id)
             .await
             .unwrap();
         let ws = server.get_workspace(workspace_id).await.unwrap();

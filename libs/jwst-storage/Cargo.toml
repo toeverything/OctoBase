@@ -37,6 +37,7 @@ dotenvy = "0.15.7"
 
 # ======= workspace dependencies =======
 jwst = { workspace = true }
+jwst-codec = { workspace = true }
 jwst-logger = { workspace = true }
 jwst-storage-migration = { path = "./src/migration" }
 

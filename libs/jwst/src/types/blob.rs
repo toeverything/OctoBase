@@ -8,7 +8,7 @@ use std::collections::HashMap;
 pub struct BlobMetadata {
     pub content_type: String,
     pub last_modified: NaiveDateTime,
-    pub size: u64,
+    pub size: i64,
 }
 
 #[async_trait]
