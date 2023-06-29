@@ -182,12 +182,12 @@ impl DocStore {
 
                     item.right = Some(right_node.as_weak());
                     if let Some(right_right) = &left_item.right.as_ref().and_then(|i| i.as_item()) {
-                        Item::inner_mut(right_right).left = Some(right_node.clone());
+                        Item::inner_mut(right_right).left = Some(right_node.as_weak());
                     }
 
                     right_item.left = Some(node.as_weak());
                     right_item.origin_right_id = left_item.origin_right_id;
-                    right_item.right = left_item.right.clone();
+                    right_item.right = left_item.right.as_ref().map(|i| i.as_weak());
                 };
             }
             _ => {
@@ -282,11 +282,11 @@ impl DocStore {
     ///     - [None] means borrow left.parent or right.parent
     pub(crate) fn repair(&self, item: &mut Item, store_ref: StoreRef) -> JwstCodecResult {
         if let Some(left_id) = item.origin_left_id {
-            item.left = Some(self.split_at_and_get_left(left_id)?);
+            item.left = Some(self.split_at_and_get_left(left_id)?.as_weak());
         }
 
         if let Some(right_id) = item.origin_right_id {
-            item.right = Some(self.split_at_and_get_right(right_id)?);
+            item.right = Some(self.split_at_and_get_right(right_id)?.as_weak());
         }
 
         match &item.parent {
@@ -364,7 +364,7 @@ impl DocStore {
                     let left =
                         self.split_at_and_get_left(Id::new(this.id.client, this.id.clock - 1))?;
                     this.origin_left_id = Some(left.last_id());
-                    this.left = Some(left);
+                    this.left = Some(left.as_weak());
                     this.content = Arc::new(this.content.split(offset)?.1);
                 }
 
@@ -427,7 +427,7 @@ impl DocStore {
                                 if this.origin_left_id == conflict_item.origin_left_id {
                                     // case 1
                                     if conflict_id.client < this.id.client {
-                                        this.left = Some(conflict.clone());
+                                        this.left = Some(conflict.as_weak());
                                         conflicting_items.clear();
                                     } else if this.origin_right_id == conflict_item.origin_right_id
                                     {
@@ -442,7 +442,7 @@ impl DocStore {
                                     if items_before_origin.contains(&conflict_item_left)
                                         && !conflicting_items.contains(&conflict_item_left)
                                     {
-                                        this.left = Some(conflict.clone());
+                                        this.left = Some(conflict.as_weak());
                                         conflicting_items.clear();
                                     }
                                 } else {
@@ -464,7 +464,7 @@ impl DocStore {
                         // we got the write lock of store, parent.
                         // it's safe to modify the internal item.
                         let left = unsafe { Item::inner_mut(&left) };
-                        this.right = left.right.replace(struct_info.clone());
+                        this.right = left.right.replace(struct_info.as_weak());
                     } else {
                         // no left, parent.start = this
                         this.right = if let Some(parent_sub) = &this.parent_sub {
@@ -474,8 +474,10 @@ impl DocStore {
                                 .and_then(|map| map.get(parent_sub))
                                 .map(|n| n.head())
                         } else {
-                            parent.start.replace(struct_info.clone())
-                        };
+                            parent.start.replace(struct_info.as_weak())
+                        }
+                        .as_ref()
+                        .map(|i| i.as_weak());
                     }
 
                     // has right, connect
@@ -485,7 +487,7 @@ impl DocStore {
                         // we got the write lock of store, parent.
                         // it's safe to modify the internal item.
                         let right = unsafe { Item::inner_mut(right) };
-                        right.left = Some(struct_info.clone());
+                        right.left = Some(struct_info.as_weak());
                     } else {
                         // no right, parent.start = this, delete this.left
                         if let Some(parent_sub) = &this.parent_sub {
