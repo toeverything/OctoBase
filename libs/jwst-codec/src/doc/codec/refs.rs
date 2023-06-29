@@ -227,7 +227,7 @@ impl StructInfo {
     }
 
     pub fn split_at(&self, offset: u64) -> JwstCodecResult<(Self, Self)> {
-        if let Self::Item(item) = self {
+        if let Some(Self::Item(item)) = self.as_strong() {
             debug_assert!(offset > 0 && item.len() > 1 && offset < item.len());
             let id = item.id;
             let right_id = Id::new(id.client, id.clock + offset);

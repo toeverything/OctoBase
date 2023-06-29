@@ -10,21 +10,21 @@ pub use search_marker::MarkerList;
 
 pub(crate) struct ItemPosition {
     pub parent: YTypeRef,
-    pub left: Option<ItemRef>,
-    pub right: Option<ItemRef>,
+    pub left: Option<Weak<Item>>,
+    pub right: Option<Weak<Item>>,
     pub index: u64,
     pub offset: u64,
 }
 
 impl ItemPosition {
     pub fn forward(&mut self) {
-        if let Some(right) = self.right.take() {
+        if let Some(right) = self.right.take().and_then(|a| a.upgrade()) {
             if !right.deleted() {
                 self.index += right.len();
             }
 
-            self.left = Some(right.clone());
-            self.right = right.right.as_ref().and_then(|right| right.as_item());
+            self.left = Some(Arc::downgrade(&right));
+            self.right = right.right.as_ref().and_then(|right| right.as_weak_item());
         } else {
             // FAIL
         }
@@ -44,9 +44,9 @@ impl ItemPosition {
     pub fn normalize(&mut self, store: &mut DocStore) -> JwstCodecResult {
         if self.offset > 0 {
             debug_assert!(self.left.is_some());
-            if let Some(left) = &self.left {
-                store.split_node(self.left.as_ref().unwrap().id, self.offset)?;
-                self.right = left.right.as_ref().and_then(|right| right.as_item());
+            if let Some(left) = self.left.as_ref().and_then(|a| a.upgrade()) {
+                store.split_node(left.id, self.offset)?;
+                self.right = left.right.as_ref().and_then(|right| right.as_weak_item());
                 self.index += self.offset;
                 self.offset = 0;
             }
@@ -71,7 +71,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
 
     fn find_pos(&self, inner: &YType, index: u64) -> Option<ItemPosition> {
         let mut remaining = index;
-        let start = inner.start();
+        let start = inner.start().as_ref().map(|a| Arc::downgrade(a));
 
         let mut pos = ItemPosition {
             parent: self.as_inner().clone(),
@@ -93,13 +93,16 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
                     remaining -= marker.index;
                 }
                 pos.index = marker.index;
-                pos.left = marker.ptr.left.as_ref().and_then(|left| left.as_item());
+                pos.left = marker
+                    .ptr
+                    .upgrade()
+                    .and_then(|i| i.left.as_ref().and_then(|i| i.as_weak_item()));
                 pos.right = Some(marker.ptr);
             }
         };
 
         while remaining > 0 {
-            if let Some(item) = &pos.right {
+            if let Some(item) = &pos.right.and_then(|i| i.upgrade()) {
                 if !item.deleted() {
                     let content_len = item.len();
                     if remaining < content_len {
@@ -111,8 +114,8 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
                     }
                 }
 
-                pos.left = Some(item.clone());
-                pos.right = item.right.as_ref().and_then(|right| right.as_item());
+                pos.left = Some(Arc::downgrade(&item));
+                pos.right = item.right.as_ref().and_then(|right| right.as_weak_item());
             } else {
                 return None;
             }
@@ -154,11 +157,15 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
             let item = Arc::new(
                 ItemBuilder::new()
                     .id(new_item_id)
-                    .left(pos.left.as_ref().map(|item| StructInfo::Item(item.clone())))
+                    .left(
+                        pos.left
+                            .as_ref()
+                            .map(|item| StructInfo::WeakItem(item.clone())),
+                    )
                     .right(
                         pos.right
                             .as_ref()
-                            .map(|item| StructInfo::Item(item.clone())),
+                            .map(|item| StructInfo::WeakItem(item.clone())),
                     )
                     .content(content)
                     .parent(Some(Parent::Type(pos.parent.clone())))
@@ -171,7 +178,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
 
             store.integrate(StructInfo::Item(item.clone()), 0, Some(&mut lock))?;
 
-            pos.right = Some(item);
+            pos.right = Some(Arc::downgrade(&item));
             pos.forward();
         }
 
@@ -187,9 +194,9 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
 
         if let Some(pos) = self.find_pos(&inner, index) {
             if pos.offset == 0 {
-                return pos.right.map(|r| (r, 0));
+                return pos.right.and_then(|r| r.upgrade()).map(|r| (r, 0));
             } else {
-                return pos.left.map(|l| (l, pos.offset));
+                return pos.left.and_then(|r| r.upgrade()).map(|l| (l, pos.offset));
             }
         }
 
@@ -225,7 +232,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         let mut remaining = len as i64;
 
         while remaining > 0 {
-            if let Some(item) = &pos.right {
+            if let Some(item) = &pos.right.as_ref().and_then(|i| i.upgrade()) {
                 if !item.deleted() {
                     let content_len = item.len() as i64;
                     if remaining < content_len {

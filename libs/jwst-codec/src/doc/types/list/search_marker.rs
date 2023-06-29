@@ -10,16 +10,16 @@ const MAX_SEARCH_MARKER: usize = 80;
 
 #[derive(Clone, Debug)]
 pub struct SearchMarker {
-    pub(super) ptr: Arc<Item>,
+    pub(super) ptr: Weak<Item>,
     pub(super) index: u64,
 }
 
 impl SearchMarker {
-    fn new(ptr: Arc<Item>, index: u64) -> Self {
+    fn new(ptr: Weak<Item>, index: u64) -> Self {
         SearchMarker { ptr, index }
     }
 
-    fn overwrite_marker(&mut self, ptr: Arc<Item>, index: u64) {
+    fn overwrite_marker(&mut self, ptr: Weak<Item>, index: u64) {
         self.ptr = ptr;
         self.index = index;
     }
@@ -58,7 +58,7 @@ impl MarkerList {
     // mark pos and push to the end of the linked list
     fn mark_position(
         list: &mut VecDeque<SearchMarker>,
-        ptr: Arc<Item>,
+        ptr: Weak<Item>,
         index: u64,
     ) -> Option<SearchMarker> {
         if list.len() >= MAX_SEARCH_MARKER {
@@ -77,27 +77,28 @@ impl MarkerList {
         let mut list = self.borrow_mut();
 
         for marker in list.iter_mut() {
-            let mut ptr = marker.ptr.clone();
-            // current marker item has been deleted
-            // we should move the pos to prev undeleted item
-            if len > 0 {
-                while !ptr.indexable() {
-                    if let Some(left) = &ptr.left.as_ref().and_then(|i| i.as_item()) {
-                        ptr = left.clone();
-                        if ptr.indexable() {
-                            marker.index -= ptr.len();
+            if let Some(mut ptr) = marker.ptr.upgrade() {
+                // current marker item has been deleted
+                // we should move the pos to prev undeleted item
+                if len > 0 {
+                    while !ptr.indexable() {
+                        if let Some(left) = &ptr.left.as_ref().and_then(|i| i.as_item()) {
+                            ptr = left.clone();
+                            if ptr.indexable() {
+                                marker.index -= ptr.len();
+                            }
+                        } else {
+                            // remove marker
+                            marker.index = 0;
+                            break;
                         }
-                    } else {
-                        // remove marker
-                        marker.index = 0;
-                        break;
                     }
                 }
+                if index < marker.index || (len > 0 && index == marker.index) {
+                    marker.index = max(index as i64, marker.index as i64 + len) as u64;
+                }
+                marker.ptr = Arc::downgrade(&ptr);
             }
-            if index < marker.index || (len > 0 && index == marker.index) {
-                marker.index = max(index as i64, marker.index as i64 + len) as u64;
-            }
-            marker.ptr = ptr;
         }
 
         list.retain(|marker| marker.index > 0);
@@ -119,7 +120,8 @@ impl MarkerList {
 
         let mut item_ptr = marker
             .as_ref()
-            .map_or_else(|| parent.start().unwrap(), |m| m.ptr.clone());
+            .and_then(|m| m.ptr.upgrade())
+            .map_or_else(|| parent.start().unwrap(), |ptr| ptr);
 
         // TODO: this logic here is a bit messy
         // i think it can be implemented with more streamlined code, and then optimized
@@ -174,12 +176,12 @@ impl MarkerList {
                     < parent.len as f64 / MAX_SEARCH_MARKER as f64 =>
             {
                 // adjust existing marker
-                marker.overwrite_marker(item_ptr, marker_index);
+                marker.overwrite_marker(Arc::downgrade(&item_ptr), marker_index);
                 Some(marker.clone())
             }
             _ => {
                 // create new marker
-                Self::mark_position(&mut list, item_ptr, marker_index)
+                Self::mark_position(&mut list, Arc::downgrade(&item_ptr), marker_index)
             }
         }
     }
@@ -223,7 +225,7 @@ mod tests {
 
         assert_eq!(marker.index, 2);
         assert_eq!(
-            marker.ptr,
+            marker.ptr.upgrade().unwrap(),
             doc.store
                 .read()
                 .unwrap()
