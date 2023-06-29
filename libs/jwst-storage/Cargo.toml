@@ -33,6 +33,7 @@ opendal = { version = "0.37.0", default-features = false, features = [
     "rustls",
     "services-s3",
 ] }
+dotenvy = "0.15.7"
 
 # ======= workspace dependencies =======
 jwst = { workspace = true }

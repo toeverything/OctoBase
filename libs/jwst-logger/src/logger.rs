@@ -27,7 +27,7 @@ pub fn init_logger_with(directives: &str) {
 }
 
 fn init_logger_with_env_filter(env_filter: EnvFilter) {
-    let writer = stderr.with_max_level(Level::WARN).or_else(stdout);
+    let writer = stderr.with_max_level(Level::ERROR).or_else(stdout);
 
     INIT.call_once(|| {
         tracing_subscriber::registry()

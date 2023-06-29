@@ -14,6 +14,7 @@ use rate_limiter::{get_bucket, is_sqlite, Bucket};
 use sea_orm::{prelude::*, ConnectOptions, Database, DbErr, QuerySelect, Set};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
+pub use storage::blobs::{BlobStorageType, MixedBucketDBParam};
 pub use storage::JwstStorage;
 pub use types::{JwstStorageError, JwstStorageResult};
 

@@ -1,6 +1,6 @@
 use super::*;
 use jwst::{DocStorage, Workspace};
-use jwst_storage::JwstStorage;
+use jwst_storage::{BlobStorageType, JwstStorage};
 use nanoid::nanoid;
 use std::{collections::HashMap, thread::JoinHandle as StdJoinHandler, time::Duration};
 use tokio::{
@@ -24,6 +24,7 @@ impl MinimumServerContext {
                 &std::env::var("DATABASE_URL")
                     .map(|url| format!("{url}_binary"))
                     .unwrap_or("sqlite::memory:".into()),
+                BlobStorageType::DB,
             )
             .await
             {

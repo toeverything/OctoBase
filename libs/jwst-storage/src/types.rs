@@ -22,7 +22,9 @@ pub enum JwstStorageError {
     #[error("failed to process blob")]
     JwstBlob(#[from] crate::storage::blobs::JwstBlobError),
     #[error("bucket error")]
-    JwstBucketError(#[from] opendal::Error),
+    JwstBucket(#[from] opendal::Error),
+    #[error("env variables read error")]
+    DotEnvy(#[from] dotenvy::Error),
 }
 
 pub type JwstStorageResult<T> = Result<T, JwstStorageError>;

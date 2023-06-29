@@ -114,7 +114,7 @@ mod tests {
         };
         let ctx = Arc::new(
             Context::new(
-                JwstStorage::new_with_migration("sqlite::memory:")
+                JwstStorage::new_with_migration("sqlite::memory:", BlobStorageType::DB)
                     .await
                     .ok(),
                 cb,

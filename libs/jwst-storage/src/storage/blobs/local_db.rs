@@ -35,23 +35,23 @@ impl BlobDBStorage {
     }
 
     #[allow(unused)]
-    async fn all(&self, table: &str) -> Result<Vec<BlobModel>, DbErr> {
+    async fn all(&self, workspace: &str) -> Result<Vec<BlobModel>, DbErr> {
         Blobs::find()
-            .filter(BlobColumn::WorkspaceId.eq(table))
+            .filter(BlobColumn::WorkspaceId.eq(workspace))
             .all(&self.pool)
             .await
     }
 
     #[allow(unused)]
-    async fn count(&self, table: &str) -> Result<u64, DbErr> {
+    async fn count(&self, workspace: &str) -> Result<u64, DbErr> {
         Blobs::find()
-            .filter(BlobColumn::WorkspaceId.eq(table))
+            .filter(BlobColumn::WorkspaceId.eq(workspace))
             .count(&self.pool)
             .await
     }
 
-    async fn exists(&self, table: &str, hash: &str) -> Result<bool, DbErr> {
-        Blobs::find_by_id((table.into(), hash.into()))
+    async fn exists(&self, workspace: &str, hash: &str) -> Result<bool, DbErr> {
+        Blobs::find_by_id((workspace.into(), hash.into()))
             .count(&self.pool)
             .await
             .map(|c| c > 0)
@@ -59,10 +59,10 @@ impl BlobDBStorage {
 
     pub(super) async fn metadata(
         &self,
-        table: &str,
+        workspace: &str,
         hash: &str,
     ) -> JwstBlobResult<InternalBlobMetadata> {
-        Blobs::find_by_id((table.into(), hash.into()))
+        Blobs::find_by_id((workspace.into(), hash.into()))
             .select_only()
             .column_as(BlobColumn::Length, "size")
             .column_as(BlobColumn::CreatedAt, "created_at")
@@ -84,10 +84,10 @@ impl BlobDBStorage {
             .map(|r| r.into_iter().map(|f| f.size).reduce(|a, b| a + b))
     }
 
-    async fn insert(&self, table: &str, hash: &str, blob: &[u8]) -> Result<(), DbErr> {
-        if !self.exists(table, hash).await? {
+    async fn insert(&self, workspace: &str, hash: &str, blob: &[u8]) -> Result<(), DbErr> {
+        if !self.exists(workspace, hash).await? {
             Blobs::insert(BlobActiveModel {
-                workspace_id: Set(table.into()),
+                workspace_id: Set(workspace.into()),
                 hash: Set(hash.into()),
                 blob: Set(blob.into()),
                 length: Set(blob.len().try_into().unwrap()),
@@ -100,24 +100,24 @@ impl BlobDBStorage {
         Ok(())
     }
 
-    pub(super) async fn get(&self, table: &str, hash: &str) -> JwstBlobResult<BlobModel> {
-        Blobs::find_by_id((table.into(), hash.into()))
+    pub(super) async fn get(&self, workspace: &str, hash: &str) -> JwstBlobResult<BlobModel> {
+        Blobs::find_by_id((workspace.into(), hash.into()))
             .one(&self.pool)
             .await
             .map_err(|e| e.into())
             .and_then(|r| r.ok_or(JwstBlobError::BlobNotFound(hash.into())))
     }
 
-    async fn delete(&self, table: &str, hash: &str) -> Result<bool, DbErr> {
-        Blobs::delete_by_id((table.into(), hash.into()))
+    async fn delete(&self, workspace: &str, hash: &str) -> Result<bool, DbErr> {
+        Blobs::delete_by_id((workspace.into(), hash.into()))
             .exec(&self.pool)
             .await
             .map(|r| r.rows_affected == 1)
     }
 
-    async fn drop(&self, table: &str) -> Result<(), DbErr> {
+    async fn drop(&self, workspace: &str) -> Result<(), DbErr> {
         Blobs::delete_many()
-            .filter(BlobColumn::WorkspaceId.eq(table))
+            .filter(BlobColumn::WorkspaceId.eq(workspace))
             .exec(&self.pool)
             .await?;
 

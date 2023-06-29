@@ -5,7 +5,7 @@ use cloud_infra::{FirebaseContext, KeyContext, MailContext};
 use jwst::SearchResults;
 use jwst_logger::{error, info, warn};
 use jwst_rpc::{BroadcastChannels, BroadcastType, RpcContextImpl};
-use jwst_storage::JwstStorage;
+use jwst_storage::{BlobStorageType, JwstStorage, MixedBucketDBParam};
 use std::{collections::HashMap, path::Path};
 use tempfile::{tempdir, TempDir};
 use tokio::sync::{Mutex, RwLock};
@@ -51,7 +51,23 @@ impl Context {
         let db = CloudDatabase::init_pool(&cloud)
             .await
             .expect("Cannot create cloud database");
-        let storage = JwstStorage::new_with_migration(&storage)
+
+        let use_bucket_storage =
+            dotenvy::var("ENABLE_BUCKET_STORAGE").map_or(false, |v| v.eq("true"));
+
+        let storage_type = if use_bucket_storage {
+            info!("use database and s3 bucket as blob storage");
+            BlobStorageType::MixedBucketDB(
+                MixedBucketDBParam::new_from_env()
+                    .map_err(|e| format!("failed to load bucket param from env: {}", e))
+                    .unwrap(),
+            )
+        } else {
+            info!("use database as blob storage");
+            BlobStorageType::DB
+        };
+
+        let storage = JwstStorage::new_with_migration(&storage, storage_type)
             .await
             .expect("Cannot create storage");
 
