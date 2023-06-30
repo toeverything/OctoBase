@@ -54,11 +54,26 @@ fn run_array_test(seed: u64) {
     assert_eq!(array.len(), len);
 }
 
+fn run_map_test() {
+    let base_text = "test1 test2 test3 test4 test5 test6 test7 test8 test9"
+        .split(" ")
+        .collect::<Vec<_>>();
+
+    for _ in 0..10000 {
+        let doc = Doc::default();
+        let mut map = doc.get_or_create_map("test").unwrap();
+        for (idx, key) in base_text.iter().enumerate() {
+            map.insert(key, idx).unwrap();
+        }
+    }
+}
+
 fn main() {
     let mut rand = ChaCha20Rng::seed_from_u64(rand::thread_rng().gen());
     for _ in 0..10000 {
         let seed = rand.gen();
         run_array_test(seed);
         run_text_test(seed);
+        run_map_test();
     }
 }
