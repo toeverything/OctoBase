@@ -3,7 +3,6 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
 fn run_text_test(seed: u64) {
-    // println!("seed: {}", seed);
     let doc = Doc::with_client(1);
     let mut rand = ChaCha20Rng::seed_from_u64(seed);
     let mut text = doc.get_or_create_text("test").unwrap();
@@ -31,7 +30,6 @@ fn run_text_test(seed: u64) {
 }
 
 fn run_array_test(seed: u64) {
-    // println!("seed: {}", seed);
     let doc = Doc::with_client(1);
     let mut rand = ChaCha20Rng::seed_from_u64(seed);
     let mut array = doc.get_or_create_array("test").unwrap();

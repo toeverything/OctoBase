@@ -2758,6 +2758,7 @@ dependencies = [
  "criterion",
  "jwst-logger",
  "lib0",
+ "loom 0.6.0",
  "nanoid",
  "nom",
  "ordered-float",
@@ -3134,6 +3135,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "loom"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27537a24ea22f4818f17260442099a6ed6e21c445ece117aa1873688c399cb79"
+dependencies = [
+ "cfg-if",
+ "generator",
+ "scoped-tls",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "lru"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3487,7 +3501,7 @@ version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc22d22931513428ea6cc089e942d38600e3d00976eef8c86de6b8a3aadec6eb"
 dependencies = [
- "loom",
+ "loom 0.5.6",
 ]
 
 [[package]]

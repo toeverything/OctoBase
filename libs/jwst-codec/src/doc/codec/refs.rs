@@ -1,9 +1,9 @@
 use super::*;
-use std::sync::{Arc, Weak};
+use crate::sync::{Arc, Weak};
 
 // make fields Copy + Clone without much effort
 #[derive(Debug)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(test, not(loom)), derive(proptest_derive::Arbitrary))]
 pub enum StructInfo {
     GC {
         id: Id,
@@ -14,7 +14,7 @@ pub enum StructInfo {
         len: u64,
     },
     Item(ItemRef),
-    #[cfg_attr(test, proptest(skip))]
+    #[cfg_attr(all(test, not(loom)), proptest(skip))]
     WeakItem(Weak<Item>),
 }
 

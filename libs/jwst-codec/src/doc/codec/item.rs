@@ -1,9 +1,5 @@
-use std::sync::{
-    atomic::{AtomicU8, Ordering},
-    Arc,
-};
-
 use super::*;
+use crate::sync::{Arc, AtomicU8, Ordering};
 
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
@@ -116,14 +112,14 @@ impl ItemFlags {
 }
 
 #[derive(Clone)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(test, not(loom)), derive(proptest_derive::Arbitrary))]
 pub struct Item {
     pub id: Id,
     pub origin_left_id: Option<Id>,
     pub origin_right_id: Option<Id>,
-    #[cfg_attr(test, proptest(value = "None"))]
+    #[cfg_attr(all(test, not(loom)), proptest(value = "None"))]
     pub left: Option<StructInfo>,
-    #[cfg_attr(test, proptest(value = "None"))]
+    #[cfg_attr(all(test, not(loom)), proptest(value = "None"))]
     pub right: Option<StructInfo>,
     pub parent: Option<Parent>,
     pub parent_sub: Option<String>,
@@ -131,7 +127,7 @@ pub struct Item {
     // and item can be readonly and cloned fast.
     // TODO: considering using Cow
     pub content: Arc<Content>,
-    #[cfg_attr(test, proptest(value = "ItemFlags::default()"))]
+    #[cfg_attr(all(test, not(loom)), proptest(value = "ItemFlags::default()"))]
     pub flags: ItemFlags,
 }
 

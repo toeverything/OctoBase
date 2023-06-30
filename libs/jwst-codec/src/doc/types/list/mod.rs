@@ -1,12 +1,11 @@
 mod iterator;
 mod search_marker;
 
-use std::sync::RwLockWriteGuard;
-
 pub use iterator::ListIterator;
+pub use search_marker::MarkerList;
 
 use super::*;
-pub use search_marker::MarkerList;
+use crate::sync::RwLockWriteGuard;
 
 pub(crate) struct ItemPosition {
     pub parent: YTypeRef,

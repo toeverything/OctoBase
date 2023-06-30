@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use super::*;
-use std::sync::Arc;
+use crate::sync::Arc;
 
 pub struct ItemBuilder {
     item: Item,
@@ -93,7 +93,7 @@ mod tests {
         assert_eq!(item.parent_sub, None);
         assert_eq!(
             item.content,
-            std::sync::Arc::new(Content::Any(vec![Any::String("Hello".into())]))
+            Arc::new(Content::Any(vec![Any::String("Hello".into())]))
         );
     }
 }

@@ -46,13 +46,12 @@ impl ToString for Text {
 
 #[cfg(test)]
 mod tests {
-    use crate::Doc;
+    use crate::{
+        sync::{Arc, AtomicUsize, Ordering},
+        Doc,
+    };
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha20Rng;
-    use std::sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    };
     use yrs::{Text, Transact};
 
     #[test]
@@ -74,10 +73,9 @@ mod tests {
         assert_eq!(text.len(), 14);
     }
 
-    #[test]
-    fn test_parallel_insert_text() {
+    fn parallel_insert_text_with_seed(seed: u64) {
         let iteration = 10;
-        let rand = ChaCha20Rng::seed_from_u64(rand::thread_rng().gen());
+        let rand = ChaCha20Rng::seed_from_u64(seed);
         let mut handles = Vec::new();
 
         let doc = Doc::with_client(1);
@@ -124,6 +122,20 @@ mod tests {
 
         assert_eq!(text.to_string().len(), added_len.load(Ordering::SeqCst));
         assert_eq!(text.len(), added_len.load(Ordering::SeqCst) as u64);
+    }
+
+    #[test]
+    fn test_parallel_insert_text() {
+        parallel_insert_text_with_seed(rand::thread_rng().gen())
+    }
+
+    #[test]
+    #[cfg(loom)]
+    fn test_parallel_insert_text_with_loom() {
+        let seed = rand::thread_rng().gen();
+        loom::model(|| {
+            parallel_insert_text_with_seed(seed);
+        });
     }
 
     fn parallel_ins_del_text(seed: u64) {

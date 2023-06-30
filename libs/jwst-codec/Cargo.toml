@@ -25,6 +25,9 @@ jwst-logger = { workspace = true }
 arbitrary = { version = "1.3.0", features = ["derive"] }
 ordered-float = { version = "3.6.0", features = ["arbitrary"] }
 
+[target.'cfg(loom)'.dependencies]
+loom = "0.6"
+
 [dev-dependencies]
 assert-json-diff = "2.0.2"
 criterion = { version = "0.5.1", features = ["html_reports"] }

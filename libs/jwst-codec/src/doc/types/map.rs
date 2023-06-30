@@ -1,7 +1,10 @@
-use crate::doc::{AsInner, ItemRef, Parent, StructInfo, YTypeRef};
-use crate::{impl_type, Content, Item, JwstCodecResult};
+use crate::{
+    doc::{AsInner, ItemRef, Parent, StructInfo, YTypeRef},
+    impl_type,
+    sync::Arc,
+    Content, Item, JwstCodecResult,
+};
 use std::collections::HashMap;
-use std::sync::Arc;
 
 impl_type!(Map);
 
@@ -150,7 +153,6 @@ impl Map {
 mod tests {
     use super::*;
     use crate::{Any, Content, Doc};
-    use std::sync::Arc;
 
     #[test]
     fn test_map_basic() {
