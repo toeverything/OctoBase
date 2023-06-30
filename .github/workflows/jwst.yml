@@ -409,7 +409,9 @@ jobs:
             CARGO_TERM_COLOR: always
         steps:
             - uses: actions/checkout@v3
-            - uses: dtolnay/rust-toolchain@nightly-2023-04-12
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: nightly-2023-04-12
             - uses: Swatinem/rust-cache@v2
 
             - name: Memory Check
