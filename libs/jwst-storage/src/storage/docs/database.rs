@@ -4,7 +4,7 @@ use jwst::{sync_encode_update, DocStorage, Workspace};
 use jwst_codec::{CrdtReader, RawDecoder};
 use sea_orm::Condition;
 use std::collections::hash_map::Entry;
-use yrs::{Doc, ReadTxn, StateVector, Transact};
+use yrs::{Doc, Options, ReadTxn, StateVector, Transact};
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
 
@@ -245,7 +245,6 @@ impl DocDBStorage {
         C: ConnectionTrait,
     {
         trace!("start create doc in workspace: {workspace}");
-        let doc = Doc::new();
         let all_data = Docs::find()
             .filter(
                 Condition::all()
@@ -256,6 +255,7 @@ impl DocDBStorage {
             .await?;
 
         let ws = if all_data.is_empty() {
+            let doc = Doc::new();
             let ws = Workspace::from_doc(doc.clone(), workspace);
 
             let update = doc
@@ -265,6 +265,10 @@ impl DocDBStorage {
             Self::insert(conn, workspace, doc.guid(), &update).await?;
             ws
         } else {
+            let doc = Doc::with_options(Options {
+                guid: all_data.first().unwrap().guid.clone().into(),
+                ..Default::default()
+            });
             let doc = utils::migrate_update(all_data, doc)?;
             Workspace::from_doc(doc, workspace)
         };
@@ -454,6 +458,13 @@ pub async fn docs_storage_test(pool: &DocDBStorage) -> anyhow::Result<()> {
         }]
     );
     assert_eq!(DocDBStorage::workspace_count(conn, "basic").await?, 1);
+
+    // no cache
+    {
+        pool.workspaces.write().await.clear();
+        let workspace = DocDBStorage::init_workspace(conn, "basic").await?;
+        assert_eq!(workspace.doc_guid(), "1");
+    }
 
     Ok(())
 }
