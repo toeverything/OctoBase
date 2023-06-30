@@ -23,7 +23,7 @@ Based on OctoBase, you can not only implement a rich text editor for offline wri
 
 As an offline collaborative data database, OctoBase has the following characteristics:
 
--   📚 **Multi-platform available** offline collaboration, Schemaless, structured/unstructured/rich text data storage .
+-   📚 **Multi-platform available** offline collaboration, Schemaless, structured/unstructured/rich text data storage.
 
 -   🗃️ **Binary storage** that supports data deduplication and rich media editing.
 
