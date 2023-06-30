@@ -44,8 +44,8 @@ impl Array {
     }
 
     pub fn insert<V: Into<Content>>(&mut self, idx: u64, val: V) -> JwstCodecResult {
-        let contents = vec![val.into()];
-        self.insert_at(idx, contents)
+        let content = val.into();
+        self.insert_at(idx, content)
     }
 
     pub fn remove(&mut self, idx: u64, len: u64) -> JwstCodecResult {

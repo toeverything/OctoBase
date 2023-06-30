@@ -1,9 +1,5 @@
-use std::sync::{
-    atomic::{AtomicU8, Ordering},
-    Arc,
-};
-
 use super::*;
+use crate::sync::{Arc, AtomicU8, Ordering};
 
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
@@ -116,14 +112,14 @@ impl ItemFlags {
 }
 
 #[derive(Clone)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(all(test, not(loom)), derive(proptest_derive::Arbitrary))]
 pub struct Item {
     pub id: Id,
     pub origin_left_id: Option<Id>,
     pub origin_right_id: Option<Id>,
-    #[cfg_attr(test, proptest(value = "None"))]
+    #[cfg_attr(all(test, not(loom)), proptest(value = "None"))]
     pub left: Option<StructInfo>,
-    #[cfg_attr(test, proptest(value = "None"))]
+    #[cfg_attr(all(test, not(loom)), proptest(value = "None"))]
     pub right: Option<StructInfo>,
     pub parent: Option<Parent>,
     pub parent_sub: Option<String>,
@@ -131,7 +127,7 @@ pub struct Item {
     // and item can be readonly and cloned fast.
     // TODO: considering using Cow
     pub content: Arc<Content>,
-    #[cfg_attr(test, proptest(value = "ItemFlags::default()"))]
+    #[cfg_attr(all(test, not(loom)), proptest(value = "ItemFlags::default()"))]
     pub flags: ItemFlags,
 }
 
@@ -190,6 +186,32 @@ impl Default for Item {
 }
 
 impl Item {
+    pub fn new(
+        id: Id,
+        content: Content,
+        left: Option<ItemRef>,
+        right: Option<ItemRef>,
+        parent: Option<Parent>,
+        parent_sub: Option<String>,
+    ) -> Self {
+        let flags = ItemFlags::from(if content.countable() {
+            item_flags::ITEM_COUNTABLE
+        } else {
+            0
+        });
+
+        Self {
+            id,
+            origin_left_id: left.as_ref().map(|l| l.last_id()),
+            left: left.map(|l| StructInfo::WeakItem(Arc::downgrade(&l))),
+            origin_right_id: right.as_ref().map(|r| r.id),
+            right: right.map(|r| StructInfo::WeakItem(Arc::downgrade(&r))),
+            parent,
+            parent_sub,
+            content: Arc::new(content),
+            flags,
+        }
+    }
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -235,15 +257,6 @@ impl Item {
         &mut *(Arc::as_ptr(item) as *mut Item)
     }
 
-    /// Safety:
-    /// see [inner_mut]
-    pub(crate) unsafe fn swap(one: &Arc<Item>, other: &Arc<Item>) {
-        let one = Self::inner_mut(one);
-        let other = Self::inner_mut(other);
-
-        std::mem::swap(one, other);
-    }
-
     #[allow(dead_code)]
     #[cfg(any(debug, test))]
     pub(crate) fn print_left(&self) {
@@ -258,6 +271,9 @@ impl Item {
             match &n {
                 StructInfo::Item(item) => {
                     ret.push(format!("{item}"));
+                }
+                StructInfo::WeakItem(item) => {
+                    ret.push(format!("{:?}", item.upgrade()));
                 }
                 StructInfo::GC { id, len } => {
                     ret.push(format!("GC{id}: {len}"));
@@ -288,6 +304,9 @@ impl Item {
             match &n {
                 StructInfo::Item(item) => {
                     ret.push(format!("{item}"));
+                }
+                StructInfo::WeakItem(item) => {
+                    ret.push(format!("{:?}", item.upgrade()));
                 }
                 StructInfo::GC { id, len } => {
                     ret.push(format!("GC{id}: {len}"));
@@ -354,7 +373,9 @@ impl Item {
                 debug_assert_ne!(first_5_bit, 10);
                 Arc::new(Content::read(decoder, first_5_bit)?)
             },
-            ..Default::default()
+            left: None,
+            right: None,
+            flags: ItemFlags::from(0),
         };
 
         if item.content.countable() {

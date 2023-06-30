@@ -152,7 +152,7 @@ impl AwarenessEventBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
+    use crate::sync::{Mutex, MutexGuard};
 
     #[test]
     fn test_awareness() {
@@ -219,7 +219,7 @@ mod tests {
             awareness.set_local_state("test".to_string());
             awareness.clear_local_state();
 
-            let values: std::sync::MutexGuard<Vec<AwarenessEvent>> = values.lock().unwrap();
+            let values: MutexGuard<Vec<AwarenessEvent>> = values.lock().unwrap();
             assert_eq!(values.len(), 4);
             let event = values.get(0).unwrap();
 

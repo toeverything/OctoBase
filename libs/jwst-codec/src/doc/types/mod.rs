@@ -252,13 +252,13 @@ macro_rules! impl_type {
 
             #[allow(dead_code)]
             #[inline(always)]
-            pub(crate) fn read(&self) -> std::sync::RwLockReadGuard<super::YType> {
+            pub(crate) fn read(&self) -> $crate::sync::RwLockReadGuard<super::YType> {
                 self.0.read().unwrap()
             }
 
             #[allow(dead_code)]
             #[inline(always)]
-            pub(crate) fn write(&self) -> std::sync::RwLockWriteGuard<super::YType> {
+            pub(crate) fn write(&self) -> $crate::sync::RwLockWriteGuard<super::YType> {
                 self.0.write().unwrap()
             }
         }

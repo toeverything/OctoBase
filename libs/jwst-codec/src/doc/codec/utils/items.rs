@@ -1,5 +1,6 @@
+#![allow(dead_code)]
 use super::*;
-use std::sync::Arc;
+use crate::sync::Arc;
 
 pub struct ItemBuilder {
     item: Item,
@@ -19,14 +20,14 @@ impl ItemBuilder {
 
     pub fn left(mut self, left: Option<StructInfo>) -> ItemBuilder {
         let origin_id = left.as_ref().map(|i| i.last_id());
-        self.item.left = left;
+        self.item.left = left.map(|i| i.as_weak());
         self.item.origin_left_id = origin_id;
         self
     }
 
     pub fn right(mut self, right: Option<StructInfo>) -> ItemBuilder {
         let origin_id = right.as_ref().map(|i| i.id());
-        self.item.right = right;
+        self.item.right = right.map(|i| i.as_weak());
         self.item.origin_right_id = origin_id;
         self
     }
@@ -92,7 +93,7 @@ mod tests {
         assert_eq!(item.parent_sub, None);
         assert_eq!(
             item.content,
-            std::sync::Arc::new(Content::Any(vec![Any::String("Hello".into())]))
+            Arc::new(Content::Any(vec![Any::String("Hello".into())]))
         );
     }
 }

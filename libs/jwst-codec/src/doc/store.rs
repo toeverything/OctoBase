@@ -1,9 +1,7 @@
 use super::*;
-use crate::doc::StateVector;
-use std::collections::VecDeque;
-use std::sync::RwLockWriteGuard;
+use crate::{doc::StateVector, sync::RwLockWriteGuard};
 use std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
+    collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
     ops::Range,
     sync::{Arc, RwLock, Weak},
 };
@@ -166,28 +164,30 @@ impl DocStore {
         debug_assert!(node.is_item());
         let (left_node, right_node) = node.split_at(diff)?;
         match (&node, &left_node, &right_node) {
-            (StructInfo::Item(item), StructInfo::Item(left_item), StructInfo::Item(right_item)) => {
+            (
+                StructInfo::Item(raw_left_item),
+                StructInfo::Item(new_left_item),
+                StructInfo::Item(right_item),
+            ) => {
                 // SAFETY:
                 // we make sure store is the only entry of mutating an item,
                 // and we already hold mutable reference of store, so it's safe to do so
                 unsafe {
-                    // we directly swap the inner pointed item
-                    // so we can keep all old_item ref can see the new content.
-                    Item::swap(item, left_item);
+                    let left_item = Item::inner_mut(raw_left_item);
+                    let right_item = Item::inner_mut(right_item);
+                    left_item.content = new_left_item.content.clone();
 
                     // we had the correct left/right content
                     // now build the references
-                    let item = Item::inner_mut(item);
-                    let right_item = Item::inner_mut(right_item);
-
-                    item.right = Some(right_node.clone());
-                    if let Some(StructInfo::Item(right_right)) = &left_item.right {
-                        Item::inner_mut(right_right).left = Some(right_node.clone());
+                    if let Some(right_right) = &left_item.right.as_ref().and_then(|i| i.as_item()) {
+                        Item::inner_mut(right_right).left = Some(right_node.as_weak());
+                        right_item.right = Some(StructInfo::WeakItem(Arc::downgrade(right_right)));
                     }
+                    left_item.right = Some(right_node.as_weak());
 
-                    right_item.left = Some(node.clone());
+                    right_item.origin_left_id = Some(left_item.last_id());
+                    right_item.left = Some(node.as_weak());
                     right_item.origin_right_id = left_item.origin_right_id;
-                    right_item.right = left_item.right.clone();
                 };
             }
             _ => {
@@ -282,11 +282,11 @@ impl DocStore {
     ///     - [None] means borrow left.parent or right.parent
     pub(crate) fn repair(&self, item: &mut Item, store_ref: StoreRef) -> JwstCodecResult {
         if let Some(left_id) = item.origin_left_id {
-            item.left = Some(self.split_at_and_get_left(left_id)?);
+            item.left = Some(self.split_at_and_get_left(left_id)?.as_weak());
         }
 
         if let Some(right_id) = item.origin_right_id {
-            item.right = Some(self.split_at_and_get_right(right_id)?);
+            item.right = Some(self.split_at_and_get_right(right_id)?.as_weak());
         }
 
         match &item.parent {
@@ -325,10 +325,10 @@ impl DocStore {
             }
             // no item.parent, borrow left.parent or right.parent
             None => {
-                if let Some(StructInfo::Item(left)) = &item.left {
+                if let Some(left) = item.left.as_ref().and_then(|i| i.as_item()) {
                     item.parent = left.parent.clone();
                     item.parent_sub = left.parent_sub.clone();
-                } else if let Some(StructInfo::Item(right)) = &item.right {
+                } else if let Some(right) = item.right.as_ref().and_then(|i| i.as_item()) {
                     item.parent = right.parent.clone();
                     item.parent_sub = right.parent_sub.clone();
                 }
@@ -341,10 +341,16 @@ impl DocStore {
 
     pub(crate) fn integrate(
         &mut self,
-        mut struct_info: StructInfo,
+        struct_info: StructInfo,
         offset: u64,
         parent: Option<&mut YType>,
     ) -> JwstCodecResult {
+        let mut struct_info = if let StructInfo::WeakItem(item) = struct_info {
+            StructInfo::Item(item.upgrade().unwrap())
+        } else {
+            struct_info
+        };
+
         match &mut struct_info {
             StructInfo::Item(item) => {
                 // SAFETY:
@@ -358,7 +364,7 @@ impl DocStore {
                     let left =
                         self.split_at_and_get_left(Id::new(this.id.client, this.id.clock - 1))?;
                     this.origin_left_id = Some(left.last_id());
-                    this.left = Some(left);
+                    this.left = Some(left.as_weak());
                     this.content = Arc::new(this.content.split(offset)?.1);
                 }
 
@@ -375,10 +381,16 @@ impl DocStore {
                     let right_is_null_or_has_left = match &this.right {
                         None => true,
                         Some(StructInfo::Item(right)) => right.left.is_some(),
+                        Some(StructInfo::WeakItem(right)) => {
+                            right.upgrade().unwrap().left.is_some()
+                        }
                         _ => false,
                     };
                     let left_has_other_right_than_self = match &this.left {
                         Some(StructInfo::Item(left)) => left.right != this.right,
+                        Some(StructInfo::WeakItem(left)) => {
+                            left.upgrade().unwrap().right != this.right
+                        }
                         _ => false,
                     };
 
@@ -415,7 +427,7 @@ impl DocStore {
                                 if this.origin_left_id == conflict_item.origin_left_id {
                                     // case 1
                                     if conflict_id.client < this.id.client {
-                                        this.left = Some(conflict.clone());
+                                        this.left = Some(conflict.as_weak());
                                         conflicting_items.clear();
                                     } else if this.origin_right_id == conflict_item.origin_right_id
                                     {
@@ -430,7 +442,7 @@ impl DocStore {
                                     if items_before_origin.contains(&conflict_item_left)
                                         && !conflicting_items.contains(&conflict_item_left)
                                     {
-                                        this.left = Some(conflict.clone());
+                                        this.left = Some(conflict.as_weak());
                                         conflicting_items.clear();
                                     }
                                 } else {
@@ -446,13 +458,13 @@ impl DocStore {
 
                     // reconnect left/right
                     // has left, connect left <-> self <-> left.right
-                    if let Some(StructInfo::Item(left)) = &this.left {
+                    if let Some(left) = this.left.as_ref().and_then(|i| i.as_item()) {
                         // Safety:
                         // we are in the process of integrating a new item.
                         // we got the write lock of store, parent.
                         // it's safe to modify the internal item.
-                        let left = unsafe { Item::inner_mut(left) };
-                        this.right = left.right.replace(struct_info.clone());
+                        let left = unsafe { Item::inner_mut(&left) };
+                        this.right = left.right.replace(struct_info.as_weak());
                     } else {
                         // no left, parent.start = this
                         this.right = if let Some(parent_sub) = &this.parent_sub {
@@ -462,18 +474,20 @@ impl DocStore {
                                 .and_then(|map| map.get(parent_sub))
                                 .map(|n| n.head())
                         } else {
-                            parent.start.replace(struct_info.clone())
-                        };
+                            parent.start.replace(struct_info.as_weak())
+                        }
+                        .as_ref()
+                        .map(|i| i.as_weak());
                     }
 
                     // has right, connect
-                    if let Some(StructInfo::Item(right)) = &this.right {
+                    if let Some(right) = &this.right.as_ref().and_then(|i| i.as_item()) {
                         // Safety:
                         // we are in the process of integrating a new item.
                         // we got the write lock of store, parent.
                         // it's safe to modify the internal item.
                         let right = unsafe { Item::inner_mut(right) };
-                        right.left = Some(struct_info.clone());
+                        right.left = Some(struct_info.as_weak());
                     } else {
                         // no right, parent.start = this, delete this.left
                         if let Some(parent_sub) = &this.parent_sub {
@@ -504,6 +518,7 @@ impl DocStore {
                     parent_lock.take();
                 }
             }
+            StructInfo::WeakItem(_) => unreachable!(),
             StructInfo::GC { id, len } => {
                 if offset > 0 {
                     id.clock += offset;
@@ -547,7 +562,7 @@ impl DocStore {
     }
 
     pub(crate) fn delete(&self, struct_info: &StructInfo, parent: Option<&mut YType>) {
-        if let StructInfo::Item(item) = struct_info {
+        if let Some(item) = struct_info.as_item() {
             self.delete_item(item.as_ref(), parent);
         }
     }

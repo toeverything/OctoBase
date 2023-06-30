@@ -1,7 +1,10 @@
-use crate::doc::{AsInner, ItemBuilder, ItemRef, Parent, StructInfo, YTypeRef};
-use crate::{impl_type, Content, JwstCodecResult};
+use crate::{
+    doc::{AsInner, ItemRef, Parent, StructInfo, YTypeRef},
+    impl_type,
+    sync::Arc,
+    Content, Item, JwstCodecResult,
+};
 use std::collections::HashMap;
-use std::sync::Arc;
 
 impl_type!(Map);
 
@@ -11,19 +14,19 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         let left = inner.map.as_ref().and_then(|map| {
             map.get(key.as_ref())
                 .and_then(|struct_info| struct_info.left())
+                .and_then(|l| l.as_item())
         });
         if let Some(store) = inner.store.upgrade() {
             let mut store = store.write().unwrap();
             let new_item_id = (store.client(), store.get_state(store.client())).into();
-            let item = Arc::new(
-                ItemBuilder::new()
-                    .id(new_item_id)
-                    .left(left)
-                    .content(value.into())
-                    .parent(Some(Parent::Type(self.as_inner().clone())))
-                    .parent_sub(Some(key.as_ref().into()))
-                    .build(),
-            );
+            let item = Arc::new(Item::new(
+                new_item_id,
+                value.into(),
+                left,
+                None,
+                Some(Parent::Type(self.as_inner().clone())),
+                Some(key.as_ref().into()),
+            ));
             store.integrate(StructInfo::Item(item), 0, Some(&mut inner))?;
         }
 
@@ -150,7 +153,6 @@ impl Map {
 mod tests {
     use super::*;
     use crate::{Any, Content, Doc};
-    use std::sync::Arc;
 
     #[test]
     fn test_map_basic() {

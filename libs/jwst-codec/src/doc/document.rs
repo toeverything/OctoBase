@@ -1,5 +1,5 @@
 use super::{store::StoreRef, *};
-use std::sync::{Arc, RwLock};
+use crate::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone)]
 pub struct Doc {
@@ -36,7 +36,7 @@ impl Doc {
         Self {
             client_id: client,
             store: Arc::new(RwLock::new(DocStore::with_client(client))),
-            ..Default::default()
+            guid: nanoid!(),
         }
     }
 

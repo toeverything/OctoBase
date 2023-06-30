@@ -37,7 +37,11 @@ impl JwstStorage {
 
         let storage = rt
             .block_on(
-                AutoStorage::new_with_migration(&format!("sqlite:{path}?mode=rwc"), BlobStorageType::DB).or_else(|e| {
+                AutoStorage::new_with_migration(
+                    &format!("sqlite:{path}?mode=rwc"),
+                    BlobStorageType::DB,
+                )
+                .or_else(|e| {
                     warn!(
                         "Failed to open storage, falling back to memory storage: {}",
                         e
