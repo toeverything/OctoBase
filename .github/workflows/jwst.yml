@@ -399,6 +399,24 @@ jobs:
                   name: tests
                   files: lcov.info
 
+    memory_check:
+        name: memory check
+        runs-on: ubuntu-latest
+        continue-on-error: true
+        env:
+            RUSTFLAGS: -D warnings -Zsanitizer=address
+            ASAN_OPTIONS: detect_leaks=1
+            CARGO_TERM_COLOR: always
+        steps:
+            - uses: actions/checkout@v3
+            - uses: dtolnay/rust-toolchain@nightly-2023-04-12
+            - uses: Swatinem/rust-cache@v2
+
+            - name: Memory Check
+              run: |
+                  # only check jwst-codec now, yrs has many memory leaks
+                  cargo test -Zbuild-std --target x86_64-unknown-linux-gnu -p jwst-codec --lib
+
     fuzzing:
         name: fuzzing
         runs-on: ubuntu-latest
