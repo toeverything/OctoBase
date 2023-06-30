@@ -5,7 +5,7 @@ use crate::sync::{Arc, AtomicU8, Ordering};
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Parent {
     #[cfg_attr(test, proptest(skip))]
-    Type(YTypeRef),
+    Type(YTypeWeakRef),
     String(String),
     Id(Id),
 }
@@ -430,6 +430,7 @@ impl Item {
                         encoder.write_item_id(id)?;
                     }
                     Parent::Type(ty) => {
+                        let ty = ty.upgrade().unwrap();
                         let ty = ty.read().unwrap();
                         if let Some(item) = &ty.item {
                             encoder.write_var_u64(0)?;

@@ -259,12 +259,11 @@ impl DocStore {
         match self.types.write().unwrap().entry(name.to_string()) {
             Entry::Occupied(e) => e.get().clone(),
             Entry::Vacant(e) => {
-                let ty = YType {
+                let ty = Arc::new(RwLock::new(YType {
                     kind: YTypeKind::Unknown,
                     root_name: Some(name.to_string()),
                     ..Default::default()
-                }
-                .into_ref();
+                }));
 
                 e.insert(ty.clone());
 
@@ -296,7 +295,7 @@ impl DocStore {
             Some(Parent::String(str)) => {
                 let ty = self.get_or_create_type(str);
                 ty.write().unwrap().store = Arc::downgrade(&store_ref);
-                item.parent.replace(Parent::Type(ty));
+                item.parent.replace(Parent::Type(Arc::downgrade(&ty)));
             }
             // type as item
             // let text = doc.create_text("text")
@@ -307,6 +306,11 @@ impl DocStore {
                     Some(StructInfo::Item(_)) => match &item.content.as_ref() {
                         Content::Type(ty) => {
                             ty.write().unwrap().store = Arc::downgrade(&store_ref);
+                            item.parent.replace(Parent::Type(Arc::downgrade(ty)));
+                        }
+                        Content::WeakType(ty) => {
+                            ty.upgrade().unwrap().write().unwrap().store =
+                                Arc::downgrade(&store_ref);
                             item.parent.replace(Parent::Type(ty.clone()));
                         }
                         Content::Deleted(_) => {
@@ -369,6 +373,7 @@ impl DocStore {
                 }
 
                 if let Some(Parent::Type(ty)) = &this.parent {
+                    let ty = ty.upgrade().unwrap();
                     let mut parent_lock: Option<RwLockWriteGuard<YType>> = None;
                     let parent = if let Some(p) = parent {
                         p
@@ -546,7 +551,7 @@ impl DocStore {
             if let Some(parent) = parent {
                 parent.len -= item.len();
             } else if let Some(Parent::Type(ty)) = &item.parent {
-                ty.write().unwrap().len -= item.len();
+                ty.upgrade().unwrap().write().unwrap().len -= item.len();
             }
         }
 

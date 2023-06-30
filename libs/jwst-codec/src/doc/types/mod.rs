@@ -37,6 +37,7 @@ pub struct YType {
 }
 
 pub type YTypeRef = Arc<RwLock<YType>>;
+pub type YTypeWeakRef = Weak<RwLock<YType>>;
 
 impl PartialEq for YType {
     fn eq(&self, other: &Self) -> bool {
@@ -55,8 +56,21 @@ impl YType {
         }
     }
 
-    pub fn into_ref(self) -> YTypeRef {
-        Arc::new(RwLock::new(self))
+    pub fn into_ref(self) -> YTypeWeakRef {
+        self.root_name
+            .and_then(|name| {
+                self.store.upgrade().and_then(|store| {
+                    store
+                        .read()
+                        .unwrap()
+                        .types
+                        .read()
+                        .unwrap()
+                        .get(&name)
+                        .map(Arc::downgrade)
+                })
+            })
+            .unwrap()
     }
 
     pub fn kind(&self) -> YTypeKind {

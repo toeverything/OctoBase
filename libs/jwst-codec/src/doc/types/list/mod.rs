@@ -8,7 +8,7 @@ use super::*;
 use crate::sync::RwLockWriteGuard;
 
 pub(crate) struct ItemPosition {
-    pub parent: YTypeRef,
+    pub parent: YTypeWeakRef,
     pub left: Option<Weak<Item>>,
     pub right: Option<Weak<Item>>,
     pub index: u64,
@@ -73,7 +73,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         let start = inner.start().as_ref().map(Arc::downgrade);
 
         let mut pos = ItemPosition {
-            parent: self.as_inner().clone(),
+            parent: Arc::downgrade(self.as_inner()),
             left: None,
             right: start,
             index: 0,
@@ -161,8 +161,14 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
             None,
         ));
 
-        if let Content::Type(t) = item.content.as_ref() {
-            t.write().unwrap().set_item(item.clone());
+        match item.content.as_ref() {
+            Content::Type(t) => {
+                t.write().unwrap().set_item(item.clone());
+            }
+            Content::WeakType(t) => {
+                t.upgrade().unwrap().write().unwrap().set_item(item.clone());
+            }
+            _ => {}
         }
 
         store.integrate(StructInfo::Item(item.clone()), 0, Some(&mut lock))?;
