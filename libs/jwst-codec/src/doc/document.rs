@@ -36,7 +36,7 @@ impl Doc {
         Self {
             client_id: client,
             store: Arc::new(RwLock::new(DocStore::with_client(client))),
-            ..Default::default()
+            guid: nanoid!(),
         }
     }
 

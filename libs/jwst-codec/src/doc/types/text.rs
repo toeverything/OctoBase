@@ -19,7 +19,7 @@ impl Text {
 
     #[inline]
     pub fn insert<T: ToString>(&mut self, char_index: u64, str: T) -> JwstCodecResult {
-        self.insert_at(char_index, vec![Content::String(str.to_string())])
+        self.insert_at(char_index, Content::String(str.to_string()))
     }
 
     #[inline]

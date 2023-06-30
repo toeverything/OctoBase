@@ -190,6 +190,32 @@ impl Default for Item {
 }
 
 impl Item {
+    pub fn new(
+        id: Id,
+        content: Content,
+        left: Option<ItemRef>,
+        right: Option<ItemRef>,
+        parent: Option<Parent>,
+        parent_sub: Option<String>,
+    ) -> Self {
+        let flags = ItemFlags::from(if content.countable() {
+            item_flags::ITEM_COUNTABLE
+        } else {
+            0
+        });
+
+        Self {
+            id,
+            origin_left_id: left.as_ref().map(|l| l.last_id()),
+            left: left.map(|l| StructInfo::WeakItem(Arc::downgrade(&l))),
+            origin_right_id: right.as_ref().map(|r| r.id),
+            right: right.map(|r| StructInfo::WeakItem(Arc::downgrade(&r))),
+            parent,
+            parent_sub,
+            content: Arc::new(content),
+            flags,
+        }
+    }
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -233,15 +259,6 @@ impl Item {
     /// 3. do `debug_assert_eq!(Arc::strong_count(&item), 1);` before if we can.
     pub(crate) unsafe fn inner_mut(item: &Arc<Item>) -> &'static mut Item {
         &mut *(Arc::as_ptr(item) as *mut Item)
-    }
-
-    /// Safety:
-    /// see [inner_mut]
-    pub(crate) unsafe fn swap(one: &Arc<Item>, other: &Arc<Item>) {
-        let one = Self::inner_mut(one);
-        let other = Self::inner_mut(other);
-
-        std::mem::swap(one, other);
     }
 
     #[allow(dead_code)]
@@ -360,7 +377,9 @@ impl Item {
                 debug_assert_ne!(first_5_bit, 10);
                 Arc::new(Content::read(decoder, first_5_bit)?)
             },
-            ..Default::default()
+            left: None,
+            right: None,
+            flags: ItemFlags::from(0),
         };
 
         if item.content.countable() {

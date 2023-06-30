@@ -6,6 +6,7 @@ mod io;
 mod item;
 mod refs;
 mod update;
+#[cfg(any(fuzzing, test))]
 mod utils;
 
 pub use any::Any;
@@ -16,7 +17,6 @@ pub use io::{CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, RawDecoder, RawEncoder
 pub use item::{item_flags, Item, ItemFlags, ItemRef, Parent};
 pub use refs::StructInfo;
 pub use update::Update;
-pub use utils::ItemBuilder;
 #[cfg(any(fuzzing, test))]
 pub use utils::*;
 

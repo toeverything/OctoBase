@@ -240,22 +240,25 @@ impl StructInfo {
             let right_id = Id::new(id.client, id.clock + offset);
             let (left_content, right_content) = item.content.split(offset)?;
 
-            let left_item = Arc::new(Item {
-                content: Arc::new(left_content),
-                ..item.as_ref().clone()
-            });
+            let left_item = Arc::new(Item::new(
+                id,
+                left_content,
+                // let caller connect left <-> node <-> right
+                None,
+                None,
+                item.parent.clone(),
+                item.parent_sub.clone(),
+            ));
 
-            let right_item = Arc::new(
-                ItemBuilder::new()
-                    .id(right_id)
-                    .left_id(Some(left_item.last_id()))
-                    .right_id(item.origin_right_id)
-                    .parent(item.parent.clone())
-                    .parent_sub(item.parent_sub.clone())
-                    .content(right_content)
-                    .flags(item.flags.clone())
-                    .build(),
-            );
+            let right_item = Arc::new(Item::new(
+                right_id,
+                right_content,
+                // let caller connect left <-> node <-> right
+                None,
+                None,
+                item.parent.clone(),
+                item.parent_sub.clone(),
+            ));
 
             Ok((Self::Item(left_item), Self::Item(right_item)))
         } else {

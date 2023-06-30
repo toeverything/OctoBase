@@ -124,7 +124,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         Some(pos)
     }
 
-    fn insert_at(&mut self, index: u64, contents: Vec<Content>) -> JwstCodecResult {
+    fn insert_at(&mut self, index: u64, content: Content) -> JwstCodecResult {
         if index > self.content_len() {
             return Err(JwstCodecError::IndexOutOfBound(index));
         }
@@ -132,7 +132,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         let inner = self.as_inner().write().unwrap();
         if let Some(pos) = self.find_pos(&inner, index) {
             if let Some(mut store) = inner.store_mut() {
-                Self::insert_after(inner, &mut store, pos, contents)?;
+                Self::insert_after(inner, &mut store, pos, content)?;
             }
         }
 
@@ -143,44 +143,33 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         mut lock: RwLockWriteGuard<YType>,
         store: &mut DocStore,
         mut pos: ItemPosition,
-        contents: Vec<Content>,
+        content: Content,
     ) -> JwstCodecResult {
         pos.normalize(store)?;
 
-        for content in contents {
-            let new_item_id = (store.client(), store.get_state(store.client())).into();
+        let new_item_id = (store.client(), store.get_state(store.client())).into();
 
-            if let Some(markers) = &lock.markers {
-                markers.update_marker_changes(pos.index, content.clock_len() as i64);
-            }
-
-            let item = Arc::new(
-                ItemBuilder::new()
-                    .id(new_item_id)
-                    .left(
-                        pos.left
-                            .as_ref()
-                            .map(|item| StructInfo::WeakItem(item.clone())),
-                    )
-                    .right(
-                        pos.right
-                            .as_ref()
-                            .map(|item| StructInfo::WeakItem(item.clone())),
-                    )
-                    .content(content)
-                    .parent(Some(Parent::Type(pos.parent.clone())))
-                    .build(),
-            );
-
-            if let Content::Type(t) = item.content.as_ref() {
-                t.write().unwrap().set_item(item.clone());
-            }
-
-            store.integrate(StructInfo::Item(item.clone()), 0, Some(&mut lock))?;
-
-            pos.right = Some(Arc::downgrade(&item));
-            pos.forward();
+        if let Some(markers) = &lock.markers {
+            markers.update_marker_changes(pos.index, content.clock_len() as i64);
         }
+
+        let item = Arc::new(Item::new(
+            new_item_id,
+            content,
+            pos.left.as_ref().and_then(|item| item.upgrade()),
+            pos.right.as_ref().and_then(|item| item.upgrade()),
+            Some(Parent::Type(pos.parent.clone())),
+            None,
+        ));
+
+        if let Content::Type(t) = item.content.as_ref() {
+            t.write().unwrap().set_item(item.clone());
+        }
+
+        store.integrate(StructInfo::Item(item.clone()), 0, Some(&mut lock))?;
+
+        pos.right = Some(Arc::downgrade(&item));
+        pos.forward();
 
         Ok(())
     }

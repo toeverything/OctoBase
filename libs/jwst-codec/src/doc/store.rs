@@ -166,28 +166,30 @@ impl DocStore {
         debug_assert!(node.is_item());
         let (left_node, right_node) = node.split_at(diff)?;
         match (&node, &left_node, &right_node) {
-            (StructInfo::Item(item), StructInfo::Item(left_item), StructInfo::Item(right_item)) => {
+            (
+                StructInfo::Item(raw_left_item),
+                StructInfo::Item(new_left_item),
+                StructInfo::Item(right_item),
+            ) => {
                 // SAFETY:
                 // we make sure store is the only entry of mutating an item,
                 // and we already hold mutable reference of store, so it's safe to do so
                 unsafe {
-                    // we directly swap the inner pointed item
-                    // so we can keep all old_item ref can see the new content.
-                    Item::swap(item, left_item);
+                    let left_item = Item::inner_mut(raw_left_item);
+                    let right_item = Item::inner_mut(right_item);
+                    left_item.content = new_left_item.content.clone();
 
                     // we had the correct left/right content
                     // now build the references
-                    let item = Item::inner_mut(item);
-                    let right_item = Item::inner_mut(right_item);
-
-                    item.right = Some(right_node.as_weak());
                     if let Some(right_right) = &left_item.right.as_ref().and_then(|i| i.as_item()) {
                         Item::inner_mut(right_right).left = Some(right_node.as_weak());
+                        right_item.right = Some(StructInfo::WeakItem(Arc::downgrade(right_right)));
                     }
+                    left_item.right = Some(right_node.as_weak());
 
+                    right_item.origin_left_id = Some(left_item.last_id());
                     right_item.left = Some(node.as_weak());
                     right_item.origin_right_id = left_item.origin_right_id;
-                    right_item.right = left_item.right.as_ref().map(|i| i.as_weak());
                 };
             }
             _ => {
