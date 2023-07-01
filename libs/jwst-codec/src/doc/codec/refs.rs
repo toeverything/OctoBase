@@ -87,8 +87,14 @@ impl StructInfo {
             _ => {
                 let item = Arc::new(Item::read(decoder, id, info, first_5_bit)?);
 
-                if let Content::Type(ty) = item.content.as_ref() {
-                    ty.write().unwrap().item = Some(Arc::downgrade(&item));
+                match item.content.as_ref() {
+                    Content::Type(ty) => {
+                        ty.write().unwrap().item = Some(Arc::downgrade(&item));
+                    }
+                    Content::WeakType(ty) => {
+                        ty.upgrade().unwrap().write().unwrap().item = Some(Arc::downgrade(&item));
+                    }
+                    _ => {}
                 }
 
                 Ok(StructInfo::Item(item))

@@ -24,7 +24,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
                 value.into(),
                 left,
                 None,
-                Some(Parent::Type(self.as_inner().clone())),
+                Some(Parent::Type(Arc::downgrade(self.as_inner()))),
                 Some(key.as_ref().into()),
             ));
             store.integrate(StructInfo::Item(item), 0, Some(&mut inner))?;
