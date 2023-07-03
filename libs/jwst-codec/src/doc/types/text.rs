@@ -181,7 +181,7 @@ mod tests {
                     let pos = rand.gen_range(0..16);
 
                     if ins {
-                        let str = format!("hello {i}");
+                        let str = format!("hello {}", i * j);
                         text.insert(pos, &str).unwrap();
                         #[cfg(not(loom))]
                         len.fetch_add(str.len(), Ordering::SeqCst);
