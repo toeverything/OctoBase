@@ -47,12 +47,25 @@ impl DocDBStorage {
     where
         C: ConnectionTrait,
     {
-        trace!("start scan all: {workspace}");
+        trace!("start scan all records of workspace: {workspace}");
         let models = Docs::find()
             .filter(DocsColumn::WorkspaceId.eq(workspace))
             .all(conn)
             .await?;
-        trace!("end scan all: {workspace}, {}", models.len());
+        trace!("end scan all records of workspace: {workspace}, {}", models.len());
+        Ok(models)
+    }
+
+    async fn doc_all<C>(conn: &C, guid: &str) -> JwstStorageResult<Vec<DocsModel>>
+        where
+            C: ConnectionTrait,
+    {
+        trace!("start scan all records with guid: {guid}");
+        let models = Docs::find()
+            .filter(DocsColumn::Guid.eq(guid))
+            .all(conn)
+            .await?;
+        trace!("end scan all: {guid}, {}", models.len());
         Ok(models)
     }
 
@@ -202,7 +215,7 @@ impl DocDBStorage {
         let update_size = Self::count(conn, guid).await?;
         if update_size > MAX_TRIM_UPDATE_LIMIT - 1 {
             trace!("full migrate update: {guid}, {update_size}");
-            let doc_records = Self::workspace_all(conn, guid).await?;
+            let doc_records = Self::doc_all(conn, guid).await?;
 
             let data = tokio::task::spawn_blocking(move || utils::merge_doc_records(doc_records))
                 .await
