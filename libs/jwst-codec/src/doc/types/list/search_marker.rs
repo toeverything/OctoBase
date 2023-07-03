@@ -201,46 +201,50 @@ mod tests {
 
     #[test]
     fn test_marker_list() {
-        let (client_id, buffer) = {
-            let doc = yrs::Doc::with_client_id(1);
-            let array = doc.get_or_insert_array("abc");
+        loom_model!({
+            let (client_id, buffer) = {
+                let doc = yrs::Doc::with_client_id(1);
+                let array = doc.get_or_insert_array("abc");
 
-            let mut trx = doc.transact_mut();
-            array.insert(&mut trx, 0, " ").unwrap();
-            array.insert(&mut trx, 0, "Hello").unwrap();
-            array.insert(&mut trx, 2, "World").unwrap();
-            (doc.client_id(), trx.encode_update_v1().unwrap())
-        };
+                let mut trx = doc.transact_mut();
+                array.insert(&mut trx, 0, " ").unwrap();
+                array.insert(&mut trx, 0, "Hello").unwrap();
+                array.insert(&mut trx, 2, "World").unwrap();
+                (doc.client_id(), trx.encode_update_v1().unwrap())
+            };
 
-        let mut decoder = RawDecoder::new(buffer);
-        let update = Update::read(&mut decoder).unwrap();
+            let mut decoder = RawDecoder::new(buffer);
+            let update = Update::read(&mut decoder).unwrap();
 
-        let mut doc = Doc::default();
-        doc.apply_update(update).unwrap();
-        let array = doc.get_or_create_array("abc").unwrap();
+            let mut doc = Doc::default();
+            doc.apply_update(update).unwrap();
+            let array = doc.get_or_create_array("abc").unwrap();
 
-        let marker_list = MarkerList::new();
+            let marker_list = MarkerList::new();
 
-        let marker = marker_list.find_marker(&array.read(), 8).unwrap();
+            let marker = marker_list.find_marker(&array.read(), 8).unwrap();
 
-        assert_eq!(marker.index, 2);
-        assert_eq!(
-            marker.ptr.upgrade().unwrap(),
-            doc.store
-                .read()
-                .unwrap()
-                .get_item(Id::new(client_id, 2))
-                .unwrap()
-        );
+            assert_eq!(marker.index, 2);
+            assert_eq!(
+                marker.ptr.upgrade().unwrap(),
+                doc.store
+                    .read()
+                    .unwrap()
+                    .get_item(Id::new(client_id, 2))
+                    .unwrap()
+            );
+        });
     }
 
     #[test]
     fn test_search_marker_flaky() {
-        let doc = Doc::default();
-        let mut text = doc.get_or_create_text("test").unwrap();
-        text.insert(0, "0").unwrap();
-        text.insert(1, "1").unwrap();
-        text.insert(0, "0").unwrap();
+        loom_model!({
+            let doc = Doc::default();
+            let mut text = doc.get_or_create_text("test").unwrap();
+            text.insert(0, "0").unwrap();
+            text.insert(1, "1").unwrap();
+            text.insert(0, "0").unwrap();
+        });
     }
 
     fn search_with_seed(seed: u64) {
@@ -265,6 +269,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(loom))]
     fn test_marker_list_with_seed() {
         search_with_seed(785590655803394607);
         search_with_seed(12958877733367615);

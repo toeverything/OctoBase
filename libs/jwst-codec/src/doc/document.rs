@@ -183,7 +183,7 @@ mod tests {
     use yrs::{types::ToJson, updates::decoder::Decode, Array, Map, Transact};
 
     #[test]
-    fn double_run_test_with_yrs_basic() {
+    fn test_double_run_with_yrs_basic() {
         let yrs_doc = yrs::Doc::new();
 
         let map = yrs_doc.get_or_insert_map("abc");
@@ -191,10 +191,13 @@ mod tests {
         map.insert(&mut trx, "a", 1).unwrap();
 
         let binary_from_yrs = trx.encode_update_v1().unwrap();
-        let doc = Doc::new_from_binary(binary_from_yrs.clone()).unwrap();
-        let binary = doc.encode_update_v1().unwrap();
 
-        assert_eq!(binary_from_yrs, binary);
+        loom_model!({
+            let doc = Doc::new_from_binary(binary_from_yrs.clone()).unwrap();
+            let binary = doc.encode_update_v1().unwrap();
+
+            assert_eq!(binary_from_yrs, binary);
+        });
     }
 
     #[test]
@@ -212,60 +215,64 @@ mod tests {
         array.insert(&mut trx, 0, "array_value").unwrap();
         let binary_from_yrs_new = trx.encode_update_v1().unwrap();
 
-        let mut doc = Doc::new_from_binary(binary_from_yrs.clone()).unwrap();
-        let mut doc_new = Doc::new_from_binary(binary_from_yrs_new.clone()).unwrap();
+        loom_model!({
+            let mut doc = Doc::new_from_binary(binary_from_yrs.clone()).unwrap();
+            let mut doc_new = Doc::new_from_binary(binary_from_yrs_new.clone()).unwrap();
 
-        let diff_update = doc_new
-            .encode_state_as_update_v1(&doc.get_state_vector())
-            .unwrap();
+            let diff_update = doc_new
+                .encode_state_as_update_v1(&doc.get_state_vector())
+                .unwrap();
 
-        let diff_update_reverse = doc
-            .encode_state_as_update_v1(&doc_new.get_state_vector())
-            .unwrap();
+            let diff_update_reverse = doc
+                .encode_state_as_update_v1(&doc_new.get_state_vector())
+                .unwrap();
 
-        doc.apply_update_from_binary(diff_update).unwrap();
-        doc_new
-            .apply_update_from_binary(diff_update_reverse)
-            .unwrap();
+            doc.apply_update_from_binary(diff_update).unwrap();
+            doc_new
+                .apply_update_from_binary(diff_update_reverse)
+                .unwrap();
 
-        assert_eq!(
-            doc.encode_update_v1().unwrap(),
-            doc_new.encode_update_v1().unwrap()
-        );
+            assert_eq!(
+                doc.encode_update_v1().unwrap(),
+                doc_new.encode_update_v1().unwrap()
+            );
+        });
     }
 
     #[test]
     fn test_array_create() {
-        let binary = {
-            let doc = Doc::with_client(0);
-            let mut array = doc.get_or_create_array("abc").unwrap();
-            array.insert(0, 42).unwrap();
-            array.insert(1, -42).unwrap();
-            array.insert(2, true).unwrap();
-            array.insert(3, false).unwrap();
-            array.insert(4, "hello").unwrap();
-            array.insert(5, "world").unwrap();
+        loom_model!({
+            let binary = {
+                let doc = Doc::with_client(0);
+                let mut array = doc.get_or_create_array("abc").unwrap();
+                array.insert(0, 42).unwrap();
+                array.insert(1, -42).unwrap();
+                array.insert(2, true).unwrap();
+                array.insert(3, false).unwrap();
+                array.insert(4, "hello").unwrap();
+                array.insert(5, "world").unwrap();
 
-            let mut sub_array = doc.create_array().unwrap();
-            array.insert(6, sub_array.clone()).unwrap();
-            // FIXME: array need insert first to compatible with yrs
-            sub_array.insert(0, 1).unwrap();
+                let mut sub_array = doc.create_array().unwrap();
+                array.insert(6, sub_array.clone()).unwrap();
+                // FIXME: array need insert first to compatible with yrs
+                sub_array.insert(0, 1).unwrap();
 
-            doc.encode_update_v1().unwrap()
-        };
+                doc.encode_update_v1().unwrap()
+            };
 
-        {
-            use yrs::{Doc, Update};
+            {
+                use yrs::{Doc, Update};
 
-            let ydoc = Doc::new();
-            let array = ydoc.get_or_insert_array("abc");
-            let mut trx = ydoc.transact_mut();
-            trx.apply_update(Update::decode_v1(&binary).unwrap());
+                let ydoc = Doc::new();
+                let array = ydoc.get_or_insert_array("abc");
+                let mut trx = ydoc.transact_mut();
+                trx.apply_update(Update::decode_v1(&binary).unwrap());
 
-            assert_json_diff::assert_json_eq!(
-                array.to_json(&trx),
-                serde_json::json!([42, -42, true, false, "hello", "world", [1]])
-            );
-        }
+                assert_json_diff::assert_json_eq!(
+                    array.to_json(&trx),
+                    serde_json::json!([42, -42, true, false, "hello", "world", [1]])
+                );
+            }
+        });
     }
 }

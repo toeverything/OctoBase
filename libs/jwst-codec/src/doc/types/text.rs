@@ -47,6 +47,7 @@ impl ToString for Text {
 #[cfg(test)]
 mod tests {
     use crate::{
+        loom_model,
         sync::{thread, Arc, AtomicUsize, Ordering},
         Doc,
     };
@@ -56,21 +57,23 @@ mod tests {
 
     #[test]
     fn test_manipulate_text() {
-        let doc = Doc::with_client(1);
-        let mut text = doc.create_text().unwrap();
+        loom_model!({
+            let doc = Doc::with_client(1);
+            let mut text = doc.create_text().unwrap();
 
-        text.insert(0, "llo").unwrap();
-        text.insert(0, "he").unwrap();
-        text.insert(5, " world").unwrap();
-        text.insert(6, "great ").unwrap();
-        text.insert(17, '!').unwrap();
+            text.insert(0, "llo").unwrap();
+            text.insert(0, "he").unwrap();
+            text.insert(5, " world").unwrap();
+            text.insert(6, "great ").unwrap();
+            text.insert(17, '!').unwrap();
 
-        assert_eq!(text.to_string(), "hello great world!");
-        assert_eq!(text.len(), 18);
+            assert_eq!(text.to_string(), "hello great world!");
+            assert_eq!(text.len(), 18);
 
-        text.remove(4, 4).unwrap();
-        assert_eq!(text.to_string(), "helleat world!");
-        assert_eq!(text.len(), 14);
+            text.remove(4, 4).unwrap();
+            assert_eq!(text.to_string(), "helleat world!");
+            assert_eq!(text.len(), 14);
+        });
     }
 
     fn parallel_insert_text_with_seed(seed: u64, iteration: i32, thread: i32) {
@@ -144,41 +147,49 @@ mod tests {
 
     #[test]
     fn test_parallel_insert_text() {
-        parallel_insert_text_with_seed(rand::thread_rng().gen(), 10, 2);
-    }
-
-    #[test]
-    #[cfg(loom)]
-    fn test_parallel_insert_text_with_loom() {
         let seed = rand::thread_rng().gen();
-        loom::model(move || {
-            parallel_insert_text_with_seed(seed, 2, 1);
+        loom_model!({
+            if cfg!(loom) {
+                parallel_insert_text_with_seed(seed, 2, 1);
+            } else {
+                parallel_insert_text_with_seed(rand::thread_rng().gen(), 10, 2);
+            }
         });
     }
 
-    fn parallel_ins_del_text(seed: u64) {
+    fn parallel_ins_del_text(seed: u64, thread: i32, iteration: i32) {
         let doc = Doc::with_client(1);
-        let mut rand = ChaCha20Rng::seed_from_u64(seed);
+        let rand = ChaCha20Rng::seed_from_u64(seed);
         let mut text = doc.get_or_create_text("test").unwrap();
         text.insert(0, "This is a string with length 32.").unwrap();
 
         let mut handles = Vec::new();
-        let iteration = 20;
+        #[cfg(not(loom))]
         let len = Arc::new(AtomicUsize::new(32));
 
-        for i in 0..iteration {
-            let mut text = text.clone();
+        for i in 0..thread {
+            #[cfg(not(loom))]
             let len = len.clone();
-            let ins = i % 2 == 0;
-            let pos = rand.gen_range(0..16);
-            handles.push(std::thread::spawn(move || {
-                if ins {
-                    let str = format!("hello {i}");
-                    text.insert(pos, &str).unwrap();
-                    len.fetch_add(str.len(), Ordering::SeqCst);
-                } else {
-                    text.remove(pos, 6).unwrap();
-                    len.fetch_sub(6, Ordering::SeqCst);
+            let mut rand = rand.clone();
+            let text = text.clone();
+            handles.push(thread::spawn(move || {
+                for j in 0..iteration {
+                    #[cfg(not(loom))]
+                    let len = len.clone();
+                    let mut text = text.clone();
+                    let ins = i % 2 == 0;
+                    let pos = rand.gen_range(0..16);
+
+                    if ins {
+                        let str = format!("hello {i}");
+                        text.insert(pos, &str).unwrap();
+                        #[cfg(not(loom))]
+                        len.fetch_add(str.len(), Ordering::SeqCst);
+                    } else {
+                        text.remove(pos, 6).unwrap();
+                        #[cfg(not(loom))]
+                        len.fetch_sub(6, Ordering::SeqCst);
+                    }
                 }
             }));
         }
@@ -187,16 +198,23 @@ mod tests {
             handle.join().unwrap();
         }
 
-        assert_eq!(text.to_string().len(), len.load(Ordering::SeqCst));
-        assert_eq!(text.len(), len.load(Ordering::SeqCst) as u64);
+        #[cfg(not(loom))]
+        {
+            assert_eq!(text.to_string().len(), len.load(Ordering::SeqCst));
+            assert_eq!(text.len(), len.load(Ordering::SeqCst) as u64);
+        }
     }
 
     #[test]
     fn test_parallel_ins_del_text() {
         // cases that ever broken
         // wrong left/right ref
-        parallel_ins_del_text(973078538);
-        parallel_ins_del_text(18414938500869652479);
+        loom_model!({
+            parallel_ins_del_text(973078538, 2, 2);
+        });
+        loom_model!({
+            parallel_ins_del_text(18414938500869652479, 2, 2);
+        });
     }
 
     #[test]
@@ -212,35 +230,41 @@ mod tests {
             trx.encode_update_v1().unwrap()
         };
 
-        let doc = Doc::new_from_binary(binary).unwrap();
-        let mut text = doc.get_or_create_text("greating").unwrap();
+        loom_model!({
+            let binary = binary.clone();
+            let doc = Doc::new_from_binary(binary).unwrap();
+            let mut text = doc.get_or_create_text("greating").unwrap();
 
-        assert_eq!(text.to_string(), "hello world");
+            assert_eq!(text.to_string(), "hello world");
 
-        text.insert(6, "great ").unwrap();
-        text.insert(17, '!').unwrap();
-        assert_eq!(text.to_string(), "hello great world!");
+            text.insert(6, "great ").unwrap();
+            text.insert(17, '!').unwrap();
+            assert_eq!(text.to_string(), "hello great world!");
+        });
     }
 
     #[test]
     fn test_recover_from_octobase_encoder() {
-        let binary = {
-            let doc = Doc::with_client(1);
+        loom_model!({
+            let binary = {
+                let doc = Doc::with_client(1);
+                let mut text = doc.get_or_create_text("greating").unwrap();
+                text.insert(0, "hello").unwrap();
+                text.insert(5, " world!").unwrap();
+                text.remove(11, 1).unwrap();
+
+                doc.encode_update_v1().unwrap()
+            };
+
+            let binary = binary.clone();
+            let doc = Doc::new_from_binary(binary).unwrap();
             let mut text = doc.get_or_create_text("greating").unwrap();
-            text.insert(0, "hello").unwrap();
-            text.insert(5, " world!").unwrap();
-            text.remove(11, 1).unwrap();
 
-            doc.encode_update_v1().unwrap()
-        };
+            assert_eq!(text.to_string(), "hello world");
 
-        let doc = Doc::new_from_binary(binary).unwrap();
-        let mut text = doc.get_or_create_text("greating").unwrap();
-
-        assert_eq!(text.to_string(), "hello world");
-
-        text.insert(6, "great ").unwrap();
-        text.insert(17, '!').unwrap();
-        assert_eq!(text.to_string(), "hello great world!");
+            text.insert(6, "great ").unwrap();
+            text.insert(17, '!').unwrap();
+            assert_eq!(text.to_string(), "hello great world!");
+        });
     }
 }

@@ -76,30 +76,32 @@ mod tests {
 
     #[test]
     fn test_yarray_insert() {
-        let doc = Doc::default();
-        let mut array = doc.get_or_create_array("abc").unwrap();
+        loom_model!({
+            let doc = Doc::default();
+            let mut array = doc.get_or_create_array("abc").unwrap();
 
-        array.insert(0, " ").unwrap();
-        array.insert(0, "Hello").unwrap();
-        array.insert(2, "World").unwrap();
+            array.insert(0, " ").unwrap();
+            array.insert(0, "Hello").unwrap();
+            array.insert(2, "World").unwrap();
 
-        assert_eq!(
-            array.get(0).unwrap(),
-            &Content::Any(vec![Any::String("Hello".into())])
-        );
-        assert_eq!(
-            array.get(1).unwrap(),
-            &Content::Any(vec![Any::String(" ".into())])
-        );
-        assert_eq!(
-            array.get(2).unwrap(),
-            &Content::Any(vec![Any::String("World".into())])
-        );
+            assert_eq!(
+                array.get(0).unwrap(),
+                &Content::Any(vec![Any::String("Hello".into())])
+            );
+            assert_eq!(
+                array.get(1).unwrap(),
+                &Content::Any(vec![Any::String(" ".into())])
+            );
+            assert_eq!(
+                array.get(2).unwrap(),
+                &Content::Any(vec![Any::String("World".into())])
+            );
+        });
     }
 
     #[test]
     fn test_ytext_equal() {
-        {
+        loom_model!({
             let doc = yrs::Doc::new();
             let array = doc.get_or_insert_text("abc");
 
@@ -121,9 +123,9 @@ mod tests {
             assert_eq!(array.get(5).unwrap(), &Content::String(" ".into()));
             assert_eq!(array.get(6).unwrap(), &Content::String("World".into()));
             assert_eq!(array.get(11).unwrap(), &Content::String("!".into()));
-        }
+        });
 
-        {
+        loom_model!({
             let doc = yrs::Doc::new();
             let array = doc.get_or_insert_text("abc");
 
@@ -145,37 +147,39 @@ mod tests {
             assert_eq!(array.get(5).unwrap(), &Content::String(" ".into()));
             assert_eq!(array.get(6).unwrap(), &Content::String("World".into()));
             assert_eq!(array.get(11).unwrap(), &Content::String("!".into()));
-        }
+        });
     }
 
     #[test]
     #[ignore = "TODO"]
     fn test_yarray_slice() {
-        let buffer = {
-            let doc = yrs::Doc::new();
-            let array = doc.get_or_insert_array("abc");
+        loom_model!({
+            let buffer = {
+                let doc = yrs::Doc::new();
+                let array = doc.get_or_insert_array("abc");
 
-            let mut trx = doc.transact_mut();
-            array.insert(&mut trx, 0, 1).unwrap();
-            array.insert(&mut trx, 1, "2").unwrap();
-            array.insert(&mut trx, 2, true).unwrap();
-            array.insert(&mut trx, 3, 1.0).unwrap();
-            trx.encode_update_v1().unwrap()
-        };
+                let mut trx = doc.transact_mut();
+                array.insert(&mut trx, 0, 1).unwrap();
+                array.insert(&mut trx, 1, "2").unwrap();
+                array.insert(&mut trx, 2, true).unwrap();
+                array.insert(&mut trx, 3, 1.0).unwrap();
+                trx.encode_update_v1().unwrap()
+            };
 
-        let mut decoder = RawDecoder::new(buffer);
-        let update = Update::read(&mut decoder).unwrap();
-        let mut doc = Doc::default();
-        doc.apply_update(update).unwrap();
-        let array = doc.get_or_create_array("abc").unwrap();
+            let mut decoder = RawDecoder::new(buffer);
+            let update = Update::read(&mut decoder).unwrap();
+            let mut doc = Doc::default();
+            doc.apply_update(update).unwrap();
+            let array = doc.get_or_create_array("abc").unwrap();
 
-        let items = &array[1..3];
-        assert_eq!(
-            items,
-            vec![
-                Content::Any(vec![Any::String("2".into())]),
-                Content::Any(vec![Any::True])
-            ]
-        );
+            let items = &array[1..3];
+            assert_eq!(
+                items,
+                vec![
+                    Content::Any(vec![Any::String("2".into())]),
+                    Content::Any(vec![Any::True])
+                ]
+            );
+        });
     }
 }

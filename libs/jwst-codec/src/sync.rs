@@ -20,3 +20,14 @@ pub(crate) use std::{
     sync::{atomic::AtomicUsize, Mutex, MutexGuard},
     thread,
 };
+
+#[macro_export(local_inner_macros)]
+macro_rules! loom_model {
+    ($test:block) => {
+        #[cfg(loom)]
+        loom::model(move || $test);
+
+        #[cfg(not(loom))]
+        $test
+    };
+}
