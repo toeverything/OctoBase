@@ -43,6 +43,8 @@ impl DocDBStorage {
         &self.remote
     }
 
+    /// warn: records of the same workspace may belong to different doc
+    #[allow(unused)]
     async fn workspace_all<C>(conn: &C, workspace: &str) -> JwstStorageResult<Vec<DocsModel>>
     where
         C: ConnectionTrait,
