@@ -255,7 +255,11 @@ impl DocDBStorage {
             .await?;
 
         let ws = if all_data.is_empty() {
-            let doc = Doc::new();
+            // keep workspace root doc's guid the same as workspaceId
+            let doc = Doc::with_options(Options {
+                guid: yrs::Uuid::from(workspace),
+                ..Default::default()
+            });
             let ws = Workspace::from_doc(doc.clone(), workspace);
 
             let update = doc
