@@ -1,5 +1,6 @@
 use super::*;
-use std::{cmp::max, collections::hash_map::Entry, sync::Arc};
+use crate::sync::Arc;
+use std::{cmp::max, collections::hash_map::Entry};
 
 pub struct Awareness {
     awareness: AwarenessStates,

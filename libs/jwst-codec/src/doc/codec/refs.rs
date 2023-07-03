@@ -423,6 +423,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(not(loom))]
     proptest! {
         #[test]
         fn test_random_struct_info(mut infos in vec(any::<StructInfo>(), 0..10)) {

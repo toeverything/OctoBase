@@ -47,7 +47,7 @@ impl ToString for Text {
 #[cfg(test)]
 mod tests {
     use crate::{
-        sync::{Arc, AtomicUsize, Ordering},
+        sync::{thread, Arc, AtomicUsize, Ordering},
         Doc,
     };
     use rand::{Rng, SeedableRng};
@@ -73,45 +73,60 @@ mod tests {
         assert_eq!(text.len(), 14);
     }
 
-    fn parallel_insert_text_with_seed(seed: u64) {
-        let iteration = 10;
+    fn parallel_insert_text_with_seed(seed: u64, iteration: i32, thread: i32) {
         let rand = ChaCha20Rng::seed_from_u64(seed);
         let mut handles = Vec::new();
 
         let doc = Doc::with_client(1);
         let mut text = doc.get_or_create_text("test").unwrap();
         text.insert(0, "This is a string with length 32.").unwrap();
+
+        #[cfg(not(loom))]
         let added_len = Arc::new(AtomicUsize::new(32));
 
         // parallel editing text
         {
-            for i in 0..iteration {
+            for i in 0..thread {
                 let mut text = text.clone();
                 let mut rand = rand.clone();
-                let len = added_len.clone();
-                handles.push(std::thread::spawn(move || {
-                    let pos = rand.gen_range(0..text.len());
-                    let string = format!("hello {i}");
 
-                    text.insert(pos, &string).unwrap();
-                    len.fetch_add(string.len(), Ordering::SeqCst);
+                #[cfg(not(loom))]
+                let len = added_len.clone();
+
+                handles.push(thread::spawn(move || {
+                    for j in 0..iteration {
+                        let pos = rand.gen_range(0..text.len());
+                        let string = format!("hello {}", i * j);
+
+                        text.insert(pos, &string).unwrap();
+
+                        #[cfg(not(loom))]
+                        len.fetch_add(string.len(), Ordering::SeqCst);
+                    }
                 }));
             }
         }
 
         // parallel editing doc
         {
-            for i in 0..iteration {
+            for i in 0..thread {
                 let doc = doc.clone();
                 let mut rand = rand.clone();
-                let len = added_len.clone();
-                handles.push(std::thread::spawn(move || {
-                    let mut text = doc.get_or_create_text("test").unwrap();
-                    let pos = rand.gen_range(0..text.len());
-                    let string = format!("hello doc{i}");
 
-                    text.insert(pos, &string).unwrap();
-                    len.fetch_add(string.len(), Ordering::SeqCst);
+                #[cfg(not(loom))]
+                let len = added_len.clone();
+
+                handles.push(thread::spawn(move || {
+                    let mut text = doc.get_or_create_text("test").unwrap();
+                    for j in 0..iteration {
+                        let pos = rand.gen_range(0..text.len());
+                        let string = format!("hello doc{}", i * j);
+
+                        text.insert(pos, &string).unwrap();
+
+                        #[cfg(not(loom))]
+                        len.fetch_add(string.len(), Ordering::SeqCst);
+                    }
                 }));
             }
         }
@@ -120,21 +135,24 @@ mod tests {
             handle.join().unwrap();
         }
 
-        assert_eq!(text.to_string().len(), added_len.load(Ordering::SeqCst));
-        assert_eq!(text.len(), added_len.load(Ordering::SeqCst) as u64);
+        #[cfg(not(loom))]
+        {
+            assert_eq!(text.to_string().len(), added_len.load(Ordering::SeqCst));
+            assert_eq!(text.len(), added_len.load(Ordering::SeqCst) as u64);
+        }
     }
 
     #[test]
     fn test_parallel_insert_text() {
-        parallel_insert_text_with_seed(rand::thread_rng().gen())
+        parallel_insert_text_with_seed(rand::thread_rng().gen(), 10, 2);
     }
 
     #[test]
     #[cfg(loom)]
     fn test_parallel_insert_text_with_loom() {
         let seed = rand::thread_rng().gen();
-        loom::model(|| {
-            parallel_insert_text_with_seed(seed);
+        loom::model(move || {
+            parallel_insert_text_with_seed(seed, 2, 1);
         });
     }
 

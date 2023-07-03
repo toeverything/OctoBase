@@ -391,8 +391,9 @@ mod tests {
     use crate::doc::common::OrderRange;
 
     use super::*;
+    use crate::sync::Arc;
     use serde::Deserialize;
-    use std::{num::ParseIntError, path::PathBuf, sync::Arc};
+    use std::{num::ParseIntError, path::PathBuf};
 
     fn struct_item(id: (Client, Clock), len: usize) -> StructInfo {
         StructInfo::Item(Arc::new(

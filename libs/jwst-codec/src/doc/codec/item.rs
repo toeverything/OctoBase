@@ -486,6 +486,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(not(loom))]
     proptest! {
         #[test]
         fn test_random_content(mut items in vec(any::<Item>(), 0..10)) {

@@ -1,9 +1,11 @@
 use super::*;
-use crate::{doc::StateVector, sync::RwLockWriteGuard};
+use crate::{
+    doc::StateVector,
+    sync::{Arc, RwLock, RwLockWriteGuard, Weak},
+};
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
     ops::Range,
-    sync::{Arc, RwLock, Weak},
 };
 
 #[derive(Default, Debug)]
