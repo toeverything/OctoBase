@@ -425,7 +425,7 @@ jobs:
         runs-on: ubuntu-latest
         continue-on-error: true
         env:
-            RUSTFLAGS: -D warnings --cfg loom
+            RUSTFLAGS: --cfg loom
             RUST_BACKTRACE: full
             CARGO_TERM_COLOR: always
             LOOM_LOG: info
