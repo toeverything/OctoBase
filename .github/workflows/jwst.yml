@@ -438,6 +438,25 @@ jobs:
               run: |
                   cargo test -p jwst-codec --lib
 
+    miri:
+        name: miri code check
+        runs-on: ubuntu-latest
+        continue-on-error: true
+        env:
+            RUST_BACKTRACE: full
+            CARGO_TERM_COLOR: always
+            MIRIFLAGS: -Zmiri-backtrace=full -Zmiri-tree-borrows
+        steps:
+            - uses: actions/checkout@v3
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  components: miri
+            - uses: Swatinem/rust-cache@v2
+
+            - name: Miri Code Check
+              run: |
+                  cargo miri nextest run -p jwst-codec -j2
+
     fuzzing:
         name: fuzzing
         runs-on: ubuntu-latest
