@@ -57,8 +57,13 @@ mod tests {
 
     #[test]
     fn test_manipulate_text() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
         loom_model!({
-            let doc = Doc::with_client(1);
+            let doc = Doc::with_options(options.clone());
             let mut text = doc.create_text().unwrap();
 
             text.insert(0, "llo").unwrap();

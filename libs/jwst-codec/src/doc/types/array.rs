@@ -72,12 +72,17 @@ impl Index<Range<u64>> for Array {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yrs::{Array, Text, Transact};
+    use yrs::{Array, Options, Text, Transact};
 
     #[test]
     fn test_yarray_insert() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
         loom_model!({
-            let doc = Doc::default();
+            let doc = Doc::with_options(options.clone());
             let mut array = doc.get_or_create_array("abc").unwrap();
 
             array.insert(0, " ").unwrap();
@@ -102,8 +107,18 @@ mod tests {
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_ytext_equal() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+        let yrs_options = Options {
+            client_id: rand::random(),
+            guid: nanoid::nanoid!().into(),
+            ..Default::default()
+        };
+
         loom_model!({
-            let doc = yrs::Doc::new();
+            let doc = yrs::Doc::with_options(yrs_options.clone());
             let array = doc.get_or_insert_text("abc");
 
             let mut trx = doc.transact_mut();
@@ -116,7 +131,7 @@ mod tests {
             let mut decoder = RawDecoder::new(buffer);
             let update = Update::read(&mut decoder).unwrap();
 
-            let mut doc = Doc::default();
+            let mut doc = Doc::with_options(options.clone());
             doc.apply_update(update).unwrap();
             let array = doc.get_or_create_array("abc").unwrap();
 
@@ -126,8 +141,17 @@ mod tests {
             assert_eq!(array.get(11).unwrap(), &Content::String("!".into()));
         });
 
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+        let yrs_options = Options {
+            client_id: rand::random(),
+            guid: nanoid::nanoid!().into(),
+            ..Default::default()
+        };
         loom_model!({
-            let doc = yrs::Doc::new();
+            let doc = yrs::Doc::with_options(yrs_options.clone());
             let array = doc.get_or_insert_text("abc");
 
             let mut trx = doc.transact_mut();
@@ -140,7 +164,7 @@ mod tests {
             let mut decoder = RawDecoder::new(buffer);
             let update = Update::read(&mut decoder).unwrap();
 
-            let mut doc = Doc::default();
+            let mut doc = Doc::with_options(options.clone());
             doc.apply_update(update).unwrap();
             let array = doc.get_or_create_array("abc").unwrap();
 

@@ -10,6 +10,6 @@ use super::*;
 pub use awareness::{Awareness, AwarenessEvent};
 pub use codec::*;
 pub use common::*;
-pub use document::Doc;
+pub use document::{Doc, DocOptions};
 pub use store::DocStore;
 pub use types::*;

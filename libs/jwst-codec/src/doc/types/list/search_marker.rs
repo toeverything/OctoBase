@@ -197,13 +197,23 @@ mod tests {
     use super::*;
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha20Rng;
-    use yrs::{Array, Transact};
+    use yrs::{Array, Options, Transact};
 
     #[test]
     fn test_marker_list() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+        let yrs_options = Options {
+            client_id: rand::random(),
+            guid: nanoid::nanoid!().into(),
+            ..Default::default()
+        };
+
         loom_model!({
             let (client_id, buffer) = if cfg!(miri) {
-                let doc = Doc::with_client(1);
+                let doc = Doc::with_options(options.clone());
                 let mut array = doc.get_or_create_array("abc").unwrap();
 
                 array.insert(0, " ").unwrap();
@@ -212,7 +222,7 @@ mod tests {
 
                 (doc.client(), doc.encode_update_v1().unwrap())
             } else {
-                let doc = yrs::Doc::with_client_id(1);
+                let doc = yrs::Doc::with_options(yrs_options.clone());
                 let array = doc.get_or_insert_array("abc");
 
                 let mut trx = doc.transact_mut();
@@ -226,7 +236,7 @@ mod tests {
             let mut decoder = RawDecoder::new(buffer);
             let update = Update::read(&mut decoder).unwrap();
 
-            let mut doc = Doc::default();
+            let mut doc = Doc::with_options(options.clone());
             doc.apply_update(update).unwrap();
             let array = doc.get_or_create_array("abc").unwrap();
 
@@ -248,8 +258,13 @@ mod tests {
 
     #[test]
     fn test_search_marker_flaky() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
         loom_model!({
-            let doc = Doc::default();
+            let doc = Doc::with_options(options.clone());
             let mut text = doc.get_or_create_text("test").unwrap();
             text.insert(0, "0").unwrap();
             text.insert(1, "1").unwrap();

@@ -1,9 +1,5 @@
-use crate::{
-    doc::{AsInner, ItemRef, Parent, StructInfo, YTypeRef},
-    impl_type,
-    sync::Arc,
-    Content, Item, JwstCodecResult,
-};
+use super::*;
+use crate::sync::Arc;
 use std::collections::HashMap;
 
 impl_type!(Map);
@@ -156,8 +152,13 @@ mod tests {
 
     #[test]
     fn test_map_basic() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
         loom_model!({
-            let doc = Doc::default();
+            let doc = Doc::with_options(options.clone());
             let mut map = doc.get_or_create_map("map").unwrap();
             map.insert("1", "value").unwrap();
             assert_eq!(
@@ -175,14 +176,19 @@ mod tests {
 
     #[test]
     fn test_map_equal() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
         loom_model!({
-            let doc = Doc::default();
+            let doc = Doc::with_options(options.clone());
             let mut map = doc.get_or_create_map("map").unwrap();
             map.insert("1", "value").unwrap();
             map.insert("2", false).unwrap();
 
             let binary = doc.encode_update_v1().unwrap();
-            let new_doc = Doc::new_from_binary(binary).unwrap();
+            let new_doc = Doc::new_from_binary_with_options(binary, options.clone()).unwrap();
             let map = new_doc.get_or_create_map("map").unwrap();
             assert_eq!(
                 map.get("1"),
@@ -195,8 +201,13 @@ mod tests {
 
     #[test]
     fn test_map_iter() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
         loom_model!({
-            let doc = Doc::default();
+            let doc = Doc::with_options(options.clone());
             let mut map = doc.get_or_create_map("map").unwrap();
             map.insert("1", "value1").unwrap();
             map.insert("2", "value2").unwrap();
@@ -219,9 +230,14 @@ mod tests {
 
     #[test]
     fn test_map_re_encode() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
         loom_model!({
             let binary = {
-                let doc = Doc::default();
+                let doc = Doc::with_options(options.clone());
                 let mut map = doc.get_or_create_map("map").unwrap();
                 map.insert("1", "value1").unwrap();
                 map.insert("2", "value2").unwrap();
@@ -229,7 +245,7 @@ mod tests {
             };
 
             {
-                let doc = Doc::new_from_binary(binary).unwrap();
+                let doc = Doc::new_from_binary_with_options(binary, options.clone()).unwrap();
                 let map = doc.get_or_create_map("map").unwrap();
                 assert_eq!(
                     map.get("1"),

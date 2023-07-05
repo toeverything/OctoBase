@@ -1,6 +1,12 @@
 use super::{store::StoreRef, *};
 use crate::sync::{Arc, RwLock};
 
+#[derive(Clone, Default)]
+pub struct DocOptions {
+    pub guid: Option<String>,
+    pub client: Option<u64>,
+}
+
 #[derive(Debug, Clone)]
 pub struct Doc {
     client_id: u64,
@@ -32,6 +38,15 @@ impl PartialEq for Doc {
 }
 
 impl Doc {
+    pub fn with_options(options: DocOptions) -> Self {
+        let client = options.client.unwrap_or_else(rand::random);
+        Self {
+            client_id: client,
+            store: Arc::new(RwLock::new(DocStore::with_client(client))),
+            guid: options.guid.unwrap_or_else(|| nanoid!()),
+        }
+    }
+
     pub fn with_client(client: u64) -> Self {
         Self {
             client_id: client,
@@ -46,6 +61,15 @@ impl Doc {
 
     pub fn new_from_binary(binary: Vec<u8>) -> JwstCodecResult<Self> {
         let mut doc = Doc::default();
+        doc.apply_update_from_binary(binary)?;
+        Ok(doc)
+    }
+
+    pub fn new_from_binary_with_options(
+        binary: Vec<u8>,
+        options: DocOptions,
+    ) -> JwstCodecResult<Self> {
+        let mut doc = Doc::with_options(options);
         doc.apply_update_from_binary(binary)?;
         Ok(doc)
     }
@@ -180,7 +204,7 @@ impl Doc {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yrs::{types::ToJson, updates::decoder::Decode, Array, Map, Transact};
+    use yrs::{types::ToJson, updates::decoder::Decode, Array, Map, Options, Transact};
 
     #[test]
     #[cfg_attr(miri, ignore)]
@@ -193,8 +217,14 @@ mod tests {
 
         let binary_from_yrs = trx.encode_update_v1().unwrap();
 
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
         loom_model!({
-            let doc = Doc::new_from_binary(binary_from_yrs.clone()).unwrap();
+            let doc = Doc::new_from_binary_with_options(binary_from_yrs.clone(), options.clone())
+                .unwrap();
             let binary = doc.encode_update_v1().unwrap();
 
             assert_eq!(binary_from_yrs, binary);
@@ -203,29 +233,39 @@ mod tests {
 
     #[test]
     fn test_encode_state_as_update() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+        let yrs_options = Options {
+            client_id: rand::random(),
+            guid: nanoid::nanoid!().into(),
+            ..Default::default()
+        };
+
         loom_model!({
             let (binary, binary_new) = if cfg!(miri) {
-                let doc = Doc::default();
+                let doc = Doc::with_options(options.clone());
 
                 let mut map = doc.get_or_create_map("abc").unwrap();
                 map.insert("a", 1).unwrap();
                 let binary = doc.encode_update_v1().unwrap();
 
-                let doc_new = Doc::default();
+                let doc_new = Doc::with_options(options.clone());
                 let mut array = doc_new.get_or_create_array("array").unwrap();
                 array.insert(0, "array_value").unwrap();
                 let binary_new = doc.encode_update_v1().unwrap();
 
                 (binary, binary_new)
             } else {
-                let yrs_doc = yrs::Doc::new();
+                let yrs_doc = yrs::Doc::with_options(yrs_options.clone());
 
                 let map = yrs_doc.get_or_insert_map("abc");
                 let mut trx = yrs_doc.transact_mut();
                 map.insert(&mut trx, "a", 1).unwrap();
                 let binary = trx.encode_update_v1().unwrap();
 
-                let yrs_doc_new = yrs::Doc::new();
+                let yrs_doc_new = yrs::Doc::with_options(yrs_options.clone());
                 let array = yrs_doc_new.get_or_insert_array("array");
                 let mut trx = yrs_doc_new.transact_mut();
                 array.insert(&mut trx, 0, "array_value").unwrap();
@@ -234,8 +274,10 @@ mod tests {
                 (binary, binary_new)
             };
 
-            let mut doc = Doc::new_from_binary(binary.clone()).unwrap();
-            let mut doc_new = Doc::new_from_binary(binary_new.clone()).unwrap();
+            let mut doc =
+                Doc::new_from_binary_with_options(binary.clone(), options.clone()).unwrap();
+            let mut doc_new =
+                Doc::new_from_binary_with_options(binary_new.clone(), options.clone()).unwrap();
 
             let diff_update = doc_new
                 .encode_state_as_update_v1(&doc.get_state_vector())
@@ -259,9 +301,18 @@ mod tests {
 
     #[test]
     fn test_array_create() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+        let yrs_options = yrs::Options::with_guid_and_client_id(
+            options.guid.clone().unwrap().into(),
+            options.client.clone().unwrap(),
+        );
+
         loom_model!({
             let binary = {
-                let doc = Doc::with_client(0);
+                let doc = Doc::with_options(options.clone());
                 let mut array = doc.get_or_create_array("abc").unwrap();
                 array.insert(0, 42).unwrap();
                 array.insert(1, -42).unwrap();
@@ -282,7 +333,7 @@ mod tests {
             {
                 use yrs::{Doc, Update};
 
-                let ydoc = Doc::new();
+                let ydoc = Doc::with_options(yrs_options.clone());
                 let array = ydoc.get_or_insert_array("abc");
                 let mut trx = ydoc.transact_mut();
                 trx.apply_update(Update::decode_v1(&binary).unwrap());
