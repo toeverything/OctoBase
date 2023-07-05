@@ -10,7 +10,7 @@ pub use codec::{
 };
 pub use doc::{
     Any, Array, Awareness, AwarenessEvent, Client, Clock, Content, CrdtRead, CrdtReader, CrdtWrite,
-    CrdtWriter, Doc, Id, Item, Map, RawDecoder, RawEncoder, Text, Update,
+    CrdtWriter, Doc, DocOptions, Id, Item, Map, RawDecoder, RawEncoder, Text, Update,
 };
 pub use protocol::{
     read_sync_message, write_sync_message, AwarenessState, AwarenessStates, DocMessage,

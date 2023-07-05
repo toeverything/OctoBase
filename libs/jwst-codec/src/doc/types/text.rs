@@ -49,7 +49,7 @@ mod tests {
     use crate::{
         loom_model,
         sync::{thread, Arc, AtomicUsize, Ordering},
-        Doc,
+        Doc, DocOptions,
     };
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha20Rng;
