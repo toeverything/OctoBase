@@ -481,8 +481,7 @@ jobs:
                   cargo fuzz run decode_bytes -- -max_total_time=30
                   cargo fuzz run i64_decode -- -max_total_time=30
                   cargo fuzz run i64_encode -- -max_total_time=30
-                  # skip due to memory leak
-                  # cargo fuzz run ins_del_text -- -max_total_time=30
+                  cargo fuzz run ins_del_text -- -max_total_time=30
                   cargo fuzz run sync_message -- -max_total_time=30
                   cargo fuzz run u64_decode -- -max_total_time=30
                   cargo fuzz run u64_encode -- -max_total_time=30
