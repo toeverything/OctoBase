@@ -202,7 +202,16 @@ mod tests {
     #[test]
     fn test_marker_list() {
         loom_model!({
-            let (client_id, buffer) = {
+            let (client_id, buffer) = if cfg!(miri) {
+                let doc = Doc::with_client(1);
+                let mut array = doc.get_or_create_array("abc").unwrap();
+
+                array.insert(0, " ").unwrap();
+                array.insert(0, "Hello").unwrap();
+                array.insert(2, "World").unwrap();
+
+                (doc.client(), doc.encode_update_v1().unwrap())
+            } else {
                 let doc = yrs::Doc::with_client_id(1);
                 let array = doc.get_or_insert_array("abc");
 
@@ -210,6 +219,7 @@ mod tests {
                 array.insert(&mut trx, 0, " ").unwrap();
                 array.insert(&mut trx, 0, "Hello").unwrap();
                 array.insert(&mut trx, 2, "World").unwrap();
+
                 (doc.client_id(), trx.encode_update_v1().unwrap())
             };
 

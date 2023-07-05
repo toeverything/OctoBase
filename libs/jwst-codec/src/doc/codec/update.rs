@@ -409,7 +409,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(loom))]
+    #[cfg_attr(any(miri, loom), ignore)]
     fn test_parse_doc() {
         let docs = [
             (include_bytes!("../../fixtures/basic.bin").to_vec(), 1, 188),

@@ -430,6 +430,7 @@ mod tests {
     #[cfg(not(loom))]
     proptest! {
         #[test]
+        #[cfg_attr(miri, ignore)]
         fn test_random_struct_info(mut infos in vec(any::<StructInfo>(), 0..10)) {
             for info in &mut infos {
                 struct_info_round_trip(info).unwrap();

@@ -514,6 +514,7 @@ mod tests {
 
     proptest! {
         #[test]
+        #[cfg_attr(miri, ignore)]
         fn test_random_content(contents in vec(any::<Content>(), 0..10)) {
             for content in &contents {
                 content_round_trip(content).unwrap();

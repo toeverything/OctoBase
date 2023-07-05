@@ -218,6 +218,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_recover_from_yjs_encoder() {
         let binary = {
             let doc = yrs::Doc::with_client_id(1);

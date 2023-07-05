@@ -100,6 +100,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_ytext_equal() {
         loom_model!({
             let doc = yrs::Doc::new();
