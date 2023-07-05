@@ -454,6 +454,9 @@ jobs:
                   components: miri
             - uses: Swatinem/rust-cache@v2
 
+            - name: Install latest nextest release
+              uses: taiki-e/install-action@nextest
+
             - name: Miri Code Check
               run: |
                   cargo miri nextest run -p jwst-codec -j2
