@@ -450,6 +450,7 @@ jobs:
             - uses: actions/checkout@v3
             - uses: dtolnay/rust-toolchain@stable
               with:
+                  toolchain: nightly-2023-05-23
                   components: miri
             - uses: Swatinem/rust-cache@v2
 
@@ -468,7 +469,7 @@ jobs:
             - uses: actions/checkout@v3
             - uses: dtolnay/rust-toolchain@master
               with:
-                  toolchain: nightly-2023-03-08
+                  toolchain: nightly-2023-05-23
             - uses: Swatinem/rust-cache@v2
 
             - name: fuzzing
