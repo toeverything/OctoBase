@@ -233,11 +233,22 @@ mod tests {
 
     #[test]
     fn test_encode_state_as_update() {
-        let options = DocOptions {
+        let options_left = DocOptions {
             client: Some(rand::random()),
             guid: Some(nanoid::nanoid!()),
         };
-        let yrs_options = Options {
+        let options_right = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
+        let yrs_options_left = Options {
+            client_id: rand::random(),
+            guid: nanoid::nanoid!().into(),
+            ..Default::default()
+        };
+
+        let yrs_options_right = Options {
             client_id: rand::random(),
             guid: nanoid::nanoid!().into(),
             ..Default::default()
@@ -245,27 +256,27 @@ mod tests {
 
         loom_model!({
             let (binary, binary_new) = if cfg!(miri) {
-                let doc = Doc::with_options(options.clone());
+                let doc = Doc::with_options(options_left.clone());
 
                 let mut map = doc.get_or_create_map("abc").unwrap();
                 map.insert("a", 1).unwrap();
                 let binary = doc.encode_update_v1().unwrap();
 
-                let doc_new = Doc::with_options(options.clone());
+                let doc_new = Doc::with_options(options_right.clone());
                 let mut array = doc_new.get_or_create_array("array").unwrap();
                 array.insert(0, "array_value").unwrap();
                 let binary_new = doc.encode_update_v1().unwrap();
 
                 (binary, binary_new)
             } else {
-                let yrs_doc = yrs::Doc::with_options(yrs_options.clone());
+                let yrs_doc = yrs::Doc::with_options(yrs_options_left.clone());
 
                 let map = yrs_doc.get_or_insert_map("abc");
                 let mut trx = yrs_doc.transact_mut();
                 map.insert(&mut trx, "a", 1).unwrap();
                 let binary = trx.encode_update_v1().unwrap();
 
-                let yrs_doc_new = yrs::Doc::with_options(yrs_options.clone());
+                let yrs_doc_new = yrs::Doc::with_options(yrs_options_right.clone());
                 let array = yrs_doc_new.get_or_insert_array("array");
                 let mut trx = yrs_doc_new.transact_mut();
                 array.insert(&mut trx, 0, "array_value").unwrap();
@@ -275,9 +286,10 @@ mod tests {
             };
 
             let mut doc =
-                Doc::new_from_binary_with_options(binary.clone(), options.clone()).unwrap();
+                Doc::new_from_binary_with_options(binary.clone(), options_left.clone()).unwrap();
             let mut doc_new =
-                Doc::new_from_binary_with_options(binary_new.clone(), options.clone()).unwrap();
+                Doc::new_from_binary_with_options(binary_new.clone(), options_right.clone())
+                    .unwrap();
 
             let diff_update = doc_new
                 .encode_state_as_update_v1(&doc.get_state_vector())

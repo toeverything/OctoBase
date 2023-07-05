@@ -53,7 +53,7 @@ mod tests {
     };
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha20Rng;
-    use yrs::{Text, Transact};
+    use yrs::{Options, Text, Transact};
 
     #[test]
     fn test_manipulate_text() {
@@ -81,7 +81,10 @@ mod tests {
         });
     }
 
-    fn parallel_insert_text_with_seed(seed: u64, iteration: i32, thread: i32) {
+    #[test]
+    #[cfg(not(loom))]
+    fn test_parallel_insert_text() {
+        let seed = rand::thread_rng().gen();
         let rand = ChaCha20Rng::seed_from_u64(seed);
         let mut handles = Vec::new();
 
@@ -89,26 +92,22 @@ mod tests {
         let mut text = doc.get_or_create_text("test").unwrap();
         text.insert(0, "This is a string with length 32.").unwrap();
 
-        #[cfg(not(loom))]
         let added_len = Arc::new(AtomicUsize::new(32));
 
         // parallel editing text
         {
-            for i in 0..thread {
+            for i in 0..2 {
                 let mut text = text.clone();
                 let mut rand = rand.clone();
-
-                #[cfg(not(loom))]
                 let len = added_len.clone();
 
                 handles.push(thread::spawn(move || {
-                    for j in 0..iteration {
+                    for j in 0..10 {
                         let pos = rand.gen_range(0..text.len());
                         let string = format!("hello {}", i * j);
 
                         text.insert(pos, &string).unwrap();
 
-                        #[cfg(not(loom))]
                         len.fetch_add(string.len(), Ordering::SeqCst);
                     }
                 }));
@@ -117,22 +116,19 @@ mod tests {
 
         // parallel editing doc
         {
-            for i in 0..thread {
+            for i in 0..2 {
                 let doc = doc.clone();
                 let mut rand = rand.clone();
-
-                #[cfg(not(loom))]
                 let len = added_len.clone();
 
                 handles.push(thread::spawn(move || {
                     let mut text = doc.get_or_create_text("test").unwrap();
-                    for j in 0..iteration {
+                    for j in 0..10 {
                         let pos = rand.gen_range(0..text.len());
                         let string = format!("hello doc{}", i * j);
 
                         text.insert(pos, &string).unwrap();
 
-                        #[cfg(not(loom))]
                         len.fetch_add(string.len(), Ordering::SeqCst);
                     }
                 }));
@@ -143,23 +139,8 @@ mod tests {
             handle.join().unwrap();
         }
 
-        #[cfg(not(loom))]
-        {
-            assert_eq!(text.to_string().len(), added_len.load(Ordering::SeqCst));
-            assert_eq!(text.len(), added_len.load(Ordering::SeqCst) as u64);
-        }
-    }
-
-    #[test]
-    fn test_parallel_insert_text() {
-        let seed = rand::thread_rng().gen();
-        loom_model!({
-            if cfg!(loom) {
-                parallel_insert_text_with_seed(seed, 2, 1);
-            } else {
-                parallel_insert_text_with_seed(rand::thread_rng().gen(), 10, 2);
-            }
-        });
+        assert_eq!(text.to_string().len(), added_len.load(Ordering::SeqCst));
+        assert_eq!(text.len(), added_len.load(Ordering::SeqCst) as u64);
     }
 
     fn parallel_ins_del_text(seed: u64, thread: i32, iteration: i32) {
@@ -169,17 +150,14 @@ mod tests {
         text.insert(0, "This is a string with length 32.").unwrap();
 
         let mut handles = Vec::new();
-        #[cfg(not(loom))]
         let len = Arc::new(AtomicUsize::new(32));
 
         for i in 0..thread {
-            #[cfg(not(loom))]
             let len = len.clone();
             let mut rand = rand.clone();
             let text = text.clone();
             handles.push(thread::spawn(move || {
                 for j in 0..iteration {
-                    #[cfg(not(loom))]
                     let len = len.clone();
                     let mut text = text.clone();
                     let ins = i % 2 == 0;
@@ -188,11 +166,11 @@ mod tests {
                     if ins {
                         let str = format!("hello {}", i * j);
                         text.insert(pos, &str).unwrap();
-                        #[cfg(not(loom))]
+
                         len.fetch_add(str.len(), Ordering::SeqCst);
                     } else {
                         text.remove(pos, 6).unwrap();
-                        #[cfg(not(loom))]
+
                         len.fetch_sub(6, Ordering::SeqCst);
                     }
                 }
@@ -203,30 +181,66 @@ mod tests {
             handle.join().unwrap();
         }
 
-        #[cfg(not(loom))]
-        {
-            assert_eq!(text.to_string().len(), len.load(Ordering::SeqCst));
-            assert_eq!(text.len(), len.load(Ordering::SeqCst) as u64);
-        }
+        assert_eq!(text.to_string().len(), len.load(Ordering::SeqCst));
+        assert_eq!(text.len(), len.load(Ordering::SeqCst) as u64);
     }
 
     #[test]
+    #[cfg(not(loom))]
     fn test_parallel_ins_del_text() {
         // cases that ever broken
         // wrong left/right ref
+        parallel_ins_del_text(973078538, 2, 2);
+        parallel_ins_del_text(18414938500869652479, 2, 2);
+    }
+
+    #[test]
+    fn loom_parallel_ins_del_text() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
+        let seed = rand::thread_rng().gen();
+        let mut rand = ChaCha20Rng::seed_from_u64(seed);
+        let ranges = (0..20).map(|_| rand.gen_range(0..16)).collect::<Vec<_>>();
+
         loom_model!({
-            parallel_ins_del_text(973078538, 2, 2);
-        });
-        loom_model!({
-            parallel_ins_del_text(18414938500869652479, 2, 2);
+            let doc = Doc::with_options(options.clone());
+            let mut text = doc.get_or_create_text("test").unwrap();
+            text.insert(0, "This is a string with length 32.").unwrap();
+
+            for i in 0..2 {
+                let text = text.clone();
+                let ranges = ranges.clone();
+                thread::spawn(move || {
+                    for j in 0..5 {
+                        let mut text = text.clone();
+                        let ins = i % 2 == 0;
+                        let pos = ranges[i * j];
+
+                        if ins {
+                            let str = format!("hello {}", i * j);
+                            text.insert(pos, &str).unwrap();
+                        } else {
+                            text.remove(pos, 6).unwrap();
+                        }
+                    }
+                });
+            }
         });
     }
 
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_recover_from_yjs_encoder() {
+        let yrs_options = Options {
+            client_id: rand::random(),
+            guid: nanoid::nanoid!().into(),
+            ..Default::default()
+        };
         let binary = {
-            let doc = yrs::Doc::with_client_id(1);
+            let doc = yrs::Doc::with_options(yrs_options.clone());
             let text = doc.get_or_insert_text("greating");
             let mut trx = doc.transact_mut();
             text.insert(&mut trx, 0, "hello").unwrap();
@@ -236,9 +250,14 @@ mod tests {
             trx.encode_update_v1().unwrap()
         };
 
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
         loom_model!({
             let binary = binary.clone();
-            let doc = Doc::new_from_binary(binary).unwrap();
+            let doc = Doc::new_from_binary_with_options(binary, options.clone()).unwrap();
             let mut text = doc.get_or_create_text("greating").unwrap();
 
             assert_eq!(text.to_string(), "hello world");
@@ -251,9 +270,14 @@ mod tests {
 
     #[test]
     fn test_recover_from_octobase_encoder() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
         loom_model!({
             let binary = {
-                let doc = Doc::with_client(1);
+                let doc = Doc::with_options(options.clone());
                 let mut text = doc.get_or_create_text("greating").unwrap();
                 text.insert(0, "hello").unwrap();
                 text.insert(5, " world!").unwrap();
@@ -263,7 +287,7 @@ mod tests {
             };
 
             let binary = binary.clone();
-            let doc = Doc::new_from_binary(binary).unwrap();
+            let doc = Doc::new_from_binary_with_options(binary, options.clone()).unwrap();
             let mut text = doc.get_or_create_text("greating").unwrap();
 
             assert_eq!(text.to_string(), "hello world");
