@@ -339,6 +339,7 @@ mod tests {
 
     proptest! {
         #[test]
+        #[cfg_attr(miri, ignore)]
         fn test_random_any(any in vec(any::<Any>(), 0..100)) {
             for any in &any {
                 let mut encoder = RawEncoder::default();

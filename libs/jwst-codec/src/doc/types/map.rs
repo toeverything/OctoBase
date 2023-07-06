@@ -1,9 +1,5 @@
-use crate::{
-    doc::{AsInner, ItemRef, Parent, StructInfo, YTypeRef},
-    impl_type,
-    sync::Arc,
-    Content, Item, JwstCodecResult,
-};
+use super::*;
+use crate::sync::Arc;
 use std::collections::HashMap;
 
 impl_type!(Map);
@@ -152,86 +148,114 @@ impl Map {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Any, Content, Doc};
+    use crate::{loom_model, Any, Content, Doc};
 
     #[test]
     fn test_map_basic() {
-        let doc = Doc::default();
-        let mut map = doc.get_or_create_map("map").unwrap();
-        map.insert("1", "value").unwrap();
-        assert_eq!(
-            map.get("1"),
-            Some(&Content::Any(vec![Any::String("value".to_string())]))
-        );
-        assert!(!map.contains_key("nonexistent_key"));
-        assert_eq!(map.len(), 1);
-        assert!(map.contains_key("1"));
-        map.remove("1");
-        assert!(!map.contains_key("1"));
-        assert_eq!(map.len(), 0);
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
+        loom_model!({
+            let doc = Doc::with_options(options.clone());
+            let mut map = doc.get_or_create_map("map").unwrap();
+            map.insert("1", "value").unwrap();
+            assert_eq!(
+                map.get("1"),
+                Some(&Content::Any(vec![Any::String("value".to_string())]))
+            );
+            assert!(!map.contains_key("nonexistent_key"));
+            assert_eq!(map.len(), 1);
+            assert!(map.contains_key("1"));
+            map.remove("1");
+            assert!(!map.contains_key("1"));
+            assert_eq!(map.len(), 0);
+        });
     }
 
     #[test]
     fn test_map_equal() {
-        let doc = Doc::default();
-        let mut map = doc.get_or_create_map("map").unwrap();
-        map.insert("1", "value").unwrap();
-        map.insert("2", false).unwrap();
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
 
-        let binary = doc.encode_update_v1().unwrap();
-        let new_doc = Doc::new_from_binary(binary).unwrap();
-        let map = new_doc.get_or_create_map("map").unwrap();
-        assert_eq!(
-            map.get("1"),
-            Some(&Content::Any(vec![Any::String("value".to_string())]))
-        );
-        assert_eq!(map.get("2"), Some(&Content::Any(vec![Any::False])));
-        assert_eq!(map.len(), 2);
+        loom_model!({
+            let doc = Doc::with_options(options.clone());
+            let mut map = doc.get_or_create_map("map").unwrap();
+            map.insert("1", "value").unwrap();
+            map.insert("2", false).unwrap();
+
+            let binary = doc.encode_update_v1().unwrap();
+            let new_doc = Doc::new_from_binary_with_options(binary, options.clone()).unwrap();
+            let map = new_doc.get_or_create_map("map").unwrap();
+            assert_eq!(
+                map.get("1"),
+                Some(&Content::Any(vec![Any::String("value".to_string())]))
+            );
+            assert_eq!(map.get("2"), Some(&Content::Any(vec![Any::False])));
+            assert_eq!(map.len(), 2);
+        });
     }
 
     #[test]
     fn test_map_iter() {
-        let doc = Doc::default();
-        let mut map = doc.get_or_create_map("map").unwrap();
-        map.insert("1", "value1").unwrap();
-        map.insert("2", "value2").unwrap();
-        let iter = map.iter();
-        assert_eq!(iter.count(), 2);
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
 
-        let iter = map.iter();
-        let mut vec: Vec<_> = iter.collect();
-        vec.sort_by(|a, b| a.id.cmp(&b.id));
-        assert_eq!(
-            vec[0].content,
-            Arc::new(Content::Any(vec![Any::String("value1".to_string())]))
-        );
-        assert_eq!(
-            vec[1].content,
-            Arc::new(Content::Any(vec![Any::String("value2".to_string())]))
-        );
+        loom_model!({
+            let doc = Doc::with_options(options.clone());
+            let mut map = doc.get_or_create_map("map").unwrap();
+            map.insert("1", "value1").unwrap();
+            map.insert("2", "value2").unwrap();
+            let iter = map.iter();
+            assert_eq!(iter.count(), 2);
+
+            let iter = map.iter();
+            let mut vec: Vec<_> = iter.collect();
+            vec.sort_by(|a, b| a.id.cmp(&b.id));
+            assert_eq!(
+                vec[0].content,
+                Arc::new(Content::Any(vec![Any::String("value1".to_string())]))
+            );
+            assert_eq!(
+                vec[1].content,
+                Arc::new(Content::Any(vec![Any::String("value2".to_string())]))
+            );
+        });
     }
 
     #[test]
     fn test_map_re_encode() {
-        let binary = {
-            let doc = Doc::default();
-            let mut map = doc.get_or_create_map("map").unwrap();
-            map.insert("1", "value1").unwrap();
-            map.insert("2", "value2").unwrap();
-            doc.encode_update_v1().unwrap()
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
         };
 
-        {
-            let doc = Doc::new_from_binary(binary).unwrap();
-            let map = doc.get_or_create_map("map").unwrap();
-            assert_eq!(
-                map.get("1"),
-                Some(&Content::Any(vec![Any::String("value1".to_string())]))
-            );
-            assert_eq!(
-                map.get("2"),
-                Some(&Content::Any(vec![Any::String("value2".to_string())]))
-            );
-        }
+        loom_model!({
+            let binary = {
+                let doc = Doc::with_options(options.clone());
+                let mut map = doc.get_or_create_map("map").unwrap();
+                map.insert("1", "value1").unwrap();
+                map.insert("2", "value2").unwrap();
+                doc.encode_update_v1().unwrap()
+            };
+
+            {
+                let doc = Doc::new_from_binary_with_options(binary, options.clone()).unwrap();
+                let map = doc.get_or_create_map("map").unwrap();
+                assert_eq!(
+                    map.get("1"),
+                    Some(&Content::Any(vec![Any::String("value1".to_string())]))
+                );
+                assert_eq!(
+                    map.get("2"),
+                    Some(&Content::Any(vec![Any::String("value2".to_string())]))
+                );
+            }
+        });
     }
 }

@@ -422,46 +422,48 @@ mod tests {
 
     #[test]
     fn test_content() {
-        let contents = [
-            Content::Deleted(42),
-            Content::JSON(vec![
-                None,
-                Some("test_1".to_string()),
-                Some("test_2".to_string()),
-            ]),
-            Content::Binary(vec![1, 2, 3]),
-            Content::String("hello".to_string()),
-            Content::Embed(JsonValue::Bool(true)),
-            Content::Format {
-                key: "key".to_string(),
-                value: JsonValue::Number(42.into()),
-            },
-            Content::Type(Arc::new(RwLock::new(YType::new(YTypeKind::Array, None)))),
-            Content::Type(Arc::new(RwLock::new(YType::new(YTypeKind::Map, None)))),
-            Content::Type(Arc::new(RwLock::new(YType::new(YTypeKind::Text, None)))),
-            Content::Type(Arc::new(RwLock::new(YType::new(
-                YTypeKind::XMLElement,
-                Some("test".to_string()),
-            )))),
-            Content::Type(Arc::new(RwLock::new(YType::new(
-                YTypeKind::XMLFragment,
-                None,
-            )))),
-            Content::Type(Arc::new(RwLock::new(YType::new(
-                YTypeKind::XMLHook,
-                Some("test".to_string()),
-            )))),
-            Content::Type(Arc::new(RwLock::new(YType::new(YTypeKind::XMLText, None)))),
-            Content::Any(vec![Any::BigInt64(42), Any::String("Test Any".to_string())]),
-            Content::Doc {
-                guid: "my_guid".to_string(),
-                opts: vec![Any::BigInt64(42), Any::String("Test Doc".to_string())],
-            },
-        ];
+        loom_model!({
+            let contents = [
+                Content::Deleted(42),
+                Content::JSON(vec![
+                    None,
+                    Some("test_1".to_string()),
+                    Some("test_2".to_string()),
+                ]),
+                Content::Binary(vec![1, 2, 3]),
+                Content::String("hello".to_string()),
+                Content::Embed(JsonValue::Bool(true)),
+                Content::Format {
+                    key: "key".to_string(),
+                    value: JsonValue::Number(42.into()),
+                },
+                Content::Type(Arc::new(RwLock::new(YType::new(YTypeKind::Array, None)))),
+                Content::Type(Arc::new(RwLock::new(YType::new(YTypeKind::Map, None)))),
+                Content::Type(Arc::new(RwLock::new(YType::new(YTypeKind::Text, None)))),
+                Content::Type(Arc::new(RwLock::new(YType::new(
+                    YTypeKind::XMLElement,
+                    Some("test".to_string()),
+                )))),
+                Content::Type(Arc::new(RwLock::new(YType::new(
+                    YTypeKind::XMLFragment,
+                    None,
+                )))),
+                Content::Type(Arc::new(RwLock::new(YType::new(
+                    YTypeKind::XMLHook,
+                    Some("test".to_string()),
+                )))),
+                Content::Type(Arc::new(RwLock::new(YType::new(YTypeKind::XMLText, None)))),
+                Content::Any(vec![Any::BigInt64(42), Any::String("Test Any".to_string())]),
+                Content::Doc {
+                    guid: "my_guid".to_string(),
+                    opts: vec![Any::BigInt64(42), Any::String("Test Doc".to_string())],
+                },
+            ];
 
-        for content in &contents {
-            content_round_trip(content).unwrap();
-        }
+            for content in &contents {
+                content_round_trip(content).unwrap();
+            }
+        });
     }
 
     #[test]
@@ -512,6 +514,7 @@ mod tests {
 
     proptest! {
         #[test]
+        #[cfg_attr(miri, ignore)]
         fn test_random_content(contents in vec(any::<Content>(), 0..10)) {
             for content in &contents {
                 content_round_trip(content).unwrap();

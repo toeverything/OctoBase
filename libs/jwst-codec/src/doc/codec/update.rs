@@ -391,8 +391,9 @@ mod tests {
     use crate::doc::common::OrderRange;
 
     use super::*;
+    use crate::sync::Arc;
     use serde::Deserialize;
-    use std::{num::ParseIntError, path::PathBuf, sync::Arc};
+    use std::{num::ParseIntError, path::PathBuf};
 
     fn struct_item(id: (Client, Clock), len: usize) -> StructInfo {
         StructInfo::Item(Arc::new(
@@ -408,6 +409,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(any(miri, loom), ignore)]
     fn test_parse_doc() {
         let docs = [
             (include_bytes!("../../fixtures/basic.bin").to_vec(), 1, 188),
@@ -484,67 +486,71 @@ mod tests {
 
     #[test]
     fn test_update_iterator() {
-        let mut update = Update {
-            structs: HashMap::from([
-                (
-                    0,
-                    VecDeque::from([
-                        struct_item((0, 0), 1),
-                        struct_item((0, 1), 1),
-                        StructInfo::Skip {
-                            id: (0, 2).into(),
-                            len: 1,
-                        },
-                    ]),
-                ),
-                (
-                    1,
-                    VecDeque::from([
-                        struct_item((1, 0), 1),
-                        StructInfo::Item(Arc::new(
-                            ItemBuilder::new()
-                                .id((1, 1).into())
-                                .left_id(Some((0, 1).into()))
-                                .content(Content::String("c".repeat(2)))
-                                .build(),
-                        )),
-                    ]),
-                ),
-            ]),
-            ..Update::default()
-        };
+        loom_model!({
+            let mut update = Update {
+                structs: HashMap::from([
+                    (
+                        0,
+                        VecDeque::from([
+                            struct_item((0, 0), 1),
+                            struct_item((0, 1), 1),
+                            StructInfo::Skip {
+                                id: (0, 2).into(),
+                                len: 1,
+                            },
+                        ]),
+                    ),
+                    (
+                        1,
+                        VecDeque::from([
+                            struct_item((1, 0), 1),
+                            StructInfo::Item(Arc::new(
+                                ItemBuilder::new()
+                                    .id((1, 1).into())
+                                    .left_id(Some((0, 1).into()))
+                                    .content(Content::String("c".repeat(2)))
+                                    .build(),
+                            )),
+                        ]),
+                    ),
+                ]),
+                ..Update::default()
+            };
 
-        let mut iter = update.iter(StateVector::default());
-        assert_eq!(iter.next().unwrap().0.id(), (1, 0).into());
-        assert_eq!(iter.next().unwrap().0.id(), (0, 0).into());
-        assert_eq!(iter.next().unwrap().0.id(), (0, 1).into());
-        assert_eq!(iter.next().unwrap().0.id(), (1, 1).into());
-        assert_eq!(iter.next(), None);
+            let mut iter = update.iter(StateVector::default());
+            assert_eq!(iter.next().unwrap().0.id(), (1, 0).into());
+            assert_eq!(iter.next().unwrap().0.id(), (0, 0).into());
+            assert_eq!(iter.next().unwrap().0.id(), (0, 1).into());
+            assert_eq!(iter.next().unwrap().0.id(), (1, 1).into());
+            assert_eq!(iter.next(), None);
+        });
     }
 
     #[test]
     fn test_update_iterator_with_missing_state() {
-        let mut update = Update {
-            // an item with higher sequence id than local state
-            structs: HashMap::from([(0, VecDeque::from([struct_item((0, 4), 1)]))]),
-            ..Update::default()
-        };
+        loom_model!({
+            let mut update = Update {
+                // an item with higher sequence id than local state
+                structs: HashMap::from([(0, VecDeque::from([struct_item((0, 4), 1)]))]),
+                ..Update::default()
+            };
 
-        let mut iter = update.iter(StateVector::from([(0, 3)]));
-        assert_eq!(iter.next(), None);
-        assert!(!update.pending_structs.is_empty());
-        assert_eq!(
-            update
-                .pending_structs
-                .get_mut(&0)
-                .unwrap()
-                .pop_front()
-                .unwrap()
-                .id(),
-            (0, 4).into()
-        );
-        assert!(!update.missing_state.is_empty());
-        assert_eq!(update.missing_state.get(&0), 3);
+            let mut iter = update.iter(StateVector::from([(0, 3)]));
+            assert_eq!(iter.next(), None);
+            assert!(!update.pending_structs.is_empty());
+            assert_eq!(
+                update
+                    .pending_structs
+                    .get_mut(&0)
+                    .unwrap()
+                    .pop_front()
+                    .unwrap()
+                    .id(),
+                (0, 4).into()
+            );
+            assert!(!update.missing_state.is_empty());
+            assert_eq!(update.missing_state.get(&0), 3);
+        });
     }
 
     #[test]

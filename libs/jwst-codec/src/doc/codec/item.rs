@@ -486,8 +486,10 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(not(loom))]
     proptest! {
         #[test]
+        #[cfg_attr(miri, ignore)]
         fn test_random_content(mut items in vec(any::<Item>(), 0..10)) {
             for item in &mut items {
                 item_round_trip(item).unwrap();

@@ -1,5 +1,6 @@
 use super::*;
-use std::{cmp::max, collections::hash_map::Entry, sync::Arc};
+use crate::sync::Arc;
+use std::{cmp::max, collections::hash_map::Entry};
 
 pub struct Awareness {
     awareness: AwarenessStates,
@@ -156,91 +157,93 @@ mod tests {
 
     #[test]
     fn test_awareness() {
-        let mut awareness = Awareness::new(0);
+        loom_model!({
+            let mut awareness = Awareness::new(0);
 
-        {
-            // init state
-            assert_eq!(awareness.local_id, 0);
-            assert_eq!(awareness.awareness.len(), 0);
-        }
+            {
+                // init state
+                assert_eq!(awareness.local_id, 0);
+                assert_eq!(awareness.awareness.len(), 0);
+            }
 
-        {
-            // local state
-            awareness.set_local_state("test".to_string());
-            assert_eq!(awareness.get_local_state(), Some("test".to_string()));
-            awareness.clear_local_state();
-            assert_eq!(awareness.get_local_state(), Some("null".to_string()));
-        }
+            {
+                // local state
+                awareness.set_local_state("test".to_string());
+                assert_eq!(awareness.get_local_state(), Some("test".to_string()));
+                awareness.clear_local_state();
+                assert_eq!(awareness.get_local_state(), Some("null".to_string()));
+            }
 
-        {
-            // apply remote update
-            let mut states = AwarenessStates::new();
-            states.insert(0, AwarenessState::new(2, "test0".to_string()));
-            states.insert(1, AwarenessState::new(2, "test1".to_string()));
-            awareness.apply_update(states);
-            assert_eq!(awareness.get_states().contains_key(&1), true);
+            {
+                // apply remote update
+                let mut states = AwarenessStates::new();
+                states.insert(0, AwarenessState::new(2, "test0".to_string()));
+                states.insert(1, AwarenessState::new(2, "test1".to_string()));
+                awareness.apply_update(states);
+                assert_eq!(awareness.get_states().contains_key(&1), true);
 
-            // local state will not apply
-            assert_eq!(
-                awareness.get_states().get(&0).unwrap().content,
-                "null".to_string()
-            );
-            assert_eq!(
-                awareness.get_states().get(&1).unwrap().content,
-                "test1".to_string()
-            );
-        }
+                // local state will not apply
+                assert_eq!(
+                    awareness.get_states().get(&0).unwrap().content,
+                    "null".to_string()
+                );
+                assert_eq!(
+                    awareness.get_states().get(&1).unwrap().content,
+                    "test1".to_string()
+                );
+            }
 
-        {
-            // callback
-            let values: Arc<Mutex<Vec<AwarenessEvent>>> = Arc::new(Mutex::new(Vec::new()));
-            let callback_values = Arc::clone(&values);
-            awareness.on_update(move |_, event| {
-                let mut values = callback_values.lock().unwrap();
-                values.push(event);
-            });
+            {
+                // callback
+                let values: Arc<Mutex<Vec<AwarenessEvent>>> = Arc::new(Mutex::new(Vec::new()));
+                let callback_values = Arc::clone(&values);
+                awareness.on_update(move |_, event| {
+                    let mut values = callback_values.lock().unwrap();
+                    values.push(event);
+                });
 
-            let mut new_states = AwarenessStates::new();
-            // exists in local awareness: update
-            new_states.insert(1, AwarenessState::new(3, "test update".to_string()));
-            // not exists in local awareness: add
-            new_states.insert(2, AwarenessState::new(1, "test update".to_string()));
-            // not exists in local awareness: add
-            new_states.insert(3, AwarenessState::new(1, "null".to_string()));
-            // not exists in local awareness: add
-            new_states.insert(4, AwarenessState::new(1, "test update".to_string()));
-            awareness.apply_update(new_states);
+                let mut new_states = AwarenessStates::new();
+                // exists in local awareness: update
+                new_states.insert(1, AwarenessState::new(3, "test update".to_string()));
+                // not exists in local awareness: add
+                new_states.insert(2, AwarenessState::new(1, "test update".to_string()));
+                // not exists in local awareness: add
+                new_states.insert(3, AwarenessState::new(1, "null".to_string()));
+                // not exists in local awareness: add
+                new_states.insert(4, AwarenessState::new(1, "test update".to_string()));
+                awareness.apply_update(new_states);
 
-            let mut new_states = AwarenessStates::new();
-            // exists in local awareness: delete
-            new_states.insert(4, AwarenessState::new(2, "null".to_string()));
-            awareness.apply_update(new_states);
+                let mut new_states = AwarenessStates::new();
+                // exists in local awareness: delete
+                new_states.insert(4, AwarenessState::new(2, "null".to_string()));
+                awareness.apply_update(new_states);
 
-            awareness.set_local_state("test".to_string());
-            awareness.clear_local_state();
+                awareness.set_local_state("test".to_string());
+                awareness.clear_local_state();
 
-            let values: MutexGuard<Vec<AwarenessEvent>> = values.lock().unwrap();
-            assert_eq!(values.len(), 4);
-            let event = values.get(0).unwrap();
+                let values: MutexGuard<Vec<AwarenessEvent>> = values.lock().unwrap();
+                assert_eq!(values.len(), 4);
+                let event = values.get(0).unwrap();
 
-            let mut added = event.added.clone();
-            added.sort();
-            assert_eq!(added, [2, 3, 4]);
-            assert_eq!(event.updated, [1]);
+                let mut added = event.added.clone();
+                added.sort();
+                assert_eq!(added, [2, 3, 4]);
+                assert_eq!(event.updated, [1]);
 
-            assert_eq!(
-                event.get_updated(&awareness.get_states()).get(&1).unwrap(),
-                &AwarenessState::new(3, "test update".to_string())
-            );
+                assert_eq!(
+                    event.get_updated(&awareness.get_states()).get(&1).unwrap(),
+                    &AwarenessState::new(3, "test update".to_string())
+                );
 
-            let event = values.get(1).unwrap();
-            assert_eq!(event.removed, [4]);
+                let event = values.get(1).unwrap();
+                assert_eq!(event.removed, [4]);
 
-            let event = values.get(2).unwrap();
-            assert_eq!(event.updated, [0]);
+                let event = values.get(2).unwrap();
+                assert_eq!(event.updated, [0]);
 
-            let event = values.get(3).unwrap();
-            assert_eq!(event.removed, [0]);
-        }
+                let event = values.get(3).unwrap();
+                assert_eq!(event.removed, [0]);
+            }
+        });
     }
 }

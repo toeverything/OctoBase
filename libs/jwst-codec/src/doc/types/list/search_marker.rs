@@ -197,50 +197,79 @@ mod tests {
     use super::*;
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha20Rng;
-    use yrs::{Array, Transact};
+    use yrs::{Array, Options, Transact};
 
     #[test]
     fn test_marker_list() {
-        let (client_id, buffer) = {
-            let doc = yrs::Doc::with_client_id(1);
-            let array = doc.get_or_insert_array("abc");
-
-            let mut trx = doc.transact_mut();
-            array.insert(&mut trx, 0, " ").unwrap();
-            array.insert(&mut trx, 0, "Hello").unwrap();
-            array.insert(&mut trx, 2, "World").unwrap();
-            (doc.client_id(), trx.encode_update_v1().unwrap())
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+        let yrs_options = Options {
+            client_id: rand::random(),
+            guid: nanoid::nanoid!().into(),
+            ..Default::default()
         };
 
-        let mut decoder = RawDecoder::new(buffer);
-        let update = Update::read(&mut decoder).unwrap();
+        loom_model!({
+            let (client_id, buffer) = if cfg!(miri) {
+                let doc = Doc::with_options(options.clone());
+                let mut array = doc.get_or_create_array("abc").unwrap();
 
-        let mut doc = Doc::default();
-        doc.apply_update(update).unwrap();
-        let array = doc.get_or_create_array("abc").unwrap();
+                array.insert(0, " ").unwrap();
+                array.insert(0, "Hello").unwrap();
+                array.insert(2, "World").unwrap();
 
-        let marker_list = MarkerList::new();
+                (doc.client(), doc.encode_update_v1().unwrap())
+            } else {
+                let doc = yrs::Doc::with_options(yrs_options.clone());
+                let array = doc.get_or_insert_array("abc");
 
-        let marker = marker_list.find_marker(&array.read(), 8).unwrap();
+                let mut trx = doc.transact_mut();
+                array.insert(&mut trx, 0, " ").unwrap();
+                array.insert(&mut trx, 0, "Hello").unwrap();
+                array.insert(&mut trx, 2, "World").unwrap();
 
-        assert_eq!(marker.index, 2);
-        assert_eq!(
-            marker.ptr.upgrade().unwrap(),
-            doc.store
-                .read()
-                .unwrap()
-                .get_item(Id::new(client_id, 2))
-                .unwrap()
-        );
+                (doc.client_id(), trx.encode_update_v1().unwrap())
+            };
+
+            let mut decoder = RawDecoder::new(buffer);
+            let update = Update::read(&mut decoder).unwrap();
+
+            let mut doc = Doc::with_options(options.clone());
+            doc.apply_update(update).unwrap();
+            let array = doc.get_or_create_array("abc").unwrap();
+
+            let marker_list = MarkerList::new();
+
+            let marker = marker_list.find_marker(&array.read(), 8).unwrap();
+
+            assert_eq!(marker.index, 2);
+            assert_eq!(
+                marker.ptr.upgrade().unwrap(),
+                doc.store
+                    .read()
+                    .unwrap()
+                    .get_item(Id::new(client_id, 2))
+                    .unwrap()
+            );
+        });
     }
 
     #[test]
     fn test_search_marker_flaky() {
-        let doc = Doc::default();
-        let mut text = doc.get_or_create_text("test").unwrap();
-        text.insert(0, "0").unwrap();
-        text.insert(1, "1").unwrap();
-        text.insert(0, "0").unwrap();
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
+        loom_model!({
+            let doc = Doc::with_options(options.clone());
+            let mut text = doc.get_or_create_text("test").unwrap();
+            text.insert(0, "0").unwrap();
+            text.insert(1, "1").unwrap();
+            text.insert(0, "0").unwrap();
+        });
     }
 
     fn search_with_seed(seed: u64) {
@@ -265,6 +294,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(loom))]
     fn test_marker_list_with_seed() {
         search_with_seed(785590655803394607);
         search_with_seed(12958877733367615);

@@ -50,6 +50,7 @@ mod tests {
 
     proptest! {
         #[test]
+        #[cfg_attr(miri, ignore)]
         fn test_sync_message_scanner(messages in vec(any::<SyncMessage>(), 0..10)) {
             let mut buffer = Vec::new();
 

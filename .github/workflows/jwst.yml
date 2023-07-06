@@ -420,6 +420,46 @@ jobs:
                   # only check jwst-codec now, yrs has many memory leaks
                   cargo test -Zbuild-std --target x86_64-unknown-linux-gnu -p jwst-codec --lib
 
+    loom:
+        name: loom thread test
+        runs-on: ubuntu-latest
+        continue-on-error: true
+        env:
+            RUSTFLAGS: --cfg loom
+            RUST_BACKTRACE: full
+            CARGO_TERM_COLOR: always
+        steps:
+            - uses: actions/checkout@v3
+            - uses: dtolnay/rust-toolchain@stable
+            - uses: Swatinem/rust-cache@v2
+
+            - name: Loom Thread Test
+              run: |
+                  cargo test -p jwst-codec --lib
+
+    miri:
+        name: miri code check
+        runs-on: ubuntu-latest
+        continue-on-error: true
+        env:
+            RUST_BACKTRACE: full
+            CARGO_TERM_COLOR: always
+            MIRIFLAGS: -Zmiri-backtrace=full -Zmiri-tree-borrows
+        steps:
+            - uses: actions/checkout@v3
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  toolchain: nightly-2023-05-23
+                  components: miri
+            - uses: Swatinem/rust-cache@v2
+
+            - name: Install latest nextest release
+              uses: taiki-e/install-action@nextest
+
+            - name: Miri Code Check
+              run: |
+                  cargo miri nextest run -p jwst-codec -j2
+
     fuzzing:
         name: fuzzing
         runs-on: ubuntu-latest
@@ -431,7 +471,7 @@ jobs:
             - uses: actions/checkout@v3
             - uses: dtolnay/rust-toolchain@master
               with:
-                  toolchain: nightly-2023-03-08
+                  toolchain: nightly-2023-05-23
             - uses: Swatinem/rust-cache@v2
 
             - name: fuzzing
@@ -444,8 +484,7 @@ jobs:
                   cargo fuzz run decode_bytes -- -max_total_time=30
                   cargo fuzz run i64_decode -- -max_total_time=30
                   cargo fuzz run i64_encode -- -max_total_time=30
-                  # skip due to memory leak
-                  # cargo fuzz run ins_del_text -- -max_total_time=30
+                  cargo fuzz run ins_del_text -- -max_total_time=30
                   cargo fuzz run sync_message -- -max_total_time=30
                   cargo fuzz run u64_decode -- -max_total_time=30
                   cargo fuzz run u64_encode -- -max_total_time=30

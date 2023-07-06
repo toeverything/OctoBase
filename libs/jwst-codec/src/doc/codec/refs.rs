@@ -303,101 +303,105 @@ mod tests {
 
     #[test]
     fn test_struct_info() {
-        {
-            let struct_info = StructInfo::GC {
-                id: Id::new(1, 0),
-                len: 10,
-            };
-            assert_eq!(struct_info.len(), 10);
-            assert_eq!(struct_info.client(), 1);
-            assert_eq!(struct_info.clock(), 0);
-        }
+        loom_model!({
+            {
+                let struct_info = StructInfo::GC {
+                    id: Id::new(1, 0),
+                    len: 10,
+                };
+                assert_eq!(struct_info.len(), 10);
+                assert_eq!(struct_info.client(), 1);
+                assert_eq!(struct_info.clock(), 0);
+            }
 
-        {
-            let struct_info = StructInfo::Skip {
-                id: Id::new(2, 0),
-                len: 20,
-            };
-            assert_eq!(struct_info.len(), 20);
-            assert_eq!(struct_info.client(), 2);
-            assert_eq!(struct_info.clock(), 0);
-        }
+            {
+                let struct_info = StructInfo::Skip {
+                    id: Id::new(2, 0),
+                    len: 20,
+                };
+                assert_eq!(struct_info.len(), 20);
+                assert_eq!(struct_info.client(), 2);
+                assert_eq!(struct_info.clock(), 0);
+            }
 
-        {
-            let item = ItemBuilder::new()
-                .id((3, 0).into())
-                .left_id(None)
-                .right_id(None)
-                .parent(Some(Parent::String(String::from("parent"))))
-                .parent_sub(None)
-                .content(Content::String(String::from("content")))
-                .build();
-            let struct_info = StructInfo::Item(Arc::new(item));
+            {
+                let item = ItemBuilder::new()
+                    .id((3, 0).into())
+                    .left_id(None)
+                    .right_id(None)
+                    .parent(Some(Parent::String(String::from("parent"))))
+                    .parent_sub(None)
+                    .content(Content::String(String::from("content")))
+                    .build();
+                let struct_info = StructInfo::Item(Arc::new(item));
 
-            assert_eq!(struct_info.len(), 7);
-            assert_eq!(struct_info.client(), 3);
-            assert_eq!(struct_info.clock(), 0);
-        }
+                assert_eq!(struct_info.len(), 7);
+                assert_eq!(struct_info.client(), 3);
+                assert_eq!(struct_info.clock(), 0);
+            }
+        });
     }
 
     #[test]
     fn test_read_write_struct_info() {
-        let has_not_parent_id_and_has_parent = StructInfo::Item(Arc::new(
-            ItemBuilder::new()
-                .id((0, 0).into())
-                .left_id(None)
-                .right_id(None)
-                .parent(Some(Parent::String(String::from("parent"))))
-                .parent_sub(None)
-                .content(Content::String(String::from("content")))
-                .build(),
-        ));
+        loom_model!({
+            let has_not_parent_id_and_has_parent = StructInfo::Item(Arc::new(
+                ItemBuilder::new()
+                    .id((0, 0).into())
+                    .left_id(None)
+                    .right_id(None)
+                    .parent(Some(Parent::String(String::from("parent"))))
+                    .parent_sub(None)
+                    .content(Content::String(String::from("content")))
+                    .build(),
+            ));
 
-        let has_not_parent_id_and_has_parent_with_key = StructInfo::Item(Arc::new(
-            ItemBuilder::new()
-                .id((0, 0).into())
-                .left_id(None)
-                .right_id(None)
-                .parent(Some(Parent::String(String::from("parent"))))
-                .parent_sub(Some(String::from("parent_sub")))
-                .content(Content::String(String::from("content")))
-                .build(),
-        ));
+            let has_not_parent_id_and_has_parent_with_key = StructInfo::Item(Arc::new(
+                ItemBuilder::new()
+                    .id((0, 0).into())
+                    .left_id(None)
+                    .right_id(None)
+                    .parent(Some(Parent::String(String::from("parent"))))
+                    .parent_sub(Some(String::from("parent_sub")))
+                    .content(Content::String(String::from("content")))
+                    .build(),
+            ));
 
-        let has_parent_id = StructInfo::Item(Arc::new(
-            ItemBuilder::new()
-                .id((0, 0).into())
-                .left_id(Some((1, 2).into()))
-                .right_id(Some((2, 5).into()))
-                .parent(None)
-                .parent_sub(None)
-                .content(Content::String(String::from("content")))
-                .build(),
-        ));
+            let has_parent_id = StructInfo::Item(Arc::new(
+                ItemBuilder::new()
+                    .id((0, 0).into())
+                    .left_id(Some((1, 2).into()))
+                    .right_id(Some((2, 5).into()))
+                    .parent(None)
+                    .parent_sub(None)
+                    .content(Content::String(String::from("content")))
+                    .build(),
+            ));
 
-        let struct_infos = vec![
-            StructInfo::GC {
-                id: (0, 0).into(),
-                len: 42,
-            },
-            StructInfo::Skip {
-                id: (0, 0).into(),
-                len: 314,
-            },
-            has_not_parent_id_and_has_parent,
-            has_not_parent_id_and_has_parent_with_key,
-            has_parent_id,
-        ];
+            let struct_infos = vec![
+                StructInfo::GC {
+                    id: (0, 0).into(),
+                    len: 42,
+                },
+                StructInfo::Skip {
+                    id: (0, 0).into(),
+                    len: 314,
+                },
+                has_not_parent_id_and_has_parent,
+                has_not_parent_id_and_has_parent_with_key,
+                has_parent_id,
+            ];
 
-        for info in struct_infos {
-            let mut encoder = RawEncoder::default();
-            info.write(&mut encoder).unwrap();
+            for info in struct_infos {
+                let mut encoder = RawEncoder::default();
+                info.write(&mut encoder).unwrap();
 
-            let mut decoder = RawDecoder::new(encoder.into_inner());
-            let decoded = StructInfo::read(&mut decoder, info.id()).unwrap();
+                let mut decoder = RawDecoder::new(encoder.into_inner());
+                let decoded = StructInfo::read(&mut decoder, info.id()).unwrap();
 
-            assert_eq!(info, decoded);
-        }
+                assert_eq!(info, decoded);
+            }
+        });
     }
 
     fn struct_info_round_trip(info: &mut StructInfo) -> JwstCodecResult {
@@ -423,8 +427,10 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(not(loom))]
     proptest! {
         #[test]
+        #[cfg_attr(miri, ignore)]
         fn test_random_struct_info(mut infos in vec(any::<StructInfo>(), 0..10)) {
             for info in &mut infos {
                 struct_info_round_trip(info).unwrap();

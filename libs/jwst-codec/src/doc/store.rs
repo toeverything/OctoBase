@@ -1,9 +1,11 @@
 use super::*;
-use crate::{doc::StateVector, sync::RwLockWriteGuard};
+use crate::{
+    doc::StateVector,
+    sync::{Arc, RwLock, RwLockWriteGuard, Weak},
+};
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
     ops::Range,
-    sync::{Arc, RwLock, Weak},
 };
 
 #[derive(Default, Debug)]
@@ -692,13 +694,13 @@ mod tests {
 
     #[test]
     fn test_get_state() {
-        {
+        loom_model!({
             let doc_store = DocStore::new();
             let state = doc_store.get_state(1);
             assert_eq!(state, 0);
-        }
+        });
 
-        {
+        loom_model!({
             let doc_store = DocStore::new();
 
             let client_id = 1;
@@ -723,18 +725,18 @@ mod tests {
             assert_eq!(state, struct_info2.clock() + struct_info2.len());
 
             assert!(doc_store.self_check().is_ok());
-        }
+        });
     }
 
     #[test]
     fn test_get_state_vector() {
-        {
+        loom_model!({
             let doc_store = DocStore::new();
             let state_map = doc_store.get_state_vector();
             assert!(state_map.is_empty());
-        }
+        });
 
-        {
+        loom_model!({
             let doc_store = DocStore::new();
 
             let client1 = 1;
@@ -776,49 +778,51 @@ mod tests {
             );
 
             assert!(doc_store.self_check().is_ok());
-        }
+        });
     }
 
     #[test]
     fn test_add_item() {
-        let doc_store = DocStore::new();
+        loom_model!({
+            let doc_store = DocStore::new();
 
-        let struct_info1 = StructInfo::GC {
-            id: Id::new(1, 0),
-            len: 5,
-        };
-        let struct_info2 = StructInfo::Skip {
-            id: Id::new(1, 5),
-            len: 1,
-        };
-        let struct_info3_err = StructInfo::Skip {
-            id: Id::new(1, 5),
-            len: 1,
-        };
-        let struct_info3 = StructInfo::Skip {
-            id: Id::new(1, 6),
-            len: 1,
-        };
+            let struct_info1 = StructInfo::GC {
+                id: Id::new(1, 0),
+                len: 5,
+            };
+            let struct_info2 = StructInfo::Skip {
+                id: Id::new(1, 5),
+                len: 1,
+            };
+            let struct_info3_err = StructInfo::Skip {
+                id: Id::new(1, 5),
+                len: 1,
+            };
+            let struct_info3 = StructInfo::Skip {
+                id: Id::new(1, 6),
+                len: 1,
+            };
 
-        assert!(doc_store.add_item(struct_info1.clone()).is_ok());
-        assert!(doc_store.add_item(struct_info2).is_ok());
-        assert_eq!(
-            doc_store.add_item(struct_info3_err),
-            Err(JwstCodecError::StructClockInvalid {
-                expect: 6,
-                actually: 5
-            })
-        );
-        assert!(doc_store.add_item(struct_info3.clone()).is_ok());
-        assert_eq!(
-            doc_store.get_state(struct_info1.client()),
-            struct_info3.clock() + struct_info3.len()
-        );
+            assert!(doc_store.add_item(struct_info1.clone()).is_ok());
+            assert!(doc_store.add_item(struct_info2).is_ok());
+            assert_eq!(
+                doc_store.add_item(struct_info3_err),
+                Err(JwstCodecError::StructClockInvalid {
+                    expect: 6,
+                    actually: 5
+                })
+            );
+            assert!(doc_store.add_item(struct_info3.clone()).is_ok());
+            assert_eq!(
+                doc_store.get_state(struct_info1.client()),
+                struct_info3.clock() + struct_info3.len()
+            );
+        });
     }
 
     #[test]
     fn test_get_item() {
-        {
+        loom_model!({
             let doc_store = DocStore::new();
             let struct_info = StructInfo::GC {
                 id: Id::new(1, 0),
@@ -827,9 +831,9 @@ mod tests {
             doc_store.add_item(struct_info.clone()).unwrap();
 
             assert_eq!(doc_store.get_node(Id::new(1, 9)), Some(struct_info));
-        }
+        });
 
-        {
+        loom_model!({
             let doc_store = DocStore::new();
             let struct_info1 = StructInfo::GC {
                 id: Id::new(1, 0),
@@ -843,15 +847,15 @@ mod tests {
             doc_store.add_item(struct_info2.clone()).unwrap();
 
             assert_eq!(doc_store.get_node(Id::new(1, 25)), Some(struct_info2));
-        }
+        });
 
-        {
+        loom_model!({
             let doc_store = DocStore::new();
 
             assert_eq!(doc_store.get_node(Id::new(1, 0)), None);
-        }
+        });
 
-        {
+        loom_model!({
             let doc_store = DocStore::new();
             let struct_info1 = StructInfo::GC {
                 id: Id::new(1, 0),
@@ -865,40 +869,42 @@ mod tests {
             doc_store.add_item(struct_info2).unwrap();
 
             assert_eq!(doc_store.get_node(Id::new(1, 35)), None);
-        }
+        });
     }
 
     #[test]
     fn test_split_and_get() {
-        let doc_store = DocStore::new();
-        let struct_info1 = StructInfo::Item(Arc::new(
-            ItemBuilder::new()
-                .id((1, 0).into())
-                .content(Content::String(String::from("octo")))
-                .build(),
-        ));
+        loom_model!({
+            let doc_store = DocStore::new();
+            let struct_info1 = StructInfo::Item(Arc::new(
+                ItemBuilder::new()
+                    .id((1, 0).into())
+                    .content(Content::String(String::from("octo")))
+                    .build(),
+            ));
 
-        let struct_info2 = StructInfo::Item(Arc::new(
-            ItemBuilder::new()
-                .id((1, struct_info1.len()).into())
-                .left_id(Some(struct_info1.id()))
-                .content(Content::String(String::from("base")))
-                .build(),
-        ));
-        doc_store.add_item(struct_info1.clone()).unwrap();
-        doc_store.add_item(struct_info2).unwrap();
+            let struct_info2 = StructInfo::Item(Arc::new(
+                ItemBuilder::new()
+                    .id((1, struct_info1.len()).into())
+                    .left_id(Some(struct_info1.id()))
+                    .content(Content::String(String::from("base")))
+                    .build(),
+            ));
+            doc_store.add_item(struct_info1.clone()).unwrap();
+            doc_store.add_item(struct_info2).unwrap();
 
-        let s1 = doc_store.get_node(Id::new(1, 0)).unwrap();
-        assert_eq!(s1, struct_info1);
-        let left = doc_store.split_at_and_get_left((1, 1)).unwrap();
-        assert_eq!(left.len(), 2); // octo => oc_to
+            let s1 = doc_store.get_node(Id::new(1, 0)).unwrap();
+            assert_eq!(s1, struct_info1);
+            let left = doc_store.split_at_and_get_left((1, 1)).unwrap();
+            assert_eq!(left.len(), 2); // octo => oc_to
 
-        // s1 used to be (1, 4), but it actually ref of first item in store, so now it should be (1, 2)
-        assert_eq!(
-            s1, left,
-            "doc internal mutation should not modify the pointer"
-        );
-        let right = doc_store.split_at_and_get_right((1, 5)).unwrap();
-        assert_eq!(right.len(), 3); // base => b_ase
+            // s1 used to be (1, 4), but it actually ref of first item in store, so now it should be (1, 2)
+            assert_eq!(
+                s1, left,
+                "doc internal mutation should not modify the pointer"
+            );
+            let right = doc_store.split_at_and_get_right((1, 5)).unwrap();
+            assert_eq!(right.len(), 3); // base => b_ase
+        });
     }
 }

@@ -4,11 +4,9 @@ mod map;
 mod text;
 
 use super::*;
+use crate::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak};
 use list::*;
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak},
-};
+use std::collections::{hash_map::Entry, HashMap};
 
 pub use array::*;
 pub use map::*;

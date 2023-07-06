@@ -21,7 +21,6 @@ mod tests {
         error::{Error, ErrorKind},
         AsBytes, Err,
     };
-    use rand::{thread_rng, Rng};
 
     #[test]
     fn test_read_var_buffer() {
@@ -61,9 +60,18 @@ mod tests {
         test_var_buf_enc_dec(&[]);
         test_var_buf_enc_dec(&[0x01, 0x02, 0x03, 0x04, 0x05]);
         test_var_buf_enc_dec(b"test_var_buf_enc_dec");
-        let mut rng = thread_rng();
-        for _ in 0..100 {
-            test_var_buf_enc_dec(generate_rand_bytes(rng.gen::<u16>() as usize).as_bytes());
+
+        #[cfg(not(miri))]
+        {
+            use rand::{thread_rng, Rng};
+            let mut rng = thread_rng();
+            for _ in 0..100 {
+                test_var_buf_enc_dec(&{
+                    let mut bytes = vec![0u8; rng.gen_range(0..u16::MAX as usize)];
+                    rng.fill(&mut bytes[..]);
+                    bytes
+                });
+            }
         }
     }
 
@@ -72,12 +80,5 @@ mod tests {
         write_var_buffer(&mut buf, data).unwrap();
         let result = read_var_buffer(buf.as_bytes());
         assert_eq!(result, Ok((&[][..], &data[..])));
-    }
-
-    fn generate_rand_bytes(len: usize) -> Vec<u8> {
-        let mut rng = thread_rng();
-        let mut bytes = vec![0u8; len];
-        rng.fill(&mut bytes[..]);
-        bytes
     }
 }
