@@ -428,7 +428,6 @@ jobs:
             RUSTFLAGS: --cfg loom
             RUST_BACKTRACE: full
             CARGO_TERM_COLOR: always
-            LOOM_LOG: info
         steps:
             - uses: actions/checkout@v3
             - uses: dtolnay/rust-toolchain@stable
