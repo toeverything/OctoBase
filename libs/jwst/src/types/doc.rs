@@ -21,6 +21,8 @@ pub trait DocStorage<E = JwstError> {
     async fn detect_doc(&self, guid: &str) -> JwstResult<bool, E>;
     /// get a doc by it's guid
     async fn get_doc(&self, guid: String) -> JwstResult<Option<Doc>, E>;
+    /// get doc's binary updates
+    async fn get_doc_updates(&self, guid: String) -> JwstResult<Option<Vec<Vec<u8>>>, E>;
     /// delete doc
     async fn delete_doc(&self, guid: &str) -> JwstResult<(), E>;
     /// integrate update into doc

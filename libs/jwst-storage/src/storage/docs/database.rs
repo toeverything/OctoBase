@@ -213,20 +213,7 @@ impl DocDBStorage {
     where
         C: ConnectionTrait,
     {
-        trace!("start update: {guid}");
-        let update_size = Self::count(conn, guid).await?;
-        if update_size > MAX_TRIM_UPDATE_LIMIT - 1 {
-            trace!("full migrate update: {guid}, {update_size}");
-            let doc_records = Self::doc_all(conn, guid).await?;
-
-            let data = tokio::task::spawn_blocking(move || utils::merge_doc_records(doc_records))
-                .await
-                .map_err(JwstStorageError::DocMerge)??;
-
-            Self::replace_with(conn, workspace, guid, data).await?;
-        }
-
-        trace!("insert update: {guid}, {update_size}");
+        trace!("insert update: {guid}");
         Self::insert(conn, workspace, guid, &blob).await?;
         trace!("end update: {guid}");
 
@@ -380,6 +367,24 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
         let doc = utils::migrate_update(records, Doc::new())?;
 
         Ok(Some(doc))
+    }
+
+    async fn get_doc_updates(&self, guid: String) -> JwstStorageResult<Option<Vec<Vec<u8>>>> {
+        let mut result: Vec<Vec<u8>> = Vec::new();
+        let records: Vec<<Docs as EntityTrait>::Model> = Docs::find()
+            .filter(DocsColumn::Guid.eq(guid))
+            .all(&self.pool)
+            .await?;
+
+        if records.is_empty() {
+            return Ok(None);
+        }
+
+        for record in records {
+            result.push(record.blob);
+        }
+
+        Ok(Some(result))
     }
 
     async fn update_doc(
