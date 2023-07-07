@@ -105,6 +105,7 @@ impl DeleteSet {
         }
     }
 
+    #[allow(dead_code)]
     pub fn batch_push(&mut self, client: Client, ranges: Vec<Range<u64>>) {
         match self.0.entry(client) {
             Entry::Occupied(e) => {
@@ -177,7 +178,7 @@ mod tests {
         }
 
         {
-            let mut delete_set = delete_set.clone();
+            let mut delete_set = delete_set;
             delete_set.add(1, 5, 10);
             assert_eq!(
                 delete_set.get(&1),
@@ -202,7 +203,7 @@ mod tests {
         }
 
         {
-            let mut delete_set = delete_set.clone();
+            let mut delete_set = delete_set;
             delete_set.batch_push(1, vec![40..50, 10..20]);
             assert_eq!(
                 delete_set.get(&1),

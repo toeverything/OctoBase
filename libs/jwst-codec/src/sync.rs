@@ -9,7 +9,7 @@ pub(crate) use loom::{
 
 #[cfg(not(loom))]
 pub(crate) use std::sync::{
-    atomic::{AtomicBool, AtomicU8, Ordering},
+    atomic::{AtomicU8, Ordering},
     RwLock, RwLockReadGuard, RwLockWriteGuard,
 };
 

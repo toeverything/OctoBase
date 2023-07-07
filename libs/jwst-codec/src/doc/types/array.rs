@@ -1,5 +1,3 @@
-use std::ops::{Index, Range};
-
 use super::*;
 
 impl_type!(Array);
@@ -9,10 +7,18 @@ impl ListType for Array {}
 pub struct ArrayIter(ListIterator);
 
 impl Iterator for ArrayIter {
-    type Item = Arc<Content>;
+    type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|item| item.content.clone())
+        for item in self.0.by_ref() {
+            if let Some(item) = item.get() {
+                if item.countable() {
+                    return Some(item.content.as_ref().try_into().unwrap());
+                }
+            }
+        }
+
+        None
     }
 }
 
@@ -27,45 +33,35 @@ impl Array {
         self.len() == 0
     }
 
-    pub fn get(&self, index: u64) -> Option<&Content> {
-        self.get_item_at(index).map(|(item, _)| {
-            let ptr = Arc::as_ptr(&item.content);
+    pub fn get(&self, index: u64) -> Option<Value> {
+        let (item, offset) = self.get_item_at(index)?;
+        // array only store 1-unit elements
+        debug_assert!(offset == 0);
+        if let Some(item) = item.get() {
+            // TODO: rewrite to content.read(&mut [Any])
+            return match item.content.as_ref() {
+                Content::Any(any) => return any.first().map(|any| Value::Any(any.clone())),
+                _ => item.content.as_ref().try_into().map_or_else(|_| None, Some),
+            };
+        }
 
-            unsafe { &*ptr }
-        })
+        None
     }
 
     pub fn iter(&self) -> ArrayIter {
         ArrayIter(self.iter_item())
     }
 
-    pub fn push<V: Into<Content>>(&mut self, val: V) -> JwstCodecResult {
+    pub fn push<V: Into<Value>>(&mut self, val: V) -> JwstCodecResult {
         self.insert(self.len(), val)
     }
 
-    pub fn insert<V: Into<Content>>(&mut self, idx: u64, val: V) -> JwstCodecResult {
-        let content = val.into();
-        self.insert_at(idx, content)
+    pub fn insert<V: Into<Value>>(&mut self, idx: u64, val: V) -> JwstCodecResult {
+        self.insert_at(idx, val.into().into())
     }
 
     pub fn remove(&mut self, idx: u64, len: u64) -> JwstCodecResult {
         self.remove_at(idx, len)
-    }
-}
-
-impl Index<u64> for Array {
-    type Output = Content;
-
-    fn index(&self, index: u64) -> &Self::Output {
-        self.get(index).unwrap()
-    }
-}
-
-impl Index<Range<u64>> for Array {
-    type Output = [Content];
-
-    fn index(&self, _index: Range<u64>) -> &Self::Output {
-        todo!()
     }
 }
 
@@ -91,15 +87,12 @@ mod tests {
 
             assert_eq!(
                 array.get(0).unwrap(),
-                &Content::Any(vec![Any::String("Hello".into())])
+                Value::Any(Any::String("Hello".into()))
             );
-            assert_eq!(
-                array.get(1).unwrap(),
-                &Content::Any(vec![Any::String(" ".into())])
-            );
+            assert_eq!(array.get(1).unwrap(), Value::Any(Any::String(" ".into())));
             assert_eq!(
                 array.get(2).unwrap(),
-                &Content::Any(vec![Any::String("World".into())])
+                Value::Any(Any::String("World".into()))
             );
         });
     }
@@ -135,10 +128,16 @@ mod tests {
             doc.apply_update(update).unwrap();
             let array = doc.get_or_create_array("abc").unwrap();
 
-            assert_eq!(array.get(0).unwrap(), &Content::String("Hello".into()));
-            assert_eq!(array.get(5).unwrap(), &Content::String(" ".into()));
-            assert_eq!(array.get(6).unwrap(), &Content::String("World".into()));
-            assert_eq!(array.get(11).unwrap(), &Content::String("!".into()));
+            assert_eq!(
+                array.get(0).unwrap(),
+                Value::Any(Any::String("Hello".into()))
+            );
+            assert_eq!(array.get(5).unwrap(), Value::Any(Any::String(" ".into())));
+            assert_eq!(
+                array.get(6).unwrap(),
+                Value::Any(Any::String("World".into()))
+            );
+            assert_eq!(array.get(11).unwrap(), Value::Any(Any::String("!".into())));
         });
 
         let options = DocOptions {
@@ -168,43 +167,49 @@ mod tests {
             doc.apply_update(update).unwrap();
             let array = doc.get_or_create_array("abc").unwrap();
 
-            assert_eq!(array.get(0).unwrap(), &Content::String("Hello".into()));
-            assert_eq!(array.get(5).unwrap(), &Content::String(" ".into()));
-            assert_eq!(array.get(6).unwrap(), &Content::String("World".into()));
-            assert_eq!(array.get(11).unwrap(), &Content::String("!".into()));
+            assert_eq!(
+                array.get(0).unwrap(),
+                Value::Any(Any::String("Hello".into()))
+            );
+            assert_eq!(array.get(5).unwrap(), Value::Any(Any::String(" ".into())));
+            assert_eq!(
+                array.get(6).unwrap(),
+                Value::Any(Any::String("World".into()))
+            );
+            assert_eq!(array.get(11).unwrap(), Value::Any(Any::String("!".into())));
         });
     }
 
     #[test]
-    #[ignore = "TODO"]
-    fn test_yarray_slice() {
+    #[cfg_attr(miri, ignore)]
+    fn test_yrs_array_decode() {
+        let update = {
+            let doc = yrs::Doc::new();
+            let array = doc.get_or_insert_array("abc");
+            let mut trx = doc.transact_mut();
+
+            array.insert(&mut trx, 0, "hello").unwrap();
+            array.insert(&mut trx, 1, "world").unwrap();
+            array.insert(&mut trx, 1, " ").unwrap();
+
+            trx.encode_update_v1().unwrap()
+        };
+
         loom_model!({
-            let buffer = {
-                let doc = yrs::Doc::new();
-                let array = doc.get_or_insert_array("abc");
+            let doc = Doc::new_from_binary_with_options(
+                update.clone(),
+                DocOptions {
+                    guid: Some(String::from("1")),
+                    client: Some(1),
+                },
+            )
+            .unwrap();
+            let arr = doc.get_or_create_array("abc").unwrap();
 
-                let mut trx = doc.transact_mut();
-                array.insert(&mut trx, 0, 1).unwrap();
-                array.insert(&mut trx, 1, "2").unwrap();
-                array.insert(&mut trx, 2, true).unwrap();
-                array.insert(&mut trx, 3, 1.0).unwrap();
-                trx.encode_update_v1().unwrap()
-            };
-
-            let mut decoder = RawDecoder::new(buffer);
-            let update = Update::read(&mut decoder).unwrap();
-            let mut doc = Doc::default();
-            doc.apply_update(update).unwrap();
-            let array = doc.get_or_create_array("abc").unwrap();
-
-            let items = &array[1..3];
             assert_eq!(
-                items,
-                vec![
-                    Content::Any(vec![Any::String("2".into())]),
-                    Content::Any(vec![Any::True])
-                ]
-            );
+                arr.get(2).unwrap(),
+                Value::Any(Any::String("world".to_string()))
+            )
         });
     }
 }

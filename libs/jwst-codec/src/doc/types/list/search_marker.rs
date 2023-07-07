@@ -10,16 +10,16 @@ const MAX_SEARCH_MARKER: usize = 80;
 
 #[derive(Clone, Debug)]
 pub struct SearchMarker {
-    pub(super) ptr: Weak<Item>,
+    pub(super) ptr: Somr<Item>,
     pub(super) index: u64,
 }
 
 impl SearchMarker {
-    fn new(ptr: Weak<Item>, index: u64) -> Self {
+    fn new(ptr: Somr<Item>, index: u64) -> Self {
         SearchMarker { ptr, index }
     }
 
-    fn overwrite_marker(&mut self, ptr: Weak<Item>, index: u64) {
+    fn overwrite_marker(&mut self, ptr: Somr<Item>, index: u64) {
         self.ptr = ptr;
         self.index = index;
     }
@@ -58,7 +58,7 @@ impl MarkerList {
     // mark pos and push to the end of the linked list
     fn mark_position(
         list: &mut VecDeque<SearchMarker>,
-        ptr: Weak<Item>,
+        ptr: Somr<Item>,
         index: u64,
     ) -> Option<SearchMarker> {
         if list.len() >= MAX_SEARCH_MARKER {
@@ -77,27 +77,29 @@ impl MarkerList {
         let mut list = self.borrow_mut();
 
         for marker in list.iter_mut() {
-            if let Some(mut ptr) = marker.ptr.upgrade() {
-                // current marker item has been deleted
-                // we should move the pos to prev undeleted item
-                if len > 0 {
-                    while !ptr.indexable() {
-                        if let Some(left) = &ptr.left.as_ref().and_then(|i| i.as_item()) {
-                            ptr = left.clone();
-                            if ptr.indexable() {
-                                marker.index -= ptr.len();
+            if len > 0 {
+                while let Some(ptr) = marker.ptr.get() {
+                    if !ptr.indexable() {
+                        let left_ref: ItemRef = ptr.left.as_ref().into();
+                        if let Some(left) = left_ref.get() {
+                            if left.indexable() {
+                                marker.index -= left.len();
                             }
+                            marker.ptr = left_ref;
                         } else {
                             // remove marker
                             marker.index = 0;
                             break;
                         }
+                    } else {
+                        break;
                     }
                 }
-                if index < marker.index || (len > 0 && index == marker.index) {
-                    marker.index = max(index as i64, marker.index as i64 + len) as u64;
-                }
-                marker.ptr = Arc::downgrade(&ptr);
+            }
+
+            if marker.ptr.is_some() && (index < marker.index || (len > 0 && index == marker.index))
+            {
+                marker.index = max(index as i64, marker.index as i64 + len) as u64;
             }
         }
 
@@ -106,7 +108,7 @@ impl MarkerList {
 
     // find and return the marker that is closest to the index
     pub(super) fn find_marker(&self, parent: &YType, index: u64) -> Option<SearchMarker> {
-        if parent.start().is_none() || index == 0 {
+        if parent.start.is_none() || index == 0 {
             return None;
         }
 
@@ -120,53 +122,69 @@ impl MarkerList {
 
         let mut item_ptr = marker
             .as_ref()
-            .and_then(|m| m.ptr.upgrade())
-            .map_or_else(|| parent.start().unwrap(), |ptr| ptr);
+            .map(|m| m.ptr.clone())
+            .unwrap_or_else(|| parent.start.clone());
 
         // TODO: this logic here is a bit messy
         // i think it can be implemented with more streamlined code, and then optimized
         {
             // iterate to the right if possible
-            while let Some(right_item) = item_ptr.right.as_ref().and_then(|i| i.as_item()) {
+            while let Some(item) = item_ptr.clone().get() {
                 if marker_index >= index {
                     break;
                 }
 
-                if item_ptr.indexable() {
-                    if index < marker_index + item_ptr.len() {
-                        break;
+                let right_ref: ItemRef = item.right.clone().into();
+                if right_ref.is_some() {
+                    if item.indexable() {
+                        if index < marker_index + item.len() {
+                            break;
+                        }
+
+                        marker_index += item.len();
                     }
-                    marker_index += item_ptr.len();
+                    item_ptr = right_ref;
+                } else {
+                    break;
                 }
-                item_ptr = right_item.clone();
             }
 
             // iterate to the left if necessary (might be that marker_index > index)
-            while let Some(left_item) = item_ptr.left.as_ref().and_then(|i| i.as_item()) {
+            while let Some(item) = item_ptr.clone().get() {
                 if marker_index <= index {
                     break;
                 }
 
-                item_ptr = left_item.clone();
-                if item_ptr.indexable() {
-                    marker_index -= item_ptr.len();
+                let left_ref: ItemRef = item.left.clone().into();
+                if let Some(left) = left_ref.get() {
+                    if left.indexable() {
+                        marker_index -= left.len();
+                    }
+                    item_ptr = left_ref;
+                } else {
+                    break;
                 }
             }
 
             // we want to make sure that item_ptr can't be merged with left, because that would screw up everything
             // in that case just return what we have (it is most likely the best marker anyway)
             // iterate to left until item_ptr can't be merged with left
-            while let Some(left_item) = item_ptr.left.as_ref().and_then(|i| i.as_item()) {
-                if left_item.id.client == item_ptr.id.client
-                    && left_item.id.clock + left_item.len() == item_ptr.id.clock
-                {
-                    item_ptr = left_item.clone();
-                    if item_ptr.indexable() {
-                        marker_index -= item_ptr.len();
+            while let Some(item) = item_ptr.clone().get() {
+                let left_ref: ItemRef = item.left.clone().into();
+                if let Some(left) = left_ref.get() {
+                    if left.id.client == item.id.client
+                        && left.id.clock + left.len() == item.id.clock
+                    {
+                        if left.indexable() {
+                            marker_index -= left.len();
+                        }
+                        item_ptr = left_ref;
+                        continue;
                     }
-                    continue;
+                    break;
+                } else {
+                    break;
                 }
-                break;
             }
         }
 
@@ -176,12 +194,12 @@ impl MarkerList {
                     < parent.len as f64 / MAX_SEARCH_MARKER as f64 =>
             {
                 // adjust existing marker
-                marker.overwrite_marker(Arc::downgrade(&item_ptr), marker_index);
+                marker.overwrite_marker(item_ptr, marker_index);
                 Some(marker.clone())
             }
             _ => {
                 // create new marker
-                Self::mark_position(&mut list, Arc::downgrade(&item_ptr), marker_index)
+                Self::mark_position(&mut list, item_ptr, marker_index)
             }
         }
     }
@@ -242,16 +260,17 @@ mod tests {
 
             let marker_list = MarkerList::new();
 
-            let marker = marker_list.find_marker(&array.read(), 8).unwrap();
+            let marker = marker_list.find_marker(&array.read().unwrap(), 8).unwrap();
 
             assert_eq!(marker.index, 2);
             assert_eq!(
-                marker.ptr.upgrade().unwrap(),
+                marker.ptr,
                 doc.store
                     .read()
                     .unwrap()
-                    .get_item(Id::new(client_id, 2))
+                    .get_node(Id::new(client_id, 2))
                     .unwrap()
+                    .as_item()
             );
         });
     }

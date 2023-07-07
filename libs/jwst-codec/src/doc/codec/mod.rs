@@ -6,18 +6,18 @@ mod io;
 mod item;
 mod refs;
 mod update;
-#[cfg(any(fuzzing, test))]
+#[cfg(test)]
 mod utils;
 
 pub use any::Any;
-pub use content::Content;
+pub(crate) use content::Content;
 pub use delete_set::DeleteSet;
 pub use id::{Client, Clock, Id};
 pub use io::{CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, RawDecoder, RawEncoder};
-pub use item::{item_flags, Item, ItemFlags, ItemRef, Parent};
-pub use refs::StructInfo;
+pub(crate) use item::{Item, ItemFlags, ItemRef, Parent};
+pub(crate) use refs::StructInfo;
 pub use update::Update;
-#[cfg(any(fuzzing, test))]
-pub use utils::*;
+#[cfg(test)]
+pub(crate) use utils::*;
 
 use super::*;

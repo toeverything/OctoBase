@@ -4,7 +4,7 @@ mod map;
 mod text;
 
 use super::*;
-use crate::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak};
+use crate::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use list::*;
 use std::collections::{hash_map::Entry, HashMap};
 
@@ -20,10 +20,10 @@ use super::{
 };
 
 #[derive(Debug, Default)]
-pub struct YType {
+pub(crate) struct YType {
     pub store: WeakStoreRef,
-    pub start: Option<StructInfo>,
-    pub item: Option<Weak<Item>>,
+    pub start: Somr<Item>,
+    pub item: Somr<Item>,
     pub map: Option<HashMap<String, StructInfo>>,
     pub len: u64,
     /// The tag name of XMLElement and XMLHook type
@@ -34,8 +34,8 @@ pub struct YType {
     pub markers: Option<MarkerList>,
 }
 
-pub type YTypeRef = Arc<RwLock<YType>>;
-pub type YTypeWeakRef = Weak<RwLock<YType>>;
+type Lock = RwLock<YType>;
+pub(crate) type YTypeRef = Somr<Lock>;
 
 impl PartialEq for YType {
     fn eq(&self, other: &Self) -> bool {
@@ -52,23 +52,6 @@ impl YType {
             name: tag_name,
             ..YType::default()
         }
-    }
-
-    pub fn into_ref(self) -> YTypeWeakRef {
-        self.root_name
-            .and_then(|name| {
-                self.store.upgrade().and_then(|store| {
-                    store
-                        .read()
-                        .unwrap()
-                        .types
-                        .read()
-                        .unwrap()
-                        .get(&name)
-                        .map(Arc::downgrade)
-                })
-            })
-            .unwrap()
     }
 
     pub fn kind(&self) -> YTypeKind {
@@ -89,10 +72,7 @@ impl YType {
         Ok(())
     }
 
-    pub fn set_item(&mut self, item: ItemRef) {
-        self.item = Some(Arc::downgrade(&item));
-    }
-
+    #[allow(dead_code)]
     pub fn store<'a>(&self) -> Option<RwLockReadGuard<'a, DocStore>> {
         if let Some(store) = self.store.upgrade() {
             let ptr = unsafe { &*Arc::as_ptr(&store) };
@@ -111,14 +91,6 @@ impl YType {
         } else {
             None
         }
-    }
-
-    pub fn item(&self) -> Option<ItemRef> {
-        self.item.as_ref().and_then(|n| n.upgrade())
-    }
-
-    pub fn start(&self) -> Option<ItemRef> {
-        self.start.as_ref().and_then(|n| n.as_item())
     }
 }
 
@@ -161,13 +133,13 @@ impl YTypeBuilder {
     }
 
     pub fn build<T: TryFrom<YTypeRef, Error = JwstCodecError>>(self) -> JwstCodecResult<T> {
+        let mut store = self.store.write().unwrap();
         let ty = if let Some(root_name) = self.root_name {
-            let store = self.store.write().unwrap();
             let mut types = store.types.write().unwrap();
             match types.entry(root_name.clone()) {
                 Entry::Occupied(e) => e.get().clone(),
                 Entry::Vacant(e) => {
-                    let y_type: Arc<RwLock<YType>> = Arc::new(RwLock::new(YType {
+                    let ty = Somr::new(RwLock::new(YType {
                         kind: self.kind,
                         name: self.name,
                         root_name: Some(root_name),
@@ -176,21 +148,30 @@ impl YTypeBuilder {
                         ..Default::default()
                     }));
 
-                    e.insert(y_type.clone());
+                    let ty_ref = ty.clone();
 
-                    y_type
+                    e.insert(ty);
+
+                    ty_ref
                 }
             }
         } else {
-            Arc::new(RwLock::new(YType {
+            let ty = Somr::new(RwLock::new(YType {
                 kind: self.kind,
                 name: self.name,
                 root_name: self.root_name.clone(),
                 store: Arc::downgrade(&self.store),
                 markers: Self::markers(self.kind),
                 ..YType::default()
-            }))
+            }));
+            let ty_ref = ty.clone();
+
+            store.dangling_types.insert(ty.ptr().as_ptr() as usize, ty);
+
+            ty_ref
         };
+
+        drop(store);
 
         T::try_from(ty)
     }
@@ -241,6 +222,15 @@ macro_rules! impl_variants {
                 }
             }
         }
+
+
+        $(
+            impl From<$name> for super::Value {
+                fn from(value: $name) -> Self {
+                    Self::$name(value)
+                }
+            }
+        )*
     };
 }
 
@@ -252,7 +242,7 @@ pub(crate) trait AsInner {
 #[macro_export(local_inner_macros)]
 macro_rules! impl_type {
     ($name: ident) => {
-        #[derive(Debug, Clone, Default)]
+        #[derive(Debug, Clone)]
         pub struct $name(pub(crate) super::YTypeRef);
         unsafe impl Sync for $name {}
         unsafe impl Send for $name {}
@@ -264,14 +254,26 @@ macro_rules! impl_type {
 
             #[allow(dead_code)]
             #[inline(always)]
-            pub(crate) fn read(&self) -> $crate::sync::RwLockReadGuard<super::YType> {
-                self.0.read().unwrap()
+            pub(crate) fn read(
+                &self,
+            ) -> $crate::JwstCodecResult<$crate::sync::RwLockReadGuard<super::YType>> {
+                if let Some(lock) = self.0.get() {
+                    Ok(lock.read().unwrap())
+                } else {
+                    Err($crate::JwstCodecError::DocReleased)
+                }
             }
 
             #[allow(dead_code)]
             #[inline(always)]
-            pub(crate) fn write(&self) -> $crate::sync::RwLockWriteGuard<super::YType> {
-                self.0.write().unwrap()
+            pub(crate) fn write(
+                &self,
+            ) -> $crate::JwstCodecResult<$crate::sync::RwLockWriteGuard<super::YType>> {
+                if let Some(lock) = self.0.get() {
+                    Ok(lock.write().unwrap())
+                } else {
+                    Err($crate::JwstCodecError::DocReleased)
+                }
             }
         }
 
@@ -288,7 +290,7 @@ macro_rules! impl_type {
             type Error = $crate::JwstCodecError;
 
             fn try_from(value: super::YTypeRef) -> Result<Self, Self::Error> {
-                let mut inner = value.write().unwrap();
+                let mut inner = value.get().unwrap().write().unwrap();
                 match inner.kind {
                     super::YTypeKind::$name => Ok($name::new(value.clone())),
                     super::YTypeKind::Unknown => {
@@ -299,6 +301,12 @@ macro_rules! impl_type {
                         $name
                     ))),
                 }
+            }
+        }
+
+        impl PartialEq for $name {
+            fn eq(&self, other: &Self) -> bool {
+                &*self.read().unwrap() == &*other.read().unwrap()
             }
         }
     };
@@ -320,3 +328,86 @@ impl_type!(XMLElement);
 impl_type!(XMLFragment);
 impl_type!(XMLText);
 impl_type!(XMLHook);
+
+#[derive(Debug, PartialEq)]
+pub enum Value {
+    Any(Any),
+    Doc(Doc),
+    Array(Array),
+    Map(Map),
+    Text(Text),
+    XMLElement(XMLElement),
+    XMLFragment(XMLFragment),
+    XMLHook(XMLHook),
+    XMLText(XMLText),
+}
+
+impl TryFrom<&Content> for Value {
+    type Error = JwstCodecError;
+    fn try_from(value: &Content) -> Result<Self, Self::Error> {
+        Ok(match value {
+            Content::Any(any) => Value::Any(Any::Array(any.clone())),
+            Content::String(s) => Value::Any(Any::String(s.clone())),
+            Content::JSON(json) => Value::Any(Any::Array(
+                json.iter()
+                    .map(|item| {
+                        if let Some(s) = item {
+                            Any::String(s.clone())
+                        } else {
+                            Any::Undefined
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            )),
+            Content::Binary(buf) => Value::Any(Any::Binary(buf.clone())),
+            Content::Embed(v) => Value::Any(v.clone()),
+            Content::Type(ty) => match ty.get().unwrap().read().unwrap().kind {
+                YTypeKind::Array => Value::Array(Array::try_from(ty.clone())?),
+                YTypeKind::Map => Value::Map(Map::try_from(ty.clone())?),
+                YTypeKind::Text => Value::Text(Text::try_from(ty.clone())?),
+                YTypeKind::XMLElement => Value::XMLElement(XMLElement::try_from(ty.clone())?),
+                YTypeKind::XMLFragment => Value::XMLFragment(XMLFragment::try_from(ty.clone())?),
+                YTypeKind::XMLHook => Value::XMLHook(XMLHook::try_from(ty.clone())?),
+                YTypeKind::XMLText => Value::XMLText(XMLText::try_from(ty.clone())?),
+                // actually unreachable
+                YTypeKind::Unknown => return Err(JwstCodecError::TypeCastError("unknown")),
+            },
+            Content::Doc { .. } => {
+                todo!()
+            }
+            Content::Format { .. } => todo!(),
+            Content::Deleted(_) => todo!(),
+        })
+    }
+}
+
+impl From<Value> for Content {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Any(any) => Content::from(any),
+            Value::Doc(doc) => Content::Doc {
+                guid: doc.guid().to_owned(),
+                opts: vec![],
+            },
+            Value::Array(v) => Content::Type(v.0),
+            Value::Map(v) => Content::Type(v.0),
+            Value::Text(v) => Content::Type(v.0),
+            Value::XMLElement(v) => Content::Type(v.0),
+            Value::XMLFragment(v) => Content::Type(v.0),
+            Value::XMLHook(v) => Content::Type(v.0),
+            Value::XMLText(v) => Content::Type(v.0),
+        }
+    }
+}
+
+impl<T: Into<Any>> From<T> for Value {
+    fn from(value: T) -> Self {
+        Value::Any(value.into())
+    }
+}
+
+impl From<Doc> for Value {
+    fn from(value: Doc) -> Self {
+        Value::Doc(value)
+    }
+}

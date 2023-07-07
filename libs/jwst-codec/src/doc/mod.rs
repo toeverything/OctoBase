@@ -11,5 +11,5 @@ pub use awareness::{Awareness, AwarenessEvent};
 pub use codec::*;
 pub use common::*;
 pub use document::{Doc, DocOptions};
-pub use store::DocStore;
+pub(crate) use store::DocStore;
 pub use types::*;

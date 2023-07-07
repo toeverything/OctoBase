@@ -1,6 +1,6 @@
 use super::*;
 use ordered_float::OrderedFloat;
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(fuzzing, derive(arbitrary::Arbitrary))]
@@ -128,12 +128,13 @@ impl Any {
     }
 
     pub(crate) fn read_multiple<R: CrdtReader>(reader: &mut R) -> JwstCodecResult<Vec<Any>> {
-        let len = reader.read_var_u64()?;
-        let any = (0..len)
-            .map(|_| Any::read(reader))
-            .collect::<Result<Vec<_>, _>>()?;
+        let len = reader.read_var_u64()? as usize;
+        let mut vec = Vec::with_capacity(len);
+        for _ in 0..len {
+            vec.push(Any::read(reader)?);
+        }
 
-        Ok(any)
+        Ok(vec)
     }
 
     pub(crate) fn write_multiple<W: CrdtWriter>(writer: &mut W, any: &[Any]) -> JwstCodecResult {
@@ -259,6 +260,178 @@ impl<T: Into<Any>> From<Option<T>> for Any {
             val.into()
         } else {
             Any::Null
+        }
+    }
+}
+
+#[cfg(feature = "serde_json")]
+impl From<serde_json::Value> for Any {
+    fn from(value: serde_json::Value) -> Self {
+        match value {
+            serde_json::Value::Null => Self::Null,
+            serde_json::Value::Bool(b) => {
+                if b {
+                    Self::True
+                } else {
+                    Self::False
+                }
+            }
+            serde_json::Value::Number(n) => {
+                if n.is_f64() {
+                    Self::Float64(n.as_f64().unwrap().into())
+                } else if n.is_i64() {
+                    Self::Integer(n.as_i64().unwrap() as u64)
+                } else {
+                    Self::Integer(n.as_u64().unwrap())
+                }
+            }
+            serde_json::Value::String(s) => Self::String(s),
+            serde_json::Value::Array(vec) => {
+                Self::Array(vec.into_iter().map(|v| v.into()).collect::<Vec<_>>())
+            }
+            serde_json::Value::Object(obj) => {
+                Self::Object(obj.into_iter().map(|(k, v)| (k, v.into())).collect())
+            }
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Any {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::{Error, MapAccess, SeqAccess, Visitor};
+        struct ValueVisitor;
+
+        impl<'de> Visitor<'de> for ValueVisitor {
+            type Value = Any;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("any valid JSON value")
+            }
+
+            #[inline]
+            fn visit_bool<E>(self, value: bool) -> Result<Any, E> {
+                Ok(if value { Any::True } else { Any::False })
+            }
+
+            #[inline]
+            fn visit_i64<E>(self, value: i64) -> Result<Any, E> {
+                Ok(Any::BigInt64(value))
+            }
+
+            #[inline]
+            fn visit_u64<E>(self, value: u64) -> Result<Any, E> {
+                Ok(Any::Integer(value))
+            }
+
+            #[inline]
+            fn visit_f64<E>(self, value: f64) -> Result<Any, E> {
+                Ok(Any::Float64(OrderedFloat(value)))
+            }
+
+            #[inline]
+            fn visit_str<E>(self, value: &str) -> Result<Any, E>
+            where
+                E: Error,
+            {
+                self.visit_string(String::from(value))
+            }
+
+            #[inline]
+            fn visit_string<E>(self, value: String) -> Result<Any, E> {
+                Ok(Any::String(value))
+            }
+
+            #[inline]
+            fn visit_none<E>(self) -> Result<Any, E> {
+                Ok(Any::Null)
+            }
+
+            #[inline]
+            fn visit_some<D>(self, deserializer: D) -> Result<Any, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                serde::Deserialize::deserialize(deserializer)
+            }
+
+            #[inline]
+            fn visit_unit<E>(self) -> Result<Any, E> {
+                Ok(Any::Null)
+            }
+
+            #[inline]
+            fn visit_seq<V>(self, mut visitor: V) -> Result<Any, V::Error>
+            where
+                V: SeqAccess<'de>,
+            {
+                let mut vec = Vec::new();
+
+                while let Some(elem) = visitor.next_element()? {
+                    vec.push(elem);
+                }
+
+                Ok(Any::Array(vec))
+            }
+
+            fn visit_map<V>(self, mut visitor: V) -> Result<Any, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                match visitor.next_key::<String>()? {
+                    Some(k) => {
+                        let mut values = HashMap::new();
+
+                        values.insert(k, visitor.next_value()?);
+                        while let Some((key, value)) = visitor.next_entry()? {
+                            values.insert(key, value);
+                        }
+
+                        Ok(Any::Object(values))
+                    }
+                    None => Ok(Any::Object(HashMap::new())),
+                }
+            }
+        }
+
+        deserializer.deserialize_any(ValueVisitor)
+    }
+}
+
+impl serde::Serialize for Any {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::{SerializeMap, SerializeSeq};
+
+        match self {
+            Any::Null => serializer.serialize_none(),
+            Any::Undefined => serializer.serialize_none(),
+            Any::True => serializer.serialize_bool(true),
+            Any::False => serializer.serialize_bool(false),
+            Any::Float32(value) => serializer.serialize_f32(value.0),
+            Any::Float64(value) => serializer.serialize_f64(value.0),
+            Any::Integer(value) => serializer.serialize_u64(*value),
+            Any::BigInt64(value) => serializer.serialize_i64(*value),
+            Any::String(value) => serializer.serialize_str(value.as_ref()),
+            Any::Array(values) => {
+                let mut seq = serializer.serialize_seq(Some(values.len()))?;
+                for value in values.iter() {
+                    seq.serialize_element(value)?;
+                }
+                seq.end()
+            }
+            Any::Object(entries) => {
+                let mut map = serializer.serialize_map(Some(entries.len()))?;
+                for (key, value) in entries.iter() {
+                    map.serialize_entry(key, value)?;
+                }
+                map.end()
+            }
+            Any::Binary(buf) => serializer.serialize_bytes(buf),
         }
     }
 }

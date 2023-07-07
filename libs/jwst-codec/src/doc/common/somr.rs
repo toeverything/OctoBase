@@ -5,7 +5,11 @@ use std::{
     ptr::NonNull,
 };
 
-use crate::sync::{AtomicBool, Ordering};
+use crate::sync::{AtomicU8, Ordering};
+const DANGLING_PTR: usize = usize::MAX;
+fn is_dangling<T>(ptr: NonNull<T>) -> bool {
+    ptr.as_ptr() as usize == DANGLING_PTR
+}
 
 /// Heap data with single owner but multiple refs with dangling checking at runtime.
 pub(crate) enum Somr<T> {
@@ -13,12 +17,15 @@ pub(crate) enum Somr<T> {
     Ref(Ref<T>),
 }
 
+#[repr(transparent)]
 pub(crate) struct Owned<T>(NonNull<SomrInner<T>>);
+#[repr(transparent)]
 pub(crate) struct Ref<T>(NonNull<SomrInner<T>>);
 
 pub(crate) struct SomrInner<T> {
-    released: AtomicBool,
     data: Option<T>,
+    /// increase the size when we really meet the the secenerio with refs more then u8::MAX(255) times
+    refs: AtomicU8,
     _marker: PhantomData<Option<T>>,
 }
 
@@ -34,71 +41,75 @@ impl<T> Default for Somr<T> {
 impl<T> Somr<T> {
     pub fn new(data: T) -> Self {
         let inner = Box::new(SomrInner {
-            released: AtomicBool::new(false),
             data: Some(data),
+            refs: AtomicU8::new(1),
             _marker: PhantomData,
         });
+
         Self::Owned(Owned(Box::leak(inner).into()))
     }
 
     pub fn none() -> Self {
-        let inner = Box::new(SomrInner {
-            released: AtomicBool::new(true),
-            data: None,
-            _marker: PhantomData,
-        });
-
-        Self::Ref(Ref(Box::leak(inner).into()))
+        Self::Ref(Ref(NonNull::new(DANGLING_PTR as *mut _).unwrap()))
     }
 }
 
 impl<T> Somr<T> {
     #[inline]
-    pub fn released(&self) -> bool {
-        self.inner().released()
-    }
-
-    #[inline]
     pub fn is_none(&self) -> bool {
-        self.get().is_none()
+        self.dangling() || self.inner().data.is_none()
     }
 
     #[inline]
     pub fn is_some(&self) -> bool {
-        self.get().is_some()
+        !self.dangling() && self.inner().data.is_some()
     }
 
     pub fn get(&self) -> Option<&T> {
-        self.inner().get()
+        if self.dangling() {
+            return None;
+        }
+
+        self.inner().data.as_ref()
     }
 
     #[allow(dead_code)]
     pub unsafe fn get_unchecked(&self) -> &T {
-        self.inner().get_unchecked()
+        if self.dangling() {
+            panic!("Try to visit Somr data that has already been dropped.")
+        }
+
+        match &self.inner().data {
+            Some(data) => data,
+            None => {
+                panic!("Try to unwrap on None")
+            }
+        }
     }
 
+    #[allow(dead_code)]
     pub fn get_mut(&self) -> Option<&mut T> {
-        if !self.is_owned() {
+        if !self.is_owned() || self.dangling() {
             return None;
         }
 
         let inner = self.inner_mut();
-        if inner.released() {
-            None
-        } else {
-            inner.data.as_mut()
-        }
+        inner.data.as_mut()
     }
 
     #[allow(dead_code)]
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn get_mut_unchecked(&self) -> &mut T {
-        let inner = self.inner_mut();
-        if inner.released() {
+        if self.dangling() {
             panic!("Try to visit Somr data that has already been dropped.")
         }
 
-        inner.data.as_mut().unwrap()
+        match &mut self.inner_mut().data {
+            Some(data) => data,
+            None => {
+                panic!("Try to unwrap on None")
+            }
+        }
     }
 
     #[inline]
@@ -108,12 +119,14 @@ impl<T> Somr<T> {
 
     #[inline]
     fn inner(&self) -> &SomrInner<T> {
+        debug_assert!(!self.dangling());
         unsafe { self.ptr().as_ref() }
     }
 
     #[inline]
     #[allow(clippy::mut_from_ref)]
     fn inner_mut(&self) -> &mut SomrInner<T> {
+        debug_assert!(!self.dangling());
         unsafe { self.ptr().as_mut() }
     }
 
@@ -124,27 +137,28 @@ impl<T> Somr<T> {
             Somr::Ref(ptr) => ptr.0,
         }
     }
+
+    #[inline]
+    fn dangling(&self) -> bool {
+        is_dangling(self.ptr())
+    }
 }
 
-impl<T> SomrInner<T> {
-    #[inline]
-    pub fn released(&self) -> bool {
-        self.released.load(Ordering::Acquire)
-    }
-
-    pub fn get(&self) -> Option<&T> {
-        if self.released() {
-            None
-        } else {
-            self.data.as_ref()
-        }
-    }
-    pub unsafe fn get_unchecked(&self) -> &T {
-        if self.released() {
-            panic!("Try to visit Somr data that has already been dropped.")
+impl<T> Clone for Somr<T> {
+    fn clone(&self) -> Self {
+        if self.dangling() {
+            return Self::none();
         }
 
-        self.data.as_ref().unwrap()
+        let inner = unsafe { &*self.ptr().as_ptr() };
+
+        let old_size = inner.refs.fetch_add(1, Ordering::Relaxed);
+
+        if old_size == u8::MAX {
+            panic!("Too many refs on Somr, maybe we need to increase the limitation now.")
+        }
+
+        Self::Ref(Ref(self.ptr()))
     }
 }
 
@@ -152,15 +166,31 @@ impl<T> Drop for Owned<T> {
     fn drop(&mut self) {
         let inner = unsafe { &mut *self.0.as_ptr() };
 
-        // already released
-        if inner.released.fetch_or(true, Ordering::Release) {
+        // ensure all reads are finished
+        // See [Arc::Drop]
+        inner.refs.load(Ordering::Acquire);
+
+        inner.data.take();
+        drop(Ref(self.0));
+    }
+}
+
+impl<T> Drop for Ref<T> {
+    fn drop(&mut self) {
+        if is_dangling(self.0) {
             return;
         }
 
-        // See [Arc::Drop]
-        inner.released.load(Ordering::Acquire);
+        let rc = unsafe { &(*self.0.as_ptr()).refs };
 
-        inner.data.take();
+        // no other refs
+        if rc.fetch_sub(1, Ordering::Release) == 1 {
+            // ensure all reads are finished
+            // See [Arc::Drop]
+            rc.load(Ordering::Acquire);
+
+            drop(unsafe { Box::from_raw(self.0.as_ptr()) });
+        }
     }
 }
 
@@ -176,18 +206,6 @@ impl<T> From<Option<Somr<T>>> for Somr<T> {
             Some(somr) => somr,
             None => Somr::none(),
         }
-    }
-}
-
-impl<T> Clone for Ref<T> {
-    fn clone(&self) -> Self {
-        Self(self.0)
-    }
-}
-
-impl<T> Clone for Somr<T> {
-    fn clone(&self) -> Self {
-        Self::Ref(Ref(self.ptr()))
     }
 }
 
@@ -234,17 +252,17 @@ impl<T> Hash for Somr<T> {
 
 impl<T: fmt::Debug> fmt::Debug for Somr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.released() {
-            return f.write_str("null");
-        }
-
         if self.is_owned() {
             f.write_str("Owned(")?;
         } else {
             f.write_str("Ref(")?;
         }
 
-        fmt::Debug::fmt(self.get().unwrap(), f)?;
+        if let Some(value) = self.get() {
+            fmt::Debug::fmt(value, f)?;
+        } else {
+            f.write_str("None")?;
+        }
 
         f.write_char(')')
     }
@@ -252,17 +270,17 @@ impl<T: fmt::Debug> fmt::Debug for Somr<T> {
 
 impl<T: fmt::Display> fmt::Display for Somr<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.released() {
-            return f.write_str("null");
-        }
-
         if self.is_owned() {
             f.write_str("Owned(")?;
         } else {
             f.write_str("Ref(")?;
         }
 
-        fmt::Display::fmt(self.get().unwrap(), f)?;
+        if let Some(value) = self.get() {
+            fmt::Display::fmt(value, f)?;
+        } else {
+            f.write_str("None")?;
+        }
 
         f.write_char(')')
     }
@@ -286,94 +304,121 @@ impl<T: proptest::arbitrary::Arbitrary> proptest::arbitrary::Arbitrary for Somr<
 
 #[cfg(test)]
 mod tests {
+    use crate::loom_model;
+
     use super::*;
 
     #[test]
     fn basic_example() {
-        let five = Somr::new(5);
-        assert_eq!(five.get(), Some(&5));
+        loom_model!({
+            let five = Somr::new(5);
+            assert_eq!(five.get(), Some(&5));
 
-        let five_ref = five.clone();
-        assert!(!five_ref.is_owned());
-        assert_eq!(five_ref.get(), Some(&5));
-        assert_eq!(
-            five_ref.ptr().as_ptr() as usize,
-            five.ptr().as_ptr() as usize
-        );
+            let five_ref = five.clone();
+            assert!(!five_ref.is_owned());
+            assert_eq!(five_ref.get(), Some(&5));
+            assert_eq!(
+                five_ref.ptr().as_ptr() as usize,
+                five.ptr().as_ptr() as usize
+            );
 
-        drop(five);
-        // owner released
-        assert_eq!(five_ref.get(), None);
+            drop(five);
+            // owner released
+            assert_eq!(five_ref.get(), None);
+        });
     }
 
     #[test]
     fn complex_struct() {
-        struct T {
-            a: usize,
-            b: String,
-        }
+        loom_model!({
+            struct T {
+                a: usize,
+                b: String,
+            }
 
-        let t1 = Somr::new(T {
-            a: 1,
-            b: "hello".to_owned(),
+            let t1 = Somr::new(T {
+                a: 1,
+                b: "hello".to_owned(),
+            });
+
+            assert_eq!(t1.get().unwrap().a, 1);
+            assert_eq!(t1.get().unwrap().b.as_str(), "hello");
+
+            let t2 = t1.clone();
+            assert!(!t2.is_owned());
+            assert_eq!(t2.ptr().as_ptr() as usize, t1.ptr().as_ptr() as usize);
+            assert_eq!(t2.get().unwrap().a, 1);
+            assert_eq!(t2.get().unwrap().b.as_str(), "hello");
+
+            drop(t1);
+
+            assert!(t2.get().is_none());
         });
-
-        assert_eq!(t1.get().unwrap().a, 1);
-        assert_eq!(t1.get().unwrap().b.as_str(), "hello");
-
-        let t2 = t1.clone();
-        assert!(!t2.is_owned());
-        assert_eq!(t2.ptr().as_ptr() as usize, t1.ptr().as_ptr() as usize);
-        assert_eq!(t2.get().unwrap().a, 1);
-        assert_eq!(t2.get().unwrap().b.as_str(), "hello");
-
-        drop(t1);
-
-        assert!(t2.get().is_none());
     }
 
     #[test]
     fn acquire_mut_ref() {
-        let five = Somr::new(5);
+        loom_model!({
+            let five = Somr::new(5);
 
-        *five.get_mut().unwrap() += 1;
-        assert_eq!(five.get(), Some(&6));
+            *five.get_mut().unwrap() += 1;
+            assert_eq!(five.get(), Some(&6));
 
-        let five_ref = five.clone();
+            let five_ref = five.clone();
 
-        // only owner can mut ref
-        assert!(five_ref.get().is_some());
-        assert!(five_ref.get_mut().is_none());
+            // only owner can mut ref
+            assert!(five_ref.get().is_some());
+            assert!(five_ref.get_mut().is_none());
 
-        drop(five);
+            drop(five);
+        });
     }
 
     #[test]
     fn comparison() {
-        let five = Somr::new(5);
-        let five_ref = five.clone();
-        let another_five = Somr::new(5);
-        let six = Somr::new(6);
+        loom_model!({
+            let five = Somr::new(5);
+            let five_ref = five.clone();
+            let another_five = Somr::new(5);
+            let six = Somr::new(6);
 
-        assert_eq!(five, five_ref);
-        assert_eq!(five, another_five);
-        assert_eq!(five.ptr().as_ptr(), five_ref.ptr().as_ptr());
-        assert_ne!(five.ptr().as_ptr(), another_five.ptr().as_ptr());
+            assert_eq!(five, five_ref);
+            assert_eq!(five, another_five);
+            assert_eq!(five.ptr().as_ptr(), five_ref.ptr().as_ptr());
+            assert_ne!(five.ptr().as_ptr(), another_five.ptr().as_ptr());
 
-        assert!(six > five);
-        assert!(six > five_ref);
+            assert!(six > five);
+            assert!(six > five_ref);
 
-        assert_eq!(five_ref.partial_cmp(&six), Some(std::cmp::Ordering::Less));
-        drop(five);
-        assert_eq!(five_ref.partial_cmp(&six), None);
+            assert_eq!(five_ref.partial_cmp(&six), Some(std::cmp::Ordering::Less));
+            drop(five);
+            assert_eq!(five_ref.partial_cmp(&six), None);
+        });
     }
 
     #[test]
     fn represent_none() {
-        let none = Somr::<u32>::none();
+        loom_model!({
+            let none = Somr::<u32>::none();
 
-        assert!(!none.is_owned());
-        assert!(none.released());
-        assert!(none.get().is_none());
+            assert!(!none.is_owned());
+            assert!(none.is_none());
+            assert!(none.get().is_none());
+        });
+    }
+
+    #[test]
+    fn drop_ref_without_affecting_owner() {
+        loom_model!({
+            let five = Somr::new(5);
+            let five_ref = five.clone();
+
+            assert_eq!(five.get().unwrap(), &5);
+            assert_eq!(five_ref.get().unwrap(), &5);
+
+            drop(five_ref);
+
+            assert_eq!(five.get().unwrap(), &5);
+        });
     }
 }

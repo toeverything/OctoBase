@@ -59,6 +59,10 @@ impl Doc {
         self.client_id
     }
 
+    pub fn guid(&self) -> &str {
+        self.guid.as_str()
+    }
+
     pub fn new_from_binary(binary: Vec<u8>) -> JwstCodecResult<Self> {
         let mut doc = Doc::default();
         doc.apply_update_from_binary(binary)?;
@@ -85,14 +89,10 @@ impl Doc {
         let mut store = self.store.write().unwrap();
         let mut retry = false;
         loop {
-            for (s, offset) in update.iter(store.get_state_vector()) {
-                if let StructInfo::Item(item) = &s {
-                    debug_assert_eq!(Arc::strong_count(item), 1);
-                    // SAFETY:
-                    // before we integrate struct into store,
-                    // the struct => Arc<Item> is owned reference actually,
-                    // no one else refer to such item yet, we can safely mutable refer to it now.
-                    let item = unsafe { Item::inner_mut(item) };
+            for (mut s, offset) in update.iter(store.get_state_vector()) {
+                if let StructInfo::Item(item) = &mut s {
+                    debug_assert!(item.is_owned());
+                    let item = unsafe { item.get_mut_unchecked() };
                     store.repair(item, self.store.clone())?;
                 }
                 store.integrate(s, offset, None)?;
@@ -312,49 +312,44 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(any(miri, loom), ignore)]
     fn test_array_create() {
         let options = DocOptions {
             client: Some(rand::random()),
             guid: Some(nanoid::nanoid!()),
         };
+
         let yrs_options = yrs::Options::with_guid_and_client_id(
             options.guid.clone().unwrap().into(),
-            options.client.clone().unwrap(),
+            options.client.unwrap(),
         );
 
-        loom_model!({
-            let binary = {
-                let doc = Doc::with_options(options.clone());
-                let mut array = doc.get_or_create_array("abc").unwrap();
-                array.insert(0, 42).unwrap();
-                array.insert(1, -42).unwrap();
-                array.insert(2, true).unwrap();
-                array.insert(3, false).unwrap();
-                array.insert(4, "hello").unwrap();
-                array.insert(5, "world").unwrap();
+        let binary = {
+            let doc = Doc::with_options(options);
+            let mut array = doc.get_or_create_array("abc").unwrap();
+            array.insert(0, 42).unwrap();
+            array.insert(1, -42).unwrap();
+            array.insert(2, true).unwrap();
+            array.insert(3, false).unwrap();
+            array.insert(4, "hello").unwrap();
+            array.insert(5, "world").unwrap();
 
-                let mut sub_array = doc.create_array().unwrap();
-                array.insert(6, sub_array.clone()).unwrap();
-                // FIXME: array need insert first to compatible with yrs
-                sub_array.insert(0, 1).unwrap();
+            let mut sub_array = doc.create_array().unwrap();
+            array.insert(6, sub_array.clone()).unwrap();
+            // FIXME: array need insert first to compatible with yrs
+            sub_array.insert(0, 1).unwrap();
 
-                doc.encode_update_v1().unwrap()
-            };
+            doc.encode_update_v1().unwrap()
+        };
 
-            #[cfg(not(miri))]
-            {
-                use yrs::{Doc, Update};
+        let ydoc = yrs::Doc::with_options(yrs_options);
+        let array = ydoc.get_or_insert_array("abc");
+        let mut trx = ydoc.transact_mut();
+        trx.apply_update(yrs::Update::decode_v1(&binary).unwrap());
 
-                let ydoc = Doc::with_options(yrs_options.clone());
-                let array = ydoc.get_or_insert_array("abc");
-                let mut trx = ydoc.transact_mut();
-                trx.apply_update(Update::decode_v1(&binary).unwrap());
-
-                assert_json_diff::assert_json_eq!(
-                    array.to_json(&trx),
-                    serde_json::json!([42, -42, true, false, "hello", "world", [1]])
-                );
-            }
-        });
+        assert_json_diff::assert_json_eq!(
+            array.to_json(&trx),
+            serde_json::json!([42, -42, true, false, "hello", "world", [1]])
+        );
     }
 }

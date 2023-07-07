@@ -1,29 +1,28 @@
 use super::*;
 
-pub struct ListIterator {
-    pub(super) next: Option<StructInfo>,
+pub(crate) struct ListIterator {
+    pub(super) cur: Somr<Item>,
 }
 
 impl Iterator for ListIterator {
-    type Item = ItemRef;
+    type Item = Somr<Item>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(StructInfo::Item(item)) = self.next.take().map(|s| {
-            if let StructInfo::WeakItem(item) = s {
-                StructInfo::Item(item.upgrade().unwrap())
-            } else {
-                s
-            }
-        }) {
-            self.next = item.right.clone();
-
+        while let Some(item) = self.cur.clone().get() {
+            let cur = std::mem::replace(&mut self.cur, item.right.clone().into());
             if item.deleted() {
                 continue;
             }
 
-            return Some(item);
+            return Some(cur);
         }
 
         None
+    }
+}
+
+impl ListIterator {
+    pub fn new(start: Somr<Item>) -> Self {
+        Self { cur: start }
     }
 }

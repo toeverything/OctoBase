@@ -3,9 +3,9 @@ use crate::sync::{Arc, AtomicU8, Ordering};
 
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-pub enum Parent {
+pub(crate) enum Parent {
     #[cfg_attr(test, proptest(skip))]
-    Type(YTypeWeakRef),
+    Type(YTypeRef),
     String(String),
     Id(Id),
 }
@@ -44,6 +44,7 @@ impl From<u8> for ItemFlags {
     }
 }
 
+#[allow(dead_code)]
 impl ItemFlags {
     #[inline(always)]
     pub fn set(&self, flag: u8) {
@@ -113,7 +114,7 @@ impl ItemFlags {
 
 #[derive(Clone)]
 #[cfg_attr(all(test, not(loom)), derive(proptest_derive::Arbitrary))]
-pub struct Item {
+pub(crate) struct Item {
     pub id: Id,
     pub origin_left_id: Option<Id>,
     pub origin_right_id: Option<Id>,
@@ -167,7 +168,7 @@ impl std::fmt::Display for Item {
 }
 
 // make all Item readonly
-pub type ItemRef = Arc<Item>;
+pub(crate) type ItemRef = Somr<Item>;
 
 impl Default for Item {
     fn default() -> Self {
@@ -189,8 +190,8 @@ impl Item {
     pub fn new(
         id: Id,
         content: Content,
-        left: Option<ItemRef>,
-        right: Option<ItemRef>,
+        left: Somr<Item>,
+        right: Somr<Item>,
         parent: Option<Parent>,
         parent_sub: Option<String>,
     ) -> Self {
@@ -202,18 +203,23 @@ impl Item {
 
         Self {
             id,
-            origin_left_id: left.as_ref().map(|l| l.last_id()),
-            left: left.map(|l| StructInfo::WeakItem(Arc::downgrade(&l))),
-            origin_right_id: right.as_ref().map(|r| r.id),
-            right: right.map(|r| StructInfo::WeakItem(Arc::downgrade(&r))),
+            origin_left_id: left.get().map(|left| left.last_id()),
+            left: if left.is_some() {
+                Some(StructInfo::Item(left))
+            } else {
+                None
+            },
+            origin_right_id: right.get().map(|right| right.id),
+            right: if right.is_some() {
+                Some(StructInfo::Item(right))
+            } else {
+                None
+            },
             parent,
             parent_sub,
             content: Arc::new(content),
             flags,
         }
-    }
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
     }
 
     pub fn len(&self) -> u64 {
@@ -248,15 +254,6 @@ impl Item {
         Id::new(client, clock + self.len() - 1)
     }
 
-    /// Safety:
-    /// 1. We make items always readonly in the whole system
-    /// 2. Only take inner mutable reference when we are sure that the item is not shared,
-    ///    at least before the item is adding to a [DocStore].
-    /// 3. do `debug_assert_eq!(Arc::strong_count(&item), 1);` before if we can.
-    pub(crate) unsafe fn inner_mut(item: &Arc<Item>) -> &'static mut Item {
-        &mut *(Arc::as_ptr(item) as *mut Item)
-    }
-
     #[allow(dead_code)]
     #[cfg(any(debug, test))]
     pub(crate) fn print_left(&self) {
@@ -271,9 +268,6 @@ impl Item {
             match &n {
                 StructInfo::Item(item) => {
                     ret.push(format!("{item}"));
-                }
-                StructInfo::WeakItem(item) => {
-                    ret.push(format!("{:?}", item.upgrade()));
                 }
                 StructInfo::GC { id, len } => {
                     ret.push(format!("GC{id}: {len}"));
@@ -304,9 +298,6 @@ impl Item {
             match &n {
                 StructInfo::Item(item) => {
                     ret.push(format!("{item}"));
-                }
-                StructInfo::WeakItem(item) => {
-                    ret.push(format!("{:?}", item.upgrade()));
                 }
                 StructInfo::GC { id, len } => {
                     ret.push(format!("GC{id}: {len}"));
@@ -430,14 +421,15 @@ impl Item {
                         encoder.write_item_id(id)?;
                     }
                     Parent::Type(ty) => {
-                        let ty = ty.upgrade().unwrap();
-                        let ty = ty.read().unwrap();
-                        if let Some(item) = &ty.item {
-                            encoder.write_var_u64(0)?;
-                            encoder.write_item_id(&item.upgrade().unwrap().id)?;
-                        } else if let Some(name) = &ty.root_name {
-                            encoder.write_var_u64(1)?;
-                            encoder.write_var_string(name)?;
+                        if let Some(ty) = ty.get() {
+                            let ty = ty.read().unwrap();
+                            if let Some(item) = ty.item.get() {
+                                encoder.write_var_u64(0)?;
+                                encoder.write_item_id(&item.id)?;
+                            } else if let Some(name) = &ty.root_name {
+                                encoder.write_var_u64(1)?;
+                                encoder.write_var_string(name)?;
+                            }
                         }
                     }
                 }
