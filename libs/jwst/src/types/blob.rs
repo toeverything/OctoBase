@@ -13,6 +13,7 @@ pub struct BlobMetadata {
 
 #[async_trait]
 pub trait BlobStorage<E = JwstError> {
+    async fn list_blobs(&self, workspace: Option<String>) -> JwstResult<Vec<String>, E>;
     async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool, E>;
     async fn get_blob(
         &self,

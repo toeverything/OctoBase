@@ -42,6 +42,15 @@ impl BlobDBStorage {
             .await
     }
 
+    async fn keys(&self, workspace: &str) -> Result<Vec<String>, DbErr> {
+        Blobs::find()
+            .filter(BlobColumn::WorkspaceId.eq(workspace))
+            .column(BlobColumn::Hash)
+            .all(&self.pool)
+            .await
+            .map(|r| r.into_iter().map(|f| f.hash).collect())
+    }
+
     #[allow(unused)]
     async fn count(&self, workspace: &str) -> Result<u64, DbErr> {
         Blobs::find()
@@ -127,6 +136,16 @@ impl BlobDBStorage {
 
 #[async_trait]
 impl BlobStorage<JwstStorageError> for BlobDBStorage {
+    async fn list_blobs(&self, workspace: Option<String>) -> JwstStorageResult<Vec<String>> {
+        let _lock = self.bucket.read().await;
+        let workspace = workspace.unwrap_or("__default__".into());
+        if let Ok(keys) = self.keys(&workspace).await {
+            return Ok(keys);
+        }
+
+        Err(JwstStorageError::WorkspaceNotFound(workspace))
+    }
+
     async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstStorageResult<bool> {
         let _lock = self.bucket.read().await;
         let workspace = workspace.unwrap_or("__default__".into());
@@ -254,9 +273,11 @@ pub async fn blobs_storage_test(pool: &BlobDBStorage) -> anyhow::Result<()> {
         }]
     );
     assert_eq!(pool.count("basic").await?, 1);
+    assert_eq!(pool.keys("basic").await?, vec!["test"]);
 
     pool.drop("basic").await?;
     assert_eq!(pool.count("basic").await?, 0);
+    assert_eq!(pool.keys("basic").await?, Vec::<String>::new());
 
     pool.insert("basic", "test1", &[1, 2, 3, 4]).await?;
 
@@ -272,6 +293,7 @@ pub async fn blobs_storage_test(pool: &BlobDBStorage) -> anyhow::Result<()> {
         }]
     );
     assert_eq!(pool.count("basic").await?, 1);
+    assert_eq!(pool.keys("basic").await?, vec!["test1"]);
 
     let metadata = pool.metadata("basic", "test1").await?;
 

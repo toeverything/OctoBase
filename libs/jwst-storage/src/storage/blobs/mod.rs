@@ -263,6 +263,10 @@ impl BlobAutoStorage {
 
 #[async_trait]
 impl BlobStorage<JwstStorageError> for BlobAutoStorage {
+    async fn list_blobs(&self, workspace: Option<String>) -> JwstStorageResult<Vec<String>> {
+        self.db.list_blobs(workspace).await
+    }
+
     async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstStorageResult<bool> {
         self.db.check_blob(workspace, id).await
     }
@@ -340,6 +344,16 @@ impl BlobStorage<JwstStorageError> for BlobAutoStorage {
 
 #[async_trait]
 impl BlobStorage<JwstStorageError> for JwstBlobStorage {
+    async fn list_blobs(
+        &self,
+        workspace: Option<String>,
+    ) -> JwstResult<Vec<String>, JwstStorageError> {
+        match self {
+            JwstBlobStorage::DB(db) => db.list_blobs(workspace).await,
+            JwstBlobStorage::MixedBucketDB(db) => db.list_blobs(workspace).await,
+        }
+    }
+
     async fn check_blob(
         &self,
         workspace: Option<String>,

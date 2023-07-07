@@ -65,6 +65,15 @@ impl BlobBucketDBStorage {
             .await
     }
 
+    async fn keys(&self, workspace: &str) -> Result<Vec<String>, DbErr> {
+        BucketBlobs::find()
+            .filter(BucketBlobColumn::WorkspaceId.eq(workspace))
+            .column_as(BucketBlobColumn::Hash, "hash")
+            .all(&self.pool)
+            .await
+            .map(|r| r.into_iter().map(|f| f.hash).collect())
+    }
+
     #[allow(unused)]
     async fn count(&self, workspace: &str) -> Result<u64, DbErr> {
         BucketBlobs::find()
@@ -217,6 +226,19 @@ impl BucketBlobStorage<JwstStorageError> for BucketStorage {
 
 #[async_trait]
 impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
+    async fn list_blobs(
+        &self,
+        workspace: Option<String>,
+    ) -> JwstResult<Vec<String>, JwstStorageError> {
+        let _lock = self.bucket.read().await;
+        let workspace = workspace.unwrap_or("__default__".into());
+        if let Ok(keys) = self.keys(&workspace).await {
+            return Ok(keys);
+        }
+
+        Err(JwstStorageError::WorkspaceNotFound(workspace))
+    }
+
     async fn check_blob(
         &self,
         workspace: Option<String>,
