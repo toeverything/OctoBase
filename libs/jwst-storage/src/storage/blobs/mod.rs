@@ -468,7 +468,7 @@ mod tests {
         let blob = Vec::from_iter((0..100).map(|_| rand::random()));
 
         let stream = async { Bytes::from(blob.clone()) }.into_stream();
-        let hash = storage
+        let hash1 = storage
             .put_blob_stream(Some("blob".into()), stream)
             .await
             .unwrap();
@@ -476,14 +476,14 @@ mod tests {
         // check origin blob result
         assert_eq!(
             storage
-                .get_blob(Some("blob".into()), hash.clone(), None)
+                .get_blob(Some("blob".into()), hash1.clone(), None)
                 .await
                 .unwrap(),
             blob
         );
         assert_eq!(
             storage
-                .get_metadata(Some("blob".into()), hash.clone(), None)
+                .get_metadata(Some("blob".into()), hash1.clone(), None)
                 .await
                 .unwrap()
                 .size as usize,
@@ -494,7 +494,7 @@ mod tests {
         assert!(storage
             .get_blob(
                 Some("blob".into()),
-                hash.clone(),
+                hash1.clone(),
                 Some(HashMap::from([("format".into(), "jpeg".into())]))
             )
             .await
@@ -509,7 +509,7 @@ mod tests {
             image.into_inner()
         };
         let stream = async { Bytes::from(image.clone()) }.into_stream();
-        let hash = storage
+        let hash2 = storage
             .put_blob_stream(Some("blob".into()), stream)
             .await
             .unwrap();
@@ -517,14 +517,14 @@ mod tests {
         // check origin blob result
         assert_eq!(
             storage
-                .get_blob(Some("blob".into()), hash.clone(), None)
+                .get_blob(Some("blob".into()), hash2.clone(), None)
                 .await
                 .unwrap(),
             image
         );
         assert_eq!(
             storage
-                .get_metadata(Some("blob".into()), hash.clone(), None)
+                .get_metadata(Some("blob".into()), hash2.clone(), None)
                 .await
                 .unwrap()
                 .size as usize,
@@ -534,14 +534,18 @@ mod tests {
         // check optimized jpeg result
         let jpeg_params = HashMap::from([("format".into(), "jpeg".into())]);
         let jpeg = storage
-            .get_blob(Some("blob".into()), hash.clone(), Some(jpeg_params.clone()))
+            .get_blob(
+                Some("blob".into()),
+                hash2.clone(),
+                Some(jpeg_params.clone()),
+            )
             .await
             .unwrap();
 
         assert!(jpeg.starts_with(&[0xff, 0xd8, 0xff]));
         assert_eq!(
             storage
-                .get_metadata(Some("blob".into()), hash.clone(), Some(jpeg_params))
+                .get_metadata(Some("blob".into()), hash2.clone(), Some(jpeg_params))
                 .await
                 .unwrap()
                 .size as usize,
@@ -551,14 +555,22 @@ mod tests {
         // check optimized webp result
         let webp_params = HashMap::from([("format".into(), "webp".into())]);
         let webp = storage
-            .get_blob(Some("blob".into()), hash.clone(), Some(webp_params.clone()))
+            .get_blob(
+                Some("blob".into()),
+                hash2.clone(),
+                Some(webp_params.clone()),
+            )
             .await
             .unwrap();
 
         assert!(webp.starts_with(b"RIFF"));
         assert_eq!(
             storage
-                .get_metadata(Some("blob".into()), hash.clone(), Some(webp_params.clone()))
+                .get_metadata(
+                    Some("blob".into()),
+                    hash2.clone(),
+                    Some(webp_params.clone())
+                )
                 .await
                 .unwrap()
                 .size as usize,
@@ -569,7 +581,7 @@ mod tests {
         assert!(storage
             .get_blob(
                 Some("blob".into()),
-                hash.clone(),
+                hash2.clone(),
                 Some(HashMap::from([("format".into(), "error_value".into()),]))
             )
             .await
@@ -577,7 +589,7 @@ mod tests {
         assert!(storage
             .get_blob(
                 Some("blob".into()),
-                hash.clone(),
+                hash2.clone(),
                 Some(HashMap::from([
                     ("format".into(), "webp".into()),
                     ("size".into(), "error_value".into())
@@ -588,7 +600,7 @@ mod tests {
         assert!(storage
             .get_blob(
                 Some("blob".into()),
-                hash.clone(),
+                hash2.clone(),
                 Some(HashMap::from([
                     ("format".into(), "webp".into()),
                     ("width".into(), "111".into())
@@ -599,7 +611,7 @@ mod tests {
         assert!(storage
             .get_blob(
                 Some("blob".into()),
-                hash.clone(),
+                hash2.clone(),
                 Some(HashMap::from([
                     ("format".into(), "webp".into()),
                     ("height".into(), "111".into())
@@ -614,32 +626,44 @@ mod tests {
         );
 
         assert!(storage
-            .delete_blob(Some("blob".into()), hash.clone())
+            .delete_blob(Some("blob".into()), hash2.clone())
             .await
             .unwrap());
         assert_eq!(
             storage
-                .check_blob(Some("blob".into()), hash.clone())
+                .check_blob(Some("blob".into()), hash2.clone())
                 .await
                 .unwrap(),
             false
         );
         assert!(storage
-            .get_blob(Some("blob".into()), hash.clone(), None)
+            .get_blob(Some("blob".into()), hash2.clone(), None)
             .await
             .is_err());
         assert!(storage
-            .get_metadata(Some("blob".into()), hash.clone(), None)
+            .get_metadata(Some("blob".into()), hash2.clone(), None)
             .await
             .is_err());
         assert!(storage
-            .get_metadata(Some("blob".into()), hash.clone(), Some(webp_params))
+            .get_metadata(Some("blob".into()), hash2.clone(), Some(webp_params))
             .await
             .is_err());
 
         assert_eq!(
             storage.get_blobs_size("blob".into()).await.unwrap() as usize,
             100
+        );
+
+        assert_eq!(
+            storage.list_blobs(Some("blob".into())).await.unwrap(),
+            vec![hash1]
+        );
+        assert_eq!(
+            storage
+                .list_blobs(Some("not_exists_workspace".into()))
+                .await
+                .unwrap(),
+            Vec::<String>::new()
         );
     }
 }
