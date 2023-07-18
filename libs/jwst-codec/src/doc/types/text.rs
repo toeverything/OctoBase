@@ -33,7 +33,7 @@ impl ToString for Text {
         let mut ret = String::with_capacity(self.len() as usize);
 
         self.iter_item().fold(&mut ret, |ret, item| {
-            if let Content::String(str) = item.content.as_ref() {
+            if let Content::String(str) = item.get().unwrap().content.as_ref() {
                 ret.push_str(str);
             }
 
@@ -210,23 +210,28 @@ mod tests {
             let mut text = doc.get_or_create_text("test").unwrap();
             text.insert(0, "This is a string with length 32.").unwrap();
 
-            for i in 0..2 {
-                let text = text.clone();
-                let ranges = ranges.clone();
-                thread::spawn(move || {
-                    for j in 0..5 {
+            // enough for loom
+            let handles = (0..2)
+                .map(|i| {
+                    let text = text.clone();
+                    let ranges = ranges.clone();
+                    thread::spawn(move || {
                         let mut text = text.clone();
                         let ins = i % 2 == 0;
-                        let pos = ranges[i * j];
+                        let pos = ranges[i];
 
                         if ins {
-                            let str = format!("hello {}", i * j);
+                            let str = format!("hello {}", i);
                             text.insert(pos, &str).unwrap();
                         } else {
                             text.remove(pos, 6).unwrap();
                         }
-                    }
-                });
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            for handle in handles {
+                handle.join().unwrap();
             }
         });
     }

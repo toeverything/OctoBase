@@ -5,17 +5,21 @@ use crate::{
 };
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
+    mem,
     ops::Range,
 };
 
 #[derive(Default, Debug)]
-pub struct DocStore {
+pub(crate) struct DocStore {
     client: Client,
     pub items: Arc<RwLock<HashMap<Client, Vec<StructInfo>>>>,
     pub delete_set: Arc<RwLock<DeleteSet>>,
 
     // following fields are only used in memory
     pub types: Arc<RwLock<HashMap<String, YTypeRef>>>,
+    // types created from this store but with no names,
+    // we store it here to keep the ownership inside store without being released.
+    pub dangling_types: HashMap<usize, YTypeRef>,
     pub pending: Option<Update>,
 }
 
@@ -29,10 +33,6 @@ impl PartialEq for DocStore {
 }
 
 impl DocStore {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
     pub fn with_client(client: Client) -> Self {
         Self {
             client,
@@ -119,9 +119,22 @@ impl DocStore {
         None
     }
 
-    pub fn get_item<I: Into<Id>>(&self, id: I) -> Option<Arc<Item>> {
-        self.get_node_with_idx(id)
-            .and_then(|(item, _)| item.as_item())
+    pub fn create_item(
+        &mut self,
+        content: Content,
+        left: Somr<Item>,
+        right: Somr<Item>,
+        parent: Option<Parent>,
+        parent_sub: Option<String>,
+    ) -> ItemRef {
+        let id = (self.client(), self.get_state(self.client())).into();
+        let item = Somr::new(Item::new(id, content, left, right, parent, parent_sub));
+
+        if let Content::Type(ty) = item.get().unwrap().content.as_ref() {
+            ty.get().unwrap().write().unwrap().item = item.clone();
+        }
+
+        item
     }
 
     pub fn get_node<I: Into<Id>>(&self, id: I) -> Option<StructInfo> {
@@ -139,16 +152,18 @@ impl DocStore {
         None
     }
 
-    pub fn split_node<I: Into<Id>>(&mut self, id: I, diff: u64) -> JwstCodecResult {
+    pub fn split_node<I: Into<Id>>(
+        &mut self,
+        id: I,
+        diff: u64,
+    ) -> JwstCodecResult<(StructInfo, StructInfo)> {
         debug_assert!(diff > 0);
 
         let id = id.into();
 
         if let Some(items) = self.items.write().unwrap().get_mut(&id.client) {
             if let Some(idx) = Self::get_item_index(items, id.clock) {
-                Self::split_node_at(items, idx, diff)?;
-
-                return Ok(());
+                return Self::split_node_at(items, idx, diff);
             }
         }
 
@@ -175,20 +190,21 @@ impl DocStore {
                 // we make sure store is the only entry of mutating an item,
                 // and we already hold mutable reference of store, so it's safe to do so
                 unsafe {
-                    let left_item = Item::inner_mut(raw_left_item);
-                    let right_item = Item::inner_mut(right_item);
-                    left_item.content = new_left_item.content.clone();
+                    let left_item = raw_left_item.get_mut_unchecked();
+                    let right_item = right_item.get_mut_unchecked();
+                    left_item.content = new_left_item.get_unchecked().content.clone();
 
                     // we had the correct left/right content
                     // now build the references
-                    if let Some(right_right) = &left_item.right.as_ref().and_then(|i| i.as_item()) {
-                        Item::inner_mut(right_right).left = Some(right_node.as_weak());
-                        right_item.right = Some(StructInfo::WeakItem(Arc::downgrade(right_right)));
-                    }
-                    left_item.right = Some(right_node.as_weak());
-
+                    let right_right_ref = ItemRef::from(&left_item.right);
+                    right_item.left = if right_right_ref.is_some() {
+                        let right_right = right_right_ref.get_mut_unchecked();
+                        right_right.left.replace(right_node.clone())
+                    } else {
+                        Some(node.clone())
+                    };
+                    right_item.right = left_item.right.replace(right_node.clone());
                     right_item.origin_left_id = Some(left_item.last_id());
-                    right_item.left = Some(node.as_weak());
                     right_item.origin_right_id = left_item.origin_right_id;
                 };
             }
@@ -196,9 +212,11 @@ impl DocStore {
                 items[idx] = left_node;
             }
         }
-        items.insert(idx + 1, right_node.clone());
 
-        Ok((node, right_node))
+        let right_ref = right_node.clone();
+        items.insert(idx + 1, right_node);
+
+        Ok((node, right_ref))
     }
 
     pub fn split_at_and_get_right<I: Into<Id>>(&self, id: I) -> JwstCodecResult<StructInfo> {
@@ -261,15 +279,15 @@ impl DocStore {
         match self.types.write().unwrap().entry(name.to_string()) {
             Entry::Occupied(e) => e.get().clone(),
             Entry::Vacant(e) => {
-                let ty = Arc::new(RwLock::new(YType {
+                let ty = Somr::new(RwLock::new(YType {
                     kind: YTypeKind::Unknown,
                     root_name: Some(name.to_string()),
                     ..Default::default()
                 }));
 
-                e.insert(ty.clone());
-
-                ty
+                let ty_ref = ty.clone();
+                e.insert(ty);
+                ty_ref
             }
         }
     }
@@ -283,11 +301,11 @@ impl DocStore {
     ///     - [None] means borrow left.parent or right.parent
     pub(crate) fn repair(&self, item: &mut Item, store_ref: StoreRef) -> JwstCodecResult {
         if let Some(left_id) = item.origin_left_id {
-            item.left = Some(self.split_at_and_get_left(left_id)?.as_weak());
+            item.left = Some(self.split_at_and_get_left(left_id)?);
         }
 
         if let Some(right_id) = item.origin_right_id {
-            item.right = Some(self.split_at_and_get_right(right_id)?.as_weak());
+            item.right = Some(self.split_at_and_get_right(right_id)?);
         }
 
         match &item.parent {
@@ -296,8 +314,10 @@ impl DocStore {
             //                              ^^^^^^^ Parent::String("content")
             Some(Parent::String(str)) => {
                 let ty = self.get_or_create_type(str);
-                ty.write().unwrap().store = Arc::downgrade(&store_ref);
-                item.parent.replace(Parent::Type(Arc::downgrade(&ty)));
+                if let Some(ty) = ty.get() {
+                    ty.write().unwrap().store = Arc::downgrade(&store_ref);
+                }
+                item.parent.replace(Parent::Type(ty));
             }
             // type as item
             // let text = doc.create_text("text")
@@ -307,12 +327,9 @@ impl DocStore {
                 match self.get_node(*parent_id) {
                     Some(StructInfo::Item(_)) => match &item.content.as_ref() {
                         Content::Type(ty) => {
-                            ty.write().unwrap().store = Arc::downgrade(&store_ref);
-                            item.parent.replace(Parent::Type(Arc::downgrade(ty)));
-                        }
-                        Content::WeakType(ty) => {
-                            ty.upgrade().unwrap().write().unwrap().store =
-                                Arc::downgrade(&store_ref);
+                            if let Some(ty) = ty.get() {
+                                ty.write().unwrap().store = Arc::downgrade(&store_ref);
+                            }
                             item.parent.replace(Parent::Type(ty.clone()));
                         }
                         Content::Deleted(_) => {
@@ -331,10 +348,10 @@ impl DocStore {
             }
             // no item.parent, borrow left.parent or right.parent
             None => {
-                if let Some(left) = item.left.as_ref().and_then(|i| i.as_item()) {
+                if let Some(left) = ItemRef::from(item.left.clone()).get() {
                     item.parent = left.parent.clone();
                     item.parent_sub = left.parent_sub.clone();
-                } else if let Some(right) = item.right.as_ref().and_then(|i| i.as_item()) {
+                } else if let Some(right) = ItemRef::from(item.right.clone()).get() {
                     item.parent = right.parent.clone();
                     item.parent_sub = right.parent_sub.clone();
                 }
@@ -347,94 +364,92 @@ impl DocStore {
 
     pub(crate) fn integrate(
         &mut self,
-        struct_info: StructInfo,
+        mut struct_info: StructInfo,
         offset: u64,
         parent: Option<&mut YType>,
     ) -> JwstCodecResult {
-        let mut struct_info = if let StructInfo::WeakItem(item) = struct_info {
-            StructInfo::Item(item.upgrade().unwrap())
-        } else {
-            struct_info
-        };
-
         match &mut struct_info {
             StructInfo::Item(item) => {
+                assert!(
+                    item.is_owned(),
+                    "Required a owned Item type but got an shared reference"
+                );
+
                 // SAFETY:
                 // before we integrate struct into store,
                 // the struct => Arc<Item> is owned reference actually,
                 // no one else refer to such item yet, we can safely mutable refer to it now.
-                let this = unsafe { Item::inner_mut(item) };
+                let this = unsafe { item.get_mut_unchecked() };
 
                 if offset > 0 {
                     this.id.clock += offset;
                     let left =
                         self.split_at_and_get_left(Id::new(this.id.client, this.id.clock - 1))?;
                     this.origin_left_id = Some(left.last_id());
-                    this.left = Some(left.as_weak());
+                    this.left = Some(left);
                     this.content = Arc::new(this.content.split(offset)?.1);
                 }
 
                 if let Some(Parent::Type(ty)) = &this.parent {
-                    let ty = ty.upgrade().unwrap();
                     let mut parent_lock: Option<RwLockWriteGuard<YType>> = None;
                     let parent = if let Some(p) = parent {
                         p
-                    } else {
+                    } else if let Some(ty) = ty.get() {
                         let lock = ty.write().unwrap();
                         parent_lock = Some(lock);
                         parent_lock.as_deref_mut().unwrap()
+                    } else {
+                        return Ok(());
                     };
 
-                    let right_is_null_or_has_left = match &this.right {
+                    let mut left: ItemRef = this.left.as_ref().into();
+                    let mut right: ItemRef = this.right.as_ref().into();
+
+                    let right_is_null_or_has_left = match right.get() {
                         None => true,
-                        Some(StructInfo::Item(right)) => right.left.is_some(),
-                        Some(StructInfo::WeakItem(right)) => {
-                            right.upgrade().unwrap().left.is_some()
-                        }
-                        _ => false,
+                        Some(r) => ItemRef::from(&r.left).is_some(),
                     };
-                    let left_has_other_right_than_self = match &this.left {
-                        Some(StructInfo::Item(left)) => left.right != this.right,
-                        Some(StructInfo::WeakItem(left)) => {
-                            left.upgrade().unwrap().right != this.right
-                        }
+
+                    let left_has_other_right_than_self = match left.get() {
+                        Some(left) => ItemRef::from(&left.right) != right,
                         _ => false,
                     };
 
                     // conflicts
-                    if (this.left.is_none() && right_is_null_or_has_left)
+                    if (left.is_none() && right_is_null_or_has_left)
                         || left_has_other_right_than_self
                     {
                         // set the first conflicting item
-                        let mut pending_conflict = if let Some(StructInfo::Item(left)) = &this.left
-                        {
-                            left.right.clone()
+                        let mut conflict = if let Some(left) = left.get() {
+                            left.right.as_ref().into()
                         } else if let Some(parent_sub) = &this.parent_sub {
                             parent
                                 .map
                                 .as_ref()
                                 .and_then(|m| m.get(parent_sub).cloned())
-                                .map(|s| s.head())
+                                .map(|s| s.as_item())
+                                .unwrap_or(Somr::none())
                         } else {
                             parent.start.clone()
                         };
+
                         let mut conflicting_items = HashSet::new();
                         let mut items_before_origin = HashSet::new();
 
-                        while let Some(conflict) = &pending_conflict {
-                            if Some(conflict) == this.right.as_ref() {
+                        while conflict.is_some() {
+                            if conflict == right {
                                 break;
                             }
-                            let conflict_id = conflict.id();
+                            if let Some(conflict_item) = conflict.get() {
+                                let conflict_id = conflict_item.id;
 
-                            items_before_origin.insert(conflict_id);
-                            conflicting_items.insert(conflict_id);
+                                items_before_origin.insert(conflict_id);
+                                conflicting_items.insert(conflict_id);
 
-                            if let StructInfo::Item(conflict_item) = conflict {
                                 if this.origin_left_id == conflict_item.origin_left_id {
                                     // case 1
                                     if conflict_id.client < this.id.client {
-                                        this.left = Some(conflict.as_weak());
+                                        left = conflict.clone();
                                         conflicting_items.clear();
                                     } else if this.origin_right_id == conflict_item.origin_right_id
                                     {
@@ -449,14 +464,14 @@ impl DocStore {
                                     if items_before_origin.contains(&conflict_item_left)
                                         && !conflicting_items.contains(&conflict_item_left)
                                     {
-                                        this.left = Some(conflict.as_weak());
+                                        left = conflict.clone();
                                         conflicting_items.clear();
                                     }
                                 } else {
                                     break;
                                 }
 
-                                pending_conflict = conflict_item.right.clone();
+                                conflict = ItemRef::from(&conflict_item.right);
                             } else {
                                 break;
                             }
@@ -465,43 +480,43 @@ impl DocStore {
 
                     // reconnect left/right
                     // has left, connect left <-> self <-> left.right
-                    if let Some(left) = this.left.as_ref().and_then(|i| i.as_item()) {
-                        // Safety:
-                        // we are in the process of integrating a new item.
-                        // we got the write lock of store, parent.
-                        // it's safe to modify the internal item.
-                        let left = unsafe { Item::inner_mut(&left) };
-                        this.right = left.right.replace(struct_info.as_weak());
+                    if left.is_some() {
+                        unsafe {
+                            // SAFETY: we get store write lock, no way the left get dropped by owner
+                            let left = left.get_mut_unchecked();
+                            right = left.right.replace(StructInfo::Item(item.clone())).into();
+                        }
+                        this.left = Some(StructInfo::Item(left));
                     } else {
                         // no left, parent.start = this
-                        this.right = if let Some(parent_sub) = &this.parent_sub {
+                        right = if let Some(parent_sub) = &this.parent_sub {
                             parent
                                 .map
                                 .as_ref()
                                 .and_then(|map| map.get(parent_sub))
                                 .map(|n| n.head())
+                                .into()
                         } else {
-                            parent.start.replace(struct_info.as_weak())
-                        }
-                        .as_ref()
-                        .map(|i| i.as_weak());
+                            mem::replace(&mut parent.start, item.clone())
+                        };
+                        this.left = None;
                     }
 
                     // has right, connect
-                    if let Some(right) = &this.right.as_ref().and_then(|i| i.as_item()) {
-                        // Safety:
-                        // we are in the process of integrating a new item.
-                        // we got the write lock of store, parent.
-                        // it's safe to modify the internal item.
-                        let right = unsafe { Item::inner_mut(right) };
-                        right.left = Some(struct_info.as_weak());
+                    if right.is_some() {
+                        unsafe {
+                            // SAFETY: we get store write lock, no way the left get dropped by owner
+                            let right = right.get_mut_unchecked();
+                            right.left = Some(StructInfo::Item(item.clone()));
+                        }
+                        this.right = Some(StructInfo::Item(right))
                     } else {
                         // no right, parent.start = this, delete this.left
                         if let Some(parent_sub) = &this.parent_sub {
                             parent
                                 .map
                                 .get_or_insert(HashMap::default())
-                                .insert(parent_sub.to_string(), struct_info.clone());
+                                .insert(parent_sub.to_string(), StructInfo::Item(item.clone()));
 
                             if let Some(left) = &this.left {
                                 self.delete(left, Some(parent));
@@ -509,7 +524,11 @@ impl DocStore {
                         }
                     }
 
-                    let parent_deleted = parent.item().map(|item| item.deleted()).unwrap_or(false);
+                    let parent_deleted = parent
+                        .item
+                        .get()
+                        .map(|item| item.deleted())
+                        .unwrap_or(false);
 
                     // should delete
                     if parent_deleted || this.parent_sub.is_some() && this.origin_right_id.is_some()
@@ -525,7 +544,6 @@ impl DocStore {
                     parent_lock.take();
                 }
             }
-            StructInfo::WeakItem(_) => unreachable!(),
             StructInfo::GC { id, len } => {
                 if offset > 0 {
                     id.clock += offset;
@@ -553,7 +571,7 @@ impl DocStore {
             if let Some(parent) = parent {
                 parent.len -= item.len();
             } else if let Some(Parent::Type(ty)) = &item.parent {
-                ty.upgrade().unwrap().write().unwrap().len -= item.len();
+                ty.get().unwrap().write().unwrap().len -= item.len();
             }
         }
 
@@ -569,8 +587,8 @@ impl DocStore {
     }
 
     pub(crate) fn delete(&self, struct_info: &StructInfo, parent: Option<&mut YType>) {
-        if let Some(item) = struct_info.as_item() {
-            self.delete_item(item.as_ref(), parent);
+        if let Some(item) = struct_info.as_item().get() {
+            self.delete_item(item, parent);
         }
     }
 
@@ -695,13 +713,13 @@ mod tests {
     #[test]
     fn test_get_state() {
         loom_model!({
-            let doc_store = DocStore::new();
+            let doc_store = DocStore::with_client(1);
             let state = doc_store.get_state(1);
             assert_eq!(state, 0);
         });
 
         loom_model!({
-            let doc_store = DocStore::new();
+            let doc_store = DocStore::with_client(1);
 
             let client_id = 1;
 
@@ -731,13 +749,13 @@ mod tests {
     #[test]
     fn test_get_state_vector() {
         loom_model!({
-            let doc_store = DocStore::new();
+            let doc_store = DocStore::with_client(1);
             let state_map = doc_store.get_state_vector();
             assert!(state_map.is_empty());
         });
 
         loom_model!({
-            let doc_store = DocStore::new();
+            let doc_store = DocStore::with_client(1);
 
             let client1 = 1;
             let struct_info1 = StructInfo::GC {
@@ -784,7 +802,7 @@ mod tests {
     #[test]
     fn test_add_item() {
         loom_model!({
-            let doc_store = DocStore::new();
+            let doc_store = DocStore::with_client(1);
 
             let struct_info1 = StructInfo::GC {
                 id: Id::new(1, 0),
@@ -823,7 +841,7 @@ mod tests {
     #[test]
     fn test_get_item() {
         loom_model!({
-            let doc_store = DocStore::new();
+            let doc_store = DocStore::with_client(1);
             let struct_info = StructInfo::GC {
                 id: Id::new(1, 0),
                 len: 10,
@@ -834,7 +852,7 @@ mod tests {
         });
 
         loom_model!({
-            let doc_store = DocStore::new();
+            let doc_store = DocStore::with_client(1);
             let struct_info1 = StructInfo::GC {
                 id: Id::new(1, 0),
                 len: 10,
@@ -850,13 +868,13 @@ mod tests {
         });
 
         loom_model!({
-            let doc_store = DocStore::new();
+            let doc_store = DocStore::with_client(1);
 
             assert_eq!(doc_store.get_node(Id::new(1, 0)), None);
         });
 
         loom_model!({
-            let doc_store = DocStore::new();
+            let doc_store = DocStore::with_client(1);
             let struct_info1 = StructInfo::GC {
                 id: Id::new(1, 0),
                 len: 10,
@@ -873,28 +891,54 @@ mod tests {
     }
 
     #[test]
+    fn test_split_node_at() {
+        loom_model!({
+            let node = StructInfo::Item(Somr::new(
+                ItemBuilder::new()
+                    .id((1, 0).into())
+                    .content(Content::String(String::from("octo")))
+                    .build(),
+            ));
+            let mut list = vec![node.clone()];
+
+            let (left, right) = DocStore::split_node_at(&mut list, 0, 2).unwrap();
+
+            assert_eq!(
+                node.as_item().ptr().as_ptr() as usize,
+                left.as_item().ptr().as_ptr() as usize
+            );
+            assert_eq!(node.len(), 2);
+            assert_eq!(left.len(), 2);
+            assert_eq!(right.len(), 2);
+            assert_eq!(left.right(), Some(right.clone()));
+            assert_eq!(right.left(), Some(left));
+        });
+    }
+
+    #[test]
     fn test_split_and_get() {
         loom_model!({
-            let doc_store = DocStore::new();
-            let struct_info1 = StructInfo::Item(Arc::new(
+            let doc_store = DocStore::with_client(1);
+            let struct_info1 = StructInfo::Item(Somr::new(
                 ItemBuilder::new()
                     .id((1, 0).into())
                     .content(Content::String(String::from("octo")))
                     .build(),
             ));
 
-            let struct_info2 = StructInfo::Item(Arc::new(
+            let struct_info2 = StructInfo::Item(Somr::new(
                 ItemBuilder::new()
                     .id((1, struct_info1.len()).into())
                     .left_id(Some(struct_info1.id()))
                     .content(Content::String(String::from("base")))
                     .build(),
             ));
-            doc_store.add_item(struct_info1.clone()).unwrap();
+            let s1_ref = struct_info1.clone();
+            doc_store.add_item(struct_info1).unwrap();
             doc_store.add_item(struct_info2).unwrap();
 
             let s1 = doc_store.get_node(Id::new(1, 0)).unwrap();
-            assert_eq!(s1, struct_info1);
+            assert_eq!(s1, s1_ref);
             let left = doc_store.split_at_and_get_left((1, 1)).unwrap();
             assert_eq!(left.len(), 2); // octo => oc_to
 

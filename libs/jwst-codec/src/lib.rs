@@ -9,9 +9,10 @@ pub use codec::{
     write_var_string, write_var_u64,
 };
 pub use doc::{
-    Any, Array, Awareness, AwarenessEvent, Client, Clock, Content, CrdtRead, CrdtReader, CrdtWrite,
-    CrdtWriter, Doc, DocOptions, Id, Item, Map, RawDecoder, RawEncoder, Text, Update,
+    Any, Array, Awareness, AwarenessEvent, Client, Clock, CrdtRead, CrdtReader, CrdtWrite,
+    CrdtWriter, Doc, DocOptions, Id, Map, RawDecoder, RawEncoder, Text, Update,
 };
+pub(crate) use doc::{Content, Item};
 pub use protocol::{
     read_sync_message, write_sync_message, AwarenessState, AwarenessStates, DocMessage,
     SyncMessage, SyncMessageScanner,
@@ -54,6 +55,8 @@ pub enum JwstCodecError {
     TypeCastError(&'static str),
     #[error("Index {0} out of bound")]
     IndexOutOfBound(u64),
+    #[error("Document has been released")]
+    DocReleased,
 }
 
 pub type JwstCodecResult<T = ()> = Result<T, JwstCodecError>;

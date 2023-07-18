@@ -1,32 +1,12 @@
 use super::*;
-use crate::sync::{Arc, Weak};
 
 // make fields Copy + Clone without much effort
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(all(test, not(loom)), derive(proptest_derive::Arbitrary))]
-pub enum StructInfo {
-    GC {
-        id: Id,
-        len: u64,
-    },
-    Skip {
-        id: Id,
-        len: u64,
-    },
+pub(crate) enum StructInfo {
+    GC { id: Id, len: u64 },
+    Skip { id: Id, len: u64 },
     Item(ItemRef),
-    #[cfg_attr(all(test, not(loom)), proptest(skip))]
-    WeakItem(Weak<Item>),
-}
-
-impl Clone for StructInfo {
-    fn clone(&self) -> Self {
-        match self {
-            Self::GC { id, len } => Self::GC { id: *id, len: *len },
-            Self::Skip { id, len } => Self::Skip { id: *id, len: *len },
-            Self::Item(item) => Self::Item(item.clone()),
-            Self::WeakItem(item) => Self::WeakItem(item.clone()),
-        }
-    }
 }
 
 impl<W: CrdtWriter> CrdtWrite<W> for StructInfo {
@@ -40,11 +20,7 @@ impl<W: CrdtWriter> CrdtWrite<W> for StructInfo {
                 writer.write_info(10)?;
                 writer.write_var_u64(*len)
             }
-            StructInfo::Item(item) => item.write(writer),
-            StructInfo::WeakItem(item) => {
-                let item = item.upgrade().unwrap();
-                item.write(writer)
-            }
+            StructInfo::Item(item) => item.get().unwrap().write(writer),
         }
     }
 }
@@ -54,7 +30,7 @@ impl PartialEq for StructInfo {
         match (self, other) {
             (StructInfo::GC { id: id1, .. }, StructInfo::GC { id: id2, .. }) => id1 == id2,
             (StructInfo::Skip { id: id1, .. }, StructInfo::Skip { id: id2, .. }) => id1 == id2,
-            (StructInfo::Item(item1), StructInfo::Item(item2)) => item1.id == item2.id,
+            (StructInfo::Item(item1), StructInfo::Item(item2)) => item1.get() == item2.get(),
             _ => false,
         }
     }
@@ -66,7 +42,7 @@ impl Eq for StructInfo {
 
 impl From<Item> for StructInfo {
     fn from(value: Item) -> Self {
-        Self::Item(Arc::new(value))
+        Self::Item(Somr::new(value))
     }
 }
 
@@ -85,16 +61,10 @@ impl StructInfo {
                 Ok(StructInfo::Skip { id, len })
             }
             _ => {
-                let item = Arc::new(Item::read(decoder, id, info, first_5_bit)?);
+                let item = Somr::new(Item::read(decoder, id, info, first_5_bit)?);
 
-                match item.content.as_ref() {
-                    Content::Type(ty) => {
-                        ty.write().unwrap().item = Some(Arc::downgrade(&item));
-                    }
-                    Content::WeakType(ty) => {
-                        ty.upgrade().unwrap().write().unwrap().item = Some(Arc::downgrade(&item));
-                    }
-                    _ => {}
+                if let Content::Type(ty) = item.get().unwrap().content.as_ref() {
+                    ty.get().unwrap().write().unwrap().item = item.clone();
                 }
 
                 Ok(StructInfo::Item(item))
@@ -106,8 +76,7 @@ impl StructInfo {
         match self {
             StructInfo::GC { id, .. } => *id,
             StructInfo::Skip { id, .. } => *id,
-            StructInfo::Item(item) => item.id,
-            StructInfo::WeakItem(item) => item.upgrade().unwrap().id,
+            StructInfo::Item(item) => unsafe { item.get_unchecked() }.id,
         }
     }
 
@@ -123,8 +92,7 @@ impl StructInfo {
         match self {
             Self::GC { len, .. } => *len,
             Self::Skip { len, .. } => *len,
-            Self::Item(item) => item.len(),
-            Self::WeakItem(item) => item.upgrade().unwrap().len(),
+            Self::Item(item) => unsafe { item.get_unchecked() }.len(),
         }
     }
 
@@ -140,47 +108,17 @@ impl StructInfo {
         matches!(self, Self::Item(_))
     }
 
-    pub fn as_item(&self) -> Option<Arc<Item>> {
+    pub fn as_item(&self) -> Somr<Item> {
         if let Self::Item(item) = self {
-            Some(item.clone())
-        } else if let Self::WeakItem(item) = self {
-            item.upgrade()
+            item.clone()
         } else {
-            None
-        }
-    }
-
-    pub fn as_weak_item(&self) -> Option<Weak<Item>> {
-        if let Self::Item(item) = self {
-            Some(Arc::downgrade(item))
-        } else if let Self::WeakItem(item) = self {
-            Some(item.clone())
-        } else {
-            None
-        }
-    }
-
-    pub fn as_strong(&self) -> Option<Self> {
-        if let Self::WeakItem(item) = self {
-            item.upgrade().map(Self::Item)
-        } else {
-            Some(self.clone())
-        }
-    }
-
-    pub fn as_weak(&self) -> Self {
-        if let Self::Item(item) = self {
-            Self::WeakItem(Arc::downgrade(item))
-        } else {
-            self.clone()
+            Somr::none()
         }
     }
 
     pub fn left(&self) -> Option<Self> {
         if let StructInfo::Item(item) = self {
-            item.left.clone()
-        } else if let StructInfo::WeakItem(item) = self {
-            item.upgrade().and_then(|i| i.left.clone())
+            item.get().and_then(|item| item.left.clone())
         } else {
             None
         }
@@ -188,9 +126,7 @@ impl StructInfo {
 
     pub fn right(&self) -> Option<Self> {
         if let StructInfo::Item(item) = self {
-            item.right.clone()
-        } else if let StructInfo::WeakItem(item) = self {
-            item.upgrade().and_then(|i| i.right.clone())
+            item.get().and_then(|item| item.right.clone())
         } else {
             None
         }
@@ -210,6 +146,7 @@ impl StructInfo {
         cur
     }
 
+    #[allow(dead_code)]
     pub fn tail(&self) -> Self {
         let mut cur = self.clone();
 
@@ -226,7 +163,7 @@ impl StructInfo {
 
     pub fn flags(&self) -> ItemFlags {
         if let StructInfo::Item(item) = self {
-            item.flags.clone()
+            item.get().unwrap().flags.clone()
         } else {
             // deleted
             ItemFlags::from(4)
@@ -240,28 +177,29 @@ impl StructInfo {
     }
 
     pub fn split_at(&self, offset: u64) -> JwstCodecResult<(Self, Self)> {
-        if let Some(Self::Item(item)) = self.as_strong() {
+        if let Self::Item(item) = self {
+            let item = item.get().unwrap();
             debug_assert!(offset > 0 && item.len() > 1 && offset < item.len());
             let id = item.id;
             let right_id = Id::new(id.client, id.clock + offset);
             let (left_content, right_content) = item.content.split(offset)?;
 
-            let left_item = Arc::new(Item::new(
+            let left_item = Somr::new(Item::new(
                 id,
                 left_content,
                 // let caller connect left <-> node <-> right
-                None,
-                None,
+                Somr::none(),
+                Somr::none(),
                 item.parent.clone(),
                 item.parent_sub.clone(),
             ));
 
-            let right_item = Arc::new(Item::new(
+            let right_item = Somr::new(Item::new(
                 right_id,
                 right_content,
                 // let caller connect left <-> node <-> right
-                None,
-                None,
+                Somr::none(),
+                Somr::none(),
                 item.parent.clone(),
                 item.parent_sub.clone(),
             ));
@@ -272,26 +210,41 @@ impl StructInfo {
         }
     }
 
-    pub fn delete(&self) {
-        if let StructInfo::Item(item) = self {
-            item.delete()
-        }
-    }
-
+    #[inline]
     #[allow(dead_code)]
     pub(crate) fn countable(&self) -> bool {
-        if let StructInfo::Item(item) = self {
-            item.flags.countable()
-        } else {
-            false
-        }
+        self.flags().countable()
     }
 
+    #[inline]
     pub(crate) fn deleted(&self) -> bool {
-        if let StructInfo::Item(item) = self {
-            item.deleted()
-        } else {
-            false
+        self.flags().deleted()
+    }
+}
+
+impl From<Option<StructInfo>> for Somr<Item> {
+    fn from(value: Option<StructInfo>) -> Self {
+        match value {
+            Some(n) => n.as_item(),
+            None => Somr::none(),
+        }
+    }
+}
+
+impl From<&Option<StructInfo>> for Somr<Item> {
+    fn from(value: &Option<StructInfo>) -> Self {
+        match value {
+            Some(n) => n.as_item(),
+            None => Somr::none(),
+        }
+    }
+}
+
+impl From<Option<&StructInfo>> for Somr<Item> {
+    fn from(value: Option<&StructInfo>) -> Self {
+        match value {
+            Some(n) => n.as_item(),
+            None => Somr::none(),
         }
     }
 }
@@ -333,7 +286,7 @@ mod tests {
                     .parent_sub(None)
                     .content(Content::String(String::from("content")))
                     .build();
-                let struct_info = StructInfo::Item(Arc::new(item));
+                let struct_info = StructInfo::Item(Somr::new(item));
 
                 assert_eq!(struct_info.len(), 7);
                 assert_eq!(struct_info.client(), 3);
@@ -345,7 +298,7 @@ mod tests {
     #[test]
     fn test_read_write_struct_info() {
         loom_model!({
-            let has_not_parent_id_and_has_parent = StructInfo::Item(Arc::new(
+            let has_not_parent_id_and_has_parent = StructInfo::Item(Somr::new(
                 ItemBuilder::new()
                     .id((0, 0).into())
                     .left_id(None)
@@ -356,7 +309,7 @@ mod tests {
                     .build(),
             ));
 
-            let has_not_parent_id_and_has_parent_with_key = StructInfo::Item(Arc::new(
+            let has_not_parent_id_and_has_parent_with_key = StructInfo::Item(Somr::new(
                 ItemBuilder::new()
                     .id((0, 0).into())
                     .left_id(None)
@@ -367,7 +320,7 @@ mod tests {
                     .build(),
             ));
 
-            let has_parent_id = StructInfo::Item(Arc::new(
+            let has_parent_id = StructInfo::Item(Somr::new(
                 ItemBuilder::new()
                     .id((0, 0).into())
                     .left_id(Some((1, 2).into()))
@@ -406,12 +359,14 @@ mod tests {
 
     fn struct_info_round_trip(info: &mut StructInfo) -> JwstCodecResult {
         if let StructInfo::Item(item) = info {
-            if !item.is_valid() {
-                return Ok(());
-            }
+            if let Some(item) = item.get_mut() {
+                if !item.is_valid() {
+                    return Ok(());
+                }
 
-            if item.content.countable() {
-                item.flags.set_countable();
+                if item.content.countable() {
+                    item.flags.set_countable();
+                }
             }
         }
         let mut encoder = RawEncoder::default();

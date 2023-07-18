@@ -1,11 +1,12 @@
-#![allow(dead_code)]
+use super::item::item_flags;
 use super::*;
 use crate::sync::Arc;
 
-pub struct ItemBuilder {
+pub(crate) struct ItemBuilder {
     item: Item,
 }
 
+#[allow(dead_code)]
 impl ItemBuilder {
     pub fn new() -> ItemBuilder {
         Self {
@@ -20,14 +21,14 @@ impl ItemBuilder {
 
     pub fn left(mut self, left: Option<StructInfo>) -> ItemBuilder {
         let origin_id = left.as_ref().map(|i| i.last_id());
-        self.item.left = left.map(|i| i.as_weak());
+        self.item.left = left;
         self.item.origin_left_id = origin_id;
         self
     }
 
     pub fn right(mut self, right: Option<StructInfo>) -> ItemBuilder {
         let origin_id = right.as_ref().map(|i| i.id());
-        self.item.right = right.map(|i| i.as_weak());
+        self.item.right = right;
         self.item.origin_right_id = origin_id;
         self
     }

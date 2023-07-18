@@ -5,16 +5,16 @@ use std::ops::Range;
 
 #[derive(Debug, Default)]
 pub struct Update {
-    pub structs: HashMap<u64, VecDeque<StructInfo>>,
-    pub delete_set: DeleteSet,
+    pub(crate) structs: HashMap<u64, VecDeque<StructInfo>>,
+    pub(crate) delete_set: DeleteSet,
 
     /// all unapplicable items that we can't integrate into doc
     /// any item with inconsistent id clock or missing dependency will be put here
-    pub pending_structs: HashMap<Client, VecDeque<StructInfo>>,
+    pub(crate) pending_structs: HashMap<Client, VecDeque<StructInfo>>,
     /// missing state vector after applying updates
-    pub missing_state: StateVector,
+    pub(crate) missing_state: StateVector,
     /// all unapplicable delete set
-    pub pending_delete_set: DeleteSet,
+    pub(crate) pending_delete_set: DeleteSet,
 }
 
 impl<R: CrdtReader> CrdtRead<R> for Update {
@@ -93,7 +93,7 @@ impl Update {
         Ok(encoder.into_inner())
     }
 
-    pub fn iter(&mut self, state: StateVector) -> UpdateIterator {
+    pub(crate) fn iter(&mut self, state: StateVector) -> UpdateIterator {
         UpdateIterator::new(self, state)
     }
 
@@ -141,7 +141,7 @@ impl Update {
     }
 }
 
-pub struct UpdateIterator<'a> {
+pub(crate) struct UpdateIterator<'a> {
     update: &'a mut Update,
 
     // --- local iterator state ---
@@ -218,7 +218,7 @@ impl<'a> UpdateIterator<'a> {
     /// tell if current update's dependencies(left, right, parent) has already been consumed and recorded
     /// and return the client of them if not.
     fn get_missing_dep(&self, struct_info: &StructInfo) -> Option<Client> {
-        if let StructInfo::Item(item) = struct_info {
+        if let Some(item) = struct_info.as_item().get() {
             let id = item.id;
             if let Some(left) = &item.origin_left_id {
                 if left.client != id.client && left.clock >= self.state.get(&left.client) {
@@ -391,12 +391,11 @@ mod tests {
     use crate::doc::common::OrderRange;
 
     use super::*;
-    use crate::sync::Arc;
     use serde::Deserialize;
     use std::{num::ParseIntError, path::PathBuf};
 
     fn struct_item(id: (Client, Clock), len: usize) -> StructInfo {
-        StructInfo::Item(Arc::new(
+        StructInfo::Item(Somr::new(
             ItemBuilder::new()
                 .id(id.into())
                 .content(Content::String("c".repeat(len)))
@@ -429,7 +428,6 @@ mod tests {
                 update.structs.iter().map(|s| s.1.len()).sum::<usize>(),
                 structs
             );
-            println!("{:?}", update);
         }
     }
 
@@ -504,7 +502,7 @@ mod tests {
                         1,
                         VecDeque::from([
                             struct_item((1, 0), 1),
-                            StructInfo::Item(Arc::new(
+                            StructInfo::Item(Somr::new(
                                 ItemBuilder::new()
                                     .id((1, 1).into())
                                     .left_id(Some((0, 1).into()))
