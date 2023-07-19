@@ -230,14 +230,16 @@ impl Item {
         self.flags.deleted()
     }
 
-    pub fn delete(&self) {
+    pub fn delete(&self) -> bool {
         if self.deleted() {
-            return;
+            return false;
         }
 
         // self.content.delete();
 
         self.flags.set_deleted();
+
+        true
     }
 
     pub fn countable(&self) -> bool {

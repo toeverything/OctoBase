@@ -135,8 +135,7 @@ impl YTypeBuilder {
     pub fn build<T: TryFrom<YTypeRef, Error = JwstCodecError>>(self) -> JwstCodecResult<T> {
         let mut store = self.store.write().unwrap();
         let ty = if let Some(root_name) = self.root_name {
-            let mut types = store.types.write().unwrap();
-            match types.entry(root_name.clone()) {
+            match store.types.entry(root_name.clone()) {
                 Entry::Occupied(e) => e.get().clone(),
                 Entry::Vacant(e) => {
                     let ty = Somr::new(RwLock::new(YType {

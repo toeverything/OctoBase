@@ -212,12 +212,12 @@ impl StructInfo {
 
     #[inline]
     #[allow(dead_code)]
-    pub(crate) fn countable(&self) -> bool {
+    pub fn countable(&self) -> bool {
         self.flags().countable()
     }
 
     #[inline]
-    pub(crate) fn deleted(&self) -> bool {
+    pub fn deleted(&self) -> bool {
         self.flags().deleted()
     }
 }

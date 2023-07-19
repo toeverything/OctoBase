@@ -12,11 +12,11 @@ use std::{
 #[derive(Default, Debug)]
 pub(crate) struct DocStore {
     client: Client,
-    pub items: Arc<RwLock<HashMap<Client, Vec<StructInfo>>>>,
-    pub delete_set: Arc<RwLock<DeleteSet>>,
+    pub items: HashMap<Client, Vec<StructInfo>>,
+    pub delete_set: DeleteSet,
 
     // following fields are only used in memory
-    pub types: Arc<RwLock<HashMap<String, YTypeRef>>>,
+    pub types: HashMap<String, YTypeRef>,
     // types created from this store but with no names,
     // we store it here to keep the ownership inside store without being released.
     pub dangling_types: HashMap<usize, YTypeRef>,
@@ -45,7 +45,7 @@ impl DocStore {
     }
 
     pub fn get_state(&self, client: Client) -> Clock {
-        if let Some(structs) = self.items.read().unwrap().get(&client) {
+        if let Some(structs) = self.items.get(&client) {
             if let Some(last_struct) = structs.last() {
                 last_struct.clock() + last_struct.len()
             } else {
@@ -59,7 +59,7 @@ impl DocStore {
 
     pub fn get_state_vector(&self) -> StateVector {
         let mut state = StateVector::default();
-        for (client, structs) in self.items.read().unwrap().iter() {
+        for (client, structs) in self.items.iter() {
             if let Some(last_struct) = structs.last() {
                 state.insert(*client, last_struct.clock() + last_struct.len());
             } else {
@@ -69,9 +69,9 @@ impl DocStore {
         state
     }
 
-    pub fn add_item(&self, item: StructInfo) -> JwstCodecResult {
+    pub fn add_item(&mut self, item: StructInfo) -> JwstCodecResult {
         let client_id = item.client();
-        match self.items.write().unwrap().entry(client_id) {
+        match self.items.entry(client_id) {
             Entry::Occupied(mut entry) => {
                 let structs = entry.get_mut();
                 if let Some(last_struct) = structs.last() {
@@ -120,7 +120,7 @@ impl DocStore {
     }
 
     pub fn create_item(
-        &mut self,
+        &self,
         content: Content,
         left: Somr<Item>,
         right: Somr<Item>,
@@ -143,7 +143,7 @@ impl DocStore {
 
     pub fn get_node_with_idx<I: Into<Id>>(&self, id: I) -> Option<(StructInfo, usize)> {
         let id = id.into();
-        if let Some(items) = self.items.read().unwrap().get(&id.client) {
+        if let Some(items) = self.items.get(&id.client) {
             if let Some(index) = Self::get_item_index(items, id.clock) {
                 return items.get(index).map(|item| (item.clone(), index));
             }
@@ -161,7 +161,7 @@ impl DocStore {
 
         let id = id.into();
 
-        if let Some(items) = self.items.write().unwrap().get_mut(&id.client) {
+        if let Some(items) = self.items.get_mut(&id.client) {
             if let Some(idx) = Self::get_item_index(items, id.clock) {
                 return Self::split_node_at(items, idx, diff);
             }
@@ -219,9 +219,9 @@ impl DocStore {
         Ok((node, right_ref))
     }
 
-    pub fn split_at_and_get_right<I: Into<Id>>(&self, id: I) -> JwstCodecResult<StructInfo> {
+    pub fn split_at_and_get_right<I: Into<Id>>(&mut self, id: I) -> JwstCodecResult<StructInfo> {
         let id = id.into();
-        if let Some(items) = self.items.write().unwrap().get_mut(&id.client) {
+        if let Some(items) = self.items.get_mut(&id.client) {
             if let Some(index) = Self::get_item_index(items, id.clock) {
                 let item = items.get(index).unwrap().clone();
                 let offset = id.clock - item.clock();
@@ -237,9 +237,9 @@ impl DocStore {
         Err(JwstCodecError::StructSequenceNotExists(id.client))
     }
 
-    pub fn split_at_and_get_left<I: Into<Id>>(&self, id: I) -> JwstCodecResult<StructInfo> {
+    pub fn split_at_and_get_left<I: Into<Id>>(&mut self, id: I) -> JwstCodecResult<StructInfo> {
         let id = id.into();
-        if let Some(items) = self.items.write().unwrap().get_mut(&id.client) {
+        if let Some(items) = self.items.get_mut(&id.client) {
             if let Some(index) = Self::get_item_index(items, id.clock) {
                 let item = items.get(index).unwrap().clone();
                 let offset = id.clock - item.clock();
@@ -258,7 +258,7 @@ impl DocStore {
     // TODO: use function in code
     #[allow(dead_code)]
     pub fn self_check(&self) -> JwstCodecResult {
-        for structs in self.items.read().unwrap().values() {
+        for structs in self.items.values() {
             for i in 1..structs.len() {
                 let l = &structs[i - 1];
                 let r = &structs[i];
@@ -275,8 +275,8 @@ impl DocStore {
     }
 
     // only for creating named type
-    pub(crate) fn get_or_create_type(&self, name: &str) -> YTypeRef {
-        match self.types.write().unwrap().entry(name.to_string()) {
+    pub fn get_or_create_type(&mut self, name: &str) -> YTypeRef {
+        match self.types.entry(name.to_string()) {
             Entry::Occupied(e) => e.get().clone(),
             Entry::Vacant(e) => {
                 let ty = Somr::new(RwLock::new(YType {
@@ -299,7 +299,7 @@ impl DocStore {
     ///     - [Parent::String] for root level named type (e.g `doc.get_or_create_text("content")`)
     ///     - [Parent::Id] for type as item (e.g `doc.create_text()`)
     ///     - [None] means borrow left.parent or right.parent
-    pub(crate) fn repair(&self, item: &mut Item, store_ref: StoreRef) -> JwstCodecResult {
+    pub fn repair(&mut self, item: &mut Item, store_ref: StoreRef) -> JwstCodecResult {
         if let Some(left_id) = item.origin_left_id {
             item.left = Some(self.split_at_and_get_left(left_id)?);
         }
@@ -533,7 +533,7 @@ impl DocStore {
                     // should delete
                     if parent_deleted || this.parent_sub.is_some() && this.origin_right_id.is_some()
                     {
-                        self.delete_item(this, Some(parent));
+                        Self::delete_item(this, Some(parent));
                     } else {
                         // adjust parent length
                         if this.parent_sub.is_none() {
@@ -557,15 +557,10 @@ impl DocStore {
         self.add_item(struct_info)
     }
 
-    pub(crate) fn delete_item(&self, item: &Item, parent: Option<&mut YType>) {
-        if item.deleted() {
+    pub(crate) fn delete_item(item: &Item, parent: Option<&mut YType>) {
+        if !item.delete() {
             return;
         }
-
-        let id = item.id;
-        item.delete();
-        let mut delete_set = self.delete_set.write().unwrap();
-        delete_set.add(id.client, id.clock, item.len());
 
         if item.parent_sub.is_none() && item.countable() {
             if let Some(parent) = parent {
@@ -588,14 +583,15 @@ impl DocStore {
 
     pub(crate) fn delete(&self, struct_info: &StructInfo, parent: Option<&mut YType>) {
         if let Some(item) = struct_info.as_item().get() {
-            self.delete_item(item, parent);
+            Self::delete_item(item, parent);
         }
     }
 
-    pub(crate) fn delete_range(&mut self, client: u64, range: Range<u64>) -> JwstCodecResult {
+    pub fn delete_range(&mut self, client: u64, range: Range<u64>) -> JwstCodecResult {
         let start = range.start;
         let end = range.end;
-        if let Some(items) = self.items.write().unwrap().get_mut(&client) {
+
+        if let Some(items) = self.items.get_mut(&client) {
             if let Some(mut idx) = DocStore::get_item_index(items, start) {
                 {
                     // id.clock <= range.start < id.end
@@ -615,17 +611,24 @@ impl DocStore {
                     let struct_info = items[idx].clone();
                     let id = struct_info.id();
 
-                    if !struct_info.deleted() && id.clock < end {
-                        // need to split the item
-                        // -----item-----
-                        //           ^end
-                        if end < id.clock + struct_info.len() {
-                            DocStore::split_node_at(items, idx, end - id.clock)?;
+                    if let Some(item) = struct_info.as_item().get() {
+                        if !item.deleted() && id.clock < end {
+                            // need to split the item
+                            // -----item-----
+                            //           ^end
+                            if end < id.clock + struct_info.len() {
+                                DocStore::split_node_at(items, idx, end - id.clock)?;
+                            }
+
+                            self.delete_set.add(client, id.clock, item.len());
+                            Self::delete_item(item, None);
+                        } else {
+                            break;
                         }
-                        self.delete(&struct_info, None);
                     } else {
                         break;
                     }
+
                     idx += 1;
                 }
             }
@@ -667,7 +670,7 @@ impl DocStore {
 
         for (client, clock) in diff {
             // We have made sure that the client is in the local state vector in diff_state_vectors()
-            if let Some(items) = self.items.read().unwrap().get(&client) {
+            if let Some(items) = self.items.get(&client) {
                 if items.is_empty() {
                     continue;
                 }
@@ -696,7 +699,7 @@ impl DocStore {
 
         let update = Update {
             structs: update_structs,
-            delete_set: self.delete_set.read().unwrap().clone(),
+            delete_set: self.delete_set.clone(),
             ..Update::default()
         };
 
@@ -719,7 +722,7 @@ mod tests {
         });
 
         loom_model!({
-            let doc_store = DocStore::with_client(1);
+            let mut doc_store = DocStore::with_client(1);
 
             let client_id = 1;
 
@@ -734,8 +737,6 @@ mod tests {
 
             doc_store
                 .items
-                .write()
-                .unwrap()
                 .insert(client_id, vec![struct_info1, struct_info2.clone()]);
 
             let state = doc_store.get_state(client_id);
@@ -755,7 +756,7 @@ mod tests {
         });
 
         loom_model!({
-            let doc_store = DocStore::with_client(1);
+            let mut doc_store = DocStore::with_client(1);
 
             let client1 = 1;
             let struct_info1 = StructInfo::GC {
@@ -773,15 +774,9 @@ mod tests {
                 len: 1,
             };
 
+            doc_store.items.insert(client1, vec![struct_info1.clone()]);
             doc_store
                 .items
-                .write()
-                .unwrap()
-                .insert(client1, vec![struct_info1.clone()]);
-            doc_store
-                .items
-                .write()
-                .unwrap()
                 .insert(client2, vec![struct_info2, struct_info3.clone()]);
 
             let state_map = doc_store.get_state_vector();
@@ -802,7 +797,7 @@ mod tests {
     #[test]
     fn test_add_item() {
         loom_model!({
-            let doc_store = DocStore::with_client(1);
+            let mut doc_store = DocStore::with_client(1);
 
             let struct_info1 = StructInfo::GC {
                 id: Id::new(1, 0),
@@ -841,7 +836,7 @@ mod tests {
     #[test]
     fn test_get_item() {
         loom_model!({
-            let doc_store = DocStore::with_client(1);
+            let mut doc_store = DocStore::with_client(1);
             let struct_info = StructInfo::GC {
                 id: Id::new(1, 0),
                 len: 10,
@@ -852,7 +847,7 @@ mod tests {
         });
 
         loom_model!({
-            let doc_store = DocStore::with_client(1);
+            let mut doc_store = DocStore::with_client(1);
             let struct_info1 = StructInfo::GC {
                 id: Id::new(1, 0),
                 len: 10,
@@ -874,7 +869,7 @@ mod tests {
         });
 
         loom_model!({
-            let doc_store = DocStore::with_client(1);
+            let mut doc_store = DocStore::with_client(1);
             let struct_info1 = StructInfo::GC {
                 id: Id::new(1, 0),
                 len: 10,
@@ -918,7 +913,7 @@ mod tests {
     #[test]
     fn test_split_and_get() {
         loom_model!({
-            let doc_store = DocStore::with_client(1);
+            let mut doc_store = DocStore::with_client(1);
             let struct_info1 = StructInfo::Item(Somr::new(
                 ItemBuilder::new()
                     .id((1, 0).into())
