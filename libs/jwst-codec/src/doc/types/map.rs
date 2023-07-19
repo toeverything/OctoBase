@@ -1,7 +1,7 @@
 use super::*;
 use crate::sync::Arc;
 use crate::{
-    doc::{AsInner, Parent, StructInfo, YTypeRef},
+    doc::{AsInner, Node, Parent, YTypeRef},
     impl_type, Content, JwstCodecResult,
 };
 use std::collections::HashMap;
@@ -25,7 +25,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
                 Some(Parent::Type(self.as_inner().clone())),
                 Some(key.as_ref().into()),
             );
-            store.integrate(StructInfo::Item(item), 0, Some(&mut inner))?;
+            store.integrate(Node::Item(item), 0, Some(&mut inner))?;
         }
 
         Ok(())

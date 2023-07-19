@@ -157,7 +157,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
             None,
         );
 
-        store.integrate(StructInfo::Item(item), 0, Some(&mut lock))?;
+        store.integrate(Node::Item(item), 0, Some(&mut lock))?;
 
         Ok(())
     }

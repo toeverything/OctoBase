@@ -119,9 +119,9 @@ pub(crate) struct Item {
     pub origin_left_id: Option<Id>,
     pub origin_right_id: Option<Id>,
     #[cfg_attr(all(test, not(loom)), proptest(value = "None"))]
-    pub left: Option<StructInfo>,
+    pub left: Option<Node>,
     #[cfg_attr(all(test, not(loom)), proptest(value = "None"))]
-    pub right: Option<StructInfo>,
+    pub right: Option<Node>,
     pub parent: Option<Parent>,
     pub parent_sub: Option<String>,
     // make content Arc, so we can share the content between items
@@ -205,13 +205,13 @@ impl Item {
             id,
             origin_left_id: left.get().map(|left| left.last_id()),
             left: if left.is_some() {
-                Some(StructInfo::Item(left))
+                Some(Node::Item(left))
             } else {
                 None
             },
             origin_right_id: right.get().map(|right| right.id),
             right: if right.is_some() {
-                Some(StructInfo::Item(right))
+                Some(Node::Item(right))
             } else {
                 None
             },
@@ -268,14 +268,14 @@ impl Item {
                 continue;
             }
             match &n {
-                StructInfo::Item(item) => {
+                Node::Item(item) => {
                     ret.push(format!("{item}"));
                 }
-                StructInfo::GC { id, len } => {
+                Node::GC { id, len } => {
                     ret.push(format!("GC{id}: {len}"));
                     break;
                 }
-                StructInfo::Skip { id, len } => {
+                Node::Skip { id, len } => {
                     ret.push(format!("Skip{id}: {len}"));
                     break;
                 }
@@ -298,14 +298,14 @@ impl Item {
                 continue;
             }
             match &n {
-                StructInfo::Item(item) => {
+                Node::Item(item) => {
                     ret.push(format!("{item}"));
                 }
-                StructInfo::GC { id, len } => {
+                Node::GC { id, len } => {
                     ret.push(format!("GC{id}: {len}"));
                     break;
                 }
-                StructInfo::Skip { id, len } => {
+                Node::Skip { id, len } => {
                     ret.push(format!("Skip{id}: {len}"));
                     break;
                 }

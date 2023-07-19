@@ -16,7 +16,7 @@ use crate::{Item, JwstCodecError, JwstCodecResult};
 
 use super::{
     store::{StoreRef, WeakStoreRef},
-    StructInfo,
+    Node,
 };
 
 #[derive(Debug, Default)]
@@ -24,7 +24,7 @@ pub(crate) struct YType {
     pub store: WeakStoreRef,
     pub start: Somr<Item>,
     pub item: Somr<Item>,
-    pub map: Option<HashMap<String, StructInfo>>,
+    pub map: Option<HashMap<String, Node>>,
     pub len: u64,
     /// The tag name of XMLElement and XMLHook type
     pub name: Option<String>,

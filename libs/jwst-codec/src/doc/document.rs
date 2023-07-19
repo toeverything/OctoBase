@@ -90,7 +90,7 @@ impl Doc {
         let mut retry = false;
         loop {
             for (mut s, offset) in update.iter(store.get_state_vector()) {
-                if let StructInfo::Item(item) = &mut s {
+                if let Node::Item(item) = &mut s {
                     debug_assert!(item.is_owned());
                     let item = unsafe { item.get_mut_unchecked() };
                     store.repair(item, self.store.clone())?;

@@ -12,7 +12,7 @@ use std::{
 #[derive(Default, Debug)]
 pub(crate) struct DocStore {
     client: Client,
-    pub items: HashMap<Client, Vec<StructInfo>>,
+    pub items: HashMap<Client, Vec<Node>>,
     pub delete_set: DeleteSet,
 
     // following fields are only used in memory
@@ -69,7 +69,7 @@ impl DocStore {
         state
     }
 
-    pub fn add_item(&mut self, item: StructInfo) -> JwstCodecResult {
+    pub fn add_item(&mut self, item: Node) -> JwstCodecResult {
         let client_id = item.client();
         match self.items.entry(client_id) {
             Entry::Occupied(mut entry) => {
@@ -94,7 +94,7 @@ impl DocStore {
     }
 
     /// binary search struct info on a sorted array
-    pub fn get_item_index(items: &Vec<StructInfo>, clock: Clock) -> Option<usize> {
+    pub fn get_item_index(items: &Vec<Node>, clock: Clock) -> Option<usize> {
         let mut left = 0;
         let mut right = items.len() - 1;
         let middle = &items[right];
@@ -137,11 +137,11 @@ impl DocStore {
         item
     }
 
-    pub fn get_node<I: Into<Id>>(&self, id: I) -> Option<StructInfo> {
+    pub fn get_node<I: Into<Id>>(&self, id: I) -> Option<Node> {
         self.get_node_with_idx(id).map(|(item, _)| item)
     }
 
-    pub fn get_node_with_idx<I: Into<Id>>(&self, id: I) -> Option<(StructInfo, usize)> {
+    pub fn get_node_with_idx<I: Into<Id>>(&self, id: I) -> Option<(Node, usize)> {
         let id = id.into();
         if let Some(items) = self.items.get(&id.client) {
             if let Some(index) = Self::get_item_index(items, id.clock) {
@@ -152,11 +152,7 @@ impl DocStore {
         None
     }
 
-    pub fn split_node<I: Into<Id>>(
-        &mut self,
-        id: I,
-        diff: u64,
-    ) -> JwstCodecResult<(StructInfo, StructInfo)> {
+    pub fn split_node<I: Into<Id>>(&mut self, id: I, diff: u64) -> JwstCodecResult<(Node, Node)> {
         debug_assert!(diff > 0);
 
         let id = id.into();
@@ -171,21 +167,17 @@ impl DocStore {
     }
 
     pub fn split_node_at(
-        items: &mut Vec<StructInfo>,
+        items: &mut Vec<Node>,
         idx: usize,
         diff: u64,
-    ) -> JwstCodecResult<(StructInfo, StructInfo)> {
+    ) -> JwstCodecResult<(Node, Node)> {
         debug_assert!(diff > 0);
 
         let node = items.get(idx).unwrap().clone();
         debug_assert!(node.is_item());
         let (left_node, right_node) = node.split_at(diff)?;
         match (&node, &left_node, &right_node) {
-            (
-                StructInfo::Item(raw_left_item),
-                StructInfo::Item(new_left_item),
-                StructInfo::Item(right_item),
-            ) => {
+            (Node::Item(raw_left_item), Node::Item(new_left_item), Node::Item(right_item)) => {
                 // SAFETY:
                 // we make sure store is the only entry of mutating an item,
                 // and we already hold mutable reference of store, so it's safe to do so
@@ -219,7 +211,7 @@ impl DocStore {
         Ok((node, right_ref))
     }
 
-    pub fn split_at_and_get_right<I: Into<Id>>(&mut self, id: I) -> JwstCodecResult<StructInfo> {
+    pub fn split_at_and_get_right<I: Into<Id>>(&mut self, id: I) -> JwstCodecResult<Node> {
         let id = id.into();
         if let Some(items) = self.items.get_mut(&id.client) {
             if let Some(index) = Self::get_item_index(items, id.clock) {
@@ -237,7 +229,7 @@ impl DocStore {
         Err(JwstCodecError::StructSequenceNotExists(id.client))
     }
 
-    pub fn split_at_and_get_left<I: Into<Id>>(&mut self, id: I) -> JwstCodecResult<StructInfo> {
+    pub fn split_at_and_get_left<I: Into<Id>>(&mut self, id: I) -> JwstCodecResult<Node> {
         let id = id.into();
         if let Some(items) = self.items.get_mut(&id.client) {
             if let Some(index) = Self::get_item_index(items, id.clock) {
@@ -325,7 +317,7 @@ impl DocStore {
             //        ^^ Parent::Id((1, 0))
             Some(Parent::Id(parent_id)) => {
                 match self.get_node(*parent_id) {
-                    Some(StructInfo::Item(_)) => match &item.content.as_ref() {
+                    Some(Node::Item(_)) => match &item.content.as_ref() {
                         Content::Type(ty) => {
                             if let Some(ty) = ty.get() {
                                 ty.write().unwrap().store = Arc::downgrade(&store_ref);
@@ -364,12 +356,12 @@ impl DocStore {
 
     pub(crate) fn integrate(
         &mut self,
-        mut struct_info: StructInfo,
+        mut struct_info: Node,
         offset: u64,
         parent: Option<&mut YType>,
     ) -> JwstCodecResult {
         match &mut struct_info {
-            StructInfo::Item(item) => {
+            Node::Item(item) => {
                 assert!(
                     item.is_owned(),
                     "Required a owned Item type but got an shared reference"
@@ -484,9 +476,9 @@ impl DocStore {
                         unsafe {
                             // SAFETY: we get store write lock, no way the left get dropped by owner
                             let left = left.get_mut_unchecked();
-                            right = left.right.replace(StructInfo::Item(item.clone())).into();
+                            right = left.right.replace(Node::Item(item.clone())).into();
                         }
-                        this.left = Some(StructInfo::Item(left));
+                        this.left = Some(Node::Item(left));
                     } else {
                         // no left, parent.start = this
                         right = if let Some(parent_sub) = &this.parent_sub {
@@ -507,16 +499,16 @@ impl DocStore {
                         unsafe {
                             // SAFETY: we get store write lock, no way the left get dropped by owner
                             let right = right.get_mut_unchecked();
-                            right.left = Some(StructInfo::Item(item.clone()));
+                            right.left = Some(Node::Item(item.clone()));
                         }
-                        this.right = Some(StructInfo::Item(right))
+                        this.right = Some(Node::Item(right))
                     } else {
                         // no right, parent.start = this, delete this.left
                         if let Some(parent_sub) = &this.parent_sub {
                             parent
                                 .map
                                 .get_or_insert(HashMap::default())
-                                .insert(parent_sub.to_string(), StructInfo::Item(item.clone()));
+                                .insert(parent_sub.to_string(), Node::Item(item.clone()));
 
                             if let Some(left) = &this.left {
                                 self.delete(left, Some(parent));
@@ -544,13 +536,13 @@ impl DocStore {
                     parent_lock.take();
                 }
             }
-            StructInfo::GC { id, len } => {
+            Node::GC { id, len } => {
                 if offset > 0 {
                     id.clock += offset;
                     *len -= offset;
                 }
             }
-            StructInfo::Skip { .. } => {
+            Node::Skip { .. } => {
                 // skip ignored
             }
         }
@@ -581,7 +573,7 @@ impl DocStore {
         }
     }
 
-    pub(crate) fn delete(&self, struct_info: &StructInfo, parent: Option<&mut YType>) {
+    pub(crate) fn delete(&self, struct_info: &Node, parent: Option<&mut YType>) {
         if let Some(item) = struct_info.as_item().get() {
             Self::delete_item(item, parent);
         }
@@ -666,7 +658,7 @@ impl DocStore {
     ) -> JwstCodecResult {
         let local_state_vector = self.get_state_vector();
         let diff = Self::diff_state_vectors(&local_state_vector, sv);
-        let mut update_structs: HashMap<u64, VecDeque<StructInfo>> = HashMap::new();
+        let mut update_structs: HashMap<u64, VecDeque<Node>> = HashMap::new();
 
         for (client, clock) in diff {
             // We have made sure that the client is in the local state vector in diff_state_vectors()
@@ -726,11 +718,11 @@ mod tests {
 
             let client_id = 1;
 
-            let struct_info1 = StructInfo::GC {
+            let struct_info1 = Node::GC {
                 id: Id::new(1, 1),
                 len: 5,
             };
-            let struct_info2 = StructInfo::Skip {
+            let struct_info2 = Node::Skip {
                 id: Id::new(1, 6),
                 len: 7,
             };
@@ -759,17 +751,17 @@ mod tests {
             let mut doc_store = DocStore::with_client(1);
 
             let client1 = 1;
-            let struct_info1 = StructInfo::GC {
+            let struct_info1 = Node::GC {
                 id: (1, 0).into(),
                 len: 5,
             };
 
             let client2 = 2;
-            let struct_info2 = StructInfo::GC {
+            let struct_info2 = Node::GC {
                 id: (2, 0).into(),
                 len: 6,
             };
-            let struct_info3 = StructInfo::Skip {
+            let struct_info3 = Node::Skip {
                 id: (2, 6).into(),
                 len: 1,
             };
@@ -799,19 +791,19 @@ mod tests {
         loom_model!({
             let mut doc_store = DocStore::with_client(1);
 
-            let struct_info1 = StructInfo::GC {
+            let struct_info1 = Node::GC {
                 id: Id::new(1, 0),
                 len: 5,
             };
-            let struct_info2 = StructInfo::Skip {
+            let struct_info2 = Node::Skip {
                 id: Id::new(1, 5),
                 len: 1,
             };
-            let struct_info3_err = StructInfo::Skip {
+            let struct_info3_err = Node::Skip {
                 id: Id::new(1, 5),
                 len: 1,
             };
-            let struct_info3 = StructInfo::Skip {
+            let struct_info3 = Node::Skip {
                 id: Id::new(1, 6),
                 len: 1,
             };
@@ -837,7 +829,7 @@ mod tests {
     fn test_get_item() {
         loom_model!({
             let mut doc_store = DocStore::with_client(1);
-            let struct_info = StructInfo::GC {
+            let struct_info = Node::GC {
                 id: Id::new(1, 0),
                 len: 10,
             };
@@ -848,11 +840,11 @@ mod tests {
 
         loom_model!({
             let mut doc_store = DocStore::with_client(1);
-            let struct_info1 = StructInfo::GC {
+            let struct_info1 = Node::GC {
                 id: Id::new(1, 0),
                 len: 10,
             };
-            let struct_info2 = StructInfo::GC {
+            let struct_info2 = Node::GC {
                 id: Id::new(1, 10),
                 len: 20,
             };
@@ -870,11 +862,11 @@ mod tests {
 
         loom_model!({
             let mut doc_store = DocStore::with_client(1);
-            let struct_info1 = StructInfo::GC {
+            let struct_info1 = Node::GC {
                 id: Id::new(1, 0),
                 len: 10,
             };
-            let struct_info2 = StructInfo::GC {
+            let struct_info2 = Node::GC {
                 id: Id::new(1, 10),
                 len: 20,
             };
@@ -888,7 +880,7 @@ mod tests {
     #[test]
     fn test_split_node_at() {
         loom_model!({
-            let node = StructInfo::Item(Somr::new(
+            let node = Node::Item(Somr::new(
                 ItemBuilder::new()
                     .id((1, 0).into())
                     .content(Content::String(String::from("octo")))
@@ -914,14 +906,14 @@ mod tests {
     fn test_split_and_get() {
         loom_model!({
             let mut doc_store = DocStore::with_client(1);
-            let struct_info1 = StructInfo::Item(Somr::new(
+            let struct_info1 = Node::Item(Somr::new(
                 ItemBuilder::new()
                     .id((1, 0).into())
                     .content(Content::String(String::from("octo")))
                     .build(),
             ));
 
-            let struct_info2 = StructInfo::Item(Somr::new(
+            let struct_info2 = Node::Item(Somr::new(
                 ItemBuilder::new()
                     .id((1, struct_info1.len()).into())
                     .left_id(Some(struct_info1.id()))
