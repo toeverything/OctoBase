@@ -15,7 +15,9 @@ pub use delete_set::DeleteSet;
 pub use id::{Client, Clock, Id};
 pub use io::{CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, RawDecoder, RawEncoder};
 pub(crate) use item::{Item, ItemFlags, ItemRef, Parent};
-pub(crate) use refs::StructInfo;
+pub(crate) use refs::Node;
+#[cfg(test)]
+pub(crate) use refs::NodeLen;
 pub use update::Update;
 #[cfg(test)]
 pub(crate) use utils::*;

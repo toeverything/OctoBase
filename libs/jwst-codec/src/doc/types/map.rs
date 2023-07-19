@@ -1,7 +1,7 @@
 use super::*;
 use crate::sync::Arc;
 use crate::{
-    doc::{AsInner, Parent, StructInfo, YTypeRef},
+    doc::{AsInner, Node, Parent, YTypeRef},
     impl_type, Content, JwstCodecResult,
 };
 use std::collections::HashMap;
@@ -25,7 +25,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
                 Some(Parent::Type(self.as_inner().clone())),
                 Some(key.as_ref().into()),
             );
-            store.integrate(StructInfo::Item(item), 0, Some(&mut inner))?;
+            store.integrate(Node::Item(item), 0, Some(&mut inner))?;
         }
 
         Ok(())
@@ -65,11 +65,9 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
 
     fn remove(&mut self, key: impl AsRef<str>) {
         let mut inner = self.as_inner().get().unwrap().write().unwrap();
-        if let Some(store) = inner.store_mut() {
-            let node = inner.map.as_ref().and_then(|map| map.get(key.as_ref()));
-            if let Some(item) = ItemRef::from(node).get() {
-                store.delete_item(item, Some(&mut inner));
-            }
+        let node = inner.map.as_ref().and_then(|map| map.get(key.as_ref()));
+        if let Some(item) = ItemRef::from(node).get() {
+            DocStore::delete_item(item, Some(&mut inner));
         }
     }
 

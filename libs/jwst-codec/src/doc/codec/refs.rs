@@ -3,50 +3,65 @@ use super::*;
 // make fields Copy + Clone without much effort
 #[derive(Debug, Clone)]
 #[cfg_attr(all(test, not(loom)), derive(proptest_derive::Arbitrary))]
-pub(crate) enum StructInfo {
-    GC { id: Id, len: u64 },
-    Skip { id: Id, len: u64 },
+pub(crate) enum Node {
+    GC(Box<NodeLen>),
+    Skip(Box<NodeLen>),
     Item(ItemRef),
 }
 
-impl<W: CrdtWriter> CrdtWrite<W> for StructInfo {
+/// Simple representation of id and len struct used by GC and Skip node.
+#[derive(Debug, Clone)]
+#[cfg_attr(all(test, not(loom)), derive(proptest_derive::Arbitrary))]
+pub(crate) struct NodeLen {
+    pub id: Id,
+    pub len: u64,
+}
+
+impl NodeLen {
+    #[cfg(test)]
+    pub fn new(id: Id, len: u64) -> Box<Self> {
+        Box::new(Self { id, len })
+    }
+}
+
+impl<W: CrdtWriter> CrdtWrite<W> for Node {
     fn write(&self, writer: &mut W) -> JwstCodecResult {
         match self {
-            StructInfo::GC { len, .. } => {
+            Node::GC(item) => {
                 writer.write_info(0)?;
-                writer.write_var_u64(*len)
+                writer.write_var_u64(item.len)
             }
-            StructInfo::Skip { len, .. } => {
+            Node::Skip(item) => {
                 writer.write_info(10)?;
-                writer.write_var_u64(*len)
+                writer.write_var_u64(item.len)
             }
-            StructInfo::Item(item) => item.get().unwrap().write(writer),
+            Node::Item(item) => item.get().unwrap().write(writer),
         }
     }
 }
 
-impl PartialEq for StructInfo {
+impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (StructInfo::GC { id: id1, .. }, StructInfo::GC { id: id2, .. }) => id1 == id2,
-            (StructInfo::Skip { id: id1, .. }, StructInfo::Skip { id: id2, .. }) => id1 == id2,
-            (StructInfo::Item(item1), StructInfo::Item(item2)) => item1.get() == item2.get(),
+            (Node::GC(left), Node::GC(right)) => left.id == right.id,
+            (Node::Skip(left), Node::Skip(right)) => left.id == right.id,
+            (Node::Item(item1), Node::Item(item2)) => item1.get() == item2.get(),
             _ => false,
         }
     }
 }
 
-impl Eq for StructInfo {
+impl Eq for Node {
     fn assert_receiver_is_total_eq(&self) {}
 }
 
-impl From<Item> for StructInfo {
+impl From<Item> for Node {
     fn from(value: Item) -> Self {
         Self::Item(Somr::new(value))
     }
 }
 
-impl StructInfo {
+impl Node {
     pub fn read<R: CrdtReader>(decoder: &mut R, id: Id) -> JwstCodecResult<Self> {
         let info = decoder.read_info()?;
         let first_5_bit = info & 0b11111;
@@ -54,11 +69,11 @@ impl StructInfo {
         match first_5_bit {
             0 => {
                 let len = decoder.read_var_u64()?;
-                Ok(StructInfo::GC { id, len })
+                Ok(Node::GC(Box::new(NodeLen { id, len })))
             }
             10 => {
                 let len = decoder.read_var_u64()?;
-                Ok(StructInfo::Skip { id, len })
+                Ok(Node::Skip(Box::new(NodeLen { id, len })))
             }
             _ => {
                 let item = Somr::new(Item::read(decoder, id, info, first_5_bit)?);
@@ -67,16 +82,16 @@ impl StructInfo {
                     ty.get().unwrap().write().unwrap().item = item.clone();
                 }
 
-                Ok(StructInfo::Item(item))
+                Ok(Node::Item(item))
             }
         }
     }
 
     pub fn id(&self) -> Id {
         match self {
-            StructInfo::GC { id, .. } => *id,
-            StructInfo::Skip { id, .. } => *id,
-            StructInfo::Item(item) => unsafe { item.get_unchecked() }.id,
+            Node::GC(item) => item.id,
+            Node::Skip(item) => item.id,
+            Node::Item(item) => unsafe { item.get_unchecked() }.id,
         }
     }
 
@@ -90,8 +105,8 @@ impl StructInfo {
 
     pub fn len(&self) -> u64 {
         match self {
-            Self::GC { len, .. } => *len,
-            Self::Skip { len, .. } => *len,
+            Self::GC(item) => item.len,
+            Self::Skip(item) => item.len,
             Self::Item(item) => unsafe { item.get_unchecked() }.len(),
         }
     }
@@ -117,7 +132,7 @@ impl StructInfo {
     }
 
     pub fn left(&self) -> Option<Self> {
-        if let StructInfo::Item(item) = self {
+        if let Node::Item(item) = self {
             item.get().and_then(|item| item.left.clone())
         } else {
             None
@@ -125,7 +140,7 @@ impl StructInfo {
     }
 
     pub fn right(&self) -> Option<Self> {
-        if let StructInfo::Item(item) = self {
+        if let Node::Item(item) = self {
             item.get().and_then(|item| item.right.clone())
         } else {
             None
@@ -162,7 +177,7 @@ impl StructInfo {
     }
 
     pub fn flags(&self) -> ItemFlags {
-        if let StructInfo::Item(item) = self {
+        if let Node::Item(item) = self {
             item.get().unwrap().flags.clone()
         } else {
             // deleted
@@ -212,18 +227,18 @@ impl StructInfo {
 
     #[inline]
     #[allow(dead_code)]
-    pub(crate) fn countable(&self) -> bool {
+    pub fn countable(&self) -> bool {
         self.flags().countable()
     }
 
     #[inline]
-    pub(crate) fn deleted(&self) -> bool {
+    pub fn deleted(&self) -> bool {
         self.flags().deleted()
     }
 }
 
-impl From<Option<StructInfo>> for Somr<Item> {
-    fn from(value: Option<StructInfo>) -> Self {
+impl From<Option<Node>> for Somr<Item> {
+    fn from(value: Option<Node>) -> Self {
         match value {
             Some(n) => n.as_item(),
             None => Somr::none(),
@@ -231,8 +246,8 @@ impl From<Option<StructInfo>> for Somr<Item> {
     }
 }
 
-impl From<&Option<StructInfo>> for Somr<Item> {
-    fn from(value: &Option<StructInfo>) -> Self {
+impl From<&Option<Node>> for Somr<Item> {
+    fn from(value: &Option<Node>) -> Self {
         match value {
             Some(n) => n.as_item(),
             None => Somr::none(),
@@ -240,8 +255,8 @@ impl From<&Option<StructInfo>> for Somr<Item> {
     }
 }
 
-impl From<Option<&StructInfo>> for Somr<Item> {
-    fn from(value: Option<&StructInfo>) -> Self {
+impl From<Option<&Node>> for Somr<Item> {
+    fn from(value: Option<&Node>) -> Self {
         match value {
             Some(n) => n.as_item(),
             None => Somr::none(),
@@ -258,20 +273,14 @@ mod tests {
     fn test_struct_info() {
         loom_model!({
             {
-                let struct_info = StructInfo::GC {
-                    id: Id::new(1, 0),
-                    len: 10,
-                };
+                let struct_info = Node::GC(NodeLen::new(Id::new(1, 0), 10));
                 assert_eq!(struct_info.len(), 10);
                 assert_eq!(struct_info.client(), 1);
                 assert_eq!(struct_info.clock(), 0);
             }
 
             {
-                let struct_info = StructInfo::Skip {
-                    id: Id::new(2, 0),
-                    len: 20,
-                };
+                let struct_info = Node::Skip(NodeLen::new(Id::new(2, 0), 20));
                 assert_eq!(struct_info.len(), 20);
                 assert_eq!(struct_info.client(), 2);
                 assert_eq!(struct_info.clock(), 0);
@@ -286,7 +295,7 @@ mod tests {
                     .parent_sub(None)
                     .content(Content::String(String::from("content")))
                     .build();
-                let struct_info = StructInfo::Item(Somr::new(item));
+                let struct_info = Node::Item(Somr::new(item));
 
                 assert_eq!(struct_info.len(), 7);
                 assert_eq!(struct_info.client(), 3);
@@ -298,7 +307,7 @@ mod tests {
     #[test]
     fn test_read_write_struct_info() {
         loom_model!({
-            let has_not_parent_id_and_has_parent = StructInfo::Item(Somr::new(
+            let has_not_parent_id_and_has_parent = Node::Item(Somr::new(
                 ItemBuilder::new()
                     .id((0, 0).into())
                     .left_id(None)
@@ -309,7 +318,7 @@ mod tests {
                     .build(),
             ));
 
-            let has_not_parent_id_and_has_parent_with_key = StructInfo::Item(Somr::new(
+            let has_not_parent_id_and_has_parent_with_key = Node::Item(Somr::new(
                 ItemBuilder::new()
                     .id((0, 0).into())
                     .left_id(None)
@@ -320,7 +329,7 @@ mod tests {
                     .build(),
             ));
 
-            let has_parent_id = StructInfo::Item(Somr::new(
+            let has_parent_id = Node::Item(Somr::new(
                 ItemBuilder::new()
                     .id((0, 0).into())
                     .left_id(Some((1, 2).into()))
@@ -332,14 +341,8 @@ mod tests {
             ));
 
             let struct_infos = vec![
-                StructInfo::GC {
-                    id: (0, 0).into(),
-                    len: 42,
-                },
-                StructInfo::Skip {
-                    id: (0, 0).into(),
-                    len: 314,
-                },
+                Node::GC(NodeLen::new((0, 0).into(), 42)),
+                Node::Skip(NodeLen::new((0, 0).into(), 314)),
                 has_not_parent_id_and_has_parent,
                 has_not_parent_id_and_has_parent_with_key,
                 has_parent_id,
@@ -350,15 +353,15 @@ mod tests {
                 info.write(&mut encoder).unwrap();
 
                 let mut decoder = RawDecoder::new(encoder.into_inner());
-                let decoded = StructInfo::read(&mut decoder, info.id()).unwrap();
+                let decoded = Node::read(&mut decoder, info.id()).unwrap();
 
                 assert_eq!(info, decoded);
             }
         });
     }
 
-    fn struct_info_round_trip(info: &mut StructInfo) -> JwstCodecResult {
-        if let StructInfo::Item(item) = info {
+    fn struct_info_round_trip(info: &mut Node) -> JwstCodecResult {
+        if let Node::Item(item) = info {
             if let Some(item) = item.get_mut() {
                 if !item.is_valid() {
                     return Ok(());
@@ -375,7 +378,7 @@ mod tests {
         let ret = encoder.into_inner();
         let mut decoder = RawDecoder::new(ret);
 
-        let decoded = StructInfo::read(&mut decoder, info.id())?;
+        let decoded = Node::read(&mut decoder, info.id())?;
 
         assert_eq!(info, &decoded);
 
@@ -386,7 +389,7 @@ mod tests {
     proptest! {
         #[test]
         #[cfg_attr(miri, ignore)]
-        fn test_random_struct_info(mut infos in vec(any::<StructInfo>(), 0..10)) {
+        fn test_random_struct_info(mut infos in vec(any::<Node>(), 0..10)) {
             for info in &mut infos {
                 struct_info_round_trip(info).unwrap();
             }

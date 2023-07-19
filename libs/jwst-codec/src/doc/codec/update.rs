@@ -5,12 +5,12 @@ use std::ops::Range;
 
 #[derive(Debug, Default)]
 pub struct Update {
-    pub(crate) structs: HashMap<u64, VecDeque<StructInfo>>,
+    pub(crate) structs: HashMap<u64, VecDeque<Node>>,
     pub(crate) delete_set: DeleteSet,
 
     /// all unapplicable items that we can't integrate into doc
     /// any item with inconsistent id clock or missing dependency will be put here
-    pub(crate) pending_structs: HashMap<Client, VecDeque<StructInfo>>,
+    pub(crate) pending_structs: HashMap<Client, VecDeque<Node>>,
     /// missing state vector after applying updates
     pub(crate) missing_state: StateVector,
     /// all unapplicable delete set
@@ -30,7 +30,7 @@ impl<R: CrdtReader> CrdtRead<R> for Update {
             let mut structs = VecDeque::with_capacity(num_of_structs as usize);
 
             for _ in 0..num_of_structs {
-                let struct_info = StructInfo::read(decoder, Id::new(client, clock))?;
+                let struct_info = Node::read(decoder, Id::new(client, clock))?;
                 clock += struct_info.len();
                 structs.push_back(struct_info);
             }
@@ -152,7 +152,7 @@ pub(crate) struct UpdateIterator<'a> {
     /// current id of client of the updates we're processing
     cur_client_id: Option<Client>,
     /// stack of previous iterating item with higher priority than updates in next iteration
-    stack: Vec<StructInfo>,
+    stack: Vec<Node>,
 }
 
 impl<'a> UpdateIterator<'a> {
@@ -217,7 +217,7 @@ impl<'a> UpdateIterator<'a> {
 
     /// tell if current update's dependencies(left, right, parent) has already been consumed and recorded
     /// and return the client of them if not.
-    fn get_missing_dep(&self, struct_info: &StructInfo) -> Option<Client> {
+    fn get_missing_dep(&self, struct_info: &Node) -> Option<Client> {
         if let Some(item) = struct_info.as_item().get() {
             let id = item.id;
             if let Some(left) = &item.origin_left_id {
@@ -248,7 +248,7 @@ impl<'a> UpdateIterator<'a> {
         None
     }
 
-    fn next_candidate(&mut self) -> Option<StructInfo> {
+    fn next_candidate(&mut self) -> Option<Node> {
         let mut cur = None;
 
         if !self.stack.is_empty() {
@@ -272,7 +272,7 @@ impl<'a> UpdateIterator<'a> {
 }
 
 impl Iterator for UpdateIterator<'_> {
-    type Item = (StructInfo, u64);
+    type Item = (Node, u64);
 
     fn next(&mut self) -> Option<Self::Item> {
         // fetch the first candidate from stack or updates
@@ -394,8 +394,8 @@ mod tests {
     use serde::Deserialize;
     use std::{num::ParseIntError, path::PathBuf};
 
-    fn struct_item(id: (Client, Clock), len: usize) -> StructInfo {
-        StructInfo::Item(Somr::new(
+    fn struct_item(id: (Client, Clock), len: usize) -> Node {
+        Node::Item(Somr::new(
             ItemBuilder::new()
                 .id(id.into())
                 .content(Content::String("c".repeat(len)))
@@ -492,17 +492,14 @@ mod tests {
                         VecDeque::from([
                             struct_item((0, 0), 1),
                             struct_item((0, 1), 1),
-                            StructInfo::Skip {
-                                id: (0, 2).into(),
-                                len: 1,
-                            },
+                            Node::Skip(NodeLen::new((0, 2).into(), 1)),
                         ]),
                     ),
                     (
                         1,
                         VecDeque::from([
                             struct_item((1, 0), 1),
-                            StructInfo::Item(Somr::new(
+                            Node::Item(Somr::new(
                                 ItemBuilder::new()
                                     .id((1, 1).into())
                                     .left_id(Some((0, 1).into()))

@@ -119,9 +119,9 @@ pub(crate) struct Item {
     pub origin_left_id: Option<Id>,
     pub origin_right_id: Option<Id>,
     #[cfg_attr(all(test, not(loom)), proptest(value = "None"))]
-    pub left: Option<StructInfo>,
+    pub left: Option<Node>,
     #[cfg_attr(all(test, not(loom)), proptest(value = "None"))]
-    pub right: Option<StructInfo>,
+    pub right: Option<Node>,
     pub parent: Option<Parent>,
     pub parent_sub: Option<String>,
     // make content Arc, so we can share the content between items
@@ -131,6 +131,9 @@ pub(crate) struct Item {
     #[cfg_attr(all(test, not(loom)), proptest(value = "ItemFlags::default()"))]
     pub flags: ItemFlags,
 }
+
+// make all Item readonly
+pub(crate) type ItemRef = Somr<Item>;
 
 impl PartialEq for Item {
     fn eq(&self, other: &Self) -> bool {
@@ -167,9 +170,6 @@ impl std::fmt::Display for Item {
     }
 }
 
-// make all Item readonly
-pub(crate) type ItemRef = Somr<Item>;
-
 impl Default for Item {
     fn default() -> Self {
         Self {
@@ -205,13 +205,13 @@ impl Item {
             id,
             origin_left_id: left.get().map(|left| left.last_id()),
             left: if left.is_some() {
-                Some(StructInfo::Item(left))
+                Some(Node::Item(left))
             } else {
                 None
             },
             origin_right_id: right.get().map(|right| right.id),
             right: if right.is_some() {
-                Some(StructInfo::Item(right))
+                Some(Node::Item(right))
             } else {
                 None
             },
@@ -230,14 +230,16 @@ impl Item {
         self.flags.deleted()
     }
 
-    pub fn delete(&self) {
+    pub fn delete(&self) -> bool {
         if self.deleted() {
-            return;
+            return false;
         }
 
         // self.content.delete();
 
         self.flags.set_deleted();
+
+        true
     }
 
     pub fn countable(&self) -> bool {
@@ -266,15 +268,15 @@ impl Item {
                 continue;
             }
             match &n {
-                StructInfo::Item(item) => {
+                Node::Item(item) => {
                     ret.push(format!("{item}"));
                 }
-                StructInfo::GC { id, len } => {
-                    ret.push(format!("GC{id}: {len}"));
+                Node::GC(item) => {
+                    ret.push(format!("GC{}: {}", item.id, item.len));
                     break;
                 }
-                StructInfo::Skip { id, len } => {
-                    ret.push(format!("Skip{id}: {len}"));
+                Node::Skip(item) => {
+                    ret.push(format!("Skip{}: {}", item.id, item.len));
                     break;
                 }
             }
@@ -296,15 +298,15 @@ impl Item {
                 continue;
             }
             match &n {
-                StructInfo::Item(item) => {
+                Node::Item(item) => {
                     ret.push(format!("{item}"));
                 }
-                StructInfo::GC { id, len } => {
-                    ret.push(format!("GC{id}: {len}"));
+                Node::GC(item) => {
+                    ret.push(format!("GC{}: {}", item.id, item.len));
                     break;
                 }
-                StructInfo::Skip { id, len } => {
-                    ret.push(format!("Skip{id}: {len}"));
+                Node::Skip(item) => {
+                    ret.push(format!("Skip{}: {}", item.id, item.len));
                     break;
                 }
             }

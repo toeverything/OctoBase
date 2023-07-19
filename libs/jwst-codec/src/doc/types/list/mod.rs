@@ -8,9 +8,9 @@ use super::*;
 use crate::sync::RwLockWriteGuard;
 
 pub(crate) struct ItemPosition {
-    pub parent: Somr<RwLock<YType>>,
-    pub left: Somr<Item>,
-    pub right: Somr<Item>,
+    pub parent: YTypeRef,
+    pub left: ItemRef,
+    pub right: ItemRef,
     pub index: u64,
     pub offset: u64,
 }
@@ -157,7 +157,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
             None,
         );
 
-        store.integrate(StructInfo::Item(item), 0, Some(&mut lock))?;
+        store.integrate(Node::Item(item), 0, Some(&mut lock))?;
 
         Ok(())
     }
@@ -210,19 +210,23 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         len: u64,
     ) -> JwstCodecResult {
         pos.normalize(store)?;
-        let mut remaining = len as i64;
+
+        let mut remaining = len;
 
         while remaining > 0 {
             if let Some(item) = pos.right.get() {
                 if !item.deleted() {
-                    let content_len = item.len() as i64;
+                    let content_len = item.len();
                     if remaining < content_len {
-                        store.split_node(item.id, remaining as u64)?;
+                        store.split_node(item.id, remaining)?;
                         remaining = 0;
                     } else {
                         remaining -= content_len;
                     }
-                    store.delete_item(item, Some(&mut lock));
+                    store
+                        .delete_set
+                        .add(item.id.client, item.id.clock, content_len);
+                    DocStore::delete_item(item, Some(&mut lock));
                 }
 
                 pos.forward();
@@ -232,7 +236,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         }
 
         if let Some(markers) = &lock.markers {
-            markers.update_marker_changes(pos.index, -(len as i64) + remaining);
+            markers.update_marker_changes(pos.index, -((len - remaining) as i64));
         }
 
         Ok(())
