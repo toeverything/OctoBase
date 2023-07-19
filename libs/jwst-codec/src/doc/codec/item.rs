@@ -132,6 +132,9 @@ pub(crate) struct Item {
     pub flags: ItemFlags,
 }
 
+// make all Item readonly
+pub(crate) type ItemRef = Somr<Item>;
+
 impl PartialEq for Item {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
@@ -166,9 +169,6 @@ impl std::fmt::Display for Item {
         write!(f, "Item{}: [{:?}]", self.id, self.content)
     }
 }
-
-// make all Item readonly
-pub(crate) type ItemRef = Somr<Item>;
 
 impl Default for Item {
     fn default() -> Self {
@@ -271,12 +271,12 @@ impl Item {
                 Node::Item(item) => {
                     ret.push(format!("{item}"));
                 }
-                Node::GC { id, len } => {
-                    ret.push(format!("GC{id}: {len}"));
+                Node::GC(item) => {
+                    ret.push(format!("GC{}: {}", item.id, item.len));
                     break;
                 }
-                Node::Skip { id, len } => {
-                    ret.push(format!("Skip{id}: {len}"));
+                Node::Skip(item) => {
+                    ret.push(format!("Skip{}: {}", item.id, item.len));
                     break;
                 }
             }
@@ -301,12 +301,12 @@ impl Item {
                 Node::Item(item) => {
                     ret.push(format!("{item}"));
                 }
-                Node::GC { id, len } => {
-                    ret.push(format!("GC{id}: {len}"));
+                Node::GC(item) => {
+                    ret.push(format!("GC{}: {}", item.id, item.len));
                     break;
                 }
-                Node::Skip { id, len } => {
-                    ret.push(format!("Skip{id}: {len}"));
+                Node::Skip(item) => {
+                    ret.push(format!("Skip{}: {}", item.id, item.len));
                     break;
                 }
             }

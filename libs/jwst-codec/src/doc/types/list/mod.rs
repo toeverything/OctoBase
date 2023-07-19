@@ -8,9 +8,9 @@ use super::*;
 use crate::sync::RwLockWriteGuard;
 
 pub(crate) struct ItemPosition {
-    pub parent: Somr<RwLock<YType>>,
-    pub left: Somr<Item>,
-    pub right: Somr<Item>,
+    pub parent: YTypeRef,
+    pub left: ItemRef,
+    pub right: ItemRef,
     pub index: u64,
     pub offset: u64,
 }

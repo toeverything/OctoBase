@@ -4,21 +4,36 @@ use super::*;
 #[derive(Debug, Clone)]
 #[cfg_attr(all(test, not(loom)), derive(proptest_derive::Arbitrary))]
 pub(crate) enum Node {
-    GC { id: Id, len: u64 },
-    Skip { id: Id, len: u64 },
+    GC(Box<NodeLen>),
+    Skip(Box<NodeLen>),
     Item(ItemRef),
+}
+
+/// Simple representation of id and len struct used by GC and Skip node.
+#[derive(Debug, Clone)]
+#[cfg_attr(all(test, not(loom)), derive(proptest_derive::Arbitrary))]
+pub(crate) struct NodeLen {
+    pub id: Id,
+    pub len: u64,
+}
+
+impl NodeLen {
+    #[cfg(test)]
+    pub fn new(id: Id, len: u64) -> Box<Self> {
+        Box::new(Self { id, len })
+    }
 }
 
 impl<W: CrdtWriter> CrdtWrite<W> for Node {
     fn write(&self, writer: &mut W) -> JwstCodecResult {
         match self {
-            Node::GC { len, .. } => {
+            Node::GC(item) => {
                 writer.write_info(0)?;
-                writer.write_var_u64(*len)
+                writer.write_var_u64(item.len)
             }
-            Node::Skip { len, .. } => {
+            Node::Skip(item) => {
                 writer.write_info(10)?;
-                writer.write_var_u64(*len)
+                writer.write_var_u64(item.len)
             }
             Node::Item(item) => item.get().unwrap().write(writer),
         }
@@ -28,8 +43,8 @@ impl<W: CrdtWriter> CrdtWrite<W> for Node {
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Node::GC { id: id1, .. }, Node::GC { id: id2, .. }) => id1 == id2,
-            (Node::Skip { id: id1, .. }, Node::Skip { id: id2, .. }) => id1 == id2,
+            (Node::GC(left), Node::GC(right)) => left.id == right.id,
+            (Node::Skip(left), Node::Skip(right)) => left.id == right.id,
             (Node::Item(item1), Node::Item(item2)) => item1.get() == item2.get(),
             _ => false,
         }
@@ -54,11 +69,11 @@ impl Node {
         match first_5_bit {
             0 => {
                 let len = decoder.read_var_u64()?;
-                Ok(Node::GC { id, len })
+                Ok(Node::GC(Box::new(NodeLen { id, len })))
             }
             10 => {
                 let len = decoder.read_var_u64()?;
-                Ok(Node::Skip { id, len })
+                Ok(Node::Skip(Box::new(NodeLen { id, len })))
             }
             _ => {
                 let item = Somr::new(Item::read(decoder, id, info, first_5_bit)?);
@@ -74,8 +89,8 @@ impl Node {
 
     pub fn id(&self) -> Id {
         match self {
-            Node::GC { id, .. } => *id,
-            Node::Skip { id, .. } => *id,
+            Node::GC(item) => item.id,
+            Node::Skip(item) => item.id,
             Node::Item(item) => unsafe { item.get_unchecked() }.id,
         }
     }
@@ -90,8 +105,8 @@ impl Node {
 
     pub fn len(&self) -> u64 {
         match self {
-            Self::GC { len, .. } => *len,
-            Self::Skip { len, .. } => *len,
+            Self::GC(item) => item.len,
+            Self::Skip(item) => item.len,
             Self::Item(item) => unsafe { item.get_unchecked() }.len(),
         }
     }
@@ -258,20 +273,14 @@ mod tests {
     fn test_struct_info() {
         loom_model!({
             {
-                let struct_info = Node::GC {
-                    id: Id::new(1, 0),
-                    len: 10,
-                };
+                let struct_info = Node::GC(NodeLen::new(Id::new(1, 0), 10));
                 assert_eq!(struct_info.len(), 10);
                 assert_eq!(struct_info.client(), 1);
                 assert_eq!(struct_info.clock(), 0);
             }
 
             {
-                let struct_info = Node::Skip {
-                    id: Id::new(2, 0),
-                    len: 20,
-                };
+                let struct_info = Node::Skip(NodeLen::new(Id::new(2, 0), 20));
                 assert_eq!(struct_info.len(), 20);
                 assert_eq!(struct_info.client(), 2);
                 assert_eq!(struct_info.clock(), 0);
@@ -332,14 +341,8 @@ mod tests {
             ));
 
             let struct_infos = vec![
-                Node::GC {
-                    id: (0, 0).into(),
-                    len: 42,
-                },
-                Node::Skip {
-                    id: (0, 0).into(),
-                    len: 314,
-                },
+                Node::GC(NodeLen::new((0, 0).into(), 42)),
+                Node::Skip(NodeLen::new((0, 0).into(), 314)),
                 has_not_parent_id_and_has_parent,
                 has_not_parent_id_and_has_parent_with_key,
                 has_parent_id,

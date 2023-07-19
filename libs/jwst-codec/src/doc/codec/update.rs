@@ -492,10 +492,7 @@ mod tests {
                         VecDeque::from([
                             struct_item((0, 0), 1),
                             struct_item((0, 1), 1),
-                            Node::Skip {
-                                id: (0, 2).into(),
-                                len: 1,
-                            },
+                            Node::Skip(NodeLen::new((0, 2).into(), 1)),
                         ]),
                     ),
                     (
