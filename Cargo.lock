@@ -2739,7 +2739,6 @@ name = "jwst-jni"
 version = "0.1.0"
 dependencies = [
  "android_logger",
- "dashmap",
  "flapigen",
  "futures",
  "jni-sys",

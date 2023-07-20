@@ -223,9 +223,8 @@ impl Doc {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicU8, Ordering};
-
     use super::*;
+    use crate::sync::{AtomicU8, Ordering};
     use yrs::{types::ToJson, updates::decoder::Decode, Array, Map, Options, Transact};
 
     #[test]
