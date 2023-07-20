@@ -9,6 +9,9 @@ use std::{
     ops::Range,
 };
 
+unsafe impl Send for DocStore {}
+unsafe impl Sync for DocStore {}
+
 #[derive(Default, Debug)]
 pub(crate) struct DocStore {
     client: Client,

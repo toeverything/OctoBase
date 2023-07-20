@@ -2,6 +2,7 @@ mod awareness;
 mod codec;
 mod common;
 mod document;
+mod publisher;
 mod store;
 mod types;
 

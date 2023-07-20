@@ -15,7 +15,6 @@ sqlx = "0.6.3"
 rifgen = "0.1.61"
 tokio = "1.27.0"
 log = { package = "tracing", version = "0.1.37" }
-yrs = "0.16.5"
 nanoid = "0.4.0"
 
 # ======= workspace dependencies =======

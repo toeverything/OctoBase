@@ -2752,7 +2752,6 @@ dependencies = [
  "sqlx",
  "tokio",
  "tracing",
- "yrs",
 ]
 
 [[package]]
