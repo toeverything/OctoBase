@@ -85,7 +85,6 @@ void* __swift_bridge__$Block$parent(void* self);
 uint64_t __swift_bridge__$Block$updated(void* self);
 void* __swift_bridge__$Block$id(void* self);
 void* __swift_bridge__$Block$flavour(void* self);
-void* __swift_bridge__$Block$version(void* self);
 uint64_t __swift_bridge__$Block$created(void* self);
 void __swift_bridge__$Block$set_bool(void* self, void* key, bool value);
 void __swift_bridge__$Block$set_string(void* self, void* key, void* value);
@@ -120,12 +119,10 @@ void* __swift_bridge__$Storage$new(void* path);
 void* __swift_bridge__$Storage$new_with_log_level(void* path, void* level);
 void* __swift_bridge__$Storage$error(void* self);
 bool __swift_bridge__$Storage$is_offline(void* self);
-bool __swift_bridge__$Storage$is_initialized(void* self);
-bool __swift_bridge__$Storage$is_syncing(void* self);
+bool __swift_bridge__$Storage$is_connected(void* self);
 bool __swift_bridge__$Storage$is_finished(void* self);
 bool __swift_bridge__$Storage$is_error(void* self);
 void* __swift_bridge__$Storage$get_sync_state(void* self);
 void* __swift_bridge__$Storage$connect(void* self, void* workspace_id, void* remote);
-void* __swift_bridge__$Storage$sync(void* self, void* workspace_id, void* remote);
 
 
