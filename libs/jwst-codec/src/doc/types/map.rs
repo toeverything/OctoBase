@@ -151,6 +151,10 @@ impl Map {
     pub fn contains_key<K: AsRef<str>>(&self, key: K) -> bool {
         MapType::contains_key(self, key)
     }
+
+    pub fn len(&self) -> u64 {
+        MapType::len(self)
+    }
 }
 
 #[cfg(test)]
