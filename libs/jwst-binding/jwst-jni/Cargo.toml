@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 android_logger = "0.13.1"
+dashmap = "5.5.0"
 futures = "0.3.28"
 jni-sys = "0.3.0"
 lib0 = "0.16.5"

@@ -9,7 +9,8 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 use yrs::{
     types::{map::MapEvent, ToJson},
-    Doc, Map, MapRef, Subscription, Transact, TransactionMut, UpdateSubscription,
+    updates::decoder::Decode,
+    Doc, Map, MapRef, Subscription, Transact, TransactionMut, Update, UpdateSubscription,
 };
 
 pub type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>;
@@ -39,6 +40,13 @@ impl Workspace {
     pub fn new<S: AsRef<str>>(id: S) -> Self {
         let doc = Doc::new();
         Self::from_doc(doc, id)
+    }
+
+    pub fn from_binary(binary: &[u8], workspace_id: &str) -> Self {
+        let doc = Doc::new();
+        doc.transact_mut()
+            .apply_update(Update::decode_v1(binary).unwrap());
+        Self::from_doc(doc, workspace_id)
     }
 
     pub fn from_doc<S: AsRef<str>>(doc: Doc, workspace_id: S) -> Workspace {

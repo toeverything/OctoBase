@@ -2,12 +2,14 @@ use crate::Workspace;
 use android_logger::Config;
 use futures::TryFutureExt;
 use jwst::{error, JwstError, LevelFilter};
-use jwst_rpc::{start_client_sync, BroadcastChannels, RpcContextImpl, SyncState};
+use jwst_rpc::{
+    start_websocket_client_sync, BroadcastChannels, CachedLastSynced, RpcContextImpl, SyncState,
+};
 use jwst_storage::{BlobStorageType, JwstStorage as AutoStorage, JwstStorageResult};
 use log::log::warn;
 use nanoid::nanoid;
 use std::sync::{Arc, RwLock};
-use tokio::runtime::Runtime;
+use tokio::{runtime::Runtime, sync::mpsc::channel};
 
 #[derive(Clone)]
 pub struct JwstStorage {
@@ -15,6 +17,7 @@ pub struct JwstStorage {
     channel: Arc<BroadcastChannels>,
     error: Option<String>,
     sync_state: Arc<RwLock<SyncState>>,
+    last_sync: CachedLastSynced,
 }
 
 impl JwstStorage {
@@ -56,6 +59,7 @@ impl JwstStorage {
             channel: Arc::default(),
             error: None,
             sync_state: Arc::new(RwLock::new(SyncState::Offline)),
+            last_sync: CachedLastSynced::new(),
         }
     }
 
@@ -68,14 +72,9 @@ impl JwstStorage {
         matches!(*sync_state, SyncState::Offline)
     }
 
-    pub fn is_initialized(&self) -> bool {
+    pub fn is_connected(&self) -> bool {
         let sync_state = self.sync_state.read().unwrap();
-        matches!(*sync_state, SyncState::Initialized)
-    }
-
-    pub fn is_syncing(&self) -> bool {
-        let sync_state = self.sync_state.read().unwrap();
-        matches!(*sync_state, SyncState::Syncing)
+        matches!(*sync_state, SyncState::Connected)
     }
 
     pub fn is_finished(&self) -> bool {
@@ -90,12 +89,11 @@ impl JwstStorage {
 
     pub fn get_sync_state(&self) -> String {
         let sync_state = self.sync_state.read().unwrap();
-        match *sync_state {
+        match sync_state.clone() {
             SyncState::Offline => "offline".to_string(),
-            SyncState::Syncing => "syncing".to_string(),
-            SyncState::Initialized => "initialized".to_string(),
+            SyncState::Connected => "connected".to_string(),
             SyncState::Finished => "finished".to_string(),
-            SyncState::Error(_) => "Error".to_string(),
+            SyncState::Error(e) => format!("Error: {e}"),
         }
     }
 
@@ -120,14 +118,17 @@ impl JwstStorage {
             Ok(mut workspace) => {
                 if is_offline {
                     let identifier = nanoid!();
+                    let (last_synced_tx, last_synced_rx) = channel::<i64>(128);
+                    self.last_sync.add_receiver(rt.clone(), last_synced_rx);
+
                     rt.block_on(async {
-                        self.join_broadcast(&mut workspace, identifier.clone())
+                        self.join_broadcast(&mut workspace, identifier.clone(), last_synced_tx)
                             .await;
                     });
                     // prevent rt from being dropped, which will cause dropping the broadcast channel
                     std::mem::forget(rt);
                 } else {
-                    start_client_sync(
+                    start_websocket_client_sync(
                         rt,
                         Arc::new(self.clone()),
                         self.sync_state.clone(),

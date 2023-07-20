@@ -1,19 +1,16 @@
 #[forbid(unsafe_code)]
 mod broadcast;
-#[cfg(feature = "websocket")]
 mod client;
-#[cfg(feature = "webrtc")]
-mod client_webrtc;
 mod connector;
 mod context;
 mod handler;
 mod types;
 mod utils;
 
-#[cfg(feature = "websocket")]
-pub use client::start_client_sync;
 #[cfg(feature = "webrtc")]
-pub use client_webrtc::start_webrtc_client_sync;
+pub use client::start_webrtc_client_sync;
+#[cfg(feature = "websocket")]
+pub use client::start_websocket_client_sync;
 #[cfg(feature = "webrtc")]
 pub use connector::webrtc_datachannel_client_begin;
 #[cfg(feature = "webrtc")]
@@ -26,6 +23,7 @@ pub use connector::{axum_socket_connector, tungstenite_socket_connector};
 pub use webrtcrs::peer_connection::sdp::session_description::RTCSessionDescription;
 
 pub use broadcast::{BroadcastChannels, BroadcastType};
+pub use client::CachedLastSynced;
 pub use connector::memory_connector;
 pub use context::RpcContextImpl;
 pub use handler::handle_connector;
@@ -42,8 +40,7 @@ use tokio::{
 pub enum SyncState {
     #[default]
     Offline,
-    Initialized,
-    Syncing,
+    Connected,
     Finished,
     Error(String),
 }

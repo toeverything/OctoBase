@@ -50,13 +50,15 @@ pub async fn webrtc_handler(
 ) -> Json<RTCSessionDescription> {
     let (answer, tx, rx, _) = webrtc_datachannel_server_connector(offer).await;
 
-    let (first_init_tx, mut first_init_rx) = channel::<bool>(10);
+    let (first_init_tx, mut first_init_rx) = channel::<i64>(10);
     let workspace_id = workspace.to_owned();
     tokio::spawn(async move {
-        if let Some(true) = first_init_rx.recv().await {
-            info!("socket init success: {}", workspace_id);
-        } else {
-            error!("socket init failed: {}", workspace_id);
+        while let Some(time) = first_init_rx.recv().await {
+            if time > 0 {
+                info!("socket sync success: {}", workspace_id);
+            } else {
+                error!("socket sync failed: {}", workspace_id);
+            }
         }
     });
 
@@ -77,7 +79,7 @@ mod test {
     use jwst::{Block, Workspace};
     use jwst_logger::info;
     use jwst_rpc::{
-        start_client_sync, start_webrtc_client_sync, BroadcastChannels, RpcContextImpl,
+        start_webrtc_client_sync, start_websocket_client_sync, BroadcastChannels, RpcContextImpl,
     };
     use jwst_storage::{BlobStorageType, JwstStorage};
     use libc::{kill, SIGTERM};
@@ -207,7 +209,7 @@ mod test {
             )));
             let remote = format!("ws://localhost:{server_port}/collaboration/1");
 
-            start_client_sync(
+            start_websocket_client_sync(
                 Arc::new(Runtime::new().unwrap()),
                 context.clone(),
                 Arc::default(),
@@ -294,7 +296,7 @@ mod test {
             let context = Arc::new(TestContext::new(storage));
             let remote = format!("ws://localhost:{server_port}/collaboration/1");
 
-            start_client_sync(
+            start_websocket_client_sync(
                 Arc::new(Runtime::new().unwrap()),
                 context.clone(),
                 Arc::default(),

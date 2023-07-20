@@ -5,6 +5,7 @@ use super::{
     *,
 };
 use async_trait::async_trait;
+use chrono::Utc;
 use jwst::{DocStorage, Workspace};
 use jwst_codec::{CrdtReader, RawDecoder};
 use jwst_storage::{JwstStorage, JwstStorageResult};
@@ -58,6 +59,7 @@ pub trait RpcContextImpl<'a> {
         &self,
         workspace: &mut Workspace,
         identifier: String,
+        last_synced: Sender<i64>,
     ) -> BroadcastSender<BroadcastType> {
         let id = workspace.id();
         info!("join_broadcast, {:?}", workspace.id());
@@ -76,7 +78,7 @@ pub trait RpcContextImpl<'a> {
         subscribe(workspace, identifier.clone(), broadcast_tx.clone()).await;
 
         // save update thread
-        self.save_update(&id, identifier, broadcast_tx.subscribe())
+        self.save_update(&id, identifier, broadcast_tx.subscribe(), last_synced)
             .await;
 
         // returns the 'broadcast_tx' which can be subscribed later, to receive local workspace changes
@@ -88,6 +90,7 @@ pub trait RpcContextImpl<'a> {
         id: &str,
         identifier: String,
         mut broadcast: BroadcastReceiver<BroadcastType>,
+        last_synced: Sender<i64>,
     ) {
         let docs = self.get_storage().docs().clone();
         let id = id.to_string();
@@ -141,6 +144,10 @@ pub trait RpcContextImpl<'a> {
                                 }
                             }
                         }
+                        last_synced
+                            .send(Utc::now().timestamp_millis())
+                            .await
+                            .unwrap();
                     } else if handler.is_finished() {
                         break;
                     }

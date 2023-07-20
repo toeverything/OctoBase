@@ -5,19 +5,17 @@ use super::{store::StoreRef, *};
 pub type DocSubscriber = Box<dyn Fn(&[u8]) + Sync + Send + 'static>;
 
 pub struct DocPublisher {
-    pub(crate) store: StoreRef,
     subscribers: Arc<RwLock<Vec<Box<dyn Fn(&[u8]) + Sync + Send + 'static>>>>,
-    observer: Arc<std::thread::JoinHandle<()>>,
+    _observer: Arc<std::thread::JoinHandle<()>>,
 }
 
 impl DocPublisher {
     pub(crate) fn new(store: StoreRef) -> Self {
         let subscribers = Arc::new(RwLock::new(Vec::<DocSubscriber>::new()));
 
-        let thread_store = store.clone();
         let thread_subscribers = subscribers.clone();
         let thread = std::thread::spawn(move || {
-            let mut last_update = thread_store.read().unwrap().get_state_vector();
+            let mut last_update = store.read().unwrap().get_state_vector();
             loop {
                 std::thread::sleep(std::time::Duration::from_millis(100));
 
@@ -26,10 +24,10 @@ impl DocPublisher {
                     continue;
                 }
 
-                let update = thread_store.read().unwrap().get_state_vector();
+                let update = store.read().unwrap().get_state_vector();
                 if update != last_update {
                     let mut encoder = RawEncoder::default();
-                    if let Err(e) = thread_store
+                    if let Err(e) = store
                         .read()
                         .unwrap()
                         .encode_with_state_vector(&last_update, &mut encoder)
@@ -50,9 +48,8 @@ impl DocPublisher {
         });
 
         Self {
-            store,
             subscribers,
-            observer: Arc::new(thread),
+            _observer: Arc::new(thread),
         }
     }
 

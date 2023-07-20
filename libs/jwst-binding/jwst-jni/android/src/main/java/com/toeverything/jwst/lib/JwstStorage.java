@@ -30,19 +30,12 @@ public final class JwstStorage {
     }
     private static native boolean do_is_offline(long self);
 
-    public final boolean is_initialized() {
-        boolean ret = do_is_initialized(mNativeObj);
+    public final boolean is_connected() {
+        boolean ret = do_is_connected(mNativeObj);
 
         return ret;
     }
-    private static native boolean do_is_initialized(long self);
-
-    public final boolean is_syncing() {
-        boolean ret = do_is_syncing(mNativeObj);
-
-        return ret;
-    }
-    private static native boolean do_is_syncing(long self);
+    private static native boolean do_is_connected(long self);
 
     public final boolean is_finished() {
         boolean ret = do_is_finished(mNativeObj);

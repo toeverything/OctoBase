@@ -1,11 +1,10 @@
 use super::*;
-use jwst_codec::{write_sync_message, DocMessage, SyncMessage, SyncMessageScanner};
+use jwst_codec::{write_sync_message, Doc, DocMessage, SyncMessage, SyncMessageScanner};
 use std::{
     sync::atomic::{AtomicBool, Ordering},
     thread::JoinHandle as StdJoinHandler,
 };
 use tokio::{sync::mpsc::channel, task::JoinHandle as TokioJoinHandler};
-use yrs::{updates::decoder::Decode, Doc, Transact, Update};
 
 // just for test
 pub fn memory_connector(
@@ -26,15 +25,16 @@ pub fn memory_connector(
     let recv_handler = {
         debug!("init memory recv thread");
         let finish = Arc::new(AtomicBool::new(false));
-        let sub = {
+
+        {
             let finish = finish.clone();
-            doc.observe_update_v1(move |_, e| {
-                debug!("send change: {}", e.update.len());
+            doc.subscribe(move |update| {
+                debug!("send change: {}", update.len());
 
                 let mut buffer = Vec::new();
                 if let Err(e) = write_sync_message(
                     &mut buffer,
-                    &SyncMessage::Doc(DocMessage::Update(e.update.clone())),
+                    &SyncMessage::Doc(DocMessage::Update(update.to_vec())),
                 ) {
                     error!("write sync message error: {}", e);
                     return;
@@ -43,22 +43,23 @@ pub fn memory_connector(
                     // pipeline was closed
                     finish.store(true, Ordering::Release);
                 }
-                debug!("send change: {} end", e.update.len());
-            })
-            .unwrap()
-        };
+                debug!("send change: {} end", update.len());
+            });
+        }
 
-        let local_sender = local_sender.clone();
-        std::thread::spawn(move || {
-            while let Ok(false) | Err(false) = finish
-                .compare_exchange_weak(true, false, Ordering::Acquire, Ordering::Acquire)
-                .or_else(|_| Ok(local_sender.is_closed()))
-            {
-                std::thread::sleep(Duration::from_millis(100));
-            }
-            drop(sub);
-            debug!("recv final: {}", id);
-        })
+        {
+            let local_sender = local_sender.clone();
+            std::thread::spawn(move || {
+                while let Ok(false) | Err(false) = finish
+                    .compare_exchange_weak(true, false, Ordering::Acquire, Ordering::Acquire)
+                    .or_else(|_| Ok(local_sender.is_closed()))
+                {
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+
+                debug!("recv final: {}", id);
+            })
+        }
     };
 
     // send thread
@@ -68,7 +69,7 @@ pub fn memory_connector(
             while let Some(msg) = local_receiver.recv().await {
                 match msg {
                     Message::Binary(data) => {
-                        let doc = doc.clone();
+                        let mut doc = doc.clone();
                         tokio::task::spawn_blocking(move || {
                             trace!("recv change: {}", data.len());
                             for update in SyncMessageScanner::new(&data).filter_map(|m| {
@@ -80,19 +81,8 @@ pub fn memory_connector(
                                     }
                                 })
                             }) {
-                                match Update::decode_v1(&update) {
-                                    Ok(update) => loop {
-                                        match doc.try_transact_mut() {
-                                            Ok(mut t) => {
-                                                t.apply_update(update);
-                                                break;
-                                            }
-                                            Err(_) => {
-                                                std::thread::sleep(Duration::from_millis(100));
-                                            }
-                                        }
-                                    },
-                                    Err(e) => error!("failed to decode update: {}", e),
+                                if let Err(e) = doc.apply_update_from_binary(update) {
+                                    error!("failed to decode update: {}", e);
                                 }
                             }
 

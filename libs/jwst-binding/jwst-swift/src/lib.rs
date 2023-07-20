@@ -128,9 +128,7 @@ mod ffi {
 
         fn is_offline(self: &Storage) -> bool;
 
-        fn is_initialized(self: &Storage) -> bool;
-
-        fn is_syncing(self: &Storage) -> bool;
+        fn is_connected(self: &Storage) -> bool;
 
         fn is_finished(self: &Storage) -> bool;
 
