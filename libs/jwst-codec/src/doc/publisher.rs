@@ -1,6 +1,5 @@
-use std::sync::{Arc, RwLock};
-
 use super::{store::StoreRef, *};
+use crate::sync::{Arc, RwLock};
 
 pub type DocSubscriber = Box<dyn Fn(&[u8]) + Sync + Send + 'static>;
 
