@@ -386,29 +386,31 @@ mod tests {
     #[test]
     #[ignore = "inaccurate timing on ci, need for more accurate timing testing"]
     fn test_subscribe() {
-        let doc = Doc::default();
-        let doc_clone = doc.clone();
+        loom_model!({
+            let doc = Doc::default();
+            let doc_clone = doc.clone();
 
-        let count = Arc::new(AtomicU8::new(0));
-        let count_clone1 = count.clone();
-        let count_clone2 = count.clone();
-        doc.subscribe(move |_| {
-            count_clone1.fetch_add(1, Ordering::SeqCst);
+            let count = Arc::new(AtomicU8::new(0));
+            let count_clone1 = count.clone();
+            let count_clone2 = count.clone();
+            doc.subscribe(move |_| {
+                count_clone1.fetch_add(1, Ordering::SeqCst);
+            });
+
+            doc_clone.subscribe(move |_| {
+                count_clone2.fetch_add(1, Ordering::SeqCst);
+            });
+
+            doc_clone
+                .get_or_create_array("abc")
+                .unwrap()
+                .insert(0, 42)
+                .unwrap();
+
+            // wait observer, cycle once every 100mm
+            std::thread::sleep(std::time::Duration::from_millis(200));
+
+            assert_eq!(count.load(Ordering::SeqCst), 2);
         });
-
-        doc_clone.subscribe(move |_| {
-            count_clone2.fetch_add(1, Ordering::SeqCst);
-        });
-
-        doc_clone
-            .get_or_create_array("abc")
-            .unwrap()
-            .insert(0, 42)
-            .unwrap();
-
-        // wait observer, cycle once every 100mm
-        std::thread::sleep(std::time::Duration::from_millis(200));
-
-        assert_eq!(count.load(Ordering::SeqCst), 2);
     }
 }
