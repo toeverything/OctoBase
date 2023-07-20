@@ -100,7 +100,7 @@ pub async fn start_server() {
     );
     let workspace_changed_blocks =
         Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
-    let hook_endpoint = Arc::new(RwLock::new(String::new()));
+    let hook_endpoint = Arc::new(RwLock::new(dotenvy::var("HOOK_ENDPOINT").unwrap_or_default()));
     let cb: WorkspaceRetrievalCallback = {
         let workspace_changed_blocks = workspace_changed_blocks.clone();
         let runtime = runtime.clone();
