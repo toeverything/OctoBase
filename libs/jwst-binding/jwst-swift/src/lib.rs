@@ -137,5 +137,7 @@ mod ffi {
         fn get_sync_state(self: &Storage) -> String;
 
         fn connect(self: &mut Storage, workspace_id: String, remote: String) -> Option<Workspace>;
+
+        fn get_last_synced(self: &Storage) -> Vec<i64>;
     }
 }

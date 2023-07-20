@@ -124,5 +124,6 @@ bool __swift_bridge__$Storage$is_finished(void* self);
 bool __swift_bridge__$Storage$is_error(void* self);
 void* __swift_bridge__$Storage$get_sync_state(void* self);
 void* __swift_bridge__$Storage$connect(void* self, void* workspace_id, void* remote);
+void* __swift_bridge__$Storage$get_last_synced(void* self);
 
 
