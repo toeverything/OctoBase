@@ -88,17 +88,17 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
                 .and_then(|update| encode_sendable_update(update.clone()).map(|u| (update, u)))
             {
                 Ok((broadcast_update, sendable_update)) => {
-            if sender
+                    if sender
                         .send(BroadcastType::BroadcastRawContent(broadcast_update))
-                .is_err()
-            {
+                        .is_err()
+                    {
                         println!("broadcast channel {workspace_id} has been closed",)
-            }
+                    }
 
-            if sender
+                    if sender
                         .send(BroadcastType::BroadcastContent(sendable_update))
-                .is_err()
-            {
+                        .is_err()
+                    {
                         println!("broadcast channel {workspace_id} has been closed",)
                     }
                 }

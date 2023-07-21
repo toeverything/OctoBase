@@ -22,25 +22,25 @@ use yrs::merge_updates_v1;
 
 fn merge_updates(id: &str, updates: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
     match catch_unwind(AssertUnwindSafe(move || {
-    match merge_updates_v1(
-        &updates
-            .iter()
-            .map(std::ops::Deref::deref)
-            .collect::<Vec<_>>(),
-    ) {
-        Ok(update) => {
-            info!("merge {} updates", updates.len());
-            vec![update]
+        match merge_updates_v1(
+            &updates
+                .iter()
+                .map(std::ops::Deref::deref)
+                .collect::<Vec<_>>(),
+        ) {
+            Ok(update) => {
+                info!("merge {} updates", updates.len());
+                vec![update]
+            }
+            Err(e) => {
+                error!("failed to merge update of {}: {}", id, e);
+                updates
+            }
         }
-        Err(e) => {
-            error!("failed to merge update of {}: {}", id, e);
-            updates
-        }
-    }
     })) {
         Ok(updates) => updates,
         Err(e) => {
-            println!("failed to merge update of {}: {:?}", id, e);
+            error!("failed to merge update of {}: {:?}", id, e);
             vec![]
         }
     }

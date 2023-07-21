@@ -100,7 +100,7 @@ pub fn start_websocket_client_sync(
     });
 
     let timeline = CachedLastSynced::new();
-    timeline.add_receiver(rt, last_synced_rx);
+    timeline.add_receiver_wait_first_update(rt, last_synced_rx);
 
     timeline
 }

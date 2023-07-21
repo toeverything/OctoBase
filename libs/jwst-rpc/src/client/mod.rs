@@ -28,6 +28,13 @@ impl CachedLastSynced {
         }
     }
 
+    pub fn add_receiver_wait_first_update(&self, rt: Arc<Runtime>, recv: Receiver<i64>) {
+        self.add_receiver(rt, recv);
+        while self.synced.lock().unwrap().is_empty() {
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    }
+
     pub fn add_receiver(&self, rt: Arc<Runtime>, mut recv: Receiver<i64>) {
         let synced = self.synced.clone();
         rt.spawn(async move {

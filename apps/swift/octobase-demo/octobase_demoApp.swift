@@ -140,35 +140,43 @@ class JwstWorkspace: ObservableObject {
             print("is_error", storage.is_error())
             print("get_sync_state", storage.get_sync_state().toString())
             
-            let workspace = storage.connect("test", "ws://127.0.0.1:3000/collaboration/test")
+           let workspace = storage.connect("test", "ws://127.0.0.1:3000/collaboration/test")
             
-            print("get_last_synced", storage.get_last_synced().map({String($0)}).joined())
-            print( workspace?.client_id() )
-            sleep(1)
-            
-            let block = workspace!.create("test", "test1")
-            block.set_bool("bool", true)
-            block.set_string("str", "str4")
-            
-            sleep(2)
-            print("get_sync_state", storage.get_sync_state().toString())
-            print("get_last_synced", storage.get_last_synced().map({String($0)}).joined())
-            
-            let block1 = workspace!.get("test")
-            block1?.set_bool("bool1", true)
-            block1?.set_string("str1", "str3")
+           print("get_last_synced", storage.get_last_synced().map({String($0)}).joined())
+           print( workspace?.client_id() )
+           sleep(1)
+           
+           let block = workspace!.create("test", "test1")
+           block.set_bool("bool", true)
+           block.set_string("str", "str4")
+           
+           sleep(2)
+           print("get_sync_state", storage.get_sync_state().toString())
+           print("get_last_synced", storage.get_last_synced().map({String($0)}).joined())
+           
+           let block1 = workspace!.get("test")
+           block1?.set_bool("bool1", true)
+           block1?.set_string("str1", "str3")
+
+           sleep(2)
+           print("get_sync_state", storage.get_sync_state().toString())
+           print("get_last_synced", storage.get_last_synced().map({String($0)}).joined())
+
+           let block2 = workspace!.get("test")
+           block2?.set_bool("bool2", false)
+           block2?.set_string("str2", "str2")
+
+            // let workspace = storage.connect("test", "ws://127.0.0.1:3000/collaboration/test")
+
+            // let block = workspace!.get("test")!
+            // print(block.get_string("str1").map({$0.toString()}))
+            // print(workspace!.get_blocks_by_flavour("test1").map({$0.id()}))
 
             sleep(2)
             print("get_sync_state", storage.get_sync_state().toString())
-            print("get_last_synced", storage.get_last_synced().map({String($0)}).joined())
+            print("get_last_synced", storage.get_last_synced().map({String($0)}));
 
-            let block2 = workspace!.get("test")
-            block2?.set_bool("bool2", false)
-            block2?.set_string("str2", "str2")
-
-            sleep(2)
-            print("get_sync_state", storage.get_sync_state().toString())
-            print("get_last_synced", storage.get_last_synced().map({String($0)}).joined())
+            print(block.get_string("str1").map({$0.toString()}))
         }
     }
 }
