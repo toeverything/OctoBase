@@ -44,7 +44,7 @@ class JwstWorkspace: ObservableObject {
         
         print(self.get(blockId: "test"))
         print(block.id().toString());
-        print(block.flavor().toString())
+        print(block.flavour().toString())
         
         block.set_integer("integer", 1)
         block.set_float("float",  1.1)
@@ -135,11 +135,40 @@ class JwstWorkspace: ObservableObject {
             }
             let storage = Storage(fileURL.description.intoRustString())
             print("is_offline", storage.is_offline())
-            print("is_initialized", storage.is_initialized())
+            print("is_initialized", storage.is_connected())
             print("is_finished", storage.is_finished())
-            print("is_syncing", storage.is_syncing())
             print("is_error", storage.is_error())
-            print("get_sync_state", storage.get_sync_state())
+            print("get_sync_state", storage.get_sync_state().toString())
+            
+            let workspace = storage.connect("test", "ws://127.0.0.1:3000/collaboration/test")
+            
+            print("get_last_synced", storage.get_last_synced().map({String($0)}).joined())
+            print( workspace?.client_id() )
+            sleep(1)
+            
+            let block = workspace!.create("test", "test1")
+            block.set_bool("bool", true)
+            block.set_string("str", "str4")
+            
+            sleep(2)
+            print("get_sync_state", storage.get_sync_state().toString())
+            print("get_last_synced", storage.get_last_synced().map({String($0)}).joined())
+            
+            let block1 = workspace!.get("test")
+            block1?.set_bool("bool1", true)
+            block1?.set_string("str1", "str3")
+
+            sleep(2)
+            print("get_sync_state", storage.get_sync_state().toString())
+            print("get_last_synced", storage.get_last_synced().map({String($0)}).joined())
+
+            let block2 = workspace!.get("test")
+            block2?.set_bool("bool2", false)
+            block2?.set_string("str2", "str2")
+
+            sleep(2)
+            print("get_sync_state", storage.get_sync_state().toString())
+            print("get_last_synced", storage.get_last_synced().map({String($0)}).joined())
         }
     }
 }

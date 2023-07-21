@@ -10,12 +10,13 @@ futures = "0.3.28"
 lib0 = "0.16.5"
 swift-bridge = "0.1.51"
 tokio = "1.27.0"
-yrs = "0.16.5"
 nanoid = "0.4.0"
 
 # ======= workspace dependencies =======
 jwst = { workspace = true }
-jwst-rpc = { workspace = true }
+jwst-rpc = { workspace = true, default-features = false, features = [
+    "websocket",
+] }
 jwst-storage = { workspace = true, features = ["sqlite"] }
 jwst-logger = { workspace = true }
 

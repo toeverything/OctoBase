@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    panic::{catch_unwind, AssertUnwindSafe},
+};
 
 use super::{
     broadcast::{subscribe, BroadcastChannels, BroadcastType},
@@ -18,6 +21,7 @@ use tokio::sync::{
 use yrs::merge_updates_v1;
 
 fn merge_updates(id: &str, updates: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+    match catch_unwind(AssertUnwindSafe(move || {
     match merge_updates_v1(
         &updates
             .iter()
@@ -31,6 +35,13 @@ fn merge_updates(id: &str, updates: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
         Err(e) => {
             error!("failed to merge update of {}: {}", id, e);
             updates
+        }
+    }
+    })) {
+        Ok(updates) => updates,
+        Err(e) => {
+            println!("failed to merge update of {}: {:?}", id, e);
+            vec![]
         }
     }
 }
@@ -163,6 +174,7 @@ pub trait RpcContextImpl<'a> {
         identifier: &str,
         local_tx: MpscSender<Message>,
         mut remote_rx: MpscReceiver<Vec<u8>>,
+        last_synced: Sender<i64>,
     ) {
         // collect messages from remote
         let identifier = identifier.to_owned();
@@ -173,7 +185,7 @@ pub trait RpcContextImpl<'a> {
             .expect("workspace not found");
         tokio::spawn(async move {
             while let Some(binary) = remote_rx.recv().await {
-                if binary == [0, 2, 2, 0, 0] {
+                if binary == [0, 2, 2, 0, 0] || binary == [1, 1, 0] {
                     // skip empty update
                     continue;
                 }
@@ -181,7 +193,12 @@ pub trait RpcContextImpl<'a> {
                 let ts = Instant::now();
                 let message = workspace.sync_decode_message(&binary).await;
                 if ts.elapsed().as_micros() > 50 {
-                    debug!("apply remote update cost: {}ms", ts.elapsed().as_micros());
+                    println!(
+                        "apply remote update cost: {}ms, len: {}, {:?}",
+                        ts.elapsed().as_micros(),
+                        binary.len(),
+                        binary
+                    );
                 }
 
                 for reply in message {
@@ -191,6 +208,10 @@ pub trait RpcContextImpl<'a> {
                         break;
                     }
                 }
+                last_synced
+                    .send(Utc::now().timestamp_millis())
+                    .await
+                    .unwrap();
             }
         });
     }

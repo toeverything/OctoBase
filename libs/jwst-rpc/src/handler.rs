@@ -26,7 +26,13 @@ pub async fn handle_connector(
     // Continuously receive information from the remote socket, apply it to the local workspace, and
     // send the encoded updates back to the remote end through the socket.
     context
-        .apply_change(&workspace_id, &identifier, tx.clone(), rx)
+        .apply_change(
+            &workspace_id,
+            &identifier,
+            tx.clone(),
+            rx,
+            last_synced.clone(),
+        )
         .await;
 
     // Both of broadcast_update and server_update are sent to the remote socket through 'tx'
@@ -170,13 +176,14 @@ pub async fn handle_connector(
 
 #[cfg(test)]
 mod test {
-    use crate::webrtc_datachannel_client_begin;
-    use crate::webrtc_datachannel_client_commit;
-    use crate::webrtc_datachannel_server_connector;
-
     use super::{
         super::{connect_memory_workspace, MinimumServerContext},
         *,
+    };
+    #[cfg(feature = "webrtc")]
+    use crate::{
+        webrtc_datachannel_client_begin, webrtc_datachannel_client_commit,
+        webrtc_datachannel_server_connector,
     };
     use indicatif::{MultiProgress, ProgressBar, ProgressIterator, ProgressStyle};
     use jwst::{JwstError, JwstResult};
@@ -185,6 +192,7 @@ mod test {
 
     #[tokio::test]
     #[ignore = "skip in ci"]
+    #[cfg(feature = "webrtc")]
     async fn webrtc_datachannel_connector_test() {
         let (offer, pc, tx1, mut rx1, _) = webrtc_datachannel_client_begin().await;
         let (answer, tx2, mut rx2, _) = webrtc_datachannel_server_connector(offer).await;

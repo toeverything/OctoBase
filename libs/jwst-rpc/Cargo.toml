@@ -6,7 +6,7 @@ authors = ["DarkSky <darksky2048@gmail.com>"]
 license = "AGPL-3.0-only"
 
 [features]
-default = ["websocket", "webrtc"]
+default = ["websocket"]
 websocket = ["axum", "tokio-tungstenite", "url"]
 webrtc = ["bytes", "reqwest", "webrtcrs"]
 

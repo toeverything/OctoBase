@@ -36,25 +36,33 @@ pub fn start_websocket_client_sync(
     let runtime = rt.clone();
     std::thread::spawn(move || {
         runtime.block_on(async move {
+            println!("start sync thread");
             let workspace = match context.get_workspace(&workspace_id).await {
                 Ok(workspace) => workspace,
                 Err(e) => {
-                    error!("failed to create workspace: {:?}", e);
+                    println!("failed to create workspace: {:?}", e);
                     return;
                 }
             };
             if !workspace.is_empty() {
-                info!("Workspace not empty, starting async remote connection");
+                println!("Workspace not empty, starting async remote connection");
                 last_synced_tx
                     .send(Utc::now().timestamp_millis())
                     .await
                     .unwrap();
             } else {
-                info!("Workspace empty, starting sync remote connection");
+                println!("Workspace empty, starting sync remote connection");
             }
 
             loop {
-                let socket = prepare_connection(&remote).await.unwrap();
+                let socket = match prepare_connection(&remote).await {
+                    Ok(socket) => socket,
+                    Err(e) => {
+                        println!("Failed to connect to remote, try again in 2 seconds: {}", e);
+                        sleep(Duration::from_secs(2)).await;
+                        continue;
+                    }
+                };
                 *sync_state.write().unwrap() = SyncState::Connected;
 
                 let ret = {
@@ -77,7 +85,7 @@ pub fn start_websocket_client_sync(
                     last_synced_tx.send(0).await.unwrap();
                     let mut state = sync_state.write().unwrap();
                     if ret {
-                        debug!("sync thread finished");
+                        println!("sync thread finished");
                         *state = SyncState::Finished;
                     } else {
                         *state =
@@ -85,8 +93,8 @@ pub fn start_websocket_client_sync(
                     }
                 }
 
-                warn!("Remote sync connection disconnected, try again in 2 seconds");
-                sleep(Duration::from_secs(3)).await;
+                println!("Remote sync connection disconnected, try again in 2 seconds");
+                sleep(Duration::from_secs(2)).await;
             }
         });
     });

@@ -5,7 +5,7 @@ use tokio_tungstenite::tungstenite;
 #[derive(Debug, Error)]
 pub enum JwstRpcError {
     #[cfg(feature = "websocket")]
-    #[error("failed to connect websocket")]
+    #[error("failed to connect websocket: {0}")]
     WebsocketConnect(#[from] tungstenite::Error),
     #[error("jwst error")]
     Jwst(#[from] jwst::JwstError),

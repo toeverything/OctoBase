@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -15,6 +15,7 @@
 		419B1B882998DAE000D3388A /* octobase_demoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 419B1B872998DAE000D3388A /* octobase_demoUITests.swift */; };
 		419B1B8A2998DAE000D3388A /* octobase_demoUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 419B1B892998DAE000D3388A /* octobase_demoUITestsLaunchTests.swift */; };
 		419B1B9B2998DDDC00D3388A /* OctoBase in Frameworks */ = {isa = PBXBuildFile; productRef = 419B1B9A2998DDDC00D3388A /* OctoBase */; };
+		41B98CB42A6A5305001353F0 /* OctoBase in Frameworks */ = {isa = PBXBuildFile; productRef = 41B98CB32A6A5305001353F0 /* OctoBase */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,6 +55,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				41B98CB42A6A5305001353F0 /* OctoBase in Frameworks */,
 				419B1B9B2998DDDC00D3388A /* OctoBase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -167,6 +169,7 @@
 			name = "octobase-demo";
 			packageProductDependencies = (
 				419B1B9A2998DDDC00D3388A /* OctoBase */,
+				41B98CB32A6A5305001353F0 /* OctoBase */,
 			);
 			productName = "octobase-demo";
 			productReference = 419B1B682998DADF00D3388A /* octobase-demo.app */;
@@ -240,6 +243,9 @@
 				Base,
 			);
 			mainGroup = 419B1B5F2998DADF00D3388A;
+			packageReferences = (
+				41B98CB22A6A5305001353F0 /* XCLocalSwiftPackageReference "OctoBaseSwift" */,
+			);
 			productRefGroup = 419B1B692998DADF00D3388A /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -628,8 +634,19 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		41B98CB22A6A5305001353F0 /* XCLocalSwiftPackageReference "OctoBaseSwift" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = OctoBaseSwift;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		419B1B9A2998DDDC00D3388A /* OctoBase */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OctoBase;
+		};
+		41B98CB32A6A5305001353F0 /* OctoBase */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = OctoBase;
 		};

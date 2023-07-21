@@ -2850,7 +2850,6 @@ dependencies = [
  "swift-bridge",
  "swift-bridge-build",
  "tokio",
- "yrs",
 ]
 
 [[package]]

@@ -142,6 +142,10 @@ impl JwstStorage {
             Err(e) => Err(e),
         }
     }
+
+    pub fn get_last_synced(&self) -> Vec<i64> {
+        self.last_sync.pop()
+    }
 }
 
 impl RpcContextImpl<'_> for JwstStorage {

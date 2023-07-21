@@ -26,6 +26,7 @@ impl Storage {
 
     pub fn new_with_log_level(path: String, level: String) -> Self {
         init_logger_with(&format!("{}={}", env!("CARGO_PKG_NAME"), level));
+
         let rt = Runtime::new().unwrap();
 
         let storage = rt
@@ -79,11 +80,11 @@ impl Storage {
 
     pub fn get_sync_state(&self) -> String {
         let sync_state = self.sync_state.read().unwrap();
-        match *sync_state {
+        match sync_state.clone() {
             SyncState::Offline => "offline".to_string(),
             SyncState::Connected => "connected".to_string(),
             SyncState::Finished => "finished".to_string(),
-            SyncState::Error(_) => "Error".to_string(),
+            SyncState::Error(e) => format!("Error: {e}"),
         }
     }
 
@@ -106,7 +107,9 @@ impl Storage {
 
         match workspace {
             Ok(mut workspace) => {
+                println!("workspace: {:?}", workspace.id());
                 if is_offline {
+                    println!("offline");
                     let identifier = nanoid!();
                     let (last_synced_tx, last_synced_rx) = channel::<i64>(128);
                     self.last_sync.add_receiver(rt.clone(), last_synced_rx);
@@ -118,6 +121,7 @@ impl Storage {
                     // prevent rt from being dropped, which will cause dropping the broadcast channel
                     std::mem::forget(rt);
                 } else {
+                    println!("online");
                     start_websocket_client_sync(
                         rt,
                         Arc::new(self.clone()),
