@@ -433,9 +433,12 @@ jobs:
             - uses: dtolnay/rust-toolchain@stable
             - uses: Swatinem/rust-cache@v2
 
+            - name: Install latest nextest release
+              uses: taiki-e/install-action@nextest
+
             - name: Loom Thread Test
               run: |
-                  cargo test -p jwst-codec --lib
+                  cargo nextest -p jwst-codec --lib
 
     miri:
         name: miri code check
