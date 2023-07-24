@@ -99,7 +99,7 @@ impl Storage {
         }
     }
 
-    fn sync(&self, workspace_id: String, remote: String) -> JwstStorageResult<Workspace> {
+    fn sync(&mut self, workspace_id: String, remote: String) -> JwstStorageResult<Workspace> {
         let rt = Arc::new(Runtime::new().map_err(JwstError::Io)?);
         let is_offline = remote.is_empty();
 
@@ -122,7 +122,7 @@ impl Storage {
                     std::mem::forget(rt);
                 } else {
                     println!("online");
-                    start_websocket_client_sync(
+                    self.last_sync = start_websocket_client_sync(
                         rt,
                         Arc::new(self.clone()),
                         self.sync_state.clone(),

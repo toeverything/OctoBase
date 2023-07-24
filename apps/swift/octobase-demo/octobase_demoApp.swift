@@ -176,6 +176,10 @@ class JwstWorkspace: ObservableObject {
             print("get_sync_state", storage.get_sync_state().toString())
             print("get_last_synced", storage.get_last_synced().map({String($0)}));
 
+            sleep(2)
+            print("get_sync_state", storage.get_sync_state().toString())
+            print("get_last_synced", storage.get_last_synced().map({String($0)}));
+
             print(block.get_string("str1").map({$0.toString()}))
         }
     }

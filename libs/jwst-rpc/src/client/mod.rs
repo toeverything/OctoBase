@@ -21,9 +21,8 @@ pub struct CachedLastSynced {
 
 impl CachedLastSynced {
     pub fn new() -> Self {
-        let synced = Arc::new(Mutex::new(Vec::new()));
         Self {
-            synced: synced.clone(),
+            synced: Arc::new(Mutex::new(Vec::new())),
             _threads: Arc::default(),
         }
     }
@@ -43,7 +42,6 @@ impl CachedLastSynced {
                 if synced.is_empty() || *synced.last().unwrap() != last_synced {
                     synced.push(last_synced);
                 }
-                std::thread::sleep(Duration::from_millis(100));
             }
         });
     }
@@ -54,11 +52,54 @@ impl CachedLastSynced {
         synced.clear();
         ret
     }
+}
 
-    pub fn push(&self, last_synced: i64) {
-        let mut synced = self.synced.lock().unwrap();
-        if synced.is_empty() || *synced.last().unwrap() != last_synced {
-            synced.push(last_synced);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::thread::spawn;
+    use tokio::sync::mpsc::channel;
+
+    #[test]
+    fn test_synced() {
+        let synced = CachedLastSynced::new();
+        let (tx, rx) = channel::<i64>(1);
+        let rt = Arc::new(Runtime::new().unwrap());
+
+        synced.add_receiver(rt.clone(), rx);
+        {
+            let tx = tx.clone();
+            rt.block_on(async {
+                tx.send(1).await.unwrap();
+                tx.send(2).await.unwrap();
+                tx.send(3).await.unwrap();
+                sleep(Duration::from_millis(100)).await;
+            });
+        }
+        {
+            let synced = synced.clone();
+            spawn(move || {
+                assert_eq!(synced.pop(), vec![1, 2, 3]);
+            })
+            .join()
+            .unwrap();
+        }
+
+        {
+            let tx = tx.clone();
+            rt.block_on(async {
+                tx.send(4).await.unwrap();
+                tx.send(5).await.unwrap();
+                sleep(Duration::from_millis(100)).await;
+            });
+        }
+        {
+            let synced = synced.clone();
+            spawn(move || {
+                assert_eq!(synced.pop(), vec![4, 5]);
+            })
+            .join()
+            .unwrap();
         }
     }
 }

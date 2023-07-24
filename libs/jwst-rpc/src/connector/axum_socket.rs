@@ -29,14 +29,13 @@ pub fn axum_socket_connector(
             while let Some(msg) = local_receiver.recv().await {
                 if let Err(e) = socket_tx.send(msg.into()).await {
                     let error = e.to_string();
-                    if e.into_inner().downcast::<SocketError>().map_or_else(
+                    if !e.into_inner().downcast::<SocketError>().map_or_else(
                         |_| false,
                         |e| matches!(e.as_ref(), SocketError::ConnectionClosed),
                     ) {
-                        break;
-                    } else {
                         error!("socket send error: {}", error);
                     }
+                    break;
                 }
             }
             info!("socket send final: {}", workspace_id);
