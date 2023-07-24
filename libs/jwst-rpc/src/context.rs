@@ -194,10 +194,9 @@ pub trait RpcContextImpl<'a> {
                 let message = workspace.sync_decode_message(&binary).await;
                 if ts.elapsed().as_micros() > 50 {
                     println!(
-                        "apply remote update cost: {}ms, len: {}, {:?}",
+                        "apply remote update cost: {}ms, len: {}",
                         ts.elapsed().as_micros(),
                         binary.len(),
-                        binary
                     );
                 }
 
