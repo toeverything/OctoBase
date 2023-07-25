@@ -108,7 +108,7 @@ impl JwstStorage {
         }
     }
 
-    fn sync(&self, workspace_id: String, remote: String) -> JwstStorageResult<Workspace> {
+    fn sync(&mut self, workspace_id: String, remote: String) -> JwstStorageResult<Workspace> {
         let rt = Arc::new(Runtime::new().map_err(JwstError::Io)?);
         let is_offline = remote.is_empty();
 
@@ -128,7 +128,7 @@ impl JwstStorage {
                     // prevent rt from being dropped, which will cause dropping the broadcast channel
                     std::mem::forget(rt);
                 } else {
-                    start_websocket_client_sync(
+                    self.last_sync = start_websocket_client_sync(
                         rt,
                         Arc::new(self.clone()),
                         self.sync_state.clone(),

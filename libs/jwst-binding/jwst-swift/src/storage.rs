@@ -107,9 +107,7 @@ impl Storage {
 
         match workspace {
             Ok(mut workspace) => {
-                println!("workspace: {:?}", workspace.id());
                 if is_offline {
-                    println!("offline");
                     let identifier = nanoid!();
                     let (last_synced_tx, last_synced_rx) = channel::<i64>(128);
                     self.last_sync.add_receiver(rt.clone(), last_synced_rx);
@@ -121,7 +119,6 @@ impl Storage {
                     // prevent rt from being dropped, which will cause dropping the broadcast channel
                     std::mem::forget(rt);
                 } else {
-                    println!("online");
                     self.last_sync = start_websocket_client_sync(
                         rt,
                         Arc::new(self.clone()),

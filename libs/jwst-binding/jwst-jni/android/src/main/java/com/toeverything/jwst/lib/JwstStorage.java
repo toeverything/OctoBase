@@ -71,6 +71,13 @@ public final class JwstStorage {
     }
     private static native long do_connect(long self, @NonNull String workspace_id, @NonNull String remote);
 
+    public final long [] get_last_synced() {
+        long [] ret = do_get_last_synced(mNativeObj);
+
+        return ret;
+    }
+    private static native long [] do_get_last_synced(long self);
+
     public synchronized void delete() {
         if (mNativeObj != 0) {
             do_delete(mNativeObj);

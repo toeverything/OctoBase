@@ -28,6 +28,7 @@ r#"foreign_class!(
         fn JwstStorage::is_error(&self) -> bool;
         fn JwstStorage::get_sync_state(&self) -> String;
         fn JwstStorage::connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace>; alias connect;
+        fn JwstStorage::get_last_synced(&self) ->Vec<i64>;
     }
 );"#,
 r#"foreign_class!(
