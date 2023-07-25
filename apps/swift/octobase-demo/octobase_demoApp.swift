@@ -135,7 +135,7 @@ class JwstWorkspace: ObservableObject {
             }
             let storage = Storage(fileURL.description.intoRustString())
             print("is_offline", storage.is_offline())
-            print("is_initialized", storage.is_connected())
+            print("is_connected", storage.is_connected())
             print("is_finished", storage.is_finished())
             print("is_error", storage.is_error())
             print("get_sync_state", storage.get_sync_state().toString())
