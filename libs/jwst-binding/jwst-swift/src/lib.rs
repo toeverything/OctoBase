@@ -91,9 +91,6 @@ mod ffi {
     extern "Rust" {
         type Workspace;
 
-        #[swift_bridge(init)]
-        fn new(id: String) -> Workspace;
-
         fn id(self: &Workspace) -> String;
 
         fn client_id(self: &Workspace) -> u64;

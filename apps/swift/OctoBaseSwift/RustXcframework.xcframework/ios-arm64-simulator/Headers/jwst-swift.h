@@ -106,7 +106,6 @@ void* __swift_bridge__$DynamicValue$as_string(void* self);
 void* __swift_bridge__$DynamicValue$as_map(void* self);
 void* __swift_bridge__$DynamicValue$as_array(void* self);
 void* __swift_bridge__$DynamicValue$as_buffer(void* self);
-void* __swift_bridge__$Workspace$new(void* id);
 void* __swift_bridge__$Workspace$id(void* self);
 uint64_t __swift_bridge__$Workspace$client_id(void* self);
 void* __swift_bridge__$Workspace$get(void* self, void* block_id);

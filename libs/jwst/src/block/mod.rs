@@ -30,6 +30,7 @@ pub struct Block {
 }
 
 unsafe impl Send for Block {}
+unsafe impl Sync for Block {}
 
 impl fmt::Debug for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

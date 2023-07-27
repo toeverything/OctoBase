@@ -366,11 +366,6 @@ public class Workspace: WorkspaceRefMut {
         }
     }
 }
-extension Workspace {
-    public convenience init<GenericIntoRustString: IntoRustString>(_ id: GenericIntoRustString) {
-        self.init(ptr: __swift_bridge__$Workspace$new({ let rustString = id.intoRustString(); rustString.isOwned = false; return rustString.ptr }()))
-    }
-}
 public class WorkspaceRefMut: WorkspaceRef {
     public override init(ptr: UnsafeMutableRawPointer) {
         super.init(ptr: ptr)
