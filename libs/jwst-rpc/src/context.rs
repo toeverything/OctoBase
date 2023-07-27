@@ -13,7 +13,10 @@ use jwst::{DocStorage, Workspace};
 use jwst_codec::{CrdtReader, RawDecoder};
 use jwst_storage::{JwstStorage, JwstStorageResult};
 use tokio::sync::{
-    broadcast::{channel as broadcast, Receiver as BroadcastReceiver, Sender as BroadcastSender},
+    broadcast::{
+        channel as broadcast, error::RecvError, Receiver as BroadcastReceiver,
+        Sender as BroadcastSender,
+    },
     mpsc::{Receiver as MpscReceiver, Sender as MpscSender},
     Mutex,
 };
@@ -78,7 +81,7 @@ pub trait RpcContextImpl<'a> {
         let broadcast_tx = match self.get_channel().write().await.entry(id.clone()) {
             Entry::Occupied(tx) => tx.get().clone(),
             Entry::Vacant(v) => {
-                let (tx, _) = broadcast(100);
+                let (tx, _) = broadcast(10240);
                 v.insert(tx.clone());
                 tx.clone()
             }
@@ -106,6 +109,7 @@ pub trait RpcContextImpl<'a> {
         let docs = self.get_storage().docs().clone();
         let id = id.to_string();
 
+        trace!("save update thread {id}-{identifier} started");
         tokio::spawn(async move {
             let updates = Arc::new(Mutex::new(HashMap::<String, Vec<Vec<u8>>>::new()));
 
@@ -113,28 +117,36 @@ pub trait RpcContextImpl<'a> {
                 let id = id.clone();
                 let updates = updates.clone();
                 tokio::spawn(async move {
-                    while let Ok(data) = broadcast.recv().await {
-                        match data {
-                            BroadcastType::BroadcastRawContent(update) => {
-                                trace!("receive update: {}", update.len());
-                                let mut decoder = RawDecoder::new(update);
-                                if let Ok(guid) = decoder.read_var_string() {
-                                    match updates.lock().await.entry(guid) {
-                                        Entry::Occupied(mut updates) => {
-                                            updates.get_mut().push(decoder.drain());
-                                        }
-                                        Entry::Vacant(v) => {
-                                            v.insert(vec![decoder.drain()]);
-                                        }
+                    loop {
+                        match broadcast.recv().await {
+                            Ok(data) => match data {
+                                BroadcastType::BroadcastRawContent(update) => {
+                                    trace!("receive raw update: {}", update.len());
+                                    let mut decoder = RawDecoder::new(update);
+                                    if let Ok(guid) = decoder.read_var_string() {
+                                        match updates.lock().await.entry(guid) {
+                                            Entry::Occupied(mut updates) => {
+                                                updates.get_mut().push(decoder.drain());
+                                            }
+                                            Entry::Vacant(v) => {
+                                                v.insert(vec![decoder.drain()]);
+                                            }
+                                        };
                                     };
-                                };
+                                }
+                                BroadcastType::CloseUser(user) if user == identifier => break,
+                                BroadcastType::CloseAll => break,
+                                _ => {}
+                            },
+                            Err(RecvError::Lagged(num)) => {
+                                debug!("save update thread {id}-{identifier} lagged: {num}");
                             }
-                            BroadcastType::CloseUser(user) if user == identifier => break,
-                            BroadcastType::CloseAll => break,
-                            _ => {}
+                            Err(RecvError::Closed) => {
+                                debug!("save update thread {id}-{identifier} closed");
+                                break;
+                            }
                         }
                     }
-                    debug!("save update thread {id}-{identifier} closed");
                 })
             };
 
@@ -189,11 +201,11 @@ pub trait RpcContextImpl<'a> {
                     // skip empty update
                     continue;
                 }
-                trace!("apply_change: recv binary: {:?}", binary);
+                trace!("apply_change: recv binary: {:?}", binary.len());
                 let ts = Instant::now();
                 let message = workspace.sync_decode_message(&binary).await;
                 if ts.elapsed().as_micros() > 50 {
-                    println!(
+                    debug!(
                         "apply remote update cost: {}ms, len: {}",
                         ts.elapsed().as_micros(),
                         binary.len(),

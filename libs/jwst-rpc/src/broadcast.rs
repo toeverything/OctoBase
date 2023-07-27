@@ -92,18 +92,18 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
                         .send(BroadcastType::BroadcastRawContent(broadcast_update))
                         .is_err()
                     {
-                        println!("broadcast channel {workspace_id} has been closed",)
+                        debug!("broadcast channel {workspace_id} has been closed",)
                     }
 
                     if sender
                         .send(BroadcastType::BroadcastContent(sendable_update))
                         .is_err()
                     {
-                        println!("broadcast channel {workspace_id} has been closed",)
+                        debug!("broadcast channel {workspace_id} has been closed",)
                     }
                 }
                 Err(e) => {
-                    println!("failed to encode update: {}", e);
+                    debug!("failed to encode update: {}", e);
                 }
             }
         });

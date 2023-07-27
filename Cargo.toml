@@ -2,6 +2,7 @@
 
 members = [
     "apps/cloud",
+    "apps/doc_merger",
     "apps/keck",
     "libs/cloud-database",
     "libs/cloud-database/migration",

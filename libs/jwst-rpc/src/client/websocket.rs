@@ -34,69 +34,66 @@ pub fn start_websocket_client_sync(
     let (last_synced_tx, last_synced_rx) = channel::<i64>(128);
 
     let runtime = rt.clone();
-    std::thread::spawn(move || {
-        runtime.block_on(async move {
-            println!("start sync thread");
-            let workspace = match context.get_workspace(&workspace_id).await {
-                Ok(workspace) => workspace,
+    runtime.spawn(async move {
+        debug!("start sync thread");
+        let workspace = match context.get_workspace(&workspace_id).await {
+            Ok(workspace) => workspace,
+            Err(e) => {
+                warn!("failed to create workspace: {:?}", e);
+                return;
+            }
+        };
+        if !workspace.is_empty() {
+            info!("Workspace not empty, starting async remote connection");
+            last_synced_tx
+                .send(Utc::now().timestamp_millis())
+                .await
+                .unwrap();
+        } else {
+            info!("Workspace empty, starting sync remote connection");
+        }
+
+        loop {
+            let socket = match prepare_connection(&remote).await {
+                Ok(socket) => socket,
                 Err(e) => {
-                    println!("failed to create workspace: {:?}", e);
-                    return;
+                    warn!("Failed to connect to remote, try again in 2 seconds: {}", e);
+                    sleep(Duration::from_secs(2)).await;
+                    continue;
                 }
             };
-            if !workspace.is_empty() {
-                println!("Workspace not empty, starting async remote connection");
-                last_synced_tx
-                    .send(Utc::now().timestamp_millis())
-                    .await
-                    .unwrap();
-            } else {
-                println!("Workspace empty, starting sync remote connection");
-            }
+            *sync_state.write().unwrap() = SyncState::Connected;
 
-            loop {
-                let socket = match prepare_connection(&remote).await {
-                    Ok(socket) => socket,
-                    Err(e) => {
-                        println!("Failed to connect to remote, try again in 2 seconds: {}", e);
-                        sleep(Duration::from_secs(2)).await;
-                        continue;
-                    }
-                };
-                *sync_state.write().unwrap() = SyncState::Connected;
+            let ret = {
+                let identifier = nanoid!();
+                let workspace_id = workspace_id.clone();
+                let last_synced_tx = last_synced_tx.clone();
+                handle_connector(
+                    context.clone(),
+                    workspace_id.clone(),
+                    identifier,
+                    move || {
+                        let (tx, rx) = tungstenite_socket_connector(socket, &workspace_id);
+                        (tx, rx, last_synced_tx)
+                    },
+                )
+                .await
+            };
 
-                let ret = {
-                    let identifier = nanoid!();
-                    let workspace_id = workspace_id.clone();
-                    let last_synced_tx = last_synced_tx.clone();
-                    handle_connector(
-                        context.clone(),
-                        workspace_id.clone(),
-                        identifier,
-                        move || {
-                            let (tx, rx) = tungstenite_socket_connector(socket, &workspace_id);
-                            (tx, rx, last_synced_tx)
-                        },
-                    )
-                    .await
-                };
-
-                {
-                    last_synced_tx.send(0).await.unwrap();
-                    let mut state = sync_state.write().unwrap();
-                    if ret {
-                        println!("sync thread finished");
-                        *state = SyncState::Finished;
-                    } else {
-                        *state =
-                            SyncState::Error("Remote sync connection disconnected".to_string());
-                    }
+            {
+                last_synced_tx.send(0).await.unwrap();
+                let mut state = sync_state.write().unwrap();
+                if ret {
+                    debug!("sync thread finished");
+                    *state = SyncState::Finished;
+                } else {
+                    *state = SyncState::Error("Remote sync connection disconnected".to_string());
                 }
-
-                println!("Remote sync connection disconnected, try again in 2 seconds");
-                sleep(Duration::from_secs(2)).await;
             }
-        });
+
+            info!("Remote sync connection disconnected, try again in 2 seconds");
+            sleep(Duration::from_secs(2)).await;
+        }
     });
 
     let timeline = CachedLastSynced::new();
