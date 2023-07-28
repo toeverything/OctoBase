@@ -109,8 +109,8 @@ pub trait RpcContextImpl<'a> {
         let docs = self.get_storage().docs().clone();
         let id = id.to_string();
 
-        trace!("save update thread {id}-{identifier} started");
         tokio::spawn(async move {
+            trace!("save update thread {id}-{identifier} started");
             let updates = Arc::new(Mutex::new(HashMap::<String, Vec<Vec<u8>>>::new()));
 
             let handler = {
@@ -190,39 +190,64 @@ pub trait RpcContextImpl<'a> {
     ) {
         // collect messages from remote
         let identifier = identifier.to_owned();
+        let id = id.to_string();
         let mut workspace = self
             .get_storage()
             .get_workspace(&id)
             .await
             .expect("workspace not found");
         tokio::spawn(async move {
-            while let Some(binary) = remote_rx.recv().await {
-                if binary == [0, 2, 2, 0, 0] || binary == [1, 1, 0] {
-                    // skip empty update
-                    continue;
-                }
-                trace!("apply_change: recv binary: {:?}", binary.len());
-                let ts = Instant::now();
-                let message = workspace.sync_decode_message(&binary).await;
-                if ts.elapsed().as_micros() > 50 {
-                    debug!(
-                        "apply remote update cost: {}ms, len: {}",
-                        ts.elapsed().as_micros(),
-                        binary.len(),
-                    );
-                }
+            trace!("apply update thread {id}-{identifier} started");
+            let updates = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
 
-                for reply in message {
-                    trace!("send pipeline message by {identifier:?}: {}", reply.len());
-                    if local_tx.send(Message::Binary(reply.clone())).await.is_err() {
-                        // pipeline was closed
+            let handler = {
+                let updates = updates.clone();
+                tokio::spawn(async move {
+                    while let Some(binary) = remote_rx.recv().await {
+                        if binary == [0, 2, 2, 0, 0] || binary == [1, 1, 0] {
+                            // skip empty update
+                            continue;
+                        }
+                        trace!("apply_change: recv binary: {:?}", binary.len());
+                        updates.lock().await.push(binary);
+                    }
+                })
+            };
+
+            loop {
+                {
+                    let mut updates = updates.lock().await;
+                    if !updates.is_empty() {
+                        debug!("apply {} updates for {id}", updates.len());
+
+                        let updates = updates.drain(..).collect::<Vec<_>>();
+                        let updates_len = updates.len();
+                        let ts = Instant::now();
+                        let message = workspace.sync_messages(updates).await;
+                        if ts.elapsed().as_micros() > 50 {
+                            debug!(
+                                "apply {updates_len} remote update cost: {}ms",
+                                ts.elapsed().as_micros(),
+                            );
+                        }
+
+                        for reply in message {
+                            trace!("send pipeline message by {identifier:?}: {}", reply.len());
+                            if local_tx.send(Message::Binary(reply.clone())).await.is_err() {
+                                // pipeline was closed
+                                break;
+                            }
+                        }
+
+                        last_synced
+                            .send(Utc::now().timestamp_millis())
+                            .await
+                            .unwrap();
+                    } else if handler.is_finished() {
                         break;
                     }
                 }
-                last_synced
-                    .send(Utc::now().timestamp_millis())
-                    .await
-                    .unwrap();
+                sleep(Duration::from_millis(100)).await;
             }
         });
     }

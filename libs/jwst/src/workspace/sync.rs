@@ -58,13 +58,28 @@ impl Workspace {
         Ok(buffer)
     }
 
-    pub async fn sync_decode_message(&mut self, buffer: &[u8]) -> Vec<Vec<u8>> {
-        let mut result = vec![];
+    pub async fn sync_messages(&mut self, buffers: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+        let mut awareness = vec![];
+        let mut content = vec![];
 
-        let (awareness_msg, content_msg): (Vec<_>, Vec<_>) =
-            SyncMessageScanner::new(buffer).flatten().partition(|msg| {
-                matches!(msg, SyncMessage::Awareness(_) | SyncMessage::AwarenessQuery)
-            });
+        for buffer in buffers {
+            let (awareness_msg, content_msg): (Vec<_>, Vec<_>) =
+                SyncMessageScanner::new(&buffer).flatten().partition(|msg| {
+                    matches!(msg, SyncMessage::Awareness(_) | SyncMessage::AwarenessQuery)
+                });
+            awareness.extend(awareness_msg);
+            content.extend(content_msg);
+        }
+
+        self.sync_decode_message(awareness, content).await
+    }
+
+    async fn sync_decode_message(
+        &mut self,
+        awareness_msg: Vec<SyncMessage>,
+        content_msg: Vec<SyncMessage>,
+    ) -> Vec<Vec<u8>> {
+        let mut result = vec![];
 
         if !awareness_msg.is_empty() {
             let mut awareness = self.awareness.write().await;
