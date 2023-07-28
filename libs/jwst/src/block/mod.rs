@@ -165,7 +165,7 @@ impl Block {
         match self.sub.read() {
             Ok(sub_read_guard) => {
                 if sub_read_guard.is_none() {
-                    debug!("subscribe block: {}", self.block_id);
+                    trace!("subscribe block: {}", self.block_id);
                     let sub = self.block.observe_deep(move |_trx, _e| {
                         if handle.lock().unwrap().is_some() {
                             tx.send(block_id.clone())
