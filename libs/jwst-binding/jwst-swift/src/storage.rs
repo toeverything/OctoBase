@@ -28,7 +28,10 @@ impl Storage {
     }
 
     pub fn new_with_log_level(path: String, level: String) -> Self {
-        init_logger_with(&format!("{}={}", env!("CARGO_PKG_NAME"), level));
+        init_logger_with(
+            &format!("{level},mio=off,hyper=off,rustls=off,tantivy=off,sqlx::query=off"),
+            false,
+        );
 
         let rt = Runtime::new().unwrap();
 
