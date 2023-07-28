@@ -71,19 +71,19 @@ impl Workspace {
             content.extend(content_msg);
         }
 
-        self.sync_decode_message(awareness, content).await
-    }
-
-    async fn sync_decode_message(
-        &mut self,
-        awareness_msg: Vec<SyncMessage>,
-        content_msg: Vec<SyncMessage>,
-    ) -> Vec<Vec<u8>> {
         let mut result = vec![];
 
-        if !awareness_msg.is_empty() {
+        result.extend(self.sync_awareness(awareness).await);
+        result.extend(self.sync_content(content));
+
+        result
+    }
+
+    async fn sync_awareness(&mut self, msgs: Vec<SyncMessage>) -> Vec<Vec<u8>> {
+        let mut result = vec![];
+        if !msgs.is_empty() {
             let mut awareness = self.awareness.write().await;
-            for msg in awareness_msg {
+            for msg in msgs {
                 match msg {
                     SyncMessage::AwarenessQuery => {
                         let mut buffer = Vec::new();
@@ -101,7 +101,12 @@ impl Workspace {
                 }
             }
         }
-        if !content_msg.is_empty() {
+        result
+    }
+
+    fn sync_content(&mut self, msg: Vec<SyncMessage>) -> Vec<Vec<u8>> {
+        let mut result = vec![];
+        if !msg.is_empty() {
             let doc = self.doc();
             if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
                 let mut retry = RETRY_NUM;
@@ -115,7 +120,7 @@ impl Workspace {
                         return;
                     }
                 };
-                for msg in content_msg {
+                for msg in msg {
                     if let Some(msg) = {
                         trace!("processing message: {:?}", msg);
                         match msg {
@@ -179,7 +184,7 @@ impl Workspace {
     }
 
     #[cfg(feature = "workspace-auto-subscribe")]
-    pub fn try_subscribe_all_blocks(&mut self) {
+    fn try_subscribe_all_blocks(&mut self) {
         if let Some(block_observer_config) = self.block_observer_config.clone() {
             // costing approximately 1ms per 500 blocks
             if let Err(e) = self.retry_with_trx(
