@@ -24,7 +24,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace.with_trx(|trx| block.get(&trx.trx, &key).map(DynamicValue::new))
                 })
                 .await
@@ -37,7 +37,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || workspace.with_trx(|trx| block.children(&trx.trx)))
+                .spawn(async move { workspace.with_trx(|trx| block.children(&trx.trx)) })
                 .await
                 .unwrap()
         })
@@ -49,7 +49,7 @@ impl Block {
             let curr_block = self.block.clone();
             let target_block = block.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace
                         .with_trx(|mut trx| curr_block.push_children(&mut trx.trx, &target_block))
                         .expect("failed to push children")
@@ -65,7 +65,7 @@ impl Block {
             let curr_block = self.block.clone();
             let target_block = block.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace
                         .with_trx(|mut trx| {
                             curr_block.insert_children_at(&mut trx.trx, &target_block, pos)
@@ -84,7 +84,7 @@ impl Block {
             let target_block = block.block.clone();
             let reference = reference.to_string();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace
                         .with_trx(|mut trx| {
                             curr_block.insert_children_before(
@@ -107,7 +107,7 @@ impl Block {
             let target_block = block.block.clone();
             let reference = reference.to_string();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace
                         .with_trx(|mut trx| {
                             curr_block.insert_children_after(
@@ -129,7 +129,7 @@ impl Block {
             let curr_block = self.block.clone();
             let target_block = block.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace
                         .with_trx(|mut trx| curr_block.remove_children(&mut trx.trx, &target_block))
                         .expect("failed to remove children");
@@ -145,7 +145,7 @@ impl Block {
             let curr_block = self.block.clone();
             let block_id = block_id.to_string();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace
                         .with_trx(|trx| curr_block.exists_children(&trx.trx, &block_id))
                         .map(|i| i as i32)
@@ -161,9 +161,9 @@ impl Block {
             let workspace = self.workspace.clone();
             let curr_block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || {
-                    workspace.with_trx(|trx| curr_block.parent(&trx.trx).unwrap())
-                })
+                .spawn(
+                    async move { workspace.with_trx(|trx| curr_block.parent(&trx.trx).unwrap()) },
+                )
                 .await
                 .unwrap()
         })
@@ -174,7 +174,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || workspace.with_trx(|trx| block.updated(&trx.trx)))
+                .spawn(async move { workspace.with_trx(|trx| block.updated(&trx.trx)) })
                 .await
                 .unwrap()
         })
@@ -189,7 +189,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || workspace.with_trx(|trx| block.flavour(&trx.trx)))
+                .spawn(async move { workspace.with_trx(|trx| block.flavour(&trx.trx)) })
                 .await
                 .unwrap()
         })
@@ -200,7 +200,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || workspace.with_trx(|trx| block.created(&trx.trx)))
+                .spawn(async move { workspace.with_trx(|trx| block.created(&trx.trx)) })
                 .await
                 .unwrap()
         })
@@ -211,7 +211,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace
                         .with_trx(|mut trx| block.set(&mut trx.trx, &key, value))
                         .expect("failed to set bool");
@@ -226,7 +226,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace
                         .with_trx(|mut trx| block.set(&mut trx.trx, &key, value))
                         .expect("failed to set string");
@@ -241,7 +241,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace
                         .with_trx(|mut trx| block.set(&mut trx.trx, &key, value))
                         .expect("failed to set float");
@@ -256,7 +256,7 @@ impl Block {
         let block = self.block.clone();
         self.runtime.block_on(async {
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace
                         .with_trx(|mut trx| block.set(&mut trx.trx, &key, value))
                         .expect("failed to set integer");
@@ -271,7 +271,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace
                         .with_trx(|mut trx| block.set(&mut trx.trx, &key, Any::Null))
                         .expect("failed to set null");
@@ -286,7 +286,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace.with_trx(|trx| {
                         block
                             .get(&trx.trx, &key)
@@ -304,7 +304,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace.with_trx(|trx| {
                         block
                             .get(&trx.trx, &key)
@@ -322,7 +322,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace.with_trx(|trx| {
                         block
                             .get(&trx.trx, &key)
@@ -340,7 +340,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace.with_trx(|trx| {
                         block
                             .get(&trx.trx, &key)
@@ -358,7 +358,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace.with_trx(|trx| {
                         block.get(&trx.trx, &key).and_then(|a| match a {
                             Any::Bool(i) => Some(i.into()),
@@ -376,7 +376,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace.with_trx(|trx| {
                         block.get(&trx.trx, &key).and_then(|a| match a {
                             Any::String(i) => Some(i.into()),
@@ -394,7 +394,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace.with_trx(|trx| {
                         block.get(&trx.trx, &key).and_then(|a| match a {
                             Any::Number(i) => Some(i),
@@ -412,7 +412,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn_blocking(move || {
+                .spawn(async move {
                     workspace.with_trx(|trx| {
                         block.get(&trx.trx, &key).and_then(|a| match a {
                             Any::BigInt(i) => Some(i),

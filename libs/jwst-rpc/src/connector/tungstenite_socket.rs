@@ -36,7 +36,10 @@ pub fn tungstenite_socket_connector(
             while let Some(msg) = local_receiver.recv().await {
                 if let Err(e) = socket_tx.send(msg.into()).await {
                     let error = e.to_string();
-                    if matches!(e, SocketError::ConnectionClosed) {
+                    if matches!(
+                        e,
+                        SocketError::ConnectionClosed | SocketError::AlreadyClosed
+                    ) {
                         break;
                     } else {
                         error!("socket send error: {}", error);
