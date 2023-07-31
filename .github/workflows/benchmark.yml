@@ -33,13 +33,13 @@ jobs:
 
             - name: Run Bench on Master Branch
               run: |
-                  cargo bench --bench codec_benchmarks -- --save-baseline master --features bench
-                  cargo bench --bench array_ops_benchmarks -- --save-baseline master --features bench
+                  cargo bench --bench codec_benchmarks --features bench -- --save-baseline master
+                  cargo bench --bench array_ops_benchmarks --features bench -- --save-baseline master
                   # temp disable due to wired memory allocation issue in linux
                   # i cannot reproduce this issue in mac, but can reproduce in gce and ci
-                  # cargo bench --bench map_ops_benchmarks -- --save-baseline master --features bench
-                  cargo bench --bench text_ops_benchmarks -- --save-baseline master --features bench
-                  cargo bench --bench update_benchmarks -- --save-baseline master --features bench
+                  # cargo bench --bench map_ops_benchmarks --features bench -- --save-baseline master
+                  cargo bench --bench text_ops_benchmarks --features bench -- --save-baseline master
+                  cargo bench --bench update_benchmarks --features bench -- --save-baseline master
 
             - name: Checkout master branch
               uses: actions/checkout@v3
@@ -49,11 +49,11 @@ jobs:
 
             - name: Run Bench on PR Branch
               run: |
-                  cargo bench --bench codec_benchmarks -- --save-baseline pr --features bench
-                  cargo bench --bench array_ops_benchmarks -- --save-baseline pr --features bench
-                  # cargo bench --bench map_ops_benchmarks -- --save-baseline pr --features bench
-                  cargo bench --bench text_ops_benchmarks -- --save-baseline pr --features bench
-                  cargo bench --bench update_benchmarks -- --save-baseline pr --features bench
+                  cargo bench --bench codec_benchmarks --features bench -- --save-baseline pr
+                  cargo bench --bench array_ops_benchmarks --features bench -- --save-baseline pr
+                  # cargo bench --bench map_ops_benchmarks --features bench -- --save-baseline pr
+                  cargo bench --bench text_ops_benchmarks --features bench -- --save-baseline pr
+                  cargo bench --bench update_benchmarks --features bench -- --save-baseline pr
 
             - name: Upload benchmark results
               uses: actions/upload-artifact@v3

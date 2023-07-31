@@ -12,8 +12,8 @@ impl DocPublisher {
     pub(crate) fn new(store: StoreRef) -> Self {
         let subscribers = Arc::new(RwLock::new(Vec::<DocSubscriber>::new()));
 
-        // skip observe thread create in loom test and benchmark
-        if cfg!(any(feature = "bench", loom)) {
+        // skip observe thread create in test and benchmark
+        if cfg!(any(feature = "bench", fuzzing, loom, miri)) {
             Self {
                 subscribers,
                 _observer: Arc::new(None),
