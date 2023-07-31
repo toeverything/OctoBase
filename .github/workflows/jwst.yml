@@ -438,7 +438,7 @@ jobs:
 
             - name: Loom Thread Test
               run: |
-                  cargo nextest -p jwst-codec --lib
+                  cargo nextest run -p jwst-codec --lib
 
     miri:
         name: miri code check
