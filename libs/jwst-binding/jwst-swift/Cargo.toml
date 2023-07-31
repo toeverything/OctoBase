@@ -14,9 +14,7 @@ nanoid = "0.4.0"
 
 # ======= workspace dependencies =======
 jwst = { workspace = true }
-jwst-rpc = { workspace = true, default-features = false, features = [
-    "websocket",
-] }
+jwst-rpc = { workspace = true }
 jwst-storage = { workspace = true, features = ["sqlite"] }
 jwst-logger = { workspace = true }
 

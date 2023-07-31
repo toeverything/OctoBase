@@ -5,50 +5,56 @@ pub type DocSubscriber = Box<dyn Fn(&[u8]) + Sync + Send + 'static>;
 
 pub struct DocPublisher {
     subscribers: Arc<RwLock<Vec<Box<dyn Fn(&[u8]) + Sync + Send + 'static>>>>,
-    _observer: Arc<std::thread::JoinHandle<()>>,
+    _observer: Arc<Option<std::thread::JoinHandle<()>>>,
 }
 
 impl DocPublisher {
     pub(crate) fn new(store: StoreRef) -> Self {
         let subscribers = Arc::new(RwLock::new(Vec::<DocSubscriber>::new()));
 
-        let thread_subscribers = subscribers.clone();
-        let thread = std::thread::spawn(move || {
-            let mut last_update = store.read().unwrap().get_state_vector();
-            loop {
-                std::thread::sleep(std::time::Duration::from_millis(100));
+        if cfg!(feature = "bench") {
+            Self {
+                subscribers,
+                _observer: Arc::new(None),
+            }
+        } else {
+            let thread_subscribers = subscribers.clone();
+            let thread = std::thread::spawn(move || {
+                let mut last_update = store.read().unwrap().get_state_vector();
+                loop {
+                    std::thread::sleep(std::time::Duration::from_millis(100));
 
-                let subscribers = thread_subscribers.read().unwrap();
-                if subscribers.is_empty() {
-                    continue;
-                }
-
-                let update = store.read().unwrap().get_state_vector();
-                if update != last_update {
-                    let mut encoder = RawEncoder::default();
-                    if let Err(e) = store
-                        .read()
-                        .unwrap()
-                        .encode_with_state_vector(&last_update, &mut encoder)
-                    {
-                        warn!("Failed to encode document: {}", e);
+                    let subscribers = thread_subscribers.read().unwrap();
+                    if subscribers.is_empty() {
                         continue;
-                    };
+                    }
 
-                    last_update = update;
+                    let update = store.read().unwrap().get_state_vector();
+                    if update != last_update {
+                        let mut encoder = RawEncoder::default();
+                        if let Err(e) = store
+                            .read()
+                            .unwrap()
+                            .encode_with_state_vector(&last_update, &mut encoder)
+                        {
+                            warn!("Failed to encode document: {}", e);
+                            continue;
+                        };
 
-                    let binary = encoder.into_inner();
+                        last_update = update;
 
-                    for cb in subscribers.iter() {
-                        cb(&binary)
+                        let binary = encoder.into_inner();
+
+                        for cb in subscribers.iter() {
+                            cb(&binary)
+                        }
                     }
                 }
+            });
+            Self {
+                subscribers,
+                _observer: Arc::new(Some(thread)),
             }
-        });
-
-        Self {
-            subscribers,
-            _observer: Arc::new(thread),
         }
     }
 
