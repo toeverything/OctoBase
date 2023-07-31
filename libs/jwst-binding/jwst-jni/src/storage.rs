@@ -9,7 +9,10 @@ use jwst_storage::{BlobStorageType, JwstStorage as AutoStorage, JwstStorageResul
 use log::log::warn;
 use nanoid::nanoid;
 use std::sync::{Arc, RwLock};
-use tokio::{runtime::Runtime, sync::mpsc::channel};
+use tokio::{
+    runtime::{Builder, Runtime},
+    sync::mpsc::channel,
+};
 
 #[derive(Clone)]
 pub struct JwstStorage {
@@ -109,7 +112,14 @@ impl JwstStorage {
     }
 
     fn sync(&mut self, workspace_id: String, remote: String) -> JwstStorageResult<Workspace> {
-        let rt = Arc::new(Runtime::new().map_err(JwstError::Io)?);
+        let rt = Arc::new(
+            Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .thread_name("jwst-jni")
+                .build()
+                .map_err(JwstError::Io)?,
+        );
         let is_offline = remote.is_empty();
 
         let workspace = rt.block_on(async { self.get_workspace(&workspace_id).await });
@@ -125,11 +135,9 @@ impl JwstStorage {
                         self.join_broadcast(&mut workspace, identifier.clone(), last_synced_tx)
                             .await;
                     });
-                    // prevent rt from being dropped, which will cause dropping the broadcast channel
-                    std::mem::forget(rt);
                 } else {
                     self.last_sync = start_websocket_client_sync(
-                        rt,
+                        rt.clone(),
                         Arc::new(self.clone()),
                         self.sync_state.clone(),
                         remote,
@@ -137,7 +145,10 @@ impl JwstStorage {
                     );
                 }
 
-                Ok(Workspace { workspace })
+                Ok(Workspace {
+                    workspace,
+                    runtime: rt,
+                })
             }
             Err(e) => Err(e),
         }
