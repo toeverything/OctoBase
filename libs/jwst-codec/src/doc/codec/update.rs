@@ -418,6 +418,11 @@ mod tests {
                 149,
             ),
             (include_bytes!("../../fixtures/large.bin").to_vec(), 1, 9036),
+            (
+                include_bytes!("../../fixtures/with-subdoc.bin").to_vec(),
+                2,
+                30,
+            ),
         ];
 
         for (doc, clients, structs) in docs {

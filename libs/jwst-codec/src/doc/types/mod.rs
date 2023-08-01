@@ -394,7 +394,8 @@ impl From<Value> for Content {
             Value::Any(any) => Content::from(any),
             Value::Doc(doc) => Content::Doc {
                 guid: doc.guid().to_owned(),
-                opts: vec![],
+                // TODO: replace doc options if we got ones
+                opts: Any::Undefined,
             },
             Value::Array(v) => Content::Type(v.0),
             Value::Map(v) => Content::Type(v.0),

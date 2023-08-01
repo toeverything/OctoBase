@@ -21,7 +21,7 @@ pub(crate) enum Content {
     Any(Vec<Any>),
     Doc {
         guid: String,
-        opts: Vec<Any>,
+        opts: Any,
     },
 }
 
@@ -160,7 +160,7 @@ impl Content {
             8 => Ok(Self::Any(Any::read_multiple(decoder)?)), // Any
             9 => {
                 let guid = decoder.read_var_string()?;
-                let opts = Any::read_multiple(decoder)?;
+                let opts = Any::read(decoder)?;
                 Ok(Self::Doc { guid, opts })
             } // Doc
             tag_type => Err(JwstCodecError::IncompleteDocument(format!(
@@ -231,7 +231,7 @@ impl Content {
             }
             Self::Doc { guid, opts } => {
                 encoder.write_var_string(guid)?;
-                Any::write_multiple(encoder, opts)?;
+                opts.write(encoder)?;
             }
         }
         Ok(())
@@ -354,7 +354,7 @@ mod tests {
                 Content::Any(vec![Any::BigInt64(42), Any::String("Test Any".to_string())]),
                 Content::Doc {
                     guid: "my_guid".to_string(),
-                    opts: vec![Any::BigInt64(42), Any::String("Test Doc".to_string())],
+                    opts: Any::BigInt64(42),
                 },
             ];
 

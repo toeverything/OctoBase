@@ -221,7 +221,8 @@ impl<T> FlattenGet<T> for Option<Somr<T>> {
 
 impl<T: PartialEq> PartialEq for Somr<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.ptr() == other.ptr() || self.inner() == other.inner()
+        self.ptr() == other.ptr()
+            || !self.dangling() && !other.dangling() && self.inner() == other.inner()
     }
 }
 
