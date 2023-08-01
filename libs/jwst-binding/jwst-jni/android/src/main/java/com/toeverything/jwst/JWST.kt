@@ -233,4 +233,8 @@ class Storage constructor(path: String, private val remote: String = "", private
     fun getSyncState(): String {
         return this.storage._sync_state
     }
+    
+    fun getLastSynced(): LongArray? {
+        return this.storage._last_synced
+    }
 }
