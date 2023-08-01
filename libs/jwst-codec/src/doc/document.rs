@@ -15,7 +15,7 @@ pub struct Doc {
     #[allow(dead_code)]
     guid: String,
     pub(super) store: StoreRef,
-    publisher: Arc<DocPublisher>,
+    pub publisher: Arc<DocPublisher>,
 }
 
 unsafe impl Send for Doc {}

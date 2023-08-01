@@ -5,6 +5,7 @@ mod document;
 mod publisher;
 mod store;
 mod types;
+mod utils;
 
 use super::*;
 
@@ -14,3 +15,4 @@ pub use common::*;
 pub use document::{Doc, DocOptions};
 pub(crate) use store::DocStore;
 pub use types::*;
+pub use utils::*;

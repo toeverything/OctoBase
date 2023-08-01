@@ -1,11 +1,10 @@
 use super::*;
 use jwst::Workspace;
 use jwst_codec::{
-    write_sync_message, CrdtWriter, DocMessage, JwstCodecError, JwstCodecResult, RawEncoder,
-    SyncMessage,
+    encode_update_as_message, encode_update_with_guid, write_sync_message, SyncMessage,
 };
 use lru_time_cache::LruCache;
-use std::{collections::HashMap, io::Write, sync::Mutex};
+use std::{collections::HashMap, sync::Mutex};
 use tokio::sync::{broadcast::Sender, RwLock};
 
 #[derive(Clone)]
@@ -19,26 +18,6 @@ pub enum BroadcastType {
 
 type Broadcast = Sender<BroadcastType>;
 pub type BroadcastChannels = RwLock<HashMap<String, Broadcast>>;
-
-fn encode_sendable_update(update: Vec<u8>) -> JwstCodecResult<Vec<u8>> {
-    let mut buffer = Vec::new();
-    write_sync_message(&mut buffer, &SyncMessage::Doc(DocMessage::Update(update)))
-        .map_err(|e| JwstCodecError::InvalidWriteBuffer(e.to_string()))?;
-
-    Ok(buffer)
-}
-
-fn encode_update_with_guid<S: AsRef<str>>(update: Vec<u8>, guid: S) -> JwstCodecResult<Vec<u8>> {
-    let mut encoder = RawEncoder::default();
-    encoder.write_var_string(guid)?;
-    let mut buffer = encoder.into_inner();
-
-    buffer
-        .write_all(&update)
-        .map_err(|e| JwstCodecError::InvalidWriteBuffer(e.to_string()))?;
-
-    Ok(buffer)
-}
 
 pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Broadcast) {
     {
@@ -85,7 +64,7 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
             );
 
             match encode_update_with_guid(e.update.clone(), workspace_id.clone())
-                .and_then(|update| encode_sendable_update(update.clone()).map(|u| (update, u)))
+                .and_then(|update| encode_update_as_message(update.clone()).map(|u| (update, u)))
             {
                 Ok((broadcast_update, sendable_update)) => {
                     if sender
