@@ -15,7 +15,7 @@ unsafe impl Sync for DocStore {}
 #[derive(Default, Debug)]
 pub(crate) struct DocStore {
     client: Client,
-    pub items: HashMap<Client, Vec<Node>>,
+    pub items: HashMap<Client, VecDeque<Node>>,
     pub delete_set: DeleteSet,
 
     // following fields are only used in memory
@@ -49,7 +49,7 @@ impl DocStore {
 
     pub fn get_state(&self, client: Client) -> Clock {
         if let Some(structs) = self.items.get(&client) {
-            if let Some(last_struct) = structs.last() {
+            if let Some(last_struct) = structs.back() {
                 last_struct.clock() + last_struct.len()
             } else {
                 warn!("client {} has no struct info", client);
@@ -61,9 +61,13 @@ impl DocStore {
     }
 
     pub fn get_state_vector(&self) -> StateVector {
+        Self::items_as_state_vector(&self.items)
+    }
+
+    fn items_as_state_vector(items: &HashMap<Client, VecDeque<Node>>) -> StateVector {
         let mut state = StateVector::default();
-        for (client, structs) in self.items.iter() {
-            if let Some(last_struct) = structs.last() {
+        for (client, structs) in items.iter() {
+            if let Some(last_struct) = structs.back() {
                 state.insert(*client, last_struct.clock() + last_struct.len());
             } else {
                 warn!("client {} has no struct info", client);
@@ -77,7 +81,7 @@ impl DocStore {
         match self.items.entry(client_id) {
             Entry::Occupied(mut entry) => {
                 let structs = entry.get_mut();
-                if let Some(last_struct) = structs.last() {
+                if let Some(last_struct) = structs.back() {
                     let expect = last_struct.clock() + last_struct.len();
                     let actually = item.clock();
                     if expect != actually {
@@ -86,10 +90,10 @@ impl DocStore {
                 } else {
                     warn!("client {} has no struct info", client_id);
                 }
-                structs.push(item);
+                structs.push_back(item);
             }
             Entry::Vacant(entry) => {
-                entry.insert(vec![item]);
+                entry.insert(VecDeque::from([item]));
             }
         }
 
@@ -97,7 +101,7 @@ impl DocStore {
     }
 
     /// binary search struct info on a sorted array
-    pub fn get_item_index(items: &Vec<Node>, clock: Clock) -> Option<usize> {
+    pub fn get_item_index(items: &VecDeque<Node>, clock: Clock) -> Option<usize> {
         let mut left = 0;
         let mut right = items.len() - 1;
         let middle = &items[right];
@@ -170,7 +174,7 @@ impl DocStore {
     }
 
     pub fn split_node_at(
-        items: &mut Vec<Node>,
+        items: &mut VecDeque<Node>,
         idx: usize,
         diff: u64,
     ) -> JwstCodecResult<(Node, Node)> {
@@ -364,11 +368,11 @@ impl DocStore {
 
     pub(crate) fn integrate(
         &mut self,
-        mut struct_info: Node,
+        mut node: Node,
         offset: u64,
         parent: Option<&mut YType>,
     ) -> JwstCodecResult {
-        match &mut struct_info {
+        match &mut node {
             Node::Item(item) => {
                 assert!(
                     item.is_owned(),
@@ -531,9 +535,8 @@ impl DocStore {
                         .unwrap_or(false);
 
                     // should delete
-                    if parent_deleted || this.parent_sub.is_some() && this.origin_right_id.is_some()
-                    {
-                        Self::delete_item(this, Some(parent));
+                    if parent_deleted || this.parent_sub.is_some() && this.right.is_some() {
+                        self.delete(&Node::Item(item.clone()), Some(parent));
                     } else {
                         // adjust parent length
                         if this.parent_sub.is_none() {
@@ -554,7 +557,7 @@ impl DocStore {
                 // skip ignored
             }
         }
-        self.add_item(struct_info)
+        self.add_item(node)
     }
 
     pub(crate) fn delete_item(item: &Item, parent: Option<&mut YType>) {
@@ -581,8 +584,10 @@ impl DocStore {
         }
     }
 
-    pub(crate) fn delete(&self, struct_info: &Node, parent: Option<&mut YType>) {
+    pub(crate) fn delete(&mut self, struct_info: &Node, parent: Option<&mut YType>) {
         if let Some(item) = struct_info.as_item().get() {
+            self.delete_set
+                .add(item.id.client, item.id.clock, item.len());
             Self::delete_item(item, parent);
         }
     }
@@ -601,7 +606,7 @@ impl DocStore {
                     let struct_info = &items[idx];
                     let id = struct_info.id();
 
-                    if !struct_info.deleted() && id.clock < range.start {
+                    if !struct_info.deleted() && id.clock < start {
                         DocStore::split_node_at(items, idx, start - id.clock)?;
                         idx += 1;
                     }
@@ -664,13 +669,34 @@ impl DocStore {
         sv: &StateVector,
         encoder: &mut W,
     ) -> JwstCodecResult {
-        let local_state_vector = self.get_state_vector();
+        let update_structs = Self::diff_structs(&self.items, sv)?;
+
+        let mut update = Update {
+            structs: update_structs,
+            delete_set: Self::generate_delete_set(&self.items),
+            ..Update::default()
+        };
+
+        if let Some(pending) = &self.pending {
+            Update::merge_into(&mut update, [pending])
+        }
+
+        update.write(encoder)?;
+
+        Ok(())
+    }
+
+    fn diff_structs(
+        map: &HashMap<Client, VecDeque<Node>>,
+        sv: &StateVector,
+    ) -> JwstCodecResult<HashMap<Client, VecDeque<Node>>> {
+        let local_state_vector = Self::items_as_state_vector(map);
         let diff = Self::diff_state_vectors(&local_state_vector, sv);
         let mut update_structs: HashMap<u64, VecDeque<Node>> = HashMap::new();
 
         for (client, clock) in diff {
             // We have made sure that the client is in the local state vector in diff_state_vectors()
-            if let Some(items) = self.items.get(&client) {
+            if let Some(items) = map.get(&client) {
                 if items.is_empty() {
                     continue;
                 }
@@ -679,7 +705,7 @@ impl DocStore {
                 let vec_struct_info = update_structs.get_mut(&client).unwrap();
 
                 // the smallest clock in items may exceed the clock
-                let clock = items.first().unwrap().id().clock.max(clock);
+                let clock = items.front().unwrap().id().clock.max(clock);
                 if let Some(index) = Self::get_item_index(items, clock) {
                     let first_block = items.get(index).unwrap();
                     let offset = first_block.clock() - clock;
@@ -697,15 +723,21 @@ impl DocStore {
             }
         }
 
-        let update = Update {
-            structs: update_structs,
-            delete_set: self.delete_set.clone(),
-            ..Update::default()
-        };
+        Ok(update_structs)
+    }
 
-        update.write(encoder)?;
+    fn generate_delete_set(refs: &HashMap<Client, VecDeque<Node>>) -> DeleteSet {
+        let mut delete_set = DeleteSet::default();
 
-        Ok(())
+        for (client, nodes) in refs {
+            for node in nodes {
+                if node.deleted() {
+                    delete_set.add(*client, node.id().clock, node.len());
+                }
+            }
+        }
+
+        delete_set
     }
 }
 
@@ -729,9 +761,10 @@ mod tests {
             let struct_info1 = Node::GC(NodeLen::new(Id::new(1, 1), 5));
             let struct_info2 = Node::Skip(NodeLen::new(Id::new(1, 6), 7));
 
-            doc_store
-                .items
-                .insert(client_id, vec![struct_info1, struct_info2.clone()]);
+            doc_store.items.insert(
+                client_id,
+                VecDeque::from([struct_info1, struct_info2.clone()]),
+            );
 
             let state = doc_store.get_state(client_id);
 
@@ -759,10 +792,13 @@ mod tests {
             let struct_info2 = Node::GC(NodeLen::new((2, 0).into(), 6));
             let struct_info3 = Node::Skip(NodeLen::new((2, 6).into(), 1));
 
-            doc_store.items.insert(client1, vec![struct_info1.clone()]);
             doc_store
                 .items
-                .insert(client2, vec![struct_info2, struct_info3.clone()]);
+                .insert(client1, VecDeque::from([struct_info1.clone()]));
+            doc_store.items.insert(
+                client2,
+                VecDeque::from([struct_info2, struct_info3.clone()]),
+            );
 
             let state_map = doc_store.get_state_vector();
 
@@ -852,7 +888,7 @@ mod tests {
                     .content(Content::String(String::from("octo")))
                     .build(),
             ));
-            let mut list = vec![node.clone()];
+            let mut list = VecDeque::from([node.clone()]);
 
             let (left, right) = DocStore::split_node_at(&mut list, 0, 2).unwrap();
 

@@ -117,14 +117,14 @@ impl DeleteSet {
         }
     }
 
-    pub fn merge(&mut self, other: Self) {
-        for (client, range) in other.0 {
-            match self.0.entry(client) {
+    pub fn merge(&mut self, other: &Self) {
+        for (client, range) in &other.0 {
+            match self.0.entry(*client) {
                 Entry::Occupied(e) => {
-                    e.into_mut().merge(range);
+                    e.into_mut().merge(range.clone());
                 }
                 Entry::Vacant(e) => {
-                    e.insert(range);
+                    e.insert(range.clone());
                 }
             }
         }
@@ -149,9 +149,14 @@ impl<R: CrdtReader> CrdtRead<R> for DeleteSet {
 impl<W: CrdtWriter> CrdtWrite<W> for DeleteSet {
     fn write(&self, encoder: &mut W) -> JwstCodecResult {
         encoder.write_var_u64(self.len() as u64)?;
-        for (client, deletes) in self.iter() {
-            encoder.write_var_u64(*client)?;
-            deletes.write(encoder)?;
+        let mut clients = self.keys().copied().collect::<Vec<_>>();
+
+        // Descending
+        clients.sort_by(|a, b| b.cmp(a));
+
+        for client in clients {
+            encoder.write_var_u64(client)?;
+            self.get(&client).unwrap().write(encoder)?;
         }
 
         Ok(())

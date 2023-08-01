@@ -3,7 +3,7 @@ use crate::doc::StateVector;
 use std::collections::{HashMap, VecDeque};
 use std::ops::Range;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Update {
     pub(crate) structs: HashMap<u64, VecDeque<Node>>,
     pub(crate) delete_set: DeleteSet,
@@ -109,27 +109,31 @@ impl Update {
         std::mem::swap(&mut self.pending_delete_set, &mut self.delete_set);
     }
 
-    pub fn merge<I: IntoIterator<Item = Update>>(updates: I) -> Update {
+    pub fn merge<'a, I: IntoIterator<Item = &'a Update>>(updates: I) -> Update {
         let mut merged = Update::default();
 
-        for update in updates {
-            merged.delete_set.merge(update.delete_set);
+        Self::merge_into(&mut merged, updates);
 
-            for (client, structs) in update.structs {
-                let iter = structs.into_iter().filter(|p| !p.is_skip());
-                if let Some(merged_structs) = merged.structs.get_mut(&client) {
+        merged
+    }
+
+    pub fn merge_into<'a, I: IntoIterator<Item = &'a Update>>(target: &mut Update, updates: I) {
+        for update in updates {
+            target.delete_set.merge(&update.delete_set);
+
+            for (client, structs) in &update.structs {
+                let iter = structs.iter().filter(|p| !p.is_skip()).map(Clone::clone);
+                if let Some(merged_structs) = target.structs.get_mut(client) {
                     merged_structs.extend(iter);
                 } else {
-                    merged.structs.insert(client, iter.collect());
+                    target.structs.insert(*client, iter.collect());
                 }
             }
         }
 
-        for structs in merged.structs.values_mut() {
+        for structs in target.structs.values_mut() {
             structs.make_contiguous().sort_by_key(|s| s.id().clock)
         }
-
-        merged
     }
 
     pub fn is_empty(&self) -> bool {

@@ -20,7 +20,7 @@ pub mod item_flags {
     pub const ITEM_HAS_PARENT_SUB       : u8 = 0b0010_0000;
     pub const ITEM_HAS_RIGHT_ID         : u8 = 0b0100_0000;
     pub const ITEM_HAS_LEFT_ID          : u8 = 0b1000_0000;
-    pub const ITEM_HAS_PARENT_INFO      : u8 = 0b1100_0000;
+    pub const ITEM_HAS_SIBLING          : u8 = 0b1100_0000;
 }
 
 #[derive(Debug)]
@@ -327,7 +327,7 @@ impl Item {
         let has_left_id = flags.check(item_flags::ITEM_HAS_LEFT_ID);
         let has_right_id = flags.check(item_flags::ITEM_HAS_RIGHT_ID);
         let has_parent_sub = flags.check(item_flags::ITEM_HAS_PARENT_SUB);
-        let has_not_parent_info = flags.not(item_flags::ITEM_HAS_PARENT_INFO);
+        let has_not_sibling = flags.not(item_flags::ITEM_HAS_SIBLING);
 
         // NOTE: read order must keep the same as the order in yjs
         // TODO: this data structure design will break the cpu OOE, need to be optimized
@@ -344,7 +344,7 @@ impl Item {
                 None
             },
             parent: {
-                if has_not_parent_info {
+                if has_not_sibling {
                     let has_parent = decoder.read_var_u64()? == 1;
                     Some(if has_parent {
                         Parent::String(decoder.read_var_string()?)
@@ -355,7 +355,7 @@ impl Item {
                     None
                 }
             },
-            parent_sub: if has_not_parent_info && has_parent_sub {
+            parent_sub: if has_not_sibling && has_parent_sub {
                 Some(decoder.read_var_string()?)
             } else {
                 None
@@ -375,24 +375,29 @@ impl Item {
             item.flags.set_countable();
         }
 
+        if matches!(item.content.as_ref(), Content::Deleted(_)) {
+            item.flags.set_deleted();
+        }
+
         debug_assert!(item.is_valid());
 
         Ok(item)
     }
 
-    fn get_info(&self) -> (u8, bool) {
+    fn get_info(&self) -> u8 {
         let mut info = self.content.get_info();
+
         if self.origin_left_id.is_some() {
             info |= item_flags::ITEM_HAS_LEFT_ID;
         }
         if self.origin_right_id.is_some() {
             info |= item_flags::ITEM_HAS_RIGHT_ID;
         }
-        let has_not_parent_info = info & item_flags::ITEM_HAS_PARENT_INFO == 0;
-        if has_not_parent_info && self.parent_sub.is_some() {
+        if self.parent_sub.is_some() {
             info |= item_flags::ITEM_HAS_PARENT_SUB;
         }
-        (info, has_not_parent_info)
+
+        info
     }
 
     pub(crate) fn is_valid(&self) -> bool {
@@ -402,7 +407,9 @@ impl Item {
     }
 
     pub(crate) fn write<W: CrdtWriter>(&self, encoder: &mut W) -> JwstCodecResult {
-        let (info, has_not_parent_info) = self.get_info();
+        let info = self.get_info();
+        let has_not_sibling = info & item_flags::ITEM_HAS_SIBLING == 0;
+
         encoder.write_info(info)?;
 
         if let Some(left_id) = self.origin_left_id {
@@ -411,7 +418,8 @@ impl Item {
         if let Some(right_id) = self.origin_right_id {
             encoder.write_item_id(&right_id)?;
         }
-        if has_not_parent_info {
+
+        if has_not_sibling {
             if let Some(parent) = &self.parent {
                 match parent {
                     Parent::String(s) => {
@@ -438,10 +446,8 @@ impl Item {
             } else {
                 return Err(JwstCodecError::ParentNotFound);
             }
-        }
 
-        if let Some(parent_sub) = &self.parent_sub {
-            if has_not_parent_info {
+            if let Some(parent_sub) = &self.parent_sub {
                 encoder.write_var_string(parent_sub)?;
             }
         }
