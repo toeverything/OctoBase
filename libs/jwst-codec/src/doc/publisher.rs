@@ -1,29 +1,50 @@
 use super::{store::StoreRef, *};
-use crate::sync::{Arc, RwLock};
+use crate::sync::{Arc, AtomicBool, Mutex, Ordering, RwLock};
+use jwst_logger::{debug, trace};
 
 pub type DocSubscriber = Box<dyn Fn(&[u8]) + Sync + Send + 'static>;
 
 pub struct DocPublisher {
+    store: StoreRef,
     subscribers: Arc<RwLock<Vec<Box<dyn Fn(&[u8]) + Sync + Send + 'static>>>>,
-    _observer: Arc<Option<std::thread::JoinHandle<()>>>,
+    observer: Arc<Mutex<Option<std::thread::JoinHandle<()>>>>,
+    observing: Arc<AtomicBool>,
 }
 
 impl DocPublisher {
     pub(crate) fn new(store: StoreRef) -> Self {
         let subscribers = Arc::new(RwLock::new(Vec::<DocSubscriber>::new()));
 
-        // skip observe thread create in test and benchmark
-        if cfg!(any(feature = "bench", fuzzing, loom, miri)) {
-            Self {
-                subscribers,
-                _observer: Arc::new(None),
-            }
-        } else {
-            let thread_subscribers = subscribers.clone();
+        let publisher = Self {
+            store,
+            subscribers,
+            observer: Arc::default(),
+            observing: Arc::new(AtomicBool::new(false)),
+        };
+
+        if cfg!(not(any(feature = "bench", fuzzing, loom, miri))) {
+            publisher.start();
+        }
+
+        publisher
+    }
+
+    pub fn start(&self) {
+        let mut observer = self.observer.lock().unwrap();
+        let observing = self.observing.clone();
+        let store = self.store.clone();
+        if observer.is_none() {
+            let thread_subscribers = self.subscribers.clone();
+            observing.store(true, Ordering::Release);
+            debug!("start observing");
             let thread = std::thread::spawn(move || {
                 let mut last_update = store.read().unwrap().get_state_vector();
                 loop {
                     std::thread::sleep(std::time::Duration::from_millis(100));
+                    if !observing.load(Ordering::Acquire) {
+                        debug!("stop observing");
+                        break;
+                    }
 
                     let subscribers = thread_subscribers.read().unwrap();
                     if subscribers.is_empty() {
@@ -32,6 +53,12 @@ impl DocPublisher {
 
                     let update = store.read().unwrap().get_state_vector();
                     if update != last_update {
+                        trace!(
+                            "update: {:?}, last_update: {:?}, {:?}",
+                            update,
+                            last_update,
+                            std::thread::current().id(),
+                        );
                         let mut encoder = RawEncoder::default();
                         if let Err(e) = store
                             .read()
@@ -47,15 +74,22 @@ impl DocPublisher {
                         let binary = encoder.into_inner();
 
                         for cb in subscribers.iter() {
-                            cb(&binary)
+                            cb(&binary);
                         }
                     }
                 }
             });
-            Self {
-                subscribers,
-                _observer: Arc::new(Some(thread)),
-            }
+            observer.replace(thread);
+        } else {
+            debug!("already observing");
+        }
+    }
+
+    pub fn stop(&self) {
+        let mut observer = self.observer.lock().unwrap();
+        if let Some(observer) = observer.take() {
+            self.observing.store(false, Ordering::Release);
+            observer.join().unwrap();
         }
     }
 
