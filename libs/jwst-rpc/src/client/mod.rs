@@ -55,7 +55,7 @@ mod tests {
 
     #[test]
     fn test_synced() {
-        let synced = CachedLastSynced::new();
+        let synced = CachedLastSynced::default();
         let (tx, rx) = channel::<i64>(1);
         let rt = Arc::new(Runtime::new().unwrap());
 

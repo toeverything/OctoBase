@@ -89,7 +89,7 @@ pub fn start_webrtc_client_sync(
         });
     });
 
-    let timeline = CachedLastSynced::new();
+    let timeline = CachedLastSynced::default();
     timeline.add_receiver(rt, last_synced_rx);
 
     timeline
