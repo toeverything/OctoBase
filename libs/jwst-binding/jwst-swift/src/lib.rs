@@ -91,9 +91,6 @@ mod ffi {
     extern "Rust" {
         type Workspace;
 
-        #[swift_bridge(init)]
-        fn new(id: String) -> Workspace;
-
         fn id(self: &Workspace) -> String;
 
         fn client_id(self: &Workspace) -> u64;
@@ -128,9 +125,7 @@ mod ffi {
 
         fn is_offline(self: &Storage) -> bool;
 
-        fn is_initialized(self: &Storage) -> bool;
-
-        fn is_syncing(self: &Storage) -> bool;
+        fn is_connected(self: &Storage) -> bool;
 
         fn is_finished(self: &Storage) -> bool;
 
@@ -139,5 +134,7 @@ mod ffi {
         fn get_sync_state(self: &Storage) -> String;
 
         fn connect(self: &mut Storage, workspace_id: String, remote: String) -> Option<Workspace>;
+
+        fn get_last_synced(self: &Storage) -> Vec<i64>;
     }
 }

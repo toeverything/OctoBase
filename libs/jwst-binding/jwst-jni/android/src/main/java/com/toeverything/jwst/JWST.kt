@@ -218,12 +218,8 @@ class Storage constructor(path: String, private val remote: String = "", private
         return this.storage.is_offline
     }
 
-    fun isInitialized(): Boolean {
-        return this.storage.is_initialized
-    }
-
-    fun isSyncing(): Boolean {
-        return this.storage.is_syncing
+    fun isConnected(): Boolean {
+        return this.storage.is_connected
     }
 
     fun isFinished(): Boolean {
@@ -236,5 +232,9 @@ class Storage constructor(path: String, private val remote: String = "", private
 
     fun getSyncState(): String {
         return this.storage._sync_state
+    }
+    
+    fun getLastSynced(): LongArray? {
+        return this.storage._last_synced
     }
 }

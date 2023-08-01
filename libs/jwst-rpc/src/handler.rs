@@ -1,4 +1,5 @@
 use super::{BroadcastType, Message, RpcContextImpl};
+use chrono::Utc;
 use jwst::{debug, error, info, trace, warn};
 use std::{sync::Arc, time::Instant};
 use tokio::{
@@ -10,12 +11,12 @@ pub async fn handle_connector(
     context: Arc<impl RpcContextImpl<'static> + Send + Sync + 'static>,
     workspace_id: String,
     identifier: String,
-    get_channel: impl FnOnce() -> (Sender<Message>, Receiver<Vec<u8>>, Sender<bool>),
+    get_channel: impl FnOnce() -> (Sender<Message>, Receiver<Vec<u8>>, Sender<i64>),
 ) -> bool {
     info!("{} collaborate with workspace {}", identifier, workspace_id);
 
     // An abstraction of the established socket connection. Use tx to broadcast and rx to receive.
-    let (tx, rx, first_init) = get_channel();
+    let (tx, rx, last_synced) = get_channel();
 
     let mut ws = context
         .get_workspace(&workspace_id)
@@ -25,13 +26,21 @@ pub async fn handle_connector(
     // Continuously receive information from the remote socket, apply it to the local workspace, and
     // send the encoded updates back to the remote end through the socket.
     context
-        .apply_change(&workspace_id, &identifier, tx.clone(), rx)
+        .apply_change(
+            &workspace_id,
+            &identifier,
+            tx.clone(),
+            rx,
+            last_synced.clone(),
+        )
         .await;
 
     // Both of broadcast_update and server_update are sent to the remote socket through 'tx'
     // The 'broadcast_update' is the receiver for updates to the awareness and Doc of the local workspace.
     // It uses channel, which is owned by the server itself and is stored in the server's memory (not persisted)."
-    let broadcast_tx = context.join_broadcast(&mut ws, identifier.clone()).await;
+    let broadcast_tx = context
+        .join_broadcast(&mut ws, identifier.clone(), last_synced.clone())
+        .await;
     let mut broadcast_rx = broadcast_tx.subscribe();
     // Obtaining the receiver corresponding to DocAutoStorage in storage. The sender is used in the
     // doc::write_update(). The remote used is the one belonging to DocAutoStorage and is owned by
@@ -47,7 +56,7 @@ pub async fn handle_connector(
                 if let Err(e) = tx.send(Message::Close).await {
                     error!("failed to send close event: {}", e);
                 }
-                first_init.send(false).await.unwrap();
+                last_synced.send(0).await.unwrap();
                 return false;
             }
         }
@@ -56,12 +65,15 @@ pub async fn handle_connector(
             if let Err(e) = tx.send(Message::Close).await {
                 error!("failed to send close event: {}", e);
             }
-            first_init.send(false).await.unwrap();
+            last_synced.send(0).await.unwrap();
             return false;
         }
     }
 
-    first_init.send(true).await.unwrap();
+    last_synced
+        .send(Utc::now().timestamp_millis())
+        .await
+        .unwrap();
 
     'sync: loop {
         tokio::select! {
@@ -164,13 +176,14 @@ pub async fn handle_connector(
 
 #[cfg(test)]
 mod test {
-    use crate::webrtc_datachannel_client_begin;
-    use crate::webrtc_datachannel_client_commit;
-    use crate::webrtc_datachannel_server_connector;
-
     use super::{
         super::{connect_memory_workspace, MinimumServerContext},
         *,
+    };
+    #[cfg(feature = "webrtc")]
+    use crate::{
+        webrtc_datachannel_client_begin, webrtc_datachannel_client_commit,
+        webrtc_datachannel_server_connector,
     };
     use indicatif::{MultiProgress, ProgressBar, ProgressIterator, ProgressStyle};
     use jwst::{JwstError, JwstResult};
@@ -179,6 +192,7 @@ mod test {
 
     #[tokio::test]
     #[ignore = "skip in ci"]
+    #[cfg(feature = "webrtc")]
     async fn webrtc_datachannel_connector_test() {
         let (offer, pc, tx1, mut rx1, _) = webrtc_datachannel_client_begin().await;
         let (answer, tx2, mut rx2, _) = webrtc_datachannel_server_connector(offer).await;
@@ -244,8 +258,12 @@ mod test {
 
         let (doc1, _, _, _) =
             connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
-        let (mut doc2, tx2, tx_handler, rx_handler) =
+        let (doc2, tx2, tx_handler, rx_handler) =
             connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
+
+        let doc1 = jwst::Workspace::from_binary(&doc1.encode_update_v1().unwrap(), &workspace_id);
+        let mut doc2 =
+            jwst::Workspace::from_binary(&doc2.encode_update_v1().unwrap(), &workspace_id);
 
         // close connection after doc1 is broadcasted
         doc2.observe(move |_, _| {
@@ -333,8 +351,10 @@ mod test {
 
             collaborator.fetch_add(1, Ordering::Relaxed);
             collaborator_pb.set_position(collaborator.load(Ordering::Relaxed));
-            let (mut doc, doc_tx, tx_handler, rx_handler) =
+            let (doc, doc_tx, tx_handler, rx_handler) =
                 connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
+            let mut doc =
+                jwst::Workspace::from_binary(&doc.encode_update_v1().unwrap(), &workspace_id);
 
             let handler = std::thread::spawn(move || {
                 // close connection after doc1 is broadcasted

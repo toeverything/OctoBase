@@ -32,7 +32,6 @@ pub fn to_sync_message(msg: YMessage) -> Option<SyncMessage> {
     }
 }
 
-#[cfg(test)]
 pub fn to_y_message(msg: SyncMessage) -> YMessage {
     match msg {
         SyncMessage::Auth(reason) => YMessage::Auth(reason),

@@ -353,7 +353,7 @@ impl TryFrom<&Content> for Value {
         Ok(match value {
             Content::Any(any) => Value::Any(Any::Array(any.clone())),
             Content::String(s) => Value::Any(Any::String(s.clone())),
-            Content::JSON(json) => Value::Any(Any::Array(
+            Content::Json(json) => Value::Any(Any::Array(
                 json.iter()
                     .map(|item| {
                         if let Some(s) = item {

@@ -1,4 +1,4 @@
-use super::{store::StoreRef, *};
+use super::{publisher::DocPublisher, store::StoreRef, *};
 use crate::sync::{Arc, RwLock};
 
 #[derive(Clone, Default)]
@@ -15,6 +15,7 @@ pub struct Doc {
     #[allow(dead_code)]
     guid: String,
     pub(super) store: StoreRef,
+    publisher: Arc<DocPublisher>,
 }
 
 unsafe impl Send for Doc {}
@@ -22,11 +23,15 @@ unsafe impl Sync for Doc {}
 
 impl Default for Doc {
     fn default() -> Self {
-        let client = rand::random();
+        let client_id = rand::random();
+        let store = Arc::new(RwLock::new(DocStore::with_client(client_id)));
+        let publisher = Arc::new(DocPublisher::new(store.clone()));
+
         Self {
-            client_id: client,
+            client_id,
             guid: nanoid!(),
-            store: Arc::new(RwLock::new(DocStore::with_client(client))),
+            store,
+            publisher,
         }
     }
 }
@@ -40,18 +45,25 @@ impl PartialEq for Doc {
 impl Doc {
     pub fn with_options(options: DocOptions) -> Self {
         let client = options.client.unwrap_or_else(rand::random);
+        let store = Arc::new(RwLock::new(DocStore::with_client(client)));
+        let publisher = Arc::new(DocPublisher::new(store.clone()));
+
         Self {
             client_id: client,
-            store: Arc::new(RwLock::new(DocStore::with_client(client))),
+            store,
             guid: options.guid.unwrap_or_else(|| nanoid!()),
+            publisher,
         }
     }
 
-    pub fn with_client(client: u64) -> Self {
+    pub fn with_client(client_id: u64) -> Self {
+        let store = Arc::new(RwLock::new(DocStore::with_client(client_id)));
+        let publisher = Arc::new(DocPublisher::new(store.clone()));
         Self {
-            client_id: client,
-            store: Arc::new(RwLock::new(DocStore::with_client(client))),
+            client_id,
+            store,
             guid: nanoid!(),
+            publisher,
         }
     }
 
@@ -199,11 +211,20 @@ impl Doc {
     pub fn get_state_vector(&self) -> StateVector {
         self.store.read().unwrap().get_state_vector()
     }
+
+    pub fn subscribe(&self, cb: impl Fn(&[u8]) + Sync + Send + 'static) {
+        self.publisher.subscribe(cb);
+    }
+
+    pub fn unsubscribe_all(&self) {
+        self.publisher.unsubscribe_all();
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sync::{AtomicU8, Ordering};
     use yrs::{types::ToJson, updates::decoder::Decode, Array, Map, Options, Transact};
 
     #[test]
@@ -360,5 +381,36 @@ mod tests {
 
         assert!(list.len() == 7);
         assert!(matches!(list[6], Value::Array(_)));
+    }
+
+    #[test]
+    #[ignore = "inaccurate timing on ci, need for more accurate timing testing"]
+    fn test_subscribe() {
+        loom_model!({
+            let doc = Doc::default();
+            let doc_clone = doc.clone();
+
+            let count = Arc::new(AtomicU8::new(0));
+            let count_clone1 = count.clone();
+            let count_clone2 = count.clone();
+            doc.subscribe(move |_| {
+                count_clone1.fetch_add(1, Ordering::SeqCst);
+            });
+
+            doc_clone.subscribe(move |_| {
+                count_clone2.fetch_add(1, Ordering::SeqCst);
+            });
+
+            doc_clone
+                .get_or_create_array("abc")
+                .unwrap()
+                .insert(0, 42)
+                .unwrap();
+
+            // wait observer, cycle once every 100mm
+            std::thread::sleep(std::time::Duration::from_millis(200));
+
+            assert_eq!(count.load(Ordering::SeqCst), 2);
+        });
     }
 }

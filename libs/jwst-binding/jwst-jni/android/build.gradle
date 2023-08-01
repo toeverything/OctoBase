@@ -6,11 +6,11 @@ plugins {
 
 android {
     namespace 'com.toeverything.jwst'
-    compileSdk 33
+    compileSdk 34
 
     defaultConfig {
         minSdk 28
-        targetSdk 33
+        targetSdk 34
 
         aarMetadata {
             minCompileSdk = 28
@@ -55,7 +55,7 @@ android {
 }
 
 dependencies {
-    implementation 'androidx.core:core-ktx:1.9.0'
+    implementation 'androidx.core:core-ktx:1.10.1'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
@@ -117,7 +117,7 @@ publishing {
         release(MavenPublication) {
             groupId = 'com.toeverything'
             artifactId = 'octobase'
-            version = '0.1.24'
+            version = '0.1.28'
 
             afterEvaluate {
                 from components.release

@@ -20,7 +20,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         val database = File(filesDir, "jwst.db")
-        val storage = Storage(database.absolutePath, "ws://10.0.2.2:3000/collaboration", "trace")
+        val storage = Storage(database.absolutePath, "ws://10.0.2.2:3000/collaboration", "debug")
         storage.getWorkspace("test").unwrap()?.let { workspace ->
             workspace.setCallback { block_ids -> Log.i("jwst", "change: $block_ids") }
             workspace.withTrx { trx -> workspace.get(trx, "a").unwrap() }?.let { block ->
@@ -76,8 +76,7 @@ class MainActivity : AppCompatActivity() {
 
             Log.i("jwst", "getSyncState " + storage.getSyncState())
             Log.i("jwst", "isOffline " + storage.isOffline())
-            Log.i("jwst", "isInitialized " + storage.isInitialized())
-            Log.i("jwst", "isSyncing " + storage.isSyncing())
+            Log.i("jwst", "isConnected " + storage.isConnected())
             Log.i("jwst", "isFinished " + storage.isFinished())
             Log.i("jwst", "isError " + storage.isError())
 

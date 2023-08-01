@@ -30,19 +30,12 @@ public final class JwstStorage {
     }
     private static native boolean do_is_offline(long self);
 
-    public final boolean is_initialized() {
-        boolean ret = do_is_initialized(mNativeObj);
+    public final boolean is_connected() {
+        boolean ret = do_is_connected(mNativeObj);
 
         return ret;
     }
-    private static native boolean do_is_initialized(long self);
-
-    public final boolean is_syncing() {
-        boolean ret = do_is_syncing(mNativeObj);
-
-        return ret;
-    }
-    private static native boolean do_is_syncing(long self);
+    private static native boolean do_is_connected(long self);
 
     public final boolean is_finished() {
         boolean ret = do_is_finished(mNativeObj);
@@ -77,6 +70,13 @@ public final class JwstStorage {
         return convRet;
     }
     private static native long do_connect(long self, @NonNull String workspace_id, @NonNull String remote);
+
+    public final long [] get_last_synced() {
+        long [] ret = do_get_last_synced(mNativeObj);
+
+        return ret;
+    }
+    private static native long [] do_get_last_synced(long self);
 
     public synchronized void delete() {
         if (mNativeObj != 0) {

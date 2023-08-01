@@ -27,7 +27,9 @@ impl FormatTime for LogTime {
     }
 }
 
-pub struct JWSTFormatter;
+pub struct JWSTFormatter {
+    pub(crate) colorful: bool,
+}
 
 impl JWSTFormatter {
     fn format_level(level: &Level) -> AnsiGenericString<str> {
@@ -41,8 +43,8 @@ impl JWSTFormatter {
     }
 
     #[inline]
-    fn render_log(meta: &Metadata<'_>) -> String {
-        if std::env::var("JWST_COLORFUL_LOGS").is_ok() || cfg!(debug_assertions) {
+    fn render_log(&self, meta: &Metadata<'_>) -> String {
+        if std::env::var("JWST_COLORFUL_LOGS").is_ok() || cfg!(debug_assertions) || self.colorful {
             format!(
                 "\r[{}][{}][{}] ",
                 Color::DarkGray.paint(LogTime::get_time()),
@@ -80,7 +82,7 @@ where
             return Ok(());
         }
 
-        write!(&mut writer, "{}", Self::render_log(meta))?;
+        write!(&mut writer, "{}", self.render_log(meta))?;
 
         // Format all the spans in the event's span context.
         if let Some(scope) = ctx.event_scope() {

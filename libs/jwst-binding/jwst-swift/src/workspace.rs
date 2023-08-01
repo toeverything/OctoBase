@@ -1,14 +1,18 @@
 use super::Block;
 use jwst::Workspace as JwstWorkspace;
+use std::sync::Arc;
+use tokio::runtime::Runtime;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
+    pub(crate) runtime: Arc<Runtime>,
 }
 
 impl Workspace {
-    pub fn new(id: String) -> Self {
+    pub fn new(id: String, runtime: Arc<Runtime>) -> Self {
         Self {
             workspace: JwstWorkspace::new(id),
+            runtime,
         }
     }
 
@@ -21,28 +25,45 @@ impl Workspace {
     }
 
     pub fn get(&self, block_id: String) -> Option<Block> {
-        let workspace = self.workspace.clone();
-        self.workspace.with_trx(|mut trx| {
-            let block = trx
-                .get_blocks()
-                .get(&trx.trx, &block_id)
-                .map(|b| Block::new(workspace, b));
-            drop(trx);
-            block
+        self.runtime.block_on(async {
+            let workspace = self.workspace.clone();
+            let runtime = self.runtime.clone();
+            self.runtime
+                .spawn(async move {
+                    workspace.with_trx(|mut trx| {
+                        let block = trx
+                            .get_blocks()
+                            .get(&trx.trx, &block_id)
+                            .map(|b| Block::new(workspace.clone(), b, runtime));
+                        drop(trx);
+                        block
+                    })
+                })
+                .await
+                .unwrap()
         })
     }
 
     pub fn create(&self, block_id: String, flavour: String) -> Block {
-        let workspace = self.workspace.clone();
-        self.workspace.with_trx(|mut trx| {
-            let block = Block::new(
-                workspace,
-                trx.get_blocks()
-                    .create(&mut trx.trx, block_id, flavour)
-                    .expect("failed to create block"),
-            );
-            drop(trx);
-            block
+        self.runtime.block_on(async {
+            let workspace = self.workspace.clone();
+            let runtime = self.runtime.clone();
+            self.runtime
+                .spawn(async move {
+                    workspace.with_trx(|mut trx| {
+                        let block = Block::new(
+                            workspace.clone(),
+                            trx.get_blocks()
+                                .create(&mut trx.trx, block_id, flavour)
+                                .expect("failed to create block"),
+                            runtime,
+                        );
+                        drop(trx);
+                        block
+                    })
+                })
+                .await
+                .unwrap()
         })
     }
 
@@ -51,14 +72,23 @@ impl Workspace {
     }
 
     pub fn get_blocks_by_flavour(&self, flavour: &str) -> Vec<Block> {
-        self.workspace
-            .with_trx(|mut trx| trx.get_blocks().get_blocks_by_flavour(&trx.trx, flavour))
-            .iter()
-            .map(|block| Block {
-                workspace: self.workspace.clone(),
-                block: block.clone(),
-            })
-            .collect()
+        self.runtime.block_on(async {
+            let workspace = self.workspace.clone();
+            let runtime = self.runtime.clone();
+            let flavour = flavour.to_string();
+            self.runtime
+                .spawn(async move {
+                    workspace
+                        .with_trx(|mut trx| {
+                            trx.get_blocks().get_blocks_by_flavour(&trx.trx, &flavour)
+                        })
+                        .iter()
+                        .map(|block| Block::new(workspace.clone(), block.clone(), runtime.clone()))
+                        .collect::<Vec<_>>()
+                })
+                .await
+                .unwrap()
+        })
     }
 
     pub fn get_search_index(self: &Workspace) -> Vec<String> {

@@ -366,11 +366,6 @@ public class Workspace: WorkspaceRefMut {
         }
     }
 }
-extension Workspace {
-    public convenience init<GenericIntoRustString: IntoRustString>(_ id: GenericIntoRustString) {
-        self.init(ptr: __swift_bridge__$Workspace$new({ let rustString = id.intoRustString(); rustString.isOwned = false; return rustString.ptr }()))
-    }
-}
 public class WorkspaceRefMut: WorkspaceRef {
     public override init(ptr: UnsafeMutableRawPointer) {
         super.init(ptr: ptr)
@@ -583,12 +578,8 @@ extension StorageRef {
         __swift_bridge__$Storage$is_offline(ptr)
     }
 
-    public func is_initialized() -> Bool {
-        __swift_bridge__$Storage$is_initialized(ptr)
-    }
-
-    public func is_syncing() -> Bool {
-        __swift_bridge__$Storage$is_syncing(ptr)
+    public func is_connected() -> Bool {
+        __swift_bridge__$Storage$is_connected(ptr)
     }
 
     public func is_finished() -> Bool {
@@ -603,8 +594,8 @@ extension StorageRef {
         RustString(ptr: __swift_bridge__$Storage$get_sync_state(ptr))
     }
 
-    public func sync<GenericIntoRustString: IntoRustString>(_ workspace_id: GenericIntoRustString, _ remote: GenericIntoRustString) -> JwstWorkSpaceResult {
-        JwstWorkSpaceResult(ptr: __swift_bridge__$Storage$sync(ptr, { let rustString = workspace_id.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = remote.intoRustString(); rustString.isOwned = false; return rustString.ptr }()))
+    public func get_last_synced() -> RustVec<Int64> {
+        RustVec(ptr: __swift_bridge__$Storage$get_last_synced(ptr))
     }
 }
 extension Storage: Vectorizable {

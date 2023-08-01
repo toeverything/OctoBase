@@ -62,7 +62,7 @@ reqwest = { version = "0.11.14", default-features = false, features = [
 cloud-infra = { path = "../../libs/cloud-infra" }
 jwst = { workspace = true, features = ["workspace-auto-subscribe"] }
 jwst-logger = { workspace = true }
-jwst-rpc = { workspace = true, features = ["websocket"] }
+jwst-rpc = { workspace = true }
 jwst-storage = { workspace = true }
 
 [dev-dependencies]

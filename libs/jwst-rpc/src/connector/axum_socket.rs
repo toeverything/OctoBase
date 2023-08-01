@@ -17,7 +17,7 @@ impl From<Message> for WebSocketMessage {
 pub fn axum_socket_connector(
     socket: WebSocket,
     workspace_id: &str,
-) -> (Sender<Message>, Receiver<Vec<u8>>, Sender<bool>) {
+) -> (Sender<Message>, Receiver<Vec<u8>>, Sender<i64>) {
     let (mut socket_tx, mut socket_rx) = socket.split();
 
     // send to remote pipeline
@@ -29,14 +29,18 @@ pub fn axum_socket_connector(
             while let Some(msg) = local_receiver.recv().await {
                 if let Err(e) = socket_tx.send(msg.into()).await {
                     let error = e.to_string();
-                    if e.into_inner().downcast::<SocketError>().map_or_else(
+                    if !e.into_inner().downcast::<SocketError>().map_or_else(
                         |_| false,
-                        |e| matches!(e.as_ref(), SocketError::ConnectionClosed),
+                        |e| {
+                            matches!(
+                                e.as_ref(),
+                                SocketError::ConnectionClosed | SocketError::AlreadyClosed
+                            )
+                        },
                     ) {
-                        break;
-                    } else {
                         error!("socket send error: {}", error);
                     }
+                    break;
                 }
             }
             info!("socket send final: {}", workspace_id);
@@ -61,15 +65,17 @@ pub fn axum_socket_connector(
         });
     }
 
-    let (first_init_tx, mut first_init_rx) = channel::<bool>(10);
+    let (first_init_tx, mut first_init_rx) = channel::<i64>(10);
     {
         // init notify thread
         let workspace_id = workspace_id.to_owned();
         tokio::spawn(async move {
-            if let Some(true) = first_init_rx.recv().await {
-                info!("socket init success: {}", workspace_id);
-            } else {
-                error!("socket init failed: {}", workspace_id);
+            while let Some(time) = first_init_rx.recv().await {
+                if time > 0 {
+                    info!("socket sync success: {}", workspace_id);
+                } else {
+                    error!("socket sync failed: {}", workspace_id);
+                }
             }
         });
     }

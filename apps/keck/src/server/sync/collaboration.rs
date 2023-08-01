@@ -1,17 +1,18 @@
 use super::*;
+#[cfg(feature = "websocket")]
+use axum::extract;
 use axum::{
-    extract,
     extract::{ws::WebSocketUpgrade, Path},
     response::Response,
     Json,
 };
 use futures::FutureExt;
-use jwst_rpc::{
-    axum_socket_connector, handle_connector, webrtc_datachannel_server_connector,
-    RTCSessionDescription,
-};
+use jwst_rpc::{axum_socket_connector, handle_connector};
+#[cfg(feature = "websocket")]
+use jwst_rpc::{webrtc_datachannel_server_connector, RTCSessionDescription};
 use serde::Serialize;
 use std::sync::Arc;
+#[cfg(feature = "websocket")]
 use tokio::sync::mpsc::channel;
 
 #[derive(Serialize)]
@@ -43,6 +44,7 @@ pub async fn upgrade_handler(
     })
 }
 
+#[cfg(feature = "webrtc")]
 pub async fn webrtc_handler(
     Extension(context): Extension<Arc<Context>>,
     Path(workspace): Path<String>,
@@ -50,13 +52,15 @@ pub async fn webrtc_handler(
 ) -> Json<RTCSessionDescription> {
     let (answer, tx, rx, _) = webrtc_datachannel_server_connector(offer).await;
 
-    let (first_init_tx, mut first_init_rx) = channel::<bool>(10);
+    let (first_init_tx, mut first_init_rx) = channel::<i64>(10);
     let workspace_id = workspace.to_owned();
     tokio::spawn(async move {
-        if let Some(true) = first_init_rx.recv().await {
-            info!("socket init success: {}", workspace_id);
-        } else {
-            error!("socket init failed: {}", workspace_id);
+        while let Some(time) = first_init_rx.recv().await {
+            if time > 0 {
+                info!("socket sync success: {}", workspace_id);
+            } else {
+                error!("socket sync failed: {}", workspace_id);
+            }
         }
     });
 
@@ -76,9 +80,9 @@ mod test {
     use jwst::DocStorage;
     use jwst::{Block, Workspace};
     use jwst_logger::info;
-    use jwst_rpc::{
-        start_client_sync, start_webrtc_client_sync, BroadcastChannels, RpcContextImpl,
-    };
+    #[cfg(feature = "websocket")]
+    use jwst_rpc::start_webrtc_client_sync;
+    use jwst_rpc::{start_websocket_client_sync, BroadcastChannels, RpcContextImpl};
     use jwst_storage::{BlobStorageType, JwstStorage};
     use libc::{kill, SIGTERM};
     use rand::{thread_rng, Rng};
@@ -114,6 +118,7 @@ mod test {
     }
     #[test]
     #[ignore = "not needed in ci"]
+    #[cfg(feature = "webrtc")]
     fn client_collaboration_with_webrtc_server() {
         if dotenvy::var("KECK_DEBUG").is_ok() {
             jwst_logger::init_logger("keck");
@@ -207,7 +212,7 @@ mod test {
             )));
             let remote = format!("ws://localhost:{server_port}/collaboration/1");
 
-            start_client_sync(
+            start_websocket_client_sync(
                 Arc::new(Runtime::new().unwrap()),
                 context.clone(),
                 Arc::default(),
@@ -294,7 +299,7 @@ mod test {
             let context = Arc::new(TestContext::new(storage));
             let remote = format!("ws://localhost:{server_port}/collaboration/1");
 
-            start_client_sync(
+            start_websocket_client_sync(
                 Arc::new(Runtime::new().unwrap()),
                 context.clone(),
                 Arc::default(),

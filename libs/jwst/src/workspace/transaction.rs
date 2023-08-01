@@ -119,7 +119,7 @@ impl Workspace {
                         retry -= 1;
                         sleep(Duration::from_micros(10));
                     } else {
-                        info!("retry_with_trx error");
+                        info!("retry_with_trx error: {}", e);
                         return Err(JwstError::DocTransaction(e.to_string()));
                     }
                 }

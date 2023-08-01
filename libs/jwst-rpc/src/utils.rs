@@ -1,5 +1,6 @@
 use super::*;
 use jwst::{DocStorage, Workspace};
+use jwst_codec::Doc;
 use jwst_storage::{BlobStorageType, JwstStorage};
 use nanoid::nanoid;
 use std::{collections::HashMap, thread::JoinHandle as StdJoinHandler, time::Duration};
@@ -8,7 +9,7 @@ use tokio::{
     task::JoinHandle as TokioJoinHandler,
     time::sleep,
 };
-use yrs::{updates::decoder::Decode, Doc, ReadTxn, StateVector, Transact, Update};
+use yrs::{ReadTxn, StateVector, Transact};
 
 pub struct MinimumServerContext {
     channel: BroadcastChannels,
@@ -85,21 +86,17 @@ pub async fn connect_memory_workspace(
     init_state: &[u8],
     id: &str,
 ) -> (
-    Workspace,
+    Doc,
     Sender<Message>,
     TokioJoinHandler<()>,
     StdJoinHandler<()>,
 ) {
-    let doc = Doc::new();
-    doc.transact_mut()
-        .apply_update(Update::decode_v1(init_state).unwrap());
-    let workspace = Workspace::from_doc(doc, id);
+    let mut doc = Doc::default();
+    doc.apply_update_from_binary(init_state.to_vec()).unwrap();
 
-    let doc = workspace.doc();
-
-    let (tx, rx, tx_handler, rx_handler) = memory_connector(doc, rand::random::<usize>());
+    let (tx, rx, tx_handler, rx_handler) = memory_connector(doc.clone(), rand::random::<usize>());
     {
-        let (first_init_tx, mut first_init_rx) = channel::<bool>(10);
+        let (last_synced_tx, mut last_synced_rx) = channel::<i64>(128);
         let tx = tx.clone();
         let workspace_id = id.to_string();
         std::thread::spawn(move || {
@@ -108,21 +105,21 @@ pub async fn connect_memory_workspace(
                 server,
                 workspace_id,
                 nanoid!(),
-                move || (tx, rx, first_init_tx),
+                move || (tx, rx, last_synced_tx),
             ));
         });
         // tokio::spawn(handle_connector(server, id.into(), nanoid!(), move || {
-        //     (tx, rx, first_init_tx)
+        //     (tx, rx, lasy_synced_tx)
         // }));
 
-        let success = first_init_rx.recv().await;
+        let success = last_synced_rx.recv().await;
 
-        if success.unwrap_or(false) {
+        if success.unwrap_or(0) > 0 {
             info!("{id} first init success");
         } else {
             error!("{id} first init failed");
         }
     }
 
-    (workspace, tx, tx_handler, rx_handler)
+    (doc, tx, tx_handler, rx_handler)
 }

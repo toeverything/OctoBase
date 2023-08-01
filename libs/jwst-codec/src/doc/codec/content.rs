@@ -6,7 +6,7 @@ use std::ops::Deref;
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub(crate) enum Content {
     Deleted(u64),
-    JSON(Vec<Option<String>>),
+    Json(Vec<Option<String>>),
     Binary(Vec<u8>),
     String(String),
     #[cfg_attr(test, proptest(skip))]
@@ -48,7 +48,7 @@ impl PartialEq for Content {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Deleted(len1), Self::Deleted(len2)) => len1 == len2,
-            (Self::JSON(vec1), Self::JSON(vec2)) => vec1 == vec2,
+            (Self::Json(vec1), Self::Json(vec2)) => vec1 == vec2,
             (Self::Binary(vec1), Self::Binary(vec2)) => vec1 == vec2,
             (Self::String(str1), Self::String(str2)) => str1 == str2,
             (Self::Embed(json1), Self::Embed(json2)) => json1 == json2,
@@ -79,7 +79,7 @@ impl std::fmt::Debug for Content {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Deleted(arg0) => f.debug_tuple("Deleted").field(arg0).finish(),
-            Self::JSON(arg0) => f
+            Self::Json(arg0) => f
                 .debug_tuple("JSON")
                 .field(&format!("Vec [len: {}]", arg0.len()))
                 .finish(),
@@ -122,7 +122,7 @@ impl Content {
                     })
                     .collect::<Result<Vec<_>, _>>()?;
 
-                Ok(Self::JSON(strings))
+                Ok(Self::Json(strings))
             } // JSON
             3 => Ok(Self::Binary(decoder.read_var_buffer()?.to_vec())), // Binary
             4 => Ok(Self::String(decoder.read_var_string()?)), // String
@@ -172,7 +172,7 @@ impl Content {
     pub(crate) fn get_info(&self) -> u8 {
         match self {
             Self::Deleted(_) => 1,
-            Self::JSON(_) => 2,
+            Self::Json(_) => 2,
             Self::Binary(_) => 3,
             Self::String(_) => 4,
             Self::Embed(_) => 5,
@@ -188,7 +188,7 @@ impl Content {
             Self::Deleted(len) => {
                 encoder.write_var_u64(*len)?;
             }
-            Self::JSON(strings) => {
+            Self::Json(strings) => {
                 encoder.write_var_u64(strings.len() as u64)?;
                 for string in strings {
                     match string {
@@ -240,7 +240,7 @@ impl Content {
     pub fn clock_len(&self) -> u64 {
         match self {
             Self::Deleted(len) => *len,
-            Self::JSON(strings) => strings.len() as u64,
+            Self::Json(strings) => strings.len() as u64,
             Self::String(string) => string.chars().count() as u64,
             Self::Any(any) => any.len() as u64,
             Self::Binary(_)
@@ -259,7 +259,7 @@ impl Content {
     pub fn splittable(&self) -> bool {
         matches!(
             self,
-            Self::String { .. } | Self::Any { .. } | Self::JSON { .. }
+            Self::String { .. } | Self::Any { .. } | Self::Json { .. }
         )
     }
 
@@ -273,9 +273,9 @@ impl Content {
                     Self::String(right.to_string()),
                 ))
             }
-            Self::JSON(vec) => {
+            Self::Json(vec) => {
                 let (left, right) = vec.split_at((diff + 1) as usize);
-                Ok((Self::JSON(left.to_owned()), Self::JSON(right.to_owned())))
+                Ok((Self::Json(left.to_owned()), Self::Json(right.to_owned())))
             }
             Self::Any(vec) => {
                 let (left, right) = vec.split_at((diff + 1) as usize);
@@ -323,7 +323,7 @@ mod tests {
         loom_model!({
             let contents = [
                 Content::Deleted(42),
-                Content::JSON(vec![
+                Content::Json(vec![
                     None,
                     Some("test_1".to_string()),
                     Some("test_2".to_string()),
@@ -368,7 +368,7 @@ mod tests {
     fn test_content_split() {
         let contents = [
             Content::String("hello".to_string()),
-            Content::JSON(vec![
+            Content::Json(vec![
                 None,
                 Some("test_1".to_string()),
                 Some("test_2".to_string()),
@@ -387,8 +387,8 @@ mod tests {
         {
             let (left, right) = contents[1].split(1).unwrap();
             assert!(contents[1].splittable());
-            assert_eq!(left, Content::JSON(vec![None, Some("test_1".to_string())]));
-            assert_eq!(right, Content::JSON(vec![Some("test_2".to_string())]));
+            assert_eq!(left, Content::Json(vec![None, Some("test_1".to_string())]));
+            assert_eq!(right, Content::Json(vec![Some("test_2".to_string())]));
         }
 
         {

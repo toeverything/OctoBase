@@ -58,17 +58,32 @@ impl Workspace {
         Ok(buffer)
     }
 
-    pub async fn sync_decode_message(&mut self, buffer: &[u8]) -> Vec<Vec<u8>> {
+    pub async fn sync_messages(&mut self, buffers: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+        let mut awareness = vec![];
+        let mut content = vec![];
+
+        for buffer in buffers {
+            let (awareness_msg, content_msg): (Vec<_>, Vec<_>) =
+                SyncMessageScanner::new(&buffer).flatten().partition(|msg| {
+                    matches!(msg, SyncMessage::Awareness(_) | SyncMessage::AwarenessQuery)
+                });
+            awareness.extend(awareness_msg);
+            content.extend(content_msg);
+        }
+
         let mut result = vec![];
 
-        let (awareness_msg, content_msg): (Vec<_>, Vec<_>) =
-            SyncMessageScanner::new(buffer).flatten().partition(|msg| {
-                matches!(msg, SyncMessage::Awareness(_) | SyncMessage::AwarenessQuery)
-            });
+        result.extend(self.sync_awareness(awareness).await);
+        result.extend(self.sync_content(content));
 
-        if !awareness_msg.is_empty() {
+        result
+    }
+
+    async fn sync_awareness(&mut self, msgs: Vec<SyncMessage>) -> Vec<Vec<u8>> {
+        let mut result = vec![];
+        if !msgs.is_empty() {
             let mut awareness = self.awareness.write().await;
-            for msg in awareness_msg {
+            for msg in msgs {
                 match msg {
                     SyncMessage::AwarenessQuery => {
                         let mut buffer = Vec::new();
@@ -86,7 +101,12 @@ impl Workspace {
                 }
             }
         }
-        if !content_msg.is_empty() {
+        result
+    }
+
+    fn sync_content(&mut self, msg: Vec<SyncMessage>) -> Vec<Vec<u8>> {
+        let mut result = vec![];
+        if !msg.is_empty() {
             let doc = self.doc();
             if let Err(e) = catch_unwind(AssertUnwindSafe(|| {
                 let mut retry = RETRY_NUM;
@@ -100,7 +120,7 @@ impl Workspace {
                         return;
                     }
                 };
-                for msg in content_msg {
+                for msg in msg {
                     if let Some(msg) = {
                         trace!("processing message: {:?}", msg);
                         match msg {
@@ -164,7 +184,7 @@ impl Workspace {
     }
 
     #[cfg(feature = "workspace-auto-subscribe")]
-    pub fn try_subscribe_all_blocks(&mut self) {
+    fn try_subscribe_all_blocks(&mut self) {
         if let Some(block_observer_config) = self.block_observer_config.clone() {
             // costing approximately 1ms per 500 blocks
             if let Err(e) = self.retry_with_trx(

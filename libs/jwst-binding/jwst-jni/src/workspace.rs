@@ -4,9 +4,12 @@ use super::{
 };
 use crate::block_observer::{BlockObserver, BlockObserverWrapper};
 use std::sync::Arc;
+use tokio::runtime::Runtime;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
+    #[allow(dead_code)]
+    pub(crate) runtime: Arc<Runtime>,
 }
 
 impl Workspace {

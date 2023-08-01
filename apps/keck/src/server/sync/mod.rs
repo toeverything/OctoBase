@@ -5,7 +5,7 @@ use super::*;
 use axum::routing::{get, post, put};
 
 pub fn sync_handler(router: Router) -> Router {
-    if cfg!(feature = "api") {
+    let router = if cfg!(feature = "api") {
         router
     } else {
         router.nest(
@@ -21,9 +21,16 @@ pub fn sync_handler(router: Router) -> Router {
     .nest_service(
         "/collaboration/:workspace",
         post(collaboration::auth_handler).get(collaboration::upgrade_handler),
-    )
-    .nest_service(
-        "/webrtc-sdp/:workspace",
-        post(collaboration::webrtc_handler),
-    )
+    );
+
+    #[cfg(feature = "webrtc")]
+    {
+        router.nest_service(
+            "/webrtc-sdp/:workspace",
+            post(collaboration::webrtc_handler),
+        )
+    }
+
+    #[cfg(not(feature = "webrtc"))]
+    router
 }

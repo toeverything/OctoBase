@@ -14,19 +14,19 @@ pub fn init_logger(name: &str) {
     let name = name.replace('-', "_");
     let env_filter = EnvFilter::try_from_env(name.to_uppercase() + "_LOG")
         .unwrap_or_else(|_| EnvFilter::new(name + "=info"));
-    init_logger_with_env_filter(env_filter);
+    init_logger_with_env_filter(env_filter, false);
 }
 
 /// Initialize a logger with the directives in the given string.
 ///
 /// See [`EnvFilter::new`]
 #[inline]
-pub fn init_logger_with(directives: &str) {
+pub fn init_logger_with(directives: &str, colorful: bool) {
     let env_filter = EnvFilter::new(directives.replace('-', "_"));
-    init_logger_with_env_filter(env_filter);
+    init_logger_with_env_filter(env_filter, colorful);
 }
 
-fn init_logger_with_env_filter(env_filter: EnvFilter) {
+fn init_logger_with_env_filter(env_filter: EnvFilter, colorful: bool) {
     let writer = stderr.with_max_level(Level::ERROR).or_else(stdout);
 
     INIT.call_once(|| {
@@ -34,7 +34,7 @@ fn init_logger_with_env_filter(env_filter: EnvFilter) {
             .with(
                 fmt::layer()
                     .map_writer(move |_| writer)
-                    .map_event_format(|_| JWSTFormatter),
+                    .map_event_format(|_| JWSTFormatter { colorful }),
             )
             .with(env_filter)
             .init()
