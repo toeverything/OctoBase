@@ -9,15 +9,15 @@ pub(crate) use loom::{
 
 #[cfg(not(loom))]
 pub(crate) use std::sync::{
-    atomic::{AtomicU16, AtomicU8, Ordering},
-    RwLock, RwLockReadGuard, RwLockWriteGuard,
+    atomic::{AtomicBool, AtomicU16, AtomicU8, Ordering},
+    Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard,
 };
 
 pub use std::sync::{Arc, Weak};
 
 #[cfg(all(test, not(loom)))]
 pub(crate) use std::{
-    sync::{atomic::AtomicUsize, Mutex, MutexGuard},
+    sync::{atomic::AtomicUsize, MutexGuard},
     thread,
 };
 

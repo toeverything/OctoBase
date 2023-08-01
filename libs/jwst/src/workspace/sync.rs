@@ -1,6 +1,8 @@
 use super::*;
 use crate::RETRY_NUM;
-use jwst_codec::{write_sync_message, DocMessage, SyncMessage, SyncMessageScanner};
+use jwst_codec::{
+    decode_maybe_update_with_guid, write_sync_message, DocMessage, SyncMessage, SyncMessageScanner,
+};
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
     thread::sleep,
@@ -141,7 +143,15 @@ impl Workspace {
                                     None
                                 }
                                 DocMessage::Update(update) => {
-                                    if let Ok(update) = Update::decode_v1(&update) {
+                                    let (guid, update) = decode_maybe_update_with_guid(update);
+                                    if !guid.is_empty() && guid.is_ascii() && guid != self.id() {
+                                        warn!(
+                                            "skip apply update to {} from other workspace: {}",
+                                            self.id(),
+                                            guid
+                                        );
+                                        None
+                                    } else if let Ok(update) = Update::decode_v1(&update) {
                                         trx.apply_update(update);
                                         trx.commit();
                                         if cfg!(debug_assertions) {
