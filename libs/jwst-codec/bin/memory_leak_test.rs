@@ -56,7 +56,7 @@ fn run_array_test(seed: u64) {
 
 fn run_map_test() {
     let base_text = "test1 test2 test3 test4 test5 test6 test7 test8 test9"
-        .split(" ")
+        .split(' ')
         .collect::<Vec<_>>();
 
     for _ in 0..10000 {

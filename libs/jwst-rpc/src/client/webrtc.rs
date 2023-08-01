@@ -83,8 +83,8 @@ pub fn start_webrtc_client_sync(
                     }
                 }
 
-                warn!("Remote sync connection disconnected, try again in 2 seconds");
-                sleep(Duration::from_secs(3)).await;
+                warn!("remote sync connection disconnected, try again in 2 seconds");
+                sleep(Duration::from_secs(2)).await;
             }
         });
     });

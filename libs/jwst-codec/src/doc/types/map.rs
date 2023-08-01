@@ -155,6 +155,10 @@ impl Map {
     pub fn len(&self) -> u64 {
         MapType::len(self)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 #[cfg(test)]

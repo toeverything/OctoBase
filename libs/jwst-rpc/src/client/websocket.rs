@@ -57,7 +57,7 @@ pub fn start_websocket_client_sync(
             let socket = match prepare_connection(&remote).await {
                 Ok(socket) => socket,
                 Err(e) => {
-                    warn!("Failed to connect to remote, try again in 2 seconds: {}", e);
+                    warn!("failed to connect to remote, try again in 2 seconds: {}", e);
                     sleep(Duration::from_secs(2)).await;
                     continue;
                 }
@@ -87,16 +87,16 @@ pub fn start_websocket_client_sync(
                     debug!("sync thread finished");
                     *state = SyncState::Finished;
                 } else {
-                    *state = SyncState::Error("Remote sync connection disconnected".to_string());
+                    *state = SyncState::Error("remote sync connection disconnected".to_string());
                 }
             }
 
-            info!("Remote sync connection disconnected, try again in 2 seconds");
+            warn!("Remote sync connection disconnected, try again in 2 seconds");
             sleep(Duration::from_secs(2)).await;
         }
     });
 
-    let timeline = CachedLastSynced::new();
+    let timeline = CachedLastSynced::default();
     timeline.add_receiver_wait_first_update(rt, last_synced_rx);
 
     timeline

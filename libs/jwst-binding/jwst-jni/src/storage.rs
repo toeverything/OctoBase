@@ -62,7 +62,7 @@ impl JwstStorage {
             channel: Arc::default(),
             error: None,
             sync_state: Arc::new(RwLock::new(SyncState::Offline)),
-            last_sync: CachedLastSynced::new(),
+            last_sync: CachedLastSynced::default(),
         }
     }
 

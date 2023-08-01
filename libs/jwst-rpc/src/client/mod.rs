@@ -13,20 +13,13 @@ pub use webrtc::start_webrtc_client_sync;
 #[cfg(feature = "websocket")]
 pub use websocket::start_websocket_client_sync;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct CachedLastSynced {
     synced: Arc<Mutex<Vec<i64>>>,
     _threads: Arc<Mutex<Vec<JoinHandle<()>>>>,
 }
 
 impl CachedLastSynced {
-    pub fn new() -> Self {
-        Self {
-            synced: Arc::new(Mutex::new(Vec::new())),
-            _threads: Arc::default(),
-        }
-    }
-
     pub fn add_receiver_wait_first_update(&self, rt: Arc<Runtime>, recv: Receiver<i64>) {
         self.add_receiver(rt, recv);
         while self.synced.lock().unwrap().is_empty() {
