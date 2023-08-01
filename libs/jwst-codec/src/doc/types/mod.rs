@@ -303,6 +303,12 @@ macro_rules! impl_type {
             }
         }
 
+        impl $name {
+            pub(crate) fn from_unchecked(value: super::YTypeRef) -> Self {
+                $name::new(value.clone())
+            }
+        }
+
         impl PartialEq for $name {
             fn eq(&self, other: &Self) -> bool {
                 &*self.read().unwrap() == &*other.read().unwrap()
@@ -361,13 +367,15 @@ impl TryFrom<&Content> for Value {
             Content::Binary(buf) => Value::Any(Any::Binary(buf.clone())),
             Content::Embed(v) => Value::Any(v.clone()),
             Content::Type(ty) => match ty.get().unwrap().read().unwrap().kind {
-                YTypeKind::Array => Value::Array(Array::try_from(ty.clone())?),
-                YTypeKind::Map => Value::Map(Map::try_from(ty.clone())?),
-                YTypeKind::Text => Value::Text(Text::try_from(ty.clone())?),
-                YTypeKind::XMLElement => Value::XMLElement(XMLElement::try_from(ty.clone())?),
-                YTypeKind::XMLFragment => Value::XMLFragment(XMLFragment::try_from(ty.clone())?),
-                YTypeKind::XMLHook => Value::XMLHook(XMLHook::try_from(ty.clone())?),
-                YTypeKind::XMLText => Value::XMLText(XMLText::try_from(ty.clone())?),
+                YTypeKind::Array => Value::Array(Array::from_unchecked(ty.clone())),
+                YTypeKind::Map => Value::Map(Map::from_unchecked(ty.clone())),
+                YTypeKind::Text => Value::Text(Text::from_unchecked(ty.clone())),
+                YTypeKind::XMLElement => Value::XMLElement(XMLElement::from_unchecked(ty.clone())),
+                YTypeKind::XMLFragment => {
+                    Value::XMLFragment(XMLFragment::from_unchecked(ty.clone()))
+                }
+                YTypeKind::XMLHook => Value::XMLHook(XMLHook::from_unchecked(ty.clone())),
+                YTypeKind::XMLText => Value::XMLText(XMLText::from_unchecked(ty.clone())),
                 // actually unreachable
                 YTypeKind::Unknown => return Err(JwstCodecError::TypeCastError("unknown")),
             },
