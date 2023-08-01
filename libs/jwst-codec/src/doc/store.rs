@@ -302,8 +302,8 @@ impl DocStore {
 
         match &item.parent {
             // root level named type
-            // doc.get_or_create_text(Some("content"))
-            //                              ^^^^^^^ Parent::String("content")
+            // doc.get_or_create_text("content");
+            //                         ^^^^^^^ Parent::String("content")
             Some(Parent::String(str)) => {
                 let ty = self.get_or_create_type(str);
                 if let Some(ty) = ty.get() {
@@ -312,26 +312,31 @@ impl DocStore {
                 item.parent.replace(Parent::Type(ty));
             }
             // type as item
-            // let text = doc.create_text("text")
-            // Item { id: (1, 0), content: Content::Type(YText) }
+            // let text = doc.create_text();
+            // let mut map = doc.get_or_create_map("content");
+            // map.insert("p1", text);
+            //
+            // Item { id: (1, 0), content: Content::Type(_) }
             //        ^^ Parent::Id((1, 0))
             Some(Parent::Id(parent_id)) => {
                 match self.get_node(*parent_id) {
-                    Some(Node::Item(_)) => match &item.content.as_ref() {
-                        Content::Type(ty) => {
-                            if let Some(ty) = ty.get() {
-                                ty.write().unwrap().store = Arc::downgrade(&store_ref);
+                    Some(Node::Item(parent_item)) => {
+                        match &parent_item.get().unwrap().content.as_ref() {
+                            Content::Type(ty) => {
+                                if let Some(ty) = ty.get() {
+                                    ty.write().unwrap().store = Arc::downgrade(&store_ref);
+                                }
+                                item.parent.replace(Parent::Type(ty.clone()));
                             }
-                            item.parent.replace(Parent::Type(ty.clone()));
+                            Content::Deleted(_) => {
+                                // parent got deleted, take it.
+                                item.parent.take();
+                            }
+                            _ => {
+                                return Err(JwstCodecError::InvalidParent);
+                            }
                         }
-                        Content::Deleted(_) => {
-                            // parent got deleted, take it.
-                            item.parent.take();
-                        }
-                        _ => {
-                            return Err(JwstCodecError::InvalidParent);
-                        }
-                    },
+                    }
                     _ => {
                         // GC & Skip are not valid parent, take it.
                         item.parent.take();

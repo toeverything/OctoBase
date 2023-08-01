@@ -325,7 +325,7 @@ mod tests {
         );
 
         let binary = {
-            let doc = Doc::with_options(options);
+            let doc = Doc::with_options(options.clone());
             let mut array = doc.get_or_create_array("abc").unwrap();
             array.insert(0, 42).unwrap();
             array.insert(1, -42).unwrap();
@@ -351,5 +351,14 @@ mod tests {
             array.to_json(&trx),
             serde_json::json!([42, -42, true, false, "hello", "world", [1]])
         );
+
+        let mut doc = Doc::with_options(options);
+        let array = doc.get_or_create_array("abc").unwrap();
+        doc.apply_update_from_binary(binary).unwrap();
+
+        let list = array.iter().collect::<Vec<_>>();
+
+        assert!(list.len() == 7);
+        assert!(matches!(list[6], Value::Array(_)));
     }
 }
