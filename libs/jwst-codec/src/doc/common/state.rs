@@ -4,7 +4,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug, PartialEq, Clone)]
 pub struct StateVector(HashMap<Client, Clock>);
 
 impl StateVector {
