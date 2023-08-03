@@ -150,7 +150,7 @@ impl Doc {
 
             // can't integrate any more, save the pending update
             if !retry {
-                if !update.is_pending_empty() {
+                if !update.is_empty() {
                     store.pending.replace(update);
                 }
                 break;
