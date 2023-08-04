@@ -1,15 +1,18 @@
 use super::*;
-use jwst_codec::{write_sync_message, Doc, DocMessage, SyncMessage, SyncMessageScanner};
+use jwst_codec::{
+    decode_update_with_guid, encode_update_as_message, Doc, DocMessage, SyncMessage,
+    SyncMessageScanner,
+};
 use std::{
     sync::atomic::{AtomicBool, Ordering},
     thread::JoinHandle as StdJoinHandler,
 };
-use tokio::{sync::mpsc::channel, task::JoinHandle as TokioJoinHandler};
+use tokio::{runtime::Runtime, sync::mpsc::channel, task::JoinHandle as TokioJoinHandler};
 
 // just for test
 pub fn memory_connector(
+    rt: Arc<Runtime>,
     doc: Doc,
-    id: usize,
 ) -> (
     Sender<Message>,
     Receiver<Vec<u8>>,
@@ -20,6 +23,7 @@ pub fn memory_connector(
     let (remote_sender, remote_receiver) = channel::<Vec<u8>>(512);
     // send to remote pipeline
     let (local_sender, mut local_receiver) = channel::<Message>(100);
+    let id = rand::random::<usize>();
 
     //  recv thread
     let recv_handler = {
@@ -31,24 +35,24 @@ pub fn memory_connector(
             doc.subscribe(move |update| {
                 debug!("send change: {}", update.len());
 
-                let mut buffer = Vec::new();
-                if let Err(e) = write_sync_message(
-                    &mut buffer,
-                    &SyncMessage::Doc(DocMessage::Update(update.to_vec())),
-                ) {
-                    error!("write sync message error: {}", e);
-                    return;
+                match encode_update_as_message(update.to_vec()) {
+                    Ok(buffer) => {
+                        if rt.block_on(remote_sender.send(buffer)).is_err() {
+                            // pipeline was closed
+                            finish.store(true, Ordering::Release);
+                        }
+                        debug!("send change: {} end", update.len());
+                    }
+                    Err(e) => {
+                        error!("write sync message error: {}", e);
+                    }
                 }
-                if futures::executor::block_on(remote_sender.send(buffer)).is_err() {
-                    // pipeline was closed
-                    finish.store(true, Ordering::Release);
-                }
-                debug!("send change: {} end", update.len());
             });
         }
 
         {
             let local_sender = local_sender.clone();
+            let doc = doc.clone();
             std::thread::spawn(move || {
                 while let Ok(false) | Err(false) = finish
                     .compare_exchange_weak(true, false, Ordering::Acquire, Ordering::Acquire)
@@ -56,7 +60,7 @@ pub fn memory_connector(
                 {
                     std::thread::sleep(Duration::from_millis(100));
                 }
-
+                doc.unsubscribe_all();
                 debug!("recv final: {}", id);
             })
         }
@@ -69,9 +73,10 @@ pub fn memory_connector(
             while let Some(msg) = local_receiver.recv().await {
                 match msg {
                     Message::Binary(data) => {
+                        info!("msg:binary");
                         let mut doc = doc.clone();
                         tokio::task::spawn_blocking(move || {
-                            trace!("recv change: {}", data.len());
+                            trace!("recv change: {:?}", data.len());
                             for update in SyncMessageScanner::new(&data).filter_map(|m| {
                                 m.ok().and_then(|m| {
                                     if let SyncMessage::Doc(DocMessage::Update(update)) = m {
@@ -81,16 +86,35 @@ pub fn memory_connector(
                                     }
                                 })
                             }) {
-                                if let Err(e) = doc.apply_update_from_binary(update) {
-                                    error!("failed to decode update: {}", e);
+                                match decode_update_with_guid(update.clone()) {
+                                    Ok((_, update1)) => {
+                                        if let Err(e) = doc.apply_update_from_binary(update1) {
+                                            error!(
+                                                "failed to decode update1: {}, update: {:?}",
+                                                e, update
+                                            );
+                                        }
+                                    }
+                                    Err(e) => {
+                                        error!(
+                                            "failed to decode update2: {}, update: {:?}",
+                                            e, update
+                                        );
+                                    }
                                 }
                             }
 
                             trace!("recv change: {} end", data.len());
                         });
                     }
-                    Message::Close => break,
-                    Message::Ping => continue,
+                    Message::Close => {
+                        info!("msg:close");
+                        break;
+                    }
+                    Message::Ping => {
+                        info!("msg:ping");
+                        continue;
+                    }
                 }
             }
             debug!("send final: {}", id);

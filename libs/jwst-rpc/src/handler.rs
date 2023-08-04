@@ -256,42 +256,46 @@ mod test {
         let (server, ws, init_state) =
             MinimumServerContext::new_with_workspace(&workspace_id).await;
 
-        let (doc1, _, _, _) =
+        let (mut doc1, _, _, _, _) =
             connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
-        let (doc2, tx2, tx_handler, rx_handler) =
+        let (doc2, tx2, tx_handler, rx_handler, rt) =
             connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
-
-        let doc1 = jwst::Workspace::from_binary(&doc1.encode_update_v1().unwrap(), &workspace_id);
-        let mut doc2 =
-            jwst::Workspace::from_binary(&doc2.encode_update_v1().unwrap(), &workspace_id);
 
         // close connection after doc1 is broadcasted
-        doc2.observe(move |_, _| {
-            futures::executor::block_on(async {
+        doc2.subscribe(move |_| {
+            rt.block_on(async {
                 tx2.send(Message::Close).await.unwrap();
             });
         });
 
-        doc1.with_trx(|mut t| {
-            let space = t.get_space("space");
-            let block1 = space.create(&mut t.trx, "block1", "flavour1").unwrap();
-            block1.set(&mut t.trx, "key1", "val1").unwrap();
-        });
+        // collect the update from yrs's editing
+        let update = jwst::Workspace::from_binary(&doc1.encode_update_v1().unwrap(), &workspace_id)
+            .with_trx(|mut t| {
+                let space = t.get_space("space");
+                let block1 = space.create(&mut t.trx, "block1", "flavour1").unwrap();
+                block1.set(&mut t.trx, "key1", "val1").unwrap();
+                t.commit();
+                t.trx.encode_update_v1().unwrap()
+            });
+        // apply update with jwst-codec
+        doc1.apply_update_from_binary(update).unwrap();
 
         // await the task to make sure the doc1 is broadcasted before check doc2
         tx_handler.await.unwrap();
         rx_handler.join().unwrap();
 
-        doc2.retry_with_trx(
-            |mut t| {
-                let space = t.get_space("space");
-                let block1 = space.get(&mut t.trx, "block1").unwrap();
+        // collect the update from jwst-codec and check the result
+        jwst::Workspace::from_binary(&doc2.encode_update_v1().unwrap(), &workspace_id)
+            .retry_with_trx(
+                |mut t| {
+                    let space = t.get_space("space");
+                    let block1 = space.get(&mut t.trx, "block1").unwrap();
 
-                assert_eq!(block1.flavour(&t.trx), "flavour1");
-                assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
-            },
-            10,
-        )?;
+                    assert_eq!(block1.flavour(&t.trx), "flavour1");
+                    assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
+                },
+                10,
+            )?;
 
         ws.retry_with_trx(
             |mut t| {
@@ -351,7 +355,7 @@ mod test {
 
             collaborator.fetch_add(1, Ordering::Relaxed);
             collaborator_pb.set_position(collaborator.load(Ordering::Relaxed));
-            let (doc, doc_tx, tx_handler, rx_handler) =
+            let (doc, doc_tx, tx_handler, rx_handler, _rt) =
                 connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
             let mut doc =
                 jwst::Workspace::from_binary(&doc.encode_update_v1().unwrap(), &workspace_id);
