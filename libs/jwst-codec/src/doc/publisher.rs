@@ -107,3 +107,9 @@ impl std::fmt::Debug for DocPublisher {
         f.debug_struct("DocPublisher").finish()
     }
 }
+
+impl Drop for DocPublisher {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
