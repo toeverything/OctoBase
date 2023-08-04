@@ -52,7 +52,7 @@ env:
 jobs:
     aio-cloud-baseline:
         if: github.ref == 'refs/heads/master'
-        runs-on: self-hosted
+        runs-on: [self-hosted, linux, x64]
         environment: development
         permissions:
             contents: read
@@ -141,7 +141,7 @@ jobs:
                       BASE_IMAGE=${{ env.LOCAL_CACHE }}
 
     cloud:
-        runs-on: self-hosted
+        runs-on: [self-hosted, linux, x64]
         environment: development
         permissions:
             contents: read
