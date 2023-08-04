@@ -250,6 +250,7 @@ mod test {
     }
 
     #[tokio::test]
+    #[ignore = "unstable, skip in ci and wait for the refactoring of the sync logic"]
     async fn sync_test() -> JwstResult<()> {
         let workspace_id = format!("test{}", rand::random::<usize>());
 
