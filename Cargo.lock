@@ -2808,6 +2808,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "jwst-core"
+version = "0.1.0"
+dependencies = [
+ "assert-json-diff",
+ "async-trait",
+ "base64 0.21.2",
+ "bytes",
+ "chrono",
+ "futures",
+ "jwst-codec",
+ "lib0",
+ "nanoid",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "yrs",
+]
+
+[[package]]
 name = "jwst-jni"
 version = "0.1.0"
 dependencies = [
