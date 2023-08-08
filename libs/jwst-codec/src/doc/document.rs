@@ -1,3 +1,5 @@
+use std::collections::hash_map::Keys;
+
 use super::{publisher::DocPublisher, store::StoreRef, *};
 use crate::sync::{Arc, RwLock};
 
@@ -160,6 +162,11 @@ impl Doc {
         Ok(())
     }
 
+    pub fn keys(&self) -> Vec<String> {
+        let store = self.store.read().unwrap();
+        store.types.keys().cloned().collect()
+    }
+
     pub fn get_or_create_text(&self, name: &str) -> JwstCodecResult<Text> {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Text)
@@ -191,6 +198,19 @@ impl Doc {
             .with_kind(YTypeKind::Map)
             .set_name(str.to_string())
             .build()
+    }
+
+    pub fn create_map(&self) -> JwstCodecResult<Map> {
+        YTypeBuilder::new(self.store.clone())
+            .with_kind(YTypeKind::Map)
+            .build()
+    }
+
+    pub fn get_map(&self, str: &str) -> JwstCodecResult<Map> {
+        YTypeBuilder::new(self.store.clone())
+            .with_kind(YTypeKind::Map)
+            .set_name(str.to_string())
+            .build_exists()
     }
 
     pub fn encode_update_v1(&self) -> JwstCodecResult<Vec<u8>> {

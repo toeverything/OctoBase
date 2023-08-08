@@ -1,13 +1,9 @@
-use jwst_codec::Awareness;
+use super::*;
+use jwst_codec::{Awareness, Doc, Map, Update};
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use std::sync::Mutex;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::RwLock;
-use yrs::{
-    types::{map::MapEvent, ToJson},
-    updates::decoder::Decode,
-    Doc, Map, MapRef, Subscription, Transact, TransactionMut, Update, UpdateSubscription,
-};
+use yrs::{types::map::MapEvent, Subscription, TransactionMut};
 
 pub type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>;
 
@@ -15,64 +11,56 @@ pub struct Workspace {
     workspace_id: String,
     pub(super) awareness: Arc<RwLock<Awareness>>,
     pub(super) doc: Doc,
-    // TODO: Unreasonable subscription mechanism, needs refactoring
-    pub(super) sub: Arc<Mutex<HashMap<String, UpdateSubscription>>>,
-    pub(crate) updated: MapRef,
-    pub(crate) metadata: MapRef,
+    pub(crate) updated: Map,
+    pub(crate) metadata: Map,
 }
 
 unsafe impl Send for Workspace {}
 unsafe impl Sync for Workspace {}
 
 impl Workspace {
-    pub fn new<S: AsRef<str>>(id: S) -> Self {
-        let doc = Doc::new();
+    pub fn new<S: AsRef<str>>(id: S) -> JwstResult<Self> {
+        let doc = Doc::default();
         Self::from_doc(doc, id)
     }
 
-    pub fn from_binary(binary: &[u8], workspace_id: &str) -> Self {
-        let doc = Doc::new();
-        doc.transact_mut()
-            .apply_update(Update::decode_v1(binary).unwrap());
+    pub fn from_binary(binary: Vec<u8>, workspace_id: &str) -> JwstResult<Self> {
+        let mut doc = Doc::default();
+        doc.apply_update(Update::from_ybinary1(binary)?);
         Self::from_doc(doc, workspace_id)
     }
 
-    pub fn from_doc<S: AsRef<str>>(doc: Doc, workspace_id: S) -> Workspace {
-        let updated = doc.get_or_insert_map("space:updated");
-        let metadata = doc.get_or_insert_map("space:meta");
+    pub fn from_doc<S: AsRef<str>>(doc: Doc, workspace_id: S) -> JwstResult<Self> {
+        let updated = doc.get_or_create_map("space:updated")?;
+        let metadata = doc.get_or_create_map("space:meta")?;
 
-        Self {
+        Ok(Self {
             workspace_id: workspace_id.as_ref().to_string(),
-            awareness: Arc::new(RwLock::new(Awareness::new(doc.client_id()))),
+            awareness: Arc::new(RwLock::new(Awareness::new(doc.client()))),
             doc,
-            sub: Arc::default(),
             updated,
             metadata,
-        }
+        })
     }
 
     fn from_raw<S: AsRef<str>>(
         workspace_id: S,
         awareness: Arc<RwLock<Awareness>>,
         doc: Doc,
-        sub: Arc<Mutex<HashMap<String, UpdateSubscription>>>,
-        updated: MapRef,
-        metadata: MapRef,
+        updated: Map,
+        metadata: Map,
     ) -> Workspace {
         Self {
             workspace_id: workspace_id.as_ref().to_string(),
             awareness,
             doc,
-            sub,
             updated,
             metadata,
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        let doc = self.doc();
-        let trx = doc.transact();
-        self.updated.len(&trx) == 0
+        self.updated.is_empty()
     }
 
     pub fn id(&self) -> String {
@@ -84,11 +72,7 @@ impl Workspace {
     }
 
     pub fn client_id(&self) -> u64 {
-        self.doc.client_id()
-    }
-
-    pub fn doc(&self) -> Doc {
-        self.doc.clone()
+        self.doc.client()
     }
 }
 
@@ -99,13 +83,12 @@ impl Serialize for Workspace {
     {
         let mut map = serializer.serialize_map(None)?;
 
-        for space in self.with_trx(|t| t.spaces(|spaces| spaces.collect::<Vec<_>>())) {
+        for space in self.spaces(|spaces| spaces.collect::<Vec<_>>()) {
             map.serialize_entry(&format!("space:{}", space.space_id()), &space)?;
         }
 
-        let trx = self.doc.transact();
-        map.serialize_entry("space:meta", &self.metadata.to_json(&trx))?;
-        map.serialize_entry("space:updated", &self.updated.to_json(&trx))?;
+        map.serialize_entry("space:meta", &self.metadata)?;
+        map.serialize_entry("space:updated", &self.updated)?;
 
         map.end()
     }
@@ -117,7 +100,6 @@ impl Clone for Workspace {
             &self.workspace_id,
             self.awareness.clone(),
             self.doc.clone(),
-            self.sub.clone(),
             self.updated.clone(),
             self.metadata.clone(),
         )
@@ -132,13 +114,13 @@ mod test {
 
     #[test]
     fn doc_load_test() {
-        let workspace = Workspace::new("test");
+        let workspace = Workspace::new("test").unwrap();
         workspace.with_trx(|mut t| {
             let space = t.get_space("test");
 
-            let block = space.create(&mut t.trx, "test", "text").unwrap();
+            let block = space.create("test", "text").unwrap();
 
-            block.set(&mut t.trx, "test", "test").unwrap();
+            block.set("test", "test").unwrap();
         });
 
         let doc = workspace.doc();
@@ -187,7 +169,7 @@ mod test {
         workspace.with_trx(|mut t| {
             let space = t.get_space("test");
 
-            let block = space.create(&mut t.trx, "block", "text").unwrap();
+            let block = space.create("block", "text").unwrap();
 
             assert_eq!(space.blocks.len(&t.trx), 1);
             assert_eq!(workspace.updated.len(&t.trx), 1);
@@ -201,7 +183,7 @@ mod test {
 
             assert!(space.exists(&t.trx, "block"));
 
-            assert!(space.remove(&mut t.trx, "block"));
+            assert!(space.remove("block"));
 
             assert_eq!(space.blocks.len(&t.trx), 0);
             assert_eq!(workspace.updated.len(&t.trx), 0);
@@ -212,8 +194,8 @@ mod test {
         workspace.with_trx(|mut t| {
             let space = t.get_space("test");
 
-            Block::new(&mut t.trx, &space, "test", "test", 1).unwrap();
-            let vec = space.get_blocks_by_flavour(&t.trx, "test");
+            Block::new(&space, "test", "test", 1).unwrap();
+            let vec = space.get_blocks_by_flavour("test");
             assert_eq!(vec.len(), 1);
         });
 
@@ -230,10 +212,10 @@ mod test {
 
         workspace.with_trx(|mut t| {
             let space = t.get_space("space1");
-            space.create(&mut t.trx, "block1", "text").unwrap();
+            space.create("block1", "text").unwrap();
 
             let space = t.get_space("space2");
-            space.create(&mut t.trx, "block2", "text").unwrap();
+            space.create("block2", "text").unwrap();
         });
 
         assert_json_include!(
@@ -285,7 +267,7 @@ mod test {
             let ws = Workspace::from_doc(doc, "test");
             ws.with_trx(|mut t| {
                 let space = t.get_space("space");
-                let _block = space.create(&mut t.trx, "test", "test1").unwrap();
+                let _block = space.create("test", "test1").unwrap();
             });
 
             ws.doc()
@@ -300,9 +282,9 @@ mod test {
             let ws = Workspace::from_doc(doc, "test");
             ws.with_trx(|mut t| {
                 let space = t.get_space("space");
-                let new_block = space.create(&mut t.trx, "test1", "test1").unwrap();
-                let block = space.get(&mut t.trx, "test").unwrap();
-                block.insert_children_at(&mut t.trx, &new_block, 0).unwrap();
+                let new_block = space.create("test1", "test1").unwrap();
+                let block = space.get("test").unwrap();
+                block.insert_children_at(&new_block, 0).unwrap();
             });
 
             ws.doc()
@@ -317,9 +299,9 @@ mod test {
             let ws = Workspace::from_doc(doc, "test");
             ws.with_trx(|mut t| {
                 let space = t.get_space("space");
-                let new_block = space.create(&mut t.trx, "test2", "test2").unwrap();
-                let block = space.get(&mut t.trx, "test").unwrap();
-                block.insert_children_at(&mut t.trx, &new_block, 0).unwrap();
+                let new_block = space.create("test2", "test2").unwrap();
+                let block = space.get("test").unwrap();
+                block.insert_children_at(&new_block, 0).unwrap();
             });
 
             ws.doc()
@@ -396,9 +378,9 @@ mod test {
             let ws = Workspace::from_doc(doc, "test");
             ws.with_trx(|mut t| {
                 let space = t.get_space("space");
-                let new_block = space.create(&mut t.trx, "test1", "test1").unwrap();
-                let block = space.create(&mut t.trx, "test", "test1").unwrap();
-                block.insert_children_at(&mut t.trx, &new_block, 0).unwrap();
+                let new_block = space.create("test1", "test1").unwrap();
+                let block = space.create("test", "test1").unwrap();
+                block.insert_children_at(&new_block, 0).unwrap();
             });
 
             ws.doc()
@@ -413,9 +395,9 @@ mod test {
             let ws = Workspace::from_doc(doc, "test");
             ws.with_trx(|mut t| {
                 let space = t.get_space("space");
-                let new_block = space.create(&mut t.trx, "test2", "test2").unwrap();
-                let block = space.create(&mut t.trx, "test", "test1").unwrap();
-                block.insert_children_at(&mut t.trx, &new_block, 0).unwrap();
+                let new_block = space.create("test2", "test2").unwrap();
+                let block = space.create("test", "test1").unwrap();
+                block.insert_children_at(&new_block, 0).unwrap();
             });
 
             ws.doc()

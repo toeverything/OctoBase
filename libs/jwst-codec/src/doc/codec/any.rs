@@ -1,6 +1,11 @@
 use super::*;
 use ordered_float::OrderedFloat;
-use std::{collections::HashMap, fmt};
+use std::{collections::HashMap, fmt, ops::RangeInclusive};
+
+const MAX_JS_INT: i64 = 0x001F_FFFF_FFFF_FFFF;
+// The smallest int in js number.
+const MIN_JS_INT: i64 = -MAX_JS_INT;
+pub const JS_INT_RANGE: RangeInclusive<i64> = MIN_JS_INT..=MAX_JS_INT;
 
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(fuzzing, derive(arbitrary::Arbitrary))]
@@ -189,7 +194,13 @@ impl From<usize> for Any {
 
 impl From<isize> for Any {
     fn from(value: isize) -> Self {
-        Self::BigInt64(value as i64)
+        let int: i64 = value as i64;
+        // handle the behavior same as yjs
+        if JS_INT_RANGE.contains(&int) {
+            Self::Float64((int as f64).into())
+        } else {
+            Self::BigInt64(int)
+        }
     }
 }
 
@@ -432,6 +443,16 @@ impl serde::Serialize for Any {
                 map.end()
             }
             Any::Binary(buf) => serializer.serialize_bytes(buf),
+        }
+    }
+}
+
+impl ToString for Any {
+    fn to_string(&self) -> String {
+        match self {
+            Self::String(s) => s.clone(),
+            // TODO: stringify other types
+            _ => String::default(),
         }
     }
 }

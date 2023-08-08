@@ -8,6 +8,8 @@ pub enum JwstError {
     DocCodec(#[from] lib0::error::Error),
     #[error("doc transaction error")]
     DocTransaction(String),
+    #[error("failed to codec")]
+    Codec(#[from] jwst_codec::JwstCodecError),
     #[error("workspace {0} not initialized")]
     WorkspaceNotInitialized(String),
     #[error("workspace indexing error")]
@@ -26,4 +28,4 @@ pub enum JwstError {
     ExternalError(String),
 }
 
-pub type JwstResult<T, E = JwstError> = Result<T, E>;
+pub type JwstResult<T = (), E = JwstError> = Result<T, E>;

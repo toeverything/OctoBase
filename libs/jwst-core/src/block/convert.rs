@@ -3,22 +3,19 @@ use super::*;
 const MAX_STACK: u8 = 10;
 
 impl Block {
-    pub fn to_markdown<T>(&self, trx: &T, state: &mut MarkdownState) -> Option<String>
-    where
-        T: ReadTxn,
-    {
-        match self.get(trx, "text").map(|t| t.to_string()) {
-            Some(text) => match self.flavour(trx).as_str() {
+    pub fn to_markdown(&self, state: &mut MarkdownState) -> Option<String> {
+        match self.get("text").map(|t| t.to_string()) {
+            Some(text) => match self.flavour().as_str() {
                 "affine:code" => {
                     state.numbered_count = 0;
-                    match self.get(trx, "language").map(|v| v.to_string()).as_deref() {
+                    match self.get("language").map(|v| v.to_string()).as_deref() {
                         Some(language) => Some(format!("``` {}\n{}\n```\n", language, text)),
                         None => Some(format!("```\n{}\n```\n", text)),
                     }
                 }
                 format @ "affine:paragraph" => {
                     state.numbered_count = 0;
-                    match self.get(trx, "type").map(|v| v.to_string()).as_deref() {
+                    match self.get("type").map(|v| v.to_string()).as_deref() {
                         Some(
                             head @ "h1" | head @ "h2" | head @ "h3" | head @ "h4" | head @ "h5",
                         ) => Some(format!(
@@ -39,7 +36,7 @@ impl Block {
                     }
                 }
                 format @ "affine:list" => {
-                    match self.get(trx, "type").map(|v| v.to_string()).as_deref() {
+                    match self.get("type").map(|v| v.to_string()).as_deref() {
                         Some("numbered") => {
                             state.numbered_count += 1;
                             Some(format!("{}. {text}\n", state.numbered_count))
@@ -47,7 +44,7 @@ impl Block {
                         Some("todo") => {
                             state.numbered_count += 1;
                             let clicked = self
-                                .get(trx, "checked")
+                                .get("checked")
                                 .map(|v| v.to_string() == "true")
                                 .unwrap_or(false);
                             Some(format!("[{}] {text}\n", if clicked { "x" } else { " " }))
@@ -73,17 +70,17 @@ impl Block {
                     Some(text)
                 }
             },
-            None => match self.flavour(trx).as_str() {
+            None => match self.flavour().as_str() {
                 "affine:divider" => {
                     state.numbered_count = 0;
                     Some("---\n".into())
                 }
                 "affine:embed" => {
                     state.numbered_count = 0;
-                    match self.get(trx, "type").map(|v| v.to_string()).as_deref() {
-                        Some("image") => self
-                            .get(trx, "sourceId")
-                            .map(|v| format!("![](/api/workspace/{}/blob/{})\n", self.id, v)),
+                    match self.get("type").map(|v| v.to_string()).as_deref() {
+                        Some("image") => self.get("sourceId").map(|v| {
+                            format!("![](/api/workspace/{}/blob/{})\n", self.id, v.to_string())
+                        }),
                         _ => None,
                     }
                 }
@@ -96,83 +93,62 @@ impl Block {
         }
     }
 
-    fn clone_text<T>(
-        &self,
-        stack: u8,
-        trx: &T,
-        text: TextRef,
-        new_trx: &mut TransactionMut,
-        new_text: TextRef,
-    ) -> JwstResult<()>
-    where
-        T: ReadTxn,
-    {
+    fn clone_text(&self, stack: u8, text: Text, new_text: Text) -> JwstResult<()> {
         if stack > MAX_STACK {
             warn!("clone_text: stack overflow");
             return Ok(());
         }
 
-        for Diff {
-            insert, attributes, ..
-        } in text.diff(trx, YChange::identity)
-        {
-            match insert {
-                Value::Any(Any::String(str)) => {
-                    let str = str.as_ref();
-                    if let Some(attr) = attributes {
-                        new_text.insert_with_attributes(
-                            new_trx,
-                            new_text.len(new_trx),
-                            str,
-                            *attr,
-                        )?;
-                    } else {
-                        new_text.insert(new_trx, new_text.len(new_trx), str)?;
-                    }
-                }
-                val => {
-                    warn!("unexpected embed type: {:?}", val);
-                }
-            }
-        }
+        // TODO： jwst need implement text diff
+        // for Diff {
+        //     insert, attributes, ..
+        // } in text.diff(YChange::identity)
+        // {
+        //     match insert {
+        //         Value::Any(Any::String(str)) => {
+        //             let str = str.as_ref();
+        //             if let Some(attr) = attributes {
+        //                 new_text.insert_with_attributes(new_text.len(), str, *attr)?;
+        //             } else {
+        //                 new_text.insert(new_text.len(), str)?;
+        //             }
+        //         }
+        //         val => {
+        //             warn!("unexpected embed type: {:?}", val);
+        //         }
+        //     }
+        // }
 
         Ok(())
     }
 
-    fn clone_array<T>(
-        &self,
-        stack: u8,
-        trx: &T,
-        array: ArrayRef,
-        new_trx: &mut TransactionMut,
-        new_array: ArrayRef,
-    ) -> JwstResult<()>
-    where
-        T: ReadTxn,
-    {
+    fn clone_array(&self, stack: u8, array: Array, new_array: Array) -> JwstResult<()> {
         if stack > MAX_STACK {
             warn!("clone_array: stack overflow");
             return Ok(());
         }
 
-        for item in array.iter(trx) {
+        for item in array.iter() {
             match item {
                 Value::Any(any) => {
-                    new_array.push_back(new_trx, any)?;
+                    new_array.push(any)?;
                 }
-                Value::YText(text) => {
-                    let new_text = new_array.push_back(new_trx, TextPrelim::new(""))?;
-                    self.clone_text(stack + 1, trx, text, new_trx, new_text)?;
+                Value::Text(text) => {
+                    let new_text = self.doc.create_text()?;
+                    new_array.push(new_text.clone())?;
+                    self.clone_text(stack + 1, text, new_text)?;
                 }
-                Value::YMap(map) => {
-                    let new_map = new_array.push_back(new_trx, MapPrelim::<Any>::new())?;
-                    for (key, value) in map.iter(trx) {
-                        self.clone_value(stack + 1, key, trx, value, new_trx, new_map.clone())?;
+                Value::Map(map) => {
+                    let new_map = self.doc.create_map()?;
+                    new_array.push(new_map.clone())?;
+                    for (key, value) in map.iter() {
+                        self.clone_value(stack + 1, &key, value, new_map.clone())?;
                     }
                 }
-                Value::YArray(array) => {
-                    let new_array = new_array.push_back(new_trx, ArrayPrelim::default())?;
-                    self.clone_array(stack + 1, trx, array, new_trx, new_array)?;
+                Value::Array(array) => {
+                    let new_array = self.doc.create_array()?;
+                    new_array.push(new_array.clone())?;
+                    self.clone_array(stack + 1, array, new_array)?;
                 }
                 val => {
                     warn!("unexpected prop type: {:?}", val);
@@ -183,18 +159,7 @@ impl Block {
         Ok(())
     }
 
-    fn clone_value<T>(
-        &self,
-        stack: u8,
-        key: &str,
-        trx: &T,
-        value: Value,
-        new_trx: &mut TransactionMut,
-        new_map: MapRef,
-    ) -> JwstResult<()>
-    where
-        T: ReadTxn,
-    {
+    fn clone_value(&self, stack: u8, key: &str, value: Value, new_map: Map) -> JwstResult<()> {
         if stack > MAX_STACK {
             warn!("clone_value: stack overflow");
             return Ok(());
@@ -202,21 +167,21 @@ impl Block {
 
         match value {
             Value::Any(any) => {
-                new_map.insert(new_trx, key, any)?;
+                new_map.insert(key, any)?;
             }
-            Value::YText(text) => {
-                let new_text = new_map.insert(new_trx, key, TextPrelim::new(""))?;
-                self.clone_text(stack + 1, trx, text, new_trx, new_text)?;
+            Value::Text(text) => {
+                let new_text = new_map.insert(key, self.doc.create_text())?;
+                self.clone_text(stack + 1, text, new_text)?;
             }
-            Value::YMap(map) => {
-                let new_map = new_map.insert(new_trx, key, MapPrelim::<Any>::new())?;
-                for (key, value) in map.iter(trx) {
-                    self.clone_value(stack + 1, key, trx, value, new_trx, new_map.clone())?;
+            Value::Map(map) => {
+                let new_map = new_map.insert(key, self.doc.create_map())?;
+                for (key, value) in map.iter() {
+                    self.clone_value(stack + 1, key, value, new_map.clone())?;
                 }
             }
-            Value::YArray(array) => {
-                let new_array = new_map.insert(new_trx, key, ArrayPrelim::default())?;
-                self.clone_array(stack + 1, trx, array, new_trx, new_array)?;
+            Value::Array(array) => {
+                let new_array = new_map.insert(key, self.doc.create_array())?;
+                self.clone_array(stack + 1, array, new_array)?;
             }
             val => {
                 warn!("unexpected prop type: {:?}", val);
@@ -226,31 +191,21 @@ impl Block {
         Ok(())
     }
 
-    pub fn clone_block<T>(
-        &self,
-        orig_trx: &T,
-        new_trx: &mut TransactionMut,
-        new_blocks: MapRef,
-    ) -> JwstResult<()>
-    where
-        T: ReadTxn,
-    {
+    pub fn clone_block(&self, new_blocks: Map) -> JwstResult<()> {
         // init base struct
-        let block = new_blocks.insert(new_trx, &*self.block_id, MapPrelim::<Any>::new())?;
+        let block = self.doc.create_map()?;
+        new_blocks.insert(&*self.block_id, block.clone())?;
 
         // init default schema
-        block.insert(new_trx, sys::ID, self.block_id.as_ref())?;
-        block.insert(new_trx, sys::FLAVOUR, self.flavour(orig_trx).as_ref())?;
-        let children = block.insert(
-            new_trx,
-            sys::CHILDREN,
-            ArrayPrelim::<Vec<String>, String>::from(vec![]),
-        )?;
-        // block.insert(new_trx, sys::CREATED, self.created(orig_trx) as f64)?;
+        block.insert(sys::ID, self.block_id.as_ref())?;
+        block.insert(sys::FLAVOUR, self.flavour().as_ref())?;
+        let children = self.doc.create_array()?;
+        block.insert(sys::CHILDREN, children.clone())?;
+        // block.insert( sys::CREATED, self.created() as f64)?;
 
         // clone children
-        for block_id in self.children(orig_trx) {
-            if let Err(e) = children.push_back(new_trx, block_id) {
+        for block_id in self.children() {
+            if let Err(e) = children.push(block_id) {
                 warn!("failed to push block: {}", e);
             }
         }
@@ -258,12 +213,12 @@ impl Block {
         // clone props
         for key in self
             .block
-            .keys(orig_trx)
+            .keys()
             .filter(|k| k.starts_with("prop:") || k.starts_with("ext:"))
         {
-            match self.block.get(orig_trx, key) {
+            match self.block.get(key) {
                 Some(value) => {
-                    self.clone_value(0, key, orig_trx, value, new_trx, block.clone())?;
+                    self.clone_value(0, key, value, block.clone())?;
                 }
                 None => {
                     warn!("failed to get key: {}", key);
@@ -290,12 +245,8 @@ mod tests {
         let ws1 = Workspace::from_doc(doc1, "test");
 
         let new_update = ws1.with_trx(|mut t| {
-            ws1.metadata
-                .insert(&mut t.trx, "name", Some("test1"))
-                .unwrap();
-            ws1.metadata
-                .insert(&mut t.trx, "avatar", Some("test2"))
-                .unwrap();
+            ws1.metadata.insert("name", Some("test1")).unwrap();
+            ws1.metadata.insert("avatar", Some("test2")).unwrap();
             let space = t.get_exists_space("page0").unwrap();
             space.to_single_page(&t.trx).unwrap()
         });

@@ -132,6 +132,26 @@ impl YTypeBuilder {
         self
     }
 
+    pub fn build_exists<T: TryFrom<YTypeRef, Error = JwstCodecError>>(self) -> JwstCodecResult<T> {
+        let store = self.store.read().unwrap();
+        let ty = if let Some(root_name) = self.root_name {
+            match store.types.get(&root_name) {
+                Some(ty) => ty.clone(),
+                None => {
+                    return Err(JwstCodecError::RootStructNotFound(root_name));
+                }
+            }
+        } else {
+            return Err(JwstCodecError::TypeCastError("root_name is not set"));
+        };
+
+        let ty_ref = ty.clone();
+
+        drop(store);
+
+        Ok(T::try_from(ty_ref)?)
+    }
+
     pub fn build<T: TryFrom<YTypeRef, Error = JwstCodecError>>(self) -> JwstCodecResult<T> {
         let mut store = self.store.write().unwrap();
         let ty = if let Some(root_name) = self.root_name {
@@ -347,6 +367,29 @@ pub enum Value {
     XMLText(XMLText),
 }
 
+impl Value {
+    pub fn to_array(self) -> Option<Array> {
+        match self {
+            Value::Array(array) => Some(array),
+            _ => None,
+        }
+    }
+
+    pub fn to_map(self) -> Option<Map> {
+        match self {
+            Value::Map(map) => Some(map),
+            _ => None,
+        }
+    }
+
+    pub fn to_text(self) -> Option<Text> {
+        match self {
+            Value::Text(text) => Some(text),
+            _ => None,
+        }
+    }
+}
+
 impl TryFrom<&Content> for Value {
     type Error = JwstCodecError;
     fn try_from(value: &Content) -> Result<Self, Self::Error> {
@@ -379,11 +422,13 @@ impl TryFrom<&Content> for Value {
                 // actually unreachable
                 YTypeKind::Unknown => return Err(JwstCodecError::TypeCastError("unknown")),
             },
-            Content::Doc { .. } => {
-                todo!()
+            Content::Doc { .. } => return Err(JwstCodecError::TypeCastError("unimplemented: Doc")),
+            Content::Format { .. } => {
+                return Err(JwstCodecError::TypeCastError("unimplemented: Format"))
             }
-            Content::Format { .. } => todo!(),
-            Content::Deleted(_) => todo!(),
+            Content::Deleted(_) => {
+                return Err(JwstCodecError::TypeCastError("unimplemented: Deleted"))
+            }
         })
     }
 }
@@ -417,5 +462,34 @@ impl<T: Into<Any>> From<T> for Value {
 impl From<Doc> for Value {
     fn from(value: Doc) -> Self {
         Value::Doc(value)
+    }
+}
+
+impl ToString for Value {
+    fn to_string(&self) -> String {
+        match self {
+            Value::Text(text) => text.to_string(),
+            _ => String::default(),
+        }
+    }
+}
+
+impl serde::Serialize for Value {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Self::Any(any) => any.serialize(serializer),
+            Self::Array(array) => array.serialize(serializer),
+            Self::Map(map) => map.serialize(serializer),
+            Self::Text(text) => text.serialize(serializer),
+            // Self::XMLElement(xml_element) => xml_element.serialize(serializer),
+            // Self::XMLFragment(xml_fragment) => xml_fragment.serialize(serializer),
+            // Self::XMLHook(xml_hook) => xml_hook.serialize(serializer),
+            // Self::XMLText(xml_text) => xml_text.serialize(serializer),
+            // Self::Doc(doc) => doc.serialize(serializer),
+            _ => serializer.serialize_none(),
+        }
     }
 }

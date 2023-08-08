@@ -1,6 +1,5 @@
-use lib0::any::Any;
+use jwst_codec::{Any, Array, Map, Value};
 use std::collections::HashMap;
-use yrs::{types::Value, Array, ArrayRef, Map, MapRef, ReadTxn};
 
 pub struct PageMeta {
     pub id: String,
@@ -15,8 +14,8 @@ pub struct PageMeta {
 }
 
 impl PageMeta {
-    fn get_string_array<T: ReadTxn>(trx: &T, map: &MapRef, key: &str) -> Vec<String> {
-        map.get(trx, key)
+    fn get_string_array(map: &Map, key: &str) -> Vec<String> {
+        map.get(key)
             .and_then(|v| {
                 if let Value::Any(Any::Array(a)) = v {
                     Some(
@@ -37,20 +36,24 @@ impl PageMeta {
             .unwrap_or_default()
     }
 
-    fn get_bool<T: ReadTxn>(trx: &T, map: &MapRef, key: &str) -> Option<bool> {
-        map.get(trx, key).and_then(|v| {
-            if let Value::Any(Any::Bool(b)) = v {
-                Some(b)
+    fn get_bool(map: &Map, key: &str) -> Option<bool> {
+        map.get(key).and_then(|v| {
+            if let Value::Any(any) = v {
+                match any {
+                    Any::True => Some(true),
+                    Any::False => Some(false),
+                    _ => None,
+                }
             } else {
                 None
             }
         })
     }
 
-    fn get_number<T: ReadTxn>(trx: &T, map: &MapRef, key: &str) -> Option<f64> {
-        map.get(trx, key).and_then(|v| {
-            if let Value::Any(Any::Number(n)) = v {
-                Some(n)
+    fn get_number(map: &Map, key: &str) -> Option<f64> {
+        map.get(key).and_then(|v| {
+            if let Value::Any(Any::Float64(n)) = v {
+                Some(n.0)
             } else {
                 None
             }
@@ -58,25 +61,31 @@ impl PageMeta {
     }
 }
 
-impl<T: ReadTxn> From<(&T, MapRef)> for PageMeta {
-    fn from((trx, map): (&T, MapRef)) -> Self {
+impl From<Map> for PageMeta {
+    fn from(map: Map) -> Self {
         Self {
-            id: map.get(trx, "id").unwrap().to_string(trx),
-            favorite: Self::get_bool(trx, &map, "favorite"),
-            is_pinboard: Self::get_bool(trx, &map, "isRootPinboard"),
-            is_shared: Self::get_bool(trx, &map, "isPublic").or_else(|| {
-                Self::get_number(trx, &map, "isPublic").map(|exp| {
+            id: map
+                .get("id")
+                .and_then(|v| v.to_text())
+                .map(|t| t.to_string())
+                .unwrap_or_default(),
+            favorite: Self::get_bool(&map, "favorite"),
+            is_pinboard: Self::get_bool(&map, "isRootPinboard"),
+            is_shared: Self::get_bool(&map, "isPublic").or_else(|| {
+                Self::get_number(&map, "isPublic").map(|exp| {
                     // if isPublic is a number, it is a expire time timestamp
                     let exp = exp as i64;
                     let now = chrono::Utc::now().timestamp();
                     exp > now
                 })
             }),
-            init: Self::get_bool(trx, &map, "init"),
-            sub_page_ids: Self::get_string_array(trx, &map, "subpageIds"),
-            title: map.get(trx, "title").map(|s| s.to_string(trx)),
-            trash: Self::get_bool(trx, &map, "trash"),
-            trash_date: Self::get_number(trx, &map, "trashDate")
+            init: Self::get_bool(&map, "init"),
+            sub_page_ids: Self::get_string_array(&map, "subpageIds"),
+            title: map
+                .get("title")
+                .and_then(|s| s.to_text().map(|t| t.to_string())),
+            trash: Self::get_bool(&map, "trash"),
+            trash_date: Self::get_number(&map, "trashDate")
                 .map(|v| v as usize)
                 .filter(|v| *v > 0),
         }
@@ -85,20 +94,20 @@ impl<T: ReadTxn> From<(&T, MapRef)> for PageMeta {
 
 #[derive(Clone)]
 pub struct Pages {
-    pages: ArrayRef,
+    pages: Array,
 }
 
 impl Pages {
-    pub fn new(pages: ArrayRef) -> Self {
+    pub fn new(pages: Array) -> Self {
         Self { pages }
     }
 
-    fn pages<T: ReadTxn>(&self, trx: &T) -> HashMap<String, PageMeta> {
+    fn pages(&self) -> HashMap<String, PageMeta> {
         self.pages
-            .iter(trx)
+            .iter()
             .filter_map(|v| {
-                v.to_ymap().map(|v| {
-                    let meta = PageMeta::from((trx, v));
+                v.to_map().map(|v| {
+                    let meta = PageMeta::from(v);
                     (meta.id.clone(), meta)
                 })
             })
@@ -128,8 +137,8 @@ impl Pages {
         false
     }
 
-    pub fn check_shared<T: ReadTxn>(&self, trx: &T, page_id: &str) -> bool {
-        let pages = self.pages(trx);
+    pub fn check_shared(&self, page_id: &str) -> bool {
+        let pages = self.pages();
         if pages.contains_key(page_id) {
             Self::check_pinboard(&pages, page_id)
                 || pages
@@ -146,24 +155,24 @@ mod tests {
     use crate::Workspace;
 
     use super::*;
-    use yrs::{updates::decoder::Decode, ArrayPrelim, Doc, Transact, Update};
+
+    use jwst_codec::{Doc, Update};
 
     #[test]
     fn test_page_meta() {
-        let doc = Doc::new();
-        let map = doc.get_or_insert_map("test");
-        let mut trx = doc.transact_mut();
-        map.insert(&mut trx, "id", "test_page").unwrap();
-        map.insert(&mut trx, "favorite", true).unwrap();
-        map.insert(&mut trx, "isRootPinboard", true).unwrap();
-        map.insert(&mut trx, "init", true).unwrap();
-        map.insert(&mut trx, "subpageIds", ArrayPrelim::default())
+        let doc = Doc::default();
+        let mut map = doc.get_or_create_map("test").unwrap();
+        map.insert(&mut "id", "test_page").unwrap();
+        map.insert(&mut "favorite", true).unwrap();
+        map.insert(&mut "isRootPinboard", true).unwrap();
+        map.insert(&mut "init", true).unwrap();
+        map.insert(&mut "subpageIds", doc.create_array().unwrap())
             .unwrap();
-        map.insert(&mut trx, "title", "test_title").unwrap();
-        map.insert(&mut trx, "trash", true).unwrap();
-        map.insert(&mut trx, "trashDate", 1234567890).unwrap();
+        map.insert(&mut "title", "test_title").unwrap();
+        map.insert(&mut "trash", true).unwrap();
+        map.insert(&mut "trashDate", 1234567890).unwrap();
 
-        let meta = PageMeta::from((&trx, map));
+        let meta = PageMeta::from((&map));
         assert_eq!(meta.id, "test_page");
         assert_eq!(meta.favorite, Some(true));
         assert_eq!(meta.is_pinboard, Some(true));
@@ -176,25 +185,27 @@ mod tests {
 
     #[test]
     fn test_shared_page() {
-        let doc = Doc::new();
-        doc.transact_mut().apply_update(
-            Update::decode_v1(include_bytes!("../../../fixtures/test_shared_page.bin")).unwrap(),
+        let doc = Doc::default();
+        doc.apply_update(
+            Update::from_ybinary1(
+                include_bytes!("../../../fixtures/test_shared_page.bin").to_vec(),
+            )
+            .unwrap(),
         );
-        let ws = Workspace::from_doc(doc, "test");
-        // test page
+        let ws = Workspace::from_doc(doc, "test").unwrap();
 
         // - test page (shared page not in Pinboard)
-        assert!(ws.with_trx(|mut t| t.get_space("X83xzrb4Yr").shared(&t.trx)));
+        assert!(ws.get_space("X83xzrb4Yr").shared());
         // - test page (unshared sub page of X83xzrb4Yr )
-        assert!(!ws.with_trx(|mut t| t.get_space("ZISRn1STfy").shared(&t.trx)));
+        assert!(!ws.get_space("ZISRn1STfy").shared());
 
         // - test page (RootPinboard without shared)
-        assert!(!ws.with_trx(|mut t| t.get_space("m92E0qWwPY").shared(&t.trx)));
+        assert!(!ws.get_space("m92E0qWwPY").shared());
         // - test page (unshared sub page of m92E0qWwPY in Pinboard)
-        assert!(!ws.with_trx(|mut t| t.get_space("2HadvFQVk3").shared(&t.trx)));
+        assert!(!ws.get_space("2HadvFQVk3").shared());
         // - test page (shared sub page of 2HadvFQVk3 in Pinboard)
-        assert!(ws.with_trx(|mut t| t.get_space("ymMTOFx8tt").shared(&t.trx)));
+        assert!(ws.get_space("ymMTOFx8tt").shared());
         // - test page (unshared sub page of ymMTOFx8tt in Pinboard)
-        assert!(!ws.with_trx(|mut t| t.get_space("lBaYQm5ZVo").shared(&t.trx)));
+        assert!(!ws.get_space("lBaYQm5ZVo").shared());
     }
 }

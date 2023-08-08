@@ -1,8 +1,8 @@
 use super::*;
+use jwst_codec::{Array, Map};
 use lib0::any::Any;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use yrs::{ArrayPrelim, ArrayRef, Map, MapRef, ReadTxn, Transact, TransactionMut};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WorkspaceMetadata {
@@ -10,13 +10,15 @@ pub struct WorkspaceMetadata {
     pub avatar: Option<String>,
 }
 
-impl<T: ReadTxn> From<(&T, MapRef)> for WorkspaceMetadata {
-    fn from((trx, map): (&T, MapRef)) -> Self {
+impl From<Map> for WorkspaceMetadata {
+    fn from(map: Map) -> Self {
         Self {
             name: map
-                .get(trx, constants::metadata::NAME)
-                .map(|s| s.to_string(trx)),
-            avatar: map.get(trx, "avatar").map(|s| s.to_string(trx)),
+                .get(constants::metadata::NAME)
+                .and_then(|s| s.to_text().map(|t| t.to_string())),
+            avatar: map
+                .get("avatar")
+                .and_then(|s| s.to_text().map(|t| t.to_string())),
         }
     }
 }
@@ -36,15 +38,17 @@ impl From<WorkspaceMetadata> for Any {
 
 impl Workspace {
     pub fn metadata(&self) -> WorkspaceMetadata {
-        (&self.doc().transact(), self.metadata.clone()).into()
+        self.metadata.clone().into()
     }
 
-    pub fn pages(&self, trx: &mut TransactionMut) -> JwstResult<ArrayRef> {
+    pub fn pages(&self) -> JwstResult<Array> {
         Ok(
-            if let Some(pages) = self.metadata.get(trx, "pages").and_then(|v| v.to_yarray()) {
+            if let Some(pages) = self.metadata.get("pages").and_then(|v| v.to_array()) {
                 pages
             } else {
-                self.metadata.insert(trx, "pages", ArrayPrelim::default())?
+                let array = self.doc.create_array()?;
+                self.metadata.insert("pages", array.clone())?;
+                array
             },
         )
     }

@@ -17,32 +17,18 @@ impl Workspace {
     }
 
     /// Subscribe to update events.
-    pub fn observe(
-        &mut self,
-        f: impl Fn(&TransactionMut, &UpdateEvent) + Clone + 'static,
-    ) -> Option<String> {
+    pub fn observe(&mut self, f: impl Fn(&[u8]) + Clone + 'static) -> Option<String> {
         info!("workspace observe enter");
         let doc = self.doc();
         match catch_unwind(AssertUnwindSafe(move || {
             let mut retry = 10;
-            let cb = move |trx: &TransactionMut, evt: &UpdateEvent| {
-                trace!("workspace observe: observe_update_v1, {:?}", &evt.update);
-                if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(trx, evt))) {
+            let cb = move |update: &[u8]| {
+                trace!("workspace observe: observe_update_v1, {:?}", &update);
+                if let Err(e) = catch_unwind(AssertUnwindSafe(|| f(update))) {
                     error!("panic in observe callback: {:?}", e);
                 }
             };
-
-            loop {
-                match doc.observe_update_v1(cb.clone()) {
-                    Ok(sub) => break Ok(sub),
-                    Err(e) if retry <= 0 => break Err(e),
-                    _ => {
-                        sleep(Duration::from_micros(100));
-                        retry -= 1;
-                        continue;
-                    }
-                }
-            }
+            doc.subscribe(cb.clone());
         })) {
             Ok(sub) => match sub {
                 Ok(sub) => {
