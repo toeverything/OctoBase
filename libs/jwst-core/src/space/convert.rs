@@ -1,7 +1,5 @@
 use super::*;
-use chrono::Utc;
-use jwst_codec::{Any, Array, Map};
-use std::collections::HashMap;
+use jwst_codec::{Array, Map};
 
 impl Space {
     pub fn to_markdown(&self) -> Option<String> {
@@ -34,23 +32,23 @@ impl Space {
         }
     }
 
-    fn init_workspace(&self, meta: WorkspaceMetadata) -> JwstResult<()> {
+    fn init_workspace(&mut self, meta: WorkspaceMetadata) -> JwstResult<()> {
         self.metadata.insert("name", meta.name)?;
         self.metadata.insert("avatar", meta.avatar)?;
 
         Ok(())
     }
 
-    fn init_pages(&self) -> JwstResult<Array> {
+    fn init_pages(&mut self) -> JwstResult<Array> {
         self.pages().or_else(|_| {
             let array = self.doc.create_array()?;
-            self.metadata.insert("pages", array)?;
+            self.metadata.insert("pages", array.clone())?;
             Ok(array)
         })
     }
 
     // TODO: clone from origin doc
-    fn init_version(&self) -> JwstResult<Map> {
+    fn init_version(&mut self) -> JwstResult<Map> {
         self.metadata
             .get("versions")
             .and_then(|v| v.to_map())
@@ -67,7 +65,7 @@ impl Space {
                 map.insert("affine:paragraph", 1)?;
                 map.insert("affine:surface", 1)?;
 
-                self.metadata.insert("versions", map)?;
+                self.metadata.insert("versions", map.clone())?;
 
                 Ok(map)
             })
@@ -84,79 +82,79 @@ impl Space {
         self.pages()?
             .iter()
             .find(|page| {
-                page.clone()
-                    .to_ymap()
+                page.to_map()
                     .and_then(|page| page.get("id"))
                     .map(|id| id.to_string() == self.space_id())
                     .unwrap_or(false)
             })
-            .and_then(|v| v.to_ymap())
+            .and_then(|v| v.to_map())
             .ok_or(JwstError::PageItemNotFound(self.space_id()))
     }
 
-    pub fn to_single_page(&self) -> JwstResult<Vec<u8>> {
-        let ws = Workspace::new(self.id());
-        let page_item = self.page_item()?;
+    // TODO: add sub doc support
+    // pub fn to_single_page(&self) -> JwstResult<Vec<u8>> {
+    //     let ws = Workspace::new(self.id());
+    //     let page_item = self.page_item()?;
 
-        ws.with_trx(|mut t| {
-            let space = t.get_space(self.space_id());
-            let new_blocks = space.blocks.clone();
-            self.blocks(|blocks| {
-                // TODO: hacky logic for BlockSuite's special case
-                let (roots, blocks): (Vec<_>, _) = blocks.partition(|b| {
-                    ["affine:surface", "affine:page"].contains(&b.flavour().as_str())
-                });
+    //     ws.with_trx(|mut t| {
+    //         let space = t.get_space(self.space_id());
+    //         let new_blocks = space.blocks.clone();
+    //         self.blocks(|blocks| {
+    //             // TODO: hacky logic for BlockSuite's special case
+    //             let (roots, blocks): (Vec<_>, _) = blocks.partition(|b| {
+    //                 ["affine:surface", "affine:page"].contains(&b.flavour().as_str())
+    //             });
 
-                for block in roots {
-                    block.clone_block(new_blocks.clone())?;
-                }
+    //             for block in roots {
+    //                 block.clone_block(new_blocks.clone())?;
+    //             }
 
-                for block in blocks {
-                    block.clone_block(new_blocks.clone())?;
-                }
-                Ok::<_, JwstError>(())
-            })?;
+    //             for block in blocks {
+    //                 block.clone_block(new_blocks.clone())?;
+    //             }
+    //             Ok::<_, JwstError>(())
+    //         })?;
 
-            space.init_workspace((self.metadata.clone()).into())?;
-            space.init_version()?;
+    //         space.init_workspace((self.metadata.clone()).into())?;
+    //         space.init_version()?;
 
-            let title = self
-                .get_blocks_by_flavour("affine:page")
-                .first()
-                .and_then(|b| b.get("title").map(|t| t.to_string()))
-                .unwrap_or("Untitled".into());
+    //         let title = self
+    //             .get_blocks_by_flavour("affine:page")
+    //             .first()
+    //             .and_then(|b| b.get("title").map(|t| t.to_string()))
+    //             .unwrap_or("Untitled".into());
 
-            let page_item = MapPrelim::from(HashMap::from([
-                ("id".into(), Any::String(Box::from(self.space_id()))),
-                (
-                    "createDate".into(),
-                    page_item
-                        .get("createDate")
-                        .map(|c| c.to_json())
-                        .unwrap_or_else(|| Any::Number(Utc::now().timestamp_millis() as f64)),
-                ),
-                (
-                    "subpageIds".into(),
-                    Any::Array(Box::from(
-                        page_item
-                            .get("subpageIds")
-                            .map(|c| c.to_json())
-                            .and_then(|v| match v {
-                                Any::Array(a) => Some(a.to_vec()),
-                                _ => None,
-                            })
-                            .unwrap_or_default(),
-                    )),
-                ),
-            ]));
+    //         let page_item = MapPrelim::from(HashMap::from([
+    //             ("id".into(), Any::String(Box::from(self.space_id()))),
+    //             (
+    //                 "createDate".into(),
+    //                 page_item
+    //                     .get("createDate")
+    //                     .map(|c| c.to_json())
+    //                     .unwrap_or_else(|| Any::Number(Utc::now().timestamp_millis() as f64)),
+    //             ),
+    //             (
+    //                 "subpageIds".into(),
+    //                 Any::Array(Box::from(
+    //                     page_item
+    //                         .get("subpageIds")
+    //                         .map(|c| c.to_json())
+    //                         .and_then(|v| match v {
+    //                             Any::Array(a) => Some(a.to_vec()),
+    //                             _ => None,
+    //                         })
+    //                         .unwrap_or_default(),
+    //                 )),
+    //             ),
+    //         ]));
 
-            let page_item = space.init_pages()?.push_back(page_item)?;
+    //         let page_item = space.init_pages()?.push_back(page_item)?;
 
-            page_item.insert("title", TextPrelim::new(title))?;
+    //         page_item.insert("title", TextPrelim::new(title))?;
 
-            Ok::<_, JwstError>(())
-        })?;
+    //         Ok::<_, JwstError>(())
+    //     })?;
 
-        ws.sync_migration()
-    }
+    //     ws.sync_migration()
+    // }
 }

@@ -1,6 +1,5 @@
 use super::*;
-use jwst_codec::{Array, Map};
-use lib0::any::Any;
+use jwst_codec::{Any, Array, Map};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -13,12 +12,8 @@ pub struct WorkspaceMetadata {
 impl From<Map> for WorkspaceMetadata {
     fn from(map: Map) -> Self {
         Self {
-            name: map
-                .get(constants::metadata::NAME)
-                .and_then(|s| s.to_text().map(|t| t.to_string())),
-            avatar: map
-                .get("avatar")
-                .and_then(|s| s.to_text().map(|t| t.to_string())),
+            name: map.get(constants::metadata::NAME).map(|s| s.to_string()),
+            avatar: map.get(constants::metadata::AVATAR).map(|s| s.to_string()),
         }
     }
 }
@@ -32,7 +27,7 @@ impl From<WorkspaceMetadata> for Any {
         if let Some(avatar) = val.avatar {
             map.insert(constants::metadata::AVATAR.to_owned(), avatar.into());
         }
-        Any::Map(map.into())
+        Any::Object(map.into())
     }
 }
 
@@ -41,7 +36,22 @@ impl Workspace {
         self.metadata.clone().into()
     }
 
-    pub fn pages(&self) -> JwstResult<Array> {
+    pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) -> JwstResult<()> {
+        info!("set metadata: {}", key);
+        let key = key.to_string();
+        match value.into() {
+            Any::Null | Any::Undefined => {
+                self.metadata.remove(&key);
+            }
+            value => {
+                self.metadata.insert(key, value)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn pages(&mut self) -> JwstResult<Array> {
         Ok(
             if let Some(pages) = self.metadata.get("pages").and_then(|v| v.to_array()) {
                 pages
@@ -57,20 +67,18 @@ impl Workspace {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use yrs::Doc;
+    use jwst_codec::Doc;
 
     #[test]
     fn test_workspace_metadata() {
-        let doc = Doc::new();
-        let ws = Workspace::from_doc(doc, "test");
-        ws.with_trx(|mut t| {
-            t.set_metadata(constants::metadata::NAME, "test_name")
-                .unwrap();
-        });
-        ws.with_trx(|mut t| {
-            t.set_metadata(constants::metadata::AVATAR, "test_avatar")
-                .unwrap();
-        });
+        let doc = Doc::default();
+        let mut ws = Workspace::from_doc(doc, "test").unwrap();
+
+        ws.set_metadata(constants::metadata::NAME, "test_name")
+            .unwrap();
+        ws.set_metadata(constants::metadata::AVATAR, "test_avatar")
+            .unwrap();
+
         assert_eq!(
             ws.metadata(),
             WorkspaceMetadata {

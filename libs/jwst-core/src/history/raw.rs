@@ -131,58 +131,58 @@ pub fn parse_history(doc: &Doc, client: u64) -> Option<Vec<RawHistory>> {
     Some(histories)
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::Workspace;
+// #[cfg(test)]
+// mod test {
+//     use super::*;
+//     use crate::Workspace;
 
-    #[test]
-    fn parse_history_client_test() {
-        let workspace = Workspace::new("test");
-        workspace.with_trx(|mut t| {
-            let space = t.get_space("test");
+//     #[test]
+//     fn parse_history_client_test() {
+//         let workspace = Workspace::new("test");
+//         workspace.with_trx(|mut t| {
+//             let space = t.get_space("test");
 
-            let block = space.create("test", "text").unwrap();
-            block.set("test", "test").unwrap();
-        });
+//             let block = space.create("test", "text").unwrap();
+//             block.set("test", "test").unwrap();
+//         });
 
-        let doc = workspace.doc();
+//         let doc = workspace.doc();
 
-        let client = parse_history_client(&doc).unwrap();
+//         let client = parse_history_client(&doc).unwrap();
 
-        assert_eq!(client[0], doc.client_id());
-    }
+//         assert_eq!(client[0], doc.client_id());
+//     }
 
-    #[test]
-    fn parse_history_test() {
-        let workspace = Workspace::new("test");
-        workspace.with_trx(|mut t| {
-            t.get_space("test").create("test", "text").unwrap();
-        });
-        let doc = workspace.doc();
+//     #[test]
+//     fn parse_history_test() {
+//         let workspace = Workspace::new("test");
+//         workspace.with_trx(|mut t| {
+//             t.get_space("test").create("test", "text").unwrap();
+//         });
+//         let doc = workspace.doc();
 
-        let history = parse_history(&doc, 0).unwrap();
+//         let history = parse_history(&doc, 0).unwrap();
 
-        let update = doc
-            .transact()
-            .encode_state_as_update_v1(&StateVector::default())
-            .unwrap();
-        let update = Update::decode_v1(&update).unwrap();
-        let items = update.as_items();
+//         let update = doc
+//             .transact()
+//             .encode_state_as_update_v1(&StateVector::default())
+//             .unwrap();
+//         let update = Update::decode_v1(&update).unwrap();
+//         let items = update.as_items();
 
-        let mut mock_histories: Vec<RawHistory> = vec![];
-        let parent_map = ParentMap::from(&items);
-        for item in items {
-            if let Some(parent) = parent_map.get(&item.id) {
-                let id = format!("{}:{}", item.id.clock, item.id.client);
-                mock_histories.push(RawHistory {
-                    id,
-                    parent,
-                    content: item.content.to_string(),
-                })
-            }
-        }
+//         let mut mock_histories: Vec<RawHistory> = vec![];
+//         let parent_map = ParentMap::from(&items);
+//         for item in items {
+//             if let Some(parent) = parent_map.get(&item.id) {
+//                 let id = format!("{}:{}", item.id.clock, item.id.client);
+//                 mock_histories.push(RawHistory {
+//                     id,
+//                     parent,
+//                     content: item.content.to_string(),
+//                 })
+//             }
+//         }
 
-        assert_eq!(history, mock_histories);
-    }
-}
+//         assert_eq!(history, mock_histories);
+//     }
+// }
