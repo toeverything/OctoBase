@@ -368,23 +368,30 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn to_array(self) -> Option<Array> {
+    pub fn to_any(&self) -> Option<Any> {
         match self {
-            Value::Array(array) => Some(array),
+            Value::Any(any) => Some(any.clone()),
             _ => None,
         }
     }
 
-    pub fn to_map(self) -> Option<Map> {
+    pub fn to_array(&self) -> Option<Array> {
         match self {
-            Value::Map(map) => Some(map),
+            Value::Array(array) => Some(array.clone()),
             _ => None,
         }
     }
 
-    pub fn to_text(self) -> Option<Text> {
+    pub fn to_map(&self) -> Option<Map> {
         match self {
-            Value::Text(text) => Some(text),
+            Value::Map(map) => Some(map.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn to_text(&self) -> Option<Text> {
+        match self {
+            Value::Text(text) => Some(text.clone()),
             _ => None,
         }
     }
@@ -394,7 +401,11 @@ impl TryFrom<&Content> for Value {
     type Error = JwstCodecError;
     fn try_from(value: &Content) -> Result<Self, Self::Error> {
         Ok(match value {
-            Content::Any(any) => Value::Any(Any::Array(any.clone())),
+            Content::Any(any) => Value::Any(if any.len() == 1 {
+                any[0].clone()
+            } else {
+                Any::Array(any.clone())
+            }),
             Content::String(s) => Value::Any(Any::String(s.clone())),
             Content::Json(json) => Value::Any(Any::Array(
                 json.iter()
@@ -468,6 +479,7 @@ impl From<Doc> for Value {
 impl ToString for Value {
     fn to_string(&self) -> String {
         match self {
+            Value::Any(any) => any.to_string(),
             Value::Text(text) => text.to_string(),
             _ => String::default(),
         }

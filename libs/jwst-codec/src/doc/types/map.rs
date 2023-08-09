@@ -158,6 +158,10 @@ impl Map {
         MapType::insert(self, key, value.into())
     }
 
+    pub fn keys(&self) -> Vec<String> {
+        MapType::keys(self)
+    }
+
     #[inline]
     pub fn get<K: AsRef<str>>(&self, key: K) -> Option<Value> {
         if let Some(content) = MapType::get(self, key) {

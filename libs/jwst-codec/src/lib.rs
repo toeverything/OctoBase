@@ -11,8 +11,8 @@ pub use codec::{
 pub use doc::{
     decode_maybe_update_with_guid, decode_update_with_guid, encode_update_as_message,
     encode_update_with_guid, Any, Array, Awareness, AwarenessEvent, Client, Clock, CrdtRead,
-    CrdtReader, CrdtWrite, CrdtWriter, Doc, DocOptions, Id, Map, RawDecoder, RawEncoder, Text,
-    Update, Value,
+    CrdtReader, CrdtWrite, CrdtWriter, Doc, DocOptions, Id, Map, RawDecoder, RawEncoder,
+    StateVector, Text, Update, Value,
 };
 pub(crate) use doc::{Content, Item};
 pub use protocol::{

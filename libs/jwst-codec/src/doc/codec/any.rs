@@ -166,7 +166,13 @@ macro_rules! impl_primitive_from {
         $(
             impl From<$ty> for Any {
                 fn from(value: $ty) -> Self {
-                    Self::BigInt64(value.into())
+                    let int: i64 = value.into();
+                    // handle the behavior same as yjs
+                    if JS_INT_RANGE.contains(&int) {
+                        Self::Float64((int as f64).into())
+                    } else {
+                        Self::BigInt64(int)
+                    }
                 }
             }
         )*
@@ -450,9 +456,18 @@ impl serde::Serialize for Any {
 impl ToString for Any {
     fn to_string(&self) -> String {
         match self {
+            Self::True => "true".to_string(),
+            Self::False => "false".to_string(),
             Self::String(s) => s.clone(),
+            Self::Integer(i) => i.to_string(),
+            Self::Float32(f) => f.to_string(),
+            Self::Float64(f) => f.to_string(),
+            Self::BigInt64(i) => i.to_string(),
             // TODO: stringify other types
-            _ => String::default(),
+            _ => {
+                println!("any to string {:?}", self);
+                String::default()
+            }
         }
     }
 }
