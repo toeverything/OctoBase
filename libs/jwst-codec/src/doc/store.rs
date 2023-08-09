@@ -335,12 +335,10 @@ impl DocStore {
                                 }
                                 item.parent.replace(Parent::Type(ty.clone()));
                             }
-                            Content::Deleted(_) => {
-                                // parent got deleted, take it.
-                                item.parent.take();
-                            }
                             _ => {
-                                return Err(JwstCodecError::InvalidParent);
+                                // invalid parent, take it.
+                                item.parent.take();
+                                // return Err(JwstCodecError::InvalidParent);
                             }
                         }
                     }
