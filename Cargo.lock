@@ -2818,14 +2818,12 @@ dependencies = [
  "chrono",
  "futures",
  "jwst-codec",
- "lib0",
  "nanoid",
  "serde",
  "serde_json",
  "thiserror",
  "tokio",
  "tracing",
- "yrs",
 ]
 
 [[package]]

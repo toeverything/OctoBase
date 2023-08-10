@@ -4,7 +4,7 @@ mod spaces;
 mod sync;
 mod workspace;
 
-use super::{constants, error, info, trace, warn, JwstError, JwstResult, Space};
+use super::{constants, info, trace, warn, JwstResult, Space};
 
 pub use metadata::{Pages, WorkspaceMetadata};
-pub use workspace::{MapSubscription, Workspace};
+pub use workspace::Workspace;

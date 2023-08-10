@@ -181,7 +181,6 @@ impl Serialize for Space {
 mod test {
     use super::*;
     use jwst_codec::{StateVector, Update};
-    use tracing::info;
 
     #[test]
     fn doc_load_test() {

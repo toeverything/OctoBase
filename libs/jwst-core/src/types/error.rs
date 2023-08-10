@@ -4,8 +4,6 @@ use thiserror::Error;
 pub enum JwstError {
     #[error("io error")]
     Io(#[from] std::io::Error),
-    #[error("doc codec error")]
-    DocCodec(#[from] lib0::error::Error),
     #[error("doc transaction error")]
     DocTransaction(String),
     #[error("failed to codec")]

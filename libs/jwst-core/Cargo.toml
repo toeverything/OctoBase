@@ -13,14 +13,12 @@ base64 = "0.21.0"
 bytes = "1.4.0"
 chrono = "0.4.24"
 futures = "0.3.28"
-lib0 = { version = "0.16.5", features = ["lib0-serde"] }
 nanoid = "0.4.0"
 serde = { version = "1.0.160", features = ["derive"] }
 serde_json = "1.0.96"
 thiserror = "1.0.40"
 tracing = { version = "0.1.37", features = ["log"] }
 tokio = { version = "1.27.0", features = ["sync", "time"] }
-yrs = "0.16.5"
 
 # ======= workspace dependencies =======
 jwst-codec = { workspace = true }

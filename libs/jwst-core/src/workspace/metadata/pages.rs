@@ -147,8 +147,7 @@ impl Pages {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Workspace;
-    use jwst_codec::{Doc, Update};
+    use jwst_codec::Doc;
 
     #[test]
     fn test_page_meta() {

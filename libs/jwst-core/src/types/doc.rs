@@ -1,4 +1,4 @@
-use yrs::Doc;
+use jwst_codec::Doc;
 
 use super::*;
 
