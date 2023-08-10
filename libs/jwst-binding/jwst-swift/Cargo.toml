@@ -11,9 +11,11 @@ lib0 = "0.16.5"
 swift-bridge = "0.1.51"
 tokio = "1.27.0"
 nanoid = "0.4.0"
+yrs = "0.16.5"
 
 # ======= workspace dependencies =======
 jwst = { workspace = true }
+jwst-core = { workspace = true }
 jwst-rpc = { workspace = true }
 jwst-storage = { workspace = true, features = ["sqlite"] }
 jwst-logger = { workspace = true }

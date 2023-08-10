@@ -5,13 +5,15 @@ use tokio::runtime::Runtime;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
+    pub(crate) jwst_workspace: Option<jwst_core::Workspace>,
     pub(crate) runtime: Arc<Runtime>,
 }
 
 impl Workspace {
     pub fn new(id: String, runtime: Arc<Runtime>) -> Self {
         Self {
-            workspace: JwstWorkspace::new(id),
+            workspace: JwstWorkspace::new(&id),
+            jwst_workspace: jwst_core::Workspace::new(id).ok(),
             runtime,
         }
     }

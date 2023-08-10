@@ -27,7 +27,7 @@ pub use client::CachedLastSynced;
 pub use connector::memory_connector;
 pub use context::RpcContextImpl;
 pub use handler::handle_connector;
-pub use utils::{connect_memory_workspace, MinimumServerContext};
+pub use utils::{connect_memory_workspace, workspace_compare, MinimumServerContext};
 
 use jwst::{debug, error, info, trace, warn};
 use std::{collections::hash_map::Entry, sync::Arc, time::Instant};

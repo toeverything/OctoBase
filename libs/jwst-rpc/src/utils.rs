@@ -10,7 +10,7 @@ use tokio::{
     task::JoinHandle as TokioJoinHandler,
     time::sleep,
 };
-use yrs::{ReadTxn, StateVector, Transact};
+use yrs::{updates::decoder::Decode, ReadTxn, StateVector, Transact};
 
 pub struct MinimumServerContext {
     channel: BroadcastChannels,
@@ -131,4 +131,48 @@ pub async fn connect_memory_workspace(
     }
 
     (doc, tx, tx_handler, rx_handler, rt)
+}
+
+pub fn workspace_compare(yrs_ws: &jwst::Workspace, jwst_ws: &jwst_core::Workspace) -> String {
+    match yrs_ws.retry_with_trx(|trx| trx.trx.encode_update_v1(), 50) {
+        Ok(ret) => match ret {
+            Ok(yrs_update) => match jwst_ws.doc().encode_update_v1() {
+                Ok(jwst_update) => match yrs::Update::decode_v1(&jwst_update) {
+                    Ok(decoded_jwst_update) => {
+                        let doc = yrs::Doc::new();
+                        doc.transact_mut().apply_update(decoded_jwst_update);
+                        let trx = doc.transact();
+                        match trx.encode_state_as_update_v1(&yrs::StateVector::default()) {
+                            Ok(re_encode_jwst_update) => {
+                                if yrs_update == re_encode_jwst_update {
+                                    format!("workspace compare success")
+                                } else {
+                                    format!(
+                                        "workspace compare failed: {}, {}",
+                                        yrs_update.len(),
+                                        re_encode_jwst_update.len()
+                                    )
+                                }
+                            }
+                            Err(e) => {
+                                format!("encode applied jwst update failed: {}", e)
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        format!("decode jwst update failed: {}", e)
+                    }
+                },
+                Err(e) => {
+                    format!("encode jwst update failed: {}", e)
+                }
+            },
+            Err(e) => {
+                format!("encode yrs doc failed: {}", e)
+            }
+        },
+        Err(e) => {
+            format!("get yrs transaction failed: {}", e)
+        }
+    }
 }

@@ -2872,6 +2872,7 @@ dependencies = [
  "indicatif",
  "jwst",
  "jwst-codec",
+ "jwst-core",
  "jwst-logger",
  "jwst-storage",
  "lru_time_cache",
@@ -2932,6 +2933,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "jwst",
+ "jwst-core",
  "jwst-logger",
  "jwst-rpc",
  "jwst-storage",
@@ -2942,6 +2944,7 @@ dependencies = [
  "swift-bridge",
  "swift-bridge-build",
  "tokio",
+ "yrs",
 ]
 
 [[package]]

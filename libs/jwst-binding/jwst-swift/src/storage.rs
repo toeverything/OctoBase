@@ -1,9 +1,10 @@
 use crate::Workspace;
 use futures::TryFutureExt;
-use jwst::{error, warn, JwstError};
+use jwst::{error, info, warn, JwstError};
 use jwst_logger::init_logger_with;
 use jwst_rpc::{
-    start_websocket_client_sync, BroadcastChannels, CachedLastSynced, RpcContextImpl, SyncState,
+    start_websocket_client_sync, workspace_compare, BroadcastChannels, CachedLastSynced,
+    RpcContextImpl, SyncState,
 };
 use jwst_storage::{BlobStorageType, JwstStorage as AutoStorage, JwstStorageResult};
 use nanoid::nanoid;
@@ -12,6 +13,7 @@ use tokio::{
     runtime::{Builder, Runtime},
     sync::mpsc::channel,
 };
+use yrs::{ReadTxn, StateVector, Transact};
 
 #[derive(Clone)]
 pub struct Storage {
@@ -135,12 +137,36 @@ impl Storage {
                         Arc::new(self.clone()),
                         self.sync_state.clone(),
                         remote,
-                        workspace_id,
+                        workspace_id.clone(),
                     );
                 }
 
+                let update = workspace
+                    .doc()
+                    .transact()
+                    .encode_state_as_update_v1(&StateVector::default())
+                    .unwrap();
+
+                let jwst_workspace = match jwst_core::Workspace::from_binary(update, &workspace_id)
+                {
+                    Ok(mut ws) => {
+                        info!(
+                            "Successfully applied to jwst workspace, blocks: {}, {}",
+                            ws.get_blocks().map(|s| s.block_count()).unwrap_or_default(),
+                            workspace_compare(&workspace, &ws)
+                        );
+
+                        Some(ws)
+                    }
+                    Err(e) => {
+                        error!("Failed to apply to jwst workspace: {:?}", e);
+                        None
+                    }
+                };
+
                 Ok(Workspace {
                     workspace,
+                    jwst_workspace,
                     runtime: rt,
                 })
             }

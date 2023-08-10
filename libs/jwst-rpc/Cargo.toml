@@ -46,6 +46,7 @@ webrtcrs = { package = "webrtc", version = "0.7.3", optional = true }
 # ======= workspace dependencies =======
 jwst = { workspace = true }
 jwst-codec = { workspace = true }
+jwst-core = { workspace = true }
 jwst-storage = { workspace = true }
 
 [dev-dependencies]
