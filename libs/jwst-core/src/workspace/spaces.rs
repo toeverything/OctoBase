@@ -1,5 +1,4 @@
 use super::*;
-use jwst_codec::Any;
 
 const RESERVE_SPACE: [&str; 2] = [constants::space::META, constants::space::UPDATED];
 

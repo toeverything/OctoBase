@@ -8,9 +8,7 @@ mod workspace;
 pub mod constants;
 
 pub use block::Block;
-pub use history::{
-    parse_history, parse_history_client, BlockHistory, HistoryOperation, RawHistory,
-};
+pub use history::{BlockHistory, HistoryOperation};
 pub use space::Space;
 pub use tracing::{debug, error, info, log::LevelFilter, trace, warn};
 pub use types::{BlobMetadata, BlobStorage, BucketBlobStorage, DocStorage, JwstError, JwstResult};

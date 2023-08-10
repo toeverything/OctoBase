@@ -64,11 +64,7 @@ impl PageMeta {
 impl From<Map> for PageMeta {
     fn from(map: Map) -> Self {
         Self {
-            id: map
-                .get("id")
-                .and_then(|v| v.to_text())
-                .map(|t| t.to_string())
-                .unwrap_or_default(),
+            id: map.get("id").map(|v| v.to_string()).unwrap_or_default(),
             favorite: Self::get_bool(&map, "favorite"),
             is_pinboard: Self::get_bool(&map, "isRootPinboard"),
             is_shared: Self::get_bool(&map, "isPublic").or_else(|| {
@@ -81,9 +77,7 @@ impl From<Map> for PageMeta {
             }),
             init: Self::get_bool(&map, "init"),
             sub_page_ids: Self::get_string_array(&map, "subpageIds"),
-            title: map
-                .get("title")
-                .and_then(|s| s.to_text().map(|t| t.to_string())),
+            title: map.get("title").map(|s| s.to_string()),
             trash: Self::get_bool(&map, "trash"),
             trash_date: Self::get_number(&map, "trashDate")
                 .map(|v| v as usize)
@@ -150,60 +144,60 @@ impl Pages {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::Workspace;
-//     use jwst_codec::{Doc, Update};
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Workspace;
+    use jwst_codec::{Doc, Update};
 
-//     #[test]
-//     fn test_page_meta() {
-//         let doc = Doc::default();
-//         let mut map = doc.get_or_create_map("test").unwrap();
-//         map.insert(&mut "id", "test_page").unwrap();
-//         map.insert(&mut "favorite", true).unwrap();
-//         map.insert(&mut "isRootPinboard", true).unwrap();
-//         map.insert(&mut "init", true).unwrap();
-//         map.insert(&mut "subpageIds", doc.create_array().unwrap())
-//             .unwrap();
-//         map.insert(&mut "title", "test_title").unwrap();
-//         map.insert(&mut "trash", true).unwrap();
-//         map.insert(&mut "trashDate", 1234567890).unwrap();
+    #[test]
+    fn test_page_meta() {
+        let doc = Doc::default();
+        let mut map = doc.get_or_create_map("test").unwrap();
+        map.insert(&mut "id", "test_page").unwrap();
+        map.insert(&mut "favorite", true).unwrap();
+        map.insert(&mut "isRootPinboard", true).unwrap();
+        map.insert(&mut "init", true).unwrap();
+        map.insert(&mut "subpageIds", doc.create_array().unwrap())
+            .unwrap();
+        map.insert(&mut "title", "test_title").unwrap();
+        map.insert(&mut "trash", true).unwrap();
+        map.insert(&mut "trashDate", 1234567890).unwrap();
 
-//         let meta = PageMeta::from(&map);
-//         assert_eq!(meta.id, "test_page");
-//         assert_eq!(meta.favorite, Some(true));
-//         assert_eq!(meta.is_pinboard, Some(true));
-//         assert_eq!(meta.init, Some(true));
-//         assert_eq!(meta.sub_page_ids, Vec::<String>::new());
-//         assert_eq!(meta.title, Some("test_title".to_string()));
-//         assert_eq!(meta.trash, Some(true));
-//         assert_eq!(meta.trash_date, Some(1234567890));
-//     }
+        let meta = PageMeta::from(map);
+        assert_eq!(meta.id, "test_page");
+        assert_eq!(meta.favorite, Some(true));
+        assert_eq!(meta.is_pinboard, Some(true));
+        assert_eq!(meta.init, Some(true));
+        assert_eq!(meta.sub_page_ids, Vec::<String>::new());
+        assert_eq!(meta.title, Some("test_title".to_string()));
+        assert_eq!(meta.trash, Some(true));
+        assert_eq!(meta.trash_date, Some(1234567890));
+    }
 
-//     #[test]
-//     fn test_shared_page() {
-//         let doc = Doc::default();
-//         doc.apply_update(
-//             Update::from_ybinary1(
-//                 include_bytes!("../../../fixtures/test_shared_page.bin").to_vec(),
-//             )
-//             .unwrap(),
-//         );
-//         let ws = Workspace::from_doc(doc, "test").unwrap();
+    // #[test]
+    // fn test_shared_page() {
+    //     let doc = Doc::default();
+    //     doc.apply_update(
+    //         Update::from_ybinary1(
+    //             include_bytes!("../../../fixtures/test_shared_page.bin").to_vec(),
+    //         )
+    //         .unwrap(),
+    //     );
+    //     let ws = Workspace::from_doc(doc, "test").unwrap();
 
-//         // - test page (shared page not in Pinboard)
-//         assert!(ws.get_space("X83xzrb4Yr").shared());
-//         // - test page (unshared sub page of X83xzrb4Yr )
-//         assert!(!ws.get_space("ZISRn1STfy").shared());
+    //     // - test page (shared page not in Pinboard)
+    //     assert!(ws.get_space("X83xzrb4Yr").shared());
+    //     // - test page (unshared sub page of X83xzrb4Yr )
+    //     assert!(!ws.get_space("ZISRn1STfy").shared());
 
-//         // - test page (RootPinboard without shared)
-//         assert!(!ws.get_space("m92E0qWwPY").shared());
-//         // - test page (unshared sub page of m92E0qWwPY in Pinboard)
-//         assert!(!ws.get_space("2HadvFQVk3").shared());
-//         // - test page (shared sub page of 2HadvFQVk3 in Pinboard)
-//         assert!(ws.get_space("ymMTOFx8tt").shared());
-//         // - test page (unshared sub page of ymMTOFx8tt in Pinboard)
-//         assert!(!ws.get_space("lBaYQm5ZVo").shared());
-//     }
-// }
+    //     // - test page (RootPinboard without shared)
+    //     assert!(!ws.get_space("m92E0qWwPY").shared());
+    //     // - test page (unshared sub page of m92E0qWwPY in Pinboard)
+    //     assert!(!ws.get_space("2HadvFQVk3").shared());
+    //     // - test page (shared sub page of 2HadvFQVk3 in Pinboard)
+    //     assert!(ws.get_space("ymMTOFx8tt").shared());
+    //     // - test page (unshared sub page of ymMTOFx8tt in Pinboard)
+    //     assert!(!ws.get_space("lBaYQm5ZVo").shared());
+    // }
+}
