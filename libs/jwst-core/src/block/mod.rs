@@ -2,6 +2,7 @@ mod convert;
 
 use super::{constants::sys, *};
 use jwst_codec::{Any, Array, Doc, Map, Text, Value};
+use serde::{Serialize, Serializer};
 use std::{collections::HashMap, fmt};
 
 #[derive(Clone)]
@@ -143,15 +144,15 @@ impl Block {
     }
 
     pub(crate) fn log_update(&mut self, action: HistoryOperation) -> JwstResult {
-        let mut array = self.doc.create_array()?;
-        array.push(Any::Float64((self.operator as f64).into()))?;
-        array.push(Any::Float64(
-            (chrono::Utc::now().timestamp_millis() as f64).into(),
-        ))?;
-        array.push(Any::String(action.to_string()))?;
-
         if let Some(updated) = self.updated.as_mut() {
-            updated.push(array)?;
+            let mut array = self.doc.create_array()?;
+            updated.push(array.clone())?;
+
+            array.push(Any::Float64((self.operator as f64).into()))?;
+            array.push(Any::Float64(
+                (chrono::Utc::now().timestamp_millis() as f64).into(),
+            ))?;
+            array.push(Any::String(action.to_string()))?;
         }
 
         Ok(())
@@ -391,29 +392,22 @@ pub struct MarkdownState {
     numbered_count: usize,
 }
 
-// TODO: impl serialize for block
-// impl Serialize for Block {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         todo!();
+impl Serialize for Block {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeMap;
 
-//         let any = self.block;
+        let mut map = serializer.serialize_map(Some(self.block.len() as usize))?;
+        for (key, value) in self.block.iter() {
+            map.serialize_entry(&key, &value)?;
+        }
+        map.serialize_entry(constants::sys::ID, &self.block_id)?;
 
-//         let mut buffer = String::new();
-//         any.to_json(&mut buffer);
-//         let any: JsonValue = serde_json::from_str(&buffer).unwrap();
-
-//         let mut block = any.as_object().unwrap().clone();
-//         block.insert(
-//             constants::sys::ID.to_string(),
-//             JsonValue::String(self.block_id.clone()),
-//         );
-
-//         JsonValue::Object(block).serialize(serializer)
-//     }
-// }
+        map.end()
+    }
+}
 
 #[cfg(test)]
 mod test {
