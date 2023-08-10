@@ -264,7 +264,6 @@ impl Content {
     }
 
     pub fn split(&self, diff: u64) -> JwstCodecResult<(Self, Self)> {
-        // TODO: implement split for other types
         match self {
             Self::String(str) => {
                 let (left, right) = Self::split_as_utf16_str(str.as_str(), diff);
@@ -280,6 +279,11 @@ impl Content {
             Self::Any(vec) => {
                 let (left, right) = vec.split_at((diff + 1) as usize);
                 Ok((Self::Any(left.to_owned()), Self::Any(right.to_owned())))
+            }
+            Self::Deleted(len) => {
+                let (left, right) = (diff, *len - diff);
+
+                Ok((Self::Deleted(left), Self::Deleted(right)))
             }
             _ => Err(JwstCodecError::ContentSplitNotSupport(diff)),
         }
