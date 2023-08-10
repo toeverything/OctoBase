@@ -361,6 +361,13 @@ impl DocStore {
             _ => {}
         };
 
+        // assign store in ytype to ensure store exists if a ytype not has any children
+        if let Content::Type(ty) = item.content.as_ref() {
+            if let Some(ty) = ty.get() {
+                ty.write().unwrap().store = Arc::downgrade(&store_ref);
+            }
+        }
+
         Ok(())
     }
 
