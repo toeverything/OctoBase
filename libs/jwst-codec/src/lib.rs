@@ -10,9 +10,9 @@ pub use codec::{
 };
 pub use doc::{
     decode_maybe_update_with_guid, decode_update_with_guid, encode_update_as_message,
-    encode_update_with_guid, Any, Array, Awareness, AwarenessEvent, Client, Clock, CrdtRead,
-    CrdtReader, CrdtWrite, CrdtWriter, Doc, DocOptions, Id, Map, RawDecoder, RawEncoder, Text,
-    Update,
+    encode_update_with_guid, merge_updates_v1, Any, Array, Awareness, AwarenessEvent, Client,
+    Clock, CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, Doc, DocOptions, Id, Map, RawDecoder,
+    RawEncoder, StateVector, Text, Update, Value,
 };
 pub(crate) use doc::{Content, Item};
 pub use protocol::{
@@ -20,7 +20,7 @@ pub use protocol::{
     SyncMessage, SyncMessageScanner,
 };
 
-use jwst_logger::warn;
+use jwst_logger::{debug, warn};
 use nanoid::nanoid;
 use nom::IResult;
 use thiserror::Error;
@@ -37,6 +37,8 @@ pub enum JwstCodecError {
     ContentSplitNotSupport(u64),
     #[error("GC or Skip does not support splitting")]
     ItemSplitNotSupport,
+    #[error("update is empty")]
+    UpdateIsEmpty,
     #[error("invalid update")]
     UpdateInvalid(#[from] nom::Err<nom::error::Error<usize>>),
     #[error("update not fully consumed: {0}")]
@@ -55,6 +57,8 @@ pub enum JwstCodecError {
     InvalidStructType(&'static str),
     #[error("Can not cast known type to {0}")]
     TypeCastError(&'static str),
+    #[error("Can not found root struct with name: {0}")]
+    RootStructNotFound(String),
     #[error("Index {0} out of bound")]
     IndexOutOfBound(u64),
     #[error("Document has been released")]

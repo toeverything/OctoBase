@@ -1,0 +1,27 @@
+[package]
+name = "jwst-core"
+version = "0.1.0"
+authors = ["DarkSky <darksky2048@gmail.com>"]
+edition = "2021"
+license = "AGPL-3.0-only"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+async-trait = "0.1.68"
+base64 = "0.21.0"
+bytes = "1.4.0"
+chrono = "0.4.24"
+futures = "0.3.28"
+nanoid = "0.4.0"
+serde = { version = "1.0.160", features = ["derive"] }
+serde_json = "1.0.96"
+thiserror = "1.0.40"
+tracing = { version = "0.1.37", features = ["log"] }
+tokio = { version = "1.27.0", features = ["sync", "time"] }
+
+# ======= workspace dependencies =======
+jwst-codec = { workspace = true }
+
+[dev-dependencies]
+assert-json-diff = "2.0.2"

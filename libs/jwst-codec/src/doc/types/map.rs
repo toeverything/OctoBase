@@ -31,6 +31,14 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         Ok(())
     }
 
+    fn keys(&self) -> Vec<String> {
+        let inner = self.as_inner().get().unwrap().read().unwrap();
+        inner
+            .map
+            .as_ref()
+            .map_or(Vec::new(), |map| map.keys().cloned().collect())
+    }
+
     fn get(&self, key: impl AsRef<str>) -> Option<Arc<Content>> {
         let inner = self.as_inner().get().unwrap().read().unwrap();
         inner
@@ -63,7 +71,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
             .unwrap_or(false)
     }
 
-    fn remove(&mut self, key: impl AsRef<str>) {
+    fn remove(&mut self, key: impl AsRef<str>) -> bool {
         let mut inner = self.as_inner().get().unwrap().write().unwrap();
         let node = inner.map.as_ref().and_then(|map| map.get(key.as_ref()));
         if let Some(store) = inner.store.upgrade() {
@@ -73,8 +81,10 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
                     .delete_set
                     .add(item.id.client, item.id.clock, item.len());
                 DocStore::delete_item(item, Some(&mut inner));
+                return true;
             }
         }
+        false
     }
 
     fn len(&self) -> u64 {
@@ -85,54 +95,71 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
             .map_or(0, |map| map.values().filter(|v| !v.deleted()).count()) as u64
     }
 
-    // FIXME: Wrong iteration content, Iterator::Item should be (key, value) not (value)
-    // fn iter(&self) -> MapIterator {
-    //     let inner = self.as_inner().get().unwrap().read().unwrap();
-    //     let map = inner
-    //         .map
-    //         .as_ref()
-    //         .map(|map| map.values().cloned().collect::<Vec<StructInfo>>());
+    fn iter(&self) -> MapIterator {
+        let inner = self.as_inner().get().unwrap().read().unwrap();
+        let map = inner.map.as_ref().map(|map| {
+            map.iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect::<Vec<(String, Node)>>()
+        });
 
-    //     MapIterator {
-    //         struct_info_vec: map.unwrap_or(vec![]),
-    //         index: 0,
-    //     }
-    // }
+        MapIterator {
+            nodes: map.unwrap_or(vec![]),
+            index: 0,
+        }
+    }
 }
 
-// pub struct MapIterator {
-//     pub(super) struct_info_vec: Vec<StructInfo>,
-//     pub(super) index: usize,
-// }
+pub struct MapIterator {
+    pub(super) nodes: Vec<(String, Node)>,
+    pub(super) index: usize,
+}
 
-// impl Iterator for MapIterator {
-//     type Item = ItemRef;
+impl Iterator for MapIterator {
+    type Item = (String, Value);
 
-//     fn next(&mut self) -> Option<Self::Item> {
-//         let len = self.struct_info_vec.len();
-//         if self.index >= len {
-//             return None;
-//         }
+    fn next(&mut self) -> Option<Self::Item> {
+        let len = self.nodes.len();
+        if self.index >= len {
+            return None;
+        }
 
-//         while self.index < len {
-//             let struct_info = self.struct_info_vec[self.index].clone();
-//             self.index += 1;
-//             if struct_info.deleted() {
-//                 continue;
-//             }
+        while self.index < len {
+            let (name, node) = self.nodes[self.index].clone();
+            self.index += 1;
+            if node.deleted() {
+                continue;
+            }
 
-//             return struct_info.as_item();
-//         }
+            if let Some(item) = node.as_item().get() {
+                return item
+                    .content
+                    .as_ref()
+                    .try_into()
+                    .ok()
+                    .map(|item| (name, item));
+            } else {
+                continue;
+            }
+        }
 
-//         None
-//     }
-// }
+        None
+    }
+}
 
 impl MapType for Map {}
 
 impl Map {
+    pub fn iter(&self) -> MapIterator {
+        MapType::iter(self)
+    }
+
     pub fn insert<K: AsRef<str>, V: Into<Value>>(&mut self, key: K, value: V) -> JwstCodecResult {
         MapType::insert(self, key, value.into())
+    }
+
+    pub fn keys(&self) -> Vec<String> {
+        MapType::keys(self)
     }
 
     #[inline]
@@ -149,7 +176,7 @@ impl Map {
     }
 
     #[inline]
-    pub fn remove<K: AsRef<str>>(&mut self, key: K) {
+    pub fn remove<K: AsRef<str>>(&mut self, key: K) -> bool {
         MapType::remove(self, key)
     }
 
@@ -164,6 +191,18 @@ impl Map {
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+impl serde::Serialize for Map {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+
+        let mut map = serializer.serialize_map(Some(self.len() as usize))?;
+        for (key, value) in self.iter() {
+            map.serialize_entry(&key, &value)?;
+        }
+        map.end()
     }
 }
 

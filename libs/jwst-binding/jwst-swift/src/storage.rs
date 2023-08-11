@@ -1,6 +1,6 @@
-use crate::Workspace;
+use crate::{CachedDiffLog, Log, Workspace};
 use futures::TryFutureExt;
-use jwst::{error, warn, JwstError};
+use jwst::{error, info, warn, JwstError};
 use jwst_logger::init_logger_with;
 use jwst_rpc::{
     start_websocket_client_sync, BroadcastChannels, CachedLastSynced, RpcContextImpl, SyncState,
@@ -12,6 +12,7 @@ use tokio::{
     runtime::{Builder, Runtime},
     sync::mpsc::channel,
 };
+use yrs::{ReadTxn, StateVector, Transact};
 
 #[derive(Clone)]
 pub struct Storage {
@@ -20,6 +21,7 @@ pub struct Storage {
     error: Option<String>,
     sync_state: Arc<RwLock<SyncState>>,
     last_sync: CachedLastSynced,
+    difflog: CachedDiffLog,
 }
 
 impl Storage {
@@ -57,6 +59,7 @@ impl Storage {
             error: None,
             sync_state: Arc::new(RwLock::new(SyncState::Offline)),
             last_sync: CachedLastSynced::default(),
+            difflog: CachedDiffLog::default(),
         }
     }
 
@@ -135,14 +138,59 @@ impl Storage {
                         Arc::new(self.clone()),
                         self.sync_state.clone(),
                         remote,
-                        workspace_id,
+                        workspace_id.clone(),
                     );
                 }
 
-                Ok(Workspace {
+                let update = workspace
+                    .doc()
+                    .transact()
+                    .encode_state_as_update_v1(&StateVector::default())
+                    .unwrap();
+
+                let jwst_workspace = match jwst_core::Workspace::from_binary(update, &workspace_id)
+                {
+                    Ok(mut ws) => {
+                        info!(
+                            "Successfully applied to jwst workspace, jwst blocks: {}, yrs blocks: {}",
+                            ws.get_blocks().map(|s| s.block_count()).unwrap_or_default(),
+                            workspace
+                                .retry_with_trx(|mut t| t.get_blocks(), 50)
+                                .map(|s| s.block_count())
+                                .unwrap_or_default()
+                        );
+
+                        Some(ws)
+                    }
+                    Err(e) => {
+                        error!("Failed to apply to jwst workspace: {:?}", e);
+                        None
+                    }
+                };
+
+                let (sender, receiver) = std::sync::mpsc::channel::<Log>();
+                self.difflog.add_receiver(receiver);
+
+                let mut ws = Workspace {
                     workspace,
+                    jwst_workspace,
                     runtime: rt,
-                })
+                    sender,
+                };
+
+                if let Some(ret) = Workspace::compare(&mut ws) {
+                    info!(
+                        "Run first compare at workspace init: {}, {}",
+                        workspace_id, ret
+                    );
+                } else {
+                    warn!(
+                        "Failed to run first compare, jwst workspace not initialed: {}",
+                        workspace_id
+                    );
+                }
+
+                Ok(ws)
             }
             Err(e) => Err(e),
         }
@@ -150,6 +198,12 @@ impl Storage {
 
     pub fn get_last_synced(&self) -> Vec<i64> {
         self.last_sync.pop()
+    }
+
+    pub fn get_difflog(&self) -> String {
+        let logs = self.difflog.pop();
+
+        serde_json::to_string(&logs).unwrap_or("{\"error\": \"failed to serialize logs\"}}".into())
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::{Client, Clock, Id};
+use crate::{Client, Clock, CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, Id, JwstCodecResult};
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
@@ -70,6 +70,34 @@ impl<const N: usize> From<[(Client, Clock); N]> for StateVector {
         }
 
         Self(map)
+    }
+}
+
+impl<R: CrdtReader> CrdtRead<R> for StateVector {
+    fn read(decoder: &mut R) -> JwstCodecResult<Self> {
+        let len = decoder.read_var_u64()? as usize;
+
+        let mut map = HashMap::with_capacity(len);
+        for _ in 0..len {
+            let client = decoder.read_var_u64()?;
+            let clock = decoder.read_var_u64()?;
+            map.insert(client, clock);
+        }
+
+        Ok(Self(map))
+    }
+}
+
+impl<W: CrdtWriter> CrdtWrite<W> for StateVector {
+    fn write(&self, encoder: &mut W) -> JwstCodecResult {
+        encoder.write_var_u64(self.len() as u64)?;
+
+        for (client, clock) in self.iter() {
+            encoder.write_var_u64(*client)?;
+            encoder.write_var_u64(*clock)?;
+        }
+
+        Ok(())
     }
 }
 
