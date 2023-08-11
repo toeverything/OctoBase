@@ -151,8 +151,12 @@ impl Storage {
                 {
                     Ok(mut ws) => {
                         info!(
-                            "Successfully applied to jwst workspace, blocks: {}, {}",
+                            "Successfully applied to jwst workspace, jwst blocks: {}, yrs blocks: {}, {}",
                             ws.get_blocks().map(|s| s.block_count()).unwrap_or_default(),
+                            workspace
+                                .retry_with_trx(|mut t| t.get_blocks(), 50)
+                                .map(|s| s.block_count())
+                                .unwrap_or_default(),
                             workspace_compare(&workspace, &ws)
                         );
 
