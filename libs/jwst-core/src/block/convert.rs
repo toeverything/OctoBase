@@ -93,7 +93,7 @@ impl Block {
         }
     }
 
-    fn clone_text(&self, stack: u8, text: Text, new_text: Text) -> JwstResult<()> {
+    fn clone_text(&self, stack: u8, _text: Text, _new_text: Text) -> JwstResult<()> {
         if stack > MAX_STACK {
             warn!("clone_text: stack overflow");
             return Ok(());

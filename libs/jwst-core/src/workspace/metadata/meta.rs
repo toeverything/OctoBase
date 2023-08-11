@@ -27,7 +27,7 @@ impl From<WorkspaceMetadata> for Any {
         if let Some(avatar) = val.avatar {
             map.insert(constants::metadata::AVATAR.to_owned(), avatar.into());
         }
-        Any::Object(map.into())
+        Any::Object(map)
     }
 }
 

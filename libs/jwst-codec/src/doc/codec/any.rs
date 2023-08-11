@@ -486,7 +486,7 @@ impl ToString for Any {
             Self::BigInt64(i) => i.to_string(),
             // TODO: stringify other types
             _ => {
-                println!("any to string {:?}", self);
+                debug!("any to string {:?}", self);
                 String::default()
             }
         }

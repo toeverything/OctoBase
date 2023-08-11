@@ -3,7 +3,7 @@ mod convert;
 use super::{constants::sys, *};
 use jwst_codec::{Any, Array, Doc, Map, Text, Value};
 use serde::{Serialize, Serializer};
-use std::{collections::HashMap, fmt};
+use std::fmt;
 
 #[derive(Clone)]
 pub struct Block {
@@ -337,7 +337,8 @@ impl Block {
             .any(|bid| bid == block_id.as_ref())
     }
 
-    pub(crate) fn content(&self) -> HashMap<String, Any> {
+    #[cfg(test)]
+    pub(crate) fn content(&self) -> std::collections::HashMap<String, Any> {
         self.block
             .iter()
             .filter_map(|(key, val)| {

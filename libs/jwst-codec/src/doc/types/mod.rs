@@ -145,11 +145,9 @@ impl YTypeBuilder {
             return Err(JwstCodecError::TypeCastError("root_name is not set"));
         };
 
-        let ty_ref = ty.clone();
-
         drop(store);
 
-        Ok(T::try_from(ty_ref)?)
+        T::try_from(ty)
     }
 
     pub fn build<T: TryFrom<YTypeRef, Error = JwstCodecError>>(self) -> JwstCodecResult<T> {

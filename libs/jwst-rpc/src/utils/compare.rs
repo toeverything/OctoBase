@@ -37,7 +37,7 @@ pub fn workspace_compare(yrs_ws: &jwst::Workspace, jwst_ws: &mut jwst_core::Work
                 ) {
                     format!("workspace_compare: struct compare failed: {}", error)
                 } else {
-                    format!("workspace_compare: struct compare success")
+                    "workspace_compare: struct compare success".into()
                 }
             }
             Err(e) => e,

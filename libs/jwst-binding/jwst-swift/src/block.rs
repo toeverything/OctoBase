@@ -72,18 +72,16 @@ impl Block {
 
             self.runtime
                 .spawn(async move {
-                    let ret = workspace
+                    workspace
                         .with_trx(|mut trx| curr_block.push_children(&mut trx.trx, &target_block))
                         .expect("failed to push children");
 
                     // just for data verify
-                    if let Some(mut jwst_block) = jwst_block.map(|b| b) {
+                    if let Some(mut jwst_block) = jwst_block {
                         if let Some(mut block) = target_jwst_block {
                             jwst_block
                                 .push_children(&mut block)
                                 .expect("failed to push children");
-                            // let ret = workspace_compare(&workspace, &jwst_workspace);
-                            // sender.send(Log::new(workspace.id(), ret)).unwrap();
                         } else {
                             sender
                                 .send(Log::new(
@@ -96,8 +94,6 @@ impl Block {
                                 .unwrap();
                         }
                     }
-
-                    ret
                 })
                 .await
                 .unwrap()
@@ -124,13 +120,11 @@ impl Block {
                         .expect("failed to insert children at position");
 
                     // just for data verify
-                    if let Some(mut jwst_block) = jwst_block.map(|b| b) {
+                    if let Some(mut jwst_block) = jwst_block {
                         if let Some(mut block) = target_jwst_block {
                             jwst_block
                                 .insert_children_at(&mut block, pos as u64)
                                 .expect("failed to insert children at position");
-                            // let ret = workspace_compare(&workspace, &jwst_workspace);
-                            // sender.send(Log::new(workspace.id(), ret)).unwrap();
                         } else {
                             sender
                                 .send(Log::new(
@@ -174,13 +168,11 @@ impl Block {
                         .expect("failed to insert children before");
 
                     // just for data verify
-                    if let Some(mut jwst_block) = jwst_block.map(|b| b) {
+                    if let Some(mut jwst_block) = jwst_block {
                         if let Some(mut block) = target_jwst_block {
                             jwst_block
                                 .insert_children_before(&mut block, &reference)
                                 .expect("failed to insert children before");
-                            // let ret = workspace_compare(&workspace, &jwst_workspace);
-                            // sender.send(Log::new(workspace.id(), ret)).unwrap();
                         } else {
                             sender
                                 .send(Log::new(
@@ -224,7 +216,7 @@ impl Block {
                         .expect("failed to insert children after");
 
                     // just for data verify
-                    if let Some(mut jwst_block) = jwst_block.map(|b| b) {
+                    if let Some(mut jwst_block) = jwst_block {
                         if let Some(mut block) = target_jwst_block {
                             jwst_block
                                 .insert_children_after(&mut block, &reference)
@@ -265,7 +257,7 @@ impl Block {
                         .expect("failed to remove children");
 
                     // just for data verify
-                    if let Some(mut jwst_block) = jwst_block.map(|b| b) {
+                    if let Some(mut jwst_block) = jwst_block {
                         if let Some(mut block) = target_jwst_block {
                             jwst_block
                                 .remove_children(&mut block)
@@ -370,7 +362,7 @@ impl Block {
                         .expect("failed to set bool");
 
                     // just for data verify
-                    if let Some(mut jwst_block) = jwst_block.map(|b| b) {
+                    if let Some(mut jwst_block) = jwst_block {
                         jwst_block.set(&key, value).expect("failed to set bool");
                     }
                 })
@@ -394,7 +386,7 @@ impl Block {
                         .expect("failed to set string");
 
                     // just for data verify
-                    if let Some(mut jwst_block) = jwst_block.map(|b| b) {
+                    if let Some(mut jwst_block) = jwst_block {
                         jwst_block.set(&key, value).expect("failed to set string");
                     }
                 })
@@ -418,7 +410,7 @@ impl Block {
                         .expect("failed to set float");
 
                     // just for data verify
-                    if let Some(mut jwst_block) = jwst_block.map(|b| b) {
+                    if let Some(mut jwst_block) = jwst_block {
                         jwst_block.set(&key, value).expect("failed to set float");
                     }
                 })
@@ -442,7 +434,7 @@ impl Block {
                         .expect("failed to set integer");
 
                     // just for data verify
-                    if let Some(mut jwst_block) = jwst_block.map(|b| b) {
+                    if let Some(mut jwst_block) = jwst_block {
                         jwst_block
                             .set(&key, jwst_core::Any::BigInt64(value))
                             .expect("failed to set integer");
@@ -468,7 +460,7 @@ impl Block {
                         .expect("failed to set null");
 
                     // just for data verify
-                    if let Some(mut jwst_block) = jwst_block.map(|b| b) {
+                    if let Some(mut jwst_block) = jwst_block {
                         jwst_block
                             .set(&key, jwst_core::Any::Null)
                             .expect("failed to set null");

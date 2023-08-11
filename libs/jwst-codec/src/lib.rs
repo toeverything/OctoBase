@@ -20,7 +20,7 @@ pub use protocol::{
     SyncMessage, SyncMessageScanner,
 };
 
-use jwst_logger::warn;
+use jwst_logger::{debug, warn};
 use nanoid::nanoid;
 use nom::IResult;
 use thiserror::Error;
