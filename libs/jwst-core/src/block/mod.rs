@@ -515,7 +515,7 @@ mod test {
             vec![
                 ("bigint".to_owned(), Any::BigInt64(9007199254740992)),
                 ("bool".to_owned(), Any::True),
-                ("num".to_owned(), Any::Float64(123.0.into())),
+                ("num".to_owned(), Any::Integer(123)),
                 ("text".to_owned(), Any::String("hello world".into())),
                 ("text_owned".to_owned(), Any::String("hello world".into())),
             ]
