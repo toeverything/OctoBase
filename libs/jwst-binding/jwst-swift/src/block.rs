@@ -1,21 +1,40 @@
-use super::DynamicValue;
+use super::{DynamicValue, Log};
 use jwst::{Block as JwstBlock, Workspace};
+use jwst_rpc::workspace_compare;
 use lib0::any::Any;
-use std::sync::Arc;
+use std::sync::{mpsc::Sender, Arc};
 use tokio::runtime::Runtime;
 
 pub struct Block {
     pub workspace: Workspace,
     pub block: JwstBlock,
     runtime: Arc<Runtime>,
+
+    // just for data verify
+    pub(crate) jwst_workspace: Option<jwst_core::Workspace>,
+    pub(crate) jwst_block: Option<jwst_core::Block>,
+    pub(crate) sender: Sender<Log>,
 }
 
 impl Block {
-    pub fn new(workspace: Workspace, block: JwstBlock, runtime: Arc<Runtime>) -> Self {
+    pub fn new(
+        workspace: Workspace,
+        block: JwstBlock,
+        runtime: Arc<Runtime>,
+        jwst_workspace: Option<jwst_core::Workspace>,
+        sender: Sender<Log>,
+    ) -> Self {
         Self {
             workspace,
-            block,
+            block: block.clone(),
             runtime,
+
+            // just for data verify
+            jwst_workspace: jwst_workspace.clone(),
+            jwst_block: jwst_workspace
+                .and_then(|mut w| w.get_blocks().ok())
+                .and_then(|s| s.get(block.block_id())),
+            sender,
         }
     }
 
@@ -48,11 +67,43 @@ impl Block {
             let workspace = self.workspace.clone();
             let curr_block = self.block.clone();
             let target_block = block.block.clone();
+
+            // just for data verify
+            let jwst_workspace = self.jwst_workspace.clone();
+            let jwst_block = self.jwst_block.clone();
+            let sender = self.sender.clone();
+            let target_jwst_block = block.jwst_block.clone();
+
             self.runtime
                 .spawn(async move {
-                    workspace
+                    let ret = workspace
                         .with_trx(|mut trx| curr_block.push_children(&mut trx.trx, &target_block))
-                        .expect("failed to push children")
+                        .expect("failed to push children");
+
+                    // just for data verify
+                    if let Some((jwst_workspace, mut jwst_block)) =
+                        jwst_workspace.and_then(|ws| jwst_block.map(|b| (ws, b)))
+                    {
+                        if let Some(mut block) = target_jwst_block {
+                            jwst_block
+                                .push_children(&mut block)
+                                .expect("failed to push children");
+                            // let ret = workspace_compare(&workspace, &jwst_workspace);
+                            // sender.send(Log::new(workspace.id(), ret)).unwrap();
+                        } else {
+                            sender
+                                .send(Log::new(
+                                    workspace.id(),
+                                    format!(
+                                        "target jwst block not exists: {}",
+                                        target_block.block_id()
+                                    ),
+                                ))
+                                .unwrap();
+                        }
+                    }
+
+                    ret
                 })
                 .await
                 .unwrap()
@@ -64,6 +115,13 @@ impl Block {
             let workspace = self.workspace.clone();
             let curr_block = self.block.clone();
             let target_block = block.block.clone();
+
+            // just for data verify
+            let jwst_workspace = self.jwst_workspace.clone();
+            let jwst_block = self.jwst_block.clone();
+            let sender = self.sender.clone();
+            let target_jwst_block = block.jwst_block.clone();
+
             self.runtime
                 .spawn(async move {
                     workspace
@@ -71,6 +129,29 @@ impl Block {
                             curr_block.insert_children_at(&mut trx.trx, &target_block, pos)
                         })
                         .expect("failed to insert children at position");
+
+                    // just for data verify
+                    if let Some((jwst_workspace, mut jwst_block)) =
+                        jwst_workspace.and_then(|ws| jwst_block.map(|b| (ws, b)))
+                    {
+                        if let Some(mut block) = target_jwst_block {
+                            jwst_block
+                                .insert_children_at(&mut block, pos as u64)
+                                .expect("failed to insert children at position");
+                            // let ret = workspace_compare(&workspace, &jwst_workspace);
+                            // sender.send(Log::new(workspace.id(), ret)).unwrap();
+                        } else {
+                            sender
+                                .send(Log::new(
+                                    workspace.id(),
+                                    format!(
+                                        "target jwst block not exists: {}",
+                                        target_block.block_id()
+                                    ),
+                                ))
+                                .unwrap();
+                        }
+                    }
                 })
                 .await
                 .unwrap()
@@ -83,6 +164,13 @@ impl Block {
             let curr_block = self.block.clone();
             let target_block = block.block.clone();
             let reference = reference.to_string();
+
+            // just for data verify
+            let jwst_workspace = self.jwst_workspace.clone();
+            let jwst_block = self.jwst_block.clone();
+            let sender = self.sender.clone();
+            let target_jwst_block = block.jwst_block.clone();
+
             self.runtime
                 .spawn(async move {
                     workspace
@@ -94,6 +182,29 @@ impl Block {
                             )
                         })
                         .expect("failed to insert children before");
+
+                    // just for data verify
+                    if let Some((jwst_workspace, mut jwst_block)) =
+                        jwst_workspace.and_then(|ws| jwst_block.map(|b| (ws, b)))
+                    {
+                        if let Some(mut block) = target_jwst_block {
+                            jwst_block
+                                .insert_children_before(&mut block, &reference)
+                                .expect("failed to insert children before");
+                            // let ret = workspace_compare(&workspace, &jwst_workspace);
+                            // sender.send(Log::new(workspace.id(), ret)).unwrap();
+                        } else {
+                            sender
+                                .send(Log::new(
+                                    workspace.id(),
+                                    format!(
+                                        "target jwst block not exists: {}",
+                                        target_block.block_id()
+                                    ),
+                                ))
+                                .unwrap();
+                        }
+                    }
                 })
                 .await
                 .unwrap()
@@ -106,6 +217,13 @@ impl Block {
             let curr_block = self.block.clone();
             let target_block = block.block.clone();
             let reference = reference.to_string();
+
+            // just for data verify
+            let jwst_workspace = self.jwst_workspace.clone();
+            let jwst_block = self.jwst_block.clone();
+            let sender = self.sender.clone();
+            let target_jwst_block = block.jwst_block.clone();
+
             self.runtime
                 .spawn(async move {
                     workspace
@@ -117,6 +235,29 @@ impl Block {
                             )
                         })
                         .expect("failed to insert children after");
+
+                    // just for data verify
+                    if let Some((jwst_workspace, mut jwst_block)) =
+                        jwst_workspace.and_then(|ws| jwst_block.map(|b| (ws, b)))
+                    {
+                        if let Some(mut block) = target_jwst_block {
+                            jwst_block
+                                .insert_children_after(&mut block, &reference)
+                                .expect("failed to insert children after");
+                            // let ret = workspace_compare(&workspace, &jwst_workspace);
+                            // sender.send(Log::new(workspace.id(), ret)).unwrap();
+                        } else {
+                            sender
+                                .send(Log::new(
+                                    workspace.id(),
+                                    format!(
+                                        "target jwst block not exists: {}",
+                                        target_block.block_id()
+                                    ),
+                                ))
+                                .unwrap();
+                        }
+                    }
                 })
                 .await
                 .unwrap()
@@ -128,11 +269,41 @@ impl Block {
             let workspace = self.workspace.clone();
             let curr_block = self.block.clone();
             let target_block = block.block.clone();
+
+            // just for data verify
+            let jwst_workspace = self.jwst_workspace.clone();
+            let jwst_block = self.jwst_block.clone();
+            let sender = self.sender.clone();
+            let target_jwst_block = block.jwst_block.clone();
+
             self.runtime
                 .spawn(async move {
                     workspace
                         .with_trx(|mut trx| curr_block.remove_children(&mut trx.trx, &target_block))
                         .expect("failed to remove children");
+
+                    // just for data verify
+                    if let Some((jwst_workspace, mut jwst_block)) =
+                        jwst_workspace.and_then(|ws| jwst_block.map(|b| (ws, b)))
+                    {
+                        if let Some(mut block) = target_jwst_block {
+                            jwst_block
+                                .remove_children(&mut block)
+                                .expect("failed to remove jwst block");
+                            // let ret = workspace_compare(&workspace, &jwst_workspace);
+                            // sender.send(Log::new(workspace.id(), ret)).unwrap();
+                        } else {
+                            sender
+                                .send(Log::new(
+                                    workspace.id(),
+                                    format!(
+                                        "target jwst block not exists: {}",
+                                        target_block.block_id()
+                                    ),
+                                ))
+                                .unwrap();
+                        }
+                    }
                 })
                 .await
                 .unwrap()
@@ -210,11 +381,26 @@ impl Block {
         self.runtime.block_on(async {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
+
+            // just for data verify
+            let jwst_workspace = self.jwst_workspace.clone();
+            let jwst_block = self.jwst_block.clone();
+            let sender = self.sender.clone();
+
             self.runtime
                 .spawn(async move {
                     workspace
                         .with_trx(|mut trx| block.set(&mut trx.trx, &key, value))
                         .expect("failed to set bool");
+
+                    // just for data verify
+                    if let Some((jwst_workspace, mut jwst_block)) =
+                        jwst_workspace.and_then(|ws| jwst_block.map(|b| (ws, b)))
+                    {
+                        jwst_block.set(&key, value).expect("failed to set bool");
+                        // let ret = workspace_compare(&workspace, &jwst_workspace);
+                        // sender.send(Log::new(workspace.id(), ret)).unwrap();
+                    }
                 })
                 .await
                 .unwrap()
@@ -225,11 +411,26 @@ impl Block {
         self.runtime.block_on(async {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
+
+            // just for data verify
+            let jwst_workspace = self.jwst_workspace.clone();
+            let jwst_block = self.jwst_block.clone();
+            let sender = self.sender.clone();
+
             self.runtime
                 .spawn(async move {
                     workspace
-                        .with_trx(|mut trx| block.set(&mut trx.trx, &key, value))
+                        .with_trx(|mut trx| block.set(&mut trx.trx, &key, value.clone()))
                         .expect("failed to set string");
+
+                    // just for data verify
+                    if let Some((jwst_workspace, mut jwst_block)) =
+                        jwst_workspace.and_then(|ws| jwst_block.map(|b| (ws, b)))
+                    {
+                        jwst_block.set(&key, value).expect("failed to set string");
+                        // let ret = workspace_compare(&workspace, &jwst_workspace);
+                        // sender.send(Log::new(workspace.id(), ret)).unwrap();
+                    }
                 })
                 .await
                 .unwrap()
@@ -240,11 +441,26 @@ impl Block {
         self.runtime.block_on(async {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
+
+            // just for data verify
+            let jwst_workspace = self.jwst_workspace.clone();
+            let jwst_block = self.jwst_block.clone();
+            let sender = self.sender.clone();
+
             self.runtime
                 .spawn(async move {
                     workspace
                         .with_trx(|mut trx| block.set(&mut trx.trx, &key, value))
                         .expect("failed to set float");
+
+                    // just for data verify
+                    if let Some((jwst_workspace, mut jwst_block)) =
+                        jwst_workspace.and_then(|ws| jwst_block.map(|b| (ws, b)))
+                    {
+                        jwst_block.set(&key, value).expect("failed to set float");
+                        // let ret = workspace_compare(&workspace, &jwst_workspace);
+                        // sender.send(Log::new(workspace.id(), ret)).unwrap();
+                    }
                 })
                 .await
                 .unwrap()
@@ -254,12 +470,29 @@ impl Block {
     pub fn set_integer(&self, key: String, value: i64) {
         let workspace = self.workspace.clone();
         let block = self.block.clone();
+
+        // just for data verify
+        let jwst_workspace = self.jwst_workspace.clone();
+        let jwst_block = self.jwst_block.clone();
+        let sender = self.sender.clone();
+
         self.runtime.block_on(async {
             self.runtime
                 .spawn(async move {
                     workspace
                         .with_trx(|mut trx| block.set(&mut trx.trx, &key, value))
                         .expect("failed to set integer");
+
+                    // just for data verify
+                    if let Some((jwst_workspace, mut jwst_block)) =
+                        jwst_workspace.and_then(|ws| jwst_block.map(|b| (ws, b)))
+                    {
+                        jwst_block
+                            .set(&key, jwst_core::Any::BigInt64(value))
+                            .expect("failed to set integer");
+                        // let ret = workspace_compare(&workspace, &jwst_workspace);
+                        // sender.send(Log::new(workspace.id(), ret)).unwrap();
+                    }
                 })
                 .await
                 .unwrap()
@@ -270,11 +503,28 @@ impl Block {
         self.runtime.block_on(async {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
+
+            // just for data verify
+            let jwst_workspace = self.jwst_workspace.clone();
+            let jwst_block = self.jwst_block.clone();
+            let sender = self.sender.clone();
+
             self.runtime
                 .spawn(async move {
                     workspace
                         .with_trx(|mut trx| block.set(&mut trx.trx, &key, Any::Null))
                         .expect("failed to set null");
+
+                    // just for data verify
+                    if let Some((jwst_workspace, mut jwst_block)) =
+                        jwst_workspace.and_then(|ws| jwst_block.map(|b| (ws, b)))
+                    {
+                        jwst_block
+                            .set(&key, jwst_core::Any::Null)
+                            .expect("failed to set null");
+                        // let ret = workspace_compare(&workspace, &jwst_workspace);
+                        // sender.send(Log::new(workspace.id(), ret)).unwrap();
+                    }
                 })
                 .await
                 .unwrap()

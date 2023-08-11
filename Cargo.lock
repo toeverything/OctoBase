@@ -2935,6 +2935,7 @@ dependencies = [
 name = "jwst-swift"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "futures",
  "jwst",
  "jwst-core",
@@ -2945,6 +2946,8 @@ dependencies = [
  "nanoid",
  "regex",
  "reqwest",
+ "serde",
+ "serde_json",
  "swift-bridge",
  "swift-bridge-build",
  "tokio",

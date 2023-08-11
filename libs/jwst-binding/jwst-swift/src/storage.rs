@@ -1,10 +1,9 @@
-use crate::Workspace;
+use crate::{CachedDiffLog, Log, Workspace};
 use futures::TryFutureExt;
 use jwst::{error, info, warn, JwstError};
 use jwst_logger::init_logger_with;
 use jwst_rpc::{
-    start_websocket_client_sync, workspace_compare, BroadcastChannels, CachedLastSynced,
-    RpcContextImpl, SyncState,
+    start_websocket_client_sync, BroadcastChannels, CachedLastSynced, RpcContextImpl, SyncState,
 };
 use jwst_storage::{BlobStorageType, JwstStorage as AutoStorage, JwstStorageResult};
 use nanoid::nanoid;
@@ -22,6 +21,7 @@ pub struct Storage {
     error: Option<String>,
     sync_state: Arc<RwLock<SyncState>>,
     last_sync: CachedLastSynced,
+    difflog: CachedDiffLog,
 }
 
 impl Storage {
@@ -59,6 +59,7 @@ impl Storage {
             error: None,
             sync_state: Arc::new(RwLock::new(SyncState::Offline)),
             last_sync: CachedLastSynced::default(),
+            difflog: CachedDiffLog::default(),
         }
     }
 
@@ -167,10 +168,14 @@ impl Storage {
                     }
                 };
 
+                let (sender, receiver) = std::sync::mpsc::channel::<Log>();
+                self.difflog.add_receiver(receiver);
+
                 let ws = Workspace {
                     workspace,
                     jwst_workspace,
                     runtime: rt,
+                    sender,
                 };
 
                 if let Some(ret) = Workspace::compare(&ws) {
@@ -193,6 +198,12 @@ impl Storage {
 
     pub fn get_last_synced(&self) -> Vec<i64> {
         self.last_sync.pop()
+    }
+
+    pub fn get_difflog(&self) -> String {
+        let logs = self.difflog.pop();
+
+        serde_json::to_string(&logs).unwrap_or("{\"error\": \"failed to serialize logs\"}}".into())
     }
 }
 

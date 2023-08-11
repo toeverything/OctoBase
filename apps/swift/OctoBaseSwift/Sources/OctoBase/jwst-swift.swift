@@ -412,6 +412,10 @@ extension WorkspaceRef {
     public func set_search_index<GenericIntoRustString: IntoRustString>(_ fields: RustVec<GenericIntoRustString>) -> Bool {
         __swift_bridge__$Workspace$set_search_index(ptr, { let val = fields; val.isOwned = false; return val.ptr }())
     }
+
+    public func compare() -> Optional<RustString> {
+        { let val = __swift_bridge__$Workspace$compare(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
+    }
 }
 extension Workspace: Vectorizable {
     public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
@@ -596,6 +600,10 @@ extension StorageRef {
 
     public func get_last_synced() -> RustVec<Int64> {
         RustVec(ptr: __swift_bridge__$Storage$get_last_synced(ptr))
+    }
+
+    public func get_difflog() -> RustString {
+        RustString(ptr: __swift_bridge__$Storage$get_difflog(ptr))
     }
 }
 extension Storage: Vectorizable {

@@ -1,13 +1,16 @@
 mod block;
+mod difflog;
 mod dynamic_value;
 mod storage;
 mod workspace;
 
 pub use block::Block;
 pub use dynamic_value::{DynamicValue, DynamicValueMap};
-use jwst::JwstError;
 pub use storage::Storage;
 pub use workspace::Workspace;
+
+use difflog::{CachedDiffLog, Log};
+use jwst::JwstError;
 
 type JwstWorkSpaceResult = Result<Workspace, JwstError>;
 
@@ -106,6 +109,8 @@ mod ffi {
         fn get_search_index(self: &Workspace) -> Vec<String>;
 
         fn set_search_index(self: &Workspace, fields: Vec<String>) -> bool;
+
+        fn compare(self: &Workspace) -> Option<String>;
     }
 
     extern "Rust" {
@@ -136,5 +141,7 @@ mod ffi {
         fn connect(self: &mut Storage, workspace_id: String, remote: String) -> Option<Workspace>;
 
         fn get_last_synced(self: &Storage) -> Vec<i64>;
+
+        fn get_difflog(self: &Storage) -> String;
     }
 }

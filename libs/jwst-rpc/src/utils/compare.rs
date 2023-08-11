@@ -1,4 +1,4 @@
-use assert_json_diff::{assert_json_matches_no_panic, CompareMode, Config};
+use assert_json_diff::{assert_json_matches_no_panic, CompareMode, Config, NumericMode};
 use yrs::{types::ToJson, updates::decoder::Decode, ReadTxn, Transact};
 
 fn get_yrs_struct(ws: &jwst::Workspace) -> Result<serde_json::Value, String> {
@@ -47,7 +47,7 @@ pub fn workspace_compare(yrs_ws: &jwst::Workspace, jwst_ws: &jwst_core::Workspac
                 if let Err(error) = assert_json_matches_no_panic(
                     &yrs_value,
                     &jwst_value,
-                    Config::new(CompareMode::Strict),
+                    Config::new(CompareMode::Strict).numeric_mode(NumericMode::AssumeFloat),
                 ) {
                     format!("workspace_compare: struct compare failed: {}", error)
                 } else {
