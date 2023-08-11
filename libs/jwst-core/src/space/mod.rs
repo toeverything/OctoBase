@@ -121,6 +121,20 @@ impl Space {
         Block::new(self, block_id, flavour, self.client_id())
     }
 
+    // only for jwst verify
+    pub fn create_ffi<B, F>(&mut self, block_id: B, flavour: F, created: u64) -> JwstResult<Block>
+    where
+        B: AsRef<str>,
+        F: AsRef<str>,
+    {
+        info!(
+            "create block: {}, flavour: {}",
+            block_id.as_ref(),
+            flavour.as_ref()
+        );
+        Block::new_ffi(self, block_id, flavour, self.client_id(), created)
+    }
+
     pub fn remove<S: AsRef<str>>(&mut self, block_id: S) -> bool {
         info!("remove block: {}", block_id.as_ref());
         self.blocks.remove(block_id.as_ref()) && self.updated.remove(block_id.as_ref())

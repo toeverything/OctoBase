@@ -54,6 +54,8 @@ impl PageMeta {
         map.get(key).and_then(|v| {
             if let Value::Any(Any::Float64(n)) = v {
                 Some(n.0)
+            } else if let Value::Any(Any::Integer(n)) = v {
+                Some(n as f64)
             } else {
                 None
             }

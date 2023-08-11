@@ -71,7 +71,57 @@ impl Block {
             // init default schema
             block.insert(sys::FLAVOUR, flavour.as_ref())?;
             block.insert(sys::CHILDREN, space.doc().create_array()?)?;
-            block.insert(sys::CREATED, chrono::Utc::now().timestamp_millis() as f64)?;
+            block.insert(sys::CREATED, chrono::Utc::now().timestamp_millis())?;
+
+            space
+                .updated
+                .insert(block_id, space.doc().create_array()?)?;
+
+            let children = block.get(sys::CHILDREN).and_then(|c| c.to_array()).unwrap();
+            let updated = space.updated.get(block_id).and_then(|c| c.to_array());
+
+            let mut block = Self {
+                id: space.id(),
+                space_id: space.space_id(),
+                doc: space.doc(),
+                block_id: block_id.to_string(),
+                operator,
+                block,
+                children,
+                updated,
+            };
+
+            block.log_update(HistoryOperation::Add)?;
+
+            Ok(block)
+        }
+    }
+
+    // only for jwst verify
+    pub fn new_ffi<B, F>(
+        space: &mut Space,
+        block_id: B,
+        flavour: F,
+        operator: u64,
+        created: u64,
+    ) -> JwstResult<Block>
+    where
+        B: AsRef<str>,
+        F: AsRef<str>,
+    {
+        let block_id = block_id.as_ref();
+
+        if let Some(block) = Self::from(space, block_id, operator) {
+            Ok(block)
+        } else {
+            // init base struct
+            space.blocks.insert(block_id, space.doc().create_map()?)?;
+            let mut block = space.blocks.get(block_id).and_then(|b| b.to_map()).unwrap();
+
+            // init default schema
+            block.insert(sys::FLAVOUR, flavour.as_ref())?;
+            block.insert(sys::CHILDREN, space.doc().create_array()?)?;
+            block.insert(sys::CREATED, created)?;
 
             space
                 .updated
@@ -214,6 +264,7 @@ impl Block {
         self.block
             .get(sys::CREATED)
             .and_then(|c| match c {
+                Value::Any(Any::Integer(n)) => Some(n),
                 Value::Any(Any::BigInt64(n)) => Some(n as u64),
                 _ => None,
             })
@@ -403,7 +454,7 @@ impl Serialize for Block {
         for (key, value) in self.block.iter() {
             map.serialize_entry(&key, &value)?;
         }
-        map.serialize_entry(constants::sys::ID, &self.block_id)?;
+        // map.serialize_entry(constants::sys::ID, &self.block_id)?;
 
         map.end()
     }
