@@ -218,7 +218,17 @@ impl From<f32> for Any {
 
 impl From<f64> for Any {
     fn from(value: f64) -> Self {
-        Self::Float64(value.into())
+        if value.trunc() == value {
+            if value as u64 as f64 == value {
+                Self::Integer(value as u64)
+            } else {
+                Self::BigInt64(value as i64)
+            }
+        } else if value as f32 as f64 == value {
+            Self::Float32((value as f32).into())
+        } else {
+            Self::Float64(value.into())
+        }
     }
 }
 
@@ -593,10 +603,10 @@ mod tests {
                 Any::Integer(42),
                 Any::Float32(114.514.into()),
                 Any::Float64(1919.810.into()),
-                Any::BigInt64(-42),
-                Any::BigInt64(-42),
-                Any::BigInt64(-42),
-                Any::BigInt64(-42),
+                Any::Float64((-42.0).into()),
+                Any::Float64((-42.0).into()),
+                Any::Float64((-42.0).into()),
+                Any::Float64((-42.0).into()),
                 Any::False,
                 Any::True,
                 Any::String("JWST".to_string()),

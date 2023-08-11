@@ -363,6 +363,28 @@ mod tests {
             options.client.unwrap(),
         );
 
+        let json = serde_json::json!([42.0, -42.0, true, false, "hello", "world", [1.0]]);
+
+        {
+            let doc = yrs::Doc::with_options(yrs_options.clone());
+            let array = doc.get_or_insert_array("abc");
+            let mut trx = doc.transact_mut();
+            array.insert(&mut trx, 0, 42).unwrap();
+            array.insert(&mut trx, 1, -42).unwrap();
+            array.insert(&mut trx, 2, true).unwrap();
+            array.insert(&mut trx, 3, false).unwrap();
+            array.insert(&mut trx, 4, "hello").unwrap();
+            array.insert(&mut trx, 5, "world").unwrap();
+
+            let sub_array = yrs::ArrayPrelim::default();
+            let sub_array = array.insert(&mut trx, 6, sub_array).unwrap();
+            sub_array.insert(&mut trx, 0, 1).unwrap();
+
+            drop(trx);
+
+            assert_json_diff::assert_json_eq!(array.to_json(&doc.transact()), json);
+        };
+
         let binary = {
             let doc = Doc::with_options(options.clone());
             let mut array = doc.get_or_create_array("abc").unwrap();
@@ -386,10 +408,7 @@ mod tests {
         let mut trx = ydoc.transact_mut();
         trx.apply_update(yrs::Update::decode_v1(&binary).unwrap());
 
-        assert_json_diff::assert_json_eq!(
-            array.to_json(&trx),
-            serde_json::json!([42, -42, true, false, "hello", "world", [1]])
-        );
+        assert_json_diff::assert_json_eq!(array.to_json(&trx), json);
 
         let mut doc = Doc::with_options(options);
         let array = doc.get_or_create_array("abc").unwrap();
