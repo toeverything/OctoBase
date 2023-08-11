@@ -222,6 +222,7 @@ impl Block {
                     | Any::String(_) => return Some(any),
                     _ => {}
                 },
+                Value::Text(v) => return Some(Any::String(v.to_string())),
                 _ => {}
             }
             error!("get wrong value at key {}", key);
@@ -264,7 +265,7 @@ impl Block {
         self.block
             .get(sys::CREATED)
             .and_then(|c| match c {
-                Value::Any(Any::Integer(n)) => Some(n),
+                Value::Any(Any::Integer(n)) => Some(n as u64),
                 Value::Any(Any::BigInt64(n)) => Some(n as u64),
                 _ => None,
             })

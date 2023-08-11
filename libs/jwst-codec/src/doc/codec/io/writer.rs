@@ -13,6 +13,9 @@ pub trait CrdtWriter {
     fn write_var_u64(&mut self, num: u64) -> JwstCodecResult {
         write_var_u64(self.get_buffer_mut(), num).map_err(map_io_error)
     }
+    fn write_var_i64(&mut self, num: i64) -> JwstCodecResult {
+        write_var_i64(self.get_buffer_mut(), num).map_err(map_io_error)
+    }
     fn write_var_string<S: AsRef<str>>(&mut self, s: S) -> JwstCodecResult {
         write_var_string(self.get_buffer_mut(), s).map_err(map_io_error)
     }

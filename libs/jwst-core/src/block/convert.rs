@@ -234,39 +234,44 @@ impl Block {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use jwst_codec::Update;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jwst_codec::Update;
 
-//     #[test]
-//     fn test_multiple_layer_space_clone() {
-//         let doc1 = Doc::default();
-//         doc1.apply_update(
-//             Update::from_ybinary1(include_bytes!("../../fixtures/test_multi_layer.bin").to_vec())
-//                 .unwrap(),
-//         );
+    #[test]
+    fn test_multiple_layer_space_clone() {
+        let mut doc1 = Doc::default();
+        doc1.apply_update(
+            Update::from_ybinary1(include_bytes!("../../fixtures/test_multi_layer.bin").to_vec())
+                .unwrap(),
+        )
+        .unwrap();
 
-//         let ws1 = Workspace::from_doc(doc1, "test").unwrap();
+        let mut ws1 = Workspace::from_doc(doc1, "test").unwrap();
 
-//         let new_update = {
-//             ws1.metadata.insert("name", Some("test1")).unwrap();
-//             ws1.metadata.insert("avatar", Some("test2")).unwrap();
-//             let space = ws1.get_exists_space("page0").unwrap();
-//             space.to_single_page().unwrap()
-//         };
+        let new_update = {
+            ws1.metadata.insert("name", Some("test1")).unwrap();
+            ws1.metadata.insert("avatar", Some("test2")).unwrap();
+            let space = ws1.get_exists_space("page0").unwrap();
+            space.to_single_page().unwrap()
+        };
 
-//         let doc2 = Doc::default();
-//         doc2.apply_update(Update::from_ybinary1(new_update).unwrap());
+        let mut doc2 = Doc::default();
+        doc2.apply_update(Update::from_ybinary1(new_update).unwrap())
+            .unwrap();
 
-//         let doc1 = ws1.doc();
-//         assert_json_diff::assert_json_eq!(
-//             doc1.get_map("space:meta").unwrap(),
-//             doc2.get_map("space:meta").unwrap()
-//         );
-//         assert_json_diff::assert_json_eq!(
-//             doc1.get_map("space:page0").unwrap(),
-//             doc2.get_map("space:page0").unwrap()
-//         );
-//     }
-// }
+        let doc1 = ws1.doc();
+
+        assert_json_diff::assert_json_eq!(
+            doc1.get_map("space:meta").unwrap(),
+            doc2.get_map("space:meta").unwrap()
+        );
+
+        // FIXME: clone block has bug that cloned but cannot store in update
+        // assert_json_diff::assert_json_eq!(
+        //     doc1.get_map("space:page0").unwrap(),
+        //     doc2.get_map("space:page0").unwrap()
+        // );
+    }
+}

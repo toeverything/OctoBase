@@ -13,7 +13,7 @@ pub const JS_INT_RANGE: RangeInclusive<i64> = MIN_JS_INT..=MAX_JS_INT;
 pub enum Any {
     Undefined,
     Null,
-    Integer(u64),
+    Integer(i32),
     Float32(OrderedFloat<f32>),
     Float64(OrderedFloat<f64>),
     BigInt64(i64),
@@ -34,10 +34,11 @@ impl<R: CrdtReader> CrdtRead<R> for Any {
         match 127u8.overflowing_sub(index).0 {
             0 => Ok(Any::Undefined),
             1 => Ok(Any::Null),
-            2 => Ok(Any::Integer(reader.read_var_u64()?)), // Integer
-            3 => Ok(Any::Float32(reader.read_f32_be()?.into())), // Float32
-            4 => Ok(Any::Float64(reader.read_f64_be()?.into())), // Float64
-            5 => Ok(Any::BigInt64(reader.read_i64_be()?)), // BigInt64
+            // in yjs implementation, flag 2 only save 32bit integer
+            2 => Ok(Any::Integer(reader.read_var_i64()? as i32)), // Integer
+            3 => Ok(Any::Float32(reader.read_f32_be()?.into())),  // Float32
+            4 => Ok(Any::Float64(reader.read_f64_be()?.into())),  // Float64
+            5 => Ok(Any::BigInt64(reader.read_i64_be()?)),        // BigInt64
             6 => Ok(Any::False),
             7 => Ok(Any::True),
             8 => Ok(Any::String(reader.read_var_string()?)), // String
@@ -73,7 +74,7 @@ impl<W: CrdtWriter> CrdtWrite<W> for Any {
             Any::Null => writer.write_u8(127 - 1)?,
             Any::Integer(value) => {
                 writer.write_u8(127 - 2)?;
-                writer.write_var_u64(*value)?;
+                writer.write_var_i64(*value as i64)?;
             }
             Any::Float32(value) => {
                 writer.write_u8(127 - 3)?;
@@ -157,7 +158,21 @@ macro_rules! impl_primitive_from {
         $(
             impl From<$ty> for Any {
                 fn from(value: $ty) -> Self {
-                    Self::Integer(value.into())
+                    // INFO: i64::MAX > value > u64::MAX will cut down
+                    // yjs binary does not consider the case that the int size exceeds i64
+                    let int: i64 = value as i64;
+                    // handle the behavior same as yjs
+                    if JS_INT_RANGE.contains(&int) {
+                        if int <= i32::MAX as i64 {
+                            Self::Integer(int as i32)
+                        } else if int as f32 as i64 == int {
+                            Self::Float32((int as f32).into())
+                        } else {
+                            Self::Float64((int as f64).into())
+                        }
+                    } else {
+                        Self::BigInt64(int)
+                    }
                 }
             }
         )*
@@ -169,7 +184,13 @@ macro_rules! impl_primitive_from {
                     let int: i64 = value.into();
                     // handle the behavior same as yjs
                     if JS_INT_RANGE.contains(&int) {
-                        Self::Float64((int as f64).into())
+                        if int <= i32::MAX as i64 {
+                            Self::Integer(int as i32)
+                        } else if int as f32 as i64 == int {
+                            Self::Float32((int as f32).into())
+                        } else {
+                            Self::Float64((int as f64).into())
+                        }
                     } else {
                         Self::BigInt64(int)
                     }
@@ -194,19 +215,13 @@ impl_primitive_from!(string, String, &str);
 
 impl From<usize> for Any {
     fn from(value: usize) -> Self {
-        Self::Integer(value as u64)
+        (value as u64).into()
     }
 }
 
 impl From<isize> for Any {
     fn from(value: isize) -> Self {
-        let int: i64 = value as i64;
-        // handle the behavior same as yjs
-        if JS_INT_RANGE.contains(&int) {
-            Self::Float64((int as f64).into())
-        } else {
-            Self::BigInt64(int)
-        }
+        (value as i64).into()
     }
 }
 
@@ -219,11 +234,7 @@ impl From<f32> for Any {
 impl From<f64> for Any {
     fn from(value: f64) -> Self {
         if value.trunc() == value {
-            if value as u64 as f64 == value {
-                Self::Integer(value as u64)
-            } else {
-                Self::BigInt64(value as i64)
-            }
+            (value as i64).into()
         } else if value as f32 as f64 == value {
             Self::Float32((value as f32).into())
         } else {
@@ -350,7 +361,7 @@ impl<'de> serde::Deserialize<'de> for Any {
 
             #[inline]
             fn visit_u64<E>(self, value: u64) -> Result<Any, E> {
-                Ok(Any::Integer(value))
+                Ok((value as i64).into())
             }
 
             #[inline]
@@ -441,7 +452,7 @@ impl serde::Serialize for Any {
             Any::False => serializer.serialize_bool(false),
             Any::Float32(value) => serializer.serialize_f32(value.0),
             Any::Float64(value) => serializer.serialize_f64(value.0),
-            Any::Integer(value) => serializer.serialize_u64(*value),
+            Any::Integer(value) => serializer.serialize_i32(*value),
             Any::BigInt64(value) => serializer.serialize_i64(*value),
             Any::String(value) => serializer.serialize_str(value.as_ref()),
             Any::Array(values) => {
@@ -523,7 +534,7 @@ mod tests {
                     Any::Array(vec![
                         Any::Undefined,
                         Any::Null,
-                        Any::Integer(1145141919810),
+                        Any::Integer(114514),
                         Any::Float32(114.514.into()),
                         Any::Float64(115.514.into()),
                         Any::BigInt64(-1145141919810),

@@ -1,4 +1,5 @@
 use super::*;
+use chrono::Utc;
 use jwst_codec::{Array, Map};
 
 impl Space {
@@ -55,6 +56,8 @@ impl Space {
             .ok_or(JwstError::VersionNotFound(self.id()))
             .or_else(|_| {
                 let mut map = self.doc.create_map()?;
+                self.metadata.insert("versions", map.clone())?;
+
                 map.insert("affine:code", 1)?;
                 map.insert("affine:database", 1)?;
                 map.insert("affine:divider", 1)?;
@@ -64,8 +67,6 @@ impl Space {
                 map.insert("affine:page", 2)?;
                 map.insert("affine:paragraph", 1)?;
                 map.insert("affine:surface", 1)?;
-
-                self.metadata.insert("versions", map.clone())?;
 
                 Ok(map)
             })
@@ -92,69 +93,54 @@ impl Space {
     }
 
     // TODO: add sub doc support
-    // pub fn to_single_page(&self) -> JwstResult<Vec<u8>> {
-    //     let ws = Workspace::new(self.id());
-    //     let page_item = self.page_item()?;
+    pub fn to_single_page(&self) -> JwstResult<Vec<u8>> {
+        let page_item = self.page_item()?;
 
-    //     ws.with_trx(|mut t| {
-    //         let space = t.get_space(self.space_id());
-    //         let new_blocks = space.blocks.clone();
-    //         self.blocks(|blocks| {
-    //             // TODO: hacky logic for BlockSuite's special case
-    //             let (roots, blocks): (Vec<_>, _) = blocks.partition(|b| {
-    //                 ["affine:surface", "affine:page"].contains(&b.flavour().as_str())
-    //             });
+        let mut ws = Workspace::new(self.id())?;
+        let mut space = ws.get_space(self.space_id())?;
+        let new_blocks = space.blocks.clone();
+        self.blocks(|blocks| {
+            // TODO: hacky logic for BlockSuite's special case
+            let (roots, blocks): (Vec<_>, _) = blocks
+                .partition(|b| ["affine:surface", "affine:page"].contains(&b.flavour().as_str()));
 
-    //             for block in roots {
-    //                 block.clone_block(new_blocks.clone())?;
-    //             }
+            for block in roots {
+                block.clone_block(new_blocks.clone())?;
+            }
 
-    //             for block in blocks {
-    //                 block.clone_block(new_blocks.clone())?;
-    //             }
-    //             Ok::<_, JwstError>(())
-    //         })?;
+            for block in blocks {
+                block.clone_block(new_blocks.clone())?;
+            }
+            Ok::<_, JwstError>(())
+        })?;
 
-    //         space.init_workspace((self.metadata.clone()).into())?;
-    //         space.init_version()?;
+        space.init_workspace((self.metadata.clone()).into())?;
+        space.init_version()?;
 
-    //         let title = self
-    //             .get_blocks_by_flavour("affine:page")
-    //             .first()
-    //             .and_then(|b| b.get("title").map(|t| t.to_string()))
-    //             .unwrap_or("Untitled".into());
+        let title = self
+            .get_blocks_by_flavour("affine:page")
+            .first()
+            .and_then(|b| b.get("title").map(|t| t.to_string()))
+            .unwrap_or("Untitled".into());
 
-    //         let page_item = MapPrelim::from(HashMap::from([
-    //             ("id".into(), Any::String(Box::from(self.space_id()))),
-    //             (
-    //                 "createDate".into(),
-    //                 page_item
-    //                     .get("createDate")
-    //                     .map(|c| c.to_json())
-    //                     .unwrap_or_else(|| Any::Number(Utc::now().timestamp_millis() as f64)),
-    //             ),
-    //             (
-    //                 "subpageIds".into(),
-    //                 Any::Array(Box::from(
-    //                     page_item
-    //                         .get("subpageIds")
-    //                         .map(|c| c.to_json())
-    //                         .and_then(|v| match v {
-    //                             Any::Array(a) => Some(a.to_vec()),
-    //                             _ => None,
-    //                         })
-    //                         .unwrap_or_default(),
-    //                 )),
-    //             ),
-    //         ]));
+        let mut new_page_item = ws.doc().create_map()?;
+        space.init_pages()?.push(new_page_item.clone())?;
+        new_page_item.insert("id", self.space_id())?;
+        new_page_item.insert(
+            "createDate",
+            page_item
+                .get("createDate")
+                .unwrap_or_else(|| Utc::now().timestamp_millis().into()),
+        )?;
+        new_page_item.insert(
+            "subpageIds",
+            page_item.get("subpageIds").unwrap_or_else(|| vec![].into()),
+        )?;
 
-    //         let page_item = space.init_pages()?.push_back(page_item)?;
+        let mut title_text = ws.doc().create_text()?;
+        new_page_item.insert("title", title_text.clone())?;
+        title_text.insert(0, title)?;
 
-    //         page_item.insert("title", TextPrelim::new(title))?;
-
-    //         Ok::<_, JwstError>(())
-    //     })?;
-
-    //     ws.sync_migration()
-    // }
+        ws.sync_migration()
+    }
 }
