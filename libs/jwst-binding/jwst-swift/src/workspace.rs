@@ -1,5 +1,6 @@
 use super::Block;
 use jwst::Workspace as JwstWorkspace;
+use jwst_rpc::workspace_compare;
 use std::sync::Arc;
 use tokio::runtime::Runtime;
 
@@ -101,5 +102,13 @@ impl Workspace {
         self.workspace
             .set_search_index(fields)
             .expect("failed to set search index")
+    }
+
+    pub fn compare(self: &Workspace) -> Option<String> {
+        if let Some(jwst_workspace) = &self.jwst_workspace {
+            Some(workspace_compare(&self.workspace, jwst_workspace))
+        } else {
+            None
+        }
     }
 }
