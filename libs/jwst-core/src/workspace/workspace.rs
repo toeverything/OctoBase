@@ -110,7 +110,7 @@ impl Clone for Workspace {
 #[cfg(test)]
 mod test {
     use super::{super::super::Block, *};
-    use jwst_codec::{merge_updates_v1, StateVector};
+    use jwst_codec::StateVector;
 
     #[test]
     fn doc_load_test() {
