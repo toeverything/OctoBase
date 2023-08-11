@@ -72,6 +72,8 @@ impl Workspace {
                             .create(&mut trx.trx, block_id.clone(), flavour.clone())
                             .expect("failed to create block");
 
+                        let created = block.created(&trx.trx);
+
                         let block = Block::new(
                             workspace.clone(),
                             block,
@@ -81,16 +83,18 @@ impl Workspace {
                                 if let Some(mut jwst_workspace) = jwst_workspace.clone() {
                                     jwst_workspace
                                         .get_blocks()
-                                        .and_then(|mut b| b.create(block_id, flavour))
+                                        .and_then(|mut b| b.create_ffi(block_id, flavour, created))
                                         .expect("failed to create jwst block");
-                                    let ret = workspace_compare(&workspace, &jwst_workspace);
-                                    sender.send(Log::new(workspace.id(), ret)).unwrap();
+
+                                    // let ret = workspace_compare(&workspace, &jwst_workspace);
+                                    // sender.send(Log::new(workspace.id(), ret)).unwrap();
                                 }
 
                                 jwst_workspace
                             },
                             sender.clone(),
                         );
+
                         drop(trx);
 
                         block
@@ -147,8 +151,8 @@ impl Workspace {
             .expect("failed to set search index")
     }
 
-    pub fn compare(self: &Workspace) -> Option<String> {
-        if let Some(jwst_workspace) = &self.jwst_workspace {
+    pub fn compare(self: &mut Workspace) -> Option<String> {
+        if let Some(jwst_workspace) = self.jwst_workspace.as_mut() {
             let ret = workspace_compare(&self.workspace, jwst_workspace);
             self.sender
                 .send(Log::new(self.workspace.id(), ret.clone()))

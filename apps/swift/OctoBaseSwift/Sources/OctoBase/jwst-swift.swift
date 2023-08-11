@@ -371,6 +371,11 @@ public class WorkspaceRefMut: WorkspaceRef {
         super.init(ptr: ptr)
     }
 }
+extension WorkspaceRefMut {
+    public func compare() -> Optional<RustString> {
+        { let val = __swift_bridge__$Workspace$compare(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
+    }
+}
 public class WorkspaceRef {
     var ptr: UnsafeMutableRawPointer
 
@@ -411,10 +416,6 @@ extension WorkspaceRef {
 
     public func set_search_index<GenericIntoRustString: IntoRustString>(_ fields: RustVec<GenericIntoRustString>) -> Bool {
         __swift_bridge__$Workspace$set_search_index(ptr, { let val = fields; val.isOwned = false; return val.ptr }())
-    }
-
-    public func compare() -> Optional<RustString> {
-        { let val = __swift_bridge__$Workspace$compare(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
     }
 }
 extension Workspace: Vectorizable {

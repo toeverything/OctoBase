@@ -110,7 +110,7 @@ mod ffi {
 
         fn set_search_index(self: &Workspace, fields: Vec<String>) -> bool;
 
-        fn compare(self: &Workspace) -> Option<String>;
+        fn compare(self: &mut Workspace) -> Option<String>;
     }
 
     extern "Rust" {

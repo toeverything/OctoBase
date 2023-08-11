@@ -171,14 +171,14 @@ impl Storage {
                 let (sender, receiver) = std::sync::mpsc::channel::<Log>();
                 self.difflog.add_receiver(receiver);
 
-                let ws = Workspace {
+                let mut ws = Workspace {
                     workspace,
                     jwst_workspace,
                     runtime: rt,
                     sender,
                 };
 
-                if let Some(ret) = Workspace::compare(&ws) {
+                if let Some(ret) = Workspace::compare(&mut ws) {
                     info!(
                         "Run first compare at workspace init: {}, {}",
                         workspace_id, ret
