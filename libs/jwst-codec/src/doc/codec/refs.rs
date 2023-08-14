@@ -17,13 +17,6 @@ pub(crate) struct NodeLen {
     pub len: u64,
 }
 
-impl NodeLen {
-    #[cfg(test)]
-    pub fn new(id: Id, len: u64) -> Box<Self> {
-        Box::new(Self { id, len })
-    }
-}
-
 impl<W: CrdtWriter> CrdtWrite<W> for Node {
     fn write(&self, writer: &mut W) -> JwstCodecResult {
         match self {
@@ -62,6 +55,14 @@ impl From<Item> for Node {
 }
 
 impl Node {
+    pub fn new_skip(id: Id, len: u64) -> Self {
+        Self::Skip(Box::new(NodeLen { id, len }))
+    }
+
+    pub fn new_gc(id: Id, len: u64) -> Self {
+        Self::GC(Box::new(NodeLen { id, len }))
+    }
+
     pub fn read<R: CrdtReader>(decoder: &mut R, id: Id) -> JwstCodecResult<Self> {
         let info = decoder.read_info()?;
         let first_5_bit = info & 0b11111;
@@ -69,11 +70,11 @@ impl Node {
         match first_5_bit {
             0 => {
                 let len = decoder.read_var_u64()?;
-                Ok(Node::GC(Box::new(NodeLen { id, len })))
+                Ok(Node::new_gc(id, len))
             }
             10 => {
                 let len = decoder.read_var_u64()?;
-                Ok(Node::Skip(Box::new(NodeLen { id, len })))
+                Ok(Node::new_skip(id, len))
             }
             _ => {
                 let item = Somr::new(Item::read(decoder, id, info, first_5_bit)?);
@@ -273,14 +274,14 @@ mod tests {
     fn test_struct_info() {
         loom_model!({
             {
-                let struct_info = Node::GC(NodeLen::new(Id::new(1, 0), 10));
+                let struct_info = Node::new_gc(Id::new(1, 0), 10);
                 assert_eq!(struct_info.len(), 10);
                 assert_eq!(struct_info.client(), 1);
                 assert_eq!(struct_info.clock(), 0);
             }
 
             {
-                let struct_info = Node::Skip(NodeLen::new(Id::new(2, 0), 20));
+                let struct_info = Node::new_skip(Id::new(2, 0), 20);
                 assert_eq!(struct_info.len(), 20);
                 assert_eq!(struct_info.client(), 2);
                 assert_eq!(struct_info.clock(), 0);
@@ -341,8 +342,8 @@ mod tests {
             ));
 
             let struct_infos = vec![
-                Node::GC(NodeLen::new((0, 0).into(), 42)),
-                Node::Skip(NodeLen::new((0, 0).into(), 314)),
+                Node::new_gc((0, 0).into(), 42),
+                Node::new_skip((0, 0).into(), 314),
                 has_not_parent_id_and_has_parent,
                 has_not_parent_id_and_has_parent_with_key,
                 has_parent_id,

@@ -132,7 +132,27 @@ impl Update {
         }
 
         for structs in target.structs.values_mut() {
-            structs.make_contiguous().sort_by_key(|s| s.id().clock)
+            structs.make_contiguous().sort_by_key(|s| s.id().clock);
+
+            // insert [Node::Skip] if structs[index].id().clock + structs[index].len() < structs[index + 1].id().clock
+            let mut index = 0;
+            while index < structs.len() - 1 {
+                let cur = &structs[index];
+                let next = &structs[index + 1];
+
+                let clock_end = cur.id().clock + cur.len();
+                let diff = next.id().clock - clock_end;
+
+                if diff > 0 {
+                    structs.insert(
+                        index + 1,
+                        Node::new_skip((cur.id().client, clock_end).into(), diff),
+                    );
+                    index += 1;
+                }
+
+                index += 1;
+            }
         }
     }
 
@@ -187,6 +207,7 @@ impl<'a> UpdateIterator<'a> {
                     return self.cur_client_id;
                 }
                 _ => {
+                    self.update.structs.remove(&client_id);
                     self.cur_client_id = self.client_ids.pop();
                 }
             }
@@ -211,9 +232,7 @@ impl<'a> UpdateIterator<'a> {
                 items.push_front(s);
                 self.update.pending_structs.insert(client, items);
             } else {
-                self.update
-                    .pending_structs
-                    .insert(client, [s.clone()].into());
+                self.update.pending_structs.insert(client, [s].into());
             }
             self.client_ids.retain(|&c| c != client);
         }
@@ -501,7 +520,7 @@ mod tests {
                         VecDeque::from([
                             struct_item((0, 0), 1),
                             struct_item((0, 1), 1),
-                            Node::Skip(NodeLen::new((0, 2).into(), 1)),
+                            Node::new_skip((0, 2).into(), 1),
                         ]),
                     ),
                     (
@@ -587,5 +606,37 @@ mod tests {
             update.pending_delete_set.get(&0).unwrap(),
             &OrderRange::from(vec![(10..12), (13..15)])
         );
+    }
+
+    #[test]
+    fn should_add_skip_when_clock_not_continuous() {
+        loom_model!({
+            let update = Update {
+                structs: HashMap::from([(
+                    0,
+                    VecDeque::from([
+                        struct_item((0, 0), 1),
+                        struct_item((0, 1), 1),
+                        struct_item((0, 10), 1),
+                        Node::new_gc((0, 20).into(), 10),
+                    ]),
+                )]),
+                ..Default::default()
+            };
+
+            let merged = Update::merge([&update]);
+
+            assert_eq!(
+                merged.structs.get(&0).unwrap(),
+                &VecDeque::from([
+                    struct_item((0, 0), 1),
+                    struct_item((0, 1), 1),
+                    Node::new_skip((0, 2).into(), 8),
+                    struct_item((0, 10), 1),
+                    Node::new_skip((0, 11).into(), 9),
+                    Node::new_gc((0, 20).into(), 10),
+                ])
+            );
+        });
     }
 }

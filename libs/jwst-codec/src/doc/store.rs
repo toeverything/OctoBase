@@ -763,8 +763,8 @@ mod tests {
 
             let client_id = 1;
 
-            let struct_info1 = Node::GC(NodeLen::new(Id::new(1, 1), 5));
-            let struct_info2 = Node::Skip(NodeLen::new(Id::new(1, 6), 7));
+            let struct_info1 = Node::new_gc(Id::new(1, 1), 5);
+            let struct_info2 = Node::new_skip(Id::new(1, 6), 7);
 
             doc_store.items.insert(
                 client_id,
@@ -791,11 +791,11 @@ mod tests {
             let mut doc_store = DocStore::with_client(1);
 
             let client1 = 1;
-            let struct_info1 = Node::GC(NodeLen::new((1, 0).into(), 5));
+            let struct_info1 = Node::new_gc((1, 0).into(), 5);
 
             let client2 = 2;
-            let struct_info2 = Node::GC(NodeLen::new((2, 0).into(), 6));
-            let struct_info3 = Node::Skip(NodeLen::new((2, 6).into(), 1));
+            let struct_info2 = Node::new_gc((2, 0).into(), 6);
+            let struct_info3 = Node::new_skip((2, 6).into(), 1);
 
             doc_store
                 .items
@@ -825,10 +825,10 @@ mod tests {
         loom_model!({
             let mut doc_store = DocStore::with_client(1);
 
-            let struct_info1 = Node::GC(NodeLen::new(Id::new(1, 0), 5));
-            let struct_info2 = Node::Skip(NodeLen::new(Id::new(1, 5), 1));
-            let struct_info3_err = Node::Skip(NodeLen::new(Id::new(1, 5), 1));
-            let struct_info3 = Node::Skip(NodeLen::new(Id::new(1, 6), 1));
+            let struct_info1 = Node::new_gc(Id::new(1, 0), 5);
+            let struct_info2 = Node::new_skip(Id::new(1, 5), 1);
+            let struct_info3_err = Node::new_skip(Id::new(1, 5), 1);
+            let struct_info3 = Node::new_skip(Id::new(1, 6), 1);
 
             assert!(doc_store.add_item(struct_info1.clone()).is_ok());
             assert!(doc_store.add_item(struct_info2).is_ok());
@@ -851,7 +851,7 @@ mod tests {
     fn test_get_item() {
         loom_model!({
             let mut doc_store = DocStore::with_client(1);
-            let struct_info = Node::GC(NodeLen::new(Id::new(1, 0), 10));
+            let struct_info = Node::new_gc(Id::new(1, 0), 10);
             doc_store.add_item(struct_info.clone()).unwrap();
 
             assert_eq!(doc_store.get_node(Id::new(1, 9)), Some(struct_info));
@@ -859,8 +859,8 @@ mod tests {
 
         loom_model!({
             let mut doc_store = DocStore::with_client(1);
-            let struct_info1 = Node::GC(NodeLen::new(Id::new(1, 0), 10));
-            let struct_info2 = Node::GC(NodeLen::new(Id::new(1, 10), 20));
+            let struct_info1 = Node::new_gc(Id::new(1, 0), 10);
+            let struct_info2 = Node::new_gc(Id::new(1, 10), 20);
             doc_store.add_item(struct_info1).unwrap();
             doc_store.add_item(struct_info2.clone()).unwrap();
 
@@ -875,8 +875,8 @@ mod tests {
 
         loom_model!({
             let mut doc_store = DocStore::with_client(1);
-            let struct_info1 = Node::GC(NodeLen::new(Id::new(1, 0), 10));
-            let struct_info2 = Node::GC(NodeLen::new(Id::new(1, 10), 20));
+            let struct_info1 = Node::new_gc(Id::new(1, 0), 10);
+            let struct_info2 = Node::new_gc(Id::new(1, 10), 20);
             doc_store.add_item(struct_info1).unwrap();
             doc_store.add_item(struct_info2).unwrap();
 
