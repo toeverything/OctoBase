@@ -14,7 +14,7 @@ log = { package = "tracing", version = "0.1.37" }
 log-panics = "2.1.0"
 nanoid = "0.4.0"
 rifgen = "0.1.61"
-sqlx = "0.6.3"
+sqlx = "0.7.1"
 tokio = "1.27.0"
 
 # ======= workspace dependencies =======
