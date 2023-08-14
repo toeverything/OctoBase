@@ -1,7 +1,9 @@
 use serde::Serialize;
-use std::{
-    sync::{mpsc::Receiver, Arc, Mutex},
-    thread::spawn,
+use std::{sync::Arc, time::Duration};
+use tokio::{
+    runtime::Runtime,
+    sync::{mpsc::Receiver, Mutex},
+    time::sleep,
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -27,19 +29,22 @@ pub struct CachedDiffLog {
 }
 
 impl CachedDiffLog {
-    pub fn add_receiver(&self, recv: Receiver<Log>) {
+    pub fn add_receiver(&self, mut recv: Receiver<Log>, rt: Arc<Runtime>) {
         let synced = self.synced.clone();
-        spawn(move || {
-            while let Ok(last_synced) = recv.recv() {
-                synced.lock().unwrap().push(last_synced);
+
+        rt.spawn(async move {
+            loop {
+                tokio::select! {
+                    Some(last_synced) = recv.recv() => {
+                        let mut synced = synced.lock().await;
+                        synced.push(last_synced);
+                    }
+                    _ = sleep(Duration::from_secs(5)) => {
+                        let mut synced = synced.lock().await;
+                        synced.clear();
+                    }
+                }
             }
         });
-    }
-
-    pub fn pop(&self) -> Vec<Log> {
-        let mut synced = self.synced.lock().unwrap();
-        let ret = synced.clone();
-        synced.clear();
-        ret
     }
 }

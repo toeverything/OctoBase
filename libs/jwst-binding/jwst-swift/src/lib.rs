@@ -10,7 +10,8 @@ pub use storage::Storage;
 pub use workspace::Workspace;
 
 use difflog::{CachedDiffLog, Log};
-use jwst::JwstError;
+use jwst::{error, info, warn, JwstError};
+use jwst_logger::init_logger_with;
 
 type JwstWorkSpaceResult = Result<Workspace, JwstError>;
 
@@ -142,6 +143,5 @@ mod ffi {
 
         fn get_last_synced(self: &Storage) -> Vec<i64>;
 
-        fn get_difflog(self: &Storage) -> String;
     }
 }

@@ -1,8 +1,8 @@
-use super::{DynamicValue, Log};
+use super::*;
 use jwst::{Block as JwstBlock, Workspace};
 use lib0::any::Any;
-use std::sync::{mpsc::Sender, Arc};
-use tokio::runtime::Runtime;
+use std::sync::Arc;
+use tokio::{runtime::Runtime, sync::mpsc::Sender};
 
 pub struct Block {
     pub workspace: Workspace,
@@ -83,7 +83,7 @@ impl Block {
                                 .push_children(&mut block)
                                 .expect("failed to push children");
                         } else {
-                            sender
+                            if let Err(e) = sender
                                 .send(Log::new(
                                     workspace.id(),
                                     format!(
@@ -91,7 +91,10 @@ impl Block {
                                         target_block.block_id()
                                     ),
                                 ))
-                                .unwrap();
+                                .await
+                            {
+                                warn!("failed to send log: {}", e);
+                            }
                         }
                     }
                 })
@@ -126,7 +129,7 @@ impl Block {
                                 .insert_children_at(&mut block, pos as u64)
                                 .expect("failed to insert children at position");
                         } else {
-                            sender
+                            if let Err(e) = sender
                                 .send(Log::new(
                                     workspace.id(),
                                     format!(
@@ -134,7 +137,10 @@ impl Block {
                                         target_block.block_id()
                                     ),
                                 ))
-                                .unwrap();
+                                .await
+                            {
+                                warn!("failed to send log: {}", e);
+                            }
                         }
                     }
                 })
@@ -174,7 +180,7 @@ impl Block {
                                 .insert_children_before(&mut block, &reference)
                                 .expect("failed to insert children before");
                         } else {
-                            sender
+                            if let Err(e) = sender
                                 .send(Log::new(
                                     workspace.id(),
                                     format!(
@@ -182,7 +188,10 @@ impl Block {
                                         target_block.block_id()
                                     ),
                                 ))
-                                .unwrap();
+                                .await
+                            {
+                                warn!("failed to send log: {}", e);
+                            }
                         }
                     }
                 })
@@ -222,7 +231,7 @@ impl Block {
                                 .insert_children_after(&mut block, &reference)
                                 .expect("failed to insert children after");
                         } else {
-                            sender
+                            if let Err(e) = sender
                                 .send(Log::new(
                                     workspace.id(),
                                     format!(
@@ -230,7 +239,10 @@ impl Block {
                                         target_block.block_id()
                                     ),
                                 ))
-                                .unwrap();
+                                .await
+                            {
+                                warn!("failed to send log: {}", e);
+                            }
                         }
                     }
                 })
@@ -263,7 +275,7 @@ impl Block {
                                 .remove_children(&mut block)
                                 .expect("failed to remove jwst block");
                         } else {
-                            sender
+                            if let Err(e) = sender
                                 .send(Log::new(
                                     workspace.id(),
                                     format!(
@@ -271,7 +283,10 @@ impl Block {
                                         target_block.block_id()
                                     ),
                                 ))
-                                .unwrap();
+                                .await
+                            {
+                                warn!("failed to send log: {}", e);
+                            }
                         }
                     }
                 })

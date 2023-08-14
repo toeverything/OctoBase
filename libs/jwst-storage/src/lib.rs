@@ -5,7 +5,7 @@ mod storage;
 mod types;
 
 use async_trait::async_trait;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use futures::{Future, Stream};
 use jwst::{DocStorage, JwstResult, Workspace};
 use jwst_logger::{debug, error, info, trace, warn};

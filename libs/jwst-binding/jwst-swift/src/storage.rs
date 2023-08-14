@@ -1,7 +1,5 @@
-use crate::{CachedDiffLog, Log, Workspace};
+use super::*;
 use futures::TryFutureExt;
-use jwst::{error, info, warn, JwstError};
-use jwst_logger::init_logger_with;
 use jwst_rpc::{
     start_websocket_client_sync, BroadcastChannels, CachedLastSynced, RpcContextImpl, SyncState,
 };
@@ -168,8 +166,8 @@ impl Storage {
                     }
                 };
 
-                let (sender, receiver) = std::sync::mpsc::channel::<Log>();
-                self.difflog.add_receiver(receiver);
+                let (sender, receiver) = channel::<Log>(10240);
+                self.difflog.add_receiver(receiver, rt.clone());
 
                 let mut ws = Workspace {
                     workspace,
@@ -198,12 +196,6 @@ impl Storage {
 
     pub fn get_last_synced(&self) -> Vec<i64> {
         self.last_sync.pop()
-    }
-
-    pub fn get_difflog(&self) -> String {
-        let logs = self.difflog.pop();
-
-        serde_json::to_string(&logs).unwrap_or("{\"error\": \"failed to serialize logs\"}}".into())
     }
 }
 

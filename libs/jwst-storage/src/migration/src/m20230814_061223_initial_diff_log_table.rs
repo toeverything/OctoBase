@@ -18,6 +18,7 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
+                    .col(ColumnDef::new(DiffLog::Workspace).string().not_null())
                     .col(
                         ColumnDef::new(DiffLog::Timestamp)
                             .timestamp_with_time_zone()
@@ -40,6 +41,7 @@ impl MigrationTrait for Migration {
 enum DiffLog {
     Table,
     Id,
+    Workspace,
     Timestamp,
     Log,
 }
