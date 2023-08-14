@@ -3,10 +3,9 @@ use std::{
     hash::{Hash, Hasher},
     marker::PhantomData,
     ptr::NonNull,
-    sync::atomic::AtomicU32,
 };
 
-use crate::sync::{AtomicU16, Ordering};
+use crate::sync::{AtomicU32, Ordering};
 const DANGLING_PTR: usize = usize::MAX;
 fn is_dangling<T>(ptr: NonNull<T>) -> bool {
     ptr.as_ptr() as usize == DANGLING_PTR

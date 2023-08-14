@@ -1,7 +1,7 @@
 #[cfg(loom)]
 pub(crate) use loom::{
     sync::{
-        atomic::{AtomicBool, AtomicU16, AtomicU8, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU8, AtomicUsize, Ordering},
         Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard,
     },
     thread,
@@ -9,7 +9,7 @@ pub(crate) use loom::{
 
 #[cfg(not(loom))]
 pub(crate) use std::sync::{
-    atomic::{AtomicBool, AtomicU16, AtomicU8, Ordering},
+    atomic::{AtomicBool, AtomicU32, AtomicU8, Ordering},
     Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard,
 };
 
