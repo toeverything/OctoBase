@@ -25,15 +25,12 @@ impl DiffLogRecord {
         Self::init_with_pool(pool, get_bucket(is_sqlite)).await
     }
 
-    pub async fn insert<C>(
+    pub async fn insert(
         &self,
         workspace: String,
         ts: DateTime<Utc>,
         log: String,
-    ) -> JwstStorageResult<()>
-    where
-        C: ConnectionTrait,
-    {
+    ) -> JwstStorageResult<()> {
         let _lock = self.bucket.write().await;
         DiffLog::insert(DiffLogActiveModel {
             workspace: Set(workspace),
