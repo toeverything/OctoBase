@@ -3,16 +3,13 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
-#[sea_orm(table_name = "docs")]
+#[sea_orm(table_name = "diff_log")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub workspace_id: String,
-    pub created_at: DateTimeWithTimeZone,
-    #[sea_orm(column_type = "Binary(BlobSize::Blob(None))")]
-    pub blob: Vec<u8>,
-    pub guid: String,
-    pub is_workspace: bool,
+    pub workspace: String,
+    pub timestamp: DateTimeWithTimeZone,
+    pub log: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

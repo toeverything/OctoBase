@@ -1,6 +1,9 @@
 pub(crate) mod blobs;
+mod difflog;
 mod docs;
 mod test;
+
+use self::difflog::DiffLogRecord;
 
 use super::*;
 use crate::storage::blobs::{BlobBucketDBStorage, BlobStorageType, JwstBlobStorage};
@@ -15,6 +18,7 @@ pub struct JwstStorage {
     pool: DatabaseConnection,
     blobs: JwstBlobStorage,
     docs: SharedDocDBStorage,
+    difflog: DiffLogRecord,
     last_migrate: Mutex<HashMap<String, Instant>>,
 }
 
@@ -47,11 +51,13 @@ impl JwstStorage {
             ),
         };
         let docs = SharedDocDBStorage::init_with_pool(pool.clone(), bucket.clone()).await?;
+        let difflog = DiffLogRecord::init_with_pool(pool.clone(), bucket).await?;
 
         Ok(Self {
             pool,
             blobs,
             docs,
+            difflog,
             last_migrate: Mutex::new(HashMap::new()),
         })
     }
@@ -105,6 +111,10 @@ impl JwstStorage {
 
     pub fn docs(&self) -> &SharedDocDBStorage {
         &self.docs
+    }
+
+    pub fn difflog(&self) -> &DiffLogRecord {
+        &self.difflog
     }
 
     pub async fn with_pool<R, F, Fut>(&self, func: F) -> JwstStorageResult<R>

@@ -1,8 +1,11 @@
-use super::{Block, Log};
+use super::*;
 use jwst::Workspace as JwstWorkspace;
 use jwst_rpc::workspace_compare;
-use std::{sync::mpsc::Sender, sync::Arc};
-use tokio::runtime::Runtime;
+use std::sync::Arc;
+use tokio::{
+    runtime::Runtime,
+    sync::mpsc::{channel, Sender},
+};
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
@@ -14,14 +17,13 @@ pub struct Workspace {
 
 impl Workspace {
     pub fn new(id: String, runtime: Arc<Runtime>) -> Self {
-        let (sender, _receiver) = std::sync::mpsc::channel();
+        let (sender, _receiver) = channel(10240);
 
         Self {
             workspace: JwstWorkspace::new(&id),
             jwst_workspace: jwst_core::Workspace::new(id).ok(),
             runtime,
             sender,
-            // receiver,
         }
     }
 
@@ -154,9 +156,15 @@ impl Workspace {
     pub fn compare(self: &mut Workspace) -> Option<String> {
         if let Some(jwst_workspace) = self.jwst_workspace.as_mut() {
             let ret = workspace_compare(&self.workspace, jwst_workspace);
-            self.sender
-                .send(Log::new(self.workspace.id(), ret.clone()))
-                .unwrap();
+            self.runtime.block_on(async {
+                if let Err(e) = self
+                    .sender
+                    .send(Log::new(self.workspace.id(), ret.clone()))
+                    .await
+                {
+                    warn!("failed to send log: {}", e);
+                }
+            });
             Some(ret)
         } else {
             None

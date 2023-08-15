@@ -5,7 +5,7 @@ use std::{
     ptr::NonNull,
 };
 
-use crate::sync::{AtomicU16, Ordering};
+use crate::sync::{AtomicU32, Ordering};
 const DANGLING_PTR: usize = usize::MAX;
 fn is_dangling<T>(ptr: NonNull<T>) -> bool {
     ptr.as_ptr() as usize == DANGLING_PTR
@@ -25,7 +25,7 @@ pub(crate) struct Ref<T>(NonNull<SomrInner<T>>);
 pub(crate) struct SomrInner<T> {
     data: Option<T>,
     /// increase the size when we really meet the the secenerio with refs more then u16::MAX(65535) times
-    refs: AtomicU16,
+    refs: AtomicU32,
     _marker: PhantomData<Option<T>>,
 }
 
@@ -42,7 +42,7 @@ impl<T> Somr<T> {
     pub fn new(data: T) -> Self {
         let inner = Box::new(SomrInner {
             data: Some(data),
-            refs: AtomicU16::new(1),
+            refs: AtomicU32::new(1),
             _marker: PhantomData,
         });
 
@@ -154,7 +154,7 @@ impl<T> Clone for Somr<T> {
 
         let old_size = inner.refs.fetch_add(1, Ordering::Relaxed);
 
-        if old_size == u16::MAX {
+        if old_size == u32::MAX {
             panic!("Too many refs on Somr, maybe we need to increase the limitation now.")
         }
 

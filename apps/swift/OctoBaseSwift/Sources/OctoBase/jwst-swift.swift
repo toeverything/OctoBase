@@ -602,10 +602,6 @@ extension StorageRef {
     public func get_last_synced() -> RustVec<Int64> {
         RustVec(ptr: __swift_bridge__$Storage$get_last_synced(ptr))
     }
-
-    public func get_difflog() -> RustString {
-        RustString(ptr: __swift_bridge__$Storage$get_difflog(ptr))
-    }
 }
 extension Storage: Vectorizable {
     public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
