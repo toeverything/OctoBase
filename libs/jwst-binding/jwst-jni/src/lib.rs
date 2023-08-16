@@ -1,5 +1,6 @@
 mod block;
 mod block_observer;
+mod difflog;
 mod java_glue;
 mod storage;
 mod transaction;
@@ -9,8 +10,9 @@ pub use crate::java_glue::*;
 
 use block::Block;
 use block_observer::BlockObserver;
+use difflog::{CachedDiffLog, Log};
 use jwst::{
-    Block as JwstBlock, Workspace as JwstWorkspace,
+    error, info, warn, Block as JwstBlock, JwstError, LevelFilter, Workspace as JwstWorkspace,
     WorkspaceTransaction as JwstWorkspaceTransaction,
 };
 use rifgen::rifgen_attr::*;

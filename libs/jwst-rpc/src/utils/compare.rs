@@ -4,10 +4,14 @@ use yrs::{types::ToJson, ReadTxn};
 fn get_yrs_struct(ws: &jwst::Workspace) -> Result<serde_json::Value, String> {
     ws.retry_with_trx(
         |trx| {
-            trx.trx
+            let value = trx
+                .trx
                 .get_map("space:blocks")
                 .ok_or_else(|| "get_yrs_struct: blocks not found".into())
-                .map(|b| b.to_json(&trx.trx))
+                .map(|b| b.to_json(&trx.trx));
+            drop(trx);
+
+            value
         },
         50,
     )

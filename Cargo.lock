@@ -2767,19 +2767,24 @@ name = "jwst-jni"
 version = "0.1.0"
 dependencies = [
  "android_logger",
+ "chrono",
  "flapigen",
  "futures",
  "jni-sys",
  "jwst",
+ "jwst-core",
  "jwst-rpc",
  "jwst-storage",
  "lib0",
  "log-panics",
  "nanoid",
  "rifgen",
+ "serde",
+ "serde_json",
  "sqlx",
  "tokio",
  "tracing",
+ "yrs",
 ]
 
 [[package]]
