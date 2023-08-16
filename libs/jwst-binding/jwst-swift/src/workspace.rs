@@ -157,7 +157,7 @@ impl Workspace {
         if let Some(jwst_workspace) = self.jwst_workspace.as_mut() {
             match self
                 .workspace
-                .retry_with_trx(|trx| workspace_compare(trx.trx, jwst_workspace), 50)
+                .retry_with_trx(|trx| workspace_compare(trx.trx, jwst_workspace, None), 50)
             {
                 Ok(ret) => {
                     self.runtime.block_on(async {

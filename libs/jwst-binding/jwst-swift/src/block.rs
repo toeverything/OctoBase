@@ -104,7 +104,11 @@ impl Block {
                                 .push_children(&mut trx.trx, &target_block)
                                 .map(|_| {
                                     if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                        let content = workspace_compare(trx.trx, jwst_workspace);
+                                        let content = workspace_compare(
+                                            trx.trx,
+                                            jwst_workspace,
+                                            Some(&curr_block.block_id()),
+                                        );
                                         Some(content)
                                     } else {
                                         None
@@ -165,7 +169,11 @@ impl Block {
                                 .insert_children_at(&mut trx.trx, &target_block, pos)
                                 .map(|_| {
                                     if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                        let content = workspace_compare(trx.trx, jwst_workspace);
+                                        let content = workspace_compare(
+                                            trx.trx,
+                                            jwst_workspace,
+                                            Some(&curr_block.block_id()),
+                                        );
                                         Some(content)
                                     } else {
                                         None
@@ -227,7 +235,11 @@ impl Block {
                                 .insert_children_before(&mut trx.trx, &target_block, &reference)
                                 .map(|_| {
                                     if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                        let content = workspace_compare(trx.trx, jwst_workspace);
+                                        let content = workspace_compare(
+                                            trx.trx,
+                                            jwst_workspace,
+                                            Some(&curr_block.block_id()),
+                                        );
                                         Some(content)
                                     } else {
                                         None
@@ -289,7 +301,11 @@ impl Block {
                                 .insert_children_after(&mut trx.trx, &target_block, &reference)
                                 .map(|_| {
                                     if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                        let content = workspace_compare(trx.trx, jwst_workspace);
+                                        let content = workspace_compare(
+                                            trx.trx,
+                                            jwst_workspace,
+                                            Some(&curr_block.block_id()),
+                                        );
                                         Some(content)
                                     } else {
                                         None
@@ -350,7 +366,11 @@ impl Block {
                                 .remove_children(&mut trx.trx, &target_block)
                                 .map(|_| {
                                     if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                        let content = workspace_compare(trx.trx, jwst_workspace);
+                                        let content = workspace_compare(
+                                            trx.trx,
+                                            jwst_workspace,
+                                            Some(&curr_block.block_id()),
+                                        );
                                         Some(content)
                                     } else {
                                         None
@@ -457,7 +477,11 @@ impl Block {
                         .with_trx(|mut trx| {
                             block.set(&mut trx.trx, &key, value).map(|_| {
                                 if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                    let content = workspace_compare(trx.trx, jwst_workspace);
+                                    let content = workspace_compare(
+                                        trx.trx,
+                                        jwst_workspace,
+                                        Some(&block.block_id()),
+                                    );
                                     Some(content)
                                 } else {
                                     None
@@ -499,7 +523,11 @@ impl Block {
                         .with_trx(|mut trx| {
                             block.set(&mut trx.trx, &key, value).map(|_| {
                                 if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                    let content = workspace_compare(trx.trx, jwst_workspace);
+                                    let content = workspace_compare(
+                                        trx.trx,
+                                        jwst_workspace,
+                                        Some(&block.block_id()),
+                                    );
                                     Some(content)
                                 } else {
                                     None
@@ -539,7 +567,11 @@ impl Block {
                         .with_trx(|mut trx| {
                             block.set(&mut trx.trx, &key, value).map(|_| {
                                 if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                    let content = workspace_compare(trx.trx, jwst_workspace);
+                                    let content = workspace_compare(
+                                        trx.trx,
+                                        jwst_workspace,
+                                        Some(&block.block_id()),
+                                    );
                                     Some(content)
                                 } else {
                                     None
@@ -581,7 +613,11 @@ impl Block {
                         .with_trx(|mut trx| {
                             block.set(&mut trx.trx, &key, value).map(|_| {
                                 if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                    let content = workspace_compare(trx.trx, jwst_workspace);
+                                    let content = workspace_compare(
+                                        trx.trx,
+                                        jwst_workspace,
+                                        Some(&block.block_id()),
+                                    );
                                     Some(content)
                                 } else {
                                     None
@@ -623,7 +659,11 @@ impl Block {
                         .with_trx(|mut trx| {
                             block.set(&mut trx.trx, &key, Any::Null).map(|_| {
                                 if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                    let content = workspace_compare(trx.trx, jwst_workspace);
+                                    let content = workspace_compare(
+                                        trx.trx,
+                                        jwst_workspace,
+                                        Some(&block.block_id()),
+                                    );
                                     Some(content)
                                 } else {
                                     None
