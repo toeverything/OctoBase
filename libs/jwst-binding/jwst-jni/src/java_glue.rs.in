@@ -117,7 +117,7 @@ foreign_class!(
 		constructor Workspace::new(_id : String)->Workspace;
 		fn Workspace::id(& self)->String; alias id;
 		fn Workspace::client_id(& self)->u64; alias clientId;
-		fn Workspace::get(& self , trx : & mut WorkspaceTransaction , block_id : String)->Option<Block>; alias get;
+		fn Workspace::get(& mut self , trx : & mut WorkspaceTransaction , block_id : String)->Option<Block>; alias get;
 		fn Workspace::exists(& self , trx : & mut WorkspaceTransaction , block_id : & str)->bool; alias exists;
 		fn Workspace::with_trx(& self , on_trx : Box < dyn OnWorkspaceTransaction >)->bool; alias withTrx;
 		fn Workspace::get_blocks_by_flavour(& self , flavour : & str)->Vec<Block>; alias getBlocksByFlavour;

@@ -167,15 +167,8 @@ impl Storage {
                 };
 
                 let (sender, receiver) = channel::<Log>(10240);
-                if let Some(jwst_workspace) = jwst_workspace.as_ref() {
-                    self.difflog.add_receiver(
-                        receiver,
-                        rt.clone(),
-                        self.storage.clone(),
-                        workspace.clone(),
-                        jwst_workspace.clone(),
-                    );
-                }
+                self.difflog
+                    .add_receiver(receiver, rt.clone(), self.storage.clone());
 
                 let mut ws = Workspace {
                     workspace,

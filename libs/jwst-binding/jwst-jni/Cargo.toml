@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 android_logger = "0.13.1"
+chrono = "0.4.26"
 futures = "0.3.28"
 jni-sys = "0.3.0"
 lib0 = "0.16.5"
@@ -15,10 +16,14 @@ log-panics = "2.1.0"
 nanoid = "0.4.0"
 rifgen = "0.1.61"
 sqlx = "0.7.1"
+serde = { version = "1.0.183", features = ["derive"] }
+serde_json = "1.0.104"
 tokio = "1.27.0"
+yrs = "0.16.5"
 
 # ======= workspace dependencies =======
 jwst = { workspace = true }
+jwst-core = { workspace = true }
 jwst-rpc = { workspace = true }
 jwst-storage = { workspace = true, features = ["sqlite"] }
 

@@ -1,15 +1,16 @@
-use super::{
-    generate_interface, Block, JwstWorkspace, OnWorkspaceTransaction, VecOfStrings,
-    WorkspaceTransaction,
-};
+use super::*;
 use crate::block_observer::{BlockObserver, BlockObserverWrapper};
+use jwst_rpc::workspace_compare;
 use std::sync::Arc;
-use tokio::runtime::Runtime;
+use tokio::{runtime::Runtime, sync::mpsc::Sender};
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
+    pub(crate) jwst_workspace: Option<jwst_core::Workspace>,
     #[allow(dead_code)]
     pub(crate) runtime: Arc<Runtime>,
+
+    pub(crate) sender: Sender<Log>,
 }
 
 impl Workspace {
@@ -29,19 +30,36 @@ impl Workspace {
     }
 
     #[generate_interface]
-    pub fn get(&self, trx: &mut WorkspaceTransaction, block_id: String) -> Option<Block> {
-        trx.0.get_blocks().get(&trx.0.trx, block_id).map(Block)
+    pub fn get(&mut self, trx: &mut WorkspaceTransaction, block_id: String) -> Option<Block> {
+        trx.trx
+            .get_blocks()
+            .get(&trx.trx.trx, block_id)
+            .map(|block| Block {
+                jwst_workspace: self.jwst_workspace.clone(),
+                jwst_block: {
+                    let mut ws = self.jwst_workspace.clone();
+                    ws.as_mut()
+                        .and_then(|ws| ws.get_blocks().ok())
+                        .and_then(|s| s.get(block.block_id()))
+                },
+                block,
+            })
     }
 
     #[generate_interface]
     pub fn exists(&self, trx: &mut WorkspaceTransaction, block_id: &str) -> bool {
-        trx.0.get_blocks().exists(&trx.0.trx, block_id)
+        trx.trx.get_blocks().exists(&trx.trx.trx, block_id)
     }
 
     #[generate_interface]
     pub fn with_trx(&self, on_trx: Box<dyn OnWorkspaceTransaction>) -> bool {
         self.workspace
-            .try_with_trx(|trx| on_trx.on_trx(WorkspaceTransaction(trx)))
+            .try_with_trx(|trx| {
+                on_trx.on_trx(WorkspaceTransaction {
+                    trx,
+                    jwst_ws: &self.jwst_workspace,
+                })
+            })
             .is_some()
     }
 
@@ -51,7 +69,16 @@ impl Workspace {
             trx.get_blocks()
                 .get_blocks_by_flavour(&trx.trx, flavour)
                 .iter()
-                .map(|item| Block(item.clone()))
+                .map(|block| Block {
+                    block: block.clone(),
+                    jwst_workspace: self.jwst_workspace.clone(),
+                    jwst_block: {
+                        let mut ws = self.jwst_workspace.clone();
+                        ws.as_mut()
+                            .and_then(|ws| ws.get_blocks().ok())
+                            .and_then(|b| b.get(block.block_id()))
+                    },
+                })
                 .collect()
         })
     }
@@ -86,5 +113,31 @@ impl Workspace {
                 observer.on_change(block_ids);
             })));
         true
+    }
+
+    pub fn compare(self: &mut Workspace) -> Option<String> {
+        if let Some(jwst_workspace) = self.jwst_workspace.as_mut() {
+            match self
+                .workspace
+                .retry_with_trx(|trx| workspace_compare(trx.trx, jwst_workspace, None), 50)
+            {
+                Ok(ret) => {
+                    self.runtime.block_on(async {
+                        if let Err(e) = self
+                            .sender
+                            .send(Log::new(self.workspace.id(), ret.clone()))
+                            .await
+                        {
+                            warn!("failed to send log: {}", e);
+                        }
+                    });
+                    return Some(ret);
+                }
+                Err(e) => {
+                    warn!("failed to compare: {}", e);
+                }
+            }
+        }
+        None
     }
 }
