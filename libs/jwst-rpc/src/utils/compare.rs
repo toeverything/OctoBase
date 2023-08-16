@@ -1,25 +1,15 @@
 use assert_json_diff::{assert_json_matches_no_panic, CompareMode, Config, NumericMode};
 use yrs::{types::ToJson, ReadTxn};
 
-fn get_yrs_struct(ws: &jwst::Workspace) -> Result<serde_json::Value, String> {
-    ws.retry_with_trx(
-        |trx| {
-            let value = trx
-                .trx
-                .get_map("space:blocks")
-                .ok_or_else(|| "get_yrs_struct: blocks not found".into())
-                .map(|b| b.to_json(&trx.trx));
-            drop(trx);
+fn get_yrs_struct(trx: yrs::TransactionMut) -> Result<serde_json::Value, String> {
+    let json = trx
+        .get_map("space:blocks")
+        .ok_or_else(|| "get_yrs_struct: blocks not found".to_string())
+        .map(|b| b.to_json(&trx))?;
+    drop(trx);
 
-            value
-        },
-        50,
-    )
-    .map_err(|e| format!("get_yrs_update: get yrs transaction failed: {}", e))?
-    .and_then(|json| {
-        serde_json::to_value(json)
-            .map_err(|e| format!("get_yrs_struct: serde_json::to_value failed: {}", e))
-    })
+    serde_json::to_value(json)
+        .map_err(|e| format!("get_yrs_struct: serde_json::to_value failed: {}", e))
 }
 
 fn get_jwst_struct(ws: &mut jwst_core::Workspace) -> Result<serde_json::Value, String> {
@@ -30,8 +20,11 @@ fn get_jwst_struct(ws: &mut jwst_core::Workspace) -> Result<serde_json::Value, S
     }
 }
 
-pub fn workspace_compare(yrs_ws: &jwst::Workspace, jwst_ws: &mut jwst_core::Workspace) -> String {
-    match get_yrs_struct(yrs_ws) {
+pub fn workspace_compare(
+    yrs_trx: yrs::TransactionMut,
+    jwst_ws: &mut jwst_core::Workspace,
+) -> String {
+    match get_yrs_struct(yrs_trx) {
         Ok(yrs_value) => match get_jwst_struct(jwst_ws) {
             Ok(jwst_value) => {
                 if let Err(error) = assert_json_matches_no_panic(

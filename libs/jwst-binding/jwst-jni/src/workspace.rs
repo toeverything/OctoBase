@@ -117,19 +117,27 @@ impl Workspace {
 
     pub fn compare(self: &mut Workspace) -> Option<String> {
         if let Some(jwst_workspace) = self.jwst_workspace.as_mut() {
-            let ret = workspace_compare(&self.workspace, jwst_workspace);
-            self.runtime.block_on(async {
-                if let Err(e) = self
-                    .sender
-                    .send(Log::new(self.workspace.id(), ret.clone()))
-                    .await
-                {
-                    warn!("failed to send log: {}", e);
+            match self
+                .workspace
+                .retry_with_trx(|trx| workspace_compare(trx.trx, jwst_workspace), 50)
+            {
+                Ok(ret) => {
+                    self.runtime.block_on(async {
+                        if let Err(e) = self
+                            .sender
+                            .send(Log::new(self.workspace.id(), ret.clone()))
+                            .await
+                        {
+                            warn!("failed to send log: {}", e);
+                        }
+                    });
+                    return Some(ret);
                 }
-            });
-            Some(ret)
-        } else {
-            None
+                Err(e) => {
+                    warn!("failed to compare: {}", e);
+                }
+            }
         }
+        None
     }
 }

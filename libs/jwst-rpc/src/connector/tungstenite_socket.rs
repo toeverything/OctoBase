@@ -33,17 +33,22 @@ pub fn tungstenite_socket_connector(
         // socket send thread
         let workspace_id = workspace_id.to_owned();
         tokio::spawn(async move {
+            let mut retry = 5;
             while let Some(msg) = local_receiver.recv().await {
                 if let Err(e) = socket_tx.send(msg.into()).await {
                     let error = e.to_string();
                     if matches!(
                         e,
                         SocketError::ConnectionClosed | SocketError::AlreadyClosed
-                    ) {
+                    ) || retry == 0
+                    {
                         break;
                     } else {
+                        retry -= 1;
                         error!("socket send error: {}", error);
                     }
+                } else {
+                    retry = 5;
                 }
             }
             info!("socket send final: {}", workspace_id);
