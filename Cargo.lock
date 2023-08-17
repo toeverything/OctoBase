@@ -2763,6 +2763,101 @@ dependencies = [
 ]
 
 [[package]]
+name = "jwst-core-rpc"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "assert-json-diff",
+ "async-trait",
+ "axum",
+ "byteorder",
+ "bytes",
+ "chrono",
+ "futures",
+ "indicatif",
+ "jwst-codec",
+ "jwst-core",
+ "jwst-core-storage",
+ "jwst-logger",
+ "lru_time_cache",
+ "nanoid",
+ "nom",
+ "rand 0.8.5",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-tungstenite 0.20.0",
+ "url",
+ "webrtc",
+]
+
+[[package]]
+name = "jwst-core-storage"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "chrono",
+ "dotenvy",
+ "futures",
+ "governor",
+ "image",
+ "jwst-codec",
+ "jwst-core",
+ "jwst-core-storage-migration",
+ "jwst-logger",
+ "opendal",
+ "path-ext",
+ "rand 0.8.5",
+ "sea-orm",
+ "sea-orm-migration",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "url",
+]
+
+[[package]]
+name = "jwst-core-storage-migration"
+version = "0.1.0"
+dependencies = [
+ "sea-orm-migration",
+ "tokio",
+]
+
+[[package]]
+name = "jwst-core-swift"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "futures",
+ "jwst-core",
+ "jwst-core-rpc",
+ "jwst-core-storage",
+ "jwst-logger",
+ "nanoid",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "swift-bridge",
+ "swift-bridge-build",
+ "tokio",
+]
+
+[[package]]
+name = "jwst-core-swift-integrate"
+version = "0.1.0"
+dependencies = [
+ "swift-bridge-build",
+]
+
+[[package]]
 name = "jwst-jni"
 version = "0.1.0"
 dependencies = [
