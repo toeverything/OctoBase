@@ -669,11 +669,7 @@ impl DocStore {
         diff
     }
 
-    pub fn encode_with_state_vector<W: CrdtWriter>(
-        &self,
-        sv: &StateVector,
-        encoder: &mut W,
-    ) -> JwstCodecResult {
+    pub fn diff_state_vector(&self, sv: &StateVector) -> JwstCodecResult<Update> {
         let update_structs = Self::diff_structs(&self.items, sv)?;
 
         let mut update = Update {
@@ -686,9 +682,7 @@ impl DocStore {
             Update::merge_into(&mut update, [pending])
         }
 
-        update.write(encoder)?;
-
-        Ok(())
+        Ok(update)
     }
 
     fn diff_structs(
