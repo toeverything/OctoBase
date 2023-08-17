@@ -51,7 +51,9 @@ impl DocPublisher {
                         continue;
                     }
 
-                    let update = store.read().unwrap().get_state_vector();
+                    let store = store.read().unwrap();
+
+                    let update = store.get_state_vector();
                     if update != last_update {
                         trace!(
                             "update: {:?}, last_update: {:?}, {:?}",
@@ -59,23 +61,30 @@ impl DocPublisher {
                             last_update,
                             std::thread::current().id(),
                         );
-                        let mut encoder = RawEncoder::default();
-                        if let Err(e) = store
-                            .read()
-                            .unwrap()
-                            .encode_with_state_vector(&last_update, &mut encoder)
-                        {
-                            warn!("Failed to encode document: {}", e);
-                            continue;
+
+                        let binary = match store.diff_state_vector(&last_update) {
+                            Ok(update) => {
+                                drop(store);
+                                let mut encoder = RawEncoder::default();
+                                if let Err(e) = update.write(&mut encoder) {
+                                    warn!("Failed to encode document: {}", e);
+                                    continue;
+                                }
+                                encoder.into_inner()
+                            }
+                            Err(e) => {
+                                warn!("Failed to diff document: {}", e);
+                                continue;
+                            }
                         };
 
                         last_update = update;
 
-                        let binary = encoder.into_inner();
-
                         for cb in subscribers.iter() {
                             cb(&binary);
                         }
+                    } else {
+                        drop(store);
                     }
                 }
             });

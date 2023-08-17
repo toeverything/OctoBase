@@ -216,13 +216,10 @@ impl Doc {
     }
 
     pub fn encode_state_as_update_v1(&self, sv: &StateVector) -> JwstCodecResult<Vec<u8>> {
-        let store = &self.store;
-        let mut encoder = RawEncoder::default();
-        store
-            .read()
-            .unwrap()
-            .encode_with_state_vector(sv, &mut encoder)?;
+        let update = self.store.read().unwrap().diff_state_vector(sv)?;
 
+        let mut encoder = RawEncoder::default();
+        update.write(&mut encoder)?;
         Ok(encoder.into_inner())
     }
 
