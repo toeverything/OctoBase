@@ -56,5 +56,5 @@ pub fn merge_updates_v1<V: AsRef<[u8]>, I: IntoIterator<Item = V>>(
         .map(|u| Update::from_ybinary1(u.as_ref().to_vec()))
         .collect::<JwstCodecResult<Vec<_>>>()?;
 
-    Ok(Update::merge(&updates))
+    Ok(Update::merge(updates))
 }

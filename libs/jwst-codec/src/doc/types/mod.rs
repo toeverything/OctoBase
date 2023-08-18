@@ -393,6 +393,12 @@ impl Value {
             _ => None,
         }
     }
+
+    pub fn from_vec<T: Into<Any>>(el: Vec<T>) -> Self {
+        Value::Any(Any::Array(
+            el.into_iter().map(|item| item.into()).collect::<Vec<_>>(),
+        ))
+    }
 }
 
 impl TryFrom<&Content> for Value {

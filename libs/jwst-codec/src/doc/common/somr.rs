@@ -2,6 +2,7 @@ use std::{
     fmt::{self, Write},
     hash::{Hash, Hasher},
     marker::PhantomData,
+    mem,
     ptr::NonNull,
 };
 
@@ -73,7 +74,6 @@ impl<T> Somr<T> {
         self.inner().data.as_ref()
     }
 
-    #[allow(dead_code)]
     pub unsafe fn get_unchecked(&self) -> &T {
         if self.dangling() {
             panic!("Try to visit Somr data that has already been dropped.")
@@ -87,7 +87,6 @@ impl<T> Somr<T> {
         }
     }
 
-    #[allow(dead_code)]
     pub fn get_mut(&self) -> Option<&mut T> {
         if !self.is_owned() || self.dangling() {
             return None;
@@ -97,7 +96,6 @@ impl<T> Somr<T> {
         inner.data.as_mut()
     }
 
-    #[allow(dead_code)]
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn get_mut_unchecked(&self) -> &mut T {
         if self.dangling() {
@@ -115,6 +113,16 @@ impl<T> Somr<T> {
     #[inline]
     pub fn is_owned(&self) -> bool {
         matches!(self, Self::Owned(_))
+    }
+
+    pub fn swap_take(&mut self) -> Self {
+        debug_assert!(self.is_owned());
+
+        let mut r = self.clone();
+
+        mem::swap(self, &mut r);
+
+        r
     }
 
     #[inline]
@@ -420,6 +428,20 @@ mod tests {
             drop(five_ref);
 
             assert_eq!(five.get().unwrap(), &5);
+        });
+    }
+
+    #[test]
+    fn swap_take() {
+        loom_model!({
+            let mut five = Somr::new(5);
+            let owned = five.swap_take();
+
+            assert_eq!(owned.get().unwrap(), &5);
+            assert_eq!(five.get().unwrap(), &5);
+
+            assert!(owned.is_owned());
+            assert!(!five.is_owned());
         });
     }
 }
