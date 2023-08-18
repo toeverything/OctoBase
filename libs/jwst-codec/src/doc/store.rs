@@ -362,9 +362,16 @@ impl DocStore {
         };
 
         // assign store in ytype to ensure store exists if a ytype not has any children
-        if let Content::Type(ty) = item.content.as_ref() {
+        if let Content::Type(ty) = Arc::make_mut(&mut item.content) {
             if let Some(ty) = ty.get() {
                 ty.write().unwrap().store = Arc::downgrade(&store_ref);
+            }
+
+            if ty.is_owned() {
+                self.dangling_types
+                    .insert(ty.ptr().as_ptr() as usize, ty.swap_take());
+            } else {
+                return Err(JwstCodecError::InvalidParent);
             }
         }
 
@@ -679,7 +686,7 @@ impl DocStore {
         };
 
         if let Some(pending) = &self.pending {
-            Update::merge_into(&mut update, [pending])
+            Update::merge_into(&mut update, [pending.clone()])
         }
 
         Ok(update)

@@ -109,7 +109,7 @@ impl Update {
         std::mem::swap(&mut self.pending_delete_set, &mut self.delete_set);
     }
 
-    pub fn merge<'a, I: IntoIterator<Item = &'a Update>>(updates: I) -> Update {
+    pub fn merge<I: IntoIterator<Item = Update>>(updates: I) -> Update {
         let mut merged = Update::default();
 
         Self::merge_into(&mut merged, updates);
@@ -117,16 +117,16 @@ impl Update {
         merged
     }
 
-    pub fn merge_into<'a, I: IntoIterator<Item = &'a Update>>(target: &mut Update, updates: I) {
+    pub fn merge_into<I: IntoIterator<Item = Update>>(target: &mut Update, updates: I) {
         for update in updates {
             target.delete_set.merge(&update.delete_set);
 
-            for (client, structs) in &update.structs {
-                let iter = structs.iter().filter(|p| !p.is_skip()).map(Clone::clone);
-                if let Some(merged_structs) = target.structs.get_mut(client) {
+            for (client, structs) in update.structs {
+                let iter = structs.into_iter().filter(|p| !p.is_skip());
+                if let Some(merged_structs) = target.structs.get_mut(&client) {
                     merged_structs.extend(iter);
                 } else {
-                    target.structs.insert(*client, iter.collect());
+                    target.structs.insert(client, iter.collect());
                 }
             }
         }
@@ -141,12 +141,12 @@ impl Update {
                 let next = &structs[index + 1];
 
                 let clock_end = cur.id().clock + cur.len();
-                let diff = next.id().clock - clock_end;
+                let next_clock = next.id().clock;
 
-                if diff > 0 {
+                if next_clock > clock_end {
                     structs.insert(
                         index + 1,
-                        Node::new_skip((cur.id().client, clock_end).into(), diff),
+                        Node::new_skip((cur.id().client, clock_end).into(), next_clock - clock_end),
                     );
                     index += 1;
                 }
@@ -624,7 +624,7 @@ mod tests {
                 ..Default::default()
             };
 
-            let merged = Update::merge([&update]);
+            let merged = Update::merge([update]);
 
             assert_eq!(
                 merged.structs.get(&0).unwrap(),
@@ -637,6 +637,38 @@ mod tests {
                     Node::new_gc((0, 20).into(), 10),
                 ])
             );
+        });
+    }
+
+    #[test]
+    fn merged_update_should_not_be_released_in_next_turn() {
+        loom_model!({
+            let update = Update {
+                structs: HashMap::from([(
+                    0,
+                    VecDeque::from([
+                        struct_item((0, 0), 1),
+                        struct_item((0, 1), 1),
+                        struct_item((0, 10), 1),
+                        Node::new_gc((0, 20).into(), 10),
+                    ]),
+                )]),
+                ..Default::default()
+            };
+
+            let merged = Update::merge([update]);
+
+            let update2 = Update {
+                structs: HashMap::from([(
+                    0,
+                    VecDeque::from([struct_item((0, 30), 1), Node::new_gc((0, 32).into(), 1)]),
+                )]),
+                ..Default::default()
+            };
+
+            let merged2 = Update::merge([update2, merged]);
+
+            assert_eq!(merged2.structs.get(&0).unwrap().len(), 9);
         });
     }
 }

@@ -74,7 +74,7 @@ impl<W: CrdtWriter> CrdtWrite<W> for Any {
             Any::Null => writer.write_u8(127 - 1)?,
             Any::Integer(value) => {
                 writer.write_u8(127 - 2)?;
-                writer.write_var_i64(*value as i64)?;
+                writer.write_var_i64(*value)?;
             }
             Any::Float32(value) => {
                 writer.write_u8(127 - 3)?;
