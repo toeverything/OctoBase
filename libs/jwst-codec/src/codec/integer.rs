@@ -44,7 +44,7 @@ pub fn write_var_u64<W: Write>(buffer: &mut W, mut num: u64) -> Result<(), Error
     Ok(())
 }
 
-pub fn read_var_i64(input: &[u8]) -> IResult<&[u8], i64> {
+pub fn read_var_i32(input: &[u8]) -> IResult<&[u8], i32> {
     // parse the first byte
     if let Some(next_byte) = input.first() {
         let mut shift = 6;
@@ -73,15 +73,18 @@ pub fn read_var_i64(input: &[u8]) -> IResult<&[u8], i64> {
             num = -num;
         }
 
-        Ok((rest, num))
+        Ok((rest, num as i32))
     } else {
         Err(nom::Err::Incomplete(Needed::new(1)))
     }
 }
 
-pub fn write_var_i64<W: Write>(buffer: &mut W, mut num: i64) -> Result<(), Error> {
+pub fn write_var_i32<W: Write>(buffer: &mut W, num: i32) -> Result<(), Error> {
+    let mut num = num as i64;
     let is_negative = num < 0;
-    num = num.saturating_abs();
+    if is_negative {
+        num = -num;
+    }
 
     buffer.write_u8(
         // bit or 0b1000_0000 if has more bits
@@ -144,12 +147,12 @@ mod tests {
         test_var_uint_enc_dec(u64::max_value());
     }
 
-    fn test_var_int_enc_dec(num: i64) {
+    fn test_var_int_enc_dec(num: i32) {
         {
             let mut buf1: Vec<u8> = Vec::new();
-            write_var_i64(&mut buf1, num).unwrap();
+            write_var_i32(&mut buf1, num).unwrap();
 
-            let (rest, decoded_num) = read_var_i64(&buf1).unwrap();
+            let (rest, decoded_num) = read_var_i32(&buf1).unwrap();
             assert_eq!(num, decoded_num);
             assert_eq!(rest.len(), 0);
         }
@@ -158,7 +161,7 @@ mod tests {
             let mut buf2 = Vec::new();
             buf2.write_var(num);
 
-            let (rest, decoded_num) = read_var_i64(&buf2).unwrap();
+            let (rest, decoded_num) = read_var_i32(&buf2).unwrap();
             assert_eq!(num, decoded_num);
             assert_eq!(rest.len(), 0);
         }
@@ -173,12 +176,9 @@ mod tests {
         test_var_int_enc_dec(-63);
         test_var_int_enc_dec(64);
         test_var_int_enc_dec(-64);
-        test_var_int_enc_dec(i64::MAX);
-        // TODO: abs(MIN) cannot be represented as i64
-        // this is a limitation of the lib0's var int encoding
-        // need to discuss whether to improve the coding method in the future
-        // test_var_int_enc_dec(i64::MIN);
-        test_var_int_enc_dec(((1 << 40) - 1) * 8);
-        test_var_int_enc_dec(-((1 << 40) - 1) * 8);
+        test_var_int_enc_dec(i32::MAX);
+        test_var_int_enc_dec(i32::MIN);
+        test_var_int_enc_dec(((1 << 20) - 1) * 8);
+        test_var_int_enc_dec(-((1 << 20) - 1) * 8);
     }
 }

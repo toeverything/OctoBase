@@ -30,8 +30,8 @@ pub trait CrdtReader {
     fn read_var_u64(&mut self) -> JwstCodecResult<u64> {
         read_with_cursor(self.get_buffer_mut(), read_var_u64)
     }
-    fn read_var_i64(&mut self) -> JwstCodecResult<i64> {
-        read_with_cursor(self.get_buffer_mut(), read_var_i64)
+    fn read_var_i32(&mut self) -> JwstCodecResult<i32> {
+        read_with_cursor(self.get_buffer_mut(), read_var_i32)
     }
     fn read_var_string(&mut self) -> JwstCodecResult<String> {
         read_with_cursor(self.get_buffer_mut(), read_var_string)
