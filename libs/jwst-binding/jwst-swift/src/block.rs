@@ -78,16 +78,14 @@ impl Block {
                     if let Some(mut jwst_block) = jwst_block {
                         if let Some(mut block) = target_jwst_block {
                             jwst_block.push_children(&mut block).expect("failed to push children");
-                        } else {
-                            if let Err(e) = sender
-                                .send(Log::new(
-                                    workspace.id(),
-                                    format!("target jwst block not exists: {}", target_block.block_id()),
-                                ))
-                                .await
-                            {
-                                warn!("failed to send log: {}", e);
-                            }
+                        } else if let Err(e) = sender
+                            .send(Log::new(
+                                workspace.id(),
+                                format!("target jwst block not exists: {}", target_block.block_id()),
+                            ))
+                            .await
+                        {
+                            warn!("failed to send log: {}", e);
                         }
                     }
 
@@ -135,16 +133,14 @@ impl Block {
                             jwst_block
                                 .insert_children_at(&mut block, pos as u64)
                                 .expect("failed to insert children at position");
-                        } else {
-                            if let Err(e) = sender
-                                .send(Log::new(
-                                    workspace.id(),
-                                    format!("target jwst block not exists: {}", target_block.block_id()),
-                                ))
-                                .await
-                            {
-                                warn!("failed to send log: {}", e);
-                            }
+                        } else if let Err(e) = sender
+                            .send(Log::new(
+                                workspace.id(),
+                                format!("target jwst block not exists: {}", target_block.block_id()),
+                            ))
+                            .await
+                        {
+                            warn!("failed to send log: {}", e);
                         }
                     }
 
@@ -195,16 +191,14 @@ impl Block {
                             jwst_block
                                 .insert_children_before(&mut block, &reference)
                                 .expect("failed to insert children before");
-                        } else {
-                            if let Err(e) = sender
-                                .send(Log::new(
-                                    workspace.id(),
-                                    format!("target jwst block not exists: {}", target_block.block_id()),
-                                ))
-                                .await
-                            {
-                                warn!("failed to send log: {}", e);
-                            }
+                        } else if let Err(e) = sender
+                            .send(Log::new(
+                                workspace.id(),
+                                format!("target jwst block not exists: {}", target_block.block_id()),
+                            ))
+                            .await
+                        {
+                            warn!("failed to send log: {}", e);
                         }
                     }
 
@@ -255,16 +249,14 @@ impl Block {
                             jwst_block
                                 .insert_children_after(&mut block, &reference)
                                 .expect("failed to insert children after");
-                        } else {
-                            if let Err(e) = sender
-                                .send(Log::new(
-                                    workspace.id(),
-                                    format!("target jwst block not exists: {}", target_block.block_id()),
-                                ))
-                                .await
-                            {
-                                warn!("failed to send log: {}", e);
-                            }
+                        } else if let Err(e) = sender
+                            .send(Log::new(
+                                workspace.id(),
+                                format!("target jwst block not exists: {}", target_block.block_id()),
+                            ))
+                            .await
+                        {
+                            warn!("failed to send log: {}", e);
                         }
                     }
 
@@ -314,16 +306,14 @@ impl Block {
                             jwst_block
                                 .remove_children(&mut block)
                                 .expect("failed to remove jwst block");
-                        } else {
-                            if let Err(e) = sender
-                                .send(Log::new(
-                                    workspace.id(),
-                                    format!("target jwst block not exists: {}", target_block.block_id()),
-                                ))
-                                .await
-                            {
-                                warn!("failed to send log: {}", e);
-                            }
+                        } else if let Err(e) = sender
+                            .send(Log::new(
+                                workspace.id(),
+                                format!("target jwst block not exists: {}", target_block.block_id()),
+                            ))
+                            .await
+                        {
+                            warn!("failed to send log: {}", e);
                         }
                     }
 
