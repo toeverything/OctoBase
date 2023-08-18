@@ -5,26 +5,26 @@ on:
     push:
         branches: [master]
         paths:
-            - 'apps/cloud/**'
-            - 'apps/homepage/**'
-            - 'apps/keck/**'
-            - 'libs/**'
-            - '.github/deployment/Dockerfile-cloud'
-            - '.github/deployment/Dockerfile-jwst'
-            - '.github/deployment/Dockerfile-mt-cloud'
-            - '.github/workflows/jwst.yml'
+            - "apps/cloud/**"
+            - "apps/homepage/**"
+            - "apps/keck/**"
+            - "libs/**"
+            - ".github/deployment/Dockerfile-cloud"
+            - ".github/deployment/Dockerfile-jwst"
+            - ".github/deployment/Dockerfile-mt-cloud"
+            - ".github/workflows/jwst.yml"
     pull_request:
         branches: [master]
         paths:
-            - 'apps/cloud/**'
-            - 'apps/homepage/**'
-            - 'apps/playground/**'
-            - 'apps/keck/**'
-            - 'libs/**'
-            - '.github/deployment/Dockerfile-cloud'
-            - '.github/deployment/Dockerfile-jwst'
-            - '.github/deployment/Dockerfile-mt-cloud'
-            - '.github/workflows/jwst.yml'
+            - "apps/cloud/**"
+            - "apps/homepage/**"
+            - "apps/playground/**"
+            - "apps/keck/**"
+            - "libs/**"
+            - ".github/deployment/Dockerfile-cloud"
+            - ".github/deployment/Dockerfile-jwst"
+            - ".github/deployment/Dockerfile-mt-cloud"
+            - ".github/workflows/jwst.yml"
 
 # Cancels all previous workflow runs for pull requests that have not completed.
 # See https://docs.github.com/en/actions/using-jobs/using-concurrency
@@ -494,8 +494,8 @@ jobs:
                   cargo fuzz run codec_doc_any_struct -- -max_total_time=30
                   cargo fuzz run codec_doc_any -- -max_total_time=30
                   cargo fuzz run decode_bytes -- -max_total_time=30
-                  cargo fuzz run i64_decode -- -max_total_time=30
-                  cargo fuzz run i64_encode -- -max_total_time=30
+                  cargo fuzz run i32_decode -- -max_total_time=30
+                  cargo fuzz run i32_encode -- -max_total_time=30
                   cargo fuzz run ins_del_text -- -max_total_time=30
                   cargo fuzz run sync_message -- -max_total_time=30
                   cargo fuzz run u64_decode -- -max_total_time=30
