@@ -26,8 +26,7 @@ pub struct Bucket {
 
 impl Bucket {
     fn new(bucket_size: u32, semaphore_size: usize) -> Self {
-        let bucket_size =
-            NonZeroU32::new(bucket_size).unwrap_or(unsafe { NonZeroU32::new_unchecked(1) });
+        let bucket_size = NonZeroU32::new(bucket_size).unwrap_or(unsafe { NonZeroU32::new_unchecked(1) });
 
         Self {
             bucket: Arc::new(RateLimiter::direct(
@@ -65,9 +64,7 @@ impl Bucket {
 
 #[inline]
 pub fn is_sqlite(database: &str) -> bool {
-    Url::parse(database)
-        .map(|u| u.scheme() == "sqlite")
-        .unwrap_or(false)
+    Url::parse(database).map(|u| u.scheme() == "sqlite").unwrap_or(false)
 }
 
 #[inline]

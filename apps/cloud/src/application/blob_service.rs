@@ -1,15 +1,11 @@
 use crate::{
-    context::Context, infrastructure::auth::get_claim_from_headers,
-    infrastructure::error_status::ErrorStatus,
+    context::Context, infrastructure::auth::get_claim_from_headers, infrastructure::error_status::ErrorStatus,
 };
 use axum::{
     extract::BodyStream,
     headers::ContentLength,
     http::{
-        header::{
-            CACHE_CONTROL, CONTENT_LENGTH, CONTENT_TYPE, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH,
-            LAST_MODIFIED,
-        },
+        header::{CACHE_CONTROL, CONTENT_LENGTH, CONTENT_TYPE, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED},
         HeaderMap, HeaderValue, Method,
     },
     Json,
@@ -85,8 +81,7 @@ impl BlobService {
             }
         }
 
-        self.get_blob(ctx, Some(workspace_id), id, method, headers)
-            .await
+        self.get_blob(ctx, Some(workspace_id), id, method, headers).await
     }
 
     #[instrument(skip(ctx, length, stream))]
@@ -111,11 +106,7 @@ impl BlobService {
             return Err(ErrorStatus::PayloadExceedsLimit("10GB".to_string()));
         }
 
-        match ctx
-            .db
-            .can_read_workspace(user_id.clone(), workspace_id.clone())
-            .await
-        {
+        match ctx.db.can_read_workspace(user_id.clone(), workspace_id.clone()).await {
             Ok(true) => (),
             Ok(false) => return Err(ErrorStatus::Forbidden),
             Err(e) => {
@@ -172,9 +163,7 @@ impl BlobService {
 
         let (id, params) = {
             let path = PathBuf::from(id.clone());
-            let ext = path
-                .extension()
-                .and_then(|s| s.to_str().map(|s| s.to_string()));
+            let ext = path.extension().and_then(|s| s.to_str().map(|s| s.to_string()));
             let id = path
                 .file_stem()
                 .and_then(|s| s.to_str().map(|s| s.to_string()))
@@ -189,7 +178,12 @@ impl BlobService {
             }
         }
 
-        let Ok(meta) = ctx.storage.blobs().get_metadata(workspace.clone(), id.clone(), params.clone()).await else {
+        let Ok(meta) = ctx
+            .storage
+            .blobs()
+            .get_metadata(workspace.clone(), id.clone(), params.clone())
+            .await
+        else {
             return Err(ErrorStatus::NotFound);
         };
 
@@ -207,19 +201,14 @@ impl BlobService {
         header.insert(ETAG, HeaderValue::from_str(&id).unwrap());
         header.insert(
             CONTENT_TYPE,
-            HeaderValue::from_str(&meta.content_type).unwrap_or(HeaderValue::from_static(
-                APPLICATION_OCTET_STREAM.essence_str(),
-            )),
+            HeaderValue::from_str(&meta.content_type)
+                .unwrap_or(HeaderValue::from_static(APPLICATION_OCTET_STREAM.essence_str())),
         );
         header.insert(
             LAST_MODIFIED,
-            HeaderValue::from_str(&DateTime::<Utc>::from_utc(meta.last_modified, Utc).to_rfc2822())
-                .unwrap(),
+            HeaderValue::from_str(&DateTime::<Utc>::from_utc(meta.last_modified, Utc).to_rfc2822()).unwrap(),
         );
-        header.insert(
-            CONTENT_LENGTH,
-            HeaderValue::from_str(&meta.size.to_string()).unwrap(),
-        );
+        header.insert(CONTENT_LENGTH, HeaderValue::from_str(&meta.size.to_string()).unwrap());
         header.insert(
             CACHE_CONTROL,
             HeaderValue::from_str("public, immutable, max-age=31536000").unwrap(),
@@ -229,23 +218,24 @@ impl BlobService {
             return Ok((header, None));
         };
 
-        let Ok(file) = ctx.storage.blobs().get_blob(workspace, id, params.clone()).await else {
+        let Ok(file) = ctx
+            .storage
+            .blobs()
+            .get_blob(workspace, id, params.clone())
+            .await
+        else {
             return Err(ErrorStatus::NotFound);
         };
 
         if meta.size != file.len() as i64 {
-            header.insert(
-                CONTENT_LENGTH,
-                HeaderValue::from_str(&file.len().to_string()).unwrap(),
-            );
+            header.insert(CONTENT_LENGTH, HeaderValue::from_str(&file.len().to_string()).unwrap());
 
             if let Some(params) = params {
                 if let Some(format) = params.get("format") {
                     header.insert(
                         CONTENT_TYPE,
-                        HeaderValue::from_str(&format!("image/{format}")).unwrap_or(
-                            HeaderValue::from_static(APPLICATION_OCTET_STREAM.essence_str()),
-                        ),
+                        HeaderValue::from_str(&format!("image/{format}"))
+                            .unwrap_or(HeaderValue::from_static(APPLICATION_OCTET_STREAM.essence_str())),
                     );
                 }
             }
@@ -271,12 +261,7 @@ impl BlobService {
             })
             .filter_map(|data| future::ready(data.ok()));
 
-        let id = match ctx
-            .storage
-            .blobs()
-            .put_blob_stream(workspace.clone(), stream)
-            .await
-        {
+        let id = match ctx.storage.blobs().put_blob_stream(workspace.clone(), stream).await {
             Ok(id) => id,
             Err(e) => {
                 error!("Failed to upload blob: {}", e);
@@ -402,9 +387,7 @@ mod test {
             .header("content-length", test_data_len.to_string())
             .body(Body::wrap_stream(test_data_stream.clone()))
             .unwrap();
-        let body_stream = BodyStream::from_request(res, &"test".to_string())
-            .await
-            .unwrap();
+        let body_stream = BodyStream::from_request(res, &"test".to_string()).await.unwrap();
         body_stream
     }
 
@@ -542,9 +525,7 @@ mod test {
         let user_id = test_user_id(access_token.clone(), &ctx);
         let workspace_id = test_workspace(&client, access_token.clone()).await;
 
-        let usage = blob_service
-            .get_user_resource_usage(&ctx, user_id.clone())
-            .await;
+        let usage = blob_service.get_user_resource_usage(&ctx, user_id.clone()).await;
         assert_eq!(usage.is_ok(), true);
         assert_eq!(usage.ok().unwrap().blob_usage.usage, 0 as u64);
 
@@ -561,9 +542,7 @@ mod test {
             .await;
         assert_eq!(upload.is_ok(), true);
 
-        let usage = blob_service
-            .get_user_resource_usage(&ctx, user_id.clone())
-            .await;
+        let usage = blob_service.get_user_resource_usage(&ctx, user_id.clone()).await;
         assert_eq!(usage.is_ok(), true);
         assert_eq!(usage.ok().unwrap().blob_usage.usage, 256 as u64);
     }

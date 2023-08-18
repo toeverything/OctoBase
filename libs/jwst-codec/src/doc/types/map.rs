@@ -77,9 +77,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         if let Some(store) = inner.store.upgrade() {
             let mut store = store.write().unwrap();
             if let Some(item) = ItemRef::from(node).get() {
-                store
-                    .delete_set
-                    .add(item.id.client, item.id.clock, item.len());
+                store.delete_set.add(item.id.client, item.id.clock, item.len());
                 DocStore::delete_item(item, Some(&mut inner));
                 return true;
             }
@@ -132,12 +130,7 @@ impl Iterator for MapIterator {
             }
 
             if let Some(item) = node.as_item().get() {
-                return item
-                    .content
-                    .as_ref()
-                    .try_into()
-                    .ok()
-                    .map(|item| (name, item));
+                return item.content.as_ref().try_into().ok().map(|item| (name, item));
             } else {
                 continue;
             }
@@ -222,10 +215,7 @@ mod tests {
             let doc = Doc::with_options(options.clone());
             let mut map = doc.get_or_create_map("map").unwrap();
             map.insert("1", "value").unwrap();
-            assert_eq!(
-                map.get("1").unwrap(),
-                Value::Any(Any::String("value".to_string()))
-            );
+            assert_eq!(map.get("1").unwrap(), Value::Any(Any::String("value".to_string())));
             assert!(!map.contains_key("nonexistent_key"));
             assert_eq!(map.len(), 1);
             assert!(map.contains_key("1"));
@@ -251,10 +241,7 @@ mod tests {
             let binary = doc.encode_update_v1().unwrap();
             let new_doc = Doc::new_from_binary_with_options(binary, options.clone()).unwrap();
             let map = new_doc.get_or_create_map("map").unwrap();
-            assert_eq!(
-                map.get("1").unwrap(),
-                Value::Any(Any::String("value".to_string()))
-            );
+            assert_eq!(map.get("1").unwrap(), Value::Any(Any::String("value".to_string())));
             assert_eq!(map.get("2").unwrap(), Value::Any(Any::False));
             assert_eq!(map.len(), 2);
         });
@@ -308,14 +295,8 @@ mod tests {
             {
                 let doc = Doc::new_from_binary_with_options(binary, options.clone()).unwrap();
                 let map = doc.get_or_create_map("map").unwrap();
-                assert_eq!(
-                    map.get("1").unwrap(),
-                    Value::Any(Any::String("value1".to_string()))
-                );
-                assert_eq!(
-                    map.get("2").unwrap(),
-                    Value::Any(Any::String("value2".to_string()))
-                );
+                assert_eq!(map.get("1").unwrap(), Value::Any(Any::String("value1".to_string())));
+                assert_eq!(map.get("2").unwrap(), Value::Any(Any::String("value2".to_string())));
             }
         });
     }

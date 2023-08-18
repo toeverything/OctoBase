@@ -124,13 +124,10 @@ mod test {
         };
 
         let new_doc = {
-            let update = doc
-                .encode_state_as_update_v1(&StateVector::default())
-                .unwrap();
+            let update = doc.encode_state_as_update_v1(&StateVector::default()).unwrap();
 
             let mut doc = Doc::default();
-            doc.apply_update(Update::from_ybinary1(update).unwrap())
-                .unwrap();
+            doc.apply_update(Update::from_ybinary1(update).unwrap()).unwrap();
             doc
         };
 
@@ -164,10 +161,7 @@ mod test {
             assert_eq!(block.block_id(), "block");
             assert_eq!(block.flavour(), "text");
 
-            assert_eq!(
-                space.get("block").map(|b| b.block_id()),
-                Some("block".to_owned())
-            );
+            assert_eq!(space.get("block").map(|b| b.block_id()), Some("block".to_owned()));
 
             assert!(space.exists("block"));
 
@@ -236,13 +230,10 @@ mod test {
         let mut map = doc.get_or_create_map("test").unwrap();
         map.insert("test", "aaa").unwrap();
 
-        let data = doc
-            .encode_state_as_update_v1(&StateVector::default())
-            .unwrap();
+        let data = doc.encode_state_as_update_v1(&StateVector::default()).unwrap();
 
         let mut doc = Doc::default();
-        doc.apply_update(Update::from_ybinary1(data).unwrap())
-            .unwrap();
+        doc.apply_update(Update::from_ybinary1(data).unwrap()).unwrap();
 
         assert_eq!(doc.keys(), vec!["test"]);
     }
@@ -257,19 +248,14 @@ mod test {
                 let _block = space.create("test", "test1").unwrap();
             }
 
-            ws.doc()
-                .encode_state_as_update_v1(&StateVector::default())
-                .unwrap()
+            ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
         };
 
         for _ in 0..=2 {
             let mut doc = Doc::default();
-            doc.apply_update(Update::from_ybinary1(update).unwrap())
-                .unwrap();
+            doc.apply_update(Update::from_ybinary1(update).unwrap()).unwrap();
 
-            update = doc
-                .encode_state_as_update_v1(&StateVector::default())
-                .unwrap();
+            update = doc.encode_state_as_update_v1(&StateVector::default()).unwrap();
         }
     }
 
@@ -283,9 +269,7 @@ mod test {
                 let _block = space.create("test", "test1").unwrap();
             }
 
-            ws.doc()
-                .encode_state_as_update_v1(&StateVector::default())
-                .unwrap()
+            ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
         };
         let update1 = {
             let mut doc = Doc::default();
@@ -299,14 +283,11 @@ mod test {
                 block.insert_children_at(&mut new_block, 0).unwrap();
             }
 
-            ws.doc()
-                .encode_state_as_update_v1(&StateVector::default())
-                .unwrap()
+            ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
         };
         let update2 = {
             let mut doc = Doc::default();
-            doc.apply_update(Update::from_ybinary1(update).unwrap())
-                .unwrap();
+            doc.apply_update(Update::from_ybinary1(update).unwrap()).unwrap();
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             {
                 let mut space = ws.get_space("space").unwrap();
@@ -315,9 +296,7 @@ mod test {
                 block.insert_children_at(&mut new_block, 0).unwrap();
             }
 
-            ws.doc()
-                .encode_state_as_update_v1(&StateVector::default())
-                .unwrap()
+            ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
         };
 
         {
@@ -377,9 +356,7 @@ mod test {
             let doc = Doc::default();
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             ws.get_space("space").unwrap();
-            ws.doc()
-                .encode_state_as_update_v1(&StateVector::default())
-                .unwrap()
+            ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
         };
 
         let update1 = {
@@ -394,14 +371,11 @@ mod test {
                 block.insert_children_at(&mut new_block, 0).unwrap();
             }
 
-            ws.doc()
-                .encode_state_as_update_v1(&StateVector::default())
-                .unwrap()
+            ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
         };
         let update2 = {
             let mut doc = Doc::default();
-            doc.apply_update(Update::from_ybinary1(update).unwrap())
-                .unwrap();
+            doc.apply_update(Update::from_ybinary1(update).unwrap()).unwrap();
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             {
                 let mut space = ws.get_space("space").unwrap();
@@ -411,9 +385,7 @@ mod test {
                 // block.insert_children_at(&mut new_block, 0).unwrap();
             }
 
-            ws.doc()
-                .encode_state_as_update_v1(&StateVector::default())
-                .unwrap()
+            ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
         };
 
         {

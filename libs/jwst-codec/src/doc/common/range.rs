@@ -243,10 +243,7 @@ mod tests {
     fn test_range_sort() {
         let mut range: OrderRange = vec![(20..30), (0..10), (10..50)].into();
         range.sort();
-        assert_eq!(
-            range,
-            OrderRange::Fragment(vec![(0..10), (10..50), (20..30)])
-        );
+        assert_eq!(range, OrderRange::Fragment(vec![(0..10), (10..50), (20..30)]));
     }
 
     #[test]

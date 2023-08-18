@@ -19,10 +19,7 @@ pub use storage::JwstStorage;
 pub use types::{JwstStorageError, JwstStorageResult};
 
 #[inline]
-async fn create_connection(
-    database: &str,
-    single_thread: bool,
-) -> JwstStorageResult<DatabaseConnection> {
+async fn create_connection(database: &str, single_thread: bool) -> JwstStorageResult<DatabaseConnection> {
     let connection = Database::connect(
         ConnectOptions::from(database)
             .max_connections(if single_thread { 1 } else { 50 })

@@ -291,11 +291,7 @@ mod test {
             .await;
         assert_eq!(resp.status(), StatusCode::OK);
         let blob_name = resp.text().await;
-        let url = format!(
-            "/workspace/{}/blob/{}",
-            workspace_id.clone(),
-            blob_name.clone()
-        );
+        let url = format!("/workspace/{}/blob/{}", workspace_id.clone(), blob_name.clone());
         let resp = client
             .get(&url)
             .header("authorization", format!("{}", access_token.clone()))

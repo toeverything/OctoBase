@@ -129,7 +129,7 @@ pub async fn invite_member(
         };
 
         let Ok(addr) = data.email.clone().parse() else {
-            return ErrorStatus::BadRequest.into_response()
+            return ErrorStatus::BadRequest.into_response();
         };
 
         let (permission_id, user_cred) = match ctx
@@ -147,9 +147,7 @@ pub async fn invite_member(
 
         let send_to = Mailbox::new(
             if let UserCred::Registered(user) = user_cred {
-                ctx.user_channel
-                    .add_user_observe(user.id.clone(), ctx.clone())
-                    .await;
+                ctx.user_channel.add_user_observe(user.id.clone(), ctx.clone()).await;
 
                 Some(user.id)
             } else {
@@ -273,10 +271,7 @@ pub async fn invite_member(
     )
 )]
 #[instrument(skip(ctx))]
-pub async fn accept_invitation(
-    Extension(ctx): Extension<Arc<Context>>,
-    Path(url): Path<String>,
-) -> Response {
+pub async fn accept_invitation(Extension(ctx): Extension<Arc<Context>>, Path(url): Path<String>) -> Response {
     info!("accept_invitation enter");
     let Ok(data) = ctx.key.decrypt_aes_base64(url) else {
         return ErrorStatus::BadRequest.into_response();
@@ -286,11 +281,7 @@ pub async fn accept_invitation(
     //     return ErrorStatus::BadRequest.into_response();
     // };
 
-    match ctx
-        .db
-        .accept_permission(String::from_utf8(data).unwrap())
-        .await
-    {
+    match ctx.db.accept_permission(String::from_utf8(data).unwrap()).await {
         Ok(Some(p)) => {
             if let Some(user_id) = p.user_id.clone() {
                 ctx.user_channel.update_user(user_id, ctx.clone());
@@ -334,10 +325,8 @@ pub async fn leave_workspace(
         .await
     {
         Ok(true) => {
-            ctx.user_channel
-                .update_user(claims.user.id.clone(), ctx.clone());
-            ctx.close_websocket(id.clone(), claims.user.id.clone())
-                .await;
+            ctx.user_channel.update_user(claims.user.id.clone(), ctx.clone());
+            ctx.close_websocket(id.clone(), claims.user.id.clone()).await;
 
             StatusCode::OK.into_response()
         }
@@ -565,10 +554,7 @@ mod test {
         let resp_json: serde_json::Value = resp.json().await;
         let workspace_id = resp_json["id"].as_str().unwrap().to_string();
         let url = format!("/workspace/{}/permission", workspace_id.clone());
-        let referer_url = format!(
-            "https://nightly.affine.pro/workspace/{}",
-            workspace_id.clone()
-        );
+        let referer_url = format!("https://nightly.affine.pro/workspace/{}", workspace_id.clone());
         let body_data = json!({
             "email": "example@toeverything.info",
         });
@@ -669,10 +655,7 @@ mod test {
             .send()
             .await;
         assert_eq!(resp.status(), StatusCode::OK);
-        let referer_url = format!(
-            "https://nightly.affine.pro/workspace/{}",
-            workspace_id.clone()
-        );
+        let referer_url = format!("https://nightly.affine.pro/workspace/{}", workspace_id.clone());
         let body_data = json!({
             "email": "example@toeverything.info",
         });
@@ -808,10 +791,7 @@ mod test {
             .send()
             .await;
         assert_eq!(resp.status(), StatusCode::OK);
-        let referer_url = format!(
-            "https://nightly.affine.pro/workspace/{}",
-            workspace_id.clone()
-        );
+        let referer_url = format!("https://nightly.affine.pro/workspace/{}", workspace_id.clone());
         let body_data = json!({
             "email": "example@toeverything.info",
         });
@@ -962,10 +942,7 @@ mod test {
             .send()
             .await;
         assert_eq!(resp.status(), StatusCode::OK);
-        let referer_url = format!(
-            "https://nightly.affine.pro/workspace/{}",
-            workspace_id.clone()
-        );
+        let referer_url = format!("https://nightly.affine.pro/workspace/{}", workspace_id.clone());
         let body_data = json!({
             "email": "example@toeverything.info",
         });

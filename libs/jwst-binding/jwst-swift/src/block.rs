@@ -43,9 +43,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let block = self.block.clone();
             self.runtime
-                .spawn(async move {
-                    workspace.with_trx(|trx| block.get(&trx.trx, &key).map(DynamicValue::new))
-                })
+                .spawn(async move { workspace.with_trx(|trx| block.get(&trx.trx, &key).map(DynamicValue::new)) })
                 .await
                 .unwrap()
         })
@@ -79,17 +77,12 @@ impl Block {
                     // just for data verify
                     if let Some(mut jwst_block) = jwst_block {
                         if let Some(mut block) = target_jwst_block {
-                            jwst_block
-                                .push_children(&mut block)
-                                .expect("failed to push children");
+                            jwst_block.push_children(&mut block).expect("failed to push children");
                         } else {
                             if let Err(e) = sender
                                 .send(Log::new(
                                     workspace.id(),
-                                    format!(
-                                        "target jwst block not exists: {}",
-                                        target_block.block_id()
-                                    ),
+                                    format!("target jwst block not exists: {}", target_block.block_id()),
                                 ))
                                 .await
                             {
@@ -100,20 +93,15 @@ impl Block {
 
                     if let Some(content) = workspace
                         .with_trx(|mut trx| {
-                            curr_block
-                                .push_children(&mut trx.trx, &target_block)
-                                .map(|_| {
-                                    if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                        let content = workspace_compare(
-                                            trx.trx,
-                                            jwst_workspace,
-                                            Some(&curr_block.block_id()),
-                                        );
-                                        Some(content)
-                                    } else {
-                                        None
-                                    }
-                                })
+                            curr_block.push_children(&mut trx.trx, &target_block).map(|_| {
+                                if let Some(jwst_workspace) = jwst_workspace.as_mut() {
+                                    let content =
+                                        workspace_compare(trx.trx, jwst_workspace, Some(&curr_block.block_id()));
+                                    Some(content)
+                                } else {
+                                    None
+                                }
+                            })
                         })
                         .expect("failed to push children")
                     {
@@ -151,10 +139,7 @@ impl Block {
                             if let Err(e) = sender
                                 .send(Log::new(
                                     workspace.id(),
-                                    format!(
-                                        "target jwst block not exists: {}",
-                                        target_block.block_id()
-                                    ),
+                                    format!("target jwst block not exists: {}", target_block.block_id()),
                                 ))
                                 .await
                             {
@@ -169,11 +154,8 @@ impl Block {
                                 .insert_children_at(&mut trx.trx, &target_block, pos)
                                 .map(|_| {
                                     if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                        let content = workspace_compare(
-                                            trx.trx,
-                                            jwst_workspace,
-                                            Some(&curr_block.block_id()),
-                                        );
+                                        let content =
+                                            workspace_compare(trx.trx, jwst_workspace, Some(&curr_block.block_id()));
                                         Some(content)
                                     } else {
                                         None
@@ -217,10 +199,7 @@ impl Block {
                             if let Err(e) = sender
                                 .send(Log::new(
                                     workspace.id(),
-                                    format!(
-                                        "target jwst block not exists: {}",
-                                        target_block.block_id()
-                                    ),
+                                    format!("target jwst block not exists: {}", target_block.block_id()),
                                 ))
                                 .await
                             {
@@ -235,11 +214,8 @@ impl Block {
                                 .insert_children_before(&mut trx.trx, &target_block, &reference)
                                 .map(|_| {
                                     if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                        let content = workspace_compare(
-                                            trx.trx,
-                                            jwst_workspace,
-                                            Some(&curr_block.block_id()),
-                                        );
+                                        let content =
+                                            workspace_compare(trx.trx, jwst_workspace, Some(&curr_block.block_id()));
                                         Some(content)
                                     } else {
                                         None
@@ -283,10 +259,7 @@ impl Block {
                             if let Err(e) = sender
                                 .send(Log::new(
                                     workspace.id(),
-                                    format!(
-                                        "target jwst block not exists: {}",
-                                        target_block.block_id()
-                                    ),
+                                    format!("target jwst block not exists: {}", target_block.block_id()),
                                 ))
                                 .await
                             {
@@ -301,11 +274,8 @@ impl Block {
                                 .insert_children_after(&mut trx.trx, &target_block, &reference)
                                 .map(|_| {
                                     if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                        let content = workspace_compare(
-                                            trx.trx,
-                                            jwst_workspace,
-                                            Some(&curr_block.block_id()),
-                                        );
+                                        let content =
+                                            workspace_compare(trx.trx, jwst_workspace, Some(&curr_block.block_id()));
                                         Some(content)
                                     } else {
                                         None
@@ -348,10 +318,7 @@ impl Block {
                             if let Err(e) = sender
                                 .send(Log::new(
                                     workspace.id(),
-                                    format!(
-                                        "target jwst block not exists: {}",
-                                        target_block.block_id()
-                                    ),
+                                    format!("target jwst block not exists: {}", target_block.block_id()),
                                 ))
                                 .await
                             {
@@ -362,20 +329,15 @@ impl Block {
 
                     if let Some(content) = workspace
                         .with_trx(|mut trx| {
-                            curr_block
-                                .remove_children(&mut trx.trx, &target_block)
-                                .map(|_| {
-                                    if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                        let content = workspace_compare(
-                                            trx.trx,
-                                            jwst_workspace,
-                                            Some(&curr_block.block_id()),
-                                        );
-                                        Some(content)
-                                    } else {
-                                        None
-                                    }
-                                })
+                            curr_block.remove_children(&mut trx.trx, &target_block).map(|_| {
+                                if let Some(jwst_workspace) = jwst_workspace.as_mut() {
+                                    let content =
+                                        workspace_compare(trx.trx, jwst_workspace, Some(&curr_block.block_id()));
+                                    Some(content)
+                                } else {
+                                    None
+                                }
+                            })
                         })
                         .expect("failed to remove children")
                     {
@@ -411,9 +373,7 @@ impl Block {
             let workspace = self.workspace.clone();
             let curr_block = self.block.clone();
             self.runtime
-                .spawn(
-                    async move { workspace.with_trx(|trx| curr_block.parent(&trx.trx).unwrap()) },
-                )
+                .spawn(async move { workspace.with_trx(|trx| curr_block.parent(&trx.trx).unwrap()) })
                 .await
                 .unwrap()
         })
@@ -477,11 +437,7 @@ impl Block {
                         .with_trx(|mut trx| {
                             block.set(&mut trx.trx, &key, value).map(|_| {
                                 if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                    let content = workspace_compare(
-                                        trx.trx,
-                                        jwst_workspace,
-                                        Some(&block.block_id()),
-                                    );
+                                    let content = workspace_compare(trx.trx, jwst_workspace, Some(&block.block_id()));
                                     Some(content)
                                 } else {
                                     None
@@ -514,20 +470,14 @@ impl Block {
                 .spawn(async move {
                     // just for data verify
                     if let Some(mut jwst_block) = jwst_block {
-                        jwst_block
-                            .set(&key, value.clone())
-                            .expect("failed to set string");
+                        jwst_block.set(&key, value.clone()).expect("failed to set string");
                     }
 
                     if let Some(content) = workspace
                         .with_trx(|mut trx| {
                             block.set(&mut trx.trx, &key, value).map(|_| {
                                 if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                    let content = workspace_compare(
-                                        trx.trx,
-                                        jwst_workspace,
-                                        Some(&block.block_id()),
-                                    );
+                                    let content = workspace_compare(trx.trx, jwst_workspace, Some(&block.block_id()));
                                     Some(content)
                                 } else {
                                     None
@@ -567,11 +517,7 @@ impl Block {
                         .with_trx(|mut trx| {
                             block.set(&mut trx.trx, &key, value).map(|_| {
                                 if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                    let content = workspace_compare(
-                                        trx.trx,
-                                        jwst_workspace,
-                                        Some(&block.block_id()),
-                                    );
+                                    let content = workspace_compare(trx.trx, jwst_workspace, Some(&block.block_id()));
                                     Some(content)
                                 } else {
                                     None
@@ -613,11 +559,7 @@ impl Block {
                         .with_trx(|mut trx| {
                             block.set(&mut trx.trx, &key, value).map(|_| {
                                 if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                    let content = workspace_compare(
-                                        trx.trx,
-                                        jwst_workspace,
-                                        Some(&block.block_id()),
-                                    );
+                                    let content = workspace_compare(trx.trx, jwst_workspace, Some(&block.block_id()));
                                     Some(content)
                                 } else {
                                     None
@@ -650,20 +592,14 @@ impl Block {
                 .spawn(async move {
                     // just for data verify
                     if let Some(mut jwst_block) = jwst_block {
-                        jwst_block
-                            .set(&key, jwst_core::Any::Null)
-                            .expect("failed to set null");
+                        jwst_block.set(&key, jwst_core::Any::Null).expect("failed to set null");
                     }
 
                     if let Some(content) = workspace
                         .with_trx(|mut trx| {
                             block.set(&mut trx.trx, &key, Any::Null).map(|_| {
                                 if let Some(jwst_workspace) = jwst_workspace.as_mut() {
-                                    let content = workspace_compare(
-                                        trx.trx,
-                                        jwst_workspace,
-                                        Some(&block.block_id()),
-                                    );
+                                    let content = workspace_compare(trx.trx, jwst_workspace, Some(&block.block_id()));
                                     Some(content)
                                 } else {
                                     None

@@ -1,8 +1,5 @@
 use super::*;
-use jwst_codec::{
-    decode_update_with_guid, encode_update_as_message, Doc, DocMessage, SyncMessage,
-    SyncMessageScanner,
-};
+use jwst_codec::{decode_update_with_guid, encode_update_as_message, Doc, DocMessage, SyncMessage, SyncMessageScanner};
 use std::{
     sync::atomic::{AtomicBool, Ordering},
     thread::JoinHandle as StdJoinHandler,
@@ -89,17 +86,11 @@ pub fn memory_connector(
                                 match decode_update_with_guid(update.clone()) {
                                     Ok((_, update1)) => {
                                         if let Err(e) = doc.apply_update_from_binary(update1) {
-                                            error!(
-                                                "failed to decode update1: {}, update: {:?}",
-                                                e, update
-                                            );
+                                            error!("failed to decode update1: {}, update: {:?}", e, update);
                                         }
                                     }
                                     Err(e) => {
-                                        error!(
-                                            "failed to decode update2: {}, update: {:?}",
-                                            e, update
-                                        );
+                                        error!("failed to decode update2: {}, update: {:?}", e, update);
                                     }
                                 }
                             }

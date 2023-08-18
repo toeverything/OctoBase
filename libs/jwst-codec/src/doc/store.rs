@@ -173,11 +173,7 @@ impl DocStore {
         Err(JwstCodecError::StructSequenceNotExists(id.client))
     }
 
-    pub fn split_node_at(
-        items: &mut VecDeque<Node>,
-        idx: usize,
-        diff: u64,
-    ) -> JwstCodecResult<(Node, Node)> {
+    pub fn split_node_at(items: &mut VecDeque<Node>, idx: usize, diff: u64) -> JwstCodecResult<(Node, Node)> {
         debug_assert!(diff > 0);
 
         let node = items.get(idx).unwrap().clone();
@@ -368,8 +364,7 @@ impl DocStore {
             }
 
             if ty.is_owned() {
-                self.dangling_types
-                    .insert(ty.ptr().as_ptr() as usize, ty.swap_take());
+                self.dangling_types.insert(ty.ptr().as_ptr() as usize, ty.swap_take());
             } else {
                 return Err(JwstCodecError::InvalidParent);
             }
@@ -378,12 +373,7 @@ impl DocStore {
         Ok(())
     }
 
-    pub(crate) fn integrate(
-        &mut self,
-        mut node: Node,
-        offset: u64,
-        parent: Option<&mut YType>,
-    ) -> JwstCodecResult {
+    pub(crate) fn integrate(&mut self, mut node: Node, offset: u64, parent: Option<&mut YType>) -> JwstCodecResult {
         match &mut node {
             Node::Item(item) => {
                 assert!(
@@ -399,8 +389,7 @@ impl DocStore {
 
                 if offset > 0 {
                     this.id.clock += offset;
-                    let left =
-                        self.split_at_and_get_left(Id::new(this.id.client, this.id.clock - 1))?;
+                    let left = self.split_at_and_get_left(Id::new(this.id.client, this.id.clock - 1))?;
                     this.origin_left_id = Some(left.last_id());
                     this.left = Some(left);
                     this.content = Arc::new(this.content.split(offset)?.1);
@@ -432,9 +421,7 @@ impl DocStore {
                     };
 
                     // conflicts
-                    if (left.is_none() && right_is_null_or_has_left)
-                        || left_has_other_right_than_self
-                    {
+                    if (left.is_none() && right_is_null_or_has_left) || left_has_other_right_than_self {
                         // set the first conflicting item
                         let mut conflict = if let Some(left) = left.get() {
                             left.right.as_ref().into()
@@ -467,16 +454,13 @@ impl DocStore {
                                     if conflict_id.client < this.id.client {
                                         left = conflict.clone();
                                         conflicting_items.clear();
-                                    } else if this.origin_right_id == conflict_item.origin_right_id
-                                    {
+                                    } else if this.origin_right_id == conflict_item.origin_right_id {
                                         // `this` and `c` are conflicting and point to the same
                                         // integration points. The id decides which item comes first.
                                         // Since `this` is to the left of `c`, we can break here.
                                         break;
                                     }
-                                } else if let Some(conflict_item_left) =
-                                    conflict_item.origin_left_id
-                                {
+                                } else if let Some(conflict_item_left) = conflict_item.origin_left_id {
                                     if items_before_origin.contains(&conflict_item_left)
                                         && !conflicting_items.contains(&conflict_item_left)
                                     {
@@ -540,11 +524,7 @@ impl DocStore {
                         }
                     }
 
-                    let parent_deleted = parent
-                        .item
-                        .get()
-                        .map(|item| item.deleted())
-                        .unwrap_or(false);
+                    let parent_deleted = parent.item.get().map(|item| item.deleted()).unwrap_or(false);
 
                     // should delete
                     if parent_deleted || this.parent_sub.is_some() && this.right.is_some() {
@@ -598,8 +578,7 @@ impl DocStore {
 
     pub(crate) fn delete(&mut self, struct_info: &Node, parent: Option<&mut YType>) {
         if let Some(item) = struct_info.as_item().get() {
-            self.delete_set
-                .add(item.id.client, item.id.clock, item.len());
+            self.delete_set.add(item.id.client, item.id.clock, item.len());
             Self::delete_item(item, parent);
         }
     }
@@ -654,10 +633,7 @@ impl DocStore {
         Ok(())
     }
 
-    fn diff_state_vectors(
-        local_state_vector: &StateVector,
-        remote_state_vector: &StateVector,
-    ) -> Vec<(Client, Clock)> {
+    fn diff_state_vectors(local_state_vector: &StateVector, remote_state_vector: &StateVector) -> Vec<(Client, Clock)> {
         let mut diff = Vec::new();
 
         for (client, &remote_clock) in remote_state_vector.iter() {
@@ -767,10 +743,9 @@ mod tests {
             let struct_info1 = Node::new_gc(Id::new(1, 1), 5);
             let struct_info2 = Node::new_skip(Id::new(1, 6), 7);
 
-            doc_store.items.insert(
-                client_id,
-                VecDeque::from([struct_info1, struct_info2.clone()]),
-            );
+            doc_store
+                .items
+                .insert(client_id, VecDeque::from([struct_info1, struct_info2.clone()]));
 
             let state = doc_store.get_state(client_id);
 
@@ -798,24 +773,15 @@ mod tests {
             let struct_info2 = Node::new_gc((2, 0).into(), 6);
             let struct_info3 = Node::new_skip((2, 6).into(), 1);
 
+            doc_store.items.insert(client1, VecDeque::from([struct_info1.clone()]));
             doc_store
                 .items
-                .insert(client1, VecDeque::from([struct_info1.clone()]));
-            doc_store.items.insert(
-                client2,
-                VecDeque::from([struct_info2, struct_info3.clone()]),
-            );
+                .insert(client2, VecDeque::from([struct_info2, struct_info3.clone()]));
 
             let state_map = doc_store.get_state_vector();
 
-            assert_eq!(
-                state_map.get(&client1),
-                struct_info1.clock() + struct_info1.len()
-            );
-            assert_eq!(
-                state_map.get(&client2),
-                struct_info3.clock() + struct_info3.len()
-            );
+            assert_eq!(state_map.get(&client1), struct_info1.clock() + struct_info1.len());
+            assert_eq!(state_map.get(&client2), struct_info3.clock() + struct_info3.len());
 
             assert!(doc_store.self_check().is_ok());
         });
@@ -835,10 +801,7 @@ mod tests {
             assert!(doc_store.add_item(struct_info2).is_ok());
             assert_eq!(
                 doc_store.add_item(struct_info3_err),
-                Err(JwstCodecError::StructClockInvalid {
-                    expect: 6,
-                    actually: 5
-                })
+                Err(JwstCodecError::StructClockInvalid { expect: 6, actually: 5 })
             );
             assert!(doc_store.add_item(struct_info3.clone()).is_ok());
             assert_eq!(
@@ -938,10 +901,7 @@ mod tests {
             assert_eq!(left.len(), 2); // octo => oc_to
 
             // s1 used to be (1, 4), but it actually ref of first item in store, so now it should be (1, 2)
-            assert_eq!(
-                s1, left,
-                "doc internal mutation should not modify the pointer"
-            );
+            assert_eq!(s1, left, "doc internal mutation should not modify the pointer");
             let right = doc_store.split_at_and_get_right((1, 5)).unwrap();
             assert_eq!(right.len(), 3); // base => b_ase
         });

@@ -28,24 +28,11 @@ pub struct BlobStatus {
         (status = 500, description = "Failed to query blobs"),
     )
 )]
-pub async fn check_blob(
-    Extension(context): Extension<Arc<Context>>,
-    Path(params): Path<(String, String)>,
-) -> Response {
+pub async fn check_blob(Extension(context): Extension<Arc<Context>>, Path(params): Path<(String, String)>) -> Response {
     let (workspace, hash) = params;
     info!("check_blob: {}, {}", workspace, hash);
-    if let Ok(exists) = context
-        .storage
-        .blobs()
-        .check_blob(Some(workspace), hash)
-        .await
-    {
-        if exists {
-            StatusCode::OK
-        } else {
-            StatusCode::NOT_FOUND
-        }
-        .into_response()
+    if let Ok(exists) = context.storage.blobs().check_blob(Some(workspace), hash).await {
+        if exists { StatusCode::OK } else { StatusCode::NOT_FOUND }.into_response()
     } else {
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     }
@@ -68,18 +55,10 @@ pub async fn check_blob(
         (status = 404, description = "Workspace or blob content not found"),
     )
 )]
-pub async fn get_blob(
-    Extension(context): Extension<Arc<Context>>,
-    Path(params): Path<(String, String)>,
-) -> Response {
+pub async fn get_blob(Extension(context): Extension<Arc<Context>>, Path(params): Path<(String, String)>) -> Response {
     let (workspace, hash) = params;
     info!("get_blob: {}, {}", workspace, hash);
-    if let Ok(blob) = context
-        .storage
-        .blobs()
-        .get_blob(Some(workspace), hash, None)
-        .await
-    {
+    if let Ok(blob) = context.storage.blobs().get_blob(Some(workspace), hash, None).await {
         blob.into_response()
     } else {
         StatusCode::NOT_FOUND.into_response()
@@ -129,11 +108,7 @@ pub async fn set_blob(
         .await
     {
         if has_error {
-            let _ = context
-                .storage
-                .blobs()
-                .delete_blob(Some(workspace), id)
-                .await;
+            let _ = context.storage.blobs().delete_blob(Some(workspace), id).await;
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         } else {
             Json(BlobStatus {
@@ -178,12 +153,7 @@ pub async fn delete_blob(
     let (workspace, hash) = params;
     info!("delete_blob: {}, {}", workspace, hash);
 
-    if let Ok(success) = context
-        .storage
-        .blobs()
-        .delete_blob(Some(workspace), hash)
-        .await
-    {
+    if let Ok(success) = context.storage.blobs().delete_blob(Some(workspace), hash).await {
         if success {
             StatusCode::NO_CONTENT
         } else {

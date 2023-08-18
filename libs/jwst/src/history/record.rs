@@ -80,11 +80,7 @@ impl<T: ReadTxn> From<(&'_ T, ArrayRef, String)> for BlockHistory {
                 .get(trx, 1)
                 .and_then(|i| i.to_string(trx).parse::<u64>().ok())
                 .unwrap_or_default(),
-            operation: array
-                .get(trx, 2)
-                .map(|i| i.to_string(trx))
-                .unwrap_or_default()
-                .into(),
+            operation: array.get(trx, 2).map(|i| i.to_string(trx)).unwrap_or_default().into(),
         }
     }
 }

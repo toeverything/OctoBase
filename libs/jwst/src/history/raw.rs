@@ -15,10 +15,7 @@ impl ParentMap {
     fn parse_parent(name_map: &HashMap<ID, String>, parent: TypePtr) -> Option<String> {
         match parent {
             TypePtr::Unknown => Some("unknown".to_owned()),
-            TypePtr::Branch(ptr) => ptr
-                .item_id()
-                .and_then(|item_id| name_map.get(&item_id))
-                .cloned(),
+            TypePtr::Branch(ptr) => ptr.item_id().and_then(|item_id| name_map.get(&item_id)).cloned(),
             TypePtr::Named(name) => Some(name.to_string()),
             TypePtr::ID(ptr_id) => name_map.get(&ptr_id).cloned(),
         }
@@ -26,12 +23,8 @@ impl ParentMap {
 
     fn from(items: &[&Item]) -> Self {
         let mut name_map: HashMap<ID, String> = HashMap::new();
-        let mut padding_ptr: VecDeque<(&Item, usize)> = VecDeque::from(
-            items
-                .iter()
-                .map(|i| (<&Item>::clone(i), 0))
-                .collect::<Vec<_>>(),
-        );
+        let mut padding_ptr: VecDeque<(&Item, usize)> =
+            VecDeque::from(items.iter().map(|i| (<&Item>::clone(i), 0)).collect::<Vec<_>>());
 
         while let Some((item, retry)) = padding_ptr.pop_back() {
             if retry > 5 {
@@ -46,8 +39,7 @@ impl ParentMap {
                         Some(("unknown".to_owned(), None))
                     }
                 } else {
-                    Self::parse_parent(&name_map, item.parent.clone())
-                        .map(|parent| (parent, item.parent_sub.clone()))
+                    Self::parse_parent(&name_map, item.parent.clone()).map(|parent| (parent, item.parent_sub.clone()))
                 };
 
                 if let Some(parent) = parent {
@@ -158,9 +150,7 @@ mod test {
     fn parse_history_test() {
         let workspace = Workspace::new("test");
         workspace.with_trx(|mut t| {
-            t.get_space("test")
-                .create(&mut t.trx, "test", "text")
-                .unwrap();
+            t.get_space("test").create(&mut t.trx, "test", "text").unwrap();
         });
         let doc = workspace.doc();
 

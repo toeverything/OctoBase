@@ -383,9 +383,7 @@ pub async fn get_public_page(
                 .get_workspace(workspace_id.clone())
                 .await
                 .ok()
-                .and_then(|ws| {
-                    ws.try_with_trx(|mut t| t.get_space(page_id.clone()).shared(&t.trx))
-                })
+                .and_then(|ws| ws.try_with_trx(|mut t| t.get_space(page_id.clone()).shared(&t.trx)))
                 != Some(true) =>
         {
             return ErrorStatus::Forbidden.into_response();
@@ -455,10 +453,7 @@ pub async fn get_public_page(
     )
 )]
 #[instrument(skip(ctx))]
-pub async fn get_public_doc(
-    Extension(ctx): Extension<Arc<Context>>,
-    Path(workspace_id): Path<String>,
-) -> Response {
+pub async fn get_public_doc(Extension(ctx): Extension<Arc<Context>>, Path(workspace_id): Path<String>) -> Response {
     info!("get_public_doc enter");
     match ctx.db.is_public_workspace(workspace_id.clone()).await {
         Ok(true) => (),
@@ -1099,11 +1094,7 @@ mod test {
 
         // check public workspace
         let url = format!("/public/workspace/{}", workspace_id);
-        let resp = client
-            .get(&url)
-            .header("Content-Type", "application/json")
-            .send()
-            .await;
+        let resp = client.get(&url).header("Content-Type", "application/json").send().await;
         assert_eq!(resp.status(), StatusCode::OK);
         // TODO: check public page
 

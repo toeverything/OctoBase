@@ -45,10 +45,7 @@ pub fn start_websocket_client_sync(
         };
         if !workspace.is_empty() {
             info!("Workspace not empty, starting async remote connection");
-            last_synced_tx
-                .send(Utc::now().timestamp_millis())
-                .await
-                .unwrap();
+            last_synced_tx.send(Utc::now().timestamp_millis()).await.unwrap();
         } else {
             info!("Workspace empty, starting sync remote connection");
         }
@@ -68,15 +65,10 @@ pub fn start_websocket_client_sync(
                 let identifier = nanoid!();
                 let workspace_id = workspace_id.clone();
                 let last_synced_tx = last_synced_tx.clone();
-                handle_connector(
-                    context.clone(),
-                    workspace_id.clone(),
-                    identifier,
-                    move || {
-                        let (tx, rx) = tungstenite_socket_connector(socket, &workspace_id);
-                        (tx, rx, last_synced_tx)
-                    },
-                )
+                handle_connector(context.clone(), workspace_id.clone(), identifier, move || {
+                    let (tx, rx) = tungstenite_socket_connector(socket, &workspace_id);
+                    (tx, rx, last_synced_tx)
+                })
                 .await
             };
 

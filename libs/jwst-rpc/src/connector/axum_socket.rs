@@ -31,12 +31,7 @@ pub fn axum_socket_connector(
                     let error = e.to_string();
                     if !e.into_inner().downcast::<SocketError>().map_or_else(
                         |_| false,
-                        |e| {
-                            matches!(
-                                e.as_ref(),
-                                SocketError::ConnectionClosed | SocketError::AlreadyClosed
-                            )
-                        },
+                        |e| matches!(e.as_ref(), SocketError::ConnectionClosed | SocketError::AlreadyClosed),
                     ) {
                         error!("socket send error: {}", error);
                     }

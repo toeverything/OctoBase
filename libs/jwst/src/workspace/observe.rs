@@ -9,18 +9,12 @@ use std::{
 use yrs::{TransactionMut, UpdateEvent};
 
 impl Workspace {
-    pub async fn on_awareness_update(
-        &mut self,
-        f: impl Fn(&Awareness, AwarenessEvent) + Send + Sync + 'static,
-    ) {
+    pub async fn on_awareness_update(&mut self, f: impl Fn(&Awareness, AwarenessEvent) + Send + Sync + 'static) {
         self.awareness.write().await.on_update(f);
     }
 
     /// Subscribe to update events.
-    pub fn observe(
-        &mut self,
-        f: impl Fn(&TransactionMut, &UpdateEvent) + Clone + 'static,
-    ) -> Option<String> {
+    pub fn observe(&mut self, f: impl Fn(&TransactionMut, &UpdateEvent) + Clone + 'static) -> Option<String> {
         info!("workspace observe enter");
         let doc = self.doc();
         match catch_unwind(AssertUnwindSafe(move || {

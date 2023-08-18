@@ -59,9 +59,7 @@ impl BlockObserverConfig {
             is_observing: Arc::default(),
         };
 
-        block_observer_config.handle = Arc::new(Mutex::new(Some(
-            block_observer_config.start_callback_thread(),
-        )));
+        block_observer_config.handle = Arc::new(Mutex::new(Some(block_observer_config.start_callback_thread())));
 
         block_observer_config
     }
@@ -76,14 +74,12 @@ impl BlockObserverConfig {
         self.runtime.spawn(async move {
             *callback.write().await = Some(cb);
         });
-        self.is_manually_tracking_block_changes
-            .store(false, Release);
+        self.is_manually_tracking_block_changes.store(false, Release);
     }
 
     pub fn set_tracking_block_changes(&self, if_tracking: bool) {
         self.is_observing.store(true, Release);
-        self.is_manually_tracking_block_changes
-            .store(if_tracking, Release);
+        self.is_manually_tracking_block_changes.store(if_tracking, Release);
         let callback = self.callback.clone();
         self.runtime.spawn(async move {
             *callback.write().await = None;
@@ -125,10 +121,7 @@ impl BlockObserverConfig {
                         sleep(Duration::from_millis(200)).await;
                         let mut guard = modified_block_ids.write().await;
                         if !guard.is_empty() {
-                            let block_ids = guard
-                                .iter()
-                                .map(|item| item.to_owned())
-                                .collect::<Vec<String>>();
+                            let block_ids = guard.iter().map(|item| item.to_owned()).collect::<Vec<String>>();
                             debug!("invoking callback with block ids: {:?}", block_ids);
                             callback(workspace_id, block_ids);
                             guard.clear();
@@ -165,14 +158,12 @@ impl Workspace {
     }
 
     pub fn retrieve_modified_blocks(&self) -> Option<HashSet<String>> {
-        self.block_observer_config
-            .clone()
-            .and_then(|block_observer_config| {
-                block_observer_config
-                    .is_manually_tracking_block_changes
-                    .load(Acquire)
-                    .then(|| block_observer_config.retrieve_modified_blocks())
-            })
+        self.block_observer_config.clone().and_then(|block_observer_config| {
+            block_observer_config
+                .is_manually_tracking_block_changes
+                .load(Acquire)
+                .then(|| block_observer_config.retrieve_modified_blocks())
+        })
     }
 
     pub fn get_tokio_runtime(&self) -> Option<Arc<Runtime>> {

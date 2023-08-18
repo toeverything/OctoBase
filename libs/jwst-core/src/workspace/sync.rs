@@ -1,14 +1,12 @@
 use super::*;
 use jwst_codec::{
-    write_sync_message, CrdtRead, CrdtWrite, DocMessage, RawDecoder, RawEncoder, StateVector,
-    SyncMessage, SyncMessageScanner, Update,
+    write_sync_message, CrdtRead, CrdtWrite, DocMessage, RawDecoder, RawEncoder, StateVector, SyncMessage,
+    SyncMessageScanner, Update,
 };
 
 impl Workspace {
     pub fn sync_migration(&self) -> JwstResult<Vec<u8>> {
-        Ok(self
-            .doc
-            .encode_state_as_update_v1(&StateVector::default())?)
+        Ok(self.doc.encode_state_as_update_v1(&StateVector::default())?)
     }
 
     pub async fn sync_init_message(&self) -> JwstResult<Vec<u8>> {
@@ -35,10 +33,9 @@ impl Workspace {
         let mut content = vec![];
 
         for buffer in buffers {
-            let (awareness_msg, content_msg): (Vec<_>, Vec<_>) =
-                SyncMessageScanner::new(&buffer).flatten().partition(|msg| {
-                    matches!(msg, SyncMessage::Awareness(_) | SyncMessage::AwarenessQuery)
-                });
+            let (awareness_msg, content_msg): (Vec<_>, Vec<_>) = SyncMessageScanner::new(&buffer)
+                .flatten()
+                .partition(|msg| matches!(msg, SyncMessage::Awareness(_) | SyncMessage::AwarenessQuery));
             awareness.extend(awareness_msg);
             content.extend(content_msg);
         }
@@ -59,10 +56,9 @@ impl Workspace {
                 match msg {
                     SyncMessage::AwarenessQuery => {
                         let mut buffer = Vec::new();
-                        if let Err(e) = write_sync_message(
-                            &mut buffer,
-                            &SyncMessage::Awareness(awareness.get_states().clone()),
-                        ) {
+                        if let Err(e) =
+                            write_sync_message(&mut buffer, &SyncMessage::Awareness(awareness.get_states().clone()))
+                        {
                             warn!("failed to encode awareness update: {:?}", e);
                         } else {
                             result.push(buffer);
@@ -86,13 +82,11 @@ impl Workspace {
                     trace!("processing message: {:?}", msg);
                     match msg {
                         SyncMessage::Doc(msg) => match msg {
-                            DocMessage::Step1(sv) => StateVector::read(&mut RawDecoder::new(sv))
-                                .ok()
-                                .and_then(|sv| {
-                                    doc.encode_state_as_update_v1(&sv)
-                                        .map(|update| SyncMessage::Doc(DocMessage::Step2(update)))
-                                        .ok()
-                                }),
+                            DocMessage::Step1(sv) => StateVector::read(&mut RawDecoder::new(sv)).ok().and_then(|sv| {
+                                doc.encode_state_as_update_v1(&sv)
+                                    .map(|update| SyncMessage::Doc(DocMessage::Step2(update)))
+                                    .ok()
+                            }),
                             DocMessage::Step2(update) => {
                                 if let Ok(update) = Update::read(&mut RawDecoder::new(update)) {
                                     if let Err(e) = doc.apply_update(update) {

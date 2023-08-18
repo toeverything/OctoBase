@@ -24,19 +24,12 @@ use utoipa::IntoParams;
         (status = 404, description = "Workspace not found")
     )
 )]
-pub async fn get_workspace(
-    Extension(context): Extension<Arc<Context>>,
-    Path(workspace): Path<String>,
-) -> Response {
+pub async fn get_workspace(Extension(context): Extension<Arc<Context>>, Path(workspace): Path<String>) -> Response {
     info!("get_workspace: {}", workspace);
     if let Ok(workspace) = context.get_workspace(&workspace).await {
         Json(workspace).into_response()
     } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({workspace:?}) not found"),
-        )
-            .into_response()
+        (StatusCode::NOT_FOUND, format!("Workspace({workspace:?}) not found")).into_response()
     }
 }
 
@@ -56,10 +49,7 @@ pub async fn get_workspace(
         (status = 500, description = "Failed to init a workspace")
     )
 )]
-pub async fn set_workspace(
-    Extension(context): Extension<Arc<Context>>,
-    Path(workspace): Path<String>,
-) -> Response {
+pub async fn set_workspace(Extension(context): Extension<Arc<Context>>, Path(workspace): Path<String>) -> Response {
     info!("set_workspace: {}", workspace);
     match context.create_workspace(workspace).await {
         Ok(workspace) => Json(workspace).into_response(),
@@ -88,18 +78,9 @@ pub async fn set_workspace(
         (status = 500, description = "Failed to delete workspace")
     )
 )]
-pub async fn delete_workspace(
-    Extension(context): Extension<Arc<Context>>,
-    Path(workspace): Path<String>,
-) -> Response {
+pub async fn delete_workspace(Extension(context): Extension<Arc<Context>>, Path(workspace): Path<String>) -> Response {
     info!("delete_workspace: {}", workspace);
-    if context
-        .storage
-        .docs()
-        .delete_workspace(&workspace)
-        .await
-        .is_err()
-    {
+    if context.storage.docs().delete_workspace(&workspace).await.is_err() {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
 
@@ -125,18 +106,11 @@ pub async fn delete_workspace(
         (status = 404, description = "Workspace not found")
     )
 )]
-pub async fn workspace_client(
-    Extension(context): Extension<Arc<Context>>,
-    Path(workspace): Path<String>,
-) -> Response {
+pub async fn workspace_client(Extension(context): Extension<Arc<Context>>, Path(workspace): Path<String>) -> Response {
     if let Ok(workspace) = context.get_workspace(&workspace).await {
         Json(workspace.client_id()).into_response()
     } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({workspace:?}) not found"),
-        )
-            .into_response()
+        (StatusCode::NOT_FOUND, format!("Workspace({workspace:?}) not found")).into_response()
     }
 }
 
@@ -184,11 +158,7 @@ pub async fn workspace_search(
             }
         }
     } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
-        )
-            .into_response()
+        (StatusCode::NOT_FOUND, format!("Workspace({ws_id:?}) not found")).into_response()
     }
 }
 
@@ -205,20 +175,13 @@ pub async fn workspace_search(
         (status = 404, description = "Workspace not found")
     )
 )]
-pub async fn get_search_index(
-    Extension(context): Extension<Arc<Context>>,
-    Path(workspace): Path<String>,
-) -> Response {
+pub async fn get_search_index(Extension(context): Extension<Arc<Context>>, Path(workspace): Path<String>) -> Response {
     info!("get_search_index: {workspace:?}");
 
     if let Ok(workspace) = context.get_workspace(&workspace).await {
         Json(workspace.metadata().search_index).into_response()
     } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({workspace:?}) not found"),
-        )
-            .into_response()
+        (StatusCode::NOT_FOUND, format!("Workspace({workspace:?}) not found")).into_response()
     }
 }
 
@@ -250,11 +213,7 @@ pub async fn set_search_index(
             StatusCode::BAD_REQUEST.into_response()
         }
     } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({workspace:?}) not found"),
-        )
-            .into_response()
+        (StatusCode::NOT_FOUND, format!("Workspace({workspace:?}) not found")).into_response()
     }
 }
 
@@ -287,9 +246,7 @@ pub async fn get_workspace_block(
             let space = t.get_blocks();
 
             let total = space.block_count() as usize;
-            let data = space.blocks(&t.trx, |blocks| {
-                blocks.skip(offset).take(limit).collect::<Vec<_>>()
-            });
+            let data = space.blocks(&t.trx, |blocks| blocks.skip(offset).take(limit).collect::<Vec<_>>());
 
             (total, data)
         });
@@ -302,11 +259,7 @@ pub async fn get_workspace_block(
 
         (status, Json(PageData { total, data })).into_response()
     } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({workspace:?}) not found"),
-        )
-            .into_response()
+        (StatusCode::NOT_FOUND, format!("Workspace({workspace:?}) not found")).into_response()
     }
 }
 
@@ -345,11 +298,7 @@ pub async fn history_workspace_clients(
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({workspace:?}) not found"),
-        )
-            .into_response()
+        (StatusCode::NOT_FOUND, format!("Workspace({workspace:?}) not found")).into_response()
     }
 }
 
@@ -378,8 +327,8 @@ pub async fn history_workspace(
     let (ws_id, client) = params;
     if let Ok(workspace) = context.get_workspace(&ws_id).await {
         if let Ok(client) = client.parse::<u64>() {
-            if let Some(json) = parse_history(&workspace.doc(), client)
-                .and_then(|history| serde_json::to_string(&history).ok())
+            if let Some(json) =
+                parse_history(&workspace.doc(), client).and_then(|history| serde_json::to_string(&history).ok())
             {
                 ([(header::CONTENT_TYPE, "application/json")], json).into_response()
             } else {
@@ -389,11 +338,7 @@ pub async fn history_workspace(
             StatusCode::BAD_REQUEST.into_response()
         }
     } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
-        )
-            .into_response()
+        (StatusCode::NOT_FOUND, format!("Workspace({ws_id:?}) not found")).into_response()
     }
 }
 
@@ -417,10 +362,7 @@ pub async fn subscribe_workspace(
     Extension(hook_endpoint): Extension<Arc<RwLock<String>>>,
     Json(payload): Json<SubscribeWorkspace>,
 ) -> Response {
-    info!(
-        "subscribe all workspaces, hook endpoint: {}",
-        payload.hook_endpoint
-    );
+    info!("subscribe all workspaces, hook endpoint: {}", payload.hook_endpoint);
 
     let mut write_guard = hook_endpoint.write().await;
     *write_guard = payload.hook_endpoint.clone();
@@ -446,16 +388,10 @@ mod test {
         let resp = client.post("/block/test").send().await;
 
         assert_eq!(resp.status(), StatusCode::OK);
-        assert_eq!(
-            resp.json::<schema::Workspace>().await,
-            schema::Workspace::default()
-        );
+        assert_eq!(resp.json::<schema::Workspace>().await, schema::Workspace::default());
 
         let resp = client.get("/block/test").send().await;
         assert_eq!(resp.status(), StatusCode::OK);
-        assert_eq!(
-            resp.json::<schema::Workspace>().await,
-            schema::Workspace::default()
-        );
+        assert_eq!(resp.json::<schema::Workspace>().await, schema::Workspace::default());
     }
 }

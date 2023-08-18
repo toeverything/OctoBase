@@ -27,19 +27,13 @@ pub trait CrdtWriter {
         Ok(())
     }
     fn write_f32_be(&mut self, num: f32) -> JwstCodecResult {
-        self.get_buffer_mut()
-            .write_f32::<BigEndian>(num)
-            .map_err(map_io_error)
+        self.get_buffer_mut().write_f32::<BigEndian>(num).map_err(map_io_error)
     }
     fn write_f64_be(&mut self, num: f64) -> JwstCodecResult {
-        self.get_buffer_mut()
-            .write_f64::<BigEndian>(num)
-            .map_err(map_io_error)
+        self.get_buffer_mut().write_f64::<BigEndian>(num).map_err(map_io_error)
     }
     fn write_i64_be(&mut self, num: i64) -> JwstCodecResult {
-        self.get_buffer_mut()
-            .write_i64::<BigEndian>(num)
-            .map_err(map_io_error)
+        self.get_buffer_mut().write_i64::<BigEndian>(num).map_err(map_io_error)
     }
 
     fn write_info(&mut self, num: u8) -> JwstCodecResult;

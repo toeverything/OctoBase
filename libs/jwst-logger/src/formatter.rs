@@ -3,9 +3,7 @@ use std::fmt::Result;
 use tracing::{Event, Level, Metadata, Subscriber};
 use tracing_log::NormalizeEvent;
 use tracing_subscriber::{
-    fmt::{
-        format::Writer, time::FormatTime, FmtContext, FormatEvent, FormatFields, FormattedFields,
-    },
+    fmt::{format::Writer, time::FormatTime, FmtContext, FormatEvent, FormatFields, FormattedFields},
     registry::LookupSpan,
 };
 
@@ -67,18 +65,11 @@ where
     S: Subscriber + for<'a> LookupSpan<'a>,
     N: for<'a> FormatFields<'a> + 'static,
 {
-    fn format_event(
-        &self,
-        ctx: &FmtContext<'_, S, N>,
-        mut writer: Writer<'_>,
-        event: &Event<'_>,
-    ) -> Result {
+    fn format_event(&self, ctx: &FmtContext<'_, S, N>, mut writer: Writer<'_>, event: &Event<'_>) -> Result {
         let normalized_meta = event.normalized_metadata();
         let meta = normalized_meta.as_ref().unwrap_or_else(|| event.metadata());
 
-        if std::env::var("JWST_DEV").is_err()
-            && (meta.target() == "sqlx::query" || meta.target() == "runtime.spawn")
-        {
+        if std::env::var("JWST_DEV").is_err() && (meta.target() == "sqlx::query" || meta.target() == "runtime.spawn") {
             return Ok(());
         }
 
@@ -88,9 +79,7 @@ where
         if let Some(scope) = ctx.event_scope() {
             for span in scope.from_root() {
                 let ext = span.extensions();
-                let fields = &ext
-                    .get::<FormattedFields<N>>()
-                    .expect("will never be `None`");
+                let fields = &ext.get::<FormattedFields<N>>().expect("will never be `None`");
 
                 // Skip formatting the fields if the span had no fields.
                 let fields_name = match fields.is_empty() {

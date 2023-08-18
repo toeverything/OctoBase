@@ -28,8 +28,7 @@ pub(crate) fn setup_plugin(workspace: Workspace) -> Workspace {
     // default plugins
     if cfg!(feature = "workspace-search") {
         // Set up indexing plugin
-        insert_plugin(workspace, indexing::IndexingPluginRegister::default())
-            .expect("Failed to setup search plugin")
+        insert_plugin(workspace, indexing::IndexingPluginRegister::default()).expect("Failed to setup search plugin")
     } else {
         workspace
     }
@@ -48,18 +47,15 @@ impl Workspace {
     }
 
     #[cfg(feature = "workspace-search")]
-    pub fn search<S: AsRef<str>>(
-        &self,
-        query: S,
-    ) -> Result<SearchResults, Box<dyn std::error::Error>> {
+    pub fn search<S: AsRef<str>>(&self, query: S) -> Result<SearchResults, Box<dyn std::error::Error>> {
         // refresh index if doc has update
         self.update_plugin::<IndexingPluginImpl>()?;
 
         let query = query.as_ref();
 
-        self.with_plugin::<IndexingPluginImpl, Result<SearchResults, Box<dyn std::error::Error>>>(
-            |search_plugin| search_plugin.search(query),
-        )
+        self.with_plugin::<IndexingPluginImpl, Result<SearchResults, Box<dyn std::error::Error>>>(|search_plugin| {
+            search_plugin.search(query)
+        })
         .expect("text search was set up by default")
     }
 
@@ -72,21 +68,14 @@ impl Workspace {
     }
 
     pub fn set_search_index(&self, fields: Vec<String>) -> JwstResult<bool> {
-        let fields = fields
-            .iter()
-            .filter(|f| !f.is_empty())
-            .cloned()
-            .collect::<Vec<_>>();
+        let fields = fields.iter().filter(|f| !f.is_empty()).cloned().collect::<Vec<_>>();
         if fields.is_empty() {
             error!("search index cannot be empty");
             return Ok(false);
         }
 
         let value = serde_json::to_string(&fields).map_err(|_| JwstError::WorkspaceReIndex)?;
-        self.retry_with_trx(
-            |mut trx| trx.set_metadata(constants::metadata::SEARCH_INDEX, value),
-            10,
-        )??;
+        self.retry_with_trx(|mut trx| trx.set_metadata(constants::metadata::SEARCH_INDEX, value), 10)??;
         setup_plugin(self.clone());
         Ok(true)
     }

@@ -223,9 +223,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
                     } else {
                         remaining -= content_len;
                     }
-                    store
-                        .delete_set
-                        .add(item.id.client, item.id.clock, content_len);
+                    store.delete_set.add(item.id.client, item.id.clock, content_len);
                     DocStore::delete_item(item, Some(&mut lock));
                 }
 

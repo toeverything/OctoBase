@@ -44,8 +44,7 @@ impl Workspace {
 
     pub fn from_binary(binary: &[u8], workspace_id: &str) -> Self {
         let doc = Doc::new();
-        doc.transact_mut()
-            .apply_update(Update::decode_v1(binary).unwrap());
+        doc.transact_mut().apply_update(Update::decode_v1(binary).unwrap());
         Self::from_doc(doc, workspace_id)
     }
 
@@ -61,9 +60,7 @@ impl Workspace {
             updated,
             metadata,
             plugins: Default::default(),
-            block_observer_config: Some(Arc::new(BlockObserverConfig::new(
-                workspace_id.as_ref().to_string(),
-            ))),
+            block_observer_config: Some(Arc::new(BlockObserverConfig::new(workspace_id.as_ref().to_string()))),
         })
     }
 
@@ -80,9 +77,7 @@ impl Workspace {
         let block_observer_config = if block_observer_config.is_some() {
             block_observer_config
         } else {
-            Some(Arc::new(BlockObserverConfig::new(
-                workspace_id.as_ref().to_string(),
-            )))
+            Some(Arc::new(BlockObserverConfig::new(workspace_id.as_ref().to_string())))
         };
         Self {
             workspace_id: workspace_id.as_ref().to_string(),
@@ -176,9 +171,7 @@ mod test {
         let doc = workspace.doc();
 
         let new_doc = {
-            let update = doc
-                .transact()
-                .encode_state_as_update_v1(&StateVector::default());
+            let update = doc.transact().encode_state_as_update_v1(&StateVector::default());
             let doc = Doc::default();
             {
                 let mut trx = doc.transact_mut();
@@ -193,17 +186,12 @@ mod test {
 
         assert_json_diff::assert_json_eq!(
             doc.get_or_insert_map("space:meta").to_json(&doc.transact()),
-            new_doc
-                .get_or_insert_map("space:meta")
-                .to_json(&doc.transact())
+            new_doc.get_or_insert_map("space:meta").to_json(&doc.transact())
         );
 
         assert_json_diff::assert_json_eq!(
-            doc.get_or_insert_map("space:updated")
-                .to_json(&doc.transact()),
-            new_doc
-                .get_or_insert_map("space:updated")
-                .to_json(&doc.transact())
+            doc.get_or_insert_map("space:updated").to_json(&doc.transact()),
+            new_doc.get_or_insert_map("space:updated").to_json(&doc.transact())
         );
     }
 
@@ -246,11 +234,7 @@ mod test {
 
         drop(block);
 
-        let block = workspace.with_trx(|mut trx| {
-            trx.get_blocks()
-                .get(&trx.trx, "block1".to_string())
-                .unwrap()
-        });
+        let block = workspace.with_trx(|mut trx| trx.get_blocks().get(&trx.trx, "block1".to_string()).unwrap());
 
         workspace.with_trx(|mut trx| {
             block.set(&mut trx.trx, "key1", "value1").unwrap();
@@ -391,8 +375,7 @@ mod test {
             .unwrap();
 
         let doc = Doc::new();
-        doc.transact_mut()
-            .apply_update(Update::decode_v1(&data).unwrap());
+        doc.transact_mut().apply_update(Update::decode_v1(&data).unwrap());
 
         assert_eq!(doc.transact().store().root_keys(), vec!["test"]);
     }
@@ -414,8 +397,7 @@ mod test {
         };
         let update1 = {
             let doc = Doc::new();
-            doc.transact_mut()
-                .apply_update(Update::decode_v1(&update).unwrap());
+            doc.transact_mut().apply_update(Update::decode_v1(&update).unwrap());
             let ws = Workspace::from_doc(doc, "test");
             ws.with_trx(|mut t| {
                 let space = t.get_space("space");
@@ -431,8 +413,7 @@ mod test {
         };
         let update2 = {
             let doc = Doc::new();
-            doc.transact_mut()
-                .apply_update(Update::decode_v1(&update).unwrap());
+            doc.transact_mut().apply_update(Update::decode_v1(&update).unwrap());
             let ws = Workspace::from_doc(doc, "test");
             ws.with_trx(|mut t| {
                 let space = t.get_space("space");
@@ -449,10 +430,8 @@ mod test {
 
         {
             let doc = Doc::new();
-            doc.transact_mut()
-                .apply_update(Update::decode_v1(&update1).unwrap());
-            doc.transact_mut()
-                .apply_update(Update::decode_v1(&update2).unwrap());
+            doc.transact_mut().apply_update(Update::decode_v1(&update1).unwrap());
+            doc.transact_mut().apply_update(Update::decode_v1(&update2).unwrap());
 
             let ws = Workspace::from_doc(doc, "test");
             let block = ws.with_trx(|mut t| {
@@ -510,8 +489,7 @@ mod test {
         };
         let update1 = {
             let doc = Doc::new();
-            doc.transact_mut()
-                .apply_update(Update::decode_v1(&update).unwrap());
+            doc.transact_mut().apply_update(Update::decode_v1(&update).unwrap());
             let ws = Workspace::from_doc(doc, "test");
             ws.with_trx(|mut t| {
                 let space = t.get_space("space");
@@ -527,8 +505,7 @@ mod test {
         };
         let update2 = {
             let doc = Doc::new();
-            doc.transact_mut()
-                .apply_update(Update::decode_v1(&update).unwrap());
+            doc.transact_mut().apply_update(Update::decode_v1(&update).unwrap());
             let ws = Workspace::from_doc(doc, "test");
             ws.with_trx(|mut t| {
                 let space = t.get_space("space");
@@ -545,10 +522,8 @@ mod test {
 
         {
             let doc = Doc::new();
-            doc.transact_mut()
-                .apply_update(Update::decode_v1(&update1).unwrap());
-            doc.transact_mut()
-                .apply_update(Update::decode_v1(&update2).unwrap());
+            doc.transact_mut().apply_update(Update::decode_v1(&update1).unwrap());
+            doc.transact_mut().apply_update(Update::decode_v1(&update2).unwrap());
 
             let ws = Workspace::from_doc(doc, "test");
             let block = ws.with_trx(|mut t| {

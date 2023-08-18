@@ -20,12 +20,7 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(Docs::Table)
-                    .add_column(
-                        ColumnDef::new(Docs::IsWorkspace)
-                            .boolean()
-                            .not_null()
-                            .default(true),
-                    )
+                    .add_column(ColumnDef::new(Docs::IsWorkspace).boolean().not_null().default(true))
                     .to_owned(),
             )
             .await?;
@@ -41,9 +36,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .drop_index(Index::drop().name("docs_guid").to_owned())
-            .await?;
+        manager.drop_index(Index::drop().name("docs_guid").to_owned()).await?;
 
         manager
             .alter_table(

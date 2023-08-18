@@ -12,19 +12,9 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(GoogleUsers::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(GoogleUsers::Id)
-                            .string()
-                            .not_null()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(GoogleUsers::Id).string().not_null().primary_key())
                     .col(ColumnDef::new(GoogleUsers::UserId).string().not_null())
-                    .col(
-                        ColumnDef::new(GoogleUsers::GoogleId)
-                            .string()
-                            .not_null()
-                            .unique_key(),
-                    )
+                    .col(ColumnDef::new(GoogleUsers::GoogleId).string().not_null().unique_key())
                     .foreign_key(
                         ForeignKey::create()
                             .name("google_users_user_id_fkey")
@@ -40,11 +30,7 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_foreign_key(
-                ForeignKey::drop()
-                    .name("google_users_user_id_fkey")
-                    .to_owned(),
-            )
+            .drop_foreign_key(ForeignKey::drop().name("google_users_user_id_fkey").to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(GoogleUsers::Table).to_owned())

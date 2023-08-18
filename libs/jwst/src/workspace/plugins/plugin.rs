@@ -35,10 +35,7 @@ pub(crate) struct PluginMap {
 }
 
 impl PluginMap {
-    pub(crate) fn insert_plugin<P: PluginImpl>(
-        &self,
-        plugin: P,
-    ) -> Result<&Self, Box<dyn std::error::Error>> {
+    pub(crate) fn insert_plugin<P: PluginImpl>(&self, plugin: P) -> Result<&Self, Box<dyn std::error::Error>> {
         self.map.write().unwrap().insert(plugin);
         Ok(self)
     }
@@ -49,10 +46,7 @@ impl PluginMap {
         plugin.map(cb)
     }
 
-    pub(crate) fn update_plugin<P: PluginImpl>(
-        &self,
-        ws: &Workspace,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) fn update_plugin<P: PluginImpl>(&self, ws: &Workspace) -> Result<(), Box<dyn std::error::Error>> {
         let mut map = self.map.write().unwrap();
         let plugin = map.get_mut::<P>().ok_or("Plugin not found")?;
 

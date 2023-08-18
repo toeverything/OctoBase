@@ -26,13 +26,7 @@ pub async fn handle_connector(
     // Continuously receive information from the remote socket, apply it to the local workspace, and
     // send the encoded updates back to the remote end through the socket.
     context
-        .apply_change(
-            &workspace_id,
-            &identifier,
-            tx.clone(),
-            rx,
-            last_synced.clone(),
-        )
+        .apply_change(&workspace_id, &identifier, tx.clone(), rx, last_synced.clone())
         .await;
 
     // Both of broadcast_update and server_update are sent to the remote socket through 'tx'
@@ -70,10 +64,7 @@ pub async fn handle_connector(
         }
     }
 
-    last_synced
-        .send(Utc::now().timestamp_millis())
-        .await
-        .unwrap();
+    last_synced.send(Utc::now().timestamp_millis()).await.unwrap();
 
     'sync: loop {
         tokio::select! {
@@ -167,10 +158,7 @@ pub async fn handle_connector(
         .full_migrate(workspace_id.clone(), None, false)
         .await;
     let _ = broadcast_tx.send(BroadcastType::CloseUser(identifier.clone()));
-    info!(
-        "{} stop collaborate with workspace {}",
-        identifier, workspace_id
-    );
+    info!("{} stop collaborate with workspace {}", identifier, workspace_id);
     true
 }
 
@@ -182,8 +170,7 @@ mod test {
     };
     #[cfg(feature = "webrtc")]
     use crate::{
-        webrtc_datachannel_client_begin, webrtc_datachannel_client_commit,
-        webrtc_datachannel_server_connector,
+        webrtc_datachannel_client_begin, webrtc_datachannel_client_commit, webrtc_datachannel_server_connector,
     };
     use indicatif::{MultiProgress, ProgressBar, ProgressIterator, ProgressStyle};
     use jwst::{JwstError, JwstResult};
@@ -206,26 +193,14 @@ mod test {
         let data_b_2 = String::from("data_b_2");
         let data_b_3 = String::from("data_b_3");
 
-        tx1.send(Message::Binary(data_a_1.clone().into_bytes()))
-            .await
-            .unwrap();
-        tx1.send(Message::Binary(data_a_2.clone().into_bytes()))
-            .await
-            .unwrap();
+        tx1.send(Message::Binary(data_a_1.clone().into_bytes())).await.unwrap();
+        tx1.send(Message::Binary(data_a_2.clone().into_bytes())).await.unwrap();
 
-        tx2.send(Message::Binary(data_b_1.clone().into_bytes()))
-            .await
-            .unwrap();
-        tx2.send(Message::Binary(data_b_2.clone().into_bytes()))
-            .await
-            .unwrap();
+        tx2.send(Message::Binary(data_b_1.clone().into_bytes())).await.unwrap();
+        tx2.send(Message::Binary(data_b_2.clone().into_bytes())).await.unwrap();
 
-        tx1.send(Message::Binary(data_a_3.clone().into_bytes()))
-            .await
-            .unwrap();
-        tx2.send(Message::Binary(data_b_3.clone().into_bytes()))
-            .await
-            .unwrap();
+        tx1.send(Message::Binary(data_a_3.clone().into_bytes())).await.unwrap();
+        tx2.send(Message::Binary(data_b_3.clone().into_bytes())).await.unwrap();
 
         if let Some(message) = rx2.recv().await {
             assert_eq!(String::from_utf8(message).ok().unwrap(), data_a_1);
@@ -254,11 +229,9 @@ mod test {
     async fn sync_test() -> JwstResult<()> {
         let workspace_id = format!("test{}", rand::random::<usize>());
 
-        let (server, ws, init_state) =
-            MinimumServerContext::new_with_workspace(&workspace_id).await;
+        let (server, ws, init_state) = MinimumServerContext::new_with_workspace(&workspace_id).await;
 
-        let (mut doc1, _, _, _, _) =
-            connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
+        let (mut doc1, _, _, _, _) = connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
         let (doc2, tx2, tx_handler, rx_handler, rt) =
             connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
 
@@ -270,8 +243,8 @@ mod test {
         });
 
         // collect the update from yrs's editing
-        let update = jwst::Workspace::from_binary(&doc1.encode_update_v1().unwrap(), &workspace_id)
-            .with_trx(|mut t| {
+        let update =
+            jwst::Workspace::from_binary(&doc1.encode_update_v1().unwrap(), &workspace_id).with_trx(|mut t| {
                 let space = t.get_space("space");
                 let block1 = space.create(&mut t.trx, "block1", "flavour1").unwrap();
                 block1.set(&mut t.trx, "key1", "val1").unwrap();
@@ -286,17 +259,16 @@ mod test {
         rx_handler.join().unwrap();
 
         // collect the update from jwst-codec and check the result
-        jwst::Workspace::from_binary(&doc2.encode_update_v1().unwrap(), &workspace_id)
-            .retry_with_trx(
-                |mut t| {
-                    let space = t.get_space("space");
-                    let block1 = space.get(&mut t.trx, "block1").unwrap();
+        jwst::Workspace::from_binary(&doc2.encode_update_v1().unwrap(), &workspace_id).retry_with_trx(
+            |mut t| {
+                let space = t.get_space("space");
+                let block1 = space.get(&mut t.trx, "block1").unwrap();
 
-                    assert_eq!(block1.flavour(&t.trx), "flavour1");
-                    assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
-                },
-                10,
-            )?;
+                assert_eq!(block1.flavour(&t.trx), "flavour1");
+                assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
+            },
+            10,
+        )?;
 
         ws.retry_with_trx(
             |mut t| {
@@ -326,16 +298,13 @@ mod test {
     async fn single_sync_stress_test(mp: &MultiProgress) -> JwstResult<()> {
         // jwst_logger::init_logger("jwst-rpc");
 
-        let style = ProgressStyle::with_template(
-            "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
-        )
-        .unwrap()
-        .progress_chars("##-");
+        let style = ProgressStyle::with_template("[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+            .unwrap()
+            .progress_chars("##-");
 
         let workspace_id = format!("test{}", rand::random::<usize>());
 
-        let (server, ws, init_state) =
-            MinimumServerContext::new_with_workspace(&workspace_id).await;
+        let (server, ws, init_state) = MinimumServerContext::new_with_workspace(&workspace_id).await;
 
         let mut jobs = vec![];
 
@@ -358,8 +327,7 @@ mod test {
             collaborator_pb.set_position(collaborator.load(Ordering::Relaxed));
             let (doc, doc_tx, tx_handler, rx_handler, _rt) =
                 connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
-            let mut doc =
-                jwst::Workspace::from_binary(&doc.encode_update_v1().unwrap(), &workspace_id);
+            let mut doc = jwst::Workspace::from_binary(&doc.encode_update_v1().unwrap(), &workspace_id);
 
             let handler = std::thread::spawn(move || {
                 // close connection after doc1 is broadcasted
@@ -379,8 +347,7 @@ mod test {
                             .any(|key| key == block_id);
 
                         if block_changed {
-                            if let Err(e) = futures::executor::block_on(doc_tx.send(Message::Close))
-                            {
+                            if let Err(e) = futures::executor::block_on(doc_tx.send(Message::Close)) {
                                 error!("send close message failed: {}", e);
                             }
                         }
@@ -390,8 +357,7 @@ mod test {
                 doc.retry_with_trx(
                     |mut t| {
                         let space = t.get_space("space");
-                        let block =
-                            space.create(&mut t.trx, block_id.clone(), format!("flavour{}", i))?;
+                        let block = space.create(&mut t.trx, block_id.clone(), format!("flavour{}", i))?;
                         block.set(&mut t.trx, &format!("key{}", i), format!("val{}", i))?;
                         Ok::<_, JwstError>(())
                     },
@@ -448,10 +414,7 @@ mod test {
 
                 assert_eq!(block1.flavour(&t.trx), format!("flavour{}", i));
                 assert_eq!(
-                    block1
-                        .get(&t.trx, &format!("key{}", i))
-                        .unwrap()
-                        .to_string(),
+                    block1.get(&t.trx, &format!("key{}", i)).unwrap().to_string(),
                     format!("val{}", i)
                 );
             }
@@ -473,11 +436,9 @@ mod test {
         // jwst_logger::init_logger("jwst-rpc");
 
         let mp = MultiProgress::new();
-        let style = ProgressStyle::with_template(
-            "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
-        )
-        .unwrap()
-        .progress_chars("##-");
+        let style = ProgressStyle::with_template("[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+            .unwrap()
+            .progress_chars("##-");
 
         let pb = mp.add(ProgressBar::new(1000));
         pb.set_style(style.clone());

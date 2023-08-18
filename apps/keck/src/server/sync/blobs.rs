@@ -3,10 +3,7 @@ use axum::{
     extract::{BodyStream, Path},
     headers::ContentLength,
     http::{
-        header::{
-            CACHE_CONTROL, CONTENT_LENGTH, CONTENT_TYPE, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH,
-            LAST_MODIFIED,
-        },
+        header::{CACHE_CONTROL, CONTENT_LENGTH, CONTENT_TYPE, ETAG, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED},
         HeaderMap, HeaderValue, StatusCode,
     },
     response::{IntoResponse, Response},
@@ -25,21 +22,20 @@ struct BlobStatus {
 }
 
 impl Context {
-    async fn get_blob(
-        &self,
-        workspace: Option<String>,
-        id: String,
-        method: Method,
-        headers: HeaderMap,
-    ) -> Response {
+    async fn get_blob(&self, workspace: Option<String>, id: String, method: Method, headers: HeaderMap) -> Response {
         if let Some(etag) = headers.get(IF_NONE_MATCH).and_then(|h| h.to_str().ok()) {
             if etag == id {
                 return StatusCode::NOT_MODIFIED.into_response();
             }
         }
 
-        let Ok(meta) = self.get_storage().blobs().get_metadata(workspace.clone(), id.clone(), None).await else {
-            return StatusCode::NOT_FOUND.into_response()
+        let Ok(meta) = self
+            .get_storage()
+            .blobs()
+            .get_metadata(workspace.clone(), id.clone(), None)
+            .await
+        else {
+            return StatusCode::NOT_FOUND.into_response();
         };
 
         if let Some(modified_since) = headers
@@ -54,10 +50,7 @@ impl Context {
 
         let mut header = HeaderMap::with_capacity(5);
         header.insert(ETAG, HeaderValue::from_str(&id).unwrap());
-        header.insert(
-            CONTENT_TYPE,
-            HeaderValue::from_static("application/octet-stream"),
-        );
+        header.insert(CONTENT_TYPE, HeaderValue::from_static("application/octet-stream"));
         header.insert(
             LAST_MODIFIED,
             HeaderValue::from_str(
@@ -68,10 +61,7 @@ impl Context {
             )
             .unwrap(),
         );
-        header.insert(
-            CONTENT_LENGTH,
-            HeaderValue::from_str(&meta.size.to_string()).unwrap(),
-        );
+        header.insert(CONTENT_LENGTH, HeaderValue::from_str(&meta.size.to_string()).unwrap());
         header.insert(
             CACHE_CONTROL,
             HeaderValue::from_str("public, immutable, max-age=31536000").unwrap(),
@@ -81,15 +71,17 @@ impl Context {
             return header.into_response();
         };
 
-        let Ok(file) = self.get_storage().blobs().get_blob(workspace, id, None).await else {
-            return StatusCode::NOT_FOUND.into_response()
+        let Ok(file) = self
+            .get_storage()
+            .blobs()
+            .get_blob(workspace, id, None)
+            .await
+        else {
+            return StatusCode::NOT_FOUND.into_response();
         };
 
         if meta.size != file.len() as i64 {
-            header.insert(
-                CONTENT_LENGTH,
-                HeaderValue::from_str(&file.len().to_string()).unwrap(),
-            );
+            header.insert(CONTENT_LENGTH, HeaderValue::from_str(&file.len().to_string()).unwrap());
         }
 
         (header, file).into_response()

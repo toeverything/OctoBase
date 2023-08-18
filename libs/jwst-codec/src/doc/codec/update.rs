@@ -41,9 +41,7 @@ impl<R: CrdtReader> CrdtRead<R> for Update {
         let delete_set = DeleteSet::read(decoder)?;
 
         if !decoder.is_empty() {
-            return Err(JwstCodecError::UpdateNotFullyConsumed(
-                decoder.len() as usize
-            ));
+            return Err(JwstCodecError::UpdateNotFullyConsumed(decoder.len() as usize));
         }
 
         Ok(Update {
@@ -258,8 +256,7 @@ impl<'a> UpdateIterator<'a> {
             if let Some(parent) = &item.parent {
                 match parent {
                     Parent::Id(parent_id)
-                        if parent_id.client != id.client
-                            && parent_id.clock >= self.state.get(&parent_id.client) =>
+                        if parent_id.client != id.client && parent_id.clock >= self.state.get(&parent_id.client) =>
                     {
                         return Some(parent_id.client);
                     }
@@ -280,14 +277,7 @@ impl<'a> UpdateIterator<'a> {
             // Safety:
             // client index of updates and update length are both checked in next_client
             // safe to use unwrap
-            cur.replace(
-                self.update
-                    .structs
-                    .get_mut(&client)
-                    .unwrap()
-                    .pop_front()
-                    .unwrap(),
-            );
+            cur.replace(self.update.structs.get_mut(&client).unwrap().pop_front().unwrap());
         }
 
         cur
@@ -396,9 +386,7 @@ impl Iterator for DeleteSetIterator<'_> {
                     return Some((client, range));
                 } else {
                     // all state missing
-                    self.update
-                        .pending_delete_set
-                        .add(client, start, end - start);
+                    self.update.pending_delete_set.add(client, start, end - start);
                 }
             }
 
@@ -435,27 +423,16 @@ mod tests {
     fn test_parse_doc() {
         let docs = [
             (include_bytes!("../../fixtures/basic.bin").to_vec(), 1, 188),
-            (
-                include_bytes!("../../fixtures/database.bin").to_vec(),
-                1,
-                149,
-            ),
+            (include_bytes!("../../fixtures/database.bin").to_vec(), 1, 149),
             (include_bytes!("../../fixtures/large.bin").to_vec(), 1, 9036),
-            (
-                include_bytes!("../../fixtures/with-subdoc.bin").to_vec(),
-                2,
-                30,
-            ),
+            (include_bytes!("../../fixtures/with-subdoc.bin").to_vec(), 2, 30),
         ];
 
         for (doc, clients, structs) in docs {
             let update = parse_doc_update(doc).unwrap();
 
             assert_eq!(update.structs.len(), clients);
-            assert_eq!(
-                update.structs.iter().map(|s| s.1.len()).sum::<usize>(),
-                structs
-            );
+            assert_eq!(update.structs.iter().map(|s| s.1.len()).sum::<usize>(), structs);
         }
     }
 
@@ -478,9 +455,7 @@ mod tests {
     #[ignore = "just for local data test"]
     #[test]
     fn test_parse_local_doc() {
-        let json =
-            serde_json::from_slice::<Vec<Data>>(include_bytes!("../../fixtures/local_docs.json"))
-                .unwrap();
+        let json = serde_json::from_slice::<Vec<Data>>(include_bytes!("../../fixtures/local_docs.json")).unwrap();
 
         for ws in json {
             let data = &ws.blob[5..=(ws.blob.len() - 2)];
@@ -496,8 +471,7 @@ mod tests {
                     }
                     Err(_e) => {
                         std::fs::write(
-                            PathBuf::from("./src/fixtures/invalid")
-                                .join(format!("{}.ydoc", ws.workspace)),
+                            PathBuf::from("./src/fixtures/invalid").join(format!("{}.ydoc", ws.workspace)),
                             data,
                         )
                         .unwrap();
@@ -562,13 +536,7 @@ mod tests {
             assert_eq!(iter.next(), None);
             assert!(!update.pending_structs.is_empty());
             assert_eq!(
-                update
-                    .pending_structs
-                    .get_mut(&0)
-                    .unwrap()
-                    .pop_front()
-                    .unwrap()
-                    .id(),
+                update.pending_structs.get_mut(&0).unwrap().pop_front().unwrap().id(),
                 (0, 4).into()
             );
             assert!(!update.missing_state.is_empty());

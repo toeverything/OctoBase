@@ -40,37 +40,24 @@ fn error_response(status: StatusCode, message: &str) -> Response {
 impl IntoResponse for ErrorStatus {
     fn into_response(self) -> Response {
         match self {
-            ErrorStatus::NotModify => {
-                error_response(StatusCode::NOT_MODIFIED, "The file is not modified")
-            }
-            ErrorStatus::NotFound => {
-                error_response(StatusCode::NOT_FOUND, "The file does not exist")
-            }
+            ErrorStatus::NotModify => error_response(StatusCode::NOT_MODIFIED, "The file is not modified"),
+            ErrorStatus::NotFound => error_response(StatusCode::NOT_FOUND, "The file does not exist"),
             ErrorStatus::NotFoundWorkspace(workspace_id) => error_response(
                 StatusCode::NOT_FOUND,
                 &format!("Workspace({workspace_id:?}) not found."),
             ),
-            ErrorStatus::NotFoundInvitation => {
-                error_response(StatusCode::NOT_FOUND, "Invitation link has expired.")
-            }
+            ErrorStatus::NotFoundInvitation => error_response(StatusCode::NOT_FOUND, "Invitation link has expired."),
             ErrorStatus::InternalServerError => error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Server error, please try again later.",
             ),
-            ErrorStatus::PayloadTooLarge => error_response(
-                StatusCode::PAYLOAD_TOO_LARGE,
-                "Upload file size exceeds 10MB",
-            ),
-            ErrorStatus::BadRequest => {
-                error_response(StatusCode::BAD_REQUEST, "Request parameter error.")
+            ErrorStatus::PayloadTooLarge => {
+                error_response(StatusCode::PAYLOAD_TOO_LARGE, "Upload file size exceeds 10MB")
             }
-            ErrorStatus::Forbidden => {
-                error_response(StatusCode::FORBIDDEN, "Sorry, you do not have permission.")
-            }
+            ErrorStatus::BadRequest => error_response(StatusCode::BAD_REQUEST, "Request parameter error."),
+            ErrorStatus::Forbidden => error_response(StatusCode::FORBIDDEN, "Sorry, you do not have permission."),
             ErrorStatus::Unauthorized => error_response(StatusCode::UNAUTHORIZED, "Unauthorized."),
-            ErrorStatus::ConflictInvitation => {
-                error_response(StatusCode::CONFLICT, "Invitation failed.")
-            }
+            ErrorStatus::ConflictInvitation => error_response(StatusCode::CONFLICT, "Invitation failed."),
             ErrorStatus::PayloadExceedsLimit(limit) => error_response(
                 StatusCode::PAYLOAD_TOO_LARGE,
                 &format!("Upload file size exceeds {}", limit),

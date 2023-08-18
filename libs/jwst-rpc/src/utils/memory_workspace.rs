@@ -28,12 +28,9 @@ pub async fn connect_memory_workspace(
         {
             let rt = rt.clone();
             std::thread::spawn(move || {
-                rt.block_on(handle_connector(
-                    server,
-                    workspace_id,
-                    nanoid!(),
-                    move || (tx, rx, last_synced_tx),
-                ));
+                rt.block_on(handle_connector(server, workspace_id, nanoid!(), move || {
+                    (tx, rx, last_synced_tx)
+                }));
             });
         }
 

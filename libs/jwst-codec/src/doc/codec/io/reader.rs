@@ -45,19 +45,13 @@ pub trait CrdtReader {
         self.get_buffer_mut().read_u8().map_err(map_io_error)
     }
     fn read_f32_be(&mut self) -> JwstCodecResult<f32> {
-        self.get_buffer_mut()
-            .read_f32::<BigEndian>()
-            .map_err(map_io_error)
+        self.get_buffer_mut().read_f32::<BigEndian>().map_err(map_io_error)
     }
     fn read_f64_be(&mut self) -> JwstCodecResult<f64> {
-        self.get_buffer_mut()
-            .read_f64::<BigEndian>()
-            .map_err(map_io_error)
+        self.get_buffer_mut().read_f64::<BigEndian>().map_err(map_io_error)
     }
     fn read_i64_be(&mut self) -> JwstCodecResult<i64> {
-        self.get_buffer_mut()
-            .read_i64::<BigEndian>()
-            .map_err(map_io_error)
+        self.get_buffer_mut().read_i64::<BigEndian>().map_err(map_io_error)
     }
     fn is_empty(&self) -> bool {
         let buffer = self.get_buffer();

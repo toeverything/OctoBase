@@ -8,9 +8,7 @@ mod workspace;
 
 pub use collaboration::make_ws_route;
 
-use crate::{
-    context::Context, infrastructure::error_status::ErrorStatus, layer::make_firebase_auth_layer,
-};
+use crate::{context::Context, infrastructure::error_status::ErrorStatus, layer::make_firebase_auth_layer};
 use axum::{
     extract::Query,
     response::{IntoResponse, Response},
@@ -69,15 +67,9 @@ pub fn make_rest_route(ctx: Arc<Context>) -> Router {
         .route("/invitation/:path", post(permissions::accept_invitation))
         .nest_service("/global/sync", get(global_ws_handler))
         .route("/public/workspace/:id", get(workspace::get_public_doc))
-        .route(
-            "/public/workspace/:id/:page_id",
-            get(workspace::get_public_page),
-        )
+        .route("/public/workspace/:id/:page_id", get(workspace::get_public_page))
         // TODO: Will consider this permission in the future
-        .route(
-            "/workspace/:id/blob/:name",
-            get(blobs::get_blob_in_workspace),
-        )
+        .route("/workspace/:id/blob/:name", get(blobs::get_blob_in_workspace))
         .nest(
             "/",
             Router::new()
@@ -127,17 +119,10 @@ params(
     )
 )]
 #[instrument(skip(ctx))]
-pub async fn query_user(
-    Extension(ctx): Extension<Arc<Context>>,
-    Query(payload): Query<UserQuery>,
-) -> Response {
+pub async fn query_user(Extension(ctx): Extension<Arc<Context>>, Query(payload): Query<UserQuery>) -> Response {
     info!("query_user enter");
     if let (Some(email), Some(workspace_id)) = (payload.email, payload.workspace_id) {
-        if let Ok(user) = ctx
-            .db
-            .get_user_in_workspace_by_email(workspace_id, &email)
-            .await
-        {
+        if let Ok(user) = ctx.db.get_user_in_workspace_by_email(workspace_id, &email).await {
             Json(vec![user]).into_response()
         } else {
             ErrorStatus::InternalServerError.into_response()
@@ -171,10 +156,7 @@ responses(
 )
 )]
 #[instrument(skip(ctx, payload))] // payload need to be safe
-pub async fn make_token(
-    Extension(ctx): Extension<Arc<Context>>,
-    Json(payload): Json<MakeToken>,
-) -> Response {
+pub async fn make_token(Extension(ctx): Extension<Arc<Context>>, Json(payload): Json<MakeToken>) -> Response {
     info!("make_token enter");
     // TODO: too complex type, need to refactor
     let (user, refresh) = match payload {

@@ -17,18 +17,10 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(OptimizedBlobs::Table)
-                    .col(
-                        ColumnDef::new(OptimizedBlobs::Workspace)
-                            .string()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(OptimizedBlobs::Workspace).string().not_null())
                     .col(ColumnDef::new(OptimizedBlobs::Hash).string().not_null())
                     .col(ColumnDef::new(OptimizedBlobs::Blob).binary().not_null())
-                    .col(
-                        ColumnDef::new(OptimizedBlobs::Length)
-                            .big_integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(OptimizedBlobs::Length).big_integer().not_null())
                     .col(
                         ColumnDef::new(OptimizedBlobs::Timestamp)
                             .timestamp_with_time_zone()

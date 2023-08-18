@@ -33,26 +33,17 @@ mod tests {
         // Test case 2: truncated input, missing buffer
         let input = [0x05, 0x01, 0x02, 0x03];
         let result = read_var_buffer(&input);
-        assert_eq!(
-            result,
-            Err(Err::Error(Error::new(&input[1..], ErrorKind::Eof)))
-        );
+        assert_eq!(result, Err(Err::Error(Error::new(&input[1..], ErrorKind::Eof))));
 
         // Test case 3: invalid input
         let input = [0xFF, 0x01, 0x02, 0x03];
         let result = read_var_buffer(&input);
-        assert_eq!(
-            result,
-            Err(Err::Error(Error::new(&input[2..], ErrorKind::Eof)))
-        );
+        assert_eq!(result, Err(Err::Error(Error::new(&input[2..], ErrorKind::Eof))));
 
         // Test case 4: invalid var int encoding
         let input = [0xFF, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01];
         let result = read_var_buffer(&input);
-        assert_eq!(
-            result,
-            Err(Err::Error(Error::new(&input[7..], ErrorKind::Eof)))
-        );
+        assert_eq!(result, Err(Err::Error(Error::new(&input[7..], ErrorKind::Eof))));
     }
 
     #[test]

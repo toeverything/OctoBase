@@ -47,8 +47,7 @@ pub struct Context {
 
 impl Context {
     pub async fn new(storage: Option<JwstStorage>, cb: WorkspaceRetrievalCallback) -> Self {
-        let use_bucket_storage =
-            dotenvy::var("ENABLE_BUCKET_STORAGE").map_or(false, |v| v.eq("true"));
+        let use_bucket_storage = dotenvy::var("ENABLE_BUCKET_STORAGE").map_or(false, |v| v.eq("true"));
 
         let blob_storage_type = if use_bucket_storage {
             info!("use database and s3 bucket as blob storage");
@@ -122,10 +121,7 @@ impl RpcContextImpl<'_> for Context {
 pub fn api_handler(router: Router) -> Router {
     #[cfg(feature = "api")]
     {
-        router.nest(
-            "/api",
-            blobs::blobs_apis(blocks::blocks_apis(Router::new())),
-        )
+        router.nest("/api", blobs::blobs_apis(blocks::blocks_apis(Router::new())))
     }
     #[cfg(not(feature = "api"))]
     {

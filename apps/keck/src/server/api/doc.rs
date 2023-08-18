@@ -49,8 +49,7 @@ use utoipa::OpenApi;
 struct ApiDoc;
 
 const README: &str = include_str!("../../../../homepage/pages/docs/introduction.md");
-const DISTINCTIVE_FEATURES: &str =
-    include_str!("../../../../homepage/pages/docs/overview/distinctive_features.md");
+const DISTINCTIVE_FEATURES: &str = include_str!("../../../../homepage/pages/docs/overview/distinctive_features.md");
 
 pub fn doc_apis(router: Router) -> Router {
     if cfg!(feature = "schema") {

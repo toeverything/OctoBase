@@ -74,10 +74,8 @@ mod tests {
         let doc = Doc::default();
         let mut ws = Workspace::from_doc(doc, "test").unwrap();
 
-        ws.set_metadata(constants::metadata::NAME, "test_name")
-            .unwrap();
-        ws.set_metadata(constants::metadata::AVATAR, "test_avatar")
-            .unwrap();
+        ws.set_metadata(constants::metadata::NAME, "test_name").unwrap();
+        ws.set_metadata(constants::metadata::AVATAR, "test_avatar").unwrap();
 
         assert_eq!(
             ws.metadata(),

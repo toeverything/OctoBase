@@ -37,10 +37,7 @@ pub struct IndexingPluginImpl {
 }
 
 impl IndexingPluginImpl {
-    pub fn search<S: AsRef<str>>(
-        &self,
-        query: S,
-    ) -> Result<SearchResults, Box<dyn std::error::Error>> {
+    pub fn search<S: AsRef<str>>(&self, query: S) -> Result<SearchResults, Box<dyn std::error::Error>> {
         let mut items = Vec::new();
         if self.search_index.is_empty() {
             return Ok(SearchResults(items));
@@ -96,16 +93,12 @@ impl PluginImpl for IndexingPluginImpl {
                                             self.search_index
                                                 .iter()
                                                 .map(|field| {
-                                                    block
-                                                        .content(&t.trx)
-                                                        .get(field)
-                                                        .map(ToOwned::to_owned)
-                                                        .and_then(|a| match a {
-                                                            Any::String(str) => {
-                                                                Some(str.to_string())
-                                                            }
+                                                    block.content(&t.trx).get(field).map(ToOwned::to_owned).and_then(
+                                                        |a| match a {
+                                                            Any::String(str) => Some(str.to_string()),
                                                             _ => None,
-                                                        })
+                                                        },
+                                                    )
                                                 })
                                                 .collect(),
                                         )
@@ -125,8 +118,7 @@ impl PluginImpl for IndexingPluginImpl {
         }
 
         // reset back down now that the update was applied
-        self.queue_reindex
-            .fetch_sub(curr, std::sync::atomic::Ordering::SeqCst);
+        self.queue_reindex.fetch_sub(curr, std::sync::atomic::Ordering::SeqCst);
 
         Ok(())
     }
@@ -184,11 +176,7 @@ mod test {
     // block id.
     macro_rules! expect_result_ids {
         ($search_results:ident, $id_str_array:expr) => {
-            let mut sorted_ids = $search_results
-                .0
-                .iter()
-                .map(|i| &i.block_id)
-                .collect::<Vec<_>>();
+            let mut sorted_ids = $search_results.0.iter().map(|i| &i.block_id).collect::<Vec<_>>();
             sorted_ids.sort();
             assert_eq!(
                 sorted_ids, $id_str_array,

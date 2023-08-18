@@ -140,11 +140,7 @@ impl Space {
     }
 
     #[inline]
-    pub fn blocks<T, R>(
-        &self,
-        trx: &T,
-        cb: impl FnOnce(Box<dyn Iterator<Item = Block> + '_>) -> R,
-    ) -> R
+    pub fn blocks<T, R>(&self, trx: &T, cb: impl FnOnce(Box<dyn Iterator<Item = Block> + '_>) -> R) -> R
     where
         T: ReadTxn,
     {
@@ -164,21 +160,12 @@ impl Space {
         cb(Box::new(iterator))
     }
 
-    pub fn create<B, F>(
-        &self,
-        trx: &mut TransactionMut,
-        block_id: B,
-        flavour: F,
-    ) -> JwstResult<Block>
+    pub fn create<B, F>(&self, trx: &mut TransactionMut, block_id: B, flavour: F) -> JwstResult<Block>
     where
         B: AsRef<str>,
         F: AsRef<str>,
     {
-        info!(
-            "create block: {}, flavour: {}",
-            block_id.as_ref(),
-            flavour.as_ref()
-        );
+        info!("create block: {}, flavour: {}", block_id.as_ref(), flavour.as_ref());
         let mut block = Block::new(trx, self, block_id, flavour, self.client_id())?;
         if let Some(block_observer_config) = self.block_observer_config.clone() {
             block.subscribe(block_observer_config);
@@ -188,8 +175,7 @@ impl Space {
 
     pub fn remove<S: AsRef<str>>(&self, trx: &mut TransactionMut, block_id: S) -> bool {
         info!("remove block: {}", block_id.as_ref());
-        self.blocks.remove(trx, block_id.as_ref()).is_some()
-            && self.updated.remove(trx, block_id.as_ref()).is_some()
+        self.blocks.remove(trx, block_id.as_ref()).is_some() && self.updated.remove(trx, block_id.as_ref()).is_some()
     }
 
     pub fn get_blocks_by_flavour<T>(&self, trx: &T, flavour: &str) -> Vec<Block>
@@ -261,17 +247,8 @@ mod test {
         let space = {
             let mut trx = doc.transact_mut();
             let metadata = doc.get_or_insert_map_with_trx(trx.store_mut(), constants::space::META);
-            let pages = metadata
-                .insert(&mut trx, "pages", ArrayPrelim::default())
-                .unwrap();
-            Space::new(
-                &mut trx,
-                doc.clone(),
-                Pages::new(pages),
-                "workspace",
-                space_id,
-                None,
-            )
+            let pages = metadata.insert(&mut trx, "pages", ArrayPrelim::default()).unwrap();
+            Space::new(&mut trx, doc.clone(), Pages::new(pages), "workspace", space_id, None)
         };
         space.with_trx(|mut t| {
             let block = t.create("test", "text").unwrap();
@@ -299,19 +276,13 @@ mod test {
         };
 
         assert_json_diff::assert_json_eq!(
-            doc.get_or_insert_map(&space_string)
-                .to_json(&doc.transact()),
-            new_doc
-                .get_or_insert_map(&space_string)
-                .to_json(&doc.transact())
+            doc.get_or_insert_map(&space_string).to_json(&doc.transact()),
+            new_doc.get_or_insert_map(&space_string).to_json(&doc.transact())
         );
 
         assert_json_diff::assert_json_eq!(
-            doc.get_or_insert_map("space:updated")
-                .to_json(&doc.transact()),
-            new_doc
-                .get_or_insert_map("space:updated")
-                .to_json(&doc.transact())
+            doc.get_or_insert_map("space:updated").to_json(&doc.transact()),
+            new_doc.get_or_insert_map("space:updated").to_json(&doc.transact())
         );
     }
 
@@ -321,17 +292,8 @@ mod test {
         let space = {
             let mut trx = doc.transact_mut();
             let metadata = doc.get_or_insert_map_with_trx(trx.store_mut(), constants::space::META);
-            let pages = metadata
-                .insert(&mut trx, "pages", ArrayPrelim::default())
-                .unwrap();
-            Space::new(
-                &mut trx,
-                doc.clone(),
-                Pages::new(pages),
-                "workspace",
-                "space",
-                None,
-            )
+            let pages = metadata.insert(&mut trx, "pages", ArrayPrelim::default()).unwrap();
+            Space::new(&mut trx, doc.clone(), Pages::new(pages), "workspace", "space", None)
         };
 
         space.with_trx(|t| {
@@ -373,17 +335,8 @@ mod test {
         let doc = Doc::with_client_id(123);
         let mut trx = doc.transact_mut();
         let metadata = doc.get_or_insert_map_with_trx(trx.store_mut(), constants::space::META);
-        let pages = metadata
-            .insert(&mut trx, "pages", ArrayPrelim::default())
-            .unwrap();
-        let space = Space::new(
-            &mut trx,
-            doc.clone(),
-            Pages::new(pages),
-            "space",
-            "test",
-            None,
-        );
+        let pages = metadata.insert(&mut trx, "pages", ArrayPrelim::default()).unwrap();
+        let space = Space::new(&mut trx, doc.clone(), Pages::new(pages), "space", "test", None);
         assert_eq!(space.client_id(), 123);
     }
 }

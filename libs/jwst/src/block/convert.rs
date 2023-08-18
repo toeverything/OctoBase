@@ -19,13 +19,9 @@ impl Block {
                 format @ "affine:paragraph" => {
                     state.numbered_count = 0;
                     match self.get(trx, "type").map(|v| v.to_string()).as_deref() {
-                        Some(
-                            head @ "h1" | head @ "h2" | head @ "h3" | head @ "h4" | head @ "h5",
-                        ) => Some(format!(
-                            "{} {}\n",
-                            "#".repeat(head[1..].parse().unwrap()),
-                            text
-                        )),
+                        Some(head @ "h1" | head @ "h2" | head @ "h3" | head @ "h4" | head @ "h5") => {
+                            Some(format!("{} {}\n", "#".repeat(head[1..].parse().unwrap()), text))
+                        }
                         Some("quote") => Some(format!("> {text}\n")),
                         Some("text") => Some(format!("{text}\n")),
                         r#type @ Some(_) | r#type @ None => {
@@ -38,35 +34,33 @@ impl Block {
                         }
                     }
                 }
-                format @ "affine:list" => {
-                    match self.get(trx, "type").map(|v| v.to_string()).as_deref() {
-                        Some("numbered") => {
-                            state.numbered_count += 1;
-                            Some(format!("{}. {text}\n", state.numbered_count))
-                        }
-                        Some("todo") => {
-                            state.numbered_count += 1;
-                            let clicked = self
-                                .get(trx, "checked")
-                                .map(|v| v.to_string() == "true")
-                                .unwrap_or(false);
-                            Some(format!("[{}] {text}\n", if clicked { "x" } else { " " }))
-                        }
-                        Some("bulleted") => {
-                            state.numbered_count += 1;
-                            Some(format!("- {text}\n"))
-                        }
-                        r#type @ Some("text") | r#type @ Some(_) | r#type @ None => {
-                            state.numbered_count = 0;
-                            if let Some(r#type) = r#type {
-                                warn!("Unprocessed format: {format}, {}", r#type);
-                            } else {
-                                warn!("Unprocessed format: {format}");
-                            }
-                            Some(text)
-                        }
+                format @ "affine:list" => match self.get(trx, "type").map(|v| v.to_string()).as_deref() {
+                    Some("numbered") => {
+                        state.numbered_count += 1;
+                        Some(format!("{}. {text}\n", state.numbered_count))
                     }
-                }
+                    Some("todo") => {
+                        state.numbered_count += 1;
+                        let clicked = self
+                            .get(trx, "checked")
+                            .map(|v| v.to_string() == "true")
+                            .unwrap_or(false);
+                        Some(format!("[{}] {text}\n", if clicked { "x" } else { " " }))
+                    }
+                    Some("bulleted") => {
+                        state.numbered_count += 1;
+                        Some(format!("- {text}\n"))
+                    }
+                    r#type @ Some("text") | r#type @ Some(_) | r#type @ None => {
+                        state.numbered_count = 0;
+                        if let Some(r#type) = r#type {
+                            warn!("Unprocessed format: {format}, {}", r#type);
+                        } else {
+                            warn!("Unprocessed format: {format}");
+                        }
+                        Some(text)
+                    }
+                },
                 format => {
                     state.numbered_count = 0;
                     warn!("Unprocessed format: {format}");
@@ -112,20 +106,12 @@ impl Block {
             return Ok(());
         }
 
-        for Diff {
-            insert, attributes, ..
-        } in text.diff(trx, YChange::identity)
-        {
+        for Diff { insert, attributes, .. } in text.diff(trx, YChange::identity) {
             match insert {
                 Value::Any(Any::String(str)) => {
                     let str = str.as_ref();
                     if let Some(attr) = attributes {
-                        new_text.insert_with_attributes(
-                            new_trx,
-                            new_text.len(new_trx),
-                            str,
-                            *attr,
-                        )?;
+                        new_text.insert_with_attributes(new_trx, new_text.len(new_trx), str, *attr)?;
                     } else {
                         new_text.insert(new_trx, new_text.len(new_trx), str)?;
                     }
@@ -226,12 +212,7 @@ impl Block {
         Ok(())
     }
 
-    pub fn clone_block<T>(
-        &self,
-        orig_trx: &T,
-        new_trx: &mut TransactionMut,
-        new_blocks: MapRef,
-    ) -> JwstResult<()>
+    pub fn clone_block<T>(&self, orig_trx: &T, new_trx: &mut TransactionMut, new_blocks: MapRef) -> JwstResult<()>
     where
         T: ReadTxn,
     {
@@ -241,11 +222,7 @@ impl Block {
         // init default schema
         block.insert(new_trx, sys::ID, self.block_id.as_ref())?;
         block.insert(new_trx, sys::FLAVOUR, self.flavour(orig_trx).as_ref())?;
-        let children = block.insert(
-            new_trx,
-            sys::CHILDREN,
-            ArrayPrelim::<Vec<String>, String>::from(vec![]),
-        )?;
+        let children = block.insert(new_trx, sys::CHILDREN, ArrayPrelim::<Vec<String>, String>::from(vec![]))?;
         // block.insert(new_trx, sys::CREATED, self.created(orig_trx) as f64)?;
 
         // clone children
@@ -283,19 +260,14 @@ mod tests {
     #[test]
     fn test_multiple_layer_space_clone() {
         let doc1 = Doc::new();
-        doc1.transact_mut().apply_update(
-            Update::decode_v1(include_bytes!("../../fixtures/test_multi_layer.bin")).unwrap(),
-        );
+        doc1.transact_mut()
+            .apply_update(Update::decode_v1(include_bytes!("../../fixtures/test_multi_layer.bin")).unwrap());
 
         let ws1 = Workspace::from_doc(doc1, "test");
 
         let new_update = ws1.with_trx(|mut t| {
-            ws1.metadata
-                .insert(&mut t.trx, "name", Some("test1"))
-                .unwrap();
-            ws1.metadata
-                .insert(&mut t.trx, "avatar", Some("test2"))
-                .unwrap();
+            ws1.metadata.insert(&mut t.trx, "name", Some("test1")).unwrap();
+            ws1.metadata.insert(&mut t.trx, "avatar", Some("test2")).unwrap();
             let space = t.get_exists_space("page0").unwrap();
             space.to_single_page(&t.trx).unwrap()
         });

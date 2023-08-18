@@ -103,10 +103,7 @@ mod tests {
             let mut reader = RawDecoder::new(buffer.clone());
 
             assert_eq!(reader.clone().read_var_string().unwrap(), "hello");
-            assert_eq!(
-                reader.clone().read_var_buffer().unwrap().as_slice(),
-                b"hello"
-            );
+            assert_eq!(reader.clone().read_var_buffer().unwrap().as_slice(), b"hello");
 
             assert_eq!(reader.read_u8().unwrap(), 5);
             assert_eq!(reader.read_u8().unwrap(), b'h');

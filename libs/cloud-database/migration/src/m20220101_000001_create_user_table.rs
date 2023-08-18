@@ -13,12 +13,7 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(ColumnDef::new(Users::Id).string().not_null().primary_key())
                     .col(ColumnDef::new(Users::Name).string().not_null())
-                    .col(
-                        ColumnDef::new(Users::Email)
-                            .string()
-                            .not_null()
-                            .unique_key(),
-                    )
+                    .col(ColumnDef::new(Users::Email).string().not_null().unique_key())
                     .col(ColumnDef::new(Users::AvatarUrl).string())
                     .col(ColumnDef::new(Users::TokenNonce).small_integer().default(0))
                     .col(ColumnDef::new(Users::Password).string())
@@ -33,9 +28,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .drop_table(Table::drop().table(Users::Table).to_owned())
-            .await
+        manager.drop_table(Table::drop().table(Users::Table).to_owned()).await
     }
 }
 

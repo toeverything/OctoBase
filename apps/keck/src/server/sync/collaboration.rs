@@ -170,12 +170,7 @@ mod test {
                 "get block {block_id} from server: {}",
                 get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port)
             );
-            assert!(!get_block_from_server(
-                workspace_id.clone(),
-                block_id.to_string(),
-                server_port
-            )
-            .is_empty());
+            assert!(!get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port).is_empty());
         }
 
         workspace.with_trx(|mut trx| {
@@ -238,12 +233,7 @@ mod test {
                 "get block {block_id} from server: {}",
                 get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port)
             );
-            assert!(!get_block_from_server(
-                workspace_id.clone(),
-                block_id.to_string(),
-                server_port
-            )
-            .is_empty());
+            assert!(!get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port).is_empty());
         }
 
         workspace.with_trx(|mut trx| {
@@ -289,9 +279,7 @@ mod test {
             "get block 0 from server: {}",
             get_block_from_server(workspace_id.clone(), "0".to_string(), server_port)
         );
-        assert!(
-            get_block_from_server(workspace_id.clone(), "0".to_string(), server_port).is_empty()
-        );
+        assert!(get_block_from_server(workspace_id.clone(), "0".to_string(), server_port).is_empty());
 
         let rt = Runtime::new().unwrap();
         let (workspace_id, workspace) = rt.block_on(async move {
@@ -322,12 +310,7 @@ mod test {
                 "get block {block_id} from server: {}",
                 get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port)
             );
-            assert!(!get_block_from_server(
-                workspace_id.clone(),
-                block_id.to_string(),
-                server_port
-            )
-            .is_empty());
+            assert!(!get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port).is_empty());
         }
 
         workspace.with_trx(|mut trx| {
@@ -348,12 +331,7 @@ mod test {
                 "get block {block_id} from server: {}",
                 get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port)
             );
-            assert!(!get_block_from_server(
-                workspace_id.clone(),
-                block_id.to_string(),
-                server_port
-            )
-            .is_empty());
+            assert!(!get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port).is_empty());
         }
 
         workspace.with_trx(|mut trx| {

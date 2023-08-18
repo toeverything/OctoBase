@@ -17,13 +17,8 @@ pub(super) use database::{docs_storage_partial_test, docs_storage_test};
 pub struct SharedDocDBStorage(pub(super) Arc<DocDBStorage>);
 
 impl SharedDocDBStorage {
-    pub async fn init_with_pool(
-        pool: DatabaseConnection,
-        bucket: Arc<Bucket>,
-    ) -> JwstStorageResult<Self> {
-        Ok(Self(Arc::new(
-            DocDBStorage::init_with_pool(pool, bucket).await?,
-        )))
+    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstStorageResult<Self> {
+        Ok(Self(Arc::new(DocDBStorage::init_with_pool(pool, bucket).await?)))
     }
 
     pub async fn init_pool(database: &str) -> JwstStorageResult<Self> {
@@ -53,10 +48,7 @@ mod test {
     use std::collections::HashSet;
     use tokio::task::JoinSet;
 
-    async fn create_workspace_stress_test(
-        storage: SharedDocDBStorage,
-        range: usize,
-    ) -> JwstStorageResult<()> {
+    async fn create_workspace_stress_test(storage: SharedDocDBStorage, range: usize) -> JwstStorageResult<()> {
         let mut join_set = JoinSet::new();
         let mut set = HashSet::new();
 
@@ -125,10 +117,7 @@ mod test {
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn postgres_create_workspace_stress_test() -> anyhow::Result<()> {
         jwst_logger::init_logger("jwst-storage");
-        let storage = SharedDocDBStorage::init_pool(
-            "postgresql://affine:affine@localhost:5432/affine_binary",
-        )
-        .await?;
+        let storage = SharedDocDBStorage::init_pool("postgresql://affine:affine@localhost:5432/affine_binary").await?;
         create_workspace_stress_test(storage.clone(), 10000).await?;
 
         Ok(())
@@ -138,9 +127,7 @@ mod test {
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn mysql_create_workspace_stress_test() -> anyhow::Result<()> {
         // jwst_logger::init_logger();
-        let storage =
-            SharedDocDBStorage::init_pool("mysql://affine:affine@localhost:3306/affine_binary")
-                .await?;
+        let storage = SharedDocDBStorage::init_pool("mysql://affine:affine@localhost:3306/affine_binary").await?;
         create_workspace_stress_test(storage.clone(), 10000).await?;
 
         Ok(())

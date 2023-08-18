@@ -271,9 +271,7 @@ macro_rules! impl_type {
 
             #[allow(dead_code)]
             #[inline(always)]
-            pub(crate) fn read(
-                &self,
-            ) -> $crate::JwstCodecResult<$crate::sync::RwLockReadGuard<super::YType>> {
+            pub(crate) fn read(&self) -> $crate::JwstCodecResult<$crate::sync::RwLockReadGuard<super::YType>> {
                 if let Some(lock) = self.0.get() {
                     Ok(lock.read().unwrap())
                 } else {
@@ -283,9 +281,7 @@ macro_rules! impl_type {
 
             #[allow(dead_code)]
             #[inline(always)]
-            pub(crate) fn write(
-                &self,
-            ) -> $crate::JwstCodecResult<$crate::sync::RwLockWriteGuard<super::YType>> {
+            pub(crate) fn write(&self) -> $crate::JwstCodecResult<$crate::sync::RwLockWriteGuard<super::YType>> {
                 if let Some(lock) = self.0.get() {
                     Ok(lock.write().unwrap())
                 } else {
@@ -314,9 +310,7 @@ macro_rules! impl_type {
                         inner.set_kind(super::YTypeKind::$name)?;
                         Ok($name::new(value.clone()))
                     }
-                    _ => Err($crate::JwstCodecError::TypeCastError(std::stringify!(
-                        $name
-                    ))),
+                    _ => Err($crate::JwstCodecError::TypeCastError(std::stringify!($name))),
                 }
             }
         }
@@ -395,9 +389,7 @@ impl Value {
     }
 
     pub fn from_vec<T: Into<Any>>(el: Vec<T>) -> Self {
-        Value::Any(Any::Array(
-            el.into_iter().map(|item| item.into()).collect::<Vec<_>>(),
-        ))
+        Value::Any(Any::Array(el.into_iter().map(|item| item.into()).collect::<Vec<_>>()))
     }
 }
 
@@ -429,21 +421,15 @@ impl TryFrom<&Content> for Value {
                 YTypeKind::Map => Value::Map(Map::from_unchecked(ty.clone())),
                 YTypeKind::Text => Value::Text(Text::from_unchecked(ty.clone())),
                 YTypeKind::XMLElement => Value::XMLElement(XMLElement::from_unchecked(ty.clone())),
-                YTypeKind::XMLFragment => {
-                    Value::XMLFragment(XMLFragment::from_unchecked(ty.clone()))
-                }
+                YTypeKind::XMLFragment => Value::XMLFragment(XMLFragment::from_unchecked(ty.clone())),
                 YTypeKind::XMLHook => Value::XMLHook(XMLHook::from_unchecked(ty.clone())),
                 YTypeKind::XMLText => Value::XMLText(XMLText::from_unchecked(ty.clone())),
                 // actually unreachable
                 YTypeKind::Unknown => return Err(JwstCodecError::TypeCastError("unknown")),
             },
             Content::Doc { .. } => return Err(JwstCodecError::TypeCastError("unimplemented: Doc")),
-            Content::Format { .. } => {
-                return Err(JwstCodecError::TypeCastError("unimplemented: Format"))
-            }
-            Content::Deleted(_) => {
-                return Err(JwstCodecError::TypeCastError("unimplemented: Deleted"))
-            }
+            Content::Format { .. } => return Err(JwstCodecError::TypeCastError("unimplemented: Format")),
+            Content::Deleted(_) => return Err(JwstCodecError::TypeCastError("unimplemented: Deleted")),
         })
     }
 }

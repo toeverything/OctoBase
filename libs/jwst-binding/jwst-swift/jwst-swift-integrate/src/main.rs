@@ -35,11 +35,7 @@ fn main() {
         })
         .status()
         .expect("Failed to build jwst-swift");
-    let dir = if cfg!(debug_assertions) {
-        "debug"
-    } else {
-        "release"
-    };
+    let dir = if cfg!(debug_assertions) { "debug" } else { "release" };
     create_package(CreatePackageConfig {
         bridge_dir: PathBuf::from("libs/jwst-binding/jwst-swift/generated"),
         paths: HashMap::from([

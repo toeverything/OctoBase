@@ -204,17 +204,9 @@ impl Item {
         Self {
             id,
             origin_left_id: left.get().map(|left| left.last_id()),
-            left: if left.is_some() {
-                Some(Node::Item(left))
-            } else {
-                None
-            },
+            left: if left.is_some() { Some(Node::Item(left)) } else { None },
             origin_right_id: right.get().map(|right| right.id),
-            right: if right.is_some() {
-                Some(Node::Item(right))
-            } else {
-                None
-            },
+            right: if right.is_some() { Some(Node::Item(right)) } else { None },
             parent,
             parent_sub,
             content: Arc::new(content),
@@ -317,12 +309,7 @@ impl Item {
 }
 
 impl Item {
-    pub(crate) fn read<R: CrdtReader>(
-        decoder: &mut R,
-        id: Id,
-        info: u8,
-        first_5_bit: u8,
-    ) -> JwstCodecResult<Self> {
+    pub(crate) fn read<R: CrdtReader>(decoder: &mut R, id: Id, info: u8, first_5_bit: u8) -> JwstCodecResult<Self> {
         let flags: ItemFlags = info.into();
         let has_left_id = flags.check(item_flags::ITEM_HAS_LEFT_ID);
         let has_right_id = flags.check(item_flags::ITEM_HAS_RIGHT_ID);
@@ -402,8 +389,7 @@ impl Item {
 
     pub(crate) fn is_valid(&self) -> bool {
         let has_id = self.origin_left_id.is_some() || self.origin_right_id.is_some();
-        !has_id && self.parent.is_some()
-            || has_id && self.parent.is_none() && self.parent_sub.is_none()
+        !has_id && self.parent.is_some() || has_id && self.parent.is_none() && self.parent_sub.is_none()
     }
 
     pub(crate) fn write<W: CrdtWriter>(&self, encoder: &mut W) -> JwstCodecResult {

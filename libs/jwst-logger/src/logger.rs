@@ -12,8 +12,8 @@ static INIT: Once = Once::new();
 #[inline]
 pub fn init_logger(name: &str) {
     let name = name.replace('-', "_");
-    let env_filter = EnvFilter::try_from_env(name.to_uppercase() + "_LOG")
-        .unwrap_or_else(|_| EnvFilter::new(name + "=info"));
+    let env_filter =
+        EnvFilter::try_from_env(name.to_uppercase() + "_LOG").unwrap_or_else(|_| EnvFilter::new(name + "=info"));
     init_logger_with_env_filter(env_filter, false);
 }
 

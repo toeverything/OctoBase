@@ -67,9 +67,7 @@ fn jwst_merge(args: &Args) {
     let binary = doc.encode_update_v1().unwrap();
     println!("merged {} bytes", binary.len());
     write(
-        args.output
-            .clone()
-            .unwrap_or_else(|| format!("{}.jwst", args.path)),
+        args.output.clone().unwrap_or_else(|| format!("{}.jwst", args.path)),
         binary,
     )
     .unwrap();
@@ -81,8 +79,7 @@ fn yrs_merge(args: &Args) {
     let doc = yrs::Doc::new();
     for (i, update) in updates.iter().enumerate() {
         println!("apply update{i} {} bytes", update.len());
-        doc.transact_mut()
-            .apply_update(Update::decode_v1(update).unwrap())
+        doc.transact_mut().apply_update(Update::decode_v1(update).unwrap())
     }
     let binary = doc
         .transact()
@@ -90,9 +87,7 @@ fn yrs_merge(args: &Args) {
         .unwrap();
     println!("merged {} bytes", binary.len());
     write(
-        args.output
-            .clone()
-            .unwrap_or_else(|| format!("{}.yrs", args.path)),
+        args.output.clone().unwrap_or_else(|| format!("{}.yrs", args.path)),
         binary,
     )
     .unwrap();

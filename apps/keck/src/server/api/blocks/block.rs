@@ -21,10 +21,7 @@ use serde_json::Value as JsonValue;
         (status = 404, description = "Workspace or block content not found"),
     )
 )]
-pub async fn get_block(
-    Extension(context): Extension<Arc<Context>>,
-    Path(params): Path<(String, String)>,
-) -> Response {
+pub async fn get_block(Extension(context): Extension<Arc<Context>>, Path(params): Path<(String, String)>) -> Response {
     let (ws_id, block) = params;
     info!("get_block: {}, {}", ws_id, block);
     if let Ok(workspace) = context.get_workspace(ws_id).await {
@@ -96,10 +93,7 @@ pub async fn set_block(
                         changed = true;
                         if let Ok(value) = serde_json::from_value::<Any>(value.clone()) {
                             if let Err(e) = block.set(&mut t.trx, key, value.clone()) {
-                                error!(
-                                    "failed to set block {} content: {}, {}, {:?}",
-                                    block_id, key, value, e
-                                );
+                                error!("failed to set block {} content: {}, {}, {:?}", block_id, key, value, e);
                             }
                         }
                     }
@@ -157,14 +151,9 @@ pub async fn get_block_by_flavour(
     Path(params): Path<(String, String)>,
 ) -> Response {
     let (ws_id, flavour) = params;
-    info!(
-        "get_block_by_flavour: ws_id, {}, flavour, {}",
-        ws_id, flavour
-    );
+    info!("get_block_by_flavour: ws_id, {}, flavour, {}", ws_id, flavour);
     if let Ok(workspace) = context.get_workspace(&ws_id).await {
-        match workspace
-            .try_with_trx(|mut trx| trx.get_blocks().get_blocks_by_flavour(&trx.trx, &flavour))
-        {
+        match workspace.try_with_trx(|mut trx| trx.get_blocks().get_blocks_by_flavour(&trx.trx, &flavour)) {
             Some(blocks) => Json(blocks).into_response(),
             None => (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -173,11 +162,7 @@ pub async fn get_block_by_flavour(
                 .into_response(),
         }
     } else {
-        (
-            StatusCode::NOT_FOUND,
-            format!("Workspace({ws_id:?}) not found"),
-        )
-            .into_response()
+        (StatusCode::NOT_FOUND, format!("Workspace({ws_id:?}) not found")).into_response()
     }
 }
 
@@ -290,8 +275,7 @@ pub async fn get_block_children(
     info!("get_block_children: {}, {}", ws_id, block);
     if let Ok(workspace) = context.get_workspace(ws_id).await {
         if let Some(block) = workspace.with_trx(|mut t| t.get_blocks().get(&t.trx, &block)) {
-            let data: Vec<String> =
-                block.children_iter(|children| children.skip(offset).take(limit).collect());
+            let data: Vec<String> = block.children_iter(|children| children.skip(offset).take(limit).collect());
 
             let status = if data.is_empty() {
                 StatusCode::NOT_FOUND
@@ -366,9 +350,7 @@ pub async fn insert_block_children(
                     InsertChildren::InsertBefore { id, before } => {
                         if let Some(child) = space.get(&t.trx, id) {
                             changed = true;
-                            if let Err(e) =
-                                block.insert_children_before(&mut t.trx, &child, &before)
-                            {
+                            if let Err(e) = block.insert_children_before(&mut t.trx, &child, &before) {
                                 // TODO: handle error correctly
                                 error!("failed to insert children before: {:?}", e);
                                 return None;
@@ -378,8 +360,7 @@ pub async fn insert_block_children(
                     InsertChildren::InsertAfter { id, after } => {
                         if let Some(child) = space.get(&t.trx, id) {
                             changed = true;
-                            if let Err(e) = block.insert_children_after(&mut t.trx, &child, &after)
-                            {
+                            if let Err(e) = block.insert_children_after(&mut t.trx, &child, &after) {
                                 // TODO: handle error correctly
                                 error!("failed to insert children after: {:?}", e);
                                 return None;

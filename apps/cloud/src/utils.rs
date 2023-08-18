@@ -7,9 +7,7 @@ use yrs::{ReadTxn, StateVector, Transact};
 
 pub async fn shutdown_signal() {
     let ctrl_c = async {
-        signal::ctrl_c()
-            .await
-            .expect("failed to install Ctrl+C handler");
+        signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
     };
 
     #[cfg(unix)]
@@ -56,14 +54,8 @@ pub async fn create_debug_collaboration_workspace(db: &CloudDatabase, storage: &
         password: "debug2".into(),
     };
 
-    let user_model1 = db
-        .create_user(user1.clone())
-        .await
-        .expect("failed to create user1");
-    let user_model2 = db
-        .create_user(user2.clone())
-        .await
-        .expect("failed to create user2");
+    let user_model1 = db.create_user(user1.clone()).await.expect("failed to create user1");
+    let user_model2 = db.create_user(user2.clone()).await.expect("failed to create user2");
 
     let ws = db
         .create_normal_workspace(user_model1.id.clone())

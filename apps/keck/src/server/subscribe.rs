@@ -50,11 +50,7 @@ pub fn start_handling_observed_blocks(
                             .collect::<Vec<WorkspaceChangedBlocks>>();
                         let endpoint = endpoint.clone();
                         runtime_cloned.spawn(async move {
-                            let response = client
-                                .post(endpoint.to_string())
-                                .json(&post_body)
-                                .send()
-                                .await;
+                            let response = client.post(endpoint.to_string()).json(&post_body).send().await;
                             match response {
                                 Ok(response) => info!(
                                     "notified hook endpoint, endpoint response status: {}",

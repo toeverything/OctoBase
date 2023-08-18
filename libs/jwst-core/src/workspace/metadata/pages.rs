@@ -159,8 +159,7 @@ mod tests {
         map.insert(&mut "favorite", true).unwrap();
         map.insert(&mut "isRootPinboard", true).unwrap();
         map.insert(&mut "init", true).unwrap();
-        map.insert(&mut "subpageIds", doc.create_array().unwrap())
-            .unwrap();
+        map.insert(&mut "subpageIds", doc.create_array().unwrap()).unwrap();
         map.insert(&mut "title", "test_title").unwrap();
         map.insert(&mut "trash", true).unwrap();
         map.insert(&mut "trashDate", 1234567890).unwrap();

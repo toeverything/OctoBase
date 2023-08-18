@@ -196,10 +196,8 @@ impl MailContext {
             },
         )?;
 
-        let msg_body = MultiPart::mixed().multipart(
-            MultiPart::mixed()
-                .multipart(MultiPart::related().singlepart(SinglePart::html(content))),
-        );
+        let msg_body = MultiPart::mixed()
+            .multipart(MultiPart::mixed().multipart(MultiPart::related().singlepart(SinglePart::html(content))));
 
         Ok((title, msg_body))
     }
@@ -235,14 +233,7 @@ impl MailContext {
     ) -> Result<(), MailError> {
         if let Some(client) = &self.client {
             let email = self
-                .make_invite_email(
-                    send_to,
-                    metadata,
-                    site_url,
-                    claims,
-                    invite_code,
-                    workspace_avatar,
-                )
+                .make_invite_email(send_to, metadata, site_url, claims, invite_code, workspace_avatar)
                 .await?;
 
             let mut retry = 3;

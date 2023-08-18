@@ -157,8 +157,7 @@ mod tests {
         map.insert(&mut trx, "favorite", true).unwrap();
         map.insert(&mut trx, "isRootPinboard", true).unwrap();
         map.insert(&mut trx, "init", true).unwrap();
-        map.insert(&mut trx, "subpageIds", ArrayPrelim::default())
-            .unwrap();
+        map.insert(&mut trx, "subpageIds", ArrayPrelim::default()).unwrap();
         map.insert(&mut trx, "title", "test_title").unwrap();
         map.insert(&mut trx, "trash", true).unwrap();
         map.insert(&mut trx, "trashDate", 1234567890).unwrap();
@@ -177,9 +176,8 @@ mod tests {
     #[test]
     fn test_shared_page() {
         let doc = Doc::new();
-        doc.transact_mut().apply_update(
-            Update::decode_v1(include_bytes!("../../../fixtures/test_shared_page.bin")).unwrap(),
-        );
+        doc.transact_mut()
+            .apply_update(Update::decode_v1(include_bytes!("../../../fixtures/test_shared_page.bin")).unwrap());
         let ws = Workspace::from_doc(doc, "test");
         // test page
 

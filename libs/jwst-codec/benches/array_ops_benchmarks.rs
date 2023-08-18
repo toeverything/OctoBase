@@ -91,9 +91,7 @@ fn operations(c: &mut Criterion) {
                 array.push_back(&mut trx, c.to_string()).unwrap();
             }
             for idx in &idxs {
-                array
-                    .insert_range(&mut trx, *idx, vec!["test1", "test2"])
-                    .unwrap();
+                array.insert_range(&mut trx, *idx, vec!["test1", "test2"]).unwrap();
             }
             drop(trx);
         });

@@ -11,11 +11,7 @@ async fn webrtc_connection(remote: &str) -> (Sender<Message>, Receiver<Vec<u8>>)
 
     match client.post(remote).json(&offer).send().await {
         Ok(res) => {
-            webrtc_datachannel_client_commit(
-                res.json::<RTCSessionDescription>().await.unwrap(),
-                pc,
-            )
-            .await;
+            webrtc_datachannel_client_commit(res.json::<RTCSessionDescription>().await.unwrap(), pc).await;
             s.recv().await.ok();
             warn!("client already connected");
         }
@@ -49,10 +45,7 @@ pub fn start_webrtc_client_sync(
             };
             if !workspace.is_empty() {
                 info!("Workspace not empty, starting async remote connection");
-                last_synced_tx
-                    .send(Utc::now().timestamp_millis())
-                    .await
-                    .unwrap();
+                last_synced_tx.send(Utc::now().timestamp_millis()).await.unwrap();
             } else {
                 info!("Workspace empty, starting sync remote connection");
             }
@@ -78,8 +71,7 @@ pub fn start_webrtc_client_sync(
                         debug!("sync thread finished");
                         *state = SyncState::Finished;
                     } else {
-                        *state =
-                            SyncState::Error("Remote sync connection disconnected".to_string());
+                        *state = SyncState::Error("Remote sync connection disconnected".to_string());
                     }
                 }
 
