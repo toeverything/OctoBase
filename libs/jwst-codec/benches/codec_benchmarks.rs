@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion, SamplingMode};
-use jwst_codec::{read_var_i64, read_var_u64, write_var_i64, write_var_u64};
+use jwst_codec::{read_var_i32, read_var_u64, write_var_i32, write_var_u64};
 use lib0::decoding::{Cursor, Read};
 use lib0::encoding::Write;
 
@@ -84,52 +84,26 @@ fn codec(c: &mut Criterion) {
     }
 
     {
-        codec_group.bench_function("jwst encode var_int (64 bit)", |b| {
-            b.iter(|| {
-                let mut encoder = Vec::with_capacity(BENCHMARK_SIZE as usize * 8);
-                for i in 0..(BENCHMARK_SIZE as i64) {
-                    write_var_i64(&mut encoder, i).unwrap();
-                }
-            })
-        });
-        codec_group.bench_function("jwst decode var_int (64 bit)", |b| {
-            let mut encoder = Vec::with_capacity(BENCHMARK_SIZE as usize * 8);
-            for i in 0..(BENCHMARK_SIZE as i64) {
-                write_var_i64(&mut encoder, i).unwrap();
-            }
-
-            b.iter(|| {
-                let mut decoder = encoder.as_slice();
-                for i in 0..(BENCHMARK_SIZE as i64) {
-                    let (tail, num) = read_var_i64(decoder).unwrap();
-                    decoder = tail;
-                    assert_eq!(num, i);
-                }
-            })
-        });
-    }
-
-    {
         codec_group.bench_function("jwst encode var_int (32 bit)", |b| {
             b.iter(|| {
                 let mut encoder = Vec::with_capacity(BENCHMARK_SIZE as usize * 8);
                 for i in 0..(BENCHMARK_SIZE as i32) {
-                    write_var_i64(&mut encoder, i as i64).unwrap();
+                    write_var_i32(&mut encoder, i).unwrap();
                 }
             })
         });
         codec_group.bench_function("jwst decode var_int (32 bit)", |b| {
             let mut encoder = Vec::with_capacity(BENCHMARK_SIZE as usize * 8);
             for i in 0..(BENCHMARK_SIZE as i32) {
-                write_var_i64(&mut encoder, i as i64).unwrap();
+                write_var_i32(&mut encoder, i).unwrap();
             }
 
             b.iter(|| {
                 let mut decoder = encoder.as_slice();
                 for i in 0..(BENCHMARK_SIZE as i32) {
-                    let (tail, num) = read_var_i64(decoder).unwrap();
+                    let (tail, num) = read_var_i32(decoder).unwrap();
                     decoder = tail;
-                    assert_eq!(num as i32, i);
+                    assert_eq!(num, i);
                 }
             })
         });
