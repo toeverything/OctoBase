@@ -97,27 +97,16 @@ impl Workspace {
                                 }
                                 None
                             }
-                            DocMessage::Update(update) => {
-                                if let Ok(update) = Update::read(&mut RawDecoder::new(update)) {
-                                    match doc.apply_update(update) {
-                                        Ok(update) => {
-                                            let mut encoder = RawEncoder::default();
-                                            if let Err(e) = update.write(&mut encoder) {
-                                                warn!("failed to encode update: {:?}", e);
-                                                None
-                                            } else {
-                                                Some(SyncMessage::Doc(DocMessage::Update(encoder.into_inner())))
-                                            }
-                                        }
-                                        Err(e) => {
-                                            warn!("failed to apply update: {:?}", e);
-                                            None
-                                        }
-                                    }
-                                } else {
-                                    None
-                                }
-                            }
+                            DocMessage::Update(update) => doc
+                                .apply_update_from_binary(update)
+                                .and_then(|update| {
+                                    let mut encoder = RawEncoder::default();
+                                    update.write(&mut encoder)?;
+                                    Ok(encoder.into_inner())
+                                })
+                                .map(|u| SyncMessage::Doc(DocMessage::Update(u)))
+                                .map_err(|e| warn!("failed to apply update: {:?}", e))
+                                .ok(),
                         },
                         _ => None,
                     }

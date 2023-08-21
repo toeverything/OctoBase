@@ -87,11 +87,10 @@ impl Doc {
         Ok(doc)
     }
 
-    pub fn apply_update_from_binary(&mut self, update: Vec<u8>) -> JwstCodecResult {
+    pub fn apply_update_from_binary(&mut self, update: Vec<u8>) -> JwstCodecResult<Update> {
         let mut decoder = RawDecoder::new(update);
         let update = Update::read(&mut decoder)?;
-        self.apply_update(update)?;
-        Ok(())
+        self.apply_update(update)
     }
 
     pub fn apply_update(&mut self, mut update: Update) -> JwstCodecResult<Update> {

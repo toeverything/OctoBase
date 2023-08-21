@@ -12,8 +12,6 @@ pub enum JwstRpcError {
     #[allow(dead_code)]
     #[error("failed to encode sync message")]
     ProtocolEncode(std::io::Error),
-    #[error("failed to decode sync message")]
-    ProtocolDecode(#[from] nom::Err<nom::error::Error<usize>>),
     #[cfg(feature = "websocket")]
     #[error("failed to parse url")]
     UrlParse(#[from] url::ParseError),
