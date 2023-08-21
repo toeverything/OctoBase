@@ -561,7 +561,9 @@ impl DocStore {
 
         if item.parent_sub.is_none() && item.countable() {
             if let Some(parent) = parent {
-                parent.len -= item.len();
+                if parent.len != 0 {
+                    parent.len -= item.len();
+                }
             } else if let Some(Parent::Type(ty)) = &item.parent {
                 ty.get().unwrap().write().unwrap().len -= item.len();
             }

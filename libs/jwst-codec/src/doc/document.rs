@@ -94,9 +94,10 @@ impl Doc {
         Ok(())
     }
 
-    pub fn apply_update(&mut self, mut update: Update) -> JwstCodecResult {
+    pub fn apply_update(&mut self, mut update: Update) -> JwstCodecResult<Update> {
         let mut store = self.store.write().unwrap();
         let mut retry = false;
+        let before_state = store.get_state_vector();
         loop {
             for (mut s, offset) in update.iter(store.get_state_vector()) {
                 if let Node::Item(item) = &mut s {
@@ -154,7 +155,7 @@ impl Doc {
             }
         }
 
-        Ok(())
+        store.diff_state_vector(&before_state)
     }
 
     pub fn keys(&self) -> Vec<String> {

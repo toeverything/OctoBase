@@ -34,6 +34,7 @@ impl Workspace {
         let mut content = vec![];
 
         for buffer in buffers {
+            trace!("sync message: {:?}", buffer);
             let (awareness_msg, content_msg): (Vec<_>, Vec<_>) = SyncMessageScanner::new(&buffer)
                 .flatten()
                 .partition(|msg| matches!(msg, SyncMessage::Awareness(_) | SyncMessage::AwarenessQuery));
@@ -98,15 +99,21 @@ impl Workspace {
                             }
                             DocMessage::Update(update) => {
                                 if let Ok(update) = Update::read(&mut RawDecoder::new(update)) {
-                                    if let Err(e) = doc.apply_update(update) {
-                                        warn!("failed to apply update: {:?}", e);
+                                    match doc.apply_update(update) {
+                                        Ok(update) => {
+                                            let mut encoder = RawEncoder::default();
+                                            if let Err(e) = update.write(&mut encoder) {
+                                                warn!("failed to encode update: {:?}", e);
+                                                None
+                                            } else {
+                                                Some(SyncMessage::Doc(DocMessage::Update(encoder.into_inner())))
+                                            }
+                                        }
+                                        Err(e) => {
+                                            warn!("failed to apply update: {:?}", e);
+                                            None
+                                        }
                                     }
-
-                                    // TODO: let apply_update return changed state vector after apply
-                                    // then we can make generate a diff update and send to client
-                                    // trx.encode_update_v1()
-                                    //     .map(|update| SyncMessage::Doc(DocMessage::Update(update)));
-                                    None
                                 } else {
                                     None
                                 }
