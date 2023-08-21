@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Cursor};
+use std::collections::HashMap;
 
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
@@ -6,28 +6,30 @@ use futures::{
     stream::{iter, StreamExt},
     Stream,
 };
-use image::{load_from_memory, ImageOutputFormat, ImageResult};
 use jwst_core::{Base64Engine, BlobMetadata, URL_SAFE_ENGINE};
 use opendal::{services::S3, Operator};
 use sea_orm::FromQueryResult;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    storage::blobs::{bucket_local_db::BucketStorage, MixedBucketDBParam},
+    storage::blobs::{bucket_storage::BucketStorage, MixedBucketDBParam},
     JwstStorageError, JwstStorageResult,
 };
 
+#[cfg(feature = "image")]
 enum ImageFormat {
     Jpeg,
     WebP,
 }
 
+#[cfg(feature = "image")]
 pub struct ImageParams {
     format: ImageFormat,
     width: Option<usize>,
     height: Option<usize>,
 }
 
+#[cfg(feature = "image")]
 impl ImageParams {
     #[inline]
     fn check_size(w: Option<usize>, h: Option<usize>) -> bool {
@@ -51,21 +53,22 @@ impl ImageParams {
         }
     }
 
-    fn output_format(&self) -> ImageOutputFormat {
+    fn output_format(&self) -> image::ImageOutputFormat {
         match self.format {
-            ImageFormat::Jpeg => ImageOutputFormat::Jpeg(80),
-            ImageFormat::WebP => ImageOutputFormat::WebP,
+            image::ImageFormat::Jpeg => image::ImageOutputFormat::Jpeg(80),
+            image::ImageFormat::WebP => image::ImageOutputFormat::WebP,
         }
     }
 
-    pub fn optimize_image(&self, data: &[u8]) -> ImageResult<Vec<u8>> {
-        let mut buffer = Cursor::new(vec![]);
-        let image = load_from_memory(data)?;
+    pub fn optimize_image(&self, data: &[u8]) -> image::ImageResult<Vec<u8>> {
+        let mut buffer = std::io::Cursor::new(vec![]);
+        let image = image::load_from_memory(data)?;
         image.write_to(&mut buffer, self.output_format())?;
         Ok(buffer.into_inner())
     }
 }
 
+#[cfg(feature = "image")]
 impl TryFrom<&HashMap<String, String>> for ImageParams {
     type Error = ();
 
@@ -97,6 +100,7 @@ impl TryFrom<&HashMap<String, String>> for ImageParams {
     }
 }
 
+#[cfg(feature = "image")]
 impl ToString for ImageParams {
     fn to_string(&self) -> String {
         let mut params = String::new();

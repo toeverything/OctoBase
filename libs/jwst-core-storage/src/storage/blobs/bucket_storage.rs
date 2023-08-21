@@ -19,19 +19,19 @@ type BucketBlobActiveModel = entities::bucket_blobs::ActiveModel;
 type BucketBlobColumn = <BucketBlobs as EntityTrait>::Column;
 
 #[derive(Clone)]
-pub struct BlobBucketDBStorage {
+pub struct BlobBucketStorage {
     bucket: Arc<Bucket>,
     pub(super) pool: DatabaseConnection,
     pub(super) bucket_storage: BucketStorage,
 }
 
-impl AsRef<DatabaseConnection> for BlobBucketDBStorage {
+impl AsRef<DatabaseConnection> for BlobBucketStorage {
     fn as_ref(&self) -> &DatabaseConnection {
         &self.pool
     }
 }
 
-impl BlobBucketDBStorage {
+impl BlobBucketStorage {
     pub async fn init_with_pool(
         pool: DatabaseConnection,
         bucket: Arc<Bucket>,
@@ -209,7 +209,7 @@ impl BucketBlobStorage<JwstStorageError> for BucketStorage {
 }
 
 #[async_trait]
-impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
+impl BlobStorage<JwstStorageError> for BlobBucketStorage {
     async fn list_blobs(&self, workspace: Option<String>) -> JwstResult<Vec<String>, JwstStorageError> {
         let _lock = self.bucket.read().await;
         let workspace = workspace.unwrap_or("__default__".into());
@@ -336,7 +336,7 @@ mod tests {
             .build()
             .unwrap();
 
-        BlobBucketDBStorage::init_pool("sqlite::memory:", Some(bucket_storage))
+        BlobBucketStorage::init_pool("sqlite::memory:", Some(bucket_storage))
             .await
             .unwrap();
     }

@@ -5,7 +5,9 @@ mod test;
 
 use std::{collections::HashMap, time::Instant};
 
+#[cfg(feature = "image")]
 use blobs::BlobAutoStorage;
+use blobs::BlobDBStorage;
 use docs::SharedDocDBStorage;
 use jwst_storage_migration::{Migrator, MigratorTrait};
 use tokio::sync::Mutex;
@@ -13,7 +15,7 @@ use tokio::sync::Mutex;
 use self::difflog::DiffLogRecord;
 use super::*;
 use crate::{
-    storage::blobs::{BlobBucketDBStorage, BlobStorageType, JwstBlobStorage},
+    storage::blobs::{BlobBucketStorage, BlobStorageType, JwstBlobStorage},
     types::JwstStorageError,
 };
 
@@ -37,10 +39,18 @@ impl JwstStorage {
 
         let blobs = match blob_storage_type {
             BlobStorageType::DB => {
-                JwstBlobStorage::DB(BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone()).await?)
+                #[cfg(feature = "image")]
+                {
+                    JwstBlobStorage::AutoStorage(BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone()).await?)
+                }
+                #[cfg(not(feature = "image"))]
+                {
+                    let db = BlobDBStorage::init_with_pool(pool.clone(), bucket.clone()).await?;
+                    JwstBlobStorage::RawStorage(Arc::new(db))
+                }
             }
-            BlobStorageType::MixedBucketDB(param) => JwstBlobStorage::MixedBucketDB(
-                BlobBucketDBStorage::init_with_pool(pool.clone(), bucket.clone(), Some(param.try_into()?)).await?,
+            BlobStorageType::MixedBucketDB(param) => JwstBlobStorage::BucketStorage(
+                BlobBucketStorage::init_with_pool(pool.clone(), bucket.clone(), Some(param.try_into()?)).await?,
             ),
         };
         let docs = SharedDocDBStorage::init_with_pool(pool.clone(), bucket.clone()).await?;
