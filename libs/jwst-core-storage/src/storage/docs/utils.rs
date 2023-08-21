@@ -4,12 +4,15 @@ use super::{entities::prelude::*, types::JwstStorageResult, *};
 
 // apply all updates to the given doc
 pub fn migrate_update(update_records: Vec<<Docs as EntityTrait>::Model>, mut doc: Doc) -> JwstResult<Doc> {
+    // stop update dispatch before apply updates
+    doc.publisher.stop();
     for record in update_records {
         let id = record.created_at;
         if let Err(e) = doc.apply_update_from_binary(record.blob) {
             warn!("update {} merge failed, skip it: {:?}", id, e);
         }
     }
+    doc.publisher.start();
 
     Ok(doc)
 }
