@@ -12,7 +12,8 @@ fn is_dangling<T>(ptr: NonNull<T>) -> bool {
     ptr.as_ptr() as usize == DANGLING_PTR
 }
 
-/// Heap data with single owner but multiple refs with dangling checking at runtime.
+/// Heap data with single owner but multiple refs with dangling checking at
+/// runtime.
 pub(crate) enum Somr<T> {
     Owned(Owned<T>),
     Ref(Ref<T>),
@@ -25,7 +26,8 @@ pub(crate) struct Ref<T>(NonNull<SomrInner<T>>);
 
 pub(crate) struct SomrInner<T> {
     data: Option<T>,
-    /// increase the size when we really meet the the secenerio with refs more then u16::MAX(65535) times
+    /// increase the size when we really meet the the secenerio with refs more
+    /// then u16::MAX(65535) times
     refs: AtomicU32,
     _marker: PhantomData<Option<T>>,
 }
@@ -312,9 +314,8 @@ impl<T: proptest::arbitrary::Arbitrary> proptest::arbitrary::Arbitrary for Somr<
 
 #[cfg(test)]
 mod tests {
-    use crate::loom_model;
-
     use super::*;
+    use crate::loom_model;
 
     #[test]
     fn basic_example() {

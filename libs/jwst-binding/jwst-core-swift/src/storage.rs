@@ -1,15 +1,15 @@
-use super::*;
+use std::sync::{Arc, RwLock};
+
 use futures::TryFutureExt;
-use jwst_core_rpc::{
-    start_websocket_client_sync, BroadcastChannels, CachedLastSynced, RpcContextImpl, SyncState,
-};
+use jwst_core_rpc::{start_websocket_client_sync, BroadcastChannels, CachedLastSynced, RpcContextImpl, SyncState};
 use jwst_core_storage::{BlobStorageType, JwstStorage as AutoStorage, JwstStorageResult};
 use nanoid::nanoid;
-use std::sync::{Arc, RwLock};
 use tokio::{
     runtime::{Builder, Runtime},
     sync::mpsc::channel,
 };
+
+use super::*;
 
 #[derive(Clone)]
 pub struct Storage {
@@ -35,15 +35,8 @@ impl Storage {
 
         let storage = rt
             .block_on(
-                AutoStorage::new_with_migration(
-                    &format!("sqlite:{path}?mode=rwc"),
-                    BlobStorageType::DB,
-                )
-                .or_else(|e| {
-                    warn!(
-                        "Failed to open storage, falling back to memory storage: {}",
-                        e
-                    );
+                AutoStorage::new_with_migration(&format!("sqlite:{path}?mode=rwc"), BlobStorageType::DB).or_else(|e| {
+                    warn!("Failed to open storage, falling back to memory storage: {}", e);
                     AutoStorage::new_with_migration("sqlite::memory:", BlobStorageType::DB)
                 }),
             )
@@ -160,8 +153,9 @@ impl RpcContextImpl<'_> for Storage {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Storage, Workspace};
     use tokio::runtime::Runtime;
+
+    use crate::{Storage, Workspace};
 
     #[test]
     #[ignore = "need manually start collaboration server"]
@@ -175,8 +169,7 @@ mod tests {
 
         let resp = get_block_from_server(workspace_id.to_string(), block.id().to_string());
         assert!(!resp.is_empty());
-        let prop_extractor =
-            r#"("prop:bool_prop":true)|("prop:float_prop":1\.0)|("sys:children":\["2"\])"#;
+        let prop_extractor = r#"("prop:bool_prop":true)|("prop:float_prop":1\.0)|("sys:children":\["2"\])"#;
         let re = regex::Regex::new(prop_extractor).unwrap();
         assert_eq!(re.find_iter(resp.as_str()).count(), 3);
     }
@@ -200,10 +193,7 @@ mod tests {
         rt.block_on(async {
             let client = reqwest::Client::builder().no_proxy().build().unwrap();
             let resp = client
-                .get(format!(
-                    "http://localhost:3000/api/block/{}/{}",
-                    workspace_id, block_id
-                ))
+                .get(format!("http://localhost:3000/api/block/{}/{}", workspace_id, block_id))
                 .send()
                 .await
                 .unwrap();

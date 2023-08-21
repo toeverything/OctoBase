@@ -1,6 +1,8 @@
-use super::*;
-use byteorder::{BigEndian, WriteBytesExt};
 use std::io::{Cursor, Error, Write};
+
+use byteorder::{BigEndian, WriteBytesExt};
+
+use super::*;
 
 #[inline]
 fn map_io_error(e: Error) -> JwstCodecError {

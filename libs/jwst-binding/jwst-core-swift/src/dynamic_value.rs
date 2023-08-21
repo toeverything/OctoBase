@@ -1,5 +1,6 @@
-use jwst_core::Any;
 use std::collections::HashMap;
+
+use jwst_core::Any;
 
 pub type DynamicValueMap = HashMap<String, DynamicValue>;
 

@@ -446,8 +446,9 @@ impl Item {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use proptest::{collection::vec, prelude::*};
+
+    use super::*;
 
     fn item_round_trip(item: &mut Item) -> JwstCodecResult {
         if !item.is_valid() {

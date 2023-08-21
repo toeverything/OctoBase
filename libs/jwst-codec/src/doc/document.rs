@@ -231,9 +231,10 @@ impl Doc {
 
 #[cfg(test)]
 mod tests {
+    use yrs::{types::ToJson, updates::decoder::Decode, Array, Map, Options, Transact};
+
     use super::*;
     use crate::sync::{AtomicU8, Ordering};
-    use yrs::{types::ToJson, updates::decoder::Decode, Array, Map, Options, Transact};
 
     #[test]
     #[cfg_attr(miri, ignore)]

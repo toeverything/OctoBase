@@ -2,20 +2,19 @@ mod bucket_local_db;
 mod local_db;
 mod utils;
 
-#[cfg(test)]
-pub use local_db::blobs_storage_test;
-
-use super::{entities::prelude::*, *};
+pub use bucket_local_db::BlobBucketDBStorage;
 use bytes::Bytes;
 use image::ImageError;
 use jwst_core::{BlobMetadata, BlobStorage};
+#[cfg(test)]
+pub use local_db::blobs_storage_test;
 use local_db::BlobDBStorage;
 use thiserror::Error;
 use tokio::task::JoinError;
+pub use utils::BucketStorageBuilder;
 use utils::{ImageParams, InternalBlobMetadata};
 
-pub use bucket_local_db::BlobBucketDBStorage;
-pub use utils::BucketStorageBuilder;
+use super::{entities::prelude::*, *};
 
 #[derive(Debug, Error)]
 pub enum JwstBlobError {
@@ -89,10 +88,7 @@ impl MixedBucketDBParam {
 }
 
 impl BlobAutoStorage {
-    pub async fn init_with_pool(
-        pool: DatabaseConnection,
-        bucket: Arc<Bucket>,
-    ) -> JwstStorageResult<Self> {
+    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstStorageResult<Self> {
         let db = Arc::new(BlobDBStorage::init_with_pool(pool, bucket).await?);
         let pool = db.pool.clone();
         Ok(Self { db, pool })
@@ -105,21 +101,13 @@ impl BlobAutoStorage {
     }
 
     async fn exists(&self, table: &str, hash: &str, params: &str) -> JwstBlobResult<bool> {
-        Ok(
-            OptimizedBlobs::find_by_id((table.into(), hash.into(), params.into()))
-                .count(&self.pool)
-                .await
-                .map(|c| c > 0)?,
-        )
+        Ok(OptimizedBlobs::find_by_id((table.into(), hash.into(), params.into()))
+            .count(&self.pool)
+            .await
+            .map(|c| c > 0)?)
     }
 
-    async fn insert(
-        &self,
-        table: &str,
-        hash: &str,
-        params: &str,
-        blob: &[u8],
-    ) -> JwstBlobResult<()> {
+    async fn insert(&self, table: &str, hash: &str, params: &str, blob: &[u8]) -> JwstBlobResult<()> {
         if !self.exists(table, hash, params).await? {
             OptimizedBlobs::insert(OptimizedBlobActiveModel {
                 workspace_id: Set(table.into()),
@@ -136,12 +124,7 @@ impl BlobAutoStorage {
         Ok(())
     }
 
-    async fn get(
-        &self,
-        table: &str,
-        hash: &str,
-        params: &str,
-    ) -> JwstBlobResult<OptimizedBlobModel> {
+    async fn get(&self, table: &str, hash: &str, params: &str) -> JwstBlobResult<OptimizedBlobModel> {
         OptimizedBlobs::find_by_id((table.into(), hash.into(), params.into()))
             .one(&self.pool)
             .await
@@ -149,12 +132,7 @@ impl BlobAutoStorage {
             .and_then(|r| r.ok_or(JwstBlobError::BlobNotFound(hash.into())))
     }
 
-    async fn metadata(
-        &self,
-        table: &str,
-        hash: &str,
-        params: &str,
-    ) -> JwstBlobResult<InternalBlobMetadata> {
+    async fn metadata(&self, table: &str, hash: &str, params: &str) -> JwstBlobResult<InternalBlobMetadata> {
         OptimizedBlobs::find_by_id((table.into(), hash.into(), params.into()))
             .select_only()
             .column_as(OptimizedBlobColumn::Length, "size")
@@ -216,11 +194,8 @@ impl BlobAutoStorage {
                     // TODO: need ddos mitigation
                     let blob = self.db.get(workspace_id, &id).await?;
                     let blob_len = blob.blob.len();
-                    let image =
-                        tokio::task::spawn_blocking(move || params.optimize_image(&blob.blob))
-                            .await??;
-                    self.insert(workspace_id, &id, &params_token, &image)
-                        .await?;
+                    let image = tokio::task::spawn_blocking(move || params.optimize_image(&blob.blob)).await??;
+                    self.insert(workspace_id, &id, &params_token, &image).await?;
                     info!(
                         "optimized image: {} {} {}, {}bytes -> {}bytes",
                         workspace_id,
@@ -299,24 +274,13 @@ impl BlobStorage<JwstStorageError> for BlobAutoStorage {
         self.db.put_blob_stream(workspace, stream).await
     }
 
-    async fn put_blob(
-        &self,
-        workspace: Option<String>,
-        blob: Vec<u8>,
-    ) -> JwstStorageResult<String> {
+    async fn put_blob(&self, workspace: Option<String>, blob: Vec<u8>) -> JwstStorageResult<String> {
         self.db.put_blob(workspace, blob).await
     }
 
-    async fn delete_blob(
-        &self,
-        workspace_id: Option<String>,
-        id: String,
-    ) -> JwstStorageResult<bool> {
+    async fn delete_blob(&self, workspace_id: Option<String>, id: String) -> JwstStorageResult<bool> {
         // delete origin blobs
-        let success = self
-            .db
-            .delete_blob(workspace_id.clone(), id.clone())
-            .await?;
+        let success = self.db.delete_blob(workspace_id.clone(), id.clone()).await?;
         if success {
             // delete optimized blobs
             let workspace_id = workspace_id.unwrap_or("__default__".into());
@@ -344,21 +308,14 @@ impl BlobStorage<JwstStorageError> for BlobAutoStorage {
 
 #[async_trait]
 impl BlobStorage<JwstStorageError> for JwstBlobStorage {
-    async fn list_blobs(
-        &self,
-        workspace: Option<String>,
-    ) -> JwstResult<Vec<String>, JwstStorageError> {
+    async fn list_blobs(&self, workspace: Option<String>) -> JwstResult<Vec<String>, JwstStorageError> {
         match self {
             JwstBlobStorage::DB(db) => db.list_blobs(workspace).await,
             JwstBlobStorage::MixedBucketDB(db) => db.list_blobs(workspace).await,
         }
     }
 
-    async fn check_blob(
-        &self,
-        workspace: Option<String>,
-        id: String,
-    ) -> JwstResult<bool, JwstStorageError> {
+    async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool, JwstStorageError> {
         match self {
             JwstBlobStorage::DB(db) => db.check_blob(workspace, id).await,
             JwstBlobStorage::MixedBucketDB(db) => db.check_blob(workspace, id).await,
@@ -400,22 +357,14 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
         }
     }
 
-    async fn put_blob(
-        &self,
-        workspace: Option<String>,
-        blob: Vec<u8>,
-    ) -> JwstResult<String, JwstStorageError> {
+    async fn put_blob(&self, workspace: Option<String>, blob: Vec<u8>) -> JwstResult<String, JwstStorageError> {
         match self {
             JwstBlobStorage::DB(db) => db.put_blob(workspace, blob).await,
             JwstBlobStorage::MixedBucketDB(db) => db.put_blob(workspace, blob).await,
         }
     }
 
-    async fn delete_blob(
-        &self,
-        workspace: Option<String>,
-        id: String,
-    ) -> JwstResult<bool, JwstStorageError> {
+    async fn delete_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool, JwstStorageError> {
         match self {
             JwstBlobStorage::DB(db) => db.delete_blob(workspace, id).await,
             JwstBlobStorage::MixedBucketDB(db) => db.delete_blob(workspace, id).await,
@@ -455,10 +404,12 @@ impl JwstBlobStorage {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::io::Cursor;
+
     use futures::FutureExt;
     use image::{DynamicImage, ImageOutputFormat};
-    use std::io::Cursor;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_blob_auto_storage() {
@@ -468,10 +419,7 @@ mod tests {
         let blob = Vec::from_iter((0..100).map(|_| rand::random()));
 
         let stream = async { Bytes::from(blob.clone()) }.into_stream();
-        let hash1 = storage
-            .put_blob_stream(Some("blob".into()), stream)
-            .await
-            .unwrap();
+        let hash1 = storage.put_blob_stream(Some("blob".into()), stream).await.unwrap();
 
         // check origin blob result
         assert_eq!(
@@ -509,10 +457,7 @@ mod tests {
             image.into_inner()
         };
         let stream = async { Bytes::from(image.clone()) }.into_stream();
-        let hash2 = storage
-            .put_blob_stream(Some("blob".into()), stream)
-            .await
-            .unwrap();
+        let hash2 = storage.put_blob_stream(Some("blob".into()), stream).await.unwrap();
 
         // check origin blob result
         assert_eq!(
@@ -534,11 +479,7 @@ mod tests {
         // check optimized jpeg result
         let jpeg_params = HashMap::from([("format".into(), "jpeg".into())]);
         let jpeg = storage
-            .get_blob(
-                Some("blob".into()),
-                hash2.clone(),
-                Some(jpeg_params.clone()),
-            )
+            .get_blob(Some("blob".into()), hash2.clone(), Some(jpeg_params.clone()))
             .await
             .unwrap();
 
@@ -555,22 +496,14 @@ mod tests {
         // check optimized webp result
         let webp_params = HashMap::from([("format".into(), "webp".into())]);
         let webp = storage
-            .get_blob(
-                Some("blob".into()),
-                hash2.clone(),
-                Some(webp_params.clone()),
-            )
+            .get_blob(Some("blob".into()), hash2.clone(), Some(webp_params.clone()))
             .await
             .unwrap();
 
         assert!(webp.starts_with(b"RIFF"));
         assert_eq!(
             storage
-                .get_metadata(
-                    Some("blob".into()),
-                    hash2.clone(),
-                    Some(webp_params.clone())
-                )
+                .get_metadata(Some("blob".into()), hash2.clone(), Some(webp_params.clone()))
                 .await
                 .unwrap()
                 .size as usize,
@@ -625,15 +558,9 @@ mod tests {
             100 + image.len()
         );
 
-        assert!(storage
-            .delete_blob(Some("blob".into()), hash2.clone())
-            .await
-            .unwrap());
+        assert!(storage.delete_blob(Some("blob".into()), hash2.clone()).await.unwrap());
         assert_eq!(
-            storage
-                .check_blob(Some("blob".into()), hash2.clone())
-                .await
-                .unwrap(),
+            storage.check_blob(Some("blob".into()), hash2.clone()).await.unwrap(),
             false
         );
         assert!(storage
@@ -649,20 +576,11 @@ mod tests {
             .await
             .is_err());
 
-        assert_eq!(
-            storage.get_blobs_size("blob".into()).await.unwrap() as usize,
-            100
-        );
+        assert_eq!(storage.get_blobs_size("blob".into()).await.unwrap() as usize, 100);
 
+        assert_eq!(storage.list_blobs(Some("blob".into())).await.unwrap(), vec![hash1]);
         assert_eq!(
-            storage.list_blobs(Some("blob".into())).await.unwrap(),
-            vec![hash1]
-        );
-        assert_eq!(
-            storage
-                .list_blobs(Some("not_exists_workspace".into()))
-                .await
-                .unwrap(),
+            storage.list_blobs(Some("not_exists_workspace".into())).await.unwrap(),
             Vec::<String>::new()
         );
     }

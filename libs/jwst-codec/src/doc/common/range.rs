@@ -66,7 +66,8 @@ impl OrderRange {
     }
 
     /// Push new range to current one.
-    /// Range will be merged if overlap exists or turned into fragment if it's not continuous.
+    /// Range will be merged if overlap exists or turned into fragment if it's
+    /// not continuous.
     pub fn push(&mut self, range: Range<u64>) {
         match self {
             OrderRange::Range(r) => {

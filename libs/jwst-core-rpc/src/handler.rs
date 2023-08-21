@@ -1,11 +1,13 @@
-use super::{BroadcastType, Message, RpcContextImpl};
+use std::{sync::Arc, time::Instant};
+
 use chrono::Utc;
 use jwst_core::{debug, error, info, trace, warn};
-use std::{sync::Arc, time::Instant};
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     time::{sleep, Duration},
 };
+
+use super::{BroadcastType, Message, RpcContextImpl};
 
 pub async fn handle_connector(
     context: Arc<impl RpcContextImpl<'static> + Send + Sync + 'static>,
@@ -15,7 +17,8 @@ pub async fn handle_connector(
 ) -> bool {
     info!("{} collaborate with workspace {}", identifier, workspace_id);
 
-    // An abstraction of the established socket connection. Use tx to broadcast and rx to receive.
+    // An abstraction of the established socket connection. Use tx to broadcast and
+    // rx to receive.
     let (tx, rx, last_synced) = get_channel();
 
     let mut ws = context
@@ -23,28 +26,25 @@ pub async fn handle_connector(
         .await
         .expect("failed to get workspace");
 
-    // Continuously receive information from the remote socket, apply it to the local workspace, and
-    // send the encoded updates back to the remote end through the socket.
+    // Continuously receive information from the remote socket, apply it to the
+    // local workspace, and send the encoded updates back to the remote end
+    // through the socket.
     context
-        .apply_change(
-            &workspace_id,
-            &identifier,
-            tx.clone(),
-            rx,
-            last_synced.clone(),
-        )
+        .apply_change(&workspace_id, &identifier, tx.clone(), rx, last_synced.clone())
         .await;
 
-    // Both of broadcast_update and server_update are sent to the remote socket through 'tx'
-    // The 'broadcast_update' is the receiver for updates to the awareness and Doc of the local workspace.
-    // It uses channel, which is owned by the server itself and is stored in the server's memory (not persisted)."
+    // Both of broadcast_update and server_update are sent to the remote socket
+    // through 'tx' The 'broadcast_update' is the receiver for updates to the
+    // awareness and Doc of the local workspace. It uses channel, which is owned
+    // by the server itself and is stored in the server's memory (not persisted)."
     let broadcast_tx = context
         .join_broadcast(&mut ws, identifier.clone(), last_synced.clone())
         .await;
     let mut broadcast_rx = broadcast_tx.subscribe();
-    // Obtaining the receiver corresponding to DocAutoStorage in storage. The sender is used in the
-    // doc::write_update(). The remote used is the one belonging to DocAutoStorage and is owned by
-    // the server itself, stored in the server's memory (not persisted).
+    // Obtaining the receiver corresponding to DocAutoStorage in storage. The sender
+    // is used in the doc::write_update(). The remote used is the one belonging
+    // to DocAutoStorage and is owned by the server itself, stored in the
+    // server's memory (not persisted).
     let mut server_rx = context.join_server_broadcast(&workspace_id).await;
 
     // Send initialization message.
@@ -70,10 +70,7 @@ pub async fn handle_connector(
         }
     }
 
-    last_synced
-        .send(Utc::now().timestamp_millis())
-        .await
-        .unwrap();
+    last_synced.send(Utc::now().timestamp_millis()).await.unwrap();
 
     'sync: loop {
         tokio::select! {
@@ -167,27 +164,25 @@ pub async fn handle_connector(
         .full_migrate(workspace_id.clone(), None, false)
         .await;
     let _ = broadcast_tx.send(BroadcastType::CloseUser(identifier.clone()));
-    info!(
-        "{} stop collaborate with workspace {}",
-        identifier, workspace_id
-    );
+    info!("{} stop collaborate with workspace {}", identifier, workspace_id);
     true
 }
 
 #[cfg(test)]
 mod test {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use indicatif::{MultiProgress, ProgressBar, ProgressIterator, ProgressStyle};
+    use jwst_core::JwstResult;
+
     use super::{
         super::{connect_memory_workspace, MinimumServerContext},
         *,
     };
     #[cfg(feature = "webrtc")]
     use crate::{
-        webrtc_datachannel_client_begin, webrtc_datachannel_client_commit,
-        webrtc_datachannel_server_connector,
+        webrtc_datachannel_client_begin, webrtc_datachannel_client_commit, webrtc_datachannel_server_connector,
     };
-    use indicatif::{MultiProgress, ProgressBar, ProgressIterator, ProgressStyle};
-    use jwst_core::JwstResult;
-    use std::sync::atomic::{AtomicU64, Ordering};
 
     #[tokio::test]
     #[ignore = "skip in ci"]
@@ -205,26 +200,14 @@ mod test {
         let data_b_2 = String::from("data_b_2");
         let data_b_3 = String::from("data_b_3");
 
-        tx1.send(Message::Binary(data_a_1.clone().into_bytes()))
-            .await
-            .unwrap();
-        tx1.send(Message::Binary(data_a_2.clone().into_bytes()))
-            .await
-            .unwrap();
+        tx1.send(Message::Binary(data_a_1.clone().into_bytes())).await.unwrap();
+        tx1.send(Message::Binary(data_a_2.clone().into_bytes())).await.unwrap();
 
-        tx2.send(Message::Binary(data_b_1.clone().into_bytes()))
-            .await
-            .unwrap();
-        tx2.send(Message::Binary(data_b_2.clone().into_bytes()))
-            .await
-            .unwrap();
+        tx2.send(Message::Binary(data_b_1.clone().into_bytes())).await.unwrap();
+        tx2.send(Message::Binary(data_b_2.clone().into_bytes())).await.unwrap();
 
-        tx1.send(Message::Binary(data_a_3.clone().into_bytes()))
-            .await
-            .unwrap();
-        tx2.send(Message::Binary(data_b_3.clone().into_bytes()))
-            .await
-            .unwrap();
+        tx1.send(Message::Binary(data_a_3.clone().into_bytes())).await.unwrap();
+        tx2.send(Message::Binary(data_b_3.clone().into_bytes())).await.unwrap();
 
         if let Some(message) = rx2.recv().await {
             assert_eq!(String::from_utf8(message).ok().unwrap(), data_a_1);
@@ -253,11 +236,9 @@ mod test {
     async fn sync_test() -> JwstResult<()> {
         let workspace_id = format!("test{}", rand::random::<usize>());
 
-        let (server, mut ws, init_state) =
-            MinimumServerContext::new_with_workspace(&workspace_id).await;
+        let (server, mut ws, init_state) = MinimumServerContext::new_with_workspace(&workspace_id).await;
 
-        let (mut doc1, _, _, _, _) =
-            connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
+        let (mut doc1, _, _, _, _) = connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
         let (doc2, tx2, tx_handler, rx_handler, rt) =
             connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
 
@@ -270,9 +251,7 @@ mod test {
 
         // collect the update from yrs's editing
         let update = {
-            let mut ws =
-                jwst_core::Workspace::from_binary(doc1.encode_update_v1().unwrap(), &workspace_id)
-                    .unwrap();
+            let mut ws = jwst_core::Workspace::from_binary(doc1.encode_update_v1().unwrap(), &workspace_id).unwrap();
 
             let mut space = ws.get_space("space").unwrap();
             let mut block1 = space.create("block1", "flavour1").unwrap();
@@ -289,9 +268,7 @@ mod test {
 
         // collect the update from jwst-codec and check the result
         {
-            let mut ws =
-                jwst_core::Workspace::from_binary(doc2.encode_update_v1().unwrap(), &workspace_id)
-                    .unwrap();
+            let mut ws = jwst_core::Workspace::from_binary(doc2.encode_update_v1().unwrap(), &workspace_id).unwrap();
 
             let space = ws.get_space("space").unwrap();
             let block1 = space.get("block1").unwrap();
@@ -325,16 +302,13 @@ mod test {
     async fn single_sync_stress_test(mp: &MultiProgress) -> JwstResult<()> {
         // jwst_logger::init_logger("jwst-rpc");
 
-        let style = ProgressStyle::with_template(
-            "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
-        )
-        .unwrap()
-        .progress_chars("##-");
+        let style = ProgressStyle::with_template("[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+            .unwrap()
+            .progress_chars("##-");
 
         let workspace_id = format!("test{}", rand::random::<usize>());
 
-        let (server, mut ws, init_state) =
-            MinimumServerContext::new_with_workspace(&workspace_id).await;
+        let (server, mut ws, init_state) = MinimumServerContext::new_with_workspace(&workspace_id).await;
 
         let mut jobs = vec![];
 
@@ -357,9 +331,7 @@ mod test {
             collaborator_pb.set_position(collaborator.load(Ordering::Relaxed));
             let (doc, doc_tx, tx_handler, rx_handler, _rt) =
                 connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
-            let mut doc =
-                jwst_core::Workspace::from_binary(doc.encode_update_v1().unwrap(), &workspace_id)
-                    .unwrap();
+            let mut doc = jwst_core::Workspace::from_binary(doc.encode_update_v1().unwrap(), &workspace_id).unwrap();
 
             let handler = std::thread::spawn(move || {
                 // close connection after doc1 is broadcasted
@@ -381,8 +353,7 @@ mod test {
                         let block_changed = false;
 
                         if block_changed {
-                            if let Err(e) = futures::executor::block_on(doc_tx.send(Message::Close))
-                            {
+                            if let Err(e) = futures::executor::block_on(doc_tx.send(Message::Close)) {
                                 error!("send close message failed: {}", e);
                             }
                         }
@@ -391,12 +362,8 @@ mod test {
 
                 {
                     let mut space = doc.get_space("space").unwrap();
-                    let mut block = space
-                        .create(block_id.clone(), format!("flavour{}", i))
-                        .unwrap();
-                    block
-                        .set(&format!("key{}", i), format!("val{}", i))
-                        .unwrap();
+                    let mut block = space.create(block_id.clone(), format!("flavour{}", i)).unwrap();
+                    block.set(&format!("key{}", i), format!("val{}", i)).unwrap();
                 }
 
                 // await the task to make sure the doc1 is broadcasted before check doc2
@@ -464,11 +431,9 @@ mod test {
         // jwst_logger::init_logger("jwst-rpc");
 
         let mp = MultiProgress::new();
-        let style = ProgressStyle::with_template(
-            "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}",
-        )
-        .unwrap()
-        .progress_chars("##-");
+        let style = ProgressStyle::with_template("[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg}")
+            .unwrap()
+            .progress_chars("##-");
 
         let pb = mp.add(ProgressBar::new(1000));
         pb.set_style(style.clone());

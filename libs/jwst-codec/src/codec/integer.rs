@@ -1,7 +1,9 @@
-use super::*;
+use std::io::{Error, Write};
+
 use byteorder::WriteBytesExt;
 use nom::Needed;
-use std::io::{Error, Write};
+
+use super::*;
 
 pub fn read_var_u64(input: &[u8]) -> IResult<&[u8], u64> {
     // parse the first byte
@@ -110,8 +112,9 @@ pub fn write_var_i32<W: Write>(buffer: &mut W, num: i32) -> Result<(), Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use lib0::encoding::Write;
+
+    use super::*;
 
     fn test_var_uint_enc_dec(num: u64) {
         let mut buf1 = Vec::new();

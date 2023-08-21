@@ -1,8 +1,9 @@
 mod convert;
 
-use super::{block::MarkdownState, workspace::Pages, *};
 use jwst_codec::{Any, Doc, Map};
 use serde::{ser::SerializeMap, Serialize, Serializer};
+
+use super::{block::MarkdownState, workspace::Pages, *};
 
 //         Workspace
 //         /       \
@@ -181,8 +182,9 @@ impl Serialize for Space {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use jwst_codec::{StateVector, Update};
+
+    use super::*;
 
     #[test]
     fn doc_load_test() {

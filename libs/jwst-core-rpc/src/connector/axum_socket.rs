@@ -1,8 +1,9 @@
-use super::*;
 use axum::extract::ws::{Message as WebSocketMessage, WebSocket};
 use futures::{sink::SinkExt, stream::StreamExt};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio_tungstenite::tungstenite::Error as SocketError;
+
+use super::*;
 
 impl From<Message> for WebSocketMessage {
     fn from(value: Message) -> Self {
@@ -31,12 +32,7 @@ pub fn axum_socket_connector(
                     let error = e.to_string();
                     if !e.into_inner().downcast::<SocketError>().map_or_else(
                         |_| false,
-                        |e| {
-                            matches!(
-                                e.as_ref(),
-                                SocketError::ConnectionClosed | SocketError::AlreadyClosed
-                            )
-                        },
+                        |e| matches!(e.as_ref(), SocketError::ConnectionClosed | SocketError::AlreadyClosed),
                     ) {
                         error!("socket send error: {}", error);
                     }

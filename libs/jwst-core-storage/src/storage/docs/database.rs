@@ -1,9 +1,11 @@
-use super::{entities::prelude::*, *};
-use crate::types::JwstStorageResult;
+use std::collections::hash_map::Entry;
+
 use jwst_codec::{encode_update_as_message, CrdtReader, Doc, DocOptions, RawDecoder, StateVector};
 use jwst_core::{DocStorage, Workspace};
 use sea_orm::Condition;
-use std::collections::hash_map::Entry;
+
+use super::{entities::prelude::*, *};
+use crate::types::JwstStorageResult;
 
 const MAX_TRIM_UPDATE_LIMIT: u64 = 500;
 
@@ -19,10 +21,7 @@ pub struct DocDBStorage {
 }
 
 impl DocDBStorage {
-    pub async fn init_with_pool(
-        pool: DatabaseConnection,
-        bucket: Arc<Bucket>,
-    ) -> JwstStorageResult<Self> {
+    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstStorageResult<Self> {
         Ok(Self {
             bucket,
             pool,
@@ -53,10 +52,7 @@ impl DocDBStorage {
             .filter(DocsColumn::WorkspaceId.eq(workspace))
             .all(conn)
             .await?;
-        trace!(
-            "end scan all records of workspace: {workspace}, {}",
-            models.len()
-        );
+        trace!("end scan all records of workspace: {workspace}, {}", models.len());
         Ok(models)
     }
 
@@ -65,10 +61,7 @@ impl DocDBStorage {
         C: ConnectionTrait,
     {
         trace!("start scan all records with guid: {guid}");
-        let models = Docs::find()
-            .filter(DocsColumn::Guid.eq(guid))
-            .all(conn)
-            .await?;
+        let models = Docs::find().filter(DocsColumn::Guid.eq(guid)).all(conn).await?;
         trace!("end scan all: {guid}, {}", models.len());
         Ok(models)
     }
@@ -78,10 +71,7 @@ impl DocDBStorage {
         C: ConnectionTrait,
     {
         trace!("start count: {guid}");
-        let count = Docs::find()
-            .filter(DocsColumn::Guid.eq(guid))
-            .count(conn)
-            .await?;
+        let count = Docs::find().filter(DocsColumn::Guid.eq(guid)).count(conn).await?;
         trace!("end count: {guid}, {count}");
         Ok(count)
     }
@@ -119,10 +109,7 @@ impl DocDBStorage {
     where
         C: ConnectionTrait,
     {
-        let record = Docs::find()
-            .filter(DocsColumn::Guid.eq(guid))
-            .one(conn)
-            .await?;
+        let record = Docs::find().filter(DocsColumn::Guid.eq(guid)).one(conn).await?;
 
         Ok(record.map_or(false, |r| r.is_workspace))
     }
@@ -148,12 +135,7 @@ impl DocDBStorage {
         Ok(())
     }
 
-    async fn replace_with<C>(
-        conn: &C,
-        workspace: &str,
-        guid: &str,
-        blob: Vec<u8>,
-    ) -> JwstStorageResult<()>
+    async fn replace_with<C>(conn: &C, workspace: &str, guid: &str, blob: Vec<u8>) -> JwstStorageResult<()>
     where
         C: ConnectionTrait,
     {
@@ -161,10 +143,7 @@ impl DocDBStorage {
 
         let is_workspace = Self::is_workspace(conn, guid).await?;
 
-        Docs::delete_many()
-            .filter(DocsColumn::Guid.eq(guid))
-            .exec(conn)
-            .await?;
+        Docs::delete_many().filter(DocsColumn::Guid.eq(guid)).exec(conn).await?;
         Docs::insert(DocsActiveModel {
             workspace_id: Set(workspace.into()),
             guid: Set(guid.into()),
@@ -184,10 +163,7 @@ impl DocDBStorage {
         C: ConnectionTrait,
     {
         trace!("start drop: {guid}");
-        Docs::delete_many()
-            .filter(DocsColumn::Guid.eq(guid))
-            .exec(conn)
-            .await?;
+        Docs::delete_many().filter(DocsColumn::Guid.eq(guid)).exec(conn).await?;
         trace!("end drop: {guid}");
         Ok(())
     }
@@ -205,13 +181,7 @@ impl DocDBStorage {
         Ok(())
     }
 
-    async fn update<C>(
-        &self,
-        conn: &C,
-        workspace: &str,
-        guid: &str,
-        blob: Vec<u8>,
-    ) -> JwstStorageResult<()>
+    async fn update<C>(&self, conn: &C, workspace: &str, guid: &str, blob: Vec<u8>) -> JwstStorageResult<()>
     where
         C: ConnectionTrait,
     {
@@ -245,12 +215,7 @@ impl DocDBStorage {
         Ok(())
     }
 
-    async fn full_migrate(
-        &self,
-        workspace: &str,
-        guid: &str,
-        blob: Vec<u8>,
-    ) -> JwstStorageResult<()> {
+    async fn full_migrate(&self, workspace: &str, guid: &str, blob: Vec<u8>) -> JwstStorageResult<()> {
         trace!("start full migrate: {guid}");
         Self::replace_with(&self.pool, workspace, guid, blob).await?;
         trace!("end full migrate: {guid}");
@@ -307,9 +272,7 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
         let _lock = self.bucket.read().await;
 
         Ok(self.workspaces.read().await.contains_key(workspace_id)
-            || Self::workspace_count(&self.pool, workspace_id)
-                .await
-                .map(|c| c > 0)?)
+            || Self::workspace_count(&self.pool, workspace_id).await.map(|c| c > 0)?)
     }
 
     async fn get_or_create_workspace(&self, workspace_id: String) -> JwstStorageResult<Workspace> {
@@ -330,23 +293,15 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
         }
     }
 
-    async fn flush_workspace(
-        &self,
-        workspace_id: String,
-        data: Vec<u8>,
-    ) -> JwstStorageResult<Workspace> {
+    async fn flush_workspace(&self, workspace_id: String, data: Vec<u8>) -> JwstStorageResult<Workspace> {
         trace!("create workspace: get lock");
         let _lock = self.bucket.write().await;
 
         let ws = Self::init_workspace(&self.pool, &workspace_id).await?;
 
-        self.full_migrate(&workspace_id, ws.doc_guid(), data)
-            .await?;
+        self.full_migrate(&workspace_id, ws.doc_guid(), data).await?;
 
-        debug_assert_eq!(
-            Self::workspace_count(&self.pool, &workspace_id).await?,
-            1u64
-        );
+        debug_assert_eq!(Self::workspace_count(&self.pool, &workspace_id).await?, 1u64);
 
         Ok(ws)
     }
@@ -370,10 +325,7 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
     }
 
     async fn get_doc(&self, guid: String) -> JwstStorageResult<Option<Doc>> {
-        let records = Docs::find()
-            .filter(DocsColumn::Guid.eq(guid))
-            .all(&self.pool)
-            .await?;
+        let records = Docs::find().filter(DocsColumn::Guid.eq(guid)).all(&self.pool).await?;
 
         if records.is_empty() {
             return Ok(None);
@@ -384,27 +336,17 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
         Ok(Some(doc))
     }
 
-    async fn update_doc(
-        &self,
-        workspace_id: String,
-        guid: String,
-        data: &[u8],
-    ) -> JwstStorageResult<()> {
+    async fn update_doc(&self, workspace_id: String, guid: String, data: &[u8]) -> JwstStorageResult<()> {
         debug!("write_update: get lock");
         let _lock = self.bucket.write().await;
 
         trace!("write_update: {:?}", data);
-        self.update(&self.pool, &workspace_id, &guid, data.into())
-            .await?;
+        self.update(&self.pool, &workspace_id, &guid, data.into()).await?;
 
         Ok(())
     }
 
-    async fn update_doc_with_guid(
-        &self,
-        workspace_id: String,
-        data: &[u8],
-    ) -> JwstStorageResult<()> {
+    async fn update_doc_with_guid(&self, workspace_id: String, data: &[u8]) -> JwstStorageResult<()> {
         debug!("write_update: get lock");
         let _lock = self.bucket.write().await;
 
@@ -412,8 +354,7 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
         let mut decoder = RawDecoder::new(data.to_vec());
         let guid = decoder.read_var_string()?;
 
-        self.update(&self.pool, &workspace_id, &guid, decoder.drain())
-            .await?;
+        self.update(&self.pool, &workspace_id, &guid, decoder.drain()).await?;
 
         Ok(())
     }

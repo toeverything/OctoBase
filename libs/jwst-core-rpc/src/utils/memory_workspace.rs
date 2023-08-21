@@ -1,8 +1,10 @@
-use super::*;
+use std::thread::JoinHandle as StdJoinHandler;
+
 use jwst_codec::Doc;
 use nanoid::nanoid;
-use std::thread::JoinHandle as StdJoinHandler;
 use tokio::{runtime::Runtime, sync::mpsc::channel, task::JoinHandle as TokioJoinHandler};
+
+use super::*;
 
 pub async fn connect_memory_workspace(
     server: Arc<MinimumServerContext>,
@@ -28,12 +30,9 @@ pub async fn connect_memory_workspace(
         {
             let rt = rt.clone();
             std::thread::spawn(move || {
-                rt.block_on(handle_connector(
-                    server,
-                    workspace_id,
-                    nanoid!(),
-                    move || (tx, rx, last_synced_tx),
-                ));
+                rt.block_on(handle_connector(server, workspace_id, nanoid!(), move || {
+                    (tx, rx, last_synced_tx)
+                }));
             });
         }
 

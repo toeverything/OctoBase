@@ -1,4 +1,3 @@
-use super::Workspace;
 use std::{
     collections::HashSet,
     sync::{
@@ -12,12 +11,15 @@ use std::{
     thread::JoinHandle,
     time::Duration,
 };
+
 use tokio::{
     runtime::{self, Runtime},
     sync::RwLock,
     time::sleep,
 };
 use tracing::debug;
+
+use super::Workspace;
 
 type CallbackFn = Arc<RwLock<Option<Arc<Box<dyn Fn(String, Vec<String>) + Send + Sync>>>>>;
 pub struct BlockObserverConfig {

@@ -1,5 +1,6 @@
-use super::*;
 use byteorder::WriteBytesExt;
+
+use super::*;
 
 #[derive(Debug, Clone, PartialEq)]
 enum MessageType {
@@ -164,12 +165,13 @@ mod tests {
 
     #[test]
     fn test_sync_message_compatibility() {
-        use super::utils::{to_sync_message, to_y_message};
         use y_sync::sync::Message as YMessage;
         use yrs::updates::{
             decoder::{Decode, DecoderV1},
             encoder::{Encode, Encoder, EncoderV1},
         };
+
+        use super::utils::{to_sync_message, to_y_message};
 
         let messages = [
             SyncMessage::Auth(Some("reason".to_string())),

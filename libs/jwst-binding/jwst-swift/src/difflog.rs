@@ -1,13 +1,15 @@
-use super::*;
+use std::{sync::Arc, time::Duration};
+
 use chrono::{DateTime, Utc};
 use jwst_storage::JwstStorage;
 use serde::Serialize;
-use std::{sync::Arc, time::Duration};
 use tokio::{
     runtime::Runtime,
     sync::{mpsc::Receiver, Mutex},
     time::sleep,
 };
+
+use super::*;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Log {

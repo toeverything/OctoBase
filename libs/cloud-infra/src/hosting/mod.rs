@@ -2,13 +2,14 @@ mod api_doc;
 mod files;
 mod pages;
 
-use super::*;
 use axum::{
     body::{boxed, BoxBody, Full},
     http::{header::CONTENT_TYPE, StatusCode, Uri},
     response::{IntoResponse, Response},
 };
 use rust_embed::EmbeddedFile;
+
+use super::*;
 
 type StaticFileFetcher = fn(&str) -> Option<EmbeddedFile>;
 

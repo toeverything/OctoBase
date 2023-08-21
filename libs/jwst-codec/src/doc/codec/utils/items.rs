@@ -1,5 +1,4 @@
-use super::item::item_flags;
-use super::*;
+use super::{item::item_flags, *};
 use crate::sync::Arc;
 
 pub(crate) struct ItemBuilder {

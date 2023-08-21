@@ -1,5 +1,6 @@
-use super::*;
 use phf::phf_map;
+
+use super::*;
 
 fn insert_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
     let map = match nest_input {
@@ -99,8 +100,9 @@ pub fn yrs_create_map_from_nest_type(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use yrs::Doc;
+
+    use super::*;
 
     #[test]
     fn test_gen_map_ref_ops() {

@@ -1,5 +1,8 @@
-use super::*;
-use crate::infrastructure::auth::get_claim_from_token;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
+
 use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     response::Response,
@@ -8,14 +11,14 @@ use cloud_database::{WorkspaceDetail, WorkspaceWithPermission};
 use futures::{sink::SinkExt, stream::StreamExt};
 use jwst_logger::error;
 use nanoid::nanoid;
-use serde::Deserialize;
-use serde::Serialize;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
+use serde::{Deserialize, Serialize};
+use tokio::sync::{
+    mpsc::{channel, Sender},
+    RwLock,
 };
-use tokio::sync::mpsc::Sender;
-use tokio::sync::{mpsc::channel, RwLock};
+
+use super::*;
+use crate::infrastructure::auth::get_claim_from_token;
 
 #[derive(Deserialize)]
 pub struct Param {

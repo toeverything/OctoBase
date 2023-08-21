@@ -7,9 +7,10 @@ mod infrastructure;
 mod layer;
 mod utils;
 
+use std::{net::SocketAddr, sync::Arc};
+
 use axum::{http::Method, Extension, Router, Server};
 use jwst_logger::{error, info, info_span, init_logger};
-use std::{net::SocketAddr, sync::Arc};
 use tower_http::cors::{Any, CorsLayer};
 
 #[global_allocator]

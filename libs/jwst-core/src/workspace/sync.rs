@@ -1,8 +1,9 @@
-use super::*;
 use jwst_codec::{
     write_sync_message, CrdtRead, CrdtWrite, DocMessage, RawDecoder, RawEncoder, StateVector, SyncMessage,
     SyncMessageScanner, Update,
 };
+
+use super::*;
 
 impl Workspace {
     pub fn sync_migration(&self) -> JwstResult<Vec<u8>> {

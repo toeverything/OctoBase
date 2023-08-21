@@ -1,15 +1,17 @@
-use super::*;
-use crate::RETRY_NUM;
-use jwst_codec::{write_sync_message, DocMessage, SyncMessage, SyncMessageScanner};
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
     thread::sleep,
     time::Duration,
 };
+
+use jwst_codec::{write_sync_message, DocMessage, SyncMessage, SyncMessageScanner};
 use yrs::{
     updates::{decoder::Decode, encoder::Encode},
     ReadTxn, StateVector, Transact, Update,
 };
+
+use super::*;
+use crate::RETRY_NUM;
 
 impl Workspace {
     pub fn sync_migration(&self) -> JwstResult<Vec<u8>> {

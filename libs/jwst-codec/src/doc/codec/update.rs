@@ -1,7 +1,10 @@
+use std::{
+    collections::{HashMap, VecDeque},
+    ops::Range,
+};
+
 use super::*;
 use crate::doc::StateVector;
-use std::collections::{HashMap, VecDeque};
-use std::ops::Range;
 
 #[derive(Debug, Default, Clone)]
 pub struct Update {
@@ -9,7 +12,8 @@ pub struct Update {
     pub(crate) delete_set: DeleteSet,
 
     /// all unapplicable items that we can't integrate into doc
-    /// any item with inconsistent id clock or missing dependency will be put here
+    /// any item with inconsistent id clock or missing dependency will be put
+    /// here
     pub(crate) pending_structs: HashMap<Client, VecDeque<Node>>,
     /// missing state vector after applying updates
     pub(crate) missing_state: StateVector,
@@ -132,7 +136,8 @@ impl Update {
         for structs in target.structs.values_mut() {
             structs.make_contiguous().sort_by_key(|s| s.id().clock);
 
-            // insert [Node::Skip] if structs[index].id().clock + structs[index].len() < structs[index + 1].id().clock
+            // insert [Node::Skip] if structs[index].id().clock + structs[index].len() <
+            // structs[index + 1].id().clock
             let mut index = 0;
             while index < structs.len() - 1 {
                 let cur = &structs[index];
@@ -173,7 +178,8 @@ pub(crate) struct UpdateIterator<'a> {
     client_ids: Vec<Client>,
     /// current id of client of the updates we're processing
     cur_client_id: Option<Client>,
-    /// stack of previous iterating item with higher priority than updates in next iteration
+    /// stack of previous iterating item with higher priority than updates in
+    /// next iteration
     stack: Vec<Node>,
 }
 
@@ -192,11 +198,12 @@ impl<'a> UpdateIterator<'a> {
         }
     }
 
-    /// iterate the client ids until we find the next client with left updates that can be consumed
+    /// iterate the client ids until we find the next client with left updates
+    /// that can be consumed
     ///
     /// note:
-    /// firstly we will check current client id as well to ensure current updates queue is not empty yet
-    ///
+    /// firstly we will check current client id as well to ensure current
+    /// updates queue is not empty yet
     fn next_client(&mut self) -> Option<Client> {
         while let Some(client_id) = self.cur_client_id {
             match self.update.structs.get(&client_id) {
@@ -236,8 +243,8 @@ impl<'a> UpdateIterator<'a> {
         }
     }
 
-    /// tell if current update's dependencies(left, right, parent) has already been consumed and recorded
-    /// and return the client of them if not.
+    /// tell if current update's dependencies(left, right, parent) has already
+    /// been consumed and recorded and return the client of them if not.
     fn get_missing_dep(&self, struct_info: &Node) -> Option<Client> {
         if let Some(item) = struct_info.as_item().get() {
             let id = item.id;
@@ -326,8 +333,8 @@ impl Iterator for UpdateIterator<'_> {
                 } else {
                     // we finally find the first applicable update
                     let local_state = self.state.get(&id.client);
-                    // we've already check the local state is greater or equal to current update's clock
-                    // so offset here will never be negative
+                    // we've already check the local state is greater or equal to current update's
+                    // clock so offset here will never be negative
                     let offset = local_state - id.clock;
                     if offset == 0 || offset < cur_update.len() {
                         self.state.set_max(id.client, id.clock + cur_update.len());
@@ -399,11 +406,12 @@ impl Iterator for DeleteSetIterator<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::doc::common::OrderRange;
+    use std::{num::ParseIntError, path::PathBuf};
+
+    use serde::Deserialize;
 
     use super::*;
-    use serde::Deserialize;
-    use std::{num::ParseIntError, path::PathBuf};
+    use crate::doc::common::OrderRange;
 
     fn struct_item(id: (Client, Clock), len: usize) -> Node {
         Node::Item(Somr::new(

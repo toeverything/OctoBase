@@ -1,12 +1,13 @@
-use super::*;
-use crate::{
-    doc::StateVector,
-    sync::{Arc, RwLock, RwLockWriteGuard, Weak},
-};
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
     mem,
     ops::Range,
+};
+
+use super::*;
+use crate::{
+    doc::StateVector,
+    sync::{Arc, RwLock, RwLockWriteGuard, Weak},
 };
 
 unsafe impl Send for DocStore {}
@@ -291,7 +292,8 @@ impl DocStore {
     ///   - split left if needed  (insert in between a splitable item)
     ///   - split right if needed (insert in between a splitable item)
     ///   - recover parent to [Parent::Type]
-    ///     - [Parent::String] for root level named type (e.g `doc.get_or_create_text("content")`)
+    ///     - [Parent::String] for root level named type (e.g
+    ///       `doc.get_or_create_text("content")`)
     ///     - [Parent::Id] for type as item (e.g `doc.create_text()`)
     ///     - [None] means borrow left.parent or right.parent
     pub fn repair(&mut self, item: &mut Item, store_ref: StoreRef) -> JwstCodecResult {
@@ -677,7 +679,8 @@ impl DocStore {
         let mut update_structs: HashMap<u64, VecDeque<Node>> = HashMap::new();
 
         for (client, clock) in diff {
-            // We have made sure that the client is in the local state vector in diff_state_vectors()
+            // We have made sure that the client is in the local state vector in
+            // diff_state_vectors()
             if let Some(items) = map.get(&client) {
                 if items.is_empty() {
                     continue;
@@ -900,7 +903,8 @@ mod tests {
             let left = doc_store.split_at_and_get_left((1, 1)).unwrap();
             assert_eq!(left.len(), 2); // octo => oc_to
 
-            // s1 used to be (1, 4), but it actually ref of first item in store, so now it should be (1, 2)
+            // s1 used to be (1, 4), but it actually ref of first item in store, so now it
+            // should be (1, 2)
             assert_eq!(s1, left, "doc internal mutation should not modify the pointer");
             let right = doc_store.split_at_and_get_right((1, 5)).unwrap();
             assert_eq!(right.len(), 3); // base => b_ase

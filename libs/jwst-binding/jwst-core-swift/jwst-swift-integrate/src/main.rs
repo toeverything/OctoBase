@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::process::Command;
-use swift_bridge_build::ApplePlatform as Platform;
-use swift_bridge_build::{create_package, CreatePackageConfig};
+use std::{collections::HashMap, path::PathBuf, process::Command};
+
+use swift_bridge_build::{create_package, ApplePlatform as Platform, CreatePackageConfig};
 
 fn main() {
     let common_commands = [
@@ -35,11 +33,7 @@ fn main() {
         })
         .status()
         .expect("Failed to build jwst-core-swift");
-    let dir = if cfg!(debug_assertions) {
-        "debug"
-    } else {
-        "release"
-    };
+    let dir = if cfg!(debug_assertions) { "debug" } else { "release" };
     create_package(CreatePackageConfig {
         bridge_dir: PathBuf::from("libs/jwst-binding/jwst-core-swift/generated"),
         paths: HashMap::from([

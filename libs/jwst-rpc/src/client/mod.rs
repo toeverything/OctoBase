@@ -3,15 +3,16 @@ mod webrtc;
 #[cfg(feature = "websocket")]
 mod websocket;
 
-use super::*;
-use chrono::Utc;
 use std::sync::Mutex;
-use tokio::{runtime::Runtime, task::JoinHandle};
 
+use chrono::Utc;
+use tokio::{runtime::Runtime, task::JoinHandle};
 #[cfg(feature = "webrtc")]
 pub use webrtc::start_webrtc_client_sync;
 #[cfg(feature = "websocket")]
 pub use websocket::start_websocket_client_sync;
+
+use super::*;
 
 #[derive(Clone, Default)]
 pub struct CachedLastSynced {
@@ -49,9 +50,11 @@ impl CachedLastSynced {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::thread::spawn;
+
     use tokio::sync::mpsc::channel;
+
+    use super::*;
 
     #[test]
     fn test_synced() {

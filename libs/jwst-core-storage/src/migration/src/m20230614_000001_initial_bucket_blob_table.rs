@@ -1,5 +1,6 @@
-use super::schema::BucketBlobs;
 use sea_orm_migration::prelude::*;
+
+use super::schema::BucketBlobs;
 
 pub struct Migration;
 
@@ -25,11 +26,7 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone()
                             .not_null(),
                     )
-                    .primary_key(
-                        Index::create()
-                            .col(BucketBlobs::Workspace)
-                            .col(BucketBlobs::Hash),
-                    )
+                    .primary_key(Index::create().col(BucketBlobs::Workspace).col(BucketBlobs::Hash))
                     .to_owned(),
             )
             .await?;

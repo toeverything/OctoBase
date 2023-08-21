@@ -2,14 +2,13 @@
 mod indexing;
 mod plugin;
 
-use super::*;
-
 #[cfg(feature = "workspace-search")]
 use indexing::IndexingPluginImpl;
-pub(super) use plugin::{PluginImpl, PluginMap, PluginRegister};
-
 #[cfg(feature = "workspace-search")]
 pub use indexing::{SearchResult, SearchResults};
+pub(super) use plugin::{PluginImpl, PluginMap, PluginRegister};
+
+use super::*;
 
 /// Setup a [WorkspacePlugin] and insert it into the [Workspace].
 /// See [plugins].
@@ -35,8 +34,8 @@ pub(crate) fn setup_plugin(workspace: Workspace) -> Workspace {
 }
 
 impl Workspace {
-    /// Allow the plugin to run any necessary updates it could have flagged via observers.
-    /// See [plugins].
+    /// Allow the plugin to run any necessary updates it could have flagged via
+    /// observers. See [plugins].
     fn update_plugin<P: PluginImpl>(&self) -> Result<(), Box<dyn std::error::Error>> {
         self.plugins.update_plugin::<P>(self)
     }

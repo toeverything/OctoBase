@@ -1,6 +1,6 @@
-use super::{types::JwstRpcResult, *};
-use nanoid::nanoid;
 use std::sync::RwLock;
+
+use nanoid::nanoid;
 use tokio::{net::TcpStream, runtime::Runtime, sync::mpsc::channel};
 use tokio_tungstenite::{
     connect_async,
@@ -8,6 +8,8 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
 };
 use url::Url;
+
+use super::{types::JwstRpcResult, *};
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
@@ -45,10 +47,7 @@ pub fn start_websocket_client_sync(
         };
         if !workspace.is_empty() {
             info!("Workspace not empty, starting async remote connection");
-            last_synced_tx
-                .send(Utc::now().timestamp_millis())
-                .await
-                .unwrap();
+            last_synced_tx.send(Utc::now().timestamp_millis()).await.unwrap();
         } else {
             info!("Workspace empty, starting sync remote connection");
         }
@@ -68,15 +67,10 @@ pub fn start_websocket_client_sync(
                 let identifier = nanoid!();
                 let workspace_id = workspace_id.clone();
                 let last_synced_tx = last_synced_tx.clone();
-                handle_connector(
-                    context.clone(),
-                    workspace_id.clone(),
-                    identifier,
-                    move || {
-                        let (tx, rx) = tungstenite_socket_connector(socket, &workspace_id);
-                        (tx, rx, last_synced_tx)
-                    },
-                )
+                handle_connector(context.clone(), workspace_id.clone(), identifier, move || {
+                    let (tx, rx) = tungstenite_socket_connector(socket, &workspace_id);
+                    (tx, rx, last_synced_tx)
+                })
                 .await
             };
 

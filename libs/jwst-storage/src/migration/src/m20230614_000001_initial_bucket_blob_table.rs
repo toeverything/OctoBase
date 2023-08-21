@@ -1,5 +1,6 @@
-use super::schema::BucketBlobs;
 use sea_orm_migration::prelude::*;
+
+use super::schema::BucketBlobs;
 
 pub struct Migration;
 

@@ -1,6 +1,5 @@
-use crate::storage::blobs::bucket_local_db::BucketStorage;
-use crate::storage::blobs::MixedBucketDBParam;
-use crate::{JwstStorageError, JwstStorageResult};
+use std::{collections::HashMap, io::Cursor};
+
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use futures::{
@@ -9,11 +8,14 @@ use futures::{
 };
 use image::{load_from_memory, ImageOutputFormat, ImageResult};
 use jwst_core::{Base64Engine, BlobMetadata, URL_SAFE_ENGINE};
-use opendal::services::S3;
-use opendal::Operator;
+use opendal::{services::S3, Operator};
 use sea_orm::FromQueryResult;
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, io::Cursor};
+
+use crate::{
+    storage::blobs::{bucket_local_db::BucketStorage, MixedBucketDBParam},
+    JwstStorageError, JwstStorageResult,
+};
 
 enum ImageFormat {
     Jpeg,
@@ -88,11 +90,7 @@ impl TryFrom<&HashMap<String, String>> for ImageParams {
 
         if let Some(format) = format {
             if Self::check_size(width, height) {
-                return Ok(Self {
-                    format,
-                    width,
-                    height,
-                });
+                return Ok(Self { format, width, height });
             }
         }
         Err(())

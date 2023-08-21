@@ -1,14 +1,16 @@
-use super::*;
 use std::{
     path::PathBuf,
     rc::Rc,
     sync::{atomic::AtomicU32, Arc},
 };
+
 use tantivy::{
     query::QueryParser,
     schema::{IndexRecordOption, Schema, TextFieldIndexing, TextOptions, STORED, STRING},
     Index,
 };
+
+use super::*;
 
 #[derive(Debug)]
 enum IndexingStorageKind {

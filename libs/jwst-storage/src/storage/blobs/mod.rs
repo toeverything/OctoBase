@@ -2,20 +2,19 @@ mod bucket_local_db;
 mod local_db;
 mod utils;
 
-#[cfg(test)]
-pub use local_db::blobs_storage_test;
-
-use super::{entities::prelude::*, *};
+pub use bucket_local_db::BlobBucketDBStorage;
 use bytes::Bytes;
 use image::ImageError;
 use jwst::{BlobMetadata, BlobStorage};
+#[cfg(test)]
+pub use local_db::blobs_storage_test;
 use local_db::BlobDBStorage;
 use thiserror::Error;
 use tokio::task::JoinError;
+pub use utils::BucketStorageBuilder;
 use utils::{ImageParams, InternalBlobMetadata};
 
-pub use bucket_local_db::BlobBucketDBStorage;
-pub use utils::BucketStorageBuilder;
+use super::{entities::prelude::*, *};
 
 #[derive(Debug, Error)]
 pub enum JwstBlobError {
@@ -405,10 +404,12 @@ impl JwstBlobStorage {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::io::Cursor;
+
     use futures::FutureExt;
     use image::{DynamicImage, ImageOutputFormat};
-    use std::io::Cursor;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_blob_auto_storage() {

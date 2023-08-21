@@ -1,7 +1,8 @@
-use super::*;
-use crate::utils::JS_INT_RANGE;
 use lib0::any::Any;
 use yrs::{Map, TransactionMut};
+
+use super::*;
+use crate::utils::JS_INT_RANGE;
 
 pub struct SpaceTransaction<'a> {
     pub space: &'a Space,

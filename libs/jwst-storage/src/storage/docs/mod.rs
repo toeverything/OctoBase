@@ -3,15 +3,15 @@ mod utils;
 
 use std::ops::Deref;
 
-use super::*;
-use database::DocDBStorage;
-use tokio::sync::{broadcast::Sender, RwLock};
-
 #[cfg(test)]
 #[cfg(feature = "postgres")]
 pub(super) use database::full_migration_stress_test;
+use database::DocDBStorage;
 #[cfg(test)]
 pub(super) use database::{docs_storage_partial_test, docs_storage_test};
+use tokio::sync::{broadcast::Sender, RwLock};
+
+use super::*;
 
 #[derive(Clone)]
 pub struct SharedDocDBStorage(pub(super) Arc<DocDBStorage>);
@@ -40,13 +40,15 @@ impl Deref for SharedDocDBStorage {
 
 #[cfg(test)]
 mod test {
-    use super::{error, info, DocStorage, SharedDocDBStorage};
-    use crate::{JwstStorageError, JwstStorageResult};
+    use std::collections::HashSet;
+
     use jwst_storage_migration::Migrator;
     use rand::random;
     use sea_orm_migration::MigratorTrait;
-    use std::collections::HashSet;
     use tokio::task::JoinSet;
+
+    use super::{error, info, DocStorage, SharedDocDBStorage};
+    use crate::{JwstStorageError, JwstStorageResult};
 
     async fn create_workspace_stress_test(storage: SharedDocDBStorage, range: usize) -> JwstStorageResult<()> {
         let mut join_set = JoinSet::new();

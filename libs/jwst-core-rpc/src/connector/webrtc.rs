@@ -1,20 +1,18 @@
-use super::Message;
-use jwst_core::{debug, error, info, trace, warn};
+use std::sync::Arc;
 
 use bytes::Bytes;
-use std::sync::Arc;
+use jwst_core::{debug, error, info, trace, warn};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use webrtcrs::{
     api::APIBuilder,
-    data_channel::{
-        data_channel_init::RTCDataChannelInit, data_channel_message::DataChannelMessage,
-        OnMessageHdlrFn,
-    },
+    data_channel::{data_channel_init::RTCDataChannelInit, data_channel_message::DataChannelMessage, OnMessageHdlrFn},
     peer_connection::{
         configuration::RTCConfiguration, peer_connection_state::RTCPeerConnectionState,
         sdp::session_description::RTCSessionDescription, RTCPeerConnection,
     },
 };
+
+use super::Message;
 
 const DATA_CHANNEL_ID: u16 = 42;
 const DATA_CHANNEL_LABEL: &str = "affine";
@@ -38,11 +36,9 @@ async fn new_peer_connection() -> (
 ) {
     let api = APIBuilder::new().build();
     let peer_connection = Arc::new(
-        api.new_peer_connection(RTCConfiguration {
-            ..Default::default()
-        })
-        .await
-        .unwrap(),
+        api.new_peer_connection(RTCConfiguration { ..Default::default() })
+            .await
+            .unwrap(),
     );
 
     peer_connection.on_peer_connection_state_change(Box::new(move |s: RTCPeerConnectionState| {
@@ -76,9 +72,7 @@ async fn new_peer_connection() -> (
             match msg {
                 Message::Binary(data) => {
                     trace!("WebRTC Send: {:?}", data.clone());
-                    d0.send(&Bytes::copy_from_slice(data.as_slice()))
-                        .await
-                        .unwrap();
+                    d0.send(&Bytes::copy_from_slice(data.as_slice())).await.unwrap();
                 }
                 Message::Close => info!("Close"),
                 Message::Ping => info!("Ping"),
@@ -128,17 +122,15 @@ pub async fn webrtc_datachannel_client_begin() -> (
 
     // Block until ICE Gathering is complete, disabling trickle ICE
     // we do this because we only can exchange one signaling message
-    // in a production application you should exchange ICE Candidates via OnICECandidate
+    // in a production application you should exchange ICE Candidates via
+    // OnICECandidate
     let _ = gather_complete.recv().await;
 
     let local_desc = peer_connection.local_description().await.unwrap();
     (local_desc, peer_connection, tx, rx, s)
 }
 
-pub async fn webrtc_datachannel_client_commit(
-    answer: RTCSessionDescription,
-    peer_connection: Arc<RTCPeerConnection>,
-) {
+pub async fn webrtc_datachannel_client_commit(answer: RTCSessionDescription, peer_connection: Arc<RTCPeerConnection>) {
     match peer_connection.set_remote_description(answer).await {
         Ok(_) => {}
         Err(e) => {
@@ -178,7 +170,8 @@ pub async fn webrtc_datachannel_server_connector(
 
     // Block until ICE Gathering is complete, disabling trickle ICE
     // we do this because we only can exchange one signaling message
-    // in a production application you should exchange ICE Candidates via OnICECandidate
+    // in a production application you should exchange ICE Candidates via
+    // OnICECandidate
     let _ = gather_complete.recv().await;
 
     let local_desc = peer_connection.local_description().await.unwrap();

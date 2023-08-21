@@ -1,5 +1,6 @@
-use nu_ansi_term::{AnsiGenericString, Color};
 use std::fmt::Result;
+
+use nu_ansi_term::{AnsiGenericString, Color};
 use tracing::{Event, Level, Metadata, Subscriber};
 use tracing_log::NormalizeEvent;
 use tracing_subscriber::{

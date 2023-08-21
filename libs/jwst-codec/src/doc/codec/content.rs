@@ -1,6 +1,7 @@
+use std::ops::Deref;
+
 use super::*;
 use crate::sync::RwLock;
-use std::ops::Deref;
 
 #[derive(Clone)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
@@ -282,8 +283,9 @@ impl Content {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use proptest::{collection::vec, prelude::*};
+
+    use super::*;
 
     fn content_round_trip(content: &Content) -> JwstCodecResult {
         let mut writer = RawEncoder::default();

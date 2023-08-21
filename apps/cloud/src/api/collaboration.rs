@@ -1,5 +1,5 @@
-use super::*;
-use crate::infrastructure::auth::get_claim_from_token;
+use std::sync::Arc;
+
 use axum::{
     extract::{ws::WebSocketUpgrade, Path},
     http::StatusCode,
@@ -8,7 +8,9 @@ use axum::{
 use futures_util::FutureExt;
 use jwst_rpc::{axum_socket_connector, handle_connector};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+
+use super::*;
+use crate::infrastructure::auth::get_claim_from_token;
 
 #[derive(Serialize)]
 pub struct WebSocketAuthentication {

@@ -1,9 +1,11 @@
-use super::*;
+use std::{collections::HashMap, time::Duration};
+
 use jwst_codec::StateVector;
 use jwst_core::{DocStorage, Workspace};
 use jwst_core_storage::{BlobStorageType, JwstStorage};
-use std::{collections::HashMap, time::Duration};
 use tokio::{sync::RwLock, time::sleep};
+
+use super::*;
 
 pub struct MinimumServerContext {
     channel: BroadcastChannels,
@@ -43,9 +45,7 @@ impl MinimumServerContext {
         })
     }
 
-    pub async fn new_with_workspace(
-        workspace_id: &str,
-    ) -> (Arc<MinimumServerContext>, Workspace, Vec<u8>) {
+    pub async fn new_with_workspace(workspace_id: &str) -> (Arc<MinimumServerContext>, Workspace, Vec<u8>) {
         let server = Self::new().await;
         server
             .get_storage()

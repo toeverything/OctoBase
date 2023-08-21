@@ -1,7 +1,7 @@
-use crate::m20220101_000001_create_user_table::Users;
+use sea_orm_migration::prelude::*;
 
 use super::m20230101_000003_create_workspaces_table::Workspaces;
-use sea_orm_migration::prelude::*;
+use crate::m20220101_000001_create_user_table::Users;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -84,9 +84,9 @@ pub enum Permissions {
     UserEmail,   // TEXT,
     Type,        // SMALLINT NOT NULL,
     Accepted,    // BOOL DEFAULT False,
-    CreatedAt,   // TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                 // FOREIGN KEY(workspace_id) REFERENCES workspaces(id),
-                 // FOREIGN KEY(user_id) REFERENCES users(id),
-                 // UNIQUE (workspace_id, user_id),
-                 // UNIQUE (workspace_id, user_email)
+    CreatedAt,   /* TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  * FOREIGN KEY(workspace_id) REFERENCES workspaces(id),
+                  * FOREIGN KEY(user_id) REFERENCES users(id),
+                  * UNIQUE (workspace_id, user_id),
+                  * UNIQUE (workspace_id, user_email) */
 }

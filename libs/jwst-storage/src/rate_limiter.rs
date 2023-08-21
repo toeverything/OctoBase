@@ -1,10 +1,11 @@
+use std::{num::NonZeroU32, sync::Arc};
+
 use governor::{
     clock::{QuantaClock, QuantaInstant},
     middleware::NoOpMiddleware,
     state::{InMemoryState, NotKeyed},
     Quota, RateLimiter,
 };
-use std::{num::NonZeroU32, sync::Arc};
 use tokio::sync::{OwnedSemaphorePermit, RwLock, RwLockReadGuard, RwLockWriteGuard, Semaphore};
 use url::Url;
 

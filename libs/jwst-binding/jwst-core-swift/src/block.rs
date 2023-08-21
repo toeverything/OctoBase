@@ -1,5 +1,6 @@
-use super::*;
 use jwst_core::{Any, Block as JwstBlock};
+
+use super::*;
 
 pub struct Block {
     pub(crate) block: JwstBlock,
@@ -22,9 +23,7 @@ impl Block {
         let mut block = self.block.clone();
         let mut target_block = target_block.block.clone();
 
-        block
-            .push_children(&mut target_block)
-            .expect("failed to push children");
+        block.push_children(&mut target_block).expect("failed to push children");
     }
 
     pub fn insert_children_at(&self, target_block: &Block, pos: u32) {
@@ -64,10 +63,7 @@ impl Block {
     }
 
     pub fn exists_children(&self, block_id: &str) -> i32 {
-        self.block
-            .exists_children(block_id)
-            .map(|i| i as i32)
-            .unwrap_or(-1)
+        self.block.exists_children(block_id).map(|i| i as i32).unwrap_or(-1)
     }
 
     pub fn parent(&self) -> String {

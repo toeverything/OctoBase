@@ -1,4 +1,5 @@
-use crate::{context::Context, infrastructure::error_status::ErrorStatus};
+use std::sync::Arc;
+
 use axum::{
     extract::{BodyStream, Path},
     headers::ContentLength,
@@ -11,7 +12,8 @@ use futures::{future, StreamExt};
 use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
 use jwst_storage::JwstStorageError;
-use std::sync::Arc;
+
+use crate::{context::Context, infrastructure::error_status::ErrorStatus};
 
 impl Context {
     #[instrument(skip(self, stream))]
@@ -549,14 +551,16 @@ pub async fn search_workspace(
 
 #[cfg(test)]
 mod test {
-    use super::super::{make_rest_route, Context};
+    use std::sync::Arc;
+
     use axum::{body::Body, http::StatusCode, Extension};
     use axum_test_helper::TestClient;
     use bytes::Bytes;
     use cloud_database::CloudDatabase;
     use futures::stream;
     use serde_json::json;
-    use std::sync::Arc;
+
+    use super::super::{make_rest_route, Context};
 
     #[tokio::test]
     async fn test_create_workspace() {

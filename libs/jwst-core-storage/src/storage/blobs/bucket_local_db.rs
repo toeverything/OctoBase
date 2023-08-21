@@ -1,19 +1,18 @@
-use super::utils::calculate_hash;
-use super::utils::get_hash;
-use super::*;
-use crate::rate_limiter::Bucket;
-use crate::JwstStorageError;
+use std::{collections::HashMap, sync::Arc};
+
 use bytes::Bytes;
 use futures::Stream;
 use jwst_core::{BlobMetadata, BlobStorage, BucketBlobStorage, JwstResult};
 use jwst_storage_migration::Migrator;
-use opendal::services::S3;
-use opendal::Operator;
+use opendal::{services::S3, Operator};
 use sea_orm::{DatabaseConnection, EntityTrait};
 use sea_orm_migration::MigratorTrait;
 
-use std::collections::HashMap;
-use std::sync::Arc;
+use super::{
+    utils::{calculate_hash, get_hash},
+    *,
+};
+use crate::{rate_limiter::Bucket, JwstStorageError};
 
 pub(super) type BucketBlobModel = <BucketBlobs as EntityTrait>::Model;
 type BucketBlobActiveModel = entities::bucket_blobs::ActiveModel;
@@ -47,10 +46,7 @@ impl BlobBucketDBStorage {
     }
 
     #[allow(unused)]
-    pub async fn init_pool(
-        database: &str,
-        bucket_storage: Option<BucketStorage>,
-    ) -> JwstStorageResult<Self> {
+    pub async fn init_pool(database: &str, bucket_storage: Option<BucketStorage>) -> JwstStorageResult<Self> {
         let is_sqlite = is_sqlite(database);
         let pool = create_connection(database, is_sqlite).await?;
 
@@ -89,11 +85,7 @@ impl BlobBucketDBStorage {
             .map(|c| c > 0)
     }
 
-    pub(super) async fn metadata(
-        &self,
-        workspace: &str,
-        hash: &str,
-    ) -> JwstBlobResult<InternalBlobMetadata> {
+    pub(super) async fn metadata(&self, workspace: &str, hash: &str) -> JwstBlobResult<InternalBlobMetadata> {
         BucketBlobs::find_by_id((workspace.into(), hash.into()))
             .select_only()
             .column_as(BucketBlobColumn::Length, "size")
@@ -178,11 +170,7 @@ impl BucketStorage {
 
 #[async_trait]
 impl BucketBlobStorage<JwstStorageError> for BucketStorage {
-    async fn get_blob(
-        &self,
-        workspace: Option<String>,
-        id: String,
-    ) -> JwstResult<Vec<u8>, JwstStorageError> {
+    async fn get_blob(&self, workspace: Option<String>, id: String) -> JwstResult<Vec<u8>, JwstStorageError> {
         let workspace = get_workspace(workspace);
         let key = build_key(workspace, id);
         let bs = self.op.read(&key).await?;
@@ -203,11 +191,7 @@ impl BucketBlobStorage<JwstStorageError> for BucketStorage {
         Ok(())
     }
 
-    async fn delete_blob(
-        &self,
-        workspace: Option<String>,
-        id: String,
-    ) -> JwstResult<bool, JwstStorageError> {
+    async fn delete_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool, JwstStorageError> {
         let workspace = get_workspace(workspace);
         let key = build_key(workspace, id);
 
@@ -226,10 +210,7 @@ impl BucketBlobStorage<JwstStorageError> for BucketStorage {
 
 #[async_trait]
 impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
-    async fn list_blobs(
-        &self,
-        workspace: Option<String>,
-    ) -> JwstResult<Vec<String>, JwstStorageError> {
+    async fn list_blobs(&self, workspace: Option<String>) -> JwstResult<Vec<String>, JwstStorageError> {
         let _lock = self.bucket.read().await;
         let workspace = workspace.unwrap_or("__default__".into());
         if let Ok(keys) = self.keys(&workspace).await {
@@ -239,11 +220,7 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         Err(JwstStorageError::WorkspaceNotFound(workspace))
     }
 
-    async fn check_blob(
-        &self,
-        workspace: Option<String>,
-        id: String,
-    ) -> JwstResult<bool, JwstStorageError> {
+    async fn check_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool, JwstStorageError> {
         let _lock = self.bucket.read().await;
         let workspace = workspace.unwrap_or("__default__".into());
         if let Ok(exists) = self.exists(&workspace, &id).await {
@@ -292,18 +269,12 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         if self.insert(&workspace, &hash, &blob).await.is_ok() {
             Ok(hash)
         } else {
-            self.bucket_storage
-                .delete_blob(Some(workspace.clone()), hash)
-                .await?;
+            self.bucket_storage.delete_blob(Some(workspace.clone()), hash).await?;
             Err(JwstStorageError::WorkspaceNotFound(workspace))
         }
     }
 
-    async fn put_blob(
-        &self,
-        workspace: Option<String>,
-        blob: Vec<u8>,
-    ) -> JwstResult<String, JwstStorageError> {
+    async fn put_blob(&self, workspace: Option<String>, blob: Vec<u8>) -> JwstResult<String, JwstStorageError> {
         let hash = calculate_hash(&blob);
         self.bucket_storage
             .put_blob(workspace.clone(), hash.clone(), blob.clone())
@@ -315,21 +286,13 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
         if self.insert(&workspace, &hash, &blob).await.is_ok() {
             Ok(hash)
         } else {
-            self.bucket_storage
-                .delete_blob(Some(workspace.clone()), hash)
-                .await?;
+            self.bucket_storage.delete_blob(Some(workspace.clone()), hash).await?;
             Err(JwstStorageError::WorkspaceNotFound(workspace))
         }
     }
 
-    async fn delete_blob(
-        &self,
-        workspace: Option<String>,
-        id: String,
-    ) -> JwstResult<bool, JwstStorageError> {
-        self.bucket_storage
-            .delete_blob(workspace.clone(), id.clone())
-            .await?;
+    async fn delete_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool, JwstStorageError> {
+        self.bucket_storage.delete_blob(workspace.clone(), id.clone()).await?;
         let _lock = self.bucket.write().await;
         let workspace = get_workspace(workspace);
         if let Ok(success) = self.delete(&workspace, &id).await {
@@ -340,9 +303,7 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
     }
 
     async fn delete_workspace(&self, workspace_id: String) -> JwstResult<(), JwstStorageError> {
-        self.bucket_storage
-            .delete_workspace(workspace_id.clone())
-            .await?;
+        self.bucket_storage.delete_workspace(workspace_id.clone()).await?;
         let _lock = self.bucket.write().await;
         if self.drop(&workspace_id).await.is_ok() {
             Ok(())

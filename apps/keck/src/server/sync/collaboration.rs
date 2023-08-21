@@ -1,4 +1,5 @@
-use super::*;
+use std::sync::Arc;
+
 #[cfg(feature = "websocket")]
 use axum::extract;
 use axum::{
@@ -11,9 +12,10 @@ use jwst_rpc::{axum_socket_connector, handle_connector};
 #[cfg(feature = "websocket")]
 use jwst_rpc::{webrtc_datachannel_server_connector, RTCSessionDescription};
 use serde::Serialize;
-use std::sync::Arc;
 #[cfg(feature = "websocket")]
 use tokio::sync::mpsc::channel;
+
+use super::*;
 
 #[derive(Serialize)]
 pub struct WebSocketAuthentication {
@@ -77,8 +79,15 @@ pub async fn webrtc_handler(
 
 #[cfg(test)]
 mod test {
-    use jwst::DocStorage;
-    use jwst::{Block, Workspace};
+    use std::{
+        ffi::c_int,
+        io::{BufRead, BufReader},
+        process::{Child, Command, Stdio},
+        string::String,
+        sync::Arc,
+    };
+
+    use jwst::{Block, DocStorage, Workspace};
     use jwst_logger::info;
     #[cfg(feature = "websocket")]
     use jwst_rpc::start_webrtc_client_sync;
@@ -86,11 +95,6 @@ mod test {
     use jwst_storage::{BlobStorageType, JwstStorage};
     use libc::{kill, SIGTERM};
     use rand::{thread_rng, Rng};
-    use std::ffi::c_int;
-    use std::io::{BufRead, BufReader};
-    use std::process::{Child, Command, Stdio};
-    use std::string::String;
-    use std::sync::Arc;
     use tokio::runtime::Runtime;
 
     struct TestContext {

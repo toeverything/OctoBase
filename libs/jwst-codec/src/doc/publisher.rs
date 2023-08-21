@@ -1,6 +1,7 @@
+use jwst_logger::{debug, trace};
+
 use super::{store::StoreRef, *};
 use crate::sync::{Arc, AtomicBool, Mutex, Ordering, RwLock};
-use jwst_logger::{debug, trace};
 
 pub type DocSubscriber = Box<dyn Fn(&[u8]) + Sync + Send + 'static>;
 

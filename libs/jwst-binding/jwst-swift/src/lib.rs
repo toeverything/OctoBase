@@ -5,13 +5,12 @@ mod storage;
 mod workspace;
 
 pub use block::Block;
-pub use dynamic_value::{DynamicValue, DynamicValueMap};
-pub use storage::Storage;
-pub use workspace::Workspace;
-
 use difflog::{CachedDiffLog, Log};
+pub use dynamic_value::{DynamicValue, DynamicValueMap};
 use jwst::{error, info, warn, JwstError};
 use jwst_logger::init_logger_with;
+pub use storage::Storage;
+pub use workspace::Workspace;
 
 type JwstWorkSpaceResult = Result<Workspace, JwstError>;
 

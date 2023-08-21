@@ -4,6 +4,8 @@ mod rate_limiter;
 mod storage;
 mod types;
 
+use std::{path::PathBuf, sync::Arc, time::Duration};
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use futures::{Future, Stream};
@@ -12,10 +14,10 @@ use jwst_logger::{debug, error, info, trace, warn};
 use path_ext::PathExt;
 use rate_limiter::{get_bucket, is_sqlite, Bucket};
 use sea_orm::{prelude::*, ConnectOptions, Database, DbErr, QuerySelect, Set};
-use std::{path::PathBuf, sync::Arc, time::Duration};
-
-pub use storage::blobs::{BlobStorageType, MixedBucketDBParam};
-pub use storage::JwstStorage;
+pub use storage::{
+    blobs::{BlobStorageType, MixedBucketDBParam},
+    JwstStorage,
+};
 pub use types::{JwstStorageError, JwstStorageResult};
 
 #[inline]

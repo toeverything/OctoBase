@@ -1,8 +1,9 @@
-use crate::{Client, Clock, CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, Id, JwstCodecResult};
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
 };
+
+use crate::{Client, Clock, CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, Id, JwstCodecResult};
 
 #[derive(Default, Debug, PartialEq, Clone)]
 pub struct StateVector(HashMap<Client, Clock>);

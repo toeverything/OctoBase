@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
 use super::*;
-use crate::sync::Arc;
 use crate::{
     doc::{AsInner, Node, Parent, YTypeRef},
-    impl_type, Content, JwstCodecResult,
+    impl_type,
+    sync::Arc,
+    Content, JwstCodecResult,
 };
-use std::collections::HashMap;
 
 impl_type!(Map);
 

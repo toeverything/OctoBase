@@ -1,11 +1,13 @@
-use super::{BroadcastType, Message, RpcContextImpl};
+use std::{sync::Arc, time::Instant};
+
 use chrono::Utc;
 use jwst::{debug, error, info, trace, warn};
-use std::{sync::Arc, time::Instant};
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     time::{sleep, Duration},
 };
+
+use super::{BroadcastType, Message, RpcContextImpl};
 
 pub async fn handle_connector(
     context: Arc<impl RpcContextImpl<'static> + Send + Sync + 'static>,
@@ -15,7 +17,8 @@ pub async fn handle_connector(
 ) -> bool {
     info!("{} collaborate with workspace {}", identifier, workspace_id);
 
-    // An abstraction of the established socket connection. Use tx to broadcast and rx to receive.
+    // An abstraction of the established socket connection. Use tx to broadcast and
+    // rx to receive.
     let (tx, rx, last_synced) = get_channel();
 
     let mut ws = context
@@ -23,22 +26,25 @@ pub async fn handle_connector(
         .await
         .expect("failed to get workspace");
 
-    // Continuously receive information from the remote socket, apply it to the local workspace, and
-    // send the encoded updates back to the remote end through the socket.
+    // Continuously receive information from the remote socket, apply it to the
+    // local workspace, and send the encoded updates back to the remote end
+    // through the socket.
     context
         .apply_change(&workspace_id, &identifier, tx.clone(), rx, last_synced.clone())
         .await;
 
-    // Both of broadcast_update and server_update are sent to the remote socket through 'tx'
-    // The 'broadcast_update' is the receiver for updates to the awareness and Doc of the local workspace.
-    // It uses channel, which is owned by the server itself and is stored in the server's memory (not persisted)."
+    // Both of broadcast_update and server_update are sent to the remote socket
+    // through 'tx' The 'broadcast_update' is the receiver for updates to the
+    // awareness and Doc of the local workspace. It uses channel, which is owned
+    // by the server itself and is stored in the server's memory (not persisted)."
     let broadcast_tx = context
         .join_broadcast(&mut ws, identifier.clone(), last_synced.clone())
         .await;
     let mut broadcast_rx = broadcast_tx.subscribe();
-    // Obtaining the receiver corresponding to DocAutoStorage in storage. The sender is used in the
-    // doc::write_update(). The remote used is the one belonging to DocAutoStorage and is owned by
-    // the server itself, stored in the server's memory (not persisted).
+    // Obtaining the receiver corresponding to DocAutoStorage in storage. The sender
+    // is used in the doc::write_update(). The remote used is the one belonging
+    // to DocAutoStorage and is owned by the server itself, stored in the
+    // server's memory (not persisted).
     let mut server_rx = context.join_server_broadcast(&workspace_id).await;
 
     // Send initialization message.
@@ -164,6 +170,12 @@ pub async fn handle_connector(
 
 #[cfg(test)]
 mod test {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use indicatif::{MultiProgress, ProgressBar, ProgressIterator, ProgressStyle};
+    use jwst::{JwstError, JwstResult};
+    use yrs::Map;
+
     use super::{
         super::{connect_memory_workspace, MinimumServerContext},
         *,
@@ -172,10 +184,6 @@ mod test {
     use crate::{
         webrtc_datachannel_client_begin, webrtc_datachannel_client_commit, webrtc_datachannel_server_connector,
     };
-    use indicatif::{MultiProgress, ProgressBar, ProgressIterator, ProgressStyle};
-    use jwst::{JwstError, JwstResult};
-    use std::sync::atomic::{AtomicU64, Ordering};
-    use yrs::Map;
 
     #[tokio::test]
     #[ignore = "skip in ci"]

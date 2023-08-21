@@ -1,10 +1,11 @@
+use std::ops::RangeInclusive;
+
 use base64::{
     alphabet::{STANDARD, URL_SAFE},
     engine::{general_purpose::PAD, GeneralPurpose},
 };
 pub use base64::{DecodeError as Base64DecodeError, Engine as Base64Engine};
 use lib0::encoding::Write;
-use std::ops::RangeInclusive;
 use yrs::updates::encoder::{Encoder, EncoderV1};
 
 const MSG_SYNC: usize = 0;

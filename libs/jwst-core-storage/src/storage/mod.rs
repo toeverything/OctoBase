@@ -3,16 +3,19 @@ mod difflog;
 mod docs;
 mod test;
 
-use self::difflog::DiffLogRecord;
+use std::{collections::HashMap, time::Instant};
 
-use super::*;
-use crate::storage::blobs::{BlobBucketDBStorage, BlobStorageType, JwstBlobStorage};
-use crate::types::JwstStorageError;
 use blobs::BlobAutoStorage;
 use docs::SharedDocDBStorage;
 use jwst_storage_migration::{Migrator, MigratorTrait};
-use std::{collections::HashMap, time::Instant};
 use tokio::sync::Mutex;
+
+use self::difflog::DiffLogRecord;
+use super::*;
+use crate::{
+    storage::blobs::{BlobBucketDBStorage, BlobStorageType, JwstBlobStorage},
+    types::JwstStorageError,
+};
 
 pub struct JwstStorage {
     pool: DatabaseConnection,
@@ -23,31 +26,21 @@ pub struct JwstStorage {
 }
 
 impl JwstStorage {
-    pub async fn new(
-        database: &str,
-        blob_storage_type: BlobStorageType,
-    ) -> JwstStorageResult<Self> {
+    pub async fn new(database: &str, blob_storage_type: BlobStorageType) -> JwstStorageResult<Self> {
         let is_sqlite = is_sqlite(database);
         let pool = create_connection(database, is_sqlite).await?;
         let bucket = get_bucket(is_sqlite);
 
         if is_sqlite {
-            pool.execute_unprepared("PRAGMA journal_mode=WAL;")
-                .await
-                .unwrap();
+            pool.execute_unprepared("PRAGMA journal_mode=WAL;").await.unwrap();
         }
 
         let blobs = match blob_storage_type {
-            BlobStorageType::DB => JwstBlobStorage::DB(
-                BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone()).await?,
-            ),
+            BlobStorageType::DB => {
+                JwstBlobStorage::DB(BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone()).await?)
+            }
             BlobStorageType::MixedBucketDB(param) => JwstBlobStorage::MixedBucketDB(
-                BlobBucketDBStorage::init_with_pool(
-                    pool.clone(),
-                    bucket.clone(),
-                    Some(param.try_into()?),
-                )
-                .await?,
+                BlobBucketDBStorage::init_with_pool(pool.clone(), bucket.clone(), Some(param.try_into()?)).await?,
             ),
         };
         let docs = SharedDocDBStorage::init_with_pool(pool.clone(), bucket.clone()).await?;
@@ -62,10 +55,7 @@ impl JwstStorage {
         })
     }
 
-    pub async fn new_with_migration(
-        database: &str,
-        blob_storage_type: BlobStorageType,
-    ) -> JwstStorageResult<Self> {
+    pub async fn new_with_migration(database: &str, blob_storage_type: BlobStorageType) -> JwstStorageResult<Self> {
         let storage = Self::new(database, blob_storage_type).await?;
 
         storage.db_migrate().await?;
@@ -78,10 +68,7 @@ impl JwstStorage {
         Ok(())
     }
 
-    pub async fn new_with_sqlite(
-        file: &str,
-        blob_storage_type: BlobStorageType,
-    ) -> JwstStorageResult<Self> {
+    pub async fn new_with_sqlite(file: &str, blob_storage_type: BlobStorageType) -> JwstStorageResult<Self> {
         use std::fs::create_dir;
 
         let data = PathBuf::from("./data");
@@ -92,9 +79,7 @@ impl JwstStorage {
         Self::new_with_migration(
             &format!(
                 "sqlite:{}?mode=rwc",
-                data.join(PathBuf::from(file).name_str())
-                    .with_extension("db")
-                    .display()
+                data.join(PathBuf::from(file).name_str()).with_extension("db").display()
             ),
             blob_storage_type,
         )
@@ -134,12 +119,7 @@ impl JwstStorage {
         self.docs
             .get_or_create_workspace(workspace_id.as_ref().into())
             .await
-            .map_err(|_err| {
-                JwstStorageError::Crud(format!(
-                    "Failed to create workspace {}",
-                    workspace_id.as_ref()
-                ))
-            })
+            .map_err(|_err| JwstStorageError::Crud(format!("Failed to create workspace {}", workspace_id.as_ref())))
     }
 
     pub async fn get_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
@@ -151,46 +131,25 @@ impl JwstStorage {
             .docs
             .detect_workspace(workspace_id.as_ref())
             .await
-            .map_err(|_err| {
-                JwstStorageError::Crud(format!(
-                    "failed to check workspace {}",
-                    workspace_id.as_ref()
-                ))
-            })?
+            .map_err(|_err| JwstStorageError::Crud(format!("failed to check workspace {}", workspace_id.as_ref())))?
         {
             Ok(self
                 .docs
                 .get_or_create_workspace(workspace_id.as_ref().into())
                 .await
-                .map_err(|_err| {
-                    JwstStorageError::Crud(format!(
-                        "failed to get workspace {}",
-                        workspace_id.as_ref()
-                    ))
-                })?)
+                .map_err(|_err| JwstStorageError::Crud(format!("failed to get workspace {}", workspace_id.as_ref())))?)
         } else {
-            Err(JwstStorageError::WorkspaceNotFound(
-                workspace_id.as_ref().into(),
-            ))
+            Err(JwstStorageError::WorkspaceNotFound(workspace_id.as_ref().into()))
         }
     }
 
-    pub async fn full_migrate(
-        &self,
-        workspace_id: String,
-        update: Option<Vec<u8>>,
-        force: bool,
-    ) -> bool {
+    pub async fn full_migrate(&self, workspace_id: String, update: Option<Vec<u8>>, force: bool) -> bool {
         let mut map = self.last_migrate.lock().await;
         let ts = map.entry(workspace_id.clone()).or_insert(Instant::now());
 
         if ts.elapsed().as_secs() > 5 || force {
             debug!("full migrate: {workspace_id}");
-            match self
-                .docs
-                .get_or_create_workspace(workspace_id.clone())
-                .await
-            {
+            match self.docs.get_or_create_workspace(workspace_id.clone()).await {
                 Ok(workspace) => {
                     let update = if let Some(update) = update {
                         if let Err(e) = self.docs.delete_workspace(&workspace_id).await {
@@ -206,11 +165,7 @@ impl JwstStorage {
                         error!("full migrate failed: wait transact timeout");
                         return false;
                     };
-                    if let Err(e) = self
-                        .docs
-                        .flush_workspace(workspace_id.clone(), update)
-                        .await
-                    {
+                    if let Err(e) = self.docs.flush_workspace(workspace_id.clone(), update).await {
                         error!("db write error: {}", e.to_string());
                         return false;
                     }
@@ -254,9 +209,8 @@ mod tests {
             bucket: Some(dotenvy::var("BUCKET_NAME").unwrap()),
             root: Some(dotenvy::var("BUCKET_ROOT").unwrap()),
         };
-        let _storage =
-            JwstStorage::new_with_sqlite(":memory:", BlobStorageType::MixedBucketDB(bucket_params))
-                .await
-                .unwrap();
+        let _storage = JwstStorage::new_with_sqlite(":memory:", BlobStorageType::MixedBucketDB(bucket_params))
+            .await
+            .unwrap();
     }
 }

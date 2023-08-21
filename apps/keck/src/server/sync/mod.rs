@@ -1,8 +1,9 @@
 mod blobs;
 mod collaboration;
 
-use super::*;
 use axum::routing::{get, post, put};
+
+use super::*;
 
 pub fn sync_handler(router: Router) -> Router {
     let router = if cfg!(feature = "api") {

@@ -1,5 +1,6 @@
-use lib0::any::Any;
 use std::collections::HashMap;
+
+use lib0::any::Any;
 
 pub type DynamicValueMap = HashMap<String, DynamicValue>;
 

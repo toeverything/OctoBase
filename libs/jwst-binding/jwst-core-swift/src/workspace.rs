@@ -1,5 +1,6 @@
-use super::*;
 use jwst_core::Workspace as JwstWorkspace;
+
+use super::*;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
@@ -51,12 +52,7 @@ impl Workspace {
 
         workspace
             .get_blocks()
-            .map(|s| {
-                s.get_blocks_by_flavour(flavour)
-                    .into_iter()
-                    .map(Block::new)
-                    .collect()
-            })
+            .map(|s| s.get_blocks_by_flavour(flavour).into_iter().map(Block::new).collect())
             .unwrap_or_default()
     }
 

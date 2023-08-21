@@ -1,6 +1,8 @@
-use super::*;
-use nom::bytes::complete::take;
 use std::io::{Error, Write};
+
+use nom::bytes::complete::take;
+
+use super::*;
 
 pub fn read_var_buffer(input: &[u8]) -> IResult<&[u8], &[u8]> {
     let (tail, len) = read_var_u64(input)?;
@@ -16,11 +18,12 @@ pub fn write_var_buffer<W: Write>(buffer: &mut W, data: &[u8]) -> Result<(), Err
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nom::{
         error::{Error, ErrorKind},
         AsBytes, Err,
     };
+
+    use super::*;
 
     #[test]
     fn test_read_var_buffer() {

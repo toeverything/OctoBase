@@ -6,8 +6,6 @@ mod storage;
 mod transaction;
 mod workspace;
 
-pub use crate::java_glue::*;
-
 use block::Block;
 use block_observer::BlockObserver;
 use difflog::{CachedDiffLog, Log};
@@ -19,3 +17,5 @@ use rifgen::rifgen_attr::*;
 use storage::JwstStorage;
 use transaction::{OnWorkspaceTransaction, WorkspaceTransaction};
 use workspace::Workspace;
+
+pub use crate::java_glue::*;

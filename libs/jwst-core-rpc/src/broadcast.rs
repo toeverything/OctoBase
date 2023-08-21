@@ -1,11 +1,11 @@
-use super::*;
-use jwst_codec::{
-    encode_update_as_message, encode_update_with_guid, write_sync_message, SyncMessage,
-};
+use std::{collections::HashMap, sync::Mutex};
+
+use jwst_codec::{encode_update_as_message, encode_update_with_guid, write_sync_message, SyncMessage};
 use jwst_core::Workspace;
 use lru_time_cache::LruCache;
-use std::{collections::HashMap, sync::Mutex};
 use tokio::sync::{broadcast::Sender, RwLock};
+
+use super::*;
 
 #[derive(Clone)]
 pub enum BroadcastType {
@@ -42,10 +42,7 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
 
                 let mut dedup_cache = dedup_cache.lock().unwrap_or_else(|e| e.into_inner());
                 if !dedup_cache.contains_key(&buffer) {
-                    if sender
-                        .send(BroadcastType::BroadcastAwareness(buffer.clone()))
-                        .is_err()
-                    {
+                    if sender.send(BroadcastType::BroadcastAwareness(buffer.clone())).is_err() {
                         debug!("broadcast channel {workspace_id} has been closed",)
                     }
                     dedup_cache.insert(buffer, ());
@@ -70,10 +67,7 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
                         debug!("broadcast channel {workspace_id} has been closed",)
                     }
 
-                    if sender
-                        .send(BroadcastType::BroadcastContent(sendable_update))
-                        .is_err()
-                    {
+                    if sender.send(BroadcastType::BroadcastContent(sendable_update)).is_err() {
                         debug!("broadcast channel {workspace_id} has been closed",)
                     }
                 }

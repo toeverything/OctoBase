@@ -1,21 +1,19 @@
 use std::collections::HashMap;
 
-use super::{
-    broadcast::{subscribe, BroadcastChannels, BroadcastType},
-    *,
-};
 use async_trait::async_trait;
 use chrono::Utc;
 use jwst_codec::{CrdtReader, RawDecoder};
 use jwst_core::{DocStorage, Workspace};
 use jwst_core_storage::{JwstStorage, JwstStorageResult};
 use tokio::sync::{
-    broadcast::{
-        channel as broadcast, error::RecvError, Receiver as BroadcastReceiver,
-        Sender as BroadcastSender,
-    },
+    broadcast::{channel as broadcast, error::RecvError, Receiver as BroadcastReceiver, Sender as BroadcastSender},
     mpsc::{Receiver as MpscReceiver, Sender as MpscSender},
     Mutex,
+};
+
+use super::{
+    broadcast::{subscribe, BroadcastChannels, BroadcastType},
+    *,
 };
 
 #[async_trait]
@@ -57,15 +55,17 @@ pub trait RpcContextImpl<'a> {
             }
         };
 
-        // Listen to changes of the local workspace, encode changes in awareness and Doc, and broadcast them.
-        // It returns the 'broadcast_rx' object to receive the content that was sent
+        // Listen to changes of the local workspace, encode changes in awareness and
+        // Doc, and broadcast them. It returns the 'broadcast_rx' object to
+        // receive the content that was sent
         subscribe(workspace, identifier.clone(), broadcast_tx.clone()).await;
 
         // save update thread
         self.save_update(&id, identifier, broadcast_tx.subscribe(), last_synced)
             .await;
 
-        // returns the 'broadcast_tx' which can be subscribed later, to receive local workspace changes
+        // returns the 'broadcast_tx' which can be subscribed later, to receive local
+        // workspace changes
         broadcast_tx
     }
 
@@ -128,17 +128,12 @@ pub trait RpcContextImpl<'a> {
                             debug!("save {} updates from {guid}", updates.len());
 
                             for update in updates {
-                                if let Err(e) =
-                                    docs.update_doc(id.clone(), guid.clone(), &update).await
-                                {
+                                if let Err(e) = docs.update_doc(id.clone(), guid.clone(), &update).await {
                                     error!("failed to save update of {}: {:?}", id, e);
                                 }
                             }
                         }
-                        last_synced
-                            .send(Utc::now().timestamp_millis())
-                            .await
-                            .unwrap();
+                        last_synced.send(Utc::now().timestamp_millis()).await.unwrap();
                     } else if handler.is_finished() {
                         break;
                     }

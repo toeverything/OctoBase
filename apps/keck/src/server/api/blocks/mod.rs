@@ -3,14 +3,14 @@ pub mod schema;
 pub mod workspace;
 
 pub use block::{delete_block, get_block, get_block_history, insert_block_children, remove_block_children, set_block};
+use schema::InsertChildren;
+pub use schema::SubscribeWorkspace;
 pub use workspace::{
     delete_workspace, get_workspace, history_workspace, history_workspace_clients, set_workspace, subscribe_workspace,
     workspace_client,
 };
 
 use super::*;
-use schema::InsertChildren;
-pub use schema::SubscribeWorkspace;
 
 fn block_apis(router: Router) -> Router {
     let block_operation = Router::new()
@@ -56,9 +56,10 @@ pub fn blocks_apis(router: Router) -> Router {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use axum_test_helper::TestClient;
     use serde_json::{from_str, json, to_string, Value};
+
+    use super::*;
 
     #[tokio::test]
     async fn test_doc_apis() {

@@ -1,4 +1,5 @@
-use crate::context::Context;
+use std::sync::Arc;
+
 use axum::{
     extract::{BodyStream, Path},
     headers::ContentLength,
@@ -6,10 +7,10 @@ use axum::{
     response::{IntoResponse, Response},
     Extension, TypedHeader,
 };
-
 use cloud_database::Claims;
 use jwst_logger::{info, instrument, tracing};
-use std::sync::Arc;
+
+use crate::context::Context;
 
 ///  Get `blob` by workspace_id and hash.
 /// - Return 200 and `blob`.

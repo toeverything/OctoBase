@@ -1,8 +1,9 @@
-use super::*;
 use axum::extract::ws::{Message as WebSocketMessage, WebSocket};
 use futures::{sink::SinkExt, stream::StreamExt};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio_tungstenite::tungstenite::Error as SocketError;
+
+use super::*;
 
 impl From<Message> for WebSocketMessage {
     fn from(value: Message) -> Self {

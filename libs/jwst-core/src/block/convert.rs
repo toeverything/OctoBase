@@ -227,8 +227,9 @@ impl Block {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use jwst_codec::Update;
+
+    use super::*;
 
     #[test]
     fn test_multiple_layer_space_clone() {

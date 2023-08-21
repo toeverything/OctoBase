@@ -1,5 +1,6 @@
-use axum::{extract::Path, http::StatusCode, response::IntoResponse, routing::get, Extension, Json, Router};
 use std::{env, sync::Arc};
+
+use axum::{extract::Path, http::StatusCode, response::IntoResponse, routing::get, Extension, Json, Router};
 use utoipa::openapi::{License, OpenApi};
 use utoipa_swagger_ui::{serve, Config, Url};
 

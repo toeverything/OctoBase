@@ -1,9 +1,10 @@
-use super::*;
 use y_sync::sync::Message as YMessage;
 use yrs::{
     updates::{decoder::Decode, encoder::Encode},
     StateVector,
 };
+
+use super::*;
 
 pub fn to_sync_message(msg: YMessage) -> Option<SyncMessage> {
     match msg {
