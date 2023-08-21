@@ -12,13 +12,18 @@ impl_type!(Map);
 
 pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
     fn insert(&mut self, key: impl AsRef<str>, value: impl Into<Content>) -> JwstCodecResult {
-        let mut inner = self.as_inner().get().unwrap().write().unwrap();
+        // when we apply update, we may get write store then get ytype, so we ensure
+        // that everywhere, the write store is fetched before the write ytype to
+        // avoid deadlocks
+        let inner = self.as_inner().get().unwrap().read().unwrap();
         let left = inner.map.as_ref().and_then(|map| {
             map.get(key.as_ref())
                 .and_then(|struct_info| struct_info.left())
                 .map(|l| l.as_item())
         });
         if let Some(store) = inner.store.upgrade() {
+            drop(inner);
+
             let mut store = store.write().unwrap();
             let item = store.create_item(
                 value.into(),
@@ -27,6 +32,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
                 Some(Parent::Type(self.as_inner().clone())),
                 Some(key.as_ref().into()),
             );
+            let mut inner = self.as_inner().get().unwrap().write().unwrap();
             store.integrate(Node::Item(item), 0, Some(&mut inner))?;
         }
 
@@ -74,12 +80,19 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
     }
 
     fn remove(&mut self, key: impl AsRef<str>) -> bool {
-        let mut inner = self.as_inner().get().unwrap().write().unwrap();
+        // when we apply update, we may get write store then get ytype, so we ensure
+        // that everywhere, the write store is fetched before the write ytype to
+        // avoid deadlocks
+        let inner = self.as_inner().get().unwrap().read().unwrap();
         let node = inner.map.as_ref().and_then(|map| map.get(key.as_ref()));
         if let Some(store) = inner.store.upgrade() {
-            let mut store = store.write().unwrap();
             if let Some(item) = ItemRef::from(node).get() {
+                drop(inner);
+
+                let mut store = store.write().unwrap();
                 store.delete_set.add(item.id.client, item.id.clock, item.len());
+
+                let mut inner = self.as_inner().get().unwrap().write().unwrap();
                 DocStore::delete_item(item, Some(&mut inner));
                 return true;
             }
