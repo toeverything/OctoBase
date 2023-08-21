@@ -1,10 +1,12 @@
-use super::*;
-use jwst_codec::{decode_update_with_guid, encode_update_as_message, Doc, DocMessage, SyncMessage, SyncMessageScanner};
 use std::{
     sync::atomic::{AtomicBool, Ordering},
     thread::JoinHandle as StdJoinHandler,
 };
+
+use jwst_codec::{decode_update_with_guid, encode_update_as_message, Doc, DocMessage, SyncMessage, SyncMessageScanner};
 use tokio::{runtime::Runtime, sync::mpsc::channel, task::JoinHandle as TokioJoinHandler};
+
+use super::*;
 
 // just for test
 pub fn memory_connector(

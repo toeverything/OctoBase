@@ -6,9 +6,8 @@ mod common;
 mod user_channel;
 mod workspace;
 
-pub use collaboration::make_ws_route;
+use std::sync::Arc;
 
-use crate::{context::Context, infrastructure::error_status::ErrorStatus, layer::make_firebase_auth_layer};
 use axum::{
     extract::Query,
     response::{IntoResponse, Response},
@@ -17,11 +16,13 @@ use axum::{
 };
 use chrono::Utc;
 use cloud_database::{Claims, MakeToken, RefreshToken, User, UserQuery, UserToken};
+pub use collaboration::make_ws_route;
 use jwst_logger::{error, info, instrument, tracing};
 use lib0::any::Any;
-use std::sync::Arc;
 pub use user_channel::*;
 use utoipa::OpenApi;
+
+use crate::{context::Context, infrastructure::error_status::ErrorStatus, layer::make_firebase_auth_layer};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -256,12 +257,14 @@ pub async fn make_token(Extension(ctx): Extension<Arc<Context>>, Json(payload): 
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use std::sync::Arc;
+
     use axum::http::StatusCode;
     use axum_test_helper::TestClient;
     use cloud_database::{CloudDatabase, CreateUser};
     use serde_json::json;
-    use std::sync::Arc;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_query_user() {

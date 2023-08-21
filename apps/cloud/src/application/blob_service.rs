@@ -1,6 +1,5 @@
-use crate::{
-    context::Context, infrastructure::auth::get_claim_from_headers, infrastructure::error_status::ErrorStatus,
-};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
+
 use axum::{
     extract::BodyStream,
     headers::ContentLength,
@@ -12,13 +11,15 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use futures::{future, StreamExt};
-use jwst::error;
-use jwst::BlobStorage;
+use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
 use mime::APPLICATION_OCTET_STREAM;
 use serde::Serialize;
-use std::sync::Arc;
-use std::{collections::HashMap, path::PathBuf};
+
+use crate::{
+    context::Context,
+    infrastructure::{auth::get_claim_from_headers, error_status::ErrorStatus},
+};
 
 #[derive(Serialize)]
 pub struct Usage {
@@ -218,12 +219,7 @@ impl BlobService {
             return Ok((header, None));
         };
 
-        let Ok(file) = ctx
-            .storage
-            .blobs()
-            .get_blob(workspace, id, params.clone())
-            .await
-        else {
+        let Ok(file) = ctx.storage.blobs().get_blob(workspace, id, params.clone()).await else {
             return Err(ErrorStatus::NotFound);
         };
 
@@ -286,18 +282,20 @@ impl BlobService {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::infrastructure::auth::get_claim_from_token;
-    use crate::{api::make_rest_route, context::Context};
-    use axum::extract::BodyStream;
-    use axum::extract::FromRequest;
-    use axum::http::Request;
-    use axum::{body::Body, http::StatusCode, Extension};
+    use axum::{
+        body::Body,
+        extract::{BodyStream, FromRequest},
+        http::{Request, StatusCode},
+        Extension,
+    };
     use axum_test_helper::TestClient;
     use bytes::Bytes;
     use cloud_database::CloudDatabase;
     use futures::stream;
     use serde_json::json;
+
+    use super::*;
+    use crate::{api::make_rest_route, context::Context, infrastructure::auth::get_claim_from_token};
 
     async fn test_init() -> Arc<Context> {
         let pool = CloudDatabase::init_pool("sqlite::memory:").await.unwrap();

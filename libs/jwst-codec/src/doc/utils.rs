@@ -1,5 +1,6 @@
-use super::*;
 use std::io::Write;
+
+use super::*;
 
 pub fn encode_update_with_guid<S: AsRef<str>>(update: Vec<u8>, guid: S) -> JwstCodecResult<Vec<u8>> {
     let mut encoder = RawEncoder::default();

@@ -3,10 +3,6 @@ use std::{
     panic::{catch_unwind, AssertUnwindSafe},
 };
 
-use super::{
-    broadcast::{subscribe, BroadcastChannels, BroadcastType},
-    *,
-};
 use async_trait::async_trait;
 use chrono::Utc;
 use jwst::{DocStorage, Workspace};
@@ -17,8 +13,12 @@ use tokio::sync::{
     mpsc::{Receiver as MpscReceiver, Sender as MpscSender},
     Mutex,
 };
-
 use yrs::merge_updates_v1;
+
+use super::{
+    broadcast::{subscribe, BroadcastChannels, BroadcastType},
+    *,
+};
 
 fn merge_updates(id: &str, updates: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
     match catch_unwind(AssertUnwindSafe(move || {
@@ -79,15 +79,17 @@ pub trait RpcContextImpl<'a> {
             }
         };
 
-        // Listen to changes of the local workspace, encode changes in awareness and Doc, and broadcast them.
-        // It returns the 'broadcast_rx' object to receive the content that was sent
+        // Listen to changes of the local workspace, encode changes in awareness and
+        // Doc, and broadcast them. It returns the 'broadcast_rx' object to
+        // receive the content that was sent
         subscribe(workspace, identifier.clone(), broadcast_tx.clone()).await;
 
         // save update thread
         self.save_update(&id, identifier, broadcast_tx.subscribe(), last_synced)
             .await;
 
-        // returns the 'broadcast_tx' which can be subscribed later, to receive local workspace changes
+        // returns the 'broadcast_tx' which can be subscribed later, to receive local
+        // workspace changes
         broadcast_tx
     }
 

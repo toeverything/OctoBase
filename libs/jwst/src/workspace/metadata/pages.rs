@@ -1,5 +1,6 @@
-use lib0::any::Any;
 use std::collections::HashMap;
+
+use lib0::any::Any;
 use yrs::{types::Value, Array, ArrayRef, Map, MapRef, ReadTxn};
 
 pub struct PageMeta {
@@ -143,10 +144,10 @@ impl Pages {
 
 #[cfg(test)]
 mod tests {
-    use crate::Workspace;
+    use yrs::{updates::decoder::Decode, ArrayPrelim, Doc, Transact, Update};
 
     use super::*;
-    use yrs::{updates::decoder::Decode, ArrayPrelim, Doc, Transact, Update};
+    use crate::Workspace;
 
     #[test]
     fn test_page_meta() {

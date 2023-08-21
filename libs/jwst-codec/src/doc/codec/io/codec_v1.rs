@@ -1,5 +1,6 @@
-use super::*;
 use std::io::Cursor;
+
+use super::*;
 
 // compatible with ydoc v1
 #[derive(Clone)]

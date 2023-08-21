@@ -7,8 +7,6 @@ mod store;
 mod types;
 mod utils;
 
-use super::*;
-
 pub use awareness::{Awareness, AwarenessEvent};
 pub use codec::*;
 pub use common::*;
@@ -16,3 +14,5 @@ pub use document::{Doc, DocOptions};
 pub(crate) use store::DocStore;
 pub use types::*;
 pub use utils::*;
+
+use super::*;

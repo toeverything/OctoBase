@@ -1,9 +1,10 @@
+use std::{cmp::max, thread::sleep, time::Duration};
+
+use lib0::any::Any;
+use yrs::{Map, ReadTxn, Transact, TransactionMut};
+
 use super::*;
 use crate::{utils::JS_INT_RANGE, RETRY_NUM};
-use lib0::any::Any;
-use std::cmp::max;
-use std::{thread::sleep, time::Duration};
-use yrs::{Map, ReadTxn, Transact, TransactionMut};
 
 pub struct WorkspaceTransaction<'a> {
     pub ws: &'a Workspace,

@@ -1,8 +1,9 @@
-use super::*;
 use axum::{extract::BodyStream, response::Response, routing::post};
 use futures::{future, StreamExt};
 use jwst::BlobStorage;
 use utoipa::ToSchema;
+
+use super::*;
 
 #[derive(Serialize, ToSchema)]
 pub struct BlobStatus {
@@ -174,11 +175,12 @@ pub fn blobs_apis(router: Router) -> Router {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use axum::body::{Body, Bytes};
     use axum_test_helper::TestClient;
     use futures::stream;
     use jwst_storage::BlobStorageType;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_blobs_apis() {

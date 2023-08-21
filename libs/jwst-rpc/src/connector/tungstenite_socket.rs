@@ -1,4 +1,3 @@
-use super::*;
 use futures::{sink::SinkExt, stream::StreamExt};
 use tokio::{
     net::TcpStream,
@@ -8,6 +7,8 @@ use tokio_tungstenite::{
     tungstenite::{Error as SocketError, Message as WebSocketMessage},
     MaybeTlsStream, WebSocketStream,
 };
+
+use super::*;
 
 type WebSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 

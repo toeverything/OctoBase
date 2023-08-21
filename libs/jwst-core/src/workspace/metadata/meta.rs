@@ -1,7 +1,9 @@
-use super::*;
+use std::collections::HashMap;
+
 use jwst_codec::{Any, Array, Map};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
+use super::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WorkspaceMetadata {
@@ -66,8 +68,9 @@ impl Workspace {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use jwst_codec::Doc;
+
+    use super::*;
 
     #[test]
     fn test_workspace_metadata() {

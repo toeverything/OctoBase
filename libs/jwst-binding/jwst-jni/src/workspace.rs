@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
+use jwst_rpc::workspace_compare;
+use tokio::{runtime::Runtime, sync::mpsc::Sender};
+
 use super::*;
 use crate::block_observer::{BlockObserver, BlockObserverWrapper};
-use jwst_rpc::workspace_compare;
-use std::sync::Arc;
-use tokio::{runtime::Runtime, sync::mpsc::Sender};
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,

@@ -1,8 +1,10 @@
-use super::*;
+use std::collections::HashMap;
+
 use bytes::Bytes;
 use chrono::NaiveDateTime;
 use futures::Stream;
-use std::collections::HashMap;
+
+use super::*;
 
 #[derive(Debug)]
 pub struct BlobMetadata {

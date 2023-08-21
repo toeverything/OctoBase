@@ -5,12 +5,7 @@ pub mod xml_element;
 pub mod xml_fragment;
 pub mod xml_text;
 
-use super::*;
 use std::collections::HashMap;
-use yrs::{
-    Array, ArrayPrelim, ArrayRef, Doc, GetString, Map, MapPrelim, MapRef, Text, TextPrelim, TextRef, Transact,
-    XmlFragment, XmlTextPrelim,
-};
 
 use array::*;
 use map::*;
@@ -18,6 +13,12 @@ use text::*;
 use xml_element::*;
 use xml_fragment::*;
 use xml_text::*;
+use yrs::{
+    Array, ArrayPrelim, ArrayRef, Doc, GetString, Map, MapPrelim, MapRef, Text, TextPrelim, TextRef, Transact,
+    XmlFragment, XmlTextPrelim,
+};
+
+use super::*;
 
 type TestOp = fn(doc: &Doc, nest_input: &YrsNestType, params: CRDTParam) -> ();
 type TestOps = phf::Map<&'static str, TestOp>;

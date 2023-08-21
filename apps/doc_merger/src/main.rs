@@ -1,12 +1,12 @@
-use jwst_codec::Doc;
 use std::{
     fs::{read, write},
     io::{Error, ErrorKind},
     path::PathBuf,
 };
-use yrs::{updates::decoder::Decode, ReadTxn, StateVector, Transact, Update};
 
 use clap::Parser;
+use jwst_codec::Doc;
+use yrs::{updates::decoder::Decode, ReadTxn, StateVector, Transact, Update};
 
 /// ybinary merger
 #[derive(Parser, Debug)]

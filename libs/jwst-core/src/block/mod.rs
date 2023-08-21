@@ -1,9 +1,11 @@
 mod convert;
 
-use super::{constants::sys, *};
+use std::fmt;
+
 use jwst_codec::{Any, Array, Doc, Map, Text, Value};
 use serde::{Serialize, Serializer};
-use std::fmt;
+
+use super::{constants::sys, *};
 
 #[derive(Clone)]
 pub struct Block {

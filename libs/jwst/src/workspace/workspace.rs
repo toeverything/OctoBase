@@ -1,16 +1,20 @@
-use super::{
-    block_observer::BlockObserverConfig,
-    plugins::{setup_plugin, PluginMap},
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
 };
+
 use jwst_codec::Awareness;
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use std::sync::Mutex;
-use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 use yrs::{
     types::{map::MapEvent, ToJson},
     updates::decoder::Decode,
     Doc, Map, MapRef, Subscription, Transact, TransactionMut, Update, UpdateSubscription,
+};
+
+use super::{
+    block_observer::BlockObserverConfig,
+    plugins::{setup_plugin, PluginMap},
 };
 
 pub type MapSubscription = Subscription<Arc<dyn Fn(&TransactionMut, &MapEvent)>>;
@@ -24,8 +28,9 @@ pub struct Workspace {
     pub(crate) updated: MapRef,
     pub(crate) metadata: MapRef,
     /// We store plugins so that their ownership is tied to [Workspace].
-    /// This enables us to properly manage lifetimes of observers which will subscribe
-    /// into events that the [Workspace] experiences, like block updates.
+    /// This enables us to properly manage lifetimes of observers which will
+    /// subscribe into events that the [Workspace] experiences, like block
+    /// updates.
     ///
     /// Public just for the crate as we experiment with the plugins interface.
     /// See [super::plugins].
@@ -150,12 +155,12 @@ impl Clone for Workspace {
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::Block, *};
-    use std::collections::HashSet;
-    use std::thread::sleep;
-    use std::time::Duration;
+    use std::{collections::HashSet, thread::sleep, time::Duration};
+
     use tracing::info;
     use yrs::{updates::decoder::Decode, Doc, Map, ReadTxn, StateVector, Update};
+
+    use super::{super::super::Block, *};
 
     #[test]
     fn doc_load_test() {
@@ -467,8 +472,9 @@ mod test {
                 let mut children = block.children(&t.trx);
                 children.sort();
                 assert_eq!(children, vec!["test1".to_owned(), "test2".to_owned()]);
-                // assert_eq!(block.get(&t.trx, "test1").unwrap().to_string(), "test1");
-                // assert_eq!(block.get(&t.trx, "test2").unwrap().to_string(), "test2");
+                // assert_eq!(block.get(&t.trx, "test1").unwrap().to_string(),
+                // "test1"); assert_eq!(block.get(&t.trx,
+                // "test2").unwrap().to_string(), "test2");
             });
         }
     }
@@ -559,8 +565,9 @@ mod test {
                 let mut children = block.children(&t.trx);
                 children.sort();
                 assert_ne!(children, vec!["test1".to_owned(), "test2".to_owned()]);
-                // assert_eq!(block.get(&t.trx, "test1").unwrap().to_string(), "test1");
-                // assert_eq!(block.get(&t.trx, "test2").unwrap().to_string(), "test2");
+                // assert_eq!(block.get(&t.trx, "test1").unwrap().to_string(),
+                // "test1"); assert_eq!(block.get(&t.trx,
+                // "test2").unwrap().to_string(), "test2");
             });
         }
     }

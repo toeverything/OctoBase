@@ -1,5 +1,6 @@
-use super::*;
 use phf::phf_map;
+
+use super::*;
 
 fn insert_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
     let array = match nest_input {
@@ -93,8 +94,9 @@ pub fn yrs_create_array_from_nest_type(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use yrs::Doc;
+
+    use super::*;
 
     #[test]
     fn test_gen_array_ref_ops() {

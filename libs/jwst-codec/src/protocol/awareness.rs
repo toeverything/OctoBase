@@ -1,5 +1,6 @@
-use super::*;
 use nom::multi::count;
+
+use super::*;
 
 const NULL_STR: &str = "null";
 

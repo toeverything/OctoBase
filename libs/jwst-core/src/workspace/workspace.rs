@@ -1,8 +1,10 @@
-use super::*;
+use std::sync::Arc;
+
 use jwst_codec::{Awareness, Doc, Map, Update};
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use std::sync::Arc;
 use tokio::sync::RwLock;
+
+use super::*;
 
 pub struct Workspace {
     workspace_id: String,
@@ -109,8 +111,9 @@ impl Clone for Workspace {
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::Block, *};
     use jwst_codec::StateVector;
+
+    use super::{super::super::Block, *};
 
     #[test]
     fn doc_load_test() {
@@ -324,11 +327,11 @@ mod test {
 
         // TODO: fix merge update
         // {
-        //     let merged_update = merge_updates_v1(&[&update1, &update2]).unwrap();
-        //     let mut doc = Doc::default();
+        //     let merged_update = merge_updates_v1(&[&update1,
+        // &update2]).unwrap();     let mut doc = Doc::default();
         //     doc.apply_update(
-        //         Update::from_ybinary1(merged_update.into_ybinary1().unwrap()).unwrap(),
-        //     )
+        //         Update::from_ybinary1(merged_update.into_ybinary1().
+        // unwrap()).unwrap(),     )
         //     .unwrap();
 
         //     let mut ws = Workspace::from_doc(doc, "test").unwrap();
@@ -343,10 +346,11 @@ mod test {
         //         let block = space.get("test").unwrap();
         //         let mut children = block.children();
         //         children.sort();
-        //         assert_eq!(children, vec!["test1".to_owned(), "test2".to_owned()]);
-        //         // assert_eq!(block.get("test1").unwrap().to_string(), "test1");
-        //         // assert_eq!(block.get("test2").unwrap().to_string(), "test2");
-        //     }
+        //         assert_eq!(children, vec!["test1".to_owned(),
+        // "test2".to_owned()]);         //
+        // assert_eq!(block.get("test1").unwrap().to_string(), "test1");
+        //         // assert_eq!(block.get("test2").unwrap().to_string(),
+        // "test2");     }
         // }
     }
 
@@ -380,8 +384,9 @@ mod test {
             {
                 let mut space = ws.get_space("space").unwrap();
                 let mut _new_block = space.create("test2", "test2").unwrap();
-                // TODO: fix merge update crash if we create same block in two doc then merge them
-                // let mut block = space.create("test", "test1").unwrap();
+                // TODO: fix merge update crash if we create same block in two
+                // doc then merge them let mut block =
+                // space.create("test", "test1").unwrap();
                 // block.insert_children_at(&mut new_block, 0).unwrap();
             }
 
@@ -413,11 +418,11 @@ mod test {
 
         // TODO: fix merge update
         // {
-        //     let merged_update = merge_updates_v1(&[&update1, &update2]).unwrap();
-        //     let mut doc = Doc::default();
+        //     let merged_update = merge_updates_v1(&[&update1,
+        // &update2]).unwrap();     let mut doc = Doc::default();
         //     doc.apply_update(
-        //         Update::from_ybinary1(merged_update.into_ybinary1().unwrap()).unwrap(),
-        //     )
+        //         Update::from_ybinary1(merged_update.into_ybinary1().
+        // unwrap()).unwrap(),     )
         //     .unwrap();
 
         //     let mut ws = Workspace::from_doc(doc, "test").unwrap();
@@ -432,9 +437,10 @@ mod test {
         //         let block = space.get("test").unwrap();
         //         let mut children = block.children();
         //         children.sort();
-        //         assert_ne!(children, vec!["test1".to_owned(), "test2".to_owned()]);
-        //         // assert_eq!(block.get( "test1").unwrap().to_string(), "test1");
-        //         // assert_eq!(block.get( "test2").unwrap().to_string(), "test2");
+        //         assert_ne!(children, vec!["test1".to_owned(),
+        // "test2".to_owned()]);         // assert_eq!(block.get(
+        // "test1").unwrap().to_string(), "test1");         //
+        // assert_eq!(block.get( "test2").unwrap().to_string(), "test2");
         //     }
         // }
     }

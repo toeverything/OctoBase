@@ -1,11 +1,15 @@
-use super::{PluginImpl, Workspace};
+use std::{
+    collections::HashMap,
+    rc::Rc,
+    sync::{atomic::AtomicU32, Arc},
+};
+
 use lib0::any::Any;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::rc::Rc;
-use std::sync::{atomic::AtomicU32, Arc};
 use tantivy::{collector::TopDocs, query::QueryParser, schema::*, Index, ReloadPolicy};
 use utoipa::ToSchema;
+
+use super::{PluginImpl, Workspace};
 
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SearchResult {
@@ -52,7 +56,8 @@ impl IndexingPluginImpl {
         let query = self.query_parser.parse_query(query.as_ref())?;
         let top_docs = searcher.search(&query, &TopDocs::with_limit(10))?;
         // The actual documents still need to be retrieved from Tantivy’s store.
-        // Since the body field was not configured as stored, the document returned will only contain a title.
+        // Since the body field was not configured as stored, the document returned will
+        // only contain a title.
 
         if !top_docs.is_empty() {
             let block_id_field = self.schema.get_field("block_id").unwrap();
@@ -158,8 +163,8 @@ impl IndexingPluginImpl {
             writer.add_document(block_doc)?;
         }
 
-        // If .commit() returns correctly, then all of the documents that have been added
-        // are guaranteed to be persistently indexed.
+        // If .commit() returns correctly, then all of the documents that have been
+        // added are guaranteed to be persistently indexed.
         writer.commit()?;
 
         Ok(())
@@ -168,12 +173,11 @@ impl IndexingPluginImpl {
 
 #[cfg(test)]
 mod test {
-    use super::super::*;
-    use super::*;
+    use super::{super::*, *};
 
-    // out of order for now, in the future, this can be made in order by sorting before
-    // we reduce to just the block ids. Then maybe we could first sort on score, then sort on
-    // block id.
+    // out of order for now, in the future, this can be made in order by sorting
+    // before we reduce to just the block ids. Then maybe we could first sort on
+    // score, then sort on block id.
     macro_rules! expect_result_ids {
         ($search_results:ident, $id_str_array:expr) => {
             let mut sorted_ids = $search_results.0.iter().map(|i| &i.block_id).collect::<Vec<_>>();
@@ -230,10 +234,22 @@ mod test {
             d.set(&mut t.trx, "text", "Text D content ddd yyy").unwrap();
 
             e.set(&mut t.trx, "title", "人民日报").unwrap();
-            e.set(&mut t.trx,"text", "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途").unwrap();
+            e.set(
+                &mut t.trx,
+                "text",
+                "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途",
+            )
+            .unwrap();
 
-            f.set(&mut t.trx, "title", "美国首次成功在核聚变反应中实现“净能量增益”").unwrap();
-            f.set(&mut t.trx, "text", "当地时间13日，美国能源部官员宣布，由美国政府资助的加州劳伦斯·利弗莫尔国家实验室（LLNL），首次成功在核聚变反应中实现“净能量增益”，即聚变反应产生的能量大于促发该反应的镭射能量。").unwrap();
+            f.set(&mut t.trx, "title", "美国首次成功在核聚变反应中实现“净能量增益”")
+                .unwrap();
+            f.set(
+                &mut t.trx,
+                "text",
+                "当地时间13日，美国能源部官员宣布，由美国政府资助的加州劳伦斯·利弗莫尔国家实验室（LLNL），\
+                 首次成功在核聚变反应中实现“净能量增益”，即聚变反应产生的能量大于促发该反应的镭射能量。",
+            )
+            .unwrap();
 
             // pushing blocks in
             block.push_children(&mut t.trx, &b).unwrap();
@@ -253,11 +269,13 @@ mod test {
                 ]
             );
 
-            // Question: Is this supposed to indicate that since this block is detached, then we should not be indexing it?
-            // For example, should we walk up the parent tree to check if each block is actually attached?
+            // Question: Is this supposed to indicate that since this block is detached,
+            // then we should not be indexing it? For example, should we walk up
+            // the parent tree to check if each block is actually attached?
             block.remove_children(&mut t.trx, &d).unwrap();
 
-            println!("Blocks: {:#?}", space1.blocks); // shown if there is an issue running the test.
+            println!("Blocks: {:#?}", space1.blocks); // shown if there is an
+                                                      // issue running the test.
         });
 
         workspace.with_trx(|mut t| {
@@ -278,17 +296,28 @@ mod test {
             b.set(&mut t.trx, "text", "Text B content bbb xxx").unwrap();
 
             c.set(&mut t.trx, "title", "Title C content").unwrap();
-            c.set(&mut t.trx, "text", "Text C content ccc xxx yyy")
-                .unwrap();
+            c.set(&mut t.trx, "text", "Text C content ccc xxx yyy").unwrap();
 
             d.set(&mut t.trx, "title", "Title D content").unwrap();
             d.set(&mut t.trx, "text", "Text D content ddd yyy").unwrap();
 
             e.set(&mut t.trx, "title", "人民日报").unwrap();
-            e.set(&mut t.trx,"text", "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途").unwrap();
+            e.set(
+                &mut t.trx,
+                "text",
+                "张华考上了北京大学；李萍进了中等技术学校；我在百货公司当售货员：我们都有光明的前途",
+            )
+            .unwrap();
 
-            f.set(&mut t.trx, "title", "美国首次成功在核聚变反应中实现“净能量增益”").unwrap();
-            f.set(&mut t.trx, "text", "当地时间13日，美国能源部官员宣布，由美国政府资助的加州劳伦斯·利弗莫尔国家实验室（LLNL），首次成功在核聚变反应中实现“净能量增益”，即聚变反应产生的能量大于促发该反应的镭射能量。").unwrap();
+            f.set(&mut t.trx, "title", "美国首次成功在核聚变反应中实现“净能量增益”")
+                .unwrap();
+            f.set(
+                &mut t.trx,
+                "text",
+                "当地时间13日，美国能源部官员宣布，由美国政府资助的加州劳伦斯·利弗莫尔国家实验室（LLNL），\
+                 首次成功在核聚变反应中实现“净能量增益”，即聚变反应产生的能量大于促发该反应的镭射能量。",
+            )
+            .unwrap();
 
             // pushing blocks in
             block.push_children(&mut t.trx, &b).unwrap();
@@ -308,11 +337,13 @@ mod test {
                 ]
             );
 
-            // Question: Is this supposed to indicate that since this block is detached, then we should not be indexing it?
-            // For example, should we walk up the parent tree to check if each block is actually attached?
+            // Question: Is this supposed to indicate that since this block is detached,
+            // then we should not be indexing it? For example, should we walk up
+            // the parent tree to check if each block is actually attached?
             block.remove_children(&mut t.trx, &d).unwrap();
 
-            println!("Blocks: {:#?}", space2.blocks); // shown if there is an issue running the test.
+            println!("Blocks: {:#?}", space2.blocks); // shown if there is an
+                                                      // issue running the test.
         });
 
         workspace

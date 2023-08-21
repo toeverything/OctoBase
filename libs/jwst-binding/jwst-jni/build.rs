@@ -1,7 +1,7 @@
+use std::{env, fs, path::Path};
+
 use flapigen::{JavaConfig, LanguageConfig};
 use rifgen::{Generator, Language, TypeCases};
-use std::path::Path;
-use std::{env, fs};
 
 fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
@@ -104,7 +104,8 @@ foreign_class!(
 
     fs::write(in_src, template).unwrap();
 
-    //delete the lib folder then create it again to prevent obsolete files from staying
+    //delete the lib folder then create it again to prevent obsolete files from
+    // staying
     let java_folder = Path::new("android").join("src/main/java/com/toeverything/jwst/lib");
     if java_folder.exists() {
         fs::remove_dir_all(&java_folder).unwrap();

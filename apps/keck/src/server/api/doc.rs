@@ -1,10 +1,11 @@
+use cloud_infra::with_api_doc;
+use utoipa::OpenApi;
+
 use super::{
     blobs,
     blocks::{block, schema, workspace},
     *,
 };
-use cloud_infra::with_api_doc;
-use utoipa::OpenApi;
 
 #[derive(OpenApi)]
 #[openapi(

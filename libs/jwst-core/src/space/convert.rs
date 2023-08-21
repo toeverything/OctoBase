@@ -1,6 +1,7 @@
-use super::*;
 use chrono::Utc;
 use jwst_codec::{Array, Map};
+
+use super::*;
 
 impl Space {
     pub fn to_markdown(&self) -> Option<String> {

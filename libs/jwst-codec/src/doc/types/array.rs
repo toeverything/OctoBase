@@ -83,8 +83,9 @@ impl serde::Serialize for Array {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use yrs::{Array, Options, Text, Transact};
+
+    use super::*;
 
     #[test]
     fn test_yarray_insert() {

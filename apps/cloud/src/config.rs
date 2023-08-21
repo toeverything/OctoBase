@@ -1,5 +1,6 @@
-use chrono::Duration;
 use std::env;
+
+use chrono::Duration;
 
 /// A config of `Context`.
 #[derive(Clone, Debug)]

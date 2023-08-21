@@ -1,5 +1,6 @@
-use super::{pages::*, *};
 use url_escape::decode;
+
+use super::{pages::*, *};
 
 pub async fn fetch_static_response(uri: Uri, sap: bool, fetcher: Option<StaticFileFetcher>) -> impl IntoResponse {
     let path = uri.path().trim_start_matches('/');

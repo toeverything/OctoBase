@@ -1,6 +1,7 @@
+use std::time::Duration;
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use rand::{Rng, SeedableRng};
-use std::time::Duration;
 
 fn operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("ops/text");

@@ -4,18 +4,14 @@ mod subscribe;
 mod sync;
 mod utils;
 
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, thread::sleep};
+
 use api::Context;
 use axum::{http::Method, Extension, Router, Server};
 use jwst::Workspace;
-use std::{
-    collections::HashMap,
-    thread::sleep,
-    {net::SocketAddr, sync::Arc},
-};
+pub use subscribe::*;
 use tokio::{runtime, signal, sync::RwLock};
 use tower_http::cors::{Any, CorsLayer};
-
-pub use subscribe::*;
 pub use utils::*;
 
 async fn shutdown_signal() {

@@ -1,20 +1,19 @@
-pub use lettre::transport::smtp::commands::Mail;
-
-use super::*;
 use chrono::prelude::*;
 use cloud_database::Claims;
 use handlebars::{Handlebars, RenderError};
 use jwst::{warn, Base64Engine, WorkspaceMetadata, STANDARD_ENGINE};
+pub use lettre::transport::smtp::commands::Mail;
 use lettre::{
     error::Error as MailConfigError,
     message::{Mailbox, MultiPart, SinglePart},
-    transport::smtp::authentication::Credentials,
-    transport::smtp::Error as MailSmtpError,
+    transport::smtp::{authentication::Credentials, Error as MailSmtpError},
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 };
 use serde::Serialize;
 use thiserror::Error;
 use url::Url;
+
+use super::*;
 
 #[derive(Debug, Error)]
 pub enum MailError {
@@ -67,7 +66,10 @@ impl MailContext {
 
         if client.is_none() {
             warn!("!!! no mail account provided, email will not be sent !!!");
-            warn!("!!! please set MAIL_ACCOUNT and MAIL_PASSWORD in .env file or environmental variable to enable email service !!!");
+            warn!(
+                "!!! please set MAIL_ACCOUNT and MAIL_PASSWORD in .env file or environmental variable to enable email \
+                 service !!!"
+            );
         }
 
         let mail_box = MAIL_FROM.parse().expect("should provide valid mail from");

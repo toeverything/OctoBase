@@ -1,5 +1,6 @@
-use jwst_codec::{Any, Array, Map, Value};
 use std::collections::HashMap;
+
+use jwst_codec::{Any, Array, Map, Value};
 
 pub struct PageMeta {
     pub id: String,
@@ -148,8 +149,9 @@ impl Pages {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use jwst_codec::Doc;
+
+    use super::*;
 
     #[test]
     fn test_page_meta() {
@@ -180,7 +182,8 @@ mod tests {
     //     let doc = Doc::default();
     //     doc.apply_update(
     //         Update::from_ybinary1(
-    //             include_bytes!("../../../fixtures/test_shared_page.bin").to_vec(),
+    //             
+    // include_bytes!("../../../fixtures/test_shared_page.bin").to_vec(),
     //         )
     //         .unwrap(),
     //     );

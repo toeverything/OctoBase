@@ -1,12 +1,14 @@
 mod convert;
 
-use super::{constants::sys, utils::JS_INT_RANGE, *};
+use std::{
+    collections::HashMap,
+    fmt,
+    sync::{Arc, RwLock},
+};
+
 use lib0::any::Any;
 use serde::{Serialize, Serializer};
 use serde_json::Value as JsonValue;
-use std::collections::HashMap;
-use std::fmt;
-use std::sync::{Arc, RwLock};
 use yrs::{
     types::{
         text::{Diff, YChange},
@@ -15,6 +17,8 @@ use yrs::{
     Array, ArrayPrelim, ArrayRef, DeepObservable, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, TextRef,
     Transact, TransactionMut,
 };
+
+use super::{constants::sys, utils::JS_INT_RANGE, *};
 
 #[derive(Clone)]
 pub struct Block {
@@ -471,8 +475,9 @@ impl Serialize for Block {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use std::collections::HashMap;
+
+    use super::*;
 
     #[test]
     fn init_block() {

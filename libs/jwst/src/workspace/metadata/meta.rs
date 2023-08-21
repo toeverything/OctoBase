@@ -1,9 +1,11 @@
-use super::*;
+use std::collections::HashMap;
+
 use lib0::any::Any;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use yrs::{ArrayPrelim, ArrayRef, Map, MapRef, ReadTxn, Transact, TransactionMut};
+
+use super::*;
 
 #[derive(Debug, Clone, JsonSchema, Serialize, Deserialize, PartialEq)]
 pub struct WorkspaceMetadata {
@@ -57,8 +59,9 @@ impl Workspace {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use yrs::Doc;
+
+    use super::*;
 
     #[test]
     fn test_workspace_metadata() {

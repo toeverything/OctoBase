@@ -1,7 +1,9 @@
 use criterion::{criterion_group, criterion_main, Criterion, SamplingMode};
 use jwst_codec::{read_var_i32, read_var_u64, write_var_i32, write_var_u64};
-use lib0::decoding::{Cursor, Read};
-use lib0::encoding::Write;
+use lib0::{
+    decoding::{Cursor, Read},
+    encoding::Write,
+};
 
 const BENCHMARK_SIZE: u32 = 100000;
 

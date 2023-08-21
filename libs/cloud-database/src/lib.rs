@@ -4,9 +4,8 @@ mod entities;
 mod model;
 
 pub use database::CloudDatabase;
-pub use model::*;
-
 use entities::prelude::*;
+pub use model::*;
 use sea_orm::EntityTrait;
 
 type UsersModel = <Users as EntityTrait>::Model;

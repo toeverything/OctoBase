@@ -1,8 +1,9 @@
-use super::*;
 use axum::{extract::Query, response::Response};
 use jwst::{constants, DocStorage};
 use lib0::any::Any;
 use serde_json::Value as JsonValue;
+
+use super::*;
 
 /// Get a `Block` by id
 /// - Return 200 and `Block`'s data if `Block` is exists.
@@ -131,7 +132,8 @@ pub async fn set_block(
 
 /// Get exists `Blocks` in certain `Workspace` by flavour
 /// - Return 200 Ok and `Blocks`'s data if `Blocks` is exists.
-/// - Return 404 Not Found if `Workspace` not exists or 500 Internal Server Error when transaction init fails.
+/// - Return 404 Not Found if `Workspace` not exists or 500 Internal Server
+///   Error when transaction init fails.
 #[utoipa::path(
     get,
     tag = "Blocks",

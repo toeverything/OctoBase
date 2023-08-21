@@ -1,4 +1,5 @@
-use crate::{context::Context, infrastructure::error_status::ErrorStatus};
+use std::{io::Cursor, sync::Arc};
+
 use axum::{
     extract::Path,
     http::{
@@ -13,8 +14,8 @@ use image::ImageOutputFormat;
 use jwst::{error, BlobStorage};
 use jwst_logger::{info, instrument, tracing};
 use lettre::message::Mailbox;
-use std::io::Cursor;
-use std::sync::Arc;
+
+use crate::{context::Context, infrastructure::error_status::ErrorStatus};
 /// Get workspace's `Members`
 /// - Return 200 ok and `Members`.
 /// - Return 400 if request parameter error.
@@ -411,13 +412,14 @@ pub async fn remove_user(
 
 #[cfg(test)]
 mod test {
-    use super::{super::make_rest_route, *};
     use axum::body::Body;
     use axum_test_helper::TestClient;
     use bytes::Bytes;
     use cloud_database::CloudDatabase;
     use futures::stream;
     use serde_json::json;
+
+    use super::{super::make_rest_route, *};
 
     #[tokio::test]
     async fn test_get_member() {

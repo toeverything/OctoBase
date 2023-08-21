@@ -39,7 +39,6 @@ impl ItemPosition {
     /// after:
     /// ---------------------------------
     ///    ^left   ^right
-    ///
     pub fn normalize(&mut self, store: &mut DocStore) -> JwstCodecResult {
         if self.offset > 0 {
             debug_assert!(self.left.is_some());

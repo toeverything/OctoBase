@@ -1,6 +1,5 @@
-use crate::{impl_type, Content, JwstCodecResult};
-
 use super::list::ListType;
+use crate::{impl_type, Content, JwstCodecResult};
 
 impl_type!(Text);
 
@@ -55,14 +54,15 @@ impl serde::Serialize for Text {
 
 #[cfg(test)]
 mod tests {
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaCha20Rng;
+    use yrs::{Options, Text, Transact};
+
     use crate::{
         loom_model,
         sync::{thread, Arc, AtomicUsize, Ordering},
         Doc, DocOptions,
     };
-    use rand::{Rng, SeedableRng};
-    use rand_chacha::ChaCha20Rng;
-    use yrs::{Options, Text, Transact};
 
     #[test]
     fn test_manipulate_text() {

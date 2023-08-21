@@ -1,8 +1,7 @@
-use super::Message;
-use jwst::{debug, error, info, trace, warn};
+use std::sync::Arc;
 
 use bytes::Bytes;
-use std::sync::Arc;
+use jwst::{debug, error, info, trace, warn};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use webrtcrs::{
     api::APIBuilder,
@@ -12,6 +11,8 @@ use webrtcrs::{
         sdp::session_description::RTCSessionDescription, RTCPeerConnection,
     },
 };
+
+use super::Message;
 
 const DATA_CHANNEL_ID: u16 = 42;
 const DATA_CHANNEL_LABEL: &str = "affine";
@@ -121,7 +122,8 @@ pub async fn webrtc_datachannel_client_begin() -> (
 
     // Block until ICE Gathering is complete, disabling trickle ICE
     // we do this because we only can exchange one signaling message
-    // in a production application you should exchange ICE Candidates via OnICECandidate
+    // in a production application you should exchange ICE Candidates via
+    // OnICECandidate
     let _ = gather_complete.recv().await;
 
     let local_desc = peer_connection.local_description().await.unwrap();
@@ -168,7 +170,8 @@ pub async fn webrtc_datachannel_server_connector(
 
     // Block until ICE Gathering is complete, disabling trickle ICE
     // we do this because we only can exchange one signaling message
-    // in a production application you should exchange ICE Candidates via OnICECandidate
+    // in a production application you should exchange ICE Candidates via
+    // OnICECandidate
     let _ = gather_complete.recv().await;
 
     let local_desc = peer_connection.local_description().await.unwrap();

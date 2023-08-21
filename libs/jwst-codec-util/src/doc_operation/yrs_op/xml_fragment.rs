@@ -1,5 +1,6 @@
-use super::*;
 use phf::phf_map;
+
+use super::*;
 
 fn insert_op(doc: &yrs::Doc, nest_input: &YrsNestType, params: CRDTParam) {
     let xml_fragment = match nest_input {

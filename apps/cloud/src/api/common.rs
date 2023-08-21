@@ -22,14 +22,16 @@ pub async fn health_check() -> Response {
 
 #[cfg(test)]
 mod test {
+    use std::sync::Arc;
+
+    use axum::Extension;
+    use axum_test_helper::TestClient;
+    use cloud_database::CloudDatabase;
+
     use super::{
         super::{make_rest_route, Context},
         *,
     };
-    use axum::Extension;
-    use axum_test_helper::TestClient;
-    use cloud_database::CloudDatabase;
-    use std::sync::Arc;
 
     #[tokio::test]
     async fn test_health_check() {

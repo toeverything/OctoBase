@@ -11,13 +11,12 @@ pub use doc::{
     CrdtWriter, Doc, DocOptions, Id, Map, RawDecoder, RawEncoder, StateVector, Text, Update, Value,
 };
 pub(crate) use doc::{Content, Item};
-pub use protocol::{
-    read_sync_message, write_sync_message, AwarenessState, AwarenessStates, DocMessage, SyncMessage, SyncMessageScanner,
-};
-
 use jwst_logger::{debug, warn};
 use nanoid::nanoid;
 use nom::IResult;
+pub use protocol::{
+    read_sync_message, write_sync_message, AwarenessState, AwarenessStates, DocMessage, SyncMessage, SyncMessageScanner,
+};
 use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq)]

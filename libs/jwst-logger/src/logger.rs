@@ -1,8 +1,12 @@
-use super::*;
-use std::io::{stderr, stdout};
-use std::sync::Once;
+use std::{
+    io::{stderr, stdout},
+    sync::Once,
+};
+
 use tracing::Level;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+
+use super::*;
 
 static INIT: Once = Once::new();
 

@@ -1,6 +1,5 @@
-use crate::infrastructure::auth::get_claim_from_headers;
+use std::sync::Arc;
 
-use super::{infrastructure::error_status::ErrorStatus, *};
 use axum::{
     body::Body,
     http::{Request, Response},
@@ -13,12 +12,14 @@ use futures_util::future::BoxFuture;
 use http_body::combinators::UnsyncBoxBody;
 use jsonwebtoken::DecodingKey;
 use nanoid::nanoid;
-use std::sync::Arc;
 use tower_http::{
     auth::{AsyncAuthorizeRequest, AsyncRequireAuthorizationLayer},
     request_id::{MakeRequestId, PropagateRequestIdLayer, RequestId, SetRequestIdLayer},
     trace::TraceLayer,
 };
+
+use super::{infrastructure::error_status::ErrorStatus, *};
+use crate::infrastructure::auth::get_claim_from_headers;
 
 #[derive(Clone)]
 pub struct Auth {

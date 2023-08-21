@@ -1,8 +1,10 @@
 // use super::*;
 // use sqlx::{postgres::PgRow, FromRow, Result, Row};
 
-use chrono::naive::serde::{ts_milliseconds, ts_seconds};
-use chrono::{DateTime, Utc};
+use chrono::{
+    naive::serde::{ts_milliseconds, ts_seconds},
+    DateTime, Utc,
+};
 use jwst_logger::error;
 use schemars::{JsonSchema, JsonSchema_repr};
 use sea_orm::{FromQueryResult, TryGetable};

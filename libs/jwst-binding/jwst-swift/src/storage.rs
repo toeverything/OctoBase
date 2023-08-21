@@ -1,14 +1,16 @@
-use super::*;
+use std::sync::{Arc, RwLock};
+
 use futures::TryFutureExt;
 use jwst_rpc::{start_websocket_client_sync, BroadcastChannels, CachedLastSynced, RpcContextImpl, SyncState};
 use jwst_storage::{BlobStorageType, JwstStorage as AutoStorage, JwstStorageResult};
 use nanoid::nanoid;
-use std::sync::{Arc, RwLock};
 use tokio::{
     runtime::{Builder, Runtime},
     sync::mpsc::channel,
 };
 use yrs::{ReadTxn, StateVector, Transact};
+
+use super::*;
 
 #[derive(Clone)]
 pub struct Storage {
@@ -198,8 +200,9 @@ impl RpcContextImpl<'_> for Storage {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Storage, Workspace};
     use tokio::runtime::Runtime;
+
+    use crate::{Storage, Workspace};
 
     #[test]
     #[ignore = "need manually start collaboration server"]

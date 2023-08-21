@@ -1,5 +1,6 @@
-use super::{generate_interface, JwstBlock, WorkspaceTransaction};
 use lib0::any::Any;
+
+use super::{generate_interface, JwstBlock, WorkspaceTransaction};
 
 pub struct Block {
     pub(crate) block: JwstBlock,

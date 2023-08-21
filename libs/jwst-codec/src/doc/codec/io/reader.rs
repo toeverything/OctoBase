@@ -1,6 +1,8 @@
-use super::*;
-use byteorder::{BigEndian, ReadBytesExt};
 use std::io::{Cursor, Error};
+
+use byteorder::{BigEndian, ReadBytesExt};
+
+use super::*;
 
 #[inline]
 fn read_with_cursor<T, F>(buffer: &mut Cursor<Vec<u8>>, f: F) -> JwstCodecResult<T>

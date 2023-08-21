@@ -1,5 +1,6 @@
-use super::schema::Docs;
 use sea_orm_migration::prelude::*;
+
+use super::schema::Docs;
 
 pub struct Migration;
 

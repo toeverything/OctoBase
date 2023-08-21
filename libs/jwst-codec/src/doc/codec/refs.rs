@@ -267,8 +267,9 @@ impl From<Option<&Node>> for Somr<Item> {
 
 #[cfg(test)]
 mod tests {
-    use super::{utils::ItemBuilder, *};
     use proptest::{collection::vec, prelude::*};
+
+    use super::{utils::ItemBuilder, *};
 
     #[test]
     fn test_struct_info() {

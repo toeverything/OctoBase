@@ -1,6 +1,8 @@
-use super::{entities::prelude::*, types::JwstStorageResult, *};
 use std::panic::{catch_unwind, AssertUnwindSafe};
+
 use yrs::{updates::decoder::Decode, Doc, ReadTxn, StateVector, Transact, Update};
+
+use super::{entities::prelude::*, types::JwstStorageResult, *};
 
 // apply all updates to the given doc
 pub fn migrate_update(update_records: Vec<<Docs as EntityTrait>::Model>, doc: Doc) -> JwstResult<Doc> {

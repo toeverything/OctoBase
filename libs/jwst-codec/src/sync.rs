@@ -1,23 +1,21 @@
+#[cfg(not(loom))]
+pub(crate) use std::sync::{
+    atomic::{AtomicBool, AtomicU32, AtomicU8, Ordering},
+    Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard,
+};
+pub use std::sync::{Arc, Weak};
+#[cfg(all(test, not(loom)))]
+pub(crate) use std::{
+    sync::{atomic::AtomicUsize, MutexGuard},
+    thread,
+};
+
 #[cfg(loom)]
 pub(crate) use loom::{
     sync::{
         atomic::{AtomicBool, AtomicU32, AtomicU8, AtomicUsize, Ordering},
         Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard,
     },
-    thread,
-};
-
-#[cfg(not(loom))]
-pub(crate) use std::sync::{
-    atomic::{AtomicBool, AtomicU32, AtomicU8, Ordering},
-    Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard,
-};
-
-pub use std::sync::{Arc, Weak};
-
-#[cfg(all(test, not(loom)))]
-pub(crate) use std::{
-    sync::{atomic::AtomicUsize, MutexGuard},
     thread,
 };
 

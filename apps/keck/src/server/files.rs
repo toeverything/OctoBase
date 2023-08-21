@@ -1,4 +1,3 @@
-use super::*;
 use axum::{
     body::BoxBody,
     http::{Response, Uri},
@@ -6,6 +5,8 @@ use axum::{
     routing::get,
 };
 use cloud_infra::{fetch_static_response, rust_embed, RustEmbed};
+
+use super::*;
 
 #[derive(RustEmbed)]
 #[folder = "../homepage/out/"]

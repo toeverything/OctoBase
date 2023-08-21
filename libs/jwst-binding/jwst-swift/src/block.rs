@@ -1,9 +1,11 @@
-use super::*;
+use std::sync::Arc;
+
 use jwst::{Block as JwstBlock, Workspace};
 use jwst_rpc::workspace_compare;
 use lib0::any::Any;
-use std::sync::Arc;
 use tokio::{runtime::Runtime, sync::mpsc::Sender};
+
+use super::*;
 
 pub struct Block {
     pub workspace: Workspace,

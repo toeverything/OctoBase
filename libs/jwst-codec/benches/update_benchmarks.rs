@@ -1,9 +1,9 @@
 mod utils;
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-
-use path_ext::PathExt;
 use std::time::Duration;
+
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use path_ext::PathExt;
 use utils::Files;
 
 fn update(c: &mut Criterion) {

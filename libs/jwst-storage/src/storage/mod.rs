@@ -3,16 +3,19 @@ mod difflog;
 mod docs;
 mod test;
 
-use self::difflog::DiffLogRecord;
+use std::{collections::HashMap, time::Instant};
 
-use super::*;
-use crate::storage::blobs::{BlobBucketDBStorage, BlobStorageType, JwstBlobStorage};
-use crate::types::JwstStorageError;
 use blobs::BlobAutoStorage;
 use docs::SharedDocDBStorage;
 use jwst_storage_migration::{Migrator, MigratorTrait};
-use std::{collections::HashMap, time::Instant};
 use tokio::sync::Mutex;
+
+use self::difflog::DiffLogRecord;
+use super::*;
+use crate::{
+    storage::blobs::{BlobBucketDBStorage, BlobStorageType, JwstBlobStorage},
+    types::JwstStorageError,
+};
 
 pub struct JwstStorage {
     pool: DatabaseConnection,

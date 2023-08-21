@@ -1,8 +1,10 @@
-use super::*;
+use std::collections::HashMap;
+
 use chrono::Utc;
 use lib0::any::Any;
-use std::collections::HashMap;
 use yrs::{types::ToJson, Array, ArrayPrelim, ArrayRef, Map, MapPrelim, TextPrelim};
+
+use super::*;
 
 impl Space {
     pub fn to_markdown<T>(&self, trx: &T) -> Option<String>

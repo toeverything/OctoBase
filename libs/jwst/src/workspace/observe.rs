@@ -1,12 +1,14 @@
-use super::*;
-use jwst_codec::{Awareness, AwarenessEvent};
-use nanoid::nanoid;
 use std::{
     panic::{catch_unwind, AssertUnwindSafe},
     thread::sleep,
     time::Duration,
 };
+
+use jwst_codec::{Awareness, AwarenessEvent};
+use nanoid::nanoid;
 use yrs::{TransactionMut, UpdateEvent};
+
+use super::*;
 
 impl Workspace {
     pub async fn on_awareness_update(&mut self, f: impl Fn(&Awareness, AwarenessEvent) + Send + Sync + 'static) {

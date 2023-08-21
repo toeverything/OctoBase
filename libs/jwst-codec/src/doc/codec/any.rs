@@ -1,6 +1,8 @@
-use super::*;
-use ordered_float::OrderedFloat;
 use std::{collections::HashMap, fmt, ops::RangeInclusive};
+
+use ordered_float::OrderedFloat;
+
+use super::*;
 
 const MAX_JS_INT: i64 = 0x001F_FFFF_FFFF_FFFF;
 // The smallest int in js number.
@@ -489,8 +491,9 @@ impl ToString for Any {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use proptest::{collection::vec, prelude::*};
+
+    use super::*;
 
     #[test]
     fn test_any_codec() {

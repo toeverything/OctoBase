@@ -1,11 +1,13 @@
-use super::*;
+use std::sync::Arc;
+
 use jwst::Workspace as JwstWorkspace;
 use jwst_rpc::workspace_compare;
-use std::sync::Arc;
 use tokio::{
     runtime::Runtime,
     sync::mpsc::{channel, Sender},
 };
+
+use super::*;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
@@ -89,8 +91,10 @@ impl Workspace {
                                         .and_then(|mut b| b.create_ffi(block_id, flavour, created))
                                         .expect("failed to create jwst block");
 
-                                    // let ret = workspace_compare(&workspace, &jwst_workspace);
-                                    // sender.send(Log::new(workspace.id(), ret)).unwrap();
+                                    // let ret = workspace_compare(&workspace,
+                                    // &jwst_workspace);
+                                    // sender.send(Log::new(workspace.id(),
+                                    // ret)).unwrap();
                                 }
 
                                 jwst_workspace

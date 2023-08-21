@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::process::Command;
-use swift_bridge_build::ApplePlatform as Platform;
-use swift_bridge_build::{create_package, CreatePackageConfig};
+use std::{collections::HashMap, path::PathBuf, process::Command};
+
+use swift_bridge_build::{create_package, ApplePlatform as Platform, CreatePackageConfig};
 
 fn main() {
     let common_commands = [

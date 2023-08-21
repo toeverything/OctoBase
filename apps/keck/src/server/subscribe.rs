@@ -1,10 +1,7 @@
+use std::{collections::HashMap, sync::Arc, thread, time::Duration};
+
 use reqwest::Client;
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
-use tokio::runtime::Runtime;
-use tokio::sync::RwLock;
+use tokio::{runtime::Runtime, sync::RwLock};
 
 use super::*;
 use crate::server::WorkspaceChangedBlocks;

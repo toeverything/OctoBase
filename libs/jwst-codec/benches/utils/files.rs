@@ -1,8 +1,9 @@
-use path_ext::PathExt;
 use std::{
     fs::{read, read_dir},
     path::{Path, PathBuf},
 };
+
+use path_ext::PathExt;
 
 pub struct File {
     pub path: PathBuf,

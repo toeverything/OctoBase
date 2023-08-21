@@ -1,10 +1,11 @@
-use super::*;
 use std::{
     cell::RefCell,
     cmp::max,
     collections::VecDeque,
     ops::{Deref, DerefMut},
 };
+
+use super::*;
 
 const MAX_SEARCH_MARKER: usize = 80;
 
@@ -25,14 +26,18 @@ impl SearchMarker {
     }
 }
 
-/// in yjs, a timestamp field is used to sort markers and the oldest marker is deleted once the limit is reached.
-/// this was designed for optimization purposes for v8. In Rust, we can simply use a [VecDeque] and trust the compiler to optimize.
-/// the [VecDeque] can naturally maintain the insertion order, allowing us to know which marker is the oldest without using an extra timestamp field.
+/// in yjs, a timestamp field is used to sort markers and the oldest marker is
+/// deleted once the limit is reached. this was designed for optimization
+/// purposes for v8. In Rust, we can simply use a [VecDeque] and trust the
+/// compiler to optimize. the [VecDeque] can naturally maintain the insertion
+/// order, allowing us to know which marker is the oldest without using an extra
+/// timestamp field.
 ///
 /// NOTE:
 /// A [MarkerList] is always belonging to a [YType],
-/// which means whenever [MakerList] is used, we actually have a [YType] instance behind [RwLock] guard already,
-/// so it's safe to make the list internal mutable.
+/// which means whenever [MakerList] is used, we actually have a [YType]
+/// instance behind [RwLock] guard already, so it's safe to make the list
+/// internal mutable.
 #[derive(Debug)]
 pub struct MarkerList(RefCell<VecDeque<SearchMarker>>);
 
@@ -159,9 +164,10 @@ impl MarkerList {
                 }
             }
 
-            // we want to make sure that item_ptr can't be merged with left, because that would screw up everything
-            // in that case just return what we have (it is most likely the best marker anyway)
-            // iterate to left until item_ptr can't be merged with left
+            // we want to make sure that item_ptr can't be merged with left, because that
+            // would screw up everything in that case just return what we have
+            // (it is most likely the best marker anyway) iterate to left until
+            // item_ptr can't be merged with left
             while let Some(item) = item_ptr.clone().get() {
                 let left_ref: ItemRef = item.left.clone().into();
                 if let Some(left) = left_ref.get() {
@@ -202,10 +208,11 @@ impl MarkerList {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaCha20Rng;
     use yrs::{Array, Options, Transact};
+
+    use super::*;
 
     #[test]
     fn test_marker_list() {

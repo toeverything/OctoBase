@@ -1,4 +1,5 @@
-use super::*;
+use std::sync::Arc;
+
 use axum::{
     extract::{BodyStream, Path},
     headers::ContentLength,
@@ -12,8 +13,9 @@ use axum::{
 use futures::{future, StreamExt};
 use jwst::BlobStorage;
 use jwst_rpc::RpcContextImpl;
-use std::sync::Arc;
 use time::{format_description::well_known::Rfc2822, OffsetDateTime};
+
+use super::*;
 
 #[derive(Serialize)]
 struct BlobStatus {
@@ -71,12 +73,7 @@ impl Context {
             return header.into_response();
         };
 
-        let Ok(file) = self
-            .get_storage()
-            .blobs()
-            .get_blob(workspace, id, None)
-            .await
-        else {
+        let Ok(file) = self.get_storage().blobs().get_blob(workspace, id, None).await else {
             return StatusCode::NOT_FOUND.into_response();
         };
 

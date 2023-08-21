@@ -4,7 +4,8 @@ mod blobs;
 mod blocks;
 mod doc;
 
-use super::*;
+use std::collections::HashMap;
+
 use anyhow::Context as AnyhowContext;
 use axum::Router;
 #[cfg(feature = "api")]
@@ -17,8 +18,9 @@ use axum::{
 use doc::doc_apis;
 use jwst_rpc::{BroadcastChannels, RpcContextImpl};
 use jwst_storage::{BlobStorageType, JwstStorage, JwstStorageResult, MixedBucketDBParam};
-use std::collections::HashMap;
 use tokio::sync::RwLock;
+
+use super::*;
 
 #[derive(Deserialize)]
 #[cfg_attr(feature = "api", derive(utoipa::IntoParams))]

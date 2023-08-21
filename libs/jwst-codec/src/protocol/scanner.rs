@@ -43,10 +43,11 @@ impl<'a> Iterator for SyncMessageScanner<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{utils::to_sync_message, *};
     use proptest::{collection::vec, prelude::*};
     use y_sync::sync::MessageReader;
     use yrs::updates::decoder::DecoderV1;
+
+    use super::{utils::to_sync_message, *};
 
     proptest! {
         #[test]

@@ -1,8 +1,6 @@
-use crate::m20220101_000001_create_user_table::Users;
-use crate::m20230101_000004_create_permissions_table::Permissions;
+use sea_orm_migration::{prelude::*, sea_orm::query::*};
 
-use sea_orm_migration::prelude::*;
-use sea_orm_migration::sea_orm::query::*;
+use crate::{m20220101_000001_create_user_table::Users, m20230101_000004_create_permissions_table::Permissions};
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;

@@ -1,9 +1,10 @@
-use super::*;
-use crate::doc::OrderRange;
 use std::{
     collections::{hash_map::Entry, HashMap},
     ops::{Deref, DerefMut, Range},
 };
+
+use super::*;
+use crate::doc::OrderRange;
 
 impl<R: CrdtReader> CrdtRead<R> for Range<u64> {
     fn read(decoder: &mut R) -> JwstCodecResult<Self> {

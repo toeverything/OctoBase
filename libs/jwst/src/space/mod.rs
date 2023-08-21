@@ -1,11 +1,13 @@
 mod convert;
 mod transaction;
 
-use super::{block::MarkdownState, workspace::Pages, *};
-use serde::{ser::SerializeMap, Serialize, Serializer};
 use std::sync::Arc;
+
+use serde::{ser::SerializeMap, Serialize, Serializer};
 use transaction::SpaceTransaction;
 use yrs::{Doc, Map, MapRef, ReadTxn, Transact, TransactionMut, WriteTxn};
+
+use super::{block::MarkdownState, workspace::Pages, *};
 
 //         Workspace
 //         /       \
@@ -233,9 +235,10 @@ impl Serialize for Space {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use tracing::info;
     use yrs::{types::ToJson, updates::decoder::Decode, ArrayPrelim, Doc, StateVector, Update};
+
+    use super::*;
 
     #[test]
     fn doc_load_test() {

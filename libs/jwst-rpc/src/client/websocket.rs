@@ -1,6 +1,6 @@
-use super::{types::JwstRpcResult, *};
-use nanoid::nanoid;
 use std::sync::RwLock;
+
+use nanoid::nanoid;
 use tokio::{net::TcpStream, runtime::Runtime, sync::mpsc::channel};
 use tokio_tungstenite::{
     connect_async,
@@ -8,6 +8,8 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
 };
 use url::Url;
+
+use super::{types::JwstRpcResult, *};
 
 type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
