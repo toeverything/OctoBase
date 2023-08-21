@@ -117,6 +117,7 @@ pub trait RpcContextImpl<'a> {
                             }
                         }
                     }
+                    trace!("save update thread {id}-{identifier} finished");
                 })
             };
 

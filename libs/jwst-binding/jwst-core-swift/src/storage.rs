@@ -130,7 +130,7 @@ impl Storage {
                     );
                 }
 
-                Ok(Workspace { workspace })
+                Ok(Workspace { workspace, rt })
             }
             Err(e) => Err(e),
         }

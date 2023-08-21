@@ -1,15 +1,20 @@
+use std::sync::Arc;
+
 use jwst_core::Workspace as JwstWorkspace;
+use tokio::runtime::Runtime;
 
 use super::*;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
+    pub(crate) rt: Arc<Runtime>,
 }
 
 impl Workspace {
     pub fn new(id: String) -> Self {
         Self {
             workspace: JwstWorkspace::new(&id).unwrap(),
+            rt: Arc::new(Runtime::new().unwrap()),
         }
     }
 
