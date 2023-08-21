@@ -120,7 +120,7 @@ extension BlockRef {
         __swift_bridge__$Block$is_integer(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }())
     }
 
-    public func get_bool<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Optional<Int64> {
+    public func get_bool<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Optional<Bool> {
         { let val = __swift_bridge__$Block$get_bool(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_some { return val.val } else { return nil } }()
     }
 
@@ -369,11 +369,6 @@ public class Workspace: WorkspaceRefMut {
 public class WorkspaceRefMut: WorkspaceRef {
     public override init(ptr: UnsafeMutableRawPointer) {
         super.init(ptr: ptr)
-    }
-}
-extension WorkspaceRefMut {
-    public func compare() -> Optional<RustString> {
-        { let val = __swift_bridge__$Workspace$compare(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
     }
 }
 public class WorkspaceRef {
