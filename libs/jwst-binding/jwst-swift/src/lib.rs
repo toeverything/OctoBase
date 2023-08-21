@@ -1,13 +1,11 @@
 mod block;
-mod difflog;
 mod dynamic_value;
 mod storage;
 mod workspace;
 
 pub use block::Block;
-use difflog::{CachedDiffLog, Log};
 pub use dynamic_value::{DynamicValue, DynamicValueMap};
-use jwst::{error, info, warn, JwstError};
+use jwst_core::{error, warn, JwstError};
 use jwst_logger::init_logger_with;
 pub use storage::Storage;
 pub use workspace::Workspace;
@@ -63,7 +61,7 @@ mod ffi {
 
         pub fn is_integer(&self, key: String) -> bool;
 
-        pub fn get_bool(&self, key: String) -> Option<i64>;
+        pub fn get_bool(&self, key: String) -> Option<bool>;
 
         pub fn get_string(&self, key: String) -> Option<String>;
 
@@ -109,8 +107,6 @@ mod ffi {
         fn get_search_index(self: &Workspace) -> Vec<String>;
 
         fn set_search_index(self: &Workspace, fields: Vec<String>) -> bool;
-
-        fn compare(self: &mut Workspace) -> Option<String>;
     }
 
     extern "Rust" {

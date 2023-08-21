@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use lib0::any::Any;
+use jwst_core::Any;
 
 pub type DynamicValueMap = HashMap<String, DynamicValue>;
 
@@ -15,21 +15,24 @@ impl DynamicValue {
 
     pub fn as_bool(&self) -> Option<bool> {
         match self.any {
-            Any::Bool(value) => Some(value),
+            Any::True => Some(true),
+            Any::False => Some(false),
             _ => None,
         }
     }
 
     pub fn as_number(&self) -> Option<f64> {
         match self.any {
-            Any::Number(value) => Some(value),
+            Any::Float32(value) => Some(value.0 as f64),
+            Any::Float64(value) => Some(value.0),
             _ => None,
         }
     }
 
     pub fn as_int(&self) -> Option<i64> {
         match self.any {
-            Any::BigInt(value) => Some(value),
+            Any::Integer(value) => Some(value as i64),
+            Any::BigInt64(value) => Some(value),
             _ => None,
         }
     }
@@ -43,7 +46,7 @@ impl DynamicValue {
 
     pub fn as_buffer(&self) -> Option<Vec<u8>> {
         match &self.any {
-            Any::Buffer(value) => Some(value.to_vec()),
+            Any::Binary(value) => Some(value.clone()),
             _ => None,
         }
     }
@@ -57,7 +60,7 @@ impl DynamicValue {
 
     pub fn as_map(&self) -> Option<HashMap<String, DynamicValue>> {
         match &self.any {
-            Any::Map(value) => Some(
+            Any::Object(value) => Some(
                 value
                     .iter()
                     .map(|(key, value)| (key.clone(), DynamicValue::new(value.clone())))

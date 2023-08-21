@@ -2831,33 +2831,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jwst-core-swift"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "futures",
- "jwst-core",
- "jwst-core-rpc",
- "jwst-core-storage",
- "jwst-logger",
- "nanoid",
- "regex",
- "reqwest",
- "serde",
- "serde_json",
- "swift-bridge",
- "swift-bridge-build",
- "tokio",
-]
-
-[[package]]
-name = "jwst-core-swift-integrate"
-version = "0.1.0"
-dependencies = [
- "swift-bridge-build",
-]
-
-[[package]]
 name = "jwst-jni"
 version = "0.1.0"
 dependencies = [
@@ -2973,12 +2946,10 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "futures",
- "jwst",
  "jwst-core",
+ "jwst-core-rpc",
+ "jwst-core-storage",
  "jwst-logger",
- "jwst-rpc",
- "jwst-storage",
- "lib0",
  "nanoid",
  "regex",
  "reqwest",
@@ -2987,7 +2958,6 @@ dependencies = [
  "swift-bridge",
  "swift-bridge-build",
  "tokio",
- "yrs",
 ]
 
 [[package]]
