@@ -4,6 +4,7 @@ typedef struct RustStr { uint8_t* const start; uintptr_t len; } RustStr;
 typedef struct __private__FfiSlice { void* const start; uintptr_t len; } __private__FfiSlice;
 void* __swift_bridge__null_pointer(void);
 
+
 typedef struct __private__OptionU8 { uint8_t val; bool is_some; } __private__OptionU8;
 typedef struct __private__OptionI8 { int8_t val; bool is_some; } __private__OptionI8;
 typedef struct __private__OptionU16 { uint16_t val; bool is_some; } __private__OptionU16;
@@ -15,7 +16,7 @@ typedef struct __private__OptionI64 { int64_t val; bool is_some; } __private__Op
 typedef struct __private__OptionUsize { uintptr_t val; bool is_some; } __private__OptionUsize;
 typedef struct __private__OptionIsize { intptr_t val; bool is_some; } __private__OptionIsize;
 typedef struct __private__OptionF32 { float val; bool is_some; } __private__OptionF32;
-typedef struct __private__OptionF64 { double val; bool is_some; } __private__OptionDouble;
+typedef struct __private__OptionF64 { double val; bool is_some; } __private__OptionF64;
 typedef struct __private__OptionBool { bool val; bool is_some; } __private__OptionBool;
 
 void* __swift_bridge__$Vec_u8$new();
@@ -117,6 +118,24 @@ __private__OptionBool __swift_bridge__$Vec_bool$get(void* const vec, uintptr_t i
 __private__OptionBool __swift_bridge__$Vec_bool$get_mut(void* const vec, uintptr_t index);
 bool const * __swift_bridge__$Vec_bool$as_ptr(void* const vec);
 
+void* __swift_bridge__$Vec_f32$new();
+void __swift_bridge__$Vec_f32$_free(void* const vec);
+uintptr_t __swift_bridge__$Vec_f32$len(void* const vec);
+void __swift_bridge__$Vec_f32$push(void* const vec, float val);
+__private__OptionF32 __swift_bridge__$Vec_f32$pop(void* const vec);
+__private__OptionF32 __swift_bridge__$Vec_f32$get(void* const vec, uintptr_t index);
+__private__OptionF32 __swift_bridge__$Vec_f32$get_mut(void* const vec, uintptr_t index);
+float const * __swift_bridge__$Vec_f32$as_ptr(void* const vec);
+
+void* __swift_bridge__$Vec_f64$new();
+void __swift_bridge__$Vec_f64$_free(void* const vec);
+uintptr_t __swift_bridge__$Vec_f64$len(void* const vec);
+void __swift_bridge__$Vec_f64$push(void* const vec, double val);
+__private__OptionF64 __swift_bridge__$Vec_f64$pop(void* const vec);
+__private__OptionF64 __swift_bridge__$Vec_f64$get(void* const vec, uintptr_t index);
+__private__OptionF64 __swift_bridge__$Vec_f64$get_mut(void* const vec, uintptr_t index);
+double const * __swift_bridge__$Vec_f64$as_ptr(void* const vec);
+
 #include <stdint.h>
 typedef struct RustString RustString;
 void __swift_bridge__$RustString$_free(void* self);
@@ -143,6 +162,3 @@ void __swift_bridge__$free_boxed_fn_once_no_args_no_return(void* boxed_fnonce);
 
 
 struct __private__ResultPtrAndPtr { bool is_ok; void* ok_or_err; };
-
-
-struct __private__ResultVoidAndPtr { bool is_ok; void* err; };
