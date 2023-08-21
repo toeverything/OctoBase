@@ -255,7 +255,16 @@ impl DocDBStorage {
                 guid: all_data.first().unwrap().guid.clone().into(),
                 ..Default::default()
             });
+
+            let can_merge = all_data.len() > 1;
+
             let doc = utils::migrate_update(all_data, doc)?;
+
+            if can_merge {
+                let update = doc.encode_state_as_update_v1(&StateVector::default())?;
+                Self::replace_with(conn, workspace, doc.guid(), update).await?;
+            }
+
             Workspace::from_doc(doc, workspace)?
         };
 
