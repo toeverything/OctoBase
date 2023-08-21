@@ -114,7 +114,8 @@ impl Storage {
 
         match workspace {
             Ok(mut workspace) => {
-                if is_offline {
+                // disable remote temporarily
+                if is_offline || true {
                     let identifier = nanoid!();
                     let (last_synced_tx, last_synced_rx) = channel::<i64>(128);
                     self.last_sync.add_receiver(rt.clone(), last_synced_rx);
