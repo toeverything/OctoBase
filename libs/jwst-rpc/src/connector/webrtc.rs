@@ -6,10 +6,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use webrtcrs::{
     api::APIBuilder,
-    data_channel::{
-        data_channel_init::RTCDataChannelInit, data_channel_message::DataChannelMessage,
-        OnMessageHdlrFn,
-    },
+    data_channel::{data_channel_init::RTCDataChannelInit, data_channel_message::DataChannelMessage, OnMessageHdlrFn},
     peer_connection::{
         configuration::RTCConfiguration, peer_connection_state::RTCPeerConnectionState,
         sdp::session_description::RTCSessionDescription, RTCPeerConnection,
@@ -38,11 +35,9 @@ async fn new_peer_connection() -> (
 ) {
     let api = APIBuilder::new().build();
     let peer_connection = Arc::new(
-        api.new_peer_connection(RTCConfiguration {
-            ..Default::default()
-        })
-        .await
-        .unwrap(),
+        api.new_peer_connection(RTCConfiguration { ..Default::default() })
+            .await
+            .unwrap(),
     );
 
     peer_connection.on_peer_connection_state_change(Box::new(move |s: RTCPeerConnectionState| {
@@ -76,9 +71,7 @@ async fn new_peer_connection() -> (
             match msg {
                 Message::Binary(data) => {
                     trace!("WebRTC Send: {:?}", data.clone());
-                    d0.send(&Bytes::copy_from_slice(data.as_slice()))
-                        .await
-                        .unwrap();
+                    d0.send(&Bytes::copy_from_slice(data.as_slice())).await.unwrap();
                 }
                 Message::Close => info!("Close"),
                 Message::Ping => info!("Ping"),
@@ -135,10 +128,7 @@ pub async fn webrtc_datachannel_client_begin() -> (
     (local_desc, peer_connection, tx, rx, s)
 }
 
-pub async fn webrtc_datachannel_client_commit(
-    answer: RTCSessionDescription,
-    peer_connection: Arc<RTCPeerConnection>,
-) {
+pub async fn webrtc_datachannel_client_commit(answer: RTCSessionDescription, peer_connection: Arc<RTCPeerConnection>) {
     match peer_connection.set_remote_description(answer).await {
         Ok(_) => {}
         Err(e) => {

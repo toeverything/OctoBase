@@ -34,9 +34,7 @@ pub fn create_error_page(uri: Uri) -> Response<BoxBody> {
         "#,
         )
     } else {
-        create_404_page(format!(
-            "Failed to find index file or asset (<code>.{uri}</code>)."
-        ))
+        create_404_page(format!("Failed to find index file or asset (<code>.{uri}</code>)."))
     }
 }
 

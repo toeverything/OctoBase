@@ -88,11 +88,7 @@ impl TryFrom<&HashMap<String, String>> for ImageParams {
 
         if let Some(format) = format {
             if Self::check_size(width, height) {
-                return Ok(Self {
-                    format,
-                    width,
-                    height,
-                });
+                return Ok(Self { format, width, height });
             }
         }
         Err(())

@@ -21,10 +21,7 @@ impl From<Message> for WebSocketMessage {
     }
 }
 
-pub fn tungstenite_socket_connector(
-    socket: WebSocket,
-    workspace_id: &str,
-) -> (Sender<Message>, Receiver<Vec<u8>>) {
+pub fn tungstenite_socket_connector(socket: WebSocket, workspace_id: &str) -> (Sender<Message>, Receiver<Vec<u8>>) {
     let (mut socket_tx, mut socket_rx) = socket.split();
 
     // send to remote pipeline
@@ -37,11 +34,7 @@ pub fn tungstenite_socket_connector(
             while let Some(msg) = local_receiver.recv().await {
                 if let Err(e) = socket_tx.send(msg.into()).await {
                     let error = e.to_string();
-                    if matches!(
-                        e,
-                        SocketError::ConnectionClosed | SocketError::AlreadyClosed
-                    ) || retry == 0
-                    {
+                    if matches!(e, SocketError::ConnectionClosed | SocketError::AlreadyClosed) || retry == 0 {
                         break;
                     } else {
                         retry -= 1;

@@ -81,10 +81,7 @@ impl Doc {
         Ok(doc)
     }
 
-    pub fn new_from_binary_with_options(
-        binary: Vec<u8>,
-        options: DocOptions,
-    ) -> JwstCodecResult<Self> {
+    pub fn new_from_binary_with_options(binary: Vec<u8>, options: DocOptions) -> JwstCodecResult<Self> {
         let mut doc = Doc::with_options(options);
         doc.apply_update_from_binary(binary)?;
         Ok(doc)
@@ -133,7 +130,7 @@ impl Doc {
                 } else {
                     // drain all pending state to pending update for later iteration
                     update.drain_pending_state();
-                    Update::merge_into(&mut update, [&pending_update]);
+                    Update::merge_into(&mut update, [pending_update]);
                 }
             } else {
                 // no pending update at store
@@ -173,9 +170,7 @@ impl Doc {
     }
 
     pub fn create_text(&self) -> JwstCodecResult<Text> {
-        YTypeBuilder::new(self.store.clone())
-            .with_kind(YTypeKind::Text)
-            .build()
+        YTypeBuilder::new(self.store.clone()).with_kind(YTypeKind::Text).build()
     }
 
     pub fn get_or_create_array(&self, str: &str) -> JwstCodecResult<Array> {
@@ -199,9 +194,7 @@ impl Doc {
     }
 
     pub fn create_map(&self) -> JwstCodecResult<Map> {
-        YTypeBuilder::new(self.store.clone())
-            .with_kind(YTypeKind::Map)
-            .build()
+        YTypeBuilder::new(self.store.clone()).with_kind(YTypeKind::Map).build()
     }
 
     pub fn get_map(&self, str: &str) -> JwstCodecResult<Map> {
@@ -259,8 +252,7 @@ mod tests {
         };
 
         loom_model!({
-            let doc = Doc::new_from_binary_with_options(binary_from_yrs.clone(), options.clone())
-                .unwrap();
+            let doc = Doc::new_from_binary_with_options(binary_from_yrs.clone(), options.clone()).unwrap();
             let binary = doc.encode_update_v1().unwrap();
 
             assert_eq!(binary_from_yrs, binary);
@@ -321,29 +313,17 @@ mod tests {
                 (binary, binary_new)
             };
 
-            let mut doc =
-                Doc::new_from_binary_with_options(binary.clone(), options_left.clone()).unwrap();
-            let mut doc_new =
-                Doc::new_from_binary_with_options(binary_new.clone(), options_right.clone())
-                    .unwrap();
+            let mut doc = Doc::new_from_binary_with_options(binary.clone(), options_left.clone()).unwrap();
+            let mut doc_new = Doc::new_from_binary_with_options(binary_new.clone(), options_right.clone()).unwrap();
 
-            let diff_update = doc_new
-                .encode_state_as_update_v1(&doc.get_state_vector())
-                .unwrap();
+            let diff_update = doc_new.encode_state_as_update_v1(&doc.get_state_vector()).unwrap();
 
-            let diff_update_reverse = doc
-                .encode_state_as_update_v1(&doc_new.get_state_vector())
-                .unwrap();
+            let diff_update_reverse = doc.encode_state_as_update_v1(&doc_new.get_state_vector()).unwrap();
 
             doc.apply_update_from_binary(diff_update).unwrap();
-            doc_new
-                .apply_update_from_binary(diff_update_reverse)
-                .unwrap();
+            doc_new.apply_update_from_binary(diff_update_reverse).unwrap();
 
-            assert_eq!(
-                doc.encode_update_v1().unwrap(),
-                doc_new.encode_update_v1().unwrap()
-            );
+            assert_eq!(doc.encode_update_v1().unwrap(), doc_new.encode_update_v1().unwrap());
         });
     }
 
@@ -355,10 +335,8 @@ mod tests {
             guid: Some(nanoid::nanoid!()),
         };
 
-        let yrs_options = yrs::Options::with_guid_and_client_id(
-            options.guid.clone().unwrap().into(),
-            options.client.unwrap(),
-        );
+        let yrs_options =
+            yrs::Options::with_guid_and_client_id(options.guid.clone().unwrap().into(), options.client.unwrap());
 
         let json = serde_json::json!([42.0, -42.0, true, false, "hello", "world", [1.0]]);
 
@@ -435,11 +413,7 @@ mod tests {
                 count_clone2.fetch_add(1, Ordering::SeqCst);
             });
 
-            doc_clone
-                .get_or_create_array("abc")
-                .unwrap()
-                .insert(0, 42)
-                .unwrap();
+            doc_clone.get_or_create_array("abc").unwrap().insert(0, 42).unwrap();
 
             // wait observer, cycle once every 100mm
             std::thread::sleep(std::time::Duration::from_millis(200));

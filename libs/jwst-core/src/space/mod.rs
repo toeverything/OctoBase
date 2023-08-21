@@ -113,11 +113,7 @@ impl Space {
         B: AsRef<str>,
         F: AsRef<str>,
     {
-        info!(
-            "create block: {}, flavour: {}",
-            block_id.as_ref(),
-            flavour.as_ref()
-        );
+        info!("create block: {}, flavour: {}", block_id.as_ref(), flavour.as_ref());
         Block::new(self, block_id, flavour, self.client_id())
     }
 
@@ -127,11 +123,7 @@ impl Space {
         B: AsRef<str>,
         F: AsRef<str>,
     {
-        info!(
-            "create block: {}, flavour: {}",
-            block_id.as_ref(),
-            flavour.as_ref()
-        );
+        info!("create block: {}, flavour: {}", block_id.as_ref(), flavour.as_ref());
         Block::new_ffi(self, block_id, flavour, self.client_id(), created)
     }
 
@@ -156,11 +148,7 @@ impl Space {
     }
 
     pub fn get_blocks_by_flavour(&self, flavour: &str) -> Vec<Block> {
-        self.blocks(|blocks| {
-            blocks
-                .filter(|block| block.flavour() == flavour)
-                .collect::<Vec<_>>()
-        })
+        self.blocks(|blocks| blocks.filter(|block| block.flavour() == flavour).collect::<Vec<_>>())
     }
 
     /// Check if the block exists in this workspace's blocks.
@@ -261,10 +249,7 @@ mod test {
         assert_eq!(block.block_id(), "block");
         assert_eq!(block.flavour(), "text");
 
-        assert_eq!(
-            space.get("block").map(|b| b.block_id()),
-            Some("block".to_owned())
-        );
+        assert_eq!(space.get("block").map(|b| b.block_id()), Some("block".to_owned()));
 
         assert!(space.exists("block"));
 

@@ -1,10 +1,7 @@
 use assert_json_diff::{assert_json_matches_no_panic, CompareMode, Config, NumericMode};
 use yrs::{types::ToJson, Map, ReadTxn};
 
-fn get_yrs_struct(
-    trx: yrs::TransactionMut,
-    block_id: Option<&str>,
-) -> Result<serde_json::Value, String> {
+fn get_yrs_struct(trx: yrs::TransactionMut, block_id: Option<&str>) -> Result<serde_json::Value, String> {
     let json = trx
         .get_map("space:blocks")
         .ok_or_else(|| "get_yrs_struct: blocks not found".to_string())
@@ -19,14 +16,10 @@ fn get_yrs_struct(
         })?;
     drop(trx);
 
-    serde_json::to_value(json)
-        .map_err(|e| format!("get_yrs_struct: serde_json::to_value failed: {}", e))
+    serde_json::to_value(json).map_err(|e| format!("get_yrs_struct: serde_json::to_value failed: {}", e))
 }
 
-fn get_jwst_struct(
-    ws: &mut jwst_core::Workspace,
-    block_id: Option<&str>,
-) -> Result<serde_json::Value, String> {
+fn get_jwst_struct(ws: &mut jwst_core::Workspace, block_id: Option<&str>) -> Result<serde_json::Value, String> {
     match ws.get_blocks() {
         Ok(blocks) => {
             if let Some(block_id) = block_id {
@@ -34,9 +27,8 @@ fn get_jwst_struct(
                     .get(block_id)
                     .ok_or("get_jwst_struct: block not found".into())
                     .and_then(|b| {
-                        serde_json::to_value(&b).map_err(|e| {
-                            format!("get_yrs_struct: serde_json::to_value failed: {}", e)
-                        })
+                        serde_json::to_value(&b)
+                            .map_err(|e| format!("get_yrs_struct: serde_json::to_value failed: {}", e))
                     })
             } else {
                 serde_json::to_value(&blocks)

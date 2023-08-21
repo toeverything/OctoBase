@@ -5,8 +5,7 @@ use axum::headers::{CacheControl, HeaderMapExt};
 use chrono::{Duration, NaiveDateTime, Utc};
 use cloud_database::{Claims, FirebaseClaims};
 use jsonwebtoken::{
-    decode, decode_header, encode, errors::Error as JwtError, DecodingKey, EncodingKey, Header,
-    Validation,
+    decode, decode_header, encode, errors::Error as JwtError, DecodingKey, EncodingKey, Header, Validation,
 };
 use jwst::{warn, Base64DecodeError, Base64Engine, URL_SAFE_ENGINE};
 use pem::{encode as encode_pem, Pem};
@@ -72,10 +71,7 @@ impl KeyContext {
         let rand_data: [u8; 12] = thread_rng().gen();
         let nonce = Nonce::from_slice(&rand_data);
 
-        let mut encrypted = self
-            .aes
-            .encrypt(nonce, input)
-            .map_err(|_| KeyError::InvalidData)?;
+        let mut encrypted = self.aes.encrypt(nonce, input).map_err(|_| KeyError::InvalidData)?;
         encrypted.extend(nonce);
 
         Ok(encrypted)
@@ -96,9 +92,7 @@ impl KeyContext {
             return Err(KeyError::InvalidData);
         };
 
-        self.aes
-            .decrypt(nonce, content)
-            .map_err(|_| KeyError::InvalidData)
+        self.aes.decrypt(nonce, content).map_err(|_| KeyError::InvalidData)
     }
 
     pub fn decrypt_aes_base64(&self, input: String) -> KeyResult<Vec<u8>> {

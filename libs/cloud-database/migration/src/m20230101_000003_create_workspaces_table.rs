@@ -11,12 +11,7 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Workspaces::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(Workspaces::Id)
-                            .string()
-                            .not_null()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(Workspaces::Id).string().not_null().primary_key())
                     .col(ColumnDef::new(Workspaces::Public).boolean().not_null())
                     .col(ColumnDef::new(Workspaces::Type).small_integer().not_null())
                     .col(

@@ -16,10 +16,7 @@ impl Space {
                 if let Some(frame) = self.get(&frame) {
                     let mut state = MarkdownState::default();
                     for child in frame.children() {
-                        if let Some(text) = self
-                            .get(&child)
-                            .and_then(|child| child.to_markdown(&mut state))
-                        {
+                        if let Some(text) = self.get(&child).and_then(|child| child.to_markdown(&mut state)) {
                             markdown.push_str(&text);
                             markdown.push('\n');
                         }
@@ -101,8 +98,8 @@ impl Space {
         let new_blocks = space.blocks.clone();
         self.blocks(|blocks| {
             // TODO: hacky logic for BlockSuite's special case
-            let (roots, blocks): (Vec<_>, _) = blocks
-                .partition(|b| ["affine:surface", "affine:page"].contains(&b.flavour().as_str()));
+            let (roots, blocks): (Vec<_>, _) =
+                blocks.partition(|b| ["affine:surface", "affine:page"].contains(&b.flavour().as_str()));
 
             for block in roots {
                 block.clone_block(new_blocks.clone())?;

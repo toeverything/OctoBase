@@ -20,9 +20,7 @@ pub use utils::*;
 
 async fn shutdown_signal() {
     let ctrl_c = async {
-        signal::ctrl_c()
-            .await
-            .expect("failed to install Ctrl+C handler");
+        signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
     };
 
     #[cfg(unix)]
@@ -79,12 +77,7 @@ pub async fn start_server() {
 
     let cors = CorsLayer::new()
         // allow `GET` and `POST` when accessing the resource
-        .allow_methods(vec![
-            Method::GET,
-            Method::POST,
-            Method::DELETE,
-            Method::OPTIONS,
-        ])
+        .allow_methods(vec![Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
         // allow requests from any origin
         .allow_origin(origins)
         .allow_headers(Any);
@@ -98,8 +91,7 @@ pub async fn start_server() {
             .build()
             .expect("Failed to create runtime"),
     );
-    let workspace_changed_blocks =
-        Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
+    let workspace_changed_blocks = Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
     let hook_endpoint = Arc::new(RwLock::new(dotenvy::var("HOOK_ENDPOINT").unwrap_or_default()));
     let cb: WorkspaceRetrievalCallback = {
         let workspace_changed_blocks = workspace_changed_blocks.clone();

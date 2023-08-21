@@ -52,8 +52,7 @@ impl Context {
             .await
             .expect("Cannot create cloud database");
 
-        let use_bucket_storage =
-            dotenvy::var("ENABLE_BUCKET_STORAGE").map_or(false, |v| v.eq("true"));
+        let use_bucket_storage = dotenvy::var("ENABLE_BUCKET_STORAGE").map_or(false, |v| v.eq("true"));
 
         let storage_type = if use_bucket_storage {
             info!("use database and s3 bucket as blob storage");
@@ -87,15 +86,10 @@ impl Context {
             firebase: Mutex::new(FirebaseContext::new(
                 dotenvy::var("FIREBASE_PROJECT_ID")
                     .map(|id| vec![id])
-                    .unwrap_or_else(|_| {
-                        vec!["pathfinder-52392".into(), "quiet-sanctuary-370417".into()]
-                    }),
+                    .unwrap_or_else(|_| vec!["pathfinder-52392".into(), "quiet-sanctuary-370417".into()]),
             )),
             // =========== mail ===========
-            mail: MailContext::new(
-                dotenvy::var("MAIL_ACCOUNT").ok(),
-                dotenvy::var("MAIL_PASSWORD").ok(),
-            ),
+            mail: MailContext::new(dotenvy::var("MAIL_ACCOUNT").ok(), dotenvy::var("MAIL_PASSWORD").ok()),
             // =========== sync channel ===========
             channel: RwLock::new(HashMap::new()),
             user_channel: UserChannel::new(),

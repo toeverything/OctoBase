@@ -16,13 +16,9 @@ impl Block {
                 format @ "affine:paragraph" => {
                     state.numbered_count = 0;
                     match self.get("type").map(|v| v.to_string()).as_deref() {
-                        Some(
-                            head @ "h1" | head @ "h2" | head @ "h3" | head @ "h4" | head @ "h5",
-                        ) => Some(format!(
-                            "{} {}\n",
-                            "#".repeat(head[1..].parse().unwrap()),
-                            text
-                        )),
+                        Some(head @ "h1" | head @ "h2" | head @ "h3" | head @ "h4" | head @ "h5") => {
+                            Some(format!("{} {}\n", "#".repeat(head[1..].parse().unwrap()), text))
+                        }
                         Some("quote") => Some(format!("> {text}\n")),
                         Some("text") => Some(format!("{text}\n")),
                         r#type @ Some(_) | r#type @ None => {
@@ -35,35 +31,30 @@ impl Block {
                         }
                     }
                 }
-                format @ "affine:list" => {
-                    match self.get("type").map(|v| v.to_string()).as_deref() {
-                        Some("numbered") => {
-                            state.numbered_count += 1;
-                            Some(format!("{}. {text}\n", state.numbered_count))
-                        }
-                        Some("todo") => {
-                            state.numbered_count += 1;
-                            let clicked = self
-                                .get("checked")
-                                .map(|v| v.to_string() == "true")
-                                .unwrap_or(false);
-                            Some(format!("[{}] {text}\n", if clicked { "x" } else { " " }))
-                        }
-                        Some("bulleted") => {
-                            state.numbered_count += 1;
-                            Some(format!("- {text}\n"))
-                        }
-                        r#type @ Some("text") | r#type @ Some(_) | r#type @ None => {
-                            state.numbered_count = 0;
-                            if let Some(r#type) = r#type {
-                                warn!("Unprocessed format: {format}, {}", r#type);
-                            } else {
-                                warn!("Unprocessed format: {format}");
-                            }
-                            Some(text)
-                        }
+                format @ "affine:list" => match self.get("type").map(|v| v.to_string()).as_deref() {
+                    Some("numbered") => {
+                        state.numbered_count += 1;
+                        Some(format!("{}. {text}\n", state.numbered_count))
                     }
-                }
+                    Some("todo") => {
+                        state.numbered_count += 1;
+                        let clicked = self.get("checked").map(|v| v.to_string() == "true").unwrap_or(false);
+                        Some(format!("[{}] {text}\n", if clicked { "x" } else { " " }))
+                    }
+                    Some("bulleted") => {
+                        state.numbered_count += 1;
+                        Some(format!("- {text}\n"))
+                    }
+                    r#type @ Some("text") | r#type @ Some(_) | r#type @ None => {
+                        state.numbered_count = 0;
+                        if let Some(r#type) = r#type {
+                            warn!("Unprocessed format: {format}, {}", r#type);
+                        } else {
+                            warn!("Unprocessed format: {format}");
+                        }
+                        Some(text)
+                    }
+                },
                 format => {
                     state.numbered_count = 0;
                     warn!("Unprocessed format: {format}");
@@ -78,9 +69,9 @@ impl Block {
                 "affine:embed" => {
                     state.numbered_count = 0;
                     match self.get("type").map(|v| v.to_string()).as_deref() {
-                        Some("image") => self.get("sourceId").map(|v| {
-                            format!("![](/api/workspace/{}/blob/{})\n", self.id, v.to_string())
-                        }),
+                        Some("image") => self
+                            .get("sourceId")
+                            .map(|v| format!("![](/api/workspace/{}/blob/{})\n", self.id, v.to_string())),
                         _ => None,
                     }
                 }
@@ -243,8 +234,7 @@ mod tests {
     fn test_multiple_layer_space_clone() {
         let mut doc1 = Doc::default();
         doc1.apply_update(
-            Update::from_ybinary1(include_bytes!("../../fixtures/test_multi_layer.bin").to_vec())
-                .unwrap(),
+            Update::from_ybinary1(include_bytes!("../../fixtures/test_multi_layer.bin").to_vec()).unwrap(),
         )
         .unwrap();
 
@@ -258,15 +248,11 @@ mod tests {
         };
 
         let mut doc2 = Doc::default();
-        doc2.apply_update(Update::from_ybinary1(new_update).unwrap())
-            .unwrap();
+        doc2.apply_update(Update::from_ybinary1(new_update).unwrap()).unwrap();
 
         let doc1 = ws1.doc();
 
-        assert_json_diff::assert_json_eq!(
-            doc1.get_map("space:meta").unwrap(),
-            doc2.get_map("space:meta").unwrap()
-        );
+        assert_json_diff::assert_json_eq!(doc1.get_map("space:meta").unwrap(), doc2.get_map("space:meta").unwrap());
 
         // FIXME: clone block has bug that cloned but cannot store in update
         // assert_json_diff::assert_json_eq!(

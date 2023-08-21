@@ -13,10 +13,7 @@ use jwst::{DocStorage, Workspace};
 use jwst_codec::{CrdtReader, RawDecoder};
 use jwst_storage::{JwstStorage, JwstStorageResult};
 use tokio::sync::{
-    broadcast::{
-        channel as broadcast, error::RecvError, Receiver as BroadcastReceiver,
-        Sender as BroadcastSender,
-    },
+    broadcast::{channel as broadcast, error::RecvError, Receiver as BroadcastReceiver, Sender as BroadcastSender},
     mpsc::{Receiver as MpscReceiver, Sender as MpscSender},
     Mutex,
 };
@@ -25,12 +22,7 @@ use yrs::merge_updates_v1;
 
 fn merge_updates(id: &str, updates: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
     match catch_unwind(AssertUnwindSafe(move || {
-        match merge_updates_v1(
-            &updates
-                .iter()
-                .map(std::ops::Deref::deref)
-                .collect::<Vec<_>>(),
-        ) {
+        match merge_updates_v1(&updates.iter().map(std::ops::Deref::deref).collect::<Vec<_>>()) {
             Ok(update) => {
                 info!("merge {} updates", updates.len());
                 vec![update]
@@ -160,17 +152,12 @@ pub trait RpcContextImpl<'a> {
                             let updates = merge_updates(&id, updates);
 
                             for update in updates {
-                                if let Err(e) =
-                                    docs.update_doc(id.clone(), guid.clone(), &update).await
-                                {
+                                if let Err(e) = docs.update_doc(id.clone(), guid.clone(), &update).await {
                                     error!("failed to save update of {}: {:?}", id, e);
                                 }
                             }
                         }
-                        last_synced
-                            .send(Utc::now().timestamp_millis())
-                            .await
-                            .unwrap();
+                        last_synced.send(Utc::now().timestamp_millis()).await.unwrap();
                     } else if handler.is_finished() {
                         break;
                     }

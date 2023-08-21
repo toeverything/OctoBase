@@ -46,9 +46,10 @@ impl Workspace {
             self.runtime
                 .spawn(async move {
                     workspace.with_trx(|mut trx| {
-                        let block = trx.get_blocks().get(&trx.trx, &block_id).map(|b| {
-                            Block::new(workspace.clone(), b, runtime, jwst_workspace, sender)
-                        });
+                        let block = trx
+                            .get_blocks()
+                            .get(&trx.trx, &block_id)
+                            .map(|b| Block::new(workspace.clone(), b, runtime, jwst_workspace, sender));
                         drop(trx);
                         block
                     })
@@ -123,9 +124,7 @@ impl Workspace {
             self.runtime
                 .spawn(async move {
                     workspace
-                        .with_trx(|mut trx| {
-                            trx.get_blocks().get_blocks_by_flavour(&trx.trx, &flavour)
-                        })
+                        .with_trx(|mut trx| trx.get_blocks().get_blocks_by_flavour(&trx.trx, &flavour))
                         .iter()
                         .map(|block| {
                             Block::new(
@@ -161,11 +160,7 @@ impl Workspace {
             {
                 Ok(ret) => {
                     self.runtime.block_on(async {
-                        if let Err(e) = self
-                            .sender
-                            .send(Log::new(self.workspace.id(), ret.clone()))
-                            .await
-                        {
+                        if let Err(e) = self.sender.send(Log::new(self.workspace.id(), ret.clone())).await {
                             warn!("failed to send log: {}", e);
                         }
                     });

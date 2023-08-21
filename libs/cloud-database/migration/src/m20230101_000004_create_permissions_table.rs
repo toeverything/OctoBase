@@ -14,12 +14,7 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Permissions::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(Permissions::Id)
-                            .string()
-                            .not_null()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(Permissions::Id).string().not_null().primary_key())
                     .col(ColumnDef::new(Permissions::WorkspaceId).string().not_null())
                     .col(ColumnDef::new(Permissions::UserId).string())
                     .col(ColumnDef::new(Permissions::UserEmail).text())
@@ -58,25 +53,13 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_foreign_key(
-                ForeignKey::drop()
-                    .name("permissions_workspace_id_fkey")
-                    .to_owned(),
-            )
+            .drop_foreign_key(ForeignKey::drop().name("permissions_workspace_id_fkey").to_owned())
             .await?;
         manager
-            .drop_foreign_key(
-                ForeignKey::drop()
-                    .name("permissions_user_id_fkey")
-                    .to_owned(),
-            )
+            .drop_foreign_key(ForeignKey::drop().name("permissions_user_id_fkey").to_owned())
             .await?;
         manager
-            .drop_index(
-                Index::drop()
-                    .name("permissions_workspace_id_user_id_unique")
-                    .to_owned(),
-            )
+            .drop_index(Index::drop().name("permissions_workspace_id_user_id_unique").to_owned())
             .await?;
         manager
             .drop_index(

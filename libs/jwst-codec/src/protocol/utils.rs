@@ -12,19 +12,12 @@ pub fn to_sync_message(msg: YMessage) -> Option<SyncMessage> {
             awareness
                 .clients
                 .into_iter()
-                .map(|(client_id, state)| {
-                    (
-                        client_id,
-                        AwarenessState::new(state.clock as u64, state.json),
-                    )
-                })
+                .map(|(client_id, state)| (client_id, AwarenessState::new(state.clock as u64, state.json)))
                 .collect(),
         )),
         YMessage::AwarenessQuery => Some(SyncMessage::AwarenessQuery),
         YMessage::Sync(doc) => Some(SyncMessage::Doc(match doc {
-            y_sync::sync::SyncMessage::SyncStep1(update) => {
-                DocMessage::Step1(update.encode_v1().unwrap())
-            }
+            y_sync::sync::SyncMessage::SyncStep1(update) => DocMessage::Step1(update.encode_v1().unwrap()),
             y_sync::sync::SyncMessage::SyncStep2(update) => DocMessage::Step2(update),
             y_sync::sync::SyncMessage::Update(update) => DocMessage::Update(update),
         })),
@@ -35,27 +28,23 @@ pub fn to_sync_message(msg: YMessage) -> Option<SyncMessage> {
 pub fn to_y_message(msg: SyncMessage) -> YMessage {
     match msg {
         SyncMessage::Auth(reason) => YMessage::Auth(reason),
-        SyncMessage::Awareness(awareness) => {
-            YMessage::Awareness(y_sync::awareness::AwarenessUpdate {
-                clients: awareness
-                    .into_iter()
-                    .map(|(client_id, state)| {
-                        (
-                            client_id,
-                            y_sync::awareness::AwarenessUpdateEntry {
-                                clock: state.clock as u32,
-                                json: state.content,
-                            },
-                        )
-                    })
-                    .collect(),
-            })
-        }
+        SyncMessage::Awareness(awareness) => YMessage::Awareness(y_sync::awareness::AwarenessUpdate {
+            clients: awareness
+                .into_iter()
+                .map(|(client_id, state)| {
+                    (
+                        client_id,
+                        y_sync::awareness::AwarenessUpdateEntry {
+                            clock: state.clock as u32,
+                            json: state.content,
+                        },
+                    )
+                })
+                .collect(),
+        }),
         SyncMessage::AwarenessQuery => YMessage::AwarenessQuery,
         SyncMessage::Doc(doc) => YMessage::Sync(match doc {
-            DocMessage::Step1(update) => {
-                y_sync::sync::SyncMessage::SyncStep1(StateVector::decode_v1(&update).unwrap())
-            }
+            DocMessage::Step1(update) => y_sync::sync::SyncMessage::SyncStep1(StateVector::decode_v1(&update).unwrap()),
             DocMessage::Step2(update) => y_sync::sync::SyncMessage::SyncStep2(update),
             DocMessage::Update(update) => y_sync::sync::SyncMessage::Update(update),
         }),

@@ -65,9 +65,7 @@ impl PartialEq for Content {
             (Self::Any(any1), Self::Any(any2)) => any1 == any2,
             (Self::Doc { guid: guid1, .. }, Self::Doc { guid: guid2, .. }) => guid1 == guid2,
             (Self::Type(ty1), Self::Type(ty2)) => match (ty1.get(), ty2.get()) {
-                (Some(ty1), Some(ty2)) => {
-                    ty1.read().unwrap().deref() == ty2.read().unwrap().deref()
-                }
+                (Some(ty1), Some(ty2)) => ty1.read().unwrap().deref() == ty2.read().unwrap().deref(),
                 _ => false,
             },
             _ => false,
@@ -99,11 +97,7 @@ impl std::fmt::Debug for Content {
                 .field(&arg0.get().unwrap().read().unwrap().kind())
                 .finish(),
             Self::Any(arg0) => f.debug_tuple("Any").field(arg0).finish(),
-            Self::Doc { guid, opts } => f
-                .debug_struct("Doc")
-                .field("guid", guid)
-                .field("opts", opts)
-                .finish(),
+            Self::Doc { guid, opts } => f.debug_struct("Doc").field("guid", guid).field("opts", opts).finish(),
         }
     }
 }
@@ -115,11 +109,7 @@ impl Content {
             2 => {
                 let len = decoder.read_var_u64()?;
                 let strings = (0..len)
-                    .map(|_| {
-                        decoder
-                            .read_var_string()
-                            .map(|s| (s != "undefined").then_some(s))
-                    })
+                    .map(|_| decoder.read_var_string().map(|s| (s != "undefined").then_some(s)))
                     .collect::<Result<Vec<_>, _>>()?;
 
                 Ok(Self::Json(strings))
@@ -128,16 +118,14 @@ impl Content {
             4 => Ok(Self::String(decoder.read_var_string()?)), // String
             5 => {
                 let string = decoder.read_var_string()?;
-                let json = serde_json::from_str(&string)
-                    .map_err(|_| JwstCodecError::DamagedDocumentJson)?;
+                let json = serde_json::from_str(&string).map_err(|_| JwstCodecError::DamagedDocumentJson)?;
 
                 Ok(Self::Embed(json))
             } // Embed
             6 => {
                 let key = decoder.read_var_string()?;
                 let value = decoder.read_var_string()?;
-                let value = serde_json::from_str(&value)
-                    .map_err(|_| JwstCodecError::DamagedDocumentJson)?;
+                let value = serde_json::from_str(&value).map_err(|_| JwstCodecError::DamagedDocumentJson)?;
 
                 Ok(Self::Format { key, value })
             } // Format
@@ -204,16 +192,13 @@ impl Content {
                 encoder.write_var_string(string)?;
             }
             Self::Embed(val) => {
-                encoder.write_var_string(
-                    serde_json::to_string(val).map_err(|_| JwstCodecError::DamagedDocumentJson)?,
-                )?;
+                encoder
+                    .write_var_string(serde_json::to_string(val).map_err(|_| JwstCodecError::DamagedDocumentJson)?)?;
             }
             Self::Format { key, value } => {
                 encoder.write_var_string(key)?;
-                encoder.write_var_string(
-                    serde_json::to_string(value)
-                        .map_err(|_| JwstCodecError::DamagedDocumentJson)?,
-                )?;
+                encoder
+                    .write_var_string(serde_json::to_string(value).map_err(|_| JwstCodecError::DamagedDocumentJson)?)?;
             }
             Self::Type(ty) => {
                 if let Some(ty) = ty.get() {
@@ -243,11 +228,7 @@ impl Content {
             Self::Json(strings) => strings.len() as u64,
             Self::String(string) => string.encode_utf16().count() as u64,
             Self::Any(any) => any.len() as u64,
-            Self::Binary(_)
-            | Self::Embed(_)
-            | Self::Format { .. }
-            | Self::Type(_)
-            | Self::Doc { .. } => 1,
+            Self::Binary(_) | Self::Embed(_) | Self::Format { .. } | Self::Type(_) | Self::Doc { .. } => 1,
         }
     }
 
@@ -257,20 +238,14 @@ impl Content {
 
     #[allow(dead_code)]
     pub fn splittable(&self) -> bool {
-        matches!(
-            self,
-            Self::String { .. } | Self::Any { .. } | Self::Json { .. }
-        )
+        matches!(self, Self::String { .. } | Self::Any { .. } | Self::Json { .. })
     }
 
     pub fn split(&self, diff: u64) -> JwstCodecResult<(Self, Self)> {
         match self {
             Self::String(str) => {
                 let (left, right) = Self::split_as_utf16_str(str.as_str(), diff);
-                Ok((
-                    Self::String(left.to_string()),
-                    Self::String(right.to_string()),
-                ))
+                Ok((Self::String(left.to_string()), Self::String(right.to_string())))
             }
             Self::Json(vec) => {
                 let (left, right) = vec.split_at((diff + 1) as usize);
@@ -327,11 +302,7 @@ mod tests {
         loom_model!({
             let contents = [
                 Content::Deleted(42),
-                Content::Json(vec![
-                    None,
-                    Some("test_1".to_string()),
-                    Some("test_2".to_string()),
-                ]),
+                Content::Json(vec![None, Some("test_1".to_string()), Some("test_2".to_string())]),
                 Content::Binary(vec![1, 2, 3]),
                 Content::String("hello".to_string()),
                 Content::Embed(Any::True),
@@ -346,10 +317,7 @@ mod tests {
                     YTypeKind::XMLElement,
                     Some("test".to_string()),
                 )))),
-                Content::Type(Somr::new(RwLock::new(YType::new(
-                    YTypeKind::XMLFragment,
-                    None,
-                )))),
+                Content::Type(Somr::new(RwLock::new(YType::new(YTypeKind::XMLFragment, None)))),
                 Content::Type(Somr::new(RwLock::new(YType::new(
                     YTypeKind::XMLHook,
                     Some("test".to_string()),
@@ -372,11 +340,7 @@ mod tests {
     fn test_content_split() {
         let contents = [
             Content::String("hello".to_string()),
-            Content::Json(vec![
-                None,
-                Some("test_1".to_string()),
-                Some("test_2".to_string()),
-            ]),
+            Content::Json(vec![None, Some("test_1".to_string()), Some("test_2".to_string())]),
             Content::Any(vec![Any::BigInt64(42), Any::String("Test Any".to_string())]),
             Content::Binary(vec![]),
         ];
@@ -407,10 +371,7 @@ mod tests {
 
         {
             assert!(!contents[3].splittable());
-            assert_eq!(
-                contents[3].split(2),
-                Err(JwstCodecError::ContentSplitNotSupport(2))
-            );
+            assert_eq!(contents[3].split(2), Err(JwstCodecError::ContentSplitNotSupport(2)));
         }
     }
 

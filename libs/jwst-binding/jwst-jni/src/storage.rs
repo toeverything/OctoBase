@@ -1,9 +1,7 @@
 use super::*;
 use android_logger::Config;
 use futures::TryFutureExt;
-use jwst_rpc::{
-    start_websocket_client_sync, BroadcastChannels, CachedLastSynced, RpcContextImpl, SyncState,
-};
+use jwst_rpc::{start_websocket_client_sync, BroadcastChannels, CachedLastSynced, RpcContextImpl, SyncState};
 use jwst_storage::{BlobStorageType, JwstStorage as AutoStorage, JwstStorageResult};
 use nanoid::nanoid;
 use std::sync::{Arc, RwLock};
@@ -43,15 +41,8 @@ impl JwstStorage {
 
         let storage = rt
             .block_on(
-                AutoStorage::new_with_migration(
-                    &format!("sqlite:{path}?mode=rwc"),
-                    BlobStorageType::DB,
-                )
-                .or_else(|e| {
-                    warn!(
-                        "Failed to open storage, falling back to memory storage: {}",
-                        e
-                    );
+                AutoStorage::new_with_migration(&format!("sqlite:{path}?mode=rwc"), BlobStorageType::DB).or_else(|e| {
+                    warn!("Failed to open storage, falling back to memory storage: {}", e);
                     AutoStorage::new_with_migration("sqlite::memory:", BlobStorageType::DB)
                 }),
             )
@@ -152,17 +143,16 @@ impl JwstStorage {
                     .encode_state_as_update_v1(&StateVector::default())
                     .unwrap();
 
-                let jwst_workspace = match jwst_core::Workspace::from_binary(update, &workspace_id)
-                {
+                let jwst_workspace = match jwst_core::Workspace::from_binary(update, &workspace_id) {
                     Ok(mut ws) => {
                         info!(
-                                "Successfully applied to jwst workspace, jwst blocks: {}, yrs blocks: {}",
-                                ws.get_blocks().map(|s| s.block_count()).unwrap_or_default(),
-                                workspace
-                                    .retry_with_trx(|mut t| t.get_blocks(), 50)
-                                    .map(|s| s.block_count())
-                                    .unwrap_or_default()
-                            );
+                            "Successfully applied to jwst workspace, jwst blocks: {}, yrs blocks: {}",
+                            ws.get_blocks().map(|s| s.block_count()).unwrap_or_default(),
+                            workspace
+                                .retry_with_trx(|mut t| t.get_blocks(), 50)
+                                .map(|s| s.block_count())
+                                .unwrap_or_default()
+                        );
 
                         Some(ws)
                     }
@@ -173,8 +163,7 @@ impl JwstStorage {
                 };
 
                 let (sender, receiver) = channel::<Log>(10240);
-                self.difflog
-                    .add_receiver(receiver, rt.clone(), self.storage.clone());
+                self.difflog.add_receiver(receiver, rt.clone(), self.storage.clone());
 
                 let mut ws = Workspace {
                     workspace,
@@ -184,10 +173,7 @@ impl JwstStorage {
                 };
 
                 if let Some(ret) = Workspace::compare(&mut ws) {
-                    info!(
-                        "Run first compare at workspace init: {}, {}",
-                        workspace_id, ret
-                    );
+                    info!("Run first compare at workspace init: {}, {}", workspace_id, ret);
                 } else {
                     warn!(
                         "Failed to run first compare, jwst workspace not initialed: {}",

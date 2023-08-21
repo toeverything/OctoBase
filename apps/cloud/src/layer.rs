@@ -70,47 +70,45 @@ const EXCLUDED_URIS: [&str; 1] = ["/api/healthz"];
 
 pub fn make_tracing_layer(router: Router) -> Router {
     router
-        .layer(
-            TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
-                let request_id = request
-                    .extensions()
-                    .get::<RequestId>()
-                    .and_then(|id| id.header_value().to_str().ok())
-                    .unwrap_or_default();
-                let span = info_span!(
-                    "HTTP",
-                    %request_id,
+        .layer(TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
+            let request_id = request
+                .extensions()
+                .get::<RequestId>()
+                .and_then(|id| id.header_value().to_str().ok())
+                .unwrap_or_default();
+            let span = info_span!(
+                "HTTP",
+                %request_id,
+            );
+            let uri = request.uri();
+            if !EXCLUDED_URIS.contains(&uri.path()) {
+                use form_urlencoded::{parse, Serializer};
+                info!(
+                    "[HTTP:request_id={}] {:?} {} {}{}",
+                    request_id,
+                    request.version(),
+                    request.method(),
+                    uri.path(),
+                    &if let Some(query) = uri
+                        .query()
+                        .map(|q| parse(q.as_bytes())
+                            .filter(|i| i.0 != "token")
+                            .fold(Serializer::new(String::new()), |mut s, i| {
+                                s.append_pair(&i.0, &i.1);
+                                s
+                            })
+                            .finish())
+                        .and_then(|q| (!q.is_empty()).then_some(q))
+                    {
+                        format!("?{}", query)
+                    } else {
+                        "".to_string()
+                    },
                 );
-                let uri = request.uri();
-                if !EXCLUDED_URIS.contains(&uri.path()) {
-                    use form_urlencoded::{parse, Serializer};
-                    info!(
-                        "[HTTP:request_id={}] {:?} {} {}{}",
-                        request_id,
-                        request.version(),
-                        request.method(),
-                        uri.path(),
-                        &if let Some(query) = uri
-                            .query()
-                            .map(|q| parse(q.as_bytes())
-                                .filter(|i| i.0 != "token")
-                                .fold(Serializer::new(String::new()), |mut s, i| {
-                                    s.append_pair(&i.0, &i.1);
-                                    s
-                                })
-                                .finish())
-                            .and_then(|q| (!q.is_empty()).then_some(q))
-                        {
-                            format!("?{}", query)
-                        } else {
-                            "".to_string()
-                        },
-                    );
-                }
+            }
 
-                span
-            }),
-        )
+            span
+        }))
         .layer(PropagateRequestIdLayer::x_request_id())
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
 }

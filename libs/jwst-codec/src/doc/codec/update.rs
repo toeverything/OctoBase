@@ -41,9 +41,7 @@ impl<R: CrdtReader> CrdtRead<R> for Update {
         let delete_set = DeleteSet::read(decoder)?;
 
         if !decoder.is_empty() {
-            return Err(JwstCodecError::UpdateNotFullyConsumed(
-                decoder.len() as usize
-            ));
+            return Err(JwstCodecError::UpdateNotFullyConsumed(decoder.len() as usize));
         }
 
         Ok(Update {
@@ -109,7 +107,7 @@ impl Update {
         std::mem::swap(&mut self.pending_delete_set, &mut self.delete_set);
     }
 
-    pub fn merge<'a, I: IntoIterator<Item = &'a Update>>(updates: I) -> Update {
+    pub fn merge<I: IntoIterator<Item = Update>>(updates: I) -> Update {
         let mut merged = Update::default();
 
         Self::merge_into(&mut merged, updates);
@@ -117,16 +115,16 @@ impl Update {
         merged
     }
 
-    pub fn merge_into<'a, I: IntoIterator<Item = &'a Update>>(target: &mut Update, updates: I) {
+    pub fn merge_into<I: IntoIterator<Item = Update>>(target: &mut Update, updates: I) {
         for update in updates {
             target.delete_set.merge(&update.delete_set);
 
-            for (client, structs) in &update.structs {
-                let iter = structs.iter().filter(|p| !p.is_skip()).map(Clone::clone);
-                if let Some(merged_structs) = target.structs.get_mut(client) {
+            for (client, structs) in update.structs {
+                let iter = structs.into_iter().filter(|p| !p.is_skip());
+                if let Some(merged_structs) = target.structs.get_mut(&client) {
                     merged_structs.extend(iter);
                 } else {
-                    target.structs.insert(*client, iter.collect());
+                    target.structs.insert(client, iter.collect());
                 }
             }
         }
@@ -141,12 +139,12 @@ impl Update {
                 let next = &structs[index + 1];
 
                 let clock_end = cur.id().clock + cur.len();
-                let diff = next.id().clock - clock_end;
+                let next_clock = next.id().clock;
 
-                if diff > 0 {
+                if next_clock > clock_end {
                     structs.insert(
                         index + 1,
-                        Node::new_skip((cur.id().client, clock_end).into(), diff),
+                        Node::new_skip((cur.id().client, clock_end).into(), next_clock - clock_end),
                     );
                     index += 1;
                 }
@@ -258,8 +256,7 @@ impl<'a> UpdateIterator<'a> {
             if let Some(parent) = &item.parent {
                 match parent {
                     Parent::Id(parent_id)
-                        if parent_id.client != id.client
-                            && parent_id.clock >= self.state.get(&parent_id.client) =>
+                        if parent_id.client != id.client && parent_id.clock >= self.state.get(&parent_id.client) =>
                     {
                         return Some(parent_id.client);
                     }
@@ -280,14 +277,7 @@ impl<'a> UpdateIterator<'a> {
             // Safety:
             // client index of updates and update length are both checked in next_client
             // safe to use unwrap
-            cur.replace(
-                self.update
-                    .structs
-                    .get_mut(&client)
-                    .unwrap()
-                    .pop_front()
-                    .unwrap(),
-            );
+            cur.replace(self.update.structs.get_mut(&client).unwrap().pop_front().unwrap());
         }
 
         cur
@@ -396,9 +386,7 @@ impl Iterator for DeleteSetIterator<'_> {
                     return Some((client, range));
                 } else {
                     // all state missing
-                    self.update
-                        .pending_delete_set
-                        .add(client, start, end - start);
+                    self.update.pending_delete_set.add(client, start, end - start);
                 }
             }
 
@@ -435,27 +423,16 @@ mod tests {
     fn test_parse_doc() {
         let docs = [
             (include_bytes!("../../fixtures/basic.bin").to_vec(), 1, 188),
-            (
-                include_bytes!("../../fixtures/database.bin").to_vec(),
-                1,
-                149,
-            ),
+            (include_bytes!("../../fixtures/database.bin").to_vec(), 1, 149),
             (include_bytes!("../../fixtures/large.bin").to_vec(), 1, 9036),
-            (
-                include_bytes!("../../fixtures/with-subdoc.bin").to_vec(),
-                2,
-                30,
-            ),
+            (include_bytes!("../../fixtures/with-subdoc.bin").to_vec(), 2, 30),
         ];
 
         for (doc, clients, structs) in docs {
             let update = parse_doc_update(doc).unwrap();
 
             assert_eq!(update.structs.len(), clients);
-            assert_eq!(
-                update.structs.iter().map(|s| s.1.len()).sum::<usize>(),
-                structs
-            );
+            assert_eq!(update.structs.iter().map(|s| s.1.len()).sum::<usize>(), structs);
         }
     }
 
@@ -478,9 +455,7 @@ mod tests {
     #[ignore = "just for local data test"]
     #[test]
     fn test_parse_local_doc() {
-        let json =
-            serde_json::from_slice::<Vec<Data>>(include_bytes!("../../fixtures/local_docs.json"))
-                .unwrap();
+        let json = serde_json::from_slice::<Vec<Data>>(include_bytes!("../../fixtures/local_docs.json")).unwrap();
 
         for ws in json {
             let data = &ws.blob[5..=(ws.blob.len() - 2)];
@@ -496,8 +471,7 @@ mod tests {
                     }
                     Err(_e) => {
                         std::fs::write(
-                            PathBuf::from("./src/fixtures/invalid")
-                                .join(format!("{}.ydoc", ws.workspace)),
+                            PathBuf::from("./src/fixtures/invalid").join(format!("{}.ydoc", ws.workspace)),
                             data,
                         )
                         .unwrap();
@@ -562,13 +536,7 @@ mod tests {
             assert_eq!(iter.next(), None);
             assert!(!update.pending_structs.is_empty());
             assert_eq!(
-                update
-                    .pending_structs
-                    .get_mut(&0)
-                    .unwrap()
-                    .pop_front()
-                    .unwrap()
-                    .id(),
+                update.pending_structs.get_mut(&0).unwrap().pop_front().unwrap().id(),
                 (0, 4).into()
             );
             assert!(!update.missing_state.is_empty());
@@ -624,7 +592,7 @@ mod tests {
                 ..Default::default()
             };
 
-            let merged = Update::merge([&update]);
+            let merged = Update::merge([update]);
 
             assert_eq!(
                 merged.structs.get(&0).unwrap(),
@@ -637,6 +605,38 @@ mod tests {
                     Node::new_gc((0, 20).into(), 10),
                 ])
             );
+        });
+    }
+
+    #[test]
+    fn merged_update_should_not_be_released_in_next_turn() {
+        loom_model!({
+            let update = Update {
+                structs: HashMap::from([(
+                    0,
+                    VecDeque::from([
+                        struct_item((0, 0), 1),
+                        struct_item((0, 1), 1),
+                        struct_item((0, 10), 1),
+                        Node::new_gc((0, 20).into(), 10),
+                    ]),
+                )]),
+                ..Default::default()
+            };
+
+            let merged = Update::merge([update]);
+
+            let update2 = Update {
+                structs: HashMap::from([(
+                    0,
+                    VecDeque::from([struct_item((0, 30), 1), Node::new_gc((0, 32).into(), 1)]),
+                )]),
+                ..Default::default()
+            };
+
+            let merged2 = Update::merge([update2, merged]);
+
+            assert_eq!(merged2.structs.get(&0).unwrap().len(), 9);
         });
     }
 }

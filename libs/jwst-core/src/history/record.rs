@@ -79,11 +79,7 @@ impl From<(Array, String)> for BlockHistory {
                 .get(1)
                 .and_then(|i| i.to_string().parse::<u64>().ok())
                 .unwrap_or_default(),
-            operation: array
-                .get(2)
-                .map(|i| i.to_string())
-                .unwrap_or_default()
-                .into(),
+            operation: array.get(2).map(|i| i.to_string()).unwrap_or_default().into(),
         }
     }
 }

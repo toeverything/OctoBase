@@ -1,17 +1,14 @@
 use super::{
     model::{
-        CreateUser, FirebaseClaims, Member, MemberResult, PermissionType, RefreshToken,
-        UpdateWorkspace, User, UserCred, UserInWorkspace, UserLogin, Workspace, WorkspaceDetail,
-        WorkspaceType, WorkspaceWithPermission,
+        CreateUser, FirebaseClaims, Member, MemberResult, PermissionType, RefreshToken, UpdateWorkspace, User,
+        UserCred, UserInWorkspace, UserLogin, Workspace, WorkspaceDetail, WorkspaceType, WorkspaceWithPermission,
     },
     *,
 };
 use affine_cloud_migration::{Expr, JoinType, Migrator, MigratorTrait, Query};
 use jwst_logger::{info, instrument, tracing};
 use nanoid::nanoid;
-use sea_orm::{
-    prelude::*, ConnectionTrait, Database, DatabaseTransaction, QuerySelect, Set, TransactionTrait,
-};
+use sea_orm::{prelude::*, ConnectionTrait, Database, DatabaseTransaction, QuerySelect, Set, TransactionTrait};
 
 // #[derive(FromRow)]
 // struct PermissionQuery {
@@ -33,17 +30,11 @@ impl CloudDatabase {
     #[instrument(skip(self))]
     pub async fn get_user_by_email(&self, email: &str) -> Result<Option<UsersModel>, DbErr> {
         info!("database get_user_by_email enter");
-        Users::find()
-            .filter(UsersColumn::Email.eq(email))
-            .one(&self.pool)
-            .await
+        Users::find().filter(UsersColumn::Email.eq(email)).one(&self.pool).await
     }
 
     #[instrument(skip(self))]
-    pub async fn get_workspace_owner(
-        &self,
-        workspace_id: String,
-    ) -> Result<Option<UsersModel>, DbErr> {
+    pub async fn get_workspace_owner(&self, workspace_id: String) -> Result<Option<UsersModel>, DbErr> {
         info!("database get_workspace_owner enter");
         Permissions::find()
             .column(UsersColumn::Id)
@@ -142,9 +133,10 @@ impl CloudDatabase {
             ..Default::default()
         })
         .exec_with_returning(&trx)
-        .await else {
+        .await
+        else {
             trx.rollback().await?;
-            return Err(DbErr::RecordNotUpdated)
+            return Err(DbErr::RecordNotUpdated);
         };
 
         Self::update_cred(&trx, id, &user.email).await?;
@@ -155,10 +147,7 @@ impl CloudDatabase {
     }
 
     #[instrument(skip(self))]
-    pub async fn get_workspace_by_id(
-        &self,
-        workspace_id: String,
-    ) -> Result<Option<WorkspaceDetail>, DbErr> {
+    pub async fn get_workspace_by_id(&self, workspace_id: String) -> Result<Option<WorkspaceDetail>, DbErr> {
         info!("database get_workspace_by_id enter");
         let workspace = Workspaces::find()
             .filter(WorkspacesColumn::Id.eq(workspace_id.clone()))
@@ -254,9 +243,7 @@ impl CloudDatabase {
     pub async fn create_normal_workspace(&self, user_id: String) -> Result<Workspace, DbErr> {
         info!("database create_normal_workspace enter");
         let trx = self.pool.begin().await?;
-        let workspace = self
-            .create_workspace(&trx, user_id, WorkspaceType::Normal)
-            .await?;
+        let workspace = self.create_workspace(&trx, user_id, WorkspaceType::Normal).await?;
 
         trx.commit().await?;
 
@@ -308,13 +295,8 @@ impl CloudDatabase {
                 Query::select()
                     .from(Workspaces)
                     .column(WorkspacesColumn::Id)
-                    .and_where(
-                        Expr::col((Workspaces, WorkspacesColumn::Id)).eq(workspace_id.clone()),
-                    )
-                    .and_where(
-                        Expr::col((Workspaces, WorkspacesColumn::Type))
-                            .eq(WorkspaceType::Normal as i32),
-                    )
+                    .and_where(Expr::col((Workspaces, WorkspacesColumn::Id)).eq(workspace_id.clone()))
+                    .and_where(Expr::col((Workspaces, WorkspacesColumn::Type)).eq(WorkspaceType::Normal as i32))
                     .limit(1)
                     .take(),
             ))
@@ -333,10 +315,7 @@ impl CloudDatabase {
     }
 
     #[instrument(skip(self))]
-    pub async fn get_user_workspaces(
-        &self,
-        user_id: String,
-    ) -> Result<Vec<WorkspaceWithPermission>, DbErr> {
+    pub async fn get_user_workspaces(&self, user_id: String) -> Result<Vec<WorkspaceWithPermission>, DbErr> {
         info!("database get_user_workspaces enter");
         Permissions::find()
             .column_as(WorkspacesColumn::Id, "id")
@@ -387,11 +366,7 @@ impl CloudDatabase {
     }
 
     #[instrument(skip(self))]
-    pub async fn get_permission(
-        &self,
-        user_id: String,
-        workspace_id: String,
-    ) -> Result<Option<PermissionType>, DbErr> {
+    pub async fn get_permission(&self, user_id: String, workspace_id: String) -> Result<Option<PermissionType>, DbErr> {
         info!("database get_permission enter");
         Permissions::find()
             .filter(PermissionColumn::UserId.eq(user_id))
@@ -425,10 +400,7 @@ impl CloudDatabase {
     }
 
     #[instrument(skip(self))]
-    pub async fn get_permission_by_id(
-        &self,
-        permission_id: String,
-    ) -> Result<Option<PermissionModel>, DbErr> {
+    pub async fn get_permission_by_id(&self, permission_id: String) -> Result<Option<PermissionModel>, DbErr> {
         info!("database get_permission_by_id enter");
         Permissions::find()
             .filter(PermissionColumn::Id.eq(permission_id))
@@ -437,11 +409,7 @@ impl CloudDatabase {
     }
 
     #[instrument(skip(self))]
-    pub async fn can_read_workspace(
-        &self,
-        user_id: String,
-        workspace_id: String,
-    ) -> Result<bool, DbErr> {
+    pub async fn can_read_workspace(&self, user_id: String, workspace_id: String) -> Result<bool, DbErr> {
         info!("database can_read_workspace enter");
         Permissions::find()
             .filter(
@@ -453,10 +421,7 @@ impl CloudDatabase {
                         Query::select()
                             .from(Workspaces)
                             .column(WorkspacesColumn::Id)
-                            .and_where(
-                                Expr::col((Workspaces, WorkspacesColumn::Id))
-                                    .eq(workspace_id.clone()),
-                            )
+                            .and_where(Expr::col((Workspaces, WorkspacesColumn::Id)).eq(workspace_id.clone()))
                             .and_where(Expr::col((Workspaces, WorkspacesColumn::Public)).eq(true))
                             .limit(1)
                             .take(),
@@ -525,10 +490,7 @@ impl CloudDatabase {
     }
 
     #[instrument(skip(self))]
-    pub async fn accept_permission(
-        &self,
-        permission_id: String,
-    ) -> Result<Option<Permission>, DbErr> {
+    pub async fn accept_permission(&self, permission_id: String) -> Result<Option<Permission>, DbErr> {
         info!("database accept_permission enter");
         let p = Permissions::find()
             .filter(PermissionColumn::Id.eq(permission_id.clone()))
@@ -571,11 +533,7 @@ impl CloudDatabase {
     }
 
     #[instrument(skip(self))]
-    pub async fn delete_permission_by_query(
-        &self,
-        user_id: String,
-        workspace_id: String,
-    ) -> Result<bool, DbErr> {
+    pub async fn delete_permission_by_query(&self, user_id: String, workspace_id: String) -> Result<bool, DbErr> {
         info!("database delete_permission_by_query enter");
         Permissions::delete_many()
             .filter(PermissionColumn::UserId.eq(user_id))
@@ -725,10 +683,7 @@ mod test {
             })
             .await
             .unwrap();
-        let new_workspace = pool
-            .create_normal_workspace(new_user.id.clone())
-            .await
-            .unwrap();
+        let new_workspace = pool.create_normal_workspace(new_user.id.clone()).await.unwrap();
         assert_eq!(new_workspace.public, false);
 
         let new_workspace1_clone = pool
@@ -739,19 +694,11 @@ mod test {
 
         assert_eq!(new_user.id, new_workspace1_clone.owner.unwrap().id);
         assert_eq!(new_workspace.id, new_workspace1_clone.workspace.id);
-        assert_eq!(
-            new_workspace.created_at,
-            new_workspace1_clone.workspace.created_at
-        );
+        assert_eq!(new_workspace.created_at, new_workspace1_clone.workspace.created_at);
 
         assert_eq!(
             new_workspace.id,
-            pool.get_user_workspaces(new_user.id)
-                .await
-                .unwrap()
-                .get(0)
-                .unwrap()
-                .id
+            pool.get_user_workspaces(new_user.id).await.unwrap().get(0).unwrap().id
         );
 
         Ok(())
@@ -772,14 +719,8 @@ mod test {
             .await
             .unwrap();
 
-        let mut new_workspace = pool
-            .create_normal_workspace(new_user.id.clone())
-            .await
-            .unwrap();
-        let is_published = pool
-            .is_public_workspace(new_workspace.id.clone())
-            .await
-            .unwrap();
+        let mut new_workspace = pool.create_normal_workspace(new_user.id.clone()).await.unwrap();
+        let is_published = pool.is_public_workspace(new_workspace.id.clone()).await.unwrap();
         let workspace_owner = pool
             .get_workspace_owner(new_workspace.id.clone())
             .await
@@ -793,10 +734,7 @@ mod test {
             .await
             .unwrap()
             .unwrap();
-        let is_published = pool
-            .is_public_workspace(new_workspace.id.clone())
-            .await
-            .unwrap();
+        let is_published = pool.is_public_workspace(new_workspace.id.clone()).await.unwrap();
         assert!(new_workspace.public);
         assert!(is_published);
 
@@ -818,15 +756,9 @@ mod test {
             .await
             .unwrap();
 
-        let new_workspace = pool
-            .create_normal_workspace(new_user.id.clone())
-            .await
-            .unwrap();
+        let new_workspace = pool.create_normal_workspace(new_user.id.clone()).await.unwrap();
 
-        let is_deleted = pool
-            .delete_workspace(new_workspace.id.clone())
-            .await
-            .unwrap();
+        let is_deleted = pool.delete_workspace(new_workspace.id.clone()).await.unwrap();
         assert_eq!(is_deleted, true);
 
         Ok(())
@@ -865,10 +797,7 @@ mod test {
             .await
             .unwrap();
 
-        let new_workspace = pool
-            .create_normal_workspace(new_user.id.clone())
-            .await
-            .unwrap();
+        let new_workspace = pool.create_normal_workspace(new_user.id.clone()).await.unwrap();
 
         let workspace_owner = pool
             .get_workspace_owner(new_workspace.id.clone())
@@ -888,21 +817,11 @@ mod test {
             .unwrap();
 
         //accept permission
-        let accept_permission = pool
-            .accept_permission(new_permission.0.clone())
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(
-            accept_permission.workspace_id.clone(),
-            new_workspace.id.clone()
-        );
+        let accept_permission = pool.accept_permission(new_permission.0.clone()).await.unwrap().unwrap();
+        assert_eq!(accept_permission.workspace_id.clone(), new_workspace.id.clone());
         assert_eq!(accept_permission.r#type.clone(), PermissionType::Admin);
         assert_eq!(accept_permission.user_id.unwrap(), new_user2.id.clone());
-        assert_eq!(
-            accept_permission.user_email.unwrap(),
-            new_user2.email.clone()
-        );
+        assert_eq!(accept_permission.user_email.unwrap(), new_user2.email.clone());
         assert!(accept_permission.accepted);
 
         let workspace_owner = pool
@@ -933,22 +852,13 @@ mod test {
 
         //get user workspace by user id
         let user1_workspace = pool.get_user_workspaces(new_user.id.clone()).await.unwrap();
-        let user2_workspace = pool
-            .get_user_workspaces(new_user2.id.clone())
-            .await
-            .unwrap();
+        let user2_workspace = pool.get_user_workspaces(new_user2.id.clone()).await.unwrap();
         assert_eq!(user1_workspace.len(), 1);
         assert_eq!(user2_workspace.len(), 1);
-        assert_eq!(
-            user1_workspace.get(0).unwrap().id,
-            user2_workspace.get(0).unwrap().id
-        );
+        assert_eq!(user1_workspace.get(0).unwrap().id, user2_workspace.get(0).unwrap().id);
 
         //get workspace members
-        let workspace_members = pool
-            .get_workspace_members(new_workspace.id.clone())
-            .await
-            .unwrap();
+        let workspace_members = pool.get_workspace_members(new_workspace.id.clone()).await.unwrap();
         assert_eq!(workspace_members.len(), 2);
 
         let member1 = workspace_members.get(0).unwrap().user.clone();
@@ -1000,10 +910,7 @@ mod test {
         assert_eq!(another_can_not_read_workspace, false);
 
         //delete permission
-        let is_deleted = pool
-            .delete_permission(new_permission.0.clone())
-            .await
-            .unwrap();
+        let is_deleted = pool.delete_permission(new_permission.0.clone()).await.unwrap();
         assert!(is_deleted);
         let workspace_owner = pool
             .get_workspace_owner(new_workspace.id.clone())

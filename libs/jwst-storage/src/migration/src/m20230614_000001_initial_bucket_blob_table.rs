@@ -25,11 +25,7 @@ impl MigrationTrait for Migration {
                             .timestamp_with_time_zone()
                             .not_null(),
                     )
-                    .primary_key(
-                        Index::create()
-                            .col(BucketBlobs::Workspace)
-                            .col(BucketBlobs::Hash),
-                    )
+                    .primary_key(Index::create().col(BucketBlobs::Workspace).col(BucketBlobs::Hash))
                     .to_owned(),
             )
             .await?;

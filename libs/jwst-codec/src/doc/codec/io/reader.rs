@@ -30,8 +30,8 @@ pub trait CrdtReader {
     fn read_var_u64(&mut self) -> JwstCodecResult<u64> {
         read_with_cursor(self.get_buffer_mut(), read_var_u64)
     }
-    fn read_var_i64(&mut self) -> JwstCodecResult<i64> {
-        read_with_cursor(self.get_buffer_mut(), read_var_i64)
+    fn read_var_i32(&mut self) -> JwstCodecResult<i32> {
+        read_with_cursor(self.get_buffer_mut(), read_var_i32)
     }
     fn read_var_string(&mut self) -> JwstCodecResult<String> {
         read_with_cursor(self.get_buffer_mut(), read_var_string)
@@ -45,19 +45,13 @@ pub trait CrdtReader {
         self.get_buffer_mut().read_u8().map_err(map_io_error)
     }
     fn read_f32_be(&mut self) -> JwstCodecResult<f32> {
-        self.get_buffer_mut()
-            .read_f32::<BigEndian>()
-            .map_err(map_io_error)
+        self.get_buffer_mut().read_f32::<BigEndian>().map_err(map_io_error)
     }
     fn read_f64_be(&mut self) -> JwstCodecResult<f64> {
-        self.get_buffer_mut()
-            .read_f64::<BigEndian>()
-            .map_err(map_io_error)
+        self.get_buffer_mut().read_f64::<BigEndian>().map_err(map_io_error)
     }
     fn read_i64_be(&mut self) -> JwstCodecResult<i64> {
-        self.get_buffer_mut()
-            .read_i64::<BigEndian>()
-            .map_err(map_io_error)
+        self.get_buffer_mut().read_i64::<BigEndian>().map_err(map_io_error)
     }
     fn is_empty(&self) -> bool {
         let buffer = self.get_buffer();

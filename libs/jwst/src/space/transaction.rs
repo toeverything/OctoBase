@@ -31,18 +31,14 @@ impl SpaceTransaction<'_> {
                 self.space.metadata.insert(&mut self.trx, key, bool)?;
             }
             Any::String(text) => {
-                self.space
-                    .metadata
-                    .insert(&mut self.trx, key, text.to_string())?;
+                self.space.metadata.insert(&mut self.trx, key, text.to_string())?;
             }
             Any::Number(number) => {
                 self.space.metadata.insert(&mut self.trx, key, number)?;
             }
             Any::BigInt(number) => {
                 if JS_INT_RANGE.contains(&number) {
-                    self.space
-                        .metadata
-                        .insert(&mut self.trx, key, number as f64)?;
+                    self.space.metadata.insert(&mut self.trx, key, number as f64)?;
                 } else {
                     self.space.metadata.insert(&mut self.trx, key, number)?;
                 }

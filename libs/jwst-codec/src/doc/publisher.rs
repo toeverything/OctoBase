@@ -6,7 +6,7 @@ pub type DocSubscriber = Box<dyn Fn(&[u8]) + Sync + Send + 'static>;
 
 pub struct DocPublisher {
     store: StoreRef,
-    subscribers: Arc<RwLock<Vec<Box<dyn Fn(&[u8]) + Sync + Send + 'static>>>>,
+    subscribers: Arc<RwLock<Vec<DocSubscriber>>>,
     observer: Arc<Mutex<Option<std::thread::JoinHandle<()>>>>,
     observing: Arc<AtomicBool>,
 }

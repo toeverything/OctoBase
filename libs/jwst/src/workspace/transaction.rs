@@ -68,9 +68,7 @@ impl WorkspaceTransaction<'_> {
                 self.ws.metadata.insert(&mut self.trx, key, bool)?;
             }
             Any::String(text) => {
-                self.ws
-                    .metadata
-                    .insert(&mut self.trx, key, text.to_string())?;
+                self.ws.metadata.insert(&mut self.trx, key, text.to_string())?;
             }
             Any::Number(number) => {
                 self.ws.metadata.insert(&mut self.trx, key, number)?;
@@ -105,11 +103,7 @@ impl Workspace {
         self.retry_with_trx(f, RETRY_NUM).ok()
     }
 
-    pub fn retry_with_trx<T>(
-        &self,
-        f: impl FnOnce(WorkspaceTransaction) -> T,
-        mut retry: i32,
-    ) -> JwstResult<T> {
+    pub fn retry_with_trx<T>(&self, f: impl FnOnce(WorkspaceTransaction) -> T, mut retry: i32) -> JwstResult<T> {
         retry = max(RETRY_NUM, retry);
         let trx = loop {
             match self.doc.try_transact_mut() {

@@ -32,12 +32,7 @@ pub struct CachedDiffLog {
 }
 
 impl CachedDiffLog {
-    pub fn add_receiver(
-        &self,
-        mut receiver: Receiver<Log>,
-        rt: Arc<Runtime>,
-        storage: Arc<JwstStorage>,
-    ) {
+    pub fn add_receiver(&self, mut receiver: Receiver<Log>, rt: Arc<Runtime>, storage: Arc<JwstStorage>) {
         let synced = self.synced.clone();
 
         rt.spawn(async move {

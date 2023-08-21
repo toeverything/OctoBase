@@ -20,10 +20,7 @@ impl AsRef<DatabaseConnection> for BlobDBStorage {
 }
 
 impl BlobDBStorage {
-    pub async fn init_with_pool(
-        pool: DatabaseConnection,
-        bucket: Arc<Bucket>,
-    ) -> JwstStorageResult<Self> {
+    pub async fn init_with_pool(pool: DatabaseConnection, bucket: Arc<Bucket>) -> JwstStorageResult<Self> {
         Ok(Self { bucket, pool })
     }
 
@@ -66,11 +63,7 @@ impl BlobDBStorage {
             .map(|c| c > 0)
     }
 
-    pub(super) async fn metadata(
-        &self,
-        workspace: &str,
-        hash: &str,
-    ) -> JwstBlobResult<InternalBlobMetadata> {
+    pub(super) async fn metadata(&self, workspace: &str, hash: &str) -> JwstBlobResult<InternalBlobMetadata> {
         Blobs::find_by_id((workspace.into(), hash.into()))
             .select_only()
             .column_as(BlobColumn::Length, "size")
@@ -203,11 +196,7 @@ impl BlobStorage<JwstStorageError> for BlobDBStorage {
         }
     }
 
-    async fn put_blob(
-        &self,
-        workspace: Option<String>,
-        blob: Vec<u8>,
-    ) -> JwstStorageResult<String> {
+    async fn put_blob(&self, workspace: Option<String>, blob: Vec<u8>) -> JwstStorageResult<String> {
         let _lock = self.bucket.write().await;
         let workspace = workspace.unwrap_or("__default__".into());
         let mut hasher = Sha256::new();
@@ -222,11 +211,7 @@ impl BlobStorage<JwstStorageError> for BlobDBStorage {
         }
     }
 
-    async fn delete_blob(
-        &self,
-        workspace_id: Option<String>,
-        id: String,
-    ) -> JwstStorageResult<bool> {
+    async fn delete_blob(&self, workspace_id: Option<String>, id: String) -> JwstStorageResult<bool> {
         let _lock = self.bucket.write().await;
         let workspace_id = workspace_id.unwrap_or("__default__".into());
         if let Ok(success) = self.delete(&workspace_id, &id).await {

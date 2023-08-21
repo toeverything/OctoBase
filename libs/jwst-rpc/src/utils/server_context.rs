@@ -43,9 +43,7 @@ impl MinimumServerContext {
         })
     }
 
-    pub async fn new_with_workspace(
-        workspace_id: &str,
-    ) -> (Arc<MinimumServerContext>, Workspace, Vec<u8>) {
+    pub async fn new_with_workspace(workspace_id: &str) -> (Arc<MinimumServerContext>, Workspace, Vec<u8>) {
         let server = Self::new().await;
         server
             .get_storage()

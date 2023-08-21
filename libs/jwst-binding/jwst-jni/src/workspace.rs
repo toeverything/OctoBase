@@ -31,19 +31,16 @@ impl Workspace {
 
     #[generate_interface]
     pub fn get(&mut self, trx: &mut WorkspaceTransaction, block_id: String) -> Option<Block> {
-        trx.trx
-            .get_blocks()
-            .get(&trx.trx.trx, block_id)
-            .map(|block| Block {
-                jwst_workspace: self.jwst_workspace.clone(),
-                jwst_block: {
-                    let mut ws = self.jwst_workspace.clone();
-                    ws.as_mut()
-                        .and_then(|ws| ws.get_blocks().ok())
-                        .and_then(|s| s.get(block.block_id()))
-                },
-                block,
-            })
+        trx.trx.get_blocks().get(&trx.trx.trx, block_id).map(|block| Block {
+            jwst_workspace: self.jwst_workspace.clone(),
+            jwst_block: {
+                let mut ws = self.jwst_workspace.clone();
+                ws.as_mut()
+                    .and_then(|ws| ws.get_blocks().ok())
+                    .and_then(|s| s.get(block.block_id()))
+            },
+            block,
+        })
     }
 
     #[generate_interface]
@@ -123,11 +120,7 @@ impl Workspace {
             {
                 Ok(ret) => {
                     self.runtime.block_on(async {
-                        if let Err(e) = self
-                            .sender
-                            .send(Log::new(self.workspace.id(), ret.clone()))
-                            .await
-                        {
+                        if let Err(e) = self.sender.send(Log::new(self.workspace.id(), ret.clone())).await {
                             warn!("failed to send log: {}", e);
                         }
                     });

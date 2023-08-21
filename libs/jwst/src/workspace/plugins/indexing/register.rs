@@ -65,9 +65,7 @@ impl PluginRegister for IndexingPluginRegister {
 
         let index_dir: Box<dyn tantivy::Directory> = match &self.storage_kind {
             IndexingStorageKind::Ram => Box::new(tantivy::directory::RamDirectory::create()),
-            IndexingStorageKind::PersistedDirectory(dir) => {
-                Box::new(tantivy::directory::MmapDirectory::open(dir)?)
-            }
+            IndexingStorageKind::PersistedDirectory(dir) => Box::new(tantivy::directory::MmapDirectory::open(dir)?),
         };
 
         let index = Rc::new({

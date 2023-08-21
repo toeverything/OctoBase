@@ -103,9 +103,7 @@ pub struct RefreshToken {
     pub token_nonce: i16,
 }
 
-#[derive(
-    Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Clone, Copy, JsonSchema_repr,
-)]
+#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, Debug, Clone, Copy, JsonSchema_repr)]
 #[repr(i32)]
 pub enum WorkspaceType {
     Private = 0,
@@ -126,27 +124,17 @@ impl From<i16> for WorkspaceType {
 }
 
 impl TryGetable for WorkspaceType {
-    fn try_get_by<I: sea_orm::ColIdx>(
-        res: &sea_orm::QueryResult,
-        index: I,
-    ) -> Result<Self, sea_orm::TryGetError> {
+    fn try_get_by<I: sea_orm::ColIdx>(res: &sea_orm::QueryResult, index: I) -> Result<Self, sea_orm::TryGetError> {
         let i: i16 = res.try_get_by(index).map_err(sea_orm::TryGetError::DbErr)?;
         Ok(WorkspaceType::from(i))
     }
 
-    fn try_get(
-        res: &sea_orm::QueryResult,
-        pre: &str,
-        col: &str,
-    ) -> Result<Self, sea_orm::TryGetError> {
+    fn try_get(res: &sea_orm::QueryResult, pre: &str, col: &str) -> Result<Self, sea_orm::TryGetError> {
         let i: i16 = res.try_get(pre, col).map_err(sea_orm::TryGetError::DbErr)?;
         Ok(WorkspaceType::from(i))
     }
 
-    fn try_get_by_index(
-        res: &sea_orm::QueryResult,
-        index: usize,
-    ) -> Result<Self, sea_orm::TryGetError> {
+    fn try_get_by_index(res: &sea_orm::QueryResult, index: usize) -> Result<Self, sea_orm::TryGetError> {
         Self::try_get_by(res, index)
     }
 }
@@ -210,18 +198,7 @@ pub struct UpdateWorkspace {
     pub public: bool,
 }
 
-#[derive(
-    Type,
-    Serialize_repr,
-    Deserialize_repr,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Debug,
-    Clone,
-    JsonSchema_repr,
-)]
+#[derive(Type, Serialize_repr, Deserialize_repr, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, JsonSchema_repr)]
 #[repr(i16)]
 pub enum PermissionType {
     Read = 0,
@@ -246,27 +223,17 @@ impl From<i16> for PermissionType {
 }
 
 impl TryGetable for PermissionType {
-    fn try_get_by<I: sea_orm::ColIdx>(
-        res: &sea_orm::QueryResult,
-        index: I,
-    ) -> Result<Self, sea_orm::TryGetError> {
+    fn try_get_by<I: sea_orm::ColIdx>(res: &sea_orm::QueryResult, index: I) -> Result<Self, sea_orm::TryGetError> {
         let i: i16 = res.try_get_by(index).map_err(sea_orm::TryGetError::DbErr)?;
         Ok(PermissionType::from(i))
     }
 
-    fn try_get(
-        res: &sea_orm::QueryResult,
-        pre: &str,
-        col: &str,
-    ) -> Result<Self, sea_orm::TryGetError> {
+    fn try_get(res: &sea_orm::QueryResult, pre: &str, col: &str) -> Result<Self, sea_orm::TryGetError> {
         let i: i16 = res.try_get(pre, col).map_err(sea_orm::TryGetError::DbErr)?;
         Ok(PermissionType::from(i))
     }
 
-    fn try_get_by_index(
-        res: &sea_orm::QueryResult,
-        index: usize,
-    ) -> Result<Self, sea_orm::TryGetError> {
+    fn try_get_by_index(res: &sea_orm::QueryResult, index: usize) -> Result<Self, sea_orm::TryGetError> {
         Self::try_get_by(res, index)
     }
 }

@@ -26,12 +26,7 @@ async fn main() {
 
     let cors = CorsLayer::new()
         // allow `GET` and `POST` when accessing the resource
-        .allow_methods(vec![
-            Method::GET,
-            Method::POST,
-            Method::DELETE,
-            Method::OPTIONS,
-        ])
+        .allow_methods(vec![Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
         // allow requests from specific origin
         .allow_origin([
             "http://localhost:8080".parse().unwrap(),
@@ -45,9 +40,7 @@ async fn main() {
         Router::new()
             .nest(
                 "/api",
-                api::make_api_doc_route(
-                    api::make_rest_route(context.clone()).nest("/sync", api::make_ws_route()),
-                ),
+                api::make_api_doc_route(api::make_rest_route(context.clone()).nest("/sync", api::make_ws_route())),
             )
             .layer(Extension(context.clone()))
             .layer(cors),

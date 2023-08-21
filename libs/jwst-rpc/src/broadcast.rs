@@ -1,8 +1,6 @@
 use super::*;
 use jwst::Workspace;
-use jwst_codec::{
-    encode_update_as_message, encode_update_with_guid, write_sync_message, SyncMessage,
-};
+use jwst_codec::{encode_update_as_message, encode_update_with_guid, write_sync_message, SyncMessage};
 use lru_time_cache::LruCache;
 use std::{collections::HashMap, sync::Mutex};
 use tokio::sync::{broadcast::Sender, RwLock};
@@ -42,10 +40,7 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
 
                 let mut dedup_cache = dedup_cache.lock().unwrap_or_else(|e| e.into_inner());
                 if !dedup_cache.contains_key(&buffer) {
-                    if sender
-                        .send(BroadcastType::BroadcastAwareness(buffer.clone()))
-                        .is_err()
-                    {
+                    if sender.send(BroadcastType::BroadcastAwareness(buffer.clone())).is_err() {
                         debug!("broadcast channel {workspace_id} has been closed",)
                     }
                     dedup_cache.insert(buffer, ());
@@ -57,11 +52,7 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
         let sender = sender.clone();
         let workspace_id = workspace.id();
         workspace.observe(move |_, e| {
-            trace!(
-                "workspace {} changed: {}bytes",
-                workspace_id,
-                &e.update.len()
-            );
+            trace!("workspace {} changed: {}bytes", workspace_id, &e.update.len());
 
             match encode_update_with_guid(e.update.clone(), workspace_id.clone())
                 .and_then(|update| encode_update_as_message(update.clone()).map(|u| (update, u)))
@@ -74,10 +65,7 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
                         debug!("broadcast channel {workspace_id} has been closed",)
                     }
 
-                    if sender
-                        .send(BroadcastType::BroadcastContent(sendable_update))
-                        .is_err()
-                    {
+                    if sender.send(BroadcastType::BroadcastContent(sendable_update)).is_err() {
                         debug!("broadcast channel {workspace_id} has been closed",)
                     }
                 }

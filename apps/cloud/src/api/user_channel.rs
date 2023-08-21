@@ -58,20 +58,14 @@ impl UserChannel {
     pub(super) async fn update_workspace(&self, workspace_id: String, context: Arc<Context>) {
         if let Some(users) = self.workspace_map.read().await.get(&workspace_id) {
             for user in users.read().await.iter() {
-                context
-                    .user_channel
-                    .update(user.clone(), context.clone())
-                    .await;
+                context.user_channel.update(user.clone(), context.clone()).await;
             }
         }
     }
 
     pub fn update_user(&self, user_id: String, context: Arc<Context>) {
         tokio::spawn(async move {
-            context
-                .user_channel
-                .update(user_id.clone(), context.clone())
-                .await;
+            context.user_channel.update(user_id.clone(), context.clone()).await;
         });
     }
 
@@ -83,10 +77,7 @@ impl UserChannel {
                 if let Some(user_set) = workspace_map.get(&item.id.to_string()) {
                     user_set.write().await.insert(user_id.clone());
                 } else {
-                    workspace_map.insert(
-                        item.id.to_string(),
-                        RwLock::new(HashSet::from([user_id.clone()])),
-                    );
+                    workspace_map.insert(item.id.to_string(), RwLock::new(HashSet::from([user_id.clone()])));
                 }
             }
 
@@ -134,17 +125,12 @@ impl UserChannel {
         let mut workspace_detail_list: HashMap<String, Option<WorkspaceDetail>> = HashMap::new();
         let mut workspace_metadata_list: HashMap<String, Any> = HashMap::new();
         for item in workspace_list.iter() {
-            let workspace_detail = context
-                .db
-                .get_workspace_by_id(item.id.clone())
-                .await
-                .unwrap();
+            let workspace_detail = context.db.get_workspace_by_id(item.id.clone()).await.unwrap();
             workspace_detail_list.insert(item.id.to_string(), workspace_detail);
 
             match context.storage.get_workspace(item.id.clone()).await {
                 Ok(workspace) => {
-                    workspace_metadata_list
-                        .insert(item.id.to_string(), workspace.metadata().into());
+                    workspace_metadata_list.insert(item.id.to_string(), workspace.metadata().into());
                 }
                 Err(e) => error!("get workspace {} metadata error: {}", item.id, e),
             }
@@ -208,10 +194,5 @@ async fn handle_socket(socket: WebSocket, user: Option<String>, context: Arc<Con
         }
     }
 
-    context
-        .user_channel
-        .channel
-        .write()
-        .await
-        .remove(&(user_id, uuid));
+    context.user_channel.channel.write().await.remove(&(user_id, uuid));
 }

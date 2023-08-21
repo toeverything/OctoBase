@@ -12,8 +12,8 @@ use yrs::{
         text::{Diff, YChange},
         DeepEventsSubscription, ToJson, Value,
     },
-    Array, ArrayPrelim, ArrayRef, DeepObservable, Doc, Map, MapPrelim, MapRef, ReadTxn, Text,
-    TextPrelim, TextRef, Transact, TransactionMut,
+    Array, ArrayPrelim, ArrayRef, DeepObservable, Doc, Map, MapPrelim, MapRef, ReadTxn, Text, TextPrelim, TextRef,
+    Transact, TransactionMut,
 };
 
 #[derive(Clone)]
@@ -83,36 +83,17 @@ impl Block {
             Ok(block)
         } else {
             // init base struct
-            space
-                .blocks
-                .insert(trx, block_id, MapPrelim::<Any>::new())?;
-            let block = space
-                .blocks
-                .get(trx, block_id)
-                .and_then(|b| b.to_ymap())
-                .unwrap();
+            space.blocks.insert(trx, block_id, MapPrelim::<Any>::new())?;
+            let block = space.blocks.get(trx, block_id).and_then(|b| b.to_ymap()).unwrap();
 
             // init default schema
             block.insert(trx, sys::FLAVOUR, flavour.as_ref())?;
-            block.insert(
-                trx,
-                sys::CHILDREN,
-                ArrayPrelim::<Vec<String>, String>::from(vec![]),
-            )?;
-            block.insert(
-                trx,
-                sys::CREATED,
-                chrono::Utc::now().timestamp_millis() as f64,
-            )?;
+            block.insert(trx, sys::CHILDREN, ArrayPrelim::<Vec<String>, String>::from(vec![]))?;
+            block.insert(trx, sys::CREATED, chrono::Utc::now().timestamp_millis() as f64)?;
 
-            space
-                .updated
-                .insert(trx, block_id, ArrayPrelim::<_, Any>::from([]))?;
+            space.updated.insert(trx, block_id, ArrayPrelim::<_, Any>::from([]))?;
 
-            let children = block
-                .get(trx, sys::CHILDREN)
-                .and_then(|c| c.to_yarray())
-                .unwrap();
+            let children = block.get(trx, sys::CHILDREN).and_then(|c| c.to_yarray()).unwrap();
             let updated = space.updated.get(trx, block_id).and_then(|c| c.to_yarray());
 
             let block = Self {
@@ -139,10 +120,7 @@ impl Block {
         B: AsRef<str>,
     {
         let block = space.blocks.get(trx, block_id.as_ref())?.to_ymap()?;
-        let updated = space
-            .updated
-            .get(trx, block_id.as_ref())
-            .and_then(|a| a.to_yarray());
+        let updated = space.updated.get(trx, block_id.as_ref()).and_then(|a| a.to_yarray());
         let children = block.get(trx, sys::CHILDREN)?.to_yarray()?;
 
         Some(Self {
@@ -168,8 +146,7 @@ impl Block {
                     trace!("subscribe block: {}", self.block_id);
                     let sub = self.block.observe_deep(move |_trx, _e| {
                         if handle.lock().unwrap().is_some() {
-                            tx.send(block_id.clone())
-                                .expect("send block observe message error");
+                            tx.send(block_id.clone()).expect("send block observe message error");
                         }
                     });
                     drop(sub_read_guard);
@@ -222,15 +199,13 @@ impl Block {
         T: ReadTxn,
     {
         let key = format!("prop:{key}");
-        self.block
-            .get(trx, &key)
-            .and_then(|v| match v.to_json(trx) {
-                Any::Null | Any::Undefined | Any::Array(_) | Any::Buffer(_) | Any::Map(_) => {
-                    error!("get wrong value at key {}", key);
-                    None
-                }
-                v => Some(v),
-            })
+        self.block.get(trx, &key).and_then(|v| match v.to_json(trx) {
+            Any::Null | Any::Undefined | Any::Array(_) | Any::Buffer(_) | Any::Map(_) => {
+                error!("get wrong value at key {}", key);
+                None
+            }
+            v => Some(v),
+        })
     }
 
     pub fn set<T>(&self, trx: &mut TransactionMut, key: &str, value: T) -> JwstResult<()>
@@ -278,10 +253,7 @@ impl Block {
     where
         T: ReadTxn,
     {
-        self.block
-            .get(trx, sys::FLAVOUR)
-            .unwrap_or_default()
-            .to_string(trx)
+        self.block.get(trx, sys::FLAVOUR).unwrap_or_default().to_string(trx)
     }
 
     pub fn created<T>(&self, trx: &T) -> u64
@@ -304,15 +276,12 @@ impl Block {
         self.updated
             .as_ref()
             .and_then(|a| {
-                a.iter(trx)
-                    .filter_map(|v| v.to_yarray())
-                    .last()
-                    .and_then(|a| {
-                        a.get(trx, 1).and_then(|i| match i.to_json(trx) {
-                            Any::Number(n) => Some(n as u64),
-                            _ => None,
-                        })
+                a.iter(trx).filter_map(|v| v.to_yarray()).last().and_then(|a| {
+                    a.get(trx, 1).and_then(|i| match i.to_json(trx) {
+                        Any::Number(n) => Some(n as u64),
+                        _ => None,
                     })
+                })
             })
             .unwrap_or_else(|| self.created(trx))
     }
@@ -336,12 +305,10 @@ impl Block {
     where
         T: ReadTxn,
     {
-        self.block
-            .get(trx, sys::PARENT)
-            .and_then(|c| match c.to_json(trx) {
-                Any::String(s) => Some(s.to_string()),
-                _ => None,
-            })
+        self.block.get(trx, sys::PARENT).and_then(|c| match c.to_json(trx) {
+            Any::String(s) => Some(s.to_string()),
+            _ => None,
+        })
     }
 
     pub fn children<T>(&self, trx: &T) -> Vec<String>
@@ -352,10 +319,7 @@ impl Block {
     }
 
     #[inline]
-    pub fn children_iter<T>(
-        &self,
-        cb: impl FnOnce(Box<dyn Iterator<Item = String> + '_>) -> T,
-    ) -> T {
+    pub fn children_iter<T>(&self, cb: impl FnOnce(Box<dyn Iterator<Item = String> + '_>) -> T) -> T {
         let trx = self.doc.transact();
         let iterator = self.children.iter(&trx).map(|v| v.to_string(&trx));
 
@@ -407,12 +371,7 @@ impl Block {
         Ok(())
     }
 
-    pub fn insert_children_at(
-        &self,
-        trx: &mut TransactionMut,
-        block: &Block,
-        pos: u32,
-    ) -> JwstResult<()> {
+    pub fn insert_children_at(&self, trx: &mut TransactionMut, block: &Block, pos: u32) -> JwstResult<()> {
         self.remove_children(trx, block)?;
         block.set_parent(trx, self.block_id.clone())?;
 
@@ -429,21 +388,13 @@ impl Block {
         Ok(())
     }
 
-    pub fn insert_children_before(
-        &self,
-        trx: &mut TransactionMut,
-        block: &Block,
-        reference: &str,
-    ) -> JwstResult<()> {
+    pub fn insert_children_before(&self, trx: &mut TransactionMut, block: &Block, reference: &str) -> JwstResult<()> {
         self.remove_children(trx, block)?;
         block.set_parent(trx, self.block_id.clone())?;
 
         let children = &self.children;
 
-        if let Some(pos) = children
-            .iter(trx)
-            .position(|c| c.to_string(trx) == reference)
-        {
+        if let Some(pos) = children.iter(trx).position(|c| c.to_string(trx) == reference) {
             children.insert(trx, pos as u32, block.block_id.clone())?;
         } else {
             children.push_back(trx, block.block_id.clone())?;
@@ -454,21 +405,13 @@ impl Block {
         Ok(())
     }
 
-    pub fn insert_children_after(
-        &self,
-        trx: &mut TransactionMut,
-        block: &Block,
-        reference: &str,
-    ) -> JwstResult<()> {
+    pub fn insert_children_after(&self, trx: &mut TransactionMut, block: &Block, reference: &str) -> JwstResult<()> {
         self.remove_children(trx, block)?;
         block.set_parent(trx, self.block_id.clone())?;
 
         let children = &self.children;
 
-        match children
-            .iter(trx)
-            .position(|c| c.to_string(trx) == reference)
-        {
+        match children.iter(trx).position(|c| c.to_string(trx) == reference) {
             Some(pos) if (pos as u32) < children.len(trx) => {
                 children.insert(trx, pos as u32 + 1, block.block_id.clone())?;
             }
@@ -486,10 +429,7 @@ impl Block {
         let children = &self.children;
         block.set_parent(trx, self.block_id.clone())?;
 
-        if let Some(current_pos) = children
-            .iter(trx)
-            .position(|c| c.to_string(trx) == block.block_id)
-        {
+        if let Some(current_pos) = children.iter(trx).position(|c| c.to_string(trx) == block.block_id) {
             children.remove(trx, current_pos as u32)?;
             self.log_update(trx, HistoryOperation::Delete);
         }
@@ -501,9 +441,7 @@ impl Block {
     where
         T: ReadTxn,
     {
-        self.children
-            .iter(trx)
-            .position(|c| c.to_string(trx) == block_id)
+        self.children.iter(trx).position(|c| c.to_string(trx) == block_id)
     }
 }
 
@@ -525,10 +463,7 @@ impl Serialize for Block {
         let any: JsonValue = serde_json::from_str(&buffer).unwrap();
 
         let mut block = any.as_object().unwrap().clone();
-        block.insert(
-            constants::sys::ID.to_string(),
-            JsonValue::String(self.block_id.clone()),
-        );
+        block.insert(constants::sys::ID.to_string(), JsonValue::String(self.block_id.clone()));
 
         JsonValue::Object(block).serialize(serializer)
     }
@@ -577,28 +512,15 @@ mod test {
             // normal type set
             block.set(&mut t.trx, "bool", true).unwrap();
             block.set(&mut t.trx, "text", "hello world").unwrap();
-            block
-                .set(&mut t.trx, "text_owned", "hello world".to_owned())
-                .unwrap();
+            block.set(&mut t.trx, "text_owned", "hello world".to_owned()).unwrap();
             block.set(&mut t.trx, "num", 123_i32).unwrap();
-            block
-                .set(&mut t.trx, "bigint", 9007199254740992_i64)
-                .unwrap();
+            block.set(&mut t.trx, "bigint", 9007199254740992_i64).unwrap();
 
             assert_eq!(block.get(&t.trx, "bool").unwrap().to_string(), "true");
-            assert_eq!(
-                block.get(&t.trx, "text").unwrap().to_string(),
-                "hello world"
-            );
-            assert_eq!(
-                block.get(&t.trx, "text_owned").unwrap().to_string(),
-                "hello world"
-            );
+            assert_eq!(block.get(&t.trx, "text").unwrap().to_string(), "hello world");
+            assert_eq!(block.get(&t.trx, "text_owned").unwrap().to_string(), "hello world");
             assert_eq!(block.get(&t.trx, "num").unwrap().to_string(), "123");
-            assert_eq!(
-                block.get(&t.trx, "bigint").unwrap().to_string(),
-                "9007199254740992"
-            );
+            assert_eq!(block.get(&t.trx, "bigint").unwrap().to_string(), "9007199254740992");
 
             assert_eq!(
                 block.content(&t.trx),
@@ -651,12 +573,7 @@ mod test {
 
             assert_eq!(
                 block.children(&t.trx),
-                vec![
-                    "c".to_owned(),
-                    "f".to_owned(),
-                    "b".to_owned(),
-                    "e".to_owned()
-                ]
+                vec!["c".to_owned(), "f".to_owned(), "b".to_owned(), "e".to_owned()]
             );
         });
     }

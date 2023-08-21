@@ -105,9 +105,8 @@ impl Space {
             let new_blocks = space.blocks.clone();
             self.blocks(trx, |blocks| {
                 // TODO: hacky logic for BlockSuite's special case
-                let (roots, blocks): (Vec<_>, _) = blocks.partition(|b| {
-                    ["affine:surface", "affine:page"].contains(&b.flavour(trx).as_str())
-                });
+                let (roots, blocks): (Vec<_>, _) =
+                    blocks.partition(|b| ["affine:surface", "affine:page"].contains(&b.flavour(trx).as_str()));
 
                 for block in roots {
                     block.clone_block(trx, &mut t.trx, new_blocks.clone())?;
@@ -152,9 +151,7 @@ impl Space {
                 ),
             ]));
 
-            let page_item = space
-                .init_pages(&mut t.trx)?
-                .push_back(&mut t.trx, page_item)?;
+            let page_item = space.init_pages(&mut t.trx)?.push_back(&mut t.trx, page_item)?;
 
             page_item.insert(&mut t.trx, "title", TextPrelim::new(title))?;
 

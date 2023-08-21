@@ -12,10 +12,7 @@ pub fn sync_handler(router: Router) -> Router {
             "/api",
             Router::new()
                 .route("/workspace/:id/blob", put(blobs::upload_blob_in_workspace))
-                .route(
-                    "/workspace/:id/blob/:name",
-                    get(blobs::get_blob_in_workspace),
-                ),
+                .route("/workspace/:id/blob/:name", get(blobs::get_blob_in_workspace)),
         )
     }
     .nest_service(
@@ -25,10 +22,7 @@ pub fn sync_handler(router: Router) -> Router {
 
     #[cfg(feature = "webrtc")]
     {
-        router.nest_service(
-            "/webrtc-sdp/:workspace",
-            post(collaboration::webrtc_handler),
-        )
+        router.nest_service("/webrtc-sdp/:workspace", post(collaboration::webrtc_handler))
     }
 
     #[cfg(not(feature = "webrtc"))]

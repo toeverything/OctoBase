@@ -15,8 +15,9 @@ fn main() {
         .first()
         .into_iter()
         .chain(["use jni_sys::*;"].iter())
-        .chain([
-r#"foreign_class!(
+        .chain(
+            [
+                r#"foreign_class!(
     class JwstStorage {
         self_type JwstStorage;
         constructor JwstStorage::new(path: String) -> JwstStorage;
@@ -31,7 +32,7 @@ r#"foreign_class!(
         fn JwstStorage::get_last_synced(&self) ->Vec<i64>;
     }
 );"#,
-r#"foreign_class!(
+                r#"foreign_class!(
     class WorkspaceTransaction {
         self_type WorkspaceTransaction;
         private constructor new<'a>() -> WorkspaceTransaction<'a> {
@@ -42,13 +43,13 @@ r#"foreign_class!(
         fn WorkspaceTransaction::commit(& mut self); alias commit;
     }
 );"#,
-r#"foreign_callback!(
+                r#"foreign_callback!(
     callback OnWorkspaceTransaction {
         self_type OnWorkspaceTransaction;
         onTrx = OnWorkspaceTransaction::on_trx(& self , trx : WorkspaceTransaction);
     }
 );"#,
-r#"
+                r#"
 pub type VecOfStrings = Vec<String>;
 foreign_class!(
     class VecOfStrings {
@@ -87,13 +88,15 @@ foreign_class!(
         }
     }
 );"#,
-r#"foreign_callback!(
+                r#"foreign_callback!(
     callback BlockObserver {
         self_type BlockObserver;
         onChange = BlockObserver::on_change(& self , block_ids : VecOfStrings);
     }
 );"#,
-].iter())
+            ]
+            .iter(),
+        )
         .chain(template.iter().skip(1))
         .cloned()
         .collect::<Vec<_>>()
@@ -113,11 +116,7 @@ r#"foreign_callback!(
     ))
     .rustfmt_bindings(true);
 
-    swig_gen.expand(
-        "android bindings",
-        in_src,
-        Path::new(&out_dir).join("java_glue.rs"),
-    );
+    swig_gen.expand("android bindings", in_src, Path::new(&out_dir).join("java_glue.rs"));
 
     println!("cargo:rerun-if-changed=src");
 }

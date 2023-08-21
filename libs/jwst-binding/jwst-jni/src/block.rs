@@ -10,12 +10,7 @@ pub struct Block {
 
 impl Block {
     #[generate_interface(constructor)]
-    pub fn new(
-        trx: &mut WorkspaceTransaction,
-        block_id: String,
-        flavour: String,
-        operator: u64,
-    ) -> Block {
+    pub fn new(trx: &mut WorkspaceTransaction, block_id: String, flavour: String, operator: u64) -> Block {
         let space = trx.trx.get_blocks();
         Self {
             block: JwstBlock::new(&mut trx.trx.trx, &space, &block_id, flavour, operator)
@@ -237,12 +232,7 @@ impl Block {
     }
 
     #[generate_interface]
-    pub fn insert_children_before(
-        &self,
-        trx: &mut WorkspaceTransaction,
-        block: &Block,
-        reference: &str,
-    ) {
+    pub fn insert_children_before(&self, trx: &mut WorkspaceTransaction, block: &Block, reference: &str) {
         self.block
             .insert_children_before(&mut trx.trx.trx, &block.block, reference)
             .expect("failed to insert children before");
@@ -263,12 +253,7 @@ impl Block {
     }
 
     #[generate_interface]
-    pub fn insert_children_after(
-        &self,
-        trx: &mut WorkspaceTransaction,
-        block: &Block,
-        reference: &str,
-    ) {
+    pub fn insert_children_after(&self, trx: &mut WorkspaceTransaction, block: &Block, reference: &str) {
         self.block
             .insert_children_after(&mut trx.trx.trx, &block.block, reference)
             .expect("failed to insert children after");

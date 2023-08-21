@@ -49,10 +49,7 @@ impl Workspace {
         };
 
         let mut buffer = Vec::new();
-        write_sync_message(
-            &mut buffer,
-            &SyncMessage::Doc(DocMessage::Step1(sv.encode_v1()?)),
-        )?;
+        write_sync_message(&mut buffer, &SyncMessage::Doc(DocMessage::Step1(sv.encode_v1()?)))?;
         write_sync_message(&mut buffer, &awareness_update)?;
 
         Ok(buffer)
@@ -63,10 +60,9 @@ impl Workspace {
         let mut content = vec![];
 
         for buffer in buffers {
-            let (awareness_msg, content_msg): (Vec<_>, Vec<_>) =
-                SyncMessageScanner::new(&buffer).flatten().partition(|msg| {
-                    matches!(msg, SyncMessage::Awareness(_) | SyncMessage::AwarenessQuery)
-                });
+            let (awareness_msg, content_msg): (Vec<_>, Vec<_>) = SyncMessageScanner::new(&buffer)
+                .flatten()
+                .partition(|msg| matches!(msg, SyncMessage::Awareness(_) | SyncMessage::AwarenessQuery));
             awareness.extend(awareness_msg);
             content.extend(content_msg);
         }
@@ -87,10 +83,9 @@ impl Workspace {
                 match msg {
                     SyncMessage::AwarenessQuery => {
                         let mut buffer = Vec::new();
-                        if let Err(e) = write_sync_message(
-                            &mut buffer,
-                            &SyncMessage::Awareness(awareness.get_states().clone()),
-                        ) {
+                        if let Err(e) =
+                            write_sync_message(&mut buffer, &SyncMessage::Awareness(awareness.get_states().clone()))
+                        {
                             warn!("failed to encode awareness update: {:?}", e);
                         } else {
                             result.push(buffer);
@@ -125,15 +120,11 @@ impl Workspace {
                         trace!("processing message: {:?}", msg);
                         match msg {
                             SyncMessage::Doc(msg) => match msg {
-                                DocMessage::Step1(sv) => {
-                                    StateVector::decode_v1(&sv).ok().and_then(|sv| {
-                                        trx.encode_state_as_update_v1(&sv)
-                                            .map(|update| {
-                                                SyncMessage::Doc(DocMessage::Step2(update))
-                                            })
-                                            .ok()
-                                    })
-                                }
+                                DocMessage::Step1(sv) => StateVector::decode_v1(&sv).ok().and_then(|sv| {
+                                    trx.encode_state_as_update_v1(&sv)
+                                        .map(|update| SyncMessage::Doc(DocMessage::Step2(update)))
+                                        .ok()
+                                }),
                                 DocMessage::Step2(update) => {
                                     if let Ok(update) = Update::decode_v1(&update) {
                                         trx.apply_update(update);
@@ -145,17 +136,12 @@ impl Workspace {
                                         trx.apply_update(update);
                                         trx.commit();
                                         if cfg!(debug_assertions) {
-                                            trace!(
-                                                "changed_parent_types: {:?}",
-                                                trx.changed_parent_types()
-                                            );
+                                            trace!("changed_parent_types: {:?}", trx.changed_parent_types());
                                             trace!("before_state: {:?}", trx.before_state());
                                             trace!("after_state: {:?}", trx.after_state());
                                         }
                                         trx.encode_update_v1()
-                                            .map(|update| {
-                                                SyncMessage::Doc(DocMessage::Update(update))
-                                            })
+                                            .map(|update| SyncMessage::Doc(DocMessage::Update(update)))
                                             .ok()
                                     } else {
                                         None

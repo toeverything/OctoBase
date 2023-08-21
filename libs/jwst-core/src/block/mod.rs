@@ -73,9 +73,7 @@ impl Block {
             block.insert(sys::CHILDREN, space.doc().create_array()?)?;
             block.insert(sys::CREATED, chrono::Utc::now().timestamp_millis())?;
 
-            space
-                .updated
-                .insert(block_id, space.doc().create_array()?)?;
+            space.updated.insert(block_id, space.doc().create_array()?)?;
 
             let children = block.get(sys::CHILDREN).and_then(|c| c.to_array()).unwrap();
             let updated = space.updated.get(block_id).and_then(|c| c.to_array());
@@ -98,13 +96,7 @@ impl Block {
     }
 
     // only for jwst verify
-    pub fn new_ffi<B, F>(
-        space: &mut Space,
-        block_id: B,
-        flavour: F,
-        operator: u64,
-        created: u64,
-    ) -> JwstResult<Block>
+    pub fn new_ffi<B, F>(space: &mut Space, block_id: B, flavour: F, operator: u64, created: u64) -> JwstResult<Block>
     where
         B: AsRef<str>,
         F: AsRef<str>,
@@ -123,9 +115,7 @@ impl Block {
             block.insert(sys::CHILDREN, space.doc().create_array()?)?;
             block.insert(sys::CREATED, created)?;
 
-            space
-                .updated
-                .insert(block_id, space.doc().create_array()?)?;
+            space.updated.insert(block_id, space.doc().create_array()?)?;
 
             let children = block.get(sys::CHILDREN).and_then(|c| c.to_array()).unwrap();
             let updated = space.updated.get(block_id).and_then(|c| c.to_array());
@@ -152,10 +142,7 @@ impl Block {
         B: AsRef<str>,
     {
         let block = space.blocks.get(block_id.as_ref())?.to_map()?;
-        let updated = space
-            .updated
-            .get(block_id.as_ref())
-            .and_then(|a| a.to_array());
+        let updated = space.updated.get(block_id.as_ref()).and_then(|a| a.to_array());
         let children = block.get(sys::CHILDREN)?.to_array()?;
 
         Some(Self {
@@ -199,9 +186,7 @@ impl Block {
             updated.push(array.clone())?;
 
             array.push(Any::Float64((self.operator as f64).into()))?;
-            array.push(Any::Float64(
-                (chrono::Utc::now().timestamp_millis() as f64).into(),
-            ))?;
+            array.push(Any::Float64((chrono::Utc::now().timestamp_millis() as f64).into()))?;
             array.push(Any::String(action.to_string()))?;
         }
 
@@ -255,10 +240,7 @@ impl Block {
     // start with a namespace
     // for example: affine:text
     pub fn flavour(&self) -> String {
-        self.block
-            .get(sys::FLAVOUR)
-            .map(|v| v.to_string())
-            .unwrap_or_default()
+        self.block.get(sys::FLAVOUR).map(|v| v.to_string()).unwrap_or_default()
     }
 
     pub fn created(&self) -> u64 {
@@ -314,10 +296,7 @@ impl Block {
     }
 
     #[inline]
-    pub fn children_iter<T>(
-        &self,
-        cb: impl FnOnce(Box<dyn Iterator<Item = String> + '_>) -> T,
-    ) -> T {
+    pub fn children_iter<T>(&self, cb: impl FnOnce(Box<dyn Iterator<Item = String> + '_>) -> T) -> T {
         let iterator = self.children.iter().map(|v| v.to_string());
 
         cb(Box::new(iterator))
@@ -342,10 +321,8 @@ impl Block {
         self.block
             .iter()
             .filter_map(|(key, val)| {
-                val.to_any().and_then(|any| {
-                    key.strip_prefix("prop:")
-                        .map(|stripped| (stripped.to_owned(), any))
-                })
+                val.to_any()
+                    .and_then(|any| key.strip_prefix("prop:").map(|stripped| (stripped.to_owned(), any)))
             })
             .collect()
     }
@@ -424,10 +401,7 @@ impl Block {
         let children = &mut self.children;
         block.set_parent(self.block_id.clone())?;
 
-        if let Some(current_pos) = children
-            .iter()
-            .position(|c| c.to_string() == block.block_id)
-        {
+        if let Some(current_pos) = children.iter().position(|c| c.to_string() == block.block_id) {
             children.remove(current_pos as u64, 1)?;
             self.log_update(HistoryOperation::Delete)?;
         }
@@ -556,12 +530,7 @@ mod test {
 
         assert_eq!(
             block.children(),
-            vec![
-                "c".to_owned(),
-                "f".to_owned(),
-                "b".to_owned(),
-                "e".to_owned()
-            ]
+            vec!["c".to_owned(), "f".to_owned(), "b".to_owned(), "e".to_owned()]
         );
     }
 
