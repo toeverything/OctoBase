@@ -2859,7 +2859,7 @@ dependencies = [
  "jwst-core",
  "jwst-core-storage-migration",
  "jwst-logger",
- "opendal 0.39.0",
+ "opendal",
  "path-ext",
  "rand 0.8.5",
  "sea-orm",
@@ -2968,7 +2968,7 @@ dependencies = [
  "jwst-logger",
  "jwst-storage-migration",
  "lib0",
- "opendal 0.38.1",
+ "opendal",
  "path-ext",
  "rand 0.8.5",
  "sea-orm",
@@ -3627,38 +3627,6 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "opendal"
-version = "0.38.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4df645b6012162c04c8949e9b96ae2ef002e79189cfb154e507e51ac5be76a09"
-dependencies = [
- "anyhow",
- "async-compat",
- "async-trait",
- "backon",
- "base64 0.21.2",
- "bytes",
- "chrono",
- "flagset",
- "futures",
- "http",
- "hyper",
- "log",
- "md-5",
- "once_cell",
- "parking_lot",
- "percent-encoding",
- "pin-project",
- "quick-xml 0.27.1",
- "reqsign 0.13.0",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "uuid",
-]
-
-[[package]]
-name = "opendal"
 version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ad95e460e5976ab1b74f398ab856c59f8417b3dd32202329e3491dcbe3a6b84"
@@ -3680,8 +3648,8 @@ dependencies = [
  "parking_lot",
  "percent-encoding",
  "pin-project",
- "quick-xml 0.29.0",
- "reqsign 0.14.1",
+ "quick-xml",
+ "reqsign",
  "reqwest",
  "serde",
  "serde_json",
@@ -4251,26 +4219,6 @@ checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 
 [[package]]
 name = "quick-xml"
-version = "0.27.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffc053f057dd768a56f62cd7e434c42c831d296968997e9ac1f76ea7c2d14c41"
-dependencies = [
- "memchr",
- "serde",
-]
-
-[[package]]
-name = "quick-xml"
-version = "0.28.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ce5e73202a820a31f8a0ee32ada5e21029c81fd9e3ebf668a40832e4219d9d1"
-dependencies = [
- "memchr",
- "serde",
-]
-
-[[package]]
-name = "quick-xml"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81b9228215d82c7b61490fec1de287136b5de6f5700f6e58ea9ad61a7964ca51"
@@ -4517,35 +4465,6 @@ dependencies = [
 
 [[package]]
 name = "reqsign"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6cb65eb3405f9c2de5c18bfc37338d6bbdb2c35eb8eb0e946208cbb564e4833"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.21.2",
- "chrono",
- "form_urlencoded",
- "hex",
- "hmac",
- "home",
- "http",
- "log",
- "once_cell",
- "percent-encoding",
- "quick-xml 0.28.2",
- "rand 0.8.5",
- "reqwest",
- "rsa",
- "rust-ini",
- "serde",
- "serde_json",
- "sha1",
- "sha2",
-]
-
-[[package]]
-name = "reqsign"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3228e570df74d69d3d3236a71371f1edd748a3e4eb728ea1f29d403bc10fc727"
@@ -4562,7 +4481,7 @@ dependencies = [
  "log",
  "once_cell",
  "percent-encoding",
- "quick-xml 0.29.0",
+ "quick-xml",
  "rand 0.8.5",
  "reqwest",
  "rsa",

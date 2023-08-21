@@ -13,4 +13,5 @@ tokio = { version = "1.27.0", features = ["macros"] }
 
 [dependencies.sea-orm-migration]
 version = "0.12.2"
+default-features = false
 features = ["runtime-tokio-rustls", "sqlx-postgres"]

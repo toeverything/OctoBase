@@ -7,6 +7,7 @@ license = "AGPL-3.0-only"
 
 [features]
 default = ["sqlite"]
+bucket = ["dotenvy", "opendal"]
 image = ["dep:image"]
 mysql = ["sea-orm/sqlx-mysql"]
 postgres = ["sea-orm/sqlx-postgres"]
@@ -22,16 +23,18 @@ governor = "0.6.0"
 path-ext = "0.1.0"
 sha2 = "0.10.7"
 sea-orm = { version = "0.12.2", features = ["runtime-tokio-rustls", "macros"] }
-sea-orm-migration = "0.12.2"
+sea-orm-migration = { version = "0.12.2", default-features = false }
 thiserror = "1.0.47"
 tokio = { version = "1.32.0", features = ["fs", "macros", "sync"] }
 tokio-util = { version = "0.7.8", features = ["io"] }
 url = "2.4.0"
+
+# ======== bucket dependencies =======
 opendal = { version = "0.39.0", default-features = false, features = [
     "rustls",
     "services-s3",
-] }
-dotenvy = "0.15.7"
+], optional = true }
+dotenvy = { version = "0.15.7", optional = true }
 
 # ======= image dependencies ======
 image = { version = "0.24.6", features = ["webp-encoder"], optional = true }

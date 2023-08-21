@@ -8,10 +8,7 @@ use opendal::{services::S3, Operator};
 use sea_orm::{DatabaseConnection, EntityTrait};
 use sea_orm_migration::MigratorTrait;
 
-use super::{
-    utils::{calculate_hash, get_hash},
-    *,
-};
+use super::*;
 use crate::{rate_limiter::Bucket, JwstStorageError};
 
 pub(super) type BucketBlobModel = <BucketBlobs as EntityTrait>::Model;
@@ -208,6 +205,37 @@ impl BucketBlobStorage<JwstStorageError> for BucketStorage {
     }
 }
 
+impl TryFrom<HashMap<String, String>> for BucketStorage {
+    type Error = JwstStorageError;
+
+    fn try_from(map: HashMap<String, String>) -> Result<Self, Self::Error> {
+        let mut builder = BucketStorageBuilder::new();
+        let access_token = map.get("BUCKET_ACCESS_TOKEN");
+        let secret_access_key = map.get("BUCKET_SECRET_TOKEN");
+        let endpoint = map.get("BUCKET_ENDPOINT");
+        let bucket = map.get("BUCKET_NAME");
+        let root = map.get("BUCKET_ROOT");
+
+        if let Some(access_token) = access_token {
+            builder = builder.access_key(access_token);
+        }
+        if let Some(secret_access_key) = secret_access_key {
+            builder = builder.secret_access_key(secret_access_key);
+        }
+        if let Some(endpoint) = endpoint {
+            builder = builder.endpoint(endpoint);
+        }
+        if let Some(bucket) = bucket {
+            builder = builder.bucket(bucket);
+        }
+        if let Some(root) = root {
+            builder = builder.root(root);
+        }
+
+        builder.build()
+    }
+}
+
 #[async_trait]
 impl BlobStorage<JwstStorageError> for BlobBucketStorage {
     async fn list_blobs(&self, workspace: Option<String>) -> JwstResult<Vec<String>, JwstStorageError> {
@@ -322,7 +350,6 @@ impl BlobStorage<JwstStorageError> for BlobBucketStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::blobs::utils::BucketStorageBuilder;
 
     #[tokio::test]
     #[ignore = "need to config bucket auth"]

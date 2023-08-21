@@ -1,5 +1,4 @@
 pub(crate) mod blobs;
-mod difflog;
 mod docs;
 mod test;
 
@@ -7,23 +6,19 @@ use std::{collections::HashMap, time::Instant};
 
 #[cfg(feature = "image")]
 use blobs::BlobAutoStorage;
-use blobs::BlobDBStorage;
+#[cfg(feature = "bucket")]
+use blobs::BlobBucketStorage;
+use blobs::{BlobDBStorage, BlobStorageType, JwstBlobStorage};
 use docs::SharedDocDBStorage;
 use jwst_storage_migration::{Migrator, MigratorTrait};
 use tokio::sync::Mutex;
 
-use self::difflog::DiffLogRecord;
 use super::*;
-use crate::{
-    storage::blobs::{BlobBucketStorage, BlobStorageType, JwstBlobStorage},
-    types::JwstStorageError,
-};
 
 pub struct JwstStorage {
     pool: DatabaseConnection,
     blobs: JwstBlobStorage,
     docs: SharedDocDBStorage,
-    difflog: DiffLogRecord,
     last_migrate: Mutex<HashMap<String, Instant>>,
 }
 
@@ -49,18 +44,17 @@ impl JwstStorage {
                     JwstBlobStorage::RawStorage(Arc::new(db))
                 }
             }
+            #[cfg(feature = "bucket")]
             BlobStorageType::MixedBucketDB(param) => JwstBlobStorage::BucketStorage(
                 BlobBucketStorage::init_with_pool(pool.clone(), bucket.clone(), Some(param.try_into()?)).await?,
             ),
         };
         let docs = SharedDocDBStorage::init_with_pool(pool.clone(), bucket.clone()).await?;
-        let difflog = DiffLogRecord::init_with_pool(pool.clone(), bucket).await?;
 
         Ok(Self {
             pool,
             blobs,
             docs,
-            difflog,
             last_migrate: Mutex::new(HashMap::new()),
         })
     }
@@ -106,10 +100,6 @@ impl JwstStorage {
 
     pub fn docs(&self) -> &SharedDocDBStorage {
         &self.docs
-    }
-
-    pub fn difflog(&self) -> &DiffLogRecord {
-        &self.difflog
     }
 
     pub async fn with_pool<R, F, Fut>(&self, func: F) -> JwstStorageResult<R>
@@ -199,7 +189,6 @@ impl JwstStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::blobs::MixedBucketDBParam;
 
     #[tokio::test]
     async fn test_sqlite_storage() {
@@ -210,6 +199,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "bucket")]
     #[ignore = "need to config bucket auth"]
     async fn test_bucket_storage() {
         let bucket_params = MixedBucketDBParam {

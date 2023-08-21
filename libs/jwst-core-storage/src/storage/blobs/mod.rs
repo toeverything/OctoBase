@@ -1,26 +1,24 @@
+#[cfg(feature = "bucket")]
+mod bucket;
+#[cfg(feature = "bucket")]
+pub use bucket::{BlobBucketStorage, MixedBucketDBParam};
+
 #[cfg(feature = "image")]
-mod auto_blob_storage;
+mod auto_storage;
 #[cfg(feature = "image")]
-pub use auto_blob_storage::BlobAutoStorage;
-#[cfg(feature = "image")]
-use image::ImageError;
-#[cfg(feature = "image")]
-use utils::ImageParams;
+pub use auto_storage::{BlobAutoStorage, ImageError, ImageParams};
 
 mod blob_storage;
-mod bucket_storage;
 mod utils;
 
 #[cfg(test)]
 pub use blob_storage::blobs_storage_test;
 pub use blob_storage::BlobDBStorage;
-pub use bucket_storage::BlobBucketStorage;
 use bytes::Bytes;
 use jwst_core::{BlobMetadata, BlobStorage};
 use thiserror::Error;
 use tokio::task::JoinError;
-pub use utils::BucketStorageBuilder;
-use utils::InternalBlobMetadata;
+use utils::{get_hash, InternalBlobMetadata};
 
 use super::{entities::prelude::*, *};
 
@@ -44,48 +42,14 @@ pub enum JwstBlobStorage {
     RawStorage(Arc<BlobDBStorage>),
     #[cfg(feature = "image")]
     AutoStorage(BlobAutoStorage),
+    #[cfg(feature = "bucket")]
     BucketStorage(BlobBucketStorage),
 }
 
 pub enum BlobStorageType {
     DB,
+    #[cfg(feature = "bucket")]
     MixedBucketDB(MixedBucketDBParam),
-}
-
-pub struct MixedBucketDBParam {
-    pub(crate) access_key: String,
-    pub(crate) secret_access_key: String,
-    pub(crate) endpoint: String,
-    pub(crate) bucket: Option<String>,
-    pub(crate) root: Option<String>,
-}
-
-impl MixedBucketDBParam {
-    pub fn new_from_env() -> JwstResult<Self, JwstStorageError> {
-        Ok(MixedBucketDBParam {
-            access_key: dotenvy::var("BUCKET_ACCESS_TOKEN")?,
-            secret_access_key: dotenvy::var("BUCKET_SECRET_TOKEN")?,
-            endpoint: dotenvy::var("BUCKET_ENDPOINT")?,
-            bucket: dotenvy::var("BUCKET_NAME").ok(),
-            root: dotenvy::var("BUCKET_ROOT").ok(),
-        })
-    }
-
-    pub fn new(
-        access_key: String,
-        secret_access_key: String,
-        endpoint: String,
-        bucket: Option<String>,
-        root: Option<String>,
-    ) -> Self {
-        MixedBucketDBParam {
-            access_key,
-            secret_access_key,
-            endpoint,
-            bucket,
-            root,
-        }
-    }
 }
 
 #[async_trait]
@@ -95,6 +59,7 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
             JwstBlobStorage::RawStorage(db) => db.list_blobs(workspace).await,
             #[cfg(feature = "image")]
             JwstBlobStorage::AutoStorage(db) => db.list_blobs(workspace).await,
+            #[cfg(feature = "bucket")]
             JwstBlobStorage::BucketStorage(db) => db.list_blobs(workspace).await,
         }
     }
@@ -104,6 +69,7 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
             JwstBlobStorage::RawStorage(db) => db.check_blob(workspace, id).await,
             #[cfg(feature = "image")]
             JwstBlobStorage::AutoStorage(db) => db.check_blob(workspace, id).await,
+            #[cfg(feature = "bucket")]
             JwstBlobStorage::BucketStorage(db) => db.check_blob(workspace, id).await,
         }
     }
@@ -118,6 +84,7 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
             JwstBlobStorage::RawStorage(db) => db.get_blob(workspace, id, params).await,
             #[cfg(feature = "image")]
             JwstBlobStorage::AutoStorage(db) => db.get_blob(workspace, id, params).await,
+            #[cfg(feature = "bucket")]
             JwstBlobStorage::BucketStorage(db) => db.get_blob(workspace, id, params).await,
         }
     }
@@ -132,6 +99,7 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
             JwstBlobStorage::RawStorage(db) => db.get_metadata(workspace, id, params).await,
             #[cfg(feature = "image")]
             JwstBlobStorage::AutoStorage(db) => db.get_metadata(workspace, id, params).await,
+            #[cfg(feature = "bucket")]
             JwstBlobStorage::BucketStorage(db) => db.get_metadata(workspace, id, params).await,
         }
     }
@@ -145,6 +113,7 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
             JwstBlobStorage::RawStorage(db) => db.put_blob_stream(workspace, stream).await,
             #[cfg(feature = "image")]
             JwstBlobStorage::AutoStorage(db) => db.put_blob_stream(workspace, stream).await,
+            #[cfg(feature = "bucket")]
             JwstBlobStorage::BucketStorage(db) => db.put_blob_stream(workspace, stream).await,
         }
     }
@@ -154,6 +123,7 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
             JwstBlobStorage::RawStorage(db) => db.put_blob(workspace, blob).await,
             #[cfg(feature = "image")]
             JwstBlobStorage::AutoStorage(db) => db.put_blob(workspace, blob).await,
+            #[cfg(feature = "bucket")]
             JwstBlobStorage::BucketStorage(db) => db.put_blob(workspace, blob).await,
         }
     }
@@ -163,6 +133,7 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
             JwstBlobStorage::RawStorage(db) => db.delete_blob(workspace, id).await,
             #[cfg(feature = "image")]
             JwstBlobStorage::AutoStorage(db) => db.delete_blob(workspace, id).await,
+            #[cfg(feature = "bucket")]
             JwstBlobStorage::BucketStorage(db) => db.delete_blob(workspace, id).await,
         }
     }
@@ -172,6 +143,7 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
             JwstBlobStorage::RawStorage(db) => db.delete_workspace(workspace_id).await,
             #[cfg(feature = "image")]
             JwstBlobStorage::AutoStorage(db) => db.delete_workspace(workspace_id).await,
+            #[cfg(feature = "bucket")]
             JwstBlobStorage::BucketStorage(db) => db.delete_workspace(workspace_id).await,
         }
     }
@@ -181,6 +153,7 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
             JwstBlobStorage::RawStorage(db) => Ok(db.get_blobs_size(&workspace_id).await?.unwrap_or(0)),
             #[cfg(feature = "image")]
             JwstBlobStorage::AutoStorage(db) => db.get_blobs_size(workspace_id).await,
+            #[cfg(feature = "bucket")]
             JwstBlobStorage::BucketStorage(db) => db.get_blobs_size(workspace_id).await,
         }
     }
@@ -192,10 +165,12 @@ impl JwstBlobStorage {
             JwstBlobStorage::RawStorage(db) => Some(db.clone()),
             #[cfg(feature = "image")]
             JwstBlobStorage::AutoStorage(db) => Some(db.db.clone()),
+            #[cfg(feature = "bucket")]
             JwstBlobStorage::BucketStorage(_) => None,
         }
     }
 
+    #[cfg(feature = "bucket")]
     pub fn get_mixed_bucket_db(&self) -> Option<BlobBucketStorage> {
         match self {
             JwstBlobStorage::RawStorage(_) => None,

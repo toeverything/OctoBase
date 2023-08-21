@@ -19,8 +19,10 @@ pub enum JwstStorageError {
     Jwst(#[from] jwst_core::JwstError),
     #[error("failed to process blob")]
     JwstBlob(#[from] crate::storage::blobs::JwstBlobError),
+    #[cfg(feature = "bucket")]
     #[error("bucket error")]
     JwstBucket(#[from] opendal::Error),
+    #[cfg(feature = "bucket")]
     #[error("env variables read error")]
     DotEnvy(#[from] dotenvy::Error),
 }

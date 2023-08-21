@@ -1,13 +1,8 @@
-#[cfg(test)]
-pub use blob_storage::blobs_storage_test;
 use blob_storage::BlobDBStorage;
 use bytes::Bytes;
-use image::ImageError;
 use jwst_core::{BlobMetadata, BlobStorage};
-use thiserror::Error;
-use tokio::task::JoinError;
-pub use utils::BucketStorageBuilder;
-use utils::{ImageParams, InternalBlobMetadata};
+
+use super::*;
 
 pub(super) type OptimizedBlobModel = <OptimizedBlobs as EntityTrait>::Model;
 type OptimizedBlobActiveModel = super::entities::optimized_blobs::ActiveModel;
@@ -15,7 +10,7 @@ type OptimizedBlobColumn = <OptimizedBlobs as EntityTrait>::Column;
 
 #[derive(Clone)]
 pub struct BlobAutoStorage {
-    pub(super) db: Arc<BlobDBStorage>,
+    pub(crate) db: Arc<BlobDBStorage>,
     pool: DatabaseConnection,
 }
 
