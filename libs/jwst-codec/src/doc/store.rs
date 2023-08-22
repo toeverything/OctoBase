@@ -596,32 +596,32 @@ impl DocStore {
                     // need to split the item and delete the right part
                     // -----item-----
                     //    ^start
-                    let struct_info = &items[idx];
-                    let id = struct_info.id();
+                    let node = &items[idx];
+                    let id = node.id();
 
-                    if !struct_info.deleted() && id.clock < start {
+                    if !node.deleted() && id.clock < start {
                         DocStore::split_node_at(items, idx, start - id.clock)?;
                         idx += 1;
                     }
                 };
 
                 while idx < items.len() {
-                    let struct_info = items[idx].clone();
-                    let id = struct_info.id();
+                    let node = items[idx].clone();
+                    let id = node.id();
 
-                    if let Some(item) = struct_info.as_item().get() {
-                        if !item.deleted() && id.clock < end {
-                            // need to split the item
-                            // -----item-----
-                            //           ^end
-                            if end < id.clock + struct_info.len() {
-                                DocStore::split_node_at(items, idx, end - id.clock)?;
+                    if id.clock < end {
+                        if !node.deleted() {
+                            if let Some(item) = node.as_item().get() {
+                                // need to split the item
+                                // -----item-----
+                                //           ^end
+                                if end < id.clock + node.len() {
+                                    DocStore::split_node_at(items, idx, end - id.clock)?;
+                                }
+
+                                self.delete_set.add(client, id.clock, item.len());
+                                Self::delete_item(item, None);
                             }
-
-                            self.delete_set.add(client, id.clock, item.len());
-                            Self::delete_item(item, None);
-                        } else {
-                            break;
                         }
                     } else {
                         break;

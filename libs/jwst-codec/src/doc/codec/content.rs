@@ -249,11 +249,11 @@ impl Content {
                 Ok((Self::String(left.to_string()), Self::String(right.to_string())))
             }
             Self::Json(vec) => {
-                let (left, right) = vec.split_at((diff + 1) as usize);
+                let (left, right) = vec.split_at(diff as usize);
                 Ok((Self::Json(left.to_owned()), Self::Json(right.to_owned())))
             }
             Self::Any(vec) => {
-                let (left, right) = vec.split_at((diff + 1) as usize);
+                let (left, right) = vec.split_at(diff as usize);
                 Ok((Self::Any(left.to_owned()), Self::Any(right.to_owned())))
             }
             Self::Deleted(len) => {
@@ -357,18 +357,18 @@ mod tests {
         {
             let (left, right) = contents[1].split(1).unwrap();
             assert!(contents[1].splittable());
-            assert_eq!(left, Content::Json(vec![None, Some("test_1".to_string())]));
-            assert_eq!(right, Content::Json(vec![Some("test_2".to_string())]));
+            assert_eq!(left, Content::Json(vec![None]));
+            assert_eq!(
+                right,
+                Content::Json(vec![Some("test_1".to_string()), Some("test_2".to_string())])
+            );
         }
 
         {
             let (left, right) = contents[2].split(1).unwrap();
             assert!(contents[2].splittable());
-            assert_eq!(
-                left,
-                Content::Any(vec![Any::BigInt64(42), Any::String("Test Any".to_string())])
-            );
-            assert_eq!(right, Content::Any(vec![]));
+            assert_eq!(left, Content::Any(vec![Any::BigInt64(42)]));
+            assert_eq!(right, Content::Any(vec![Any::String("Test Any".to_string())]));
         }
 
         {
