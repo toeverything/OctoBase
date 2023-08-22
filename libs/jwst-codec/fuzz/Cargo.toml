@@ -57,14 +57,14 @@ test = false
 doc = false
 
 [[bin]]
-name = "i64_decode"
-path = "fuzz_targets/i64_decode.rs"
+name = "i32_decode"
+path = "fuzz_targets/i32_decode.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "i64_encode"
-path = "fuzz_targets/i64_encode.rs"
+name = "i32_encode"
+path = "fuzz_targets/i32_encode.rs"
 test = false
 doc = false
 
