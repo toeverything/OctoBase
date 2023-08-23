@@ -141,11 +141,16 @@ impl<T> Somr<T> {
     }
 
     #[inline]
-    pub(crate) fn ptr(&self) -> NonNull<SomrInner<T>> {
+    pub fn ptr(&self) -> NonNull<SomrInner<T>> {
         match self {
             Somr::Owned(ptr) => ptr.0,
             Somr::Ref(ptr) => ptr.0,
         }
+    }
+
+    #[inline]
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        self.ptr().as_ptr() as usize == other.ptr().as_ptr() as usize
     }
 
     #[inline]

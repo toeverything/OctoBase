@@ -1,7 +1,4 @@
-use std::ops::Deref;
-
 use super::*;
-use crate::sync::RwLock;
 
 #[derive(Clone)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
@@ -65,10 +62,7 @@ impl PartialEq for Content {
             ) => key1 == key2 && value1 == value2,
             (Self::Any(any1), Self::Any(any2)) => any1 == any2,
             (Self::Doc { guid: guid1, .. }, Self::Doc { guid: guid2, .. }) => guid1 == guid2,
-            (Self::Type(ty1), Self::Type(ty2)) => match (ty1.get(), ty2.get()) {
-                (Some(ty1), Some(ty2)) => ty1.read().unwrap().deref() == ty2.read().unwrap().deref(),
-                _ => false,
-            },
+            (Self::Type(ty1), Self::Type(ty2)) => ty1 == ty2,
             _ => false,
         }
     }
@@ -93,10 +87,7 @@ impl std::fmt::Debug for Content {
                 .field("key", key)
                 .field("value", value)
                 .finish(),
-            Self::Type(arg0) => f
-                .debug_tuple("Type")
-                .field(&arg0.get().unwrap().read().unwrap().kind())
-                .finish(),
+            Self::Type(arg0) => f.debug_tuple("Type").field(&arg0.ty().unwrap().kind()).finish(),
             Self::Any(arg0) => f.debug_tuple("Any").field(arg0).finish(),
             Self::Doc { guid, opts } => f.debug_struct("Doc").field("guid", guid).field("opts", opts).finish(),
         }
@@ -143,8 +134,7 @@ impl Content {
                     _ => None,
                 };
 
-                let ty = YType::new(kind, tag_name);
-                Ok(Self::Type(Somr::new(RwLock::new(ty))))
+                Ok(Self::Type(YTypeRef::new(kind, tag_name)))
             } // YType
             8 => Ok(Self::Any(Any::read_multiple(decoder)?)), // Any
             9 => {
@@ -202,12 +192,11 @@ impl Content {
                     .write_var_string(serde_json::to_string(value).map_err(|_| JwstCodecError::DamagedDocumentJson)?)?;
             }
             Self::Type(ty) => {
-                if let Some(ty) = ty.get() {
-                    let ty = ty.read().unwrap();
+                if let Some(ty) = ty.ty() {
                     let type_ref = u64::from(ty.kind());
                     encoder.write_var_u64(type_ref)?;
 
-                    if matches!(ty.kind, YTypeKind::XMLElement | YTypeKind::XMLHook) {
+                    if matches!(ty.kind(), YTypeKind::XMLElement | YTypeKind::XMLHook) {
                         encoder.write_var_string(ty.name.as_ref().unwrap())?;
                     }
                 }
@@ -312,19 +301,13 @@ mod tests {
                     key: "key".to_string(),
                     value: Any::Integer(42),
                 },
-                Content::Type(Somr::new(RwLock::new(YType::new(YTypeKind::Array, None)))),
-                Content::Type(Somr::new(RwLock::new(YType::new(YTypeKind::Map, None)))),
-                Content::Type(Somr::new(RwLock::new(YType::new(YTypeKind::Text, None)))),
-                Content::Type(Somr::new(RwLock::new(YType::new(
-                    YTypeKind::XMLElement,
-                    Some("test".to_string()),
-                )))),
-                Content::Type(Somr::new(RwLock::new(YType::new(YTypeKind::XMLFragment, None)))),
-                Content::Type(Somr::new(RwLock::new(YType::new(
-                    YTypeKind::XMLHook,
-                    Some("test".to_string()),
-                )))),
-                Content::Type(Somr::new(RwLock::new(YType::new(YTypeKind::XMLText, None)))),
+                Content::Type(YTypeRef::new(YTypeKind::Array, None)),
+                Content::Type(YTypeRef::new(YTypeKind::Map, None)),
+                Content::Type(YTypeRef::new(YTypeKind::Text, None)),
+                Content::Type(YTypeRef::new(YTypeKind::XMLElement, Some("test".to_string()))),
+                Content::Type(YTypeRef::new(YTypeKind::XMLFragment, None)),
+                Content::Type(YTypeRef::new(YTypeKind::XMLHook, Some("test".to_string()))),
+                Content::Type(YTypeRef::new(YTypeKind::XMLText, None)),
                 Content::Any(vec![Any::BigInt64(42), Any::String("Test Any".to_string())]),
                 Content::Doc {
                     guid: "my_guid".to_string(),

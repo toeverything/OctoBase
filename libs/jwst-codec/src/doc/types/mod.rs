@@ -3,7 +3,10 @@ mod list;
 mod map;
 mod text;
 
-use std::collections::{hash_map::Entry, HashMap};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    sync::Weak,
+};
 
 pub use array::*;
 use list::*;
@@ -21,7 +24,6 @@ use crate::{
 
 #[derive(Debug, Default)]
 pub(crate) struct YType {
-    pub store: WeakStoreRef,
     pub start: Somr<Item>,
     pub item: Somr<Item>,
     pub map: Option<HashMap<String, Node>>,
@@ -30,18 +32,32 @@ pub(crate) struct YType {
     pub name: Option<String>,
     /// The name of the type that directly belongs the store.
     pub root_name: Option<String>,
-    pub kind: YTypeKind,
+    kind: YTypeKind,
     pub markers: Option<MarkerList>,
 }
 
-type Lock = RwLock<YType>;
-pub(crate) type YTypeRef = Somr<Lock>;
+#[derive(Debug, Default, Clone)]
+pub(crate) struct YTypeRef {
+    pub store: WeakStoreRef,
+    pub inner: Somr<RwLock<YType>>,
+}
 
 impl PartialEq for YType {
     fn eq(&self, other: &Self) -> bool {
         self.root_name == other.root_name
             || (self.start.is_some() && self.start == other.start)
             || (self.map.is_some() && self.map == other.map)
+    }
+}
+
+impl PartialEq for YTypeRef {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner.ptr_eq(&other.inner)
+            || match (self.ty(), other.ty()) {
+                (Some(l), Some(r)) => *l == *r,
+                (None, None) => true,
+                _ => false,
+            }
     }
 }
 
@@ -71,8 +87,24 @@ impl YType {
 
         Ok(())
     }
+}
 
-    #[allow(dead_code)]
+impl YTypeRef {
+    pub fn new(kind: YTypeKind, tag_name: Option<String>) -> Self {
+        Self {
+            inner: Somr::new(RwLock::new(YType::new(kind, tag_name))),
+            store: Weak::new(),
+        }
+    }
+
+    pub fn ty(&self) -> Option<RwLockReadGuard<YType>> {
+        self.inner.get().and_then(|ty| ty.read().ok())
+    }
+
+    pub fn ty_mut(&self) -> Option<RwLockWriteGuard<YType>> {
+        self.inner.get().and_then(|ty| ty.write().ok())
+    }
+
     pub fn store<'a>(&self) -> Option<RwLockReadGuard<'a, DocStore>> {
         if let Some(store) = self.store.upgrade() {
             let ptr = unsafe { &*Arc::as_ptr(&store) };
@@ -91,6 +123,14 @@ impl YType {
         } else {
             None
         }
+    }
+
+    pub fn read(&self) -> Option<(RwLockReadGuard<DocStore>, RwLockReadGuard<YType>)> {
+        self.store().and_then(|store| self.ty().map(|ty| (store, ty)))
+    }
+
+    pub fn write(&self) -> Option<(RwLockWriteGuard<DocStore>, RwLockWriteGuard<YType>)> {
+        self.store_mut().and_then(|store| self.ty_mut().map(|ty| (store, ty)))
     }
 }
 
@@ -156,34 +196,42 @@ impl YTypeBuilder {
             match store.types.entry(root_name.clone()) {
                 Entry::Occupied(e) => e.get().clone(),
                 Entry::Vacant(e) => {
-                    let ty = Somr::new(RwLock::new(YType {
+                    let inner = Somr::new(RwLock::new(YType {
                         kind: self.kind,
                         name: self.name,
                         root_name: Some(root_name),
-                        store: Arc::downgrade(&self.store),
                         markers: Self::markers(self.kind),
                         ..Default::default()
                     }));
 
-                    let ty_ref = ty.clone();
+                    let ty = YTypeRef {
+                        store: Arc::downgrade(&self.store),
+                        inner,
+                    };
 
+                    let ty_ref = ty.clone();
                     e.insert(ty);
 
                     ty_ref
                 }
             }
         } else {
-            let ty = Somr::new(RwLock::new(YType {
+            let inner = Somr::new(RwLock::new(YType {
                 kind: self.kind,
                 name: self.name,
                 root_name: self.root_name.clone(),
-                store: Arc::downgrade(&self.store),
                 markers: Self::markers(self.kind),
-                ..YType::default()
+                ..Default::default()
             }));
+
+            let ty = YTypeRef {
+                store: Arc::downgrade(&self.store),
+                inner,
+            };
+
             let ty_ref = ty.clone();
 
-            store.dangling_types.insert(ty.ptr().as_ptr() as usize, ty);
+            store.dangling_types.insert(ty.inner.ptr().as_ptr() as usize, ty);
 
             ty_ref
         };
@@ -259,7 +307,7 @@ pub(crate) trait AsInner {
 #[macro_export(local_inner_macros)]
 macro_rules! impl_type {
     ($name: ident) => {
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq)]
         pub struct $name(pub(crate) super::YTypeRef);
         unsafe impl Sync for $name {}
         unsafe impl Send for $name {}
@@ -267,26 +315,6 @@ macro_rules! impl_type {
         impl $name {
             pub(crate) fn new(inner: super::YTypeRef) -> Self {
                 Self(inner)
-            }
-
-            #[allow(dead_code)]
-            #[inline(always)]
-            pub(crate) fn read(&self) -> $crate::JwstCodecResult<$crate::sync::RwLockReadGuard<super::YType>> {
-                if let Some(lock) = self.0.get() {
-                    Ok(lock.read().unwrap())
-                } else {
-                    Err($crate::JwstCodecError::DocReleased)
-                }
-            }
-
-            #[allow(dead_code)]
-            #[inline(always)]
-            pub(crate) fn write(&self) -> $crate::JwstCodecResult<$crate::sync::RwLockWriteGuard<super::YType>> {
-                if let Some(lock) = self.0.get() {
-                    Ok(lock.write().unwrap())
-                } else {
-                    Err($crate::JwstCodecError::DocReleased)
-                }
             }
         }
 
@@ -303,14 +331,17 @@ macro_rules! impl_type {
             type Error = $crate::JwstCodecError;
 
             fn try_from(value: super::YTypeRef) -> Result<Self, Self::Error> {
-                let mut inner = value.get().unwrap().write().unwrap();
-                match inner.kind {
-                    super::YTypeKind::$name => Ok($name::new(value.clone())),
-                    super::YTypeKind::Unknown => {
-                        inner.set_kind(super::YTypeKind::$name)?;
-                        Ok($name::new(value.clone()))
+                if let Some((_, mut inner)) = value.write() {
+                    match inner.kind {
+                        super::YTypeKind::$name => Ok($name::new(value.clone())),
+                        super::YTypeKind::Unknown => {
+                            inner.set_kind(super::YTypeKind::$name)?;
+                            Ok($name::new(value.clone()))
+                        }
+                        _ => Err($crate::JwstCodecError::TypeCastError(std::stringify!($name))),
                     }
-                    _ => Err($crate::JwstCodecError::TypeCastError(std::stringify!($name))),
+                } else {
+                    Err($crate::JwstCodecError::TypeCastError(std::stringify!($name)))
                 }
             }
         }
@@ -318,12 +349,6 @@ macro_rules! impl_type {
         impl $name {
             pub(crate) fn from_unchecked(value: super::YTypeRef) -> Self {
                 $name::new(value.clone())
-            }
-        }
-
-        impl PartialEq for $name {
-            fn eq(&self, other: &Self) -> bool {
-                &*self.read().unwrap() == &*other.read().unwrap()
             }
         }
     };
@@ -416,7 +441,7 @@ impl TryFrom<&Content> for Value {
             )),
             Content::Binary(buf) => Value::Any(Any::Binary(buf.clone())),
             Content::Embed(v) => Value::Any(v.clone()),
-            Content::Type(ty) => match ty.get().unwrap().read().unwrap().kind {
+            Content::Type(ty) => match ty.ty().unwrap().kind {
                 YTypeKind::Array => Value::Array(Array::from_unchecked(ty.clone())),
                 YTypeKind::Map => Value::Map(Map::from_unchecked(ty.clone())),
                 YTypeKind::Text => Value::Text(Text::from_unchecked(ty.clone())),

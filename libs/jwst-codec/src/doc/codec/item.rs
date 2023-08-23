@@ -417,8 +417,7 @@ impl Item {
                         encoder.write_item_id(id)?;
                     }
                     Parent::Type(ty) => {
-                        if let Some(ty) = ty.get() {
-                            let ty = ty.read().unwrap();
+                        if let Some(ty) = ty.ty() {
                             if let Some(item) = ty.item.get() {
                                 encoder.write_var_u64(0)?;
                                 encoder.write_item_id(&item.id)?;

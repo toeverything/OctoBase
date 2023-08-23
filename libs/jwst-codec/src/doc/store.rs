@@ -139,7 +139,9 @@ impl DocStore {
         let item = Somr::new(Item::new(id, content, left, right, parent, parent_sub));
 
         if let Content::Type(ty) = item.get().unwrap().content.as_ref() {
-            ty.get().unwrap().write().unwrap().item = item.clone();
+            if let Some(mut ty) = ty.ty_mut() {
+                ty.item = item.clone();
+            }
         }
 
         item
@@ -271,16 +273,17 @@ impl DocStore {
     }
 
     // only for creating named type
-    pub fn get_or_create_type(&mut self, name: &str) -> YTypeRef {
+    pub fn get_or_create_type(&mut self, store_ref: &StoreRef, name: &str) -> YTypeRef {
         match self.types.entry(name.to_string()) {
             Entry::Occupied(e) => e.get().clone(),
             Entry::Vacant(e) => {
-                let ty = Somr::new(RwLock::new(YType {
-                    kind: YTypeKind::Unknown,
-                    root_name: Some(name.to_string()),
-                    ..Default::default()
-                }));
+                let mut inner = YType::new(YTypeKind::Unknown, None);
+                inner.root_name = Some(name.to_string());
 
+                let ty = YTypeRef {
+                    store: Arc::downgrade(store_ref),
+                    inner: Somr::new(RwLock::new(inner)),
+                };
                 let ty_ref = ty.clone();
                 e.insert(ty);
                 ty_ref
@@ -310,10 +313,7 @@ impl DocStore {
             // doc.get_or_create_text("content");
             //                         ^^^^^^^ Parent::String("content")
             Some(Parent::String(str)) => {
-                let ty = self.get_or_create_type(str);
-                if let Some(ty) = ty.get() {
-                    ty.write().unwrap().store = Arc::downgrade(&store_ref);
-                }
+                let ty = self.get_or_create_type(&store_ref, str);
                 item.parent.replace(Parent::Type(ty));
             }
             // type as item
@@ -328,9 +328,6 @@ impl DocStore {
                     Some(Node::Item(parent_item)) => {
                         match &parent_item.get().unwrap().content.as_ref() {
                             Content::Type(ty) => {
-                                if let Some(ty) = ty.get() {
-                                    ty.write().unwrap().store = Arc::downgrade(&store_ref);
-                                }
                                 item.parent.replace(Parent::Type(ty.clone()));
                             }
                             _ => {
@@ -361,12 +358,18 @@ impl DocStore {
 
         // assign store in ytype to ensure store exists if a ytype not has any children
         if let Content::Type(ty) = Arc::make_mut(&mut item.content) {
-            if let Some(ty) = ty.get() {
-                ty.write().unwrap().store = Arc::downgrade(&store_ref);
-            }
+            ty.store = Arc::downgrade(&store_ref);
 
-            if ty.is_owned() {
-                self.dangling_types.insert(ty.ptr().as_ptr() as usize, ty.swap_take());
+            // we keep ty owner in dangling_types so the delete of any type will not make it dropped
+            if ty.inner.is_owned() {
+                let owned_inner = ty.inner.swap_take();
+                self.dangling_types.insert(
+                    ty.inner.ptr().as_ptr() as usize,
+                    YTypeRef {
+                        store: ty.store.clone(),
+                        inner: owned_inner,
+                    },
+                );
             } else {
                 return Err(JwstCodecError::InvalidParent);
             }
@@ -401,9 +404,8 @@ impl DocStore {
                     let mut parent_lock: Option<RwLockWriteGuard<YType>> = None;
                     let parent = if let Some(p) = parent {
                         p
-                    } else if let Some(ty) = ty.get() {
-                        let lock = ty.write().unwrap();
-                        parent_lock = Some(lock);
+                    } else if let Some(ty) = ty.ty_mut() {
+                        parent_lock = Some(ty);
                         parent_lock.as_deref_mut().unwrap()
                     } else {
                         return Ok(());
@@ -563,7 +565,7 @@ impl DocStore {
             if let Some(parent) = parent {
                 parent.len -= item.len();
             } else if let Some(Parent::Type(ty)) = &item.parent {
-                ty.get().unwrap().write().unwrap().len -= item.len();
+                ty.ty_mut().unwrap().len -= item.len();
             }
         }
 
