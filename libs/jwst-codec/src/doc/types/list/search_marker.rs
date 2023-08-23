@@ -257,7 +257,7 @@ mod tests {
 
             let marker_list = MarkerList::new();
 
-            let marker = marker_list.find_marker(&array.read().unwrap(), 8).unwrap();
+            let marker = marker_list.find_marker(&array.0.ty().unwrap(), 8).unwrap();
 
             assert_eq!(marker.index, 2);
             assert_eq!(

@@ -5,7 +5,6 @@ pub(crate) use iterator::ListIterator;
 pub use search_marker::MarkerList;
 
 use super::*;
-use crate::sync::RwLockWriteGuard;
 
 pub(crate) struct ItemPosition {
     pub parent: YTypeRef,
@@ -58,11 +57,11 @@ impl ItemPosition {
 pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
     #[inline(always)]
     fn content_len(&self) -> u64 {
-        self.as_inner().get().unwrap().read().unwrap().len
+        self.as_inner().ty().unwrap().len
     }
 
     fn iter_item(&self) -> ListIterator {
-        let inner = self.as_inner().get().unwrap().read().unwrap();
+        let inner = self.as_inner().ty().unwrap();
         ListIterator::new(inner.start.clone())
     }
 
@@ -123,13 +122,10 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
             return Err(JwstCodecError::IndexOutOfBound(index));
         }
 
-        if let Some(ty) = self.as_inner().get() {
-            let inner = ty.write().unwrap();
-            if let Some(mut pos) = self.find_pos(&inner, index) {
-                if let Some(mut store) = inner.store_mut() {
-                    pos.normalize(&mut store)?;
-                    Self::insert_after(inner, &mut store, pos, content)?;
-                }
+        if let Some((mut store, mut ty)) = self.as_inner().write() {
+            if let Some(mut pos) = self.find_pos(&ty, index) {
+                pos.normalize(&mut store)?;
+                Self::insert_after(&mut ty, &mut store, pos, content)?;
             }
         } else {
             return Err(JwstCodecError::DocReleased);
@@ -138,13 +134,8 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         Ok(())
     }
 
-    fn insert_after(
-        mut lock: RwLockWriteGuard<YType>,
-        store: &mut DocStore,
-        pos: ItemPosition,
-        content: Content,
-    ) -> JwstCodecResult {
-        if let Some(markers) = &lock.markers {
+    fn insert_after(ty: &mut YType, store: &mut DocStore, pos: ItemPosition, content: Content) -> JwstCodecResult {
+        if let Some(markers) = &ty.markers {
             markers.update_marker_changes(pos.index, content.clock_len() as i64);
         }
 
@@ -156,7 +147,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
             None,
         );
 
-        store.integrate(Node::Item(item), 0, Some(&mut lock))?;
+        store.integrate(Node::Item(item), 0, Some(ty))?;
 
         Ok(())
     }
@@ -166,9 +157,9 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
             return None;
         }
 
-        let inner = self.as_inner().get().unwrap().read().unwrap();
+        let ty = self.as_inner().ty().unwrap();
 
-        if let Some(pos) = self.find_pos(&inner, index) {
+        if let Some(pos) = self.find_pos(&ty, index) {
             if pos.offset == 0 {
                 return Some((pos.right, 0));
             } else {
@@ -188,12 +179,9 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
             return Err(JwstCodecError::IndexOutOfBound(idx));
         }
 
-        if let Some(ty) = self.as_inner().get() {
-            let inner = ty.write().unwrap();
-            if let Some(pos) = self.find_pos(&inner, idx) {
-                if let Some(mut store) = inner.store_mut() {
-                    Self::remove_after(inner, &mut store, pos, len)?;
-                }
+        if let Some((mut store, mut ty)) = self.as_inner().write() {
+            if let Some(pos) = self.find_pos(&ty, idx) {
+                Self::remove_after(&mut ty, &mut store, pos, len)?;
             }
         } else {
             return Err(JwstCodecError::DocReleased);
@@ -202,12 +190,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
         Ok(())
     }
 
-    fn remove_after(
-        mut lock: RwLockWriteGuard<YType>,
-        store: &mut DocStore,
-        mut pos: ItemPosition,
-        len: u64,
-    ) -> JwstCodecResult {
+    fn remove_after(ty: &mut YType, store: &mut DocStore, mut pos: ItemPosition, len: u64) -> JwstCodecResult {
         pos.normalize(store)?;
 
         let mut remaining = len;
@@ -223,7 +206,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
                         remaining -= content_len;
                     }
                     store.delete_set.add(item.id.client, item.id.clock, content_len);
-                    DocStore::delete_item(item, Some(&mut lock));
+                    DocStore::delete_item(item, Some(ty));
                 }
 
                 pos.forward();
@@ -232,7 +215,7 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
             }
         }
 
-        if let Some(markers) = &lock.markers {
+        if let Some(markers) = &ty.markers {
             markers.update_marker_changes(pos.index, -((len - remaining) as i64));
         }
 
