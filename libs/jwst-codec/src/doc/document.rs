@@ -142,6 +142,7 @@ impl Doc {
                 } else {
                     // need to turn all pending state into update for later iteration
                     update.drain_pending_state();
+                    retry = false;
                 };
             }
 
