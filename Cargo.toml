@@ -4,6 +4,7 @@ members = [
     "apps/cloud",
     "apps/doc_merger",
     "apps/keck",
+    "apps/keck-core",
     "libs/cloud-database",
     "libs/cloud-database/migration",
     "libs/cloud-infra",

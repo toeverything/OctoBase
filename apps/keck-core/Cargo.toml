@@ -1,0 +1,65 @@
+[package]
+name = "keck-core"
+version = "0.1.0"
+authors = ["DarkSky <darksky2048@gmail.com>"]
+edition = "2021"
+license = "AGPL-3.0-only"
+
+[features]
+default = ["jwst"]
+affine = ["jwst-core-storage/sqlite"]
+jwst = [
+  # "api",
+  "jwst-core-storage/sqlite",
+  "jwst-core-storage/mysql",
+  "jwst-core-storage/postgres",
+]
+api = ["utoipa"]
+
+[dependencies]
+anyhow = "1.0.70"
+axum = { version = "0.6.20", features = ["headers", "ws"] }
+cfg-if = "1.0.0"
+futures = "0.3.28"
+lib0 = { version = "0.16.5", features = ["lib0-serde"] }
+log = { version = "0.4.17", features = [
+  "max_level_trace",
+  "release_max_level_info",
+] }
+dotenvy = "0.15.7"
+mimalloc = "0.1.36"
+nanoid = "0.4.0"
+serde = { version = "1.0.160", features = ["derive"] }
+serde_json = "1.0.96"
+sqlx = { version = "0.7.1", features = [
+  "chrono",
+  "macros",
+  "migrate",
+  "runtime-tokio-rustls",
+] }
+tower = "0.4.13"
+tower-http = { version = "0.4.0", features = ["cors"] }
+thiserror = "1.0.40"
+time = "0.3.20"
+tokio = { version = "=1.28.0", features = [
+  "macros",
+  "rt-multi-thread",
+  "signal",
+] }
+utoipa = { version = "3.5.0", features = ["axum_extras"], optional = true }
+yrs = "0.16.5"
+libc = "0.2.147"
+rand = "0.8.5"
+reqwest = { version = "0.11.19", default-features = false, features = [
+  "json",
+  "rustls-tls",
+] }
+
+# ======= workspace dependencies =======
+jwst-core = { workspace = true }
+jwst-logger = { workspace = true }
+jwst-core-rpc = { workspace = true }
+jwst-core-storage = { workspace = true }
+
+[dev-dependencies]
+axum-test-helper = "0.3.0"

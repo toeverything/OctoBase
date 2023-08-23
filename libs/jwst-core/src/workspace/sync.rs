@@ -2,6 +2,7 @@ use jwst_codec::{
     write_sync_message, CrdtRead, CrdtWrite, DocMessage, RawDecoder, RawEncoder, StateVector, SyncMessage,
     SyncMessageScanner, Update,
 };
+use tracing::debug;
 
 use super::*;
 
@@ -34,10 +35,17 @@ impl Workspace {
         let mut content = vec![];
 
         for buffer in buffers {
-            trace!("sync message: {:?}", buffer);
             let (awareness_msg, content_msg): (Vec<_>, Vec<_>) = SyncMessageScanner::new(&buffer)
                 .flatten()
                 .partition(|msg| matches!(msg, SyncMessage::Awareness(_) | SyncMessage::AwarenessQuery));
+
+            debug!(
+                "sync message: {}, awareness: {}, content: {}",
+                buffer.len(),
+                awareness_msg.len(),
+                content_msg.len()
+            );
+
             awareness.extend(awareness_msg);
             content.extend(content_msg);
         }
@@ -85,11 +93,16 @@ impl Workspace {
                     match msg {
                         SyncMessage::Doc(msg) => match msg {
                             DocMessage::Step1(sv) => StateVector::read(&mut RawDecoder::new(sv)).ok().and_then(|sv| {
+                                debug!("step1 get sv: {sv:?}");
                                 doc.encode_state_as_update_v1(&sv)
-                                    .map(|update| SyncMessage::Doc(DocMessage::Step2(update)))
+                                    .map(|update| {
+                                        debug!("step1 encode update: {}", update.len());
+                                        SyncMessage::Doc(DocMessage::Step2(update))
+                                    })
                                     .ok()
                             }),
                             DocMessage::Step2(update) => {
+                                debug!("step2 get update: {}", update.len());
                                 if let Ok(update) = Update::read(&mut RawDecoder::new(update)) {
                                     if let Err(e) = doc.apply_update(update) {
                                         warn!("failed to apply update: {:?}", e);
@@ -115,6 +128,7 @@ impl Workspace {
                     if let Err(e) = write_sync_message(&mut buffer, &msg) {
                         warn!("failed to encode message: {:?}", e);
                     } else {
+                        debug!("return update: {}", buffer.len());
                         result.push(buffer);
                     }
                 }

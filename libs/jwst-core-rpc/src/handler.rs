@@ -50,6 +50,7 @@ pub async fn handle_connector(
     // Send initialization message.
     match ws.sync_init_message().await {
         Ok(init_data) => {
+            debug!("send init data:{:?}", init_data);
             if tx.send(Message::Binary(init_data)).await.is_err() {
                 warn!("failed to send init message: {}", identifier);
                 // client disconnected

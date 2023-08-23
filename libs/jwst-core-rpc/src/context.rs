@@ -172,7 +172,7 @@ pub trait RpcContextImpl<'a> {
                                 // skip empty update
                                 continue;
                             }
-                            trace!("apply_change: recv binary: {:?}", binary.len());
+                            debug!("apply_change: recv binary: {:?}", binary.len());
                             updates.push(binary);
                         } else {
                             break;

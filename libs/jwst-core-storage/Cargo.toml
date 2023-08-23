@@ -25,7 +25,7 @@ sha2 = "0.10.7"
 sea-orm = { version = "0.12.2", features = ["runtime-tokio-rustls", "macros"] }
 sea-orm-migration = { version = "0.12.2", default-features = false }
 thiserror = "1.0.47"
-tokio = { version = "1.32.0", features = ["fs", "macros", "sync"] }
+tokio = { version = "1", features = ["fs", "macros", "sync"] }
 tokio-util = { version = "0.7.8", features = ["io"] }
 url = "2.4.0"
 

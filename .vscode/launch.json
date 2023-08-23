@@ -26,11 +26,11 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'keck'",
+            "name": "Debug executable 'keck-core'",
             "cargo": {
-                "args": ["build", "--bin=keck", "--package=keck"],
+                "args": ["build", "--bin=keck-core", "--package=keck-core"],
                 "filter": {
-                    "name": "keck",
+                    "name": "keck-core",
                     "kind": "bin"
                 }
             },
