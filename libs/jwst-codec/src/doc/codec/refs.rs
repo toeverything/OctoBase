@@ -80,7 +80,9 @@ impl Node {
                 let item = Somr::new(Item::read(decoder, id, info, first_5_bit)?);
 
                 if let Content::Type(ty) = item.get().unwrap().content.as_ref() {
-                    ty.get().unwrap().write().unwrap().item = item.clone();
+                    if let Some(mut ty) = ty.ty_mut() {
+                        ty.item = item.clone();
+                    }
                 }
 
                 Ok(Node::Item(item))
