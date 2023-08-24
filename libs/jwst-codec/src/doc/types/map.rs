@@ -13,11 +13,11 @@ impl_type!(Map);
 pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
     fn insert(&mut self, key: impl AsRef<str>, value: impl Into<Content>) -> JwstCodecResult {
         if let Some((mut store, mut ty)) = self.as_inner().write() {
-            let left = ty.map.as_ref().and_then(|map| {
-                map.get(key.as_ref())
-                    .and_then(|struct_info| struct_info.left())
-                    .map(|l| l.as_item())
-            });
+            let left = ty
+                .map
+                .as_ref()
+                .and_then(|map| map.get(key.as_ref()))
+                .map(|l| l.as_item());
 
             let item = store.create_item(
                 value.into(),
@@ -255,6 +255,23 @@ mod tests {
             assert_eq!(map.get("1").unwrap(), Value::Any(Any::String("value".to_string())));
             assert_eq!(map.get("2").unwrap(), Value::Any(Any::False));
             assert_eq!(map.len(), 2);
+        });
+    }
+
+    #[test]
+    fn test_map_renew_value() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
+        loom_model!({
+            let doc = Doc::with_options(options.clone());
+            let mut map = doc.get_or_create_map("map").unwrap();
+            map.insert("1", "value").unwrap();
+            map.insert("1", "value2").unwrap();
+            assert_eq!(map.get("1").unwrap(), Value::Any(Any::String("value2".to_string())));
+            assert_eq!(map.len(), 1);
         });
     }
 
