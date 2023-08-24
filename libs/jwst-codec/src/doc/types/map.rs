@@ -258,6 +258,23 @@ mod tests {
         });
     }
 
+    #[test]
+    fn test_map_renew_value() {
+        let options = DocOptions {
+            client: Some(rand::random()),
+            guid: Some(nanoid::nanoid!()),
+        };
+
+        loom_model!({
+            let doc = Doc::with_options(options.clone());
+            let mut map = doc.get_or_create_map("map").unwrap();
+            map.insert("1", "value").unwrap();
+            map.insert("1", "value2").unwrap();
+            assert_eq!(map.get("1").unwrap(), Value::Any(Any::String("value2".to_string())));
+            assert_eq!(map.len(), 1);
+        });
+    }
+
     // #[test]
     // fn test_map_iter() {
     //     let options = DocOptions {
