@@ -360,7 +360,8 @@ impl DocStore {
         if let Content::Type(ty) = Arc::make_mut(&mut item.content) {
             ty.store = Arc::downgrade(&store_ref);
 
-            // we keep ty owner in dangling_types so the delete of any type will not make it dropped
+            // we keep ty owner in dangling_types so the delete of any type will not make it
+            // dropped
             if ty.inner.is_owned() {
                 let owned_inner = ty.inner.swap_take();
                 self.dangling_types.insert(

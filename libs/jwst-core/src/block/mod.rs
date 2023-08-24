@@ -500,6 +500,22 @@ mod test {
     }
 
     #[test]
+    fn block_renew_value() {
+        let mut workspace = Workspace::new("test").unwrap();
+
+        let mut space = workspace.get_space("space").unwrap();
+        let mut block = space.create("test", "affine:text").unwrap();
+
+        let key = "hello".to_string();
+        block.set(&key, "world").unwrap();
+
+        let mut block = space.get("test").unwrap();
+        block.set(&key, "12345678").unwrap();
+
+        assert_eq!(block.get(&key).unwrap().to_string(), "12345678");
+    }
+
+    #[test]
     fn insert_remove_children() {
         let mut workspace = Workspace::new("text").unwrap();
         let mut space = workspace.get_space("space").unwrap();

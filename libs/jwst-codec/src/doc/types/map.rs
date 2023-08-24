@@ -13,11 +13,11 @@ impl_type!(Map);
 pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
     fn insert(&mut self, key: impl AsRef<str>, value: impl Into<Content>) -> JwstCodecResult {
         if let Some((mut store, mut ty)) = self.as_inner().write() {
-            let left = ty.map.as_ref().and_then(|map| {
-                map.get(key.as_ref())
-                    .and_then(|struct_info| struct_info.left())
-                    .map(|l| l.as_item())
-            });
+            let left = ty
+                .map
+                .as_ref()
+                .and_then(|map| map.get(key.as_ref()))
+                .map(|l| l.as_item());
 
             let item = store.create_item(
                 value.into(),
