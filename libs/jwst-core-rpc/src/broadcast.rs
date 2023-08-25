@@ -47,7 +47,7 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
             debug!("workspace {} changed: {}bytes", workspace_id, update.len());
 
             match encode_update_with_guid(update.to_vec(), workspace_id.clone())
-                .and_then(|update| encode_update_as_message(update.clone()).map(|u| (update, u)))
+                .and_then(|update_with_guid| encode_update_as_message(update.to_vec()).map(|u| (update_with_guid, u)))
             {
                 Ok((broadcast_update, sendable_update)) => {
                     if sender

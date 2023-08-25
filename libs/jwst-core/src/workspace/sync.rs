@@ -102,7 +102,6 @@ impl Workspace {
                                     .ok()
                             }),
                             DocMessage::Step2(update) => {
-                                debug!("step2 get update: {}", update.len());
                                 if let Ok(update) = Update::read(&mut RawDecoder::new(update)) {
                                     if let Err(e) = doc.apply_update(update) {
                                         warn!("failed to apply update: {:?}", e);
@@ -113,13 +112,18 @@ impl Workspace {
                             DocMessage::Update(update) => doc
                                 .apply_update_from_binary(update)
                                 .and_then(|update| {
+                                    if update.is_content_empty() {
+                                        return Ok(None);
+                                    }
+
                                     let mut encoder = RawEncoder::default();
                                     update.write(&mut encoder)?;
-                                    Ok(encoder.into_inner())
+                                    Ok(Some(encoder.into_inner()))
                                 })
-                                .map(|u| SyncMessage::Doc(DocMessage::Update(u)))
                                 .map_err(|e| warn!("failed to apply update: {:?}", e))
-                                .ok(),
+                                .ok()
+                                .flatten()
+                                .map(|u| SyncMessage::Doc(DocMessage::Update(u))),
                         },
                         _ => None,
                     }
