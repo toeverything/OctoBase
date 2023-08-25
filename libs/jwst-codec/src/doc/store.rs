@@ -25,6 +25,7 @@ pub(crate) struct DocStore {
     // we store it here to keep the ownership inside store without being released.
     pub dangling_types: HashMap<usize, YTypeRef>,
     pub pending: Option<Update>,
+    pub last_gc_state: StateVector,
 }
 
 pub(crate) type StoreRef = Arc<RwLock<DocStore>>;
@@ -379,7 +380,7 @@ impl DocStore {
         Ok(())
     }
 
-    pub(crate) fn integrate(&mut self, mut node: Node, offset: u64, parent: Option<&mut YType>) -> JwstCodecResult {
+    pub fn integrate(&mut self, mut node: Node, offset: u64, parent: Option<&mut YType>) -> JwstCodecResult {
         match &mut node {
             Node::Item(item) => {
                 assert!(
@@ -557,7 +558,7 @@ impl DocStore {
         self.add_item(node)
     }
 
-    pub(crate) fn delete_item(item: &Item, parent: Option<&mut YType>) {
+    pub fn delete_item(item: &Item, parent: Option<&mut YType>) {
         if !item.delete() {
             return;
         }
@@ -581,7 +582,7 @@ impl DocStore {
         }
     }
 
-    pub(crate) fn delete(&mut self, struct_info: &Node, parent: Option<&mut YType>) {
+    pub fn delete(&mut self, struct_info: &Node, parent: Option<&mut YType>) {
         if let Some(item) = struct_info.as_item().get() {
             self.delete_set.add(item.id.client, item.id.clock, item.len());
             Self::delete_item(item, parent);
@@ -727,6 +728,26 @@ impl DocStore {
 
         delete_set
     }
+
+    pub fn gc(&mut self) {
+        // gc steps:
+        //  1. gc delete set
+        self.gc_delete_set();
+        //  2. merge delete set (in our delete set impl, which is based on `OrderRange` has already have auto-merge functionality)
+        //     pass
+        //  3. merge splitted items by delete set
+        self.merge_splitted_items();
+        //  4. merge same content siblings, e.g contentString + ContentString
+        self.make_continuous();
+
+        self.last_gc_state = self.get_state_vector();
+    }
+
+    fn gc_delete_set(&mut self) {}
+
+    fn merge_splitted_items(&mut self) {}
+
+    fn make_continuous(&mut self) {}
 }
 
 #[cfg(test)]

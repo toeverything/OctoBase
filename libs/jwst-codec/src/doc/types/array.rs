@@ -89,10 +89,7 @@ mod tests {
 
     #[test]
     fn test_yarray_insert() {
-        let options = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
+        let options = DocOptions::default();
 
         loom_model!({
             let doc = Doc::with_options(options.clone());
@@ -111,15 +108,8 @@ mod tests {
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_ytext_equal() {
-        let options = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
-        let yrs_options = Options {
-            client_id: rand::random(),
-            guid: nanoid::nanoid!().into(),
-            ..Default::default()
-        };
+        let options = DocOptions::default();
+        let yrs_options = Options::default();
 
         loom_model!({
             let doc = yrs::Doc::with_options(yrs_options.clone());
@@ -145,15 +135,9 @@ mod tests {
             assert_eq!(array.get(11).unwrap(), Value::Any(Any::String("!".into())));
         });
 
-        let options = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
-        let yrs_options = Options {
-            client_id: rand::random(),
-            guid: nanoid::nanoid!().into(),
-            ..Default::default()
-        };
+        let options = DocOptions::default();
+        let yrs_options = Options::default();
+
         loom_model!({
             let doc = yrs::Doc::with_options(yrs_options.clone());
             let array = doc.get_or_insert_text("abc");
@@ -198,8 +182,9 @@ mod tests {
             let doc = Doc::new_from_binary_with_options(
                 update.clone(),
                 DocOptions {
-                    guid: Some(String::from("1")),
-                    client: Some(1),
+                    guid: String::from("1"),
+                    client_id: 1,
+                    gc: true,
                 },
             )
             .unwrap();

@@ -12,7 +12,6 @@ pub use doc::{
 };
 pub(crate) use doc::{Content, Item};
 use jwst_logger::{debug, warn};
-use nanoid::nanoid;
 use nom::IResult;
 pub use protocol::{
     read_sync_message, write_sync_message, AwarenessState, AwarenessStates, DocMessage, SyncMessage, SyncMessageScanner,
@@ -57,6 +56,8 @@ pub enum JwstCodecError {
     IndexOutOfBound(u64),
     #[error("Document has been released")]
     DocReleased,
+    #[error("Unexpected type, expect {0}")]
+    UnexpectedType(&'static str),
 }
 
 pub type JwstCodecResult<T = ()> = Result<T, JwstCodecError>;

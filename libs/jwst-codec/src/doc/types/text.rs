@@ -61,18 +61,13 @@ mod tests {
     use crate::{
         loom_model,
         sync::{thread, Arc, AtomicUsize, Ordering},
-        Doc, DocOptions,
+        Doc,
     };
 
     #[test]
     fn test_manipulate_text() {
-        let options = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
-
         loom_model!({
-            let doc = Doc::with_options(options.clone());
+            let doc = Doc::new();
             let mut text = doc.create_text().unwrap();
 
             text.insert(0, "llo").unwrap();
@@ -205,17 +200,12 @@ mod tests {
 
     #[test]
     fn loom_parallel_ins_del_text() {
-        let options = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
-
         let seed = rand::thread_rng().gen();
         let mut rand = ChaCha20Rng::seed_from_u64(seed);
         let ranges = (0..20).map(|_| rand.gen_range(0..16)).collect::<Vec<_>>();
 
         loom_model!({
-            let doc = Doc::with_options(options.clone());
+            let doc = Doc::new();
             let mut text = doc.get_or_create_text("test").unwrap();
             text.insert(0, "This is a string with length 32.").unwrap();
 
@@ -264,14 +254,9 @@ mod tests {
             trx.encode_update_v1().unwrap()
         };
 
-        let options = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
-
         loom_model!({
             let binary = binary.clone();
-            let doc = Doc::new_from_binary_with_options(binary, options.clone()).unwrap();
+            let doc = Doc::new_from_binary(binary).unwrap();
             let mut text = doc.get_or_create_text("greating").unwrap();
 
             assert_eq!(text.to_string(), "hello world");
@@ -284,14 +269,9 @@ mod tests {
 
     #[test]
     fn test_recover_from_octobase_encoder() {
-        let options = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
-
         loom_model!({
             let binary = {
-                let doc = Doc::with_options(options.clone());
+                let doc = Doc::new();
                 let mut text = doc.get_or_create_text("greating").unwrap();
                 text.insert(0, "hello").unwrap();
                 text.insert(5, " world!").unwrap();
@@ -301,7 +281,7 @@ mod tests {
             };
 
             let binary = binary.clone();
-            let doc = Doc::new_from_binary_with_options(binary, options.clone()).unwrap();
+            let doc = Doc::new_from_binary(binary).unwrap();
             let mut text = doc.get_or_create_text("greating").unwrap();
 
             assert_eq!(text.to_string(), "hello world");

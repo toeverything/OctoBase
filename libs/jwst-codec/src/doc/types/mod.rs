@@ -454,7 +454,7 @@ impl TryFrom<&Content> for Value {
                 // actually unreachable
                 YTypeKind::Unknown => return Err(JwstCodecError::TypeCastError("unknown")),
             },
-            Content::Doc { .. } => return Err(JwstCodecError::TypeCastError("unimplemented: Doc")),
+            Content::Doc { guid: _, opts } => Value::Doc(DocOptions::try_from(opts.clone())?.build()),
             Content::Format { .. } => return Err(JwstCodecError::TypeCastError("unimplemented: Format")),
             Content::Deleted(_) => return Err(JwstCodecError::TypeCastError("unimplemented: Deleted")),
         })
@@ -467,8 +467,7 @@ impl From<Value> for Content {
             Value::Any(any) => Content::from(any),
             Value::Doc(doc) => Content::Doc {
                 guid: doc.guid().to_owned(),
-                // TODO: replace doc options if we got ones
-                opts: Any::Undefined,
+                opts: Any::from(doc.options().clone()),
             },
             Value::Array(v) => Content::Type(v.0),
             Value::Map(v) => Content::Type(v.0),
