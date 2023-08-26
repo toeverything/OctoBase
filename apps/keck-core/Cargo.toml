@@ -9,7 +9,7 @@ license = "AGPL-3.0-only"
 default = ["jwst"]
 affine = ["jwst-core-storage/sqlite"]
 jwst = [
-  # "api",
+  "api",
   "jwst-core-storage/sqlite",
   "jwst-core-storage/mysql",
   "jwst-core-storage/postgres",

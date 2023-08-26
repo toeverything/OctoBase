@@ -308,7 +308,7 @@ impl Block {
         self.children.len()
     }
 
-    pub fn children_exists<T, S>(&self, block_id: S) -> bool
+    pub fn children_exists<S>(&self, block_id: S) -> bool
     where
         S: AsRef<str>,
     {
