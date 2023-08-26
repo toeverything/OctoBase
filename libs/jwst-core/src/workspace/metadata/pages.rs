@@ -182,7 +182,7 @@ mod tests {
     //     let doc = Doc::default();
     //     doc.apply_update(
     //         Update::from_ybinary1(
-    //             
+    //
     // include_bytes!("../../../fixtures/test_shared_page.bin").to_vec(),
     //         )
     //         .unwrap(),

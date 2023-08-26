@@ -5,7 +5,7 @@ on:
     pull_request:
         types: [opened, synchronize]
         paths-ignore:
-            - '**/*.md'
+            - "**/*.md"
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
@@ -24,12 +24,10 @@ jobs:
               with:
                   ref: master
 
-            - name: Install Rust
-              uses: actions-rs/toolchain@v1
+            - name: Setup Rust
+              uses: ./.github/actions/setup-rust
               with:
-                  profile: minimal
                   toolchain: stable
-                  override: true
 
             - name: Run Bench on Master Branch
               run: |
@@ -68,6 +66,16 @@ jobs:
             - benchmark
 
         steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+              with:
+                  fetch-depth: 0
+
+            - name: Setup Rust
+              uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: stable
+
             - name: Install critcmp
               uses: taiki-e/install-action@v2
               with:
@@ -82,11 +90,7 @@ jobs:
             - name: Linux | Compare benchmark results
               shell: bash
               run: |
-                  echo "## Benchmark Results" >> summary.md
-                  echo "### Linux" >> summary.md
-                  echo "\`\`\`" >> summary.md
-                  critcmp master pr >> summary.md
-                  echo "\`\`\`" >> summary.md
+                  critcmp main pr | cargo run -p y-octo-utils --bin bench_result_render --features bench -- Linux >> summary.md
                   echo "" >> summary.md
 
             - name: Linux | Cleanup benchmark results
@@ -101,11 +105,7 @@ jobs:
             - name: Windows | Compare benchmark results
               shell: bash
               run: |
-                  echo "### Windows" >> summary.md
-                  echo "\`\`\`" >> summary.md
-                  critcmp master pr >> summary.md
-                  echo "\`\`\`" >> summary.md
-                  echo "" >> summary.md
+                  critcmp main pr | cargo run -p y-octo-utils --bin bench_result_render --features bench -- Windows >> summary.md
                   cat summary.md > $GITHUB_STEP_SUMMARY
 
             - name: Find Comment
@@ -115,7 +115,7 @@ jobs:
               id: fc
               with:
                   issue-number: ${{ github.event.pull_request.number }}
-                  comment-author: 'github-actions[bot]'
+                  comment-author: "github-actions[bot]"
                   body-includes: Benchmark Results
 
             - name: Create or update comment

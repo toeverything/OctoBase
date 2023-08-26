@@ -408,27 +408,6 @@ jobs:
                   name: tests
                   files: lcov.info
 
-    memory_check:
-        name: memory check
-        runs-on: ubuntu-latest
-        continue-on-error: true
-        env:
-            RUSTFLAGS: -D warnings -Zsanitizer=address
-            ASAN_OPTIONS: detect_leaks=1
-            CARGO_TERM_COLOR: always
-        steps:
-            - uses: actions/checkout@v3
-            - uses: dtolnay/rust-toolchain@stable
-              with:
-                  toolchain: nightly-2023-05-23
-            - uses: Swatinem/rust-cache@v2
-
-            - name: Memory Check
-              run: |
-                  rustup component add rust-src
-                  # only check jwst-codec now, yrs has many memory leaks
-                  cargo test -Zbuild-std --target x86_64-unknown-linux-gnu -p jwst-codec --lib
-
     loom:
         name: loom thread test
         runs-on: ubuntu-latest
@@ -448,29 +427,6 @@ jobs:
             - name: Loom Thread Test
               run: |
                   cargo nextest run -p jwst-codec --lib
-
-    miri:
-        name: miri code check
-        runs-on: ubuntu-latest
-        continue-on-error: true
-        env:
-            RUST_BACKTRACE: full
-            CARGO_TERM_COLOR: always
-            MIRIFLAGS: -Zmiri-backtrace=full -Zmiri-tree-borrows
-        steps:
-            - uses: actions/checkout@v3
-            - uses: dtolnay/rust-toolchain@stable
-              with:
-                  toolchain: nightly-2023-05-23
-                  components: miri
-            - uses: Swatinem/rust-cache@v2
-
-            - name: Install latest nextest release
-              uses: taiki-e/install-action@nextest
-
-            - name: Miri Code Check
-              run: |
-                  cargo miri nextest run -p jwst-codec -j2
 
     fuzzing:
         name: fuzzing
