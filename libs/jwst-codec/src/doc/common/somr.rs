@@ -1,8 +1,10 @@
 use std::{
+    cell::UnsafeCell,
     fmt::{self, Write},
     hash::{Hash, Hasher},
     marker::PhantomData,
     mem,
+    ops::{Deref, DerefMut},
     ptr::NonNull,
 };
 
@@ -25,11 +27,30 @@ pub(crate) struct Owned<T>(NonNull<SomrInner<T>>);
 pub(crate) struct Ref<T>(NonNull<SomrInner<T>>);
 
 pub(crate) struct SomrInner<T> {
-    data: Option<T>,
+    data: Option<UnsafeCell<T>>,
     /// increase the size when we really meet the the secenerio with refs more
     /// then u16::MAX(65535) times
     refs: AtomicU32,
     _marker: PhantomData<Option<T>>,
+}
+
+pub(crate) struct InnerRefMut<'a, T> {
+    inner: NonNull<T>,
+    _marker: PhantomData<&'a mut T>,
+}
+
+impl<'a, T> Deref for InnerRefMut<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.inner.as_ptr() }
+    }
+}
+
+impl<'a, T> DerefMut for InnerRefMut<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut *self.inner.as_ptr() }
+    }
 }
 
 unsafe impl<T: Send> Send for Somr<T> {}
@@ -44,7 +65,7 @@ impl<T> Default for Somr<T> {
 impl<T> Somr<T> {
     pub fn new(data: T) -> Self {
         let inner = Box::new(SomrInner {
-            data: Some(data),
+            data: Some(UnsafeCell::new(data)),
             refs: AtomicU32::new(1),
             _marker: PhantomData,
         });
@@ -57,15 +78,28 @@ impl<T> Somr<T> {
     }
 }
 
+impl<T> SomrInner<T> {
+    fn data_ref(&self) -> Option<&T> {
+        self.data.as_ref().map(|x| unsafe { &*x.get() })
+    }
+
+    fn data_mut(&self) -> Option<InnerRefMut<T>> {
+        self.data.as_ref().map(|x| InnerRefMut {
+            inner: unsafe { NonNull::new_unchecked(x.get()) },
+            _marker: PhantomData,
+        })
+    }
+}
+
 impl<T> Somr<T> {
     #[inline]
     pub fn is_none(&self) -> bool {
-        self.dangling() || self.inner().data.is_none()
+        self.dangling() || self.inner().data_ref().is_none()
     }
 
     #[inline]
     pub fn is_some(&self) -> bool {
-        !self.dangling() && self.inner().data.is_some()
+        !self.dangling() && self.inner().data_ref().is_some()
     }
 
     pub fn get(&self) -> Option<&T> {
@@ -73,7 +107,7 @@ impl<T> Somr<T> {
             return None;
         }
 
-        self.inner().data.as_ref()
+        self.inner().data_ref()
     }
 
     pub unsafe fn get_unchecked(&self) -> &T {
@@ -81,7 +115,7 @@ impl<T> Somr<T> {
             panic!("Try to visit Somr data that has already been dropped.")
         }
 
-        match &self.inner().data {
+        match &self.inner().data_ref() {
             Some(data) => data,
             None => {
                 panic!("Try to unwrap on None")
@@ -89,22 +123,32 @@ impl<T> Somr<T> {
         }
     }
 
-    pub fn get_mut(&self) -> Option<&mut T> {
+    #[allow(unused)]
+    pub fn get_mut(&mut self) -> Option<&mut T> {
         if !self.is_owned() || self.dangling() {
             return None;
         }
 
         let inner = self.inner_mut();
-        inner.data.as_mut()
+        inner.data.as_mut().map(|x| x.get_mut())
     }
 
-    #[allow(clippy::mut_from_ref)]
-    pub unsafe fn get_mut_unchecked(&self) -> &mut T {
+    #[allow(unused)]
+    pub unsafe fn get_mut_from_ref(&self) -> Option<InnerRefMut<T>> {
+        if !self.is_owned() || self.dangling() {
+            return None;
+        }
+
+        let inner = self.inner_mut();
+        inner.data_mut()
+    }
+
+    pub unsafe fn get_mut_unchecked(&self) -> InnerRefMut<'_, T> {
         if self.dangling() {
             panic!("Try to visit Somr data that has already been dropped.")
         }
 
-        match &mut self.inner_mut().data {
+        match self.inner_mut().data_mut() {
             Some(data) => data,
             None => {
                 panic!("Try to unwrap on None")
@@ -242,7 +286,7 @@ impl<T: PartialEq> PartialEq for Somr<T> {
 
 impl<T: PartialEq> PartialEq for SomrInner<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.data == other.data
+        self.data_ref() == other.data_ref()
     }
 }
 
@@ -370,7 +414,7 @@ mod tests {
     #[test]
     fn acquire_mut_ref() {
         loom_model!({
-            let five = Somr::new(5);
+            let mut five = Somr::new(5);
 
             *five.get_mut().unwrap() += 1;
             assert_eq!(five.get(), Some(&6));
@@ -379,7 +423,7 @@ mod tests {
 
             // only owner can mut ref
             assert!(five_ref.get().is_some());
-            assert!(five_ref.get_mut().is_none());
+            assert!(unsafe { five_ref.get_mut_from_ref() }.is_none());
 
             drop(five);
         });
@@ -444,6 +488,22 @@ mod tests {
 
             assert!(owned.is_owned());
             assert!(!five.is_owned());
+        });
+    }
+
+    // This is UB if we didn't use `UnsafeCell` in `Somr`
+    #[test]
+    fn test_inner_mut() {
+        loom_model!({
+            let five = Somr::new(5);
+            fn add(a: &Somr<i32>, b: &Somr<i32>) {
+                unsafe { a.get_mut_from_ref() }
+                    .map(|mut x| *x += *b.get().unwrap())
+                    .unwrap();
+            }
+
+            add(&five, &five);
+            assert_eq!(five.get().copied().unwrap(), 10);
         });
     }
 }

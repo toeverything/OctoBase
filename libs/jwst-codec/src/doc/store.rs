@@ -188,15 +188,15 @@ impl DocStore {
                 // we make sure store is the only entry of mutating an item,
                 // and we already hold mutable reference of store, so it's safe to do so
                 unsafe {
-                    let left_item = raw_left_item.get_mut_unchecked();
-                    let right_item = right_item.get_mut_unchecked();
+                    let mut left_item = raw_left_item.get_mut_unchecked();
+                    let mut right_item = right_item.get_mut_unchecked();
                     left_item.content = new_left_item.get_unchecked().content.clone();
 
                     // we had the correct left/right content
                     // now build the references
                     let right_right_ref = ItemRef::from(&left_item.right);
                     right_item.left = if right_right_ref.is_some() {
-                        let right_right = right_right_ref.get_mut_unchecked();
+                        let mut right_right = right_right_ref.get_mut_unchecked();
                         right_right.left.replace(right_node.clone())
                     } else {
                         Some(node.clone())
@@ -391,7 +391,7 @@ impl DocStore {
                 // before we integrate struct into store,
                 // the struct => Arc<Item> is owned reference actually,
                 // no one else refer to such item yet, we can safely mutable refer to it now.
-                let this = unsafe { item.get_mut_unchecked() };
+                let this = &mut *unsafe { item.get_mut_unchecked() };
 
                 if offset > 0 {
                     this.id.clock += offset;
@@ -488,7 +488,7 @@ impl DocStore {
                     if left.is_some() {
                         unsafe {
                             // SAFETY: we get store write lock, no way the left get dropped by owner
-                            let left = left.get_mut_unchecked();
+                            let mut left = left.get_mut_unchecked();
                             right = left.right.replace(Node::Item(item.clone())).into();
                         }
                         this.left = Some(Node::Item(left));
@@ -511,7 +511,7 @@ impl DocStore {
                     if right.is_some() {
                         unsafe {
                             // SAFETY: we get store write lock, no way the left get dropped by owner
-                            let right = right.get_mut_unchecked();
+                            let mut right = right.get_mut_unchecked();
                             right.left = Some(Node::Item(item.clone()));
                         }
                         this.right = Some(Node::Item(right))
