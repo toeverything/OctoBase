@@ -72,19 +72,12 @@ mod tests {
         );
         let workspace_changed_blocks = Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
         let hook_endpoint = Arc::new(RwLock::new(String::new()));
-        let cb: WorkspaceRetrievalCallback = {
-            let workspace_changed_blocks = workspace_changed_blocks.clone();
-            let runtime = runtime.clone();
-            Some(Arc::new(Box::new(move |workspace: &Workspace| {
-                workspace.set_callback(generate_ws_callback(&workspace_changed_blocks, &runtime));
-            })))
-        };
+
         let ctx = Arc::new(
             Context::new(
                 JwstStorage::new_with_migration("sqlite::memory:", BlobStorageType::DB)
                     .await
                     .ok(),
-                cb,
             )
             .await,
         );

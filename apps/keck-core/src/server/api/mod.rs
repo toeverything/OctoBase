@@ -41,11 +41,10 @@ pub struct PageData<T> {
 pub struct Context {
     channel: BroadcastChannels,
     storage: JwstStorage,
-    callback: WorkspaceRetrievalCallback,
 }
 
 impl Context {
-    pub async fn new(storage: Option<JwstStorage>, cb: WorkspaceRetrievalCallback) -> Self {
+    pub async fn new(storage: Option<JwstStorage>) -> Self {
         let blob_storage_type = BlobStorageType::DB;
 
         let storage = if let Some(storage) = storage {
@@ -66,7 +65,6 @@ impl Context {
         Context {
             channel: RwLock::new(HashMap::new()),
             storage,
-            callback: cb,
         }
     }
 
@@ -74,24 +72,14 @@ impl Context {
     where
         S: AsRef<str>,
     {
-        let workspace = self.storage.get_workspace(workspace_id).await?;
-        if let Some(cb) = self.callback.clone() {
-            cb(&workspace);
-        }
-
-        Ok(workspace)
+        self.storage.get_workspace(workspace_id).await
     }
 
     pub async fn create_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
     where
         S: AsRef<str>,
     {
-        let workspace = self.storage.create_workspace(workspace_id).await?;
-        if let Some(cb) = self.callback.clone() {
-            cb(&workspace);
-        }
-
-        Ok(workspace)
+        self.storage.create_workspace(workspace_id).await
     }
 }
 

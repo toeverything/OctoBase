@@ -82,69 +82,66 @@ mod test {
         }
     }
 
-    // #[test]
-    // #[ignore = "not needed in ci"]
-    // fn client_collaboration_with_server() {
-    //     if dotenvy::var("KECK_DEBUG").is_ok() {
-    //         jwst_logger::init_logger("keck");
-    //     }
+    #[test]
+    #[ignore = "not needed in ci"]
+    fn client_collaboration_with_server() {
+        if dotenvy::var("KECK_DEBUG").is_ok() {
+            jwst_logger::init_logger("keck-core");
+        }
 
-    //     let server_port = thread_rng().gen_range(10000..=30000);
-    //     let child = start_collaboration_server(server_port);
+        let server_port = thread_rng().gen_range(10000..=30000);
+        let child = start_collaboration_server(server_port);
 
-    //     let rt = Runtime::new().unwrap();
-    //     let (workspace_id, workspace) = rt.block_on(async move {
-    //         let workspace_id = "1";
-    //         let context = Arc::new(TestContext::new(Arc::new(
-    //             JwstStorage::new_with_migration("sqlite::memory:",
-    // BlobStorageType::DB)                 .await
-    //                 .expect("get storage: memory sqlite failed"),
-    //         )));
-    //         let remote =
-    // format!("ws://localhost:{server_port}/collaboration/1");
+        let rt: Runtime = Runtime::new().unwrap();
+        let (workspace_id, mut workspace) = {
+            let workspace_id = "1";
+            let context = rt.block_on(async move {
+                Arc::new(TestContext::new(Arc::new(
+                    JwstStorage::new_with_migration("sqlite::memory:", BlobStorageType::DB)
+                        .await
+                        .expect("get storage: memory sqlite failed"),
+                )))
+            });
+            let remote = format!("ws://localhost:{server_port}/collaboration/1");
 
-    //         start_websocket_client_sync(
-    //             Arc::new(Runtime::new().unwrap()),
-    //             context.clone(),
-    //             Arc::default(),
-    //             remote,
-    //             workspace_id.to_owned(),
-    //         );
+            start_websocket_client_sync(
+                Arc::new(Runtime::new().unwrap()),
+                context.clone(),
+                Arc::default(),
+                remote,
+                workspace_id.to_owned(),
+            );
 
-    //         (
-    //             workspace_id.to_owned(),
-    //             context.get_workspace(workspace_id).await.unwrap(),
-    //         )
-    //     });
+            (
+                workspace_id.to_owned(),
+                rt.block_on(async move { context.get_workspace(workspace_id).await.unwrap() }),
+            )
+        };
 
-    //     for block_id in 0..3 {
-    //         let block = create_block(&workspace, block_id.to_string(),
-    // "list".to_string());         info!("from client, create a block:
-    // {:?}", block);     }
+        for block_id in 0..3 {
+            let block = create_block(&mut workspace, block_id.to_string(), "list".to_string());
+            info!("from client, create a block:{:?}", serde_json::to_string(&block));
+        }
 
-    //     info!("------------------after sync------------------");
+        info!("------------------after sync------------------");
 
-    //     for block_id in 0..3 {
-    //         info!(
-    //             "get block {block_id} from server: {}",
-    //             get_block_from_server(workspace_id.clone(),
-    // block_id.to_string(), server_port)         );
-    //         assert!(!get_block_from_server(workspace_id.clone(),
-    // block_id.to_string(), server_port).is_empty());     }
+        for block_id in 0..3 {
+            let ret = get_block_from_server(workspace_id.clone(), block_id.to_string(), server_port);
+            info!("get block {block_id} from server: {ret}");
+            assert!(!ret.is_empty());
+        }
 
-    //     workspace.with_trx(|mut trx| {
-    //         let space = trx.get_space("blocks");
-    //         let blocks = space.get_blocks_by_flavour(&trx.trx, "list");
-    //         let mut ids: Vec<_> = blocks.iter().map(|block|
-    // block.block_id()).collect();         assert_eq!(ids.sort(), vec!["7",
-    // "8", "9"].sort());         info!("blocks from local storage:");
-    //         for block in blocks {
-    //             info!("block: {:?}", block);
-    //         }
-    //     });
+        let space = workspace.get_space("blocks").unwrap();
+        let blocks = space.get_blocks_by_flavour("list");
+        let mut ids: Vec<_> = blocks.iter().map(|block| block.block_id()).collect();
+        assert_eq!(ids.sort(), vec!["7", "8", "9"].sort());
+        info!("blocks from local storage:");
+        for block in blocks {
+            info!("block: {:?}", block);
+        }
 
-    //     close_collaboration_server(child);
-    // }
+        close_collaboration_server(child);
+    }
 
     // #[test]
     // #[ignore = "not needed in ci"]
@@ -214,7 +211,7 @@ mod test {
 
     //     workspace.with_trx(|mut trx| {
     //         let space = trx.get_space("blocks");
-    //         let blocks = space.get_blocks_by_flavour(&trx.trx, "list");
+    //         let blocks = space.get_blocks_by_flavour( "list");
     //         let mut ids: Vec<_> = blocks.iter().map(|block|
     // block.block_id()).collect();         assert_eq!(ids.sort(), vec!["0",
     // "1", "2"].sort());         info!("blocks from local storage:");
@@ -235,7 +232,7 @@ mod test {
 
     //     workspace.with_trx(|mut trx| {
     //         let space = trx.get_space("blocks");
-    //         let blocks = space.get_blocks_by_flavour(&trx.trx, "list");
+    //         let blocks = space.get_blocks_by_flavour( "list");
     //         let mut ids: Vec<_> = blocks.iter().map(|block|
     // block.block_id()).collect();         assert_eq!(ids.sort(), vec!["0",
     // "1", "2"].sort());         info!("blocks from local storage:");
@@ -247,59 +244,55 @@ mod test {
     //     close_collaboration_server(child);
     // }
 
-    // fn get_block_from_server(workspace_id: String, block_id: String,
-    // server_port: u16) -> String {     let rt = Runtime::new().unwrap();
-    //     rt.block_on(async {
-    //         let client = reqwest::Client::new();
-    //         let resp = client
-    //             .get(format!(
-    //                 "http://localhost:{server_port}/api/block/{}/{}",
-    //                 workspace_id, block_id
-    //             ))
-    //             .send()
-    //             .await
-    //             .unwrap();
-    //         resp.text().await.unwrap()
-    //     })
-    // }
+    fn get_block_from_server(workspace_id: String, block_id: String, server_port: u16) -> String {
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            let client = reqwest::Client::new();
+            let resp = client
+                .get(format!(
+                    "http://localhost:{server_port}/api/block/{}/{}",
+                    workspace_id, block_id
+                ))
+                .send()
+                .await
+                .unwrap();
+            resp.text().await.unwrap()
+        })
+    }
 
-    // fn create_block(workspace: &Workspace, block_id: String, block_flavour:
-    // String) -> Block {     workspace.with_trx(|mut trx| {
-    //         let space = trx.get_space("blocks");
-    //         space
-    //             .create(&mut trx.trx, block_id, block_flavour)
-    //             .expect("failed to create block")
-    //     })
-    // }
+    fn create_block(workspace: &mut Workspace, block_id: String, block_flavour: String) -> Block {
+        let mut space = workspace.get_space("blocks").unwrap();
+        space.create(block_id, block_flavour).expect("failed to create block")
+    }
 
-    // fn start_collaboration_server(port: u16) -> Child {
-    //     let mut child = Command::new("cargo")
-    //         .args(&["run", "-p", "keck"])
-    //         .env("KECK_PORT", port.to_string())
-    //         .env("USE_MEMORY_SQLITE", "true")
-    //         .env("KECK_LOG", "INFO")
-    //         .stdout(Stdio::piped())
-    //         .spawn()
-    //         .expect("Failed to run command");
+    fn start_collaboration_server(port: u16) -> Child {
+        let mut child = Command::new("cargo")
+            .args(&["run", "-p", "keck-core"])
+            .env("KECK_PORT", port.to_string())
+            .env("USE_MEMORY_SQLITE", "true")
+            .env("KECK_LOG", "INFO")
+            .stdout(Stdio::piped())
+            .spawn()
+            .expect("Failed to run command");
 
-    //     if let Some(ref mut stdout) = child.stdout {
-    //         let reader = BufReader::new(stdout);
+        if let Some(ref mut stdout) = child.stdout {
+            let reader = BufReader::new(stdout);
 
-    //         for line in reader.lines() {
-    //             let line = line.expect("Failed to read line");
-    //             info!("{}", line);
+            for line in reader.lines() {
+                let line = line.expect("Failed to read line");
+                info!("{}", line);
 
-    //             if line.contains("listening on 0.0.0.0:") {
-    //                 info!("Keck server started");
-    //                 break;
-    //             }
-    //         }
-    //     }
+                if line.contains("listening on 0.0.0.0:") {
+                    info!("Keck server started");
+                    break;
+                }
+            }
+        }
 
-    //     child
-    // }
+        child
+    }
 
-    // fn close_collaboration_server(child: Child) {
-    //     unsafe { kill(child.id() as c_int, SIGTERM) };
-    // }
+    fn close_collaboration_server(child: Child) {
+        unsafe { kill(child.id() as c_int, SIGTERM) };
+    }
 }
