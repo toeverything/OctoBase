@@ -48,6 +48,10 @@ impl DocStore {
         self.client
     }
 
+    pub fn clients(&self) -> Vec<Client> {
+        self.items.keys().cloned().collect()
+    }
+
     pub fn get_state(&self, client: Client) -> Clock {
         if let Some(structs) = self.items.get(&client) {
             if let Some(last_struct) = structs.back() {

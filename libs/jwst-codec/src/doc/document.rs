@@ -71,6 +71,14 @@ impl Doc {
         self.client_id
     }
 
+    pub fn clients(&self) -> Vec<u64> {
+        self.store.read().unwrap().clients()
+    }
+
+    pub fn history(&self, client: u64) -> Option<Vec<RawHistory>> {
+        self.store.read().unwrap().history(client)
+    }
+
     pub fn guid(&self) -> &str {
         self.guid.as_str()
     }
@@ -210,11 +218,19 @@ impl Doc {
     }
 
     pub fn encode_state_as_update_v1(&self, sv: &StateVector) -> JwstCodecResult<Vec<u8>> {
-        let update = self.store.read().unwrap().diff_state_vector(sv)?;
+        let update = self.encode_state_as_update(sv)?;
 
         let mut encoder = RawEncoder::default();
         update.write(&mut encoder)?;
         Ok(encoder.into_inner())
+    }
+
+    pub fn encode_update(&self) -> JwstCodecResult<Update> {
+        self.encode_state_as_update(&StateVector::default())
+    }
+
+    pub fn encode_state_as_update(&self, sv: &StateVector) -> JwstCodecResult<Update> {
+        self.store.read().unwrap().diff_state_vector(sv)
     }
 
     pub fn get_state_vector(&self) -> StateVector {

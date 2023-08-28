@@ -214,6 +214,21 @@ impl Item {
         }
     }
 
+    pub fn resolve_parent(&self) -> Option<(Option<Parent>, Option<String>)> {
+        if let Some(item) = self.left.as_ref().map(|n| n.as_item()).and_then(|i| i.get().cloned()) {
+            if item.parent.is_none() {
+                if let Some(item) = item.right.map(|n| n.as_item()).and_then(|i| i.get().cloned()) {
+                    return Some((item.parent.clone(), item.parent_sub.clone()));
+                }
+            } else {
+                return Some((item.parent.clone(), item.parent_sub.clone()));
+            }
+        } else if let Some(item) = self.right.as_ref().map(|n| n.as_item()).and_then(|i| i.get().cloned()) {
+            return Some((item.parent.clone(), item.parent_sub.clone()));
+        }
+        None
+    }
+
     pub fn len(&self) -> u64 {
         self.content.clock_len()
     }
