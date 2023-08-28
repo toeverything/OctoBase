@@ -75,14 +75,7 @@ mod tests {
     #[tokio::test]
     async fn test_workspace_apis() {
         let client = Arc::new(reqwest::Client::builder().no_proxy().build().unwrap());
-        let runtime = Arc::new(
-            runtime::Builder::new_multi_thread()
-                .worker_threads(2)
-                .enable_time()
-                .enable_io()
-                .build()
-                .expect("Failed to create runtime"),
-        );
+
         let hook_endpoint = Arc::new(RwLock::new(String::new()));
 
         let ctx = Arc::new(
@@ -97,7 +90,6 @@ mod tests {
             workspace_apis(Router::new())
                 .layer(Extension(ctx.clone()))
                 .layer(Extension(client.clone()))
-                .layer(Extension(runtime.clone()))
                 .layer(Extension(hook_endpoint.clone())),
         );
 

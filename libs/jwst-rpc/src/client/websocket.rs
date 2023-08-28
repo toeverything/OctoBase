@@ -1,5 +1,6 @@
 use std::sync::RwLock;
 
+use chrono::Utc;
 use nanoid::nanoid;
 use tokio::{net::TcpStream, runtime::Runtime, sync::mpsc::channel};
 use tokio_tungstenite::{
@@ -38,7 +39,7 @@ pub fn start_websocket_client_sync(
     let runtime = rt.clone();
     runtime.spawn(async move {
         debug!("start sync thread");
-        let workspace = match context.get_workspace(&workspace_id).await {
+        let mut workspace = match context.get_workspace(&workspace_id).await {
             Ok(workspace) => workspace,
             Err(e) => {
                 warn!("failed to create workspace: {:?}", e);
@@ -47,6 +48,10 @@ pub fn start_websocket_client_sync(
         };
         if !workspace.is_empty() {
             info!("Workspace not empty, starting async remote connection");
+            let identifier = nanoid!();
+            context
+                .join_broadcast(&mut workspace, identifier, last_synced_tx.clone())
+                .await;
             last_synced_tx.send(Utc::now().timestamp_millis()).await.unwrap();
         } else {
             info!("Workspace empty, starting sync remote connection");
