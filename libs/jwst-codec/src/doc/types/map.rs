@@ -113,7 +113,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         });
 
         MapIterator {
-            nodes: map.unwrap_or(vec![]),
+            nodes: map.unwrap_or_default(),
             index: 0,
         }
     }
