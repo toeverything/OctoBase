@@ -53,9 +53,9 @@ mod test {
     };
 
     use jwst_core::{Block, DocStorage, Workspace};
-    use jwst_core_storage::{BlobStorageType, JwstStorage};
     use jwst_logger::info;
     use jwst_rpc::{start_websocket_client_sync, BroadcastChannels, RpcContextImpl};
+    use jwst_storage::{BlobStorageType, JwstStorage};
     use libc::{kill, SIGTERM};
     use rand::{thread_rng, Rng};
     use tokio::runtime::Runtime;

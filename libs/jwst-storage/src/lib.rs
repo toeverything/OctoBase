@@ -7,17 +7,16 @@ mod types;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use futures::{Future, Stream};
-use jwst::{DocStorage, JwstResult, Workspace};
+use jwst_core::{DocStorage, JwstResult, Workspace};
 use jwst_logger::{debug, error, info, trace, warn};
 use path_ext::PathExt;
 use rate_limiter::{get_bucket, is_sqlite, Bucket};
 use sea_orm::{prelude::*, ConnectOptions, Database, DbErr, QuerySelect, Set};
-pub use storage::{
-    blobs::{BlobStorageType, MixedBucketDBParam},
-    JwstStorage,
-};
+#[cfg(feature = "bucket")]
+pub use storage::blobs::MixedBucketDBParam;
+pub use storage::{blobs::BlobStorageType, JwstStorage};
 pub use types::{JwstStorageError, JwstStorageResult};
 
 #[inline]

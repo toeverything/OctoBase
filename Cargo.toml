@@ -13,8 +13,6 @@ members = [
     "libs/jwst-codec",
     "libs/jwst-codec-util",
     "libs/jwst-core",
-    "libs/jwst-core-storage",
-    "libs/jwst-core-storage/src/migration",
     "libs/jwst-logger",
     "libs/jwst-rpc",
     "libs/jwst-storage",
@@ -26,7 +24,6 @@ resolver = "2"
 jwst = { workspace = true, path = "libs/jwst" }
 jwst-codec = { workspace = true, path = "libs/jwst-codec" }
 jwst-core = { workspace = true, path = "libs/jwst-core" }
-jwst-core-storage = { workspace = true, path = "libs/jwst-core-storage" }
 jwst-logger = { workspace = true, path = "libs/jwst-logger" }
 jwst-rpc = { workspace = true, path = "libs/jwst-rpc" }
 jwst-storage = { workspace = true, path = "libs/jwst-storage" }

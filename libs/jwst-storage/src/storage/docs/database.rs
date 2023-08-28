@@ -1,9 +1,8 @@
 use std::collections::hash_map::Entry;
 
-use jwst::{sync_encode_update, DocStorage, Workspace};
-use jwst_codec::{CrdtReader, RawDecoder};
+use jwst_codec::{encode_update_as_message, CrdtReader, Doc, DocOptions, RawDecoder, StateVector};
+use jwst_core::{DocStorage, Workspace};
 use sea_orm::Condition;
-use yrs::{Doc, Options, ReadTxn, StateVector, Transact};
 
 use super::{entities::prelude::*, *};
 use crate::types::JwstStorageResult;
@@ -206,7 +205,7 @@ impl DocDBStorage {
         trace!("update {}bytes to {}", blob.len(), guid);
         if let Entry::Occupied(remote) = self.remote.write().await.entry(guid.into()) {
             let broadcast = &remote.get();
-            if broadcast.send(sync_encode_update(&blob)).is_err() {
+            if broadcast.send(encode_update_as_message(blob)?).is_err() {
                 // broadcast failures are not fatal errors, only warnings are required
                 warn!("send {guid} update to pipeline failed");
             }
@@ -238,24 +237,35 @@ impl DocDBStorage {
             .await?;
 
         let ws = if all_data.is_empty() {
+            trace!("create workspace: {workspace}");
             // keep workspace root doc's guid the same as workspaceId
-            let doc = Doc::with_options(Options {
-                guid: yrs::Uuid::from(workspace),
+            let doc = Doc::with_options(DocOptions {
+                guid: Some(workspace.into()),
                 ..Default::default()
             });
-            let ws = Workspace::from_doc(doc.clone(), workspace);
+            let ws = Workspace::from_doc(doc.clone(), workspace)?;
 
-            let update = doc.transact().encode_state_as_update_v1(&StateVector::default())?;
+            let update = doc.encode_state_as_update_v1(&StateVector::default())?;
 
             Self::insert(conn, workspace, doc.guid(), &update).await?;
             ws
         } else {
-            let doc = Doc::with_options(Options {
+            trace!("migrate workspace: {workspace}");
+            let doc = Doc::with_options(DocOptions {
                 guid: all_data.first().unwrap().guid.clone().into(),
                 ..Default::default()
             });
+
+            let can_merge = all_data.len() > 1;
+
             let doc = utils::migrate_update(all_data, doc)?;
-            Workspace::from_doc(doc, workspace)
+
+            if can_merge {
+                let update = doc.encode_state_as_update_v1(&StateVector::default())?;
+                Self::replace_with(conn, workspace, doc.guid(), update).await?;
+            }
+
+            Workspace::from_doc(doc, workspace)?
         };
 
         trace!("end create doc in workspace: {workspace}");
@@ -330,7 +340,7 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
             return Ok(None);
         }
 
-        let doc = utils::migrate_update(records, Doc::new())?;
+        let doc = utils::migrate_update(records, Doc::default())?;
 
         Ok(Some(doc))
     }
@@ -507,45 +517,49 @@ pub async fn docs_storage_partial_test(pool: &DocDBStorage) -> anyhow::Result<()
     assert_eq!(DocDBStorage::workspace_count(conn, "basic").await?, 0);
 
     {
-        let ws = pool.get_or_create_workspace("basic".into()).await.unwrap();
+        let mut ws = pool.get_or_create_workspace("basic".into()).await.unwrap();
         let guid = ws.doc_guid().to_string();
         let (tx, mut rx) = channel(100);
 
-        let sub = ws
-            .doc()
-            .observe_update_v1(move |_, e| {
-                futures::executor::block_on(async {
-                    tx.send(e.update.clone()).await.unwrap();
-                });
-            })
-            .unwrap();
-
-        ws.with_trx(|mut t| {
-            let space = t.get_space("test");
-            let block = space.create(&mut t.trx, "block1", "text").unwrap();
-            block.set(&mut t.trx, "test1", "value1").unwrap();
+        ws.doc().subscribe(move |update| {
+            futures::executor::block_on(async {
+                tx.send(update.to_vec()).await.unwrap();
+            });
         });
 
-        ws.with_trx(|mut t| {
-            let space = t.get_space("test");
-            let block = space.get(&mut t.trx, "block1").unwrap();
-            block.set(&mut t.trx, "test2", "value2").unwrap();
-        });
-
-        ws.with_trx(|mut t| {
-            let space = t.get_space("test");
-            let block = space.create(&mut t.trx, "block2", "block2").unwrap();
-            block.set(&mut t.trx, "test3", "value3").unwrap();
-        });
-
-        drop(sub);
-
-        while let Some(update) = rx.recv().await {
-            info!("recv: {}", update.len());
-            pool.update_doc("basic".into(), guid.clone(), &update).await.unwrap();
+        {
+            let mut space = ws.get_space("test").unwrap();
+            let mut block = space.create("block1", "text").unwrap();
+            block.set("test1", "value1").unwrap();
         }
 
-        assert_eq!(DocDBStorage::workspace_count(conn, "basic").await?, 4);
+        {
+            let space = ws.get_space("test").unwrap();
+            let mut block = space.get("block1").unwrap();
+            block.set("test2", "value2").unwrap();
+        }
+
+        {
+            let mut space = ws.get_space("test").unwrap();
+            let mut block = space.create("block2", "block2").unwrap();
+            block.set("test3", "value3").unwrap();
+        }
+
+        loop {
+            tokio::select! {
+                Some(update) = rx.recv() => {
+                    info!("recv: {}", update.len());
+                    pool.update_doc("basic".into(), guid.clone(), &update)
+                        .await
+                        .unwrap();
+                }
+                _ = tokio::time::sleep(std::time::Duration::from_millis(5000)) => {
+                    break;
+                }
+            }
+        }
+
+        assert_eq!(DocDBStorage::workspace_count(conn, "basic").await?, 2);
     }
 
     // clear memory cache
@@ -553,19 +567,17 @@ pub async fn docs_storage_partial_test(pool: &DocDBStorage) -> anyhow::Result<()
 
     {
         // memory cache empty, retrieve data from db
-        let ws = pool.get_or_create_workspace("basic".into()).await.unwrap();
-        ws.with_trx(|mut t| {
-            let space = t.get_space("test");
+        let mut ws = pool.get_or_create_workspace("basic".into()).await.unwrap();
+        let space = ws.get_space("test").unwrap();
 
-            let block = space.get(&mut t.trx, "block1").unwrap();
-            assert_eq!(block.flavour(&t.trx), "text");
-            assert_eq!(block.get(&t.trx, "test1"), Some("value1".into()));
-            assert_eq!(block.get(&t.trx, "test2"), Some("value2".into()));
+        let block = space.get("block1").unwrap();
+        assert_eq!(block.flavour(), "text");
+        assert_eq!(block.get("test1"), Some("value1".into()));
+        assert_eq!(block.get("test2"), Some("value2".into()));
 
-            let block = space.get(&mut t.trx, "block2").unwrap();
-            assert_eq!(block.flavour(&t.trx), "block2");
-            assert_eq!(block.get(&t.trx, "test3"), Some("value3".into()));
-        });
+        let block = space.get("block2").unwrap();
+        assert_eq!(block.flavour(), "block2");
+        assert_eq!(block.get("test3"), Some("value3".into()));
     }
 
     Ok(())

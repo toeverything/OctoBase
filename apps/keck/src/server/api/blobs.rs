@@ -178,7 +178,7 @@ mod tests {
     use axum::body::{Body, Bytes};
     use axum_test_helper::TestClient;
     use futures::stream;
-    use jwst_core_storage::BlobStorageType;
+    use jwst_storage::BlobStorageType;
 
     use super::*;
 

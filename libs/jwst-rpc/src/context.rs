@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use jwst_codec::{CrdtReader, RawDecoder};
 use jwst_core::{DocStorage, Workspace};
-use jwst_core_storage::{JwstStorage, JwstStorageResult};
+use jwst_storage::{JwstStorage, JwstStorageResult};
 use tokio::sync::{
     broadcast::{channel as broadcast, error::RecvError, Receiver as BroadcastReceiver, Sender as BroadcastSender},
     mpsc::{Receiver as MpscReceiver, Sender as MpscSender},

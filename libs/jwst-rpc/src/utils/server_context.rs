@@ -2,7 +2,7 @@ use std::{collections::HashMap, time::Duration};
 
 use jwst_codec::StateVector;
 use jwst_core::{DocStorage, Workspace};
-use jwst_core_storage::{BlobStorageType, JwstStorage};
+use jwst_storage::{BlobStorageType, JwstStorage};
 use tokio::{sync::RwLock, time::sleep};
 
 use super::*;

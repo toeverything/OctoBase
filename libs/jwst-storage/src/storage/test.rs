@@ -9,8 +9,11 @@ use super::{
 async fn sqlite_storage_test() -> anyhow::Result<()> {
     let storage = JwstStorage::new_with_migration("sqlite::memory:", BlobStorageType::DB).await?;
 
+    info!("blobs_storage_test");
     blobs_storage_test(&storage.blobs().get_blob_db().unwrap()).await?;
+    info!("docs_storage_test");
     docs_storage_test(&storage.docs().0).await?;
+    info!("docs_storage_partial_test");
     docs_storage_partial_test(&storage.docs().0).await?;
 
     Ok(())

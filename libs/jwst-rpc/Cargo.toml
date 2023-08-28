@@ -42,7 +42,7 @@ webrtcrs = { package = "webrtc", version = "0.8.0", optional = true }
 # ======= workspace dependencies =======
 jwst-codec = { workspace = true }
 jwst-core = { workspace = true }
-jwst-core-storage = { workspace = true }
+jwst-storage = { workspace = true }
 
 [dev-dependencies]
 indicatif = "0.17.3"

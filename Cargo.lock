@@ -1928,24 +1928,6 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
 name = "governor"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c390a940a5d157878dd057c78680a33ce3415bcd05b4799509ea44210914b4d5"
-dependencies = [
- "cfg-if 1.0.0",
- "dashmap",
- "futures",
- "futures-timer",
- "no-std-compat",
- "nonzero_ext",
- "parking_lot",
- "quanta 0.9.3",
- "rand 0.8.5",
- "smallvec",
-]
-
-[[package]]
-name = "governor"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "821239e5672ff23e2a7060901fa622950bbd80b649cdaadd78d1c1767ed14eb4"
@@ -1957,7 +1939,7 @@ dependencies = [
  "no-std-compat",
  "nonzero_ext",
  "parking_lot",
- "quanta 0.11.1",
+ "quanta",
  "rand 0.8.5",
  "smallvec",
 ]
@@ -2505,42 +2487,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jwst-core-storage"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes",
- "chrono",
- "dotenvy",
- "futures",
- "governor 0.6.0",
- "image",
- "jwst-codec",
- "jwst-core",
- "jwst-core-storage-migration",
- "jwst-logger",
- "opendal",
- "path-ext",
- "rand 0.8.5",
- "sea-orm",
- "sea-orm-migration",
- "sha2",
- "thiserror",
- "tokio",
- "tokio-util",
- "url",
-]
-
-[[package]]
-name = "jwst-core-storage-migration"
-version = "0.1.0"
-dependencies = [
- "sea-orm-migration",
- "tokio",
-]
-
-[[package]]
 name = "jwst-logger"
 version = "0.1.0"
 dependencies = [
@@ -2567,8 +2513,8 @@ dependencies = [
  "indicatif",
  "jwst-codec",
  "jwst-core",
- "jwst-core-storage",
  "jwst-logger",
+ "jwst-storage",
  "nanoid",
  "rand 0.8.5",
  "reqwest",
@@ -2592,13 +2538,12 @@ dependencies = [
  "chrono",
  "dotenvy",
  "futures",
- "governor 0.5.1",
+ "governor",
  "image",
- "jwst",
  "jwst-codec",
+ "jwst-core",
  "jwst-logger",
  "jwst-storage-migration",
- "lib0",
  "opendal",
  "path-ext",
  "rand 0.8.5",
@@ -2609,7 +2554,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "url",
- "yrs",
 ]
 
 [[package]]
@@ -2627,9 +2571,9 @@ dependencies = [
  "chrono",
  "futures",
  "jwst-core",
- "jwst-core-storage",
  "jwst-logger",
  "jwst-rpc",
+ "jwst-storage",
  "nanoid",
  "regex",
  "reqwest",
@@ -2658,10 +2602,9 @@ dependencies = [
  "dotenvy",
  "futures",
  "jwst-core",
- "jwst-core-storage",
  "jwst-logger",
  "jwst-rpc",
- "lib0",
+ "jwst-storage",
  "libc",
  "log",
  "mimalloc",
@@ -2678,7 +2621,6 @@ dependencies = [
  "tower-http",
  "utoipa",
  "utoipa-swagger-ui",
- "yrs",
 ]
 
 [[package]]
@@ -2844,15 +2786,6 @@ name = "lz4_flex"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a8cbbb2831780bc3b9c15a41f5b49222ef756b6730a95f3decfdd15903eb5a3"
-
-[[package]]
-name = "mach"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b823e83b2affd8f40a9ee8c29dbc56404c1e34cd2710921f2801e2cf29527afa"
-dependencies = [
- "libc",
-]
 
 [[package]]
 name = "mach2"
@@ -3683,22 +3616,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f6d64c71eb498fe9eae14ce4ec935c555749aef511cca85b5568910d6e48001"
 dependencies = [
  "bytemuck",
-]
-
-[[package]]
-name = "quanta"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20afe714292d5e879d8b12740aa223c6a88f118af41870e8b6196e39a02238a8"
-dependencies = [
- "crossbeam-utils",
- "libc",
- "mach",
- "once_cell",
- "raw-cpuid",
- "wasi 0.10.0+wasi-snapshot-preview1",
- "web-sys",
- "winapi",
 ]
 
 [[package]]
