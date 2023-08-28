@@ -338,7 +338,7 @@ mod test {
                 // close connection after doc1 is broadcasted
                 let block_id = format!("block{}", i);
                 {
-                    let block_id = block_id.clone();
+                    // let block_id = block_id.clone();
                     let doc_tx = doc_tx.clone();
                     doc.doc().subscribe(move |_u| {
                         // TODO: support changed block record

@@ -7,14 +7,14 @@ use super::*;
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
-    pub(crate) rt: Arc<Runtime>,
+    pub(crate) _rt: Arc<Runtime>,
 }
 
 impl Workspace {
     pub fn new(id: String) -> Self {
         Self {
             workspace: JwstWorkspace::new(&id).unwrap(),
-            rt: Arc::new(Runtime::new().unwrap()),
+            _rt: Arc::new(Runtime::new().unwrap()),
         }
     }
 
