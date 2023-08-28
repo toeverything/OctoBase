@@ -5,8 +5,17 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+bench = ["regex"]
+fuzz = ["arbitrary", "jwst-codec", "phf", "yrs"]
+
 [dependencies]
-arbitrary = { version = "1.3.0", features = ["derive"] }
-phf = { version = "0.11", features = ["macros"] }
-yrs = "0.16.5"
-jwst-codec = { workspace = true }
+arbitrary = { version = "1.3.0", features = ["derive"], optional = true }
+jwst-codec = { workspace = true, optional = true }
+phf = { version = "0.11", features = ["macros"], optional = true }
+regex = { version = "1.5", optional = true }
+yrs = { version = "=0.16.5", optional = true }
+
+[[bin]]
+name = "bench_result_render"
+path = "bin/bench_result_render.rs"
