@@ -32,23 +32,6 @@ fn main() {
         fn JwstStorage::get_last_synced(&self) ->Vec<i64>;
     }
 );"#,
-                r#"foreign_class!(
-    class WorkspaceTransaction {
-        self_type WorkspaceTransaction;
-        private constructor new<'a>() -> WorkspaceTransaction<'a> {
-            unimplemented!()
-        }
-        fn WorkspaceTransaction::remove(& mut self , block_id : String)->bool; alias remove;
-        fn WorkspaceTransaction::create<B>(& mut self , block_id : String , flavour : String)->Block; alias create;
-        fn WorkspaceTransaction::commit(& mut self); alias commit;
-    }
-);"#,
-                r#"foreign_callback!(
-    callback OnWorkspaceTransaction {
-        self_type OnWorkspaceTransaction;
-        onTrx = OnWorkspaceTransaction::on_trx(& self , trx : WorkspaceTransaction);
-    }
-);"#,
                 r#"
 pub type VecOfStrings = Vec<String>;
 foreign_class!(
@@ -86,12 +69,6 @@ foreign_class!(
         fn remove_item(&mut self, s: String) {
             this.retain(|x| x != &s);
         }
-    }
-);"#,
-                r#"foreign_callback!(
-    callback BlockObserver {
-        self_type BlockObserver;
-        onChange = BlockObserver::on_change(& self , block_ids : VecOfStrings);
     }
 );"#,
             ]

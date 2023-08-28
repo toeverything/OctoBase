@@ -1,18 +1,13 @@
 use std::sync::Arc;
 
-use jwst_rpc::workspace_compare;
-use tokio::{runtime::Runtime, sync::mpsc::Sender};
+use tokio::runtime::Runtime;
 
 use super::*;
-use crate::block_observer::{BlockObserver, BlockObserverWrapper};
 
 pub struct Workspace {
     pub(crate) workspace: JwstWorkspace,
-    pub(crate) jwst_workspace: Option<jwst_core::Workspace>,
     #[allow(dead_code)]
     pub(crate) runtime: Arc<Runtime>,
-
-    pub(crate) sender: Sender<Log>,
 }
 
 impl Workspace {
@@ -32,107 +27,76 @@ impl Workspace {
     }
 
     #[generate_interface]
-    pub fn get(&mut self, trx: &mut WorkspaceTransaction, block_id: String) -> Option<Block> {
-        trx.trx.get_blocks().get(&trx.trx.trx, block_id).map(|block| Block {
-            jwst_workspace: self.jwst_workspace.clone(),
-            jwst_block: {
-                let mut ws = self.jwst_workspace.clone();
-                ws.as_mut()
-                    .and_then(|ws| ws.get_blocks().ok())
-                    .and_then(|s| s.get(block.block_id()))
-            },
-            block,
-        })
-    }
-
-    #[generate_interface]
-    pub fn exists(&self, trx: &mut WorkspaceTransaction, block_id: &str) -> bool {
-        trx.trx.get_blocks().exists(&trx.trx.trx, block_id)
-    }
-
-    #[generate_interface]
-    pub fn with_trx(&self, on_trx: Box<dyn OnWorkspaceTransaction>) -> bool {
+    pub fn create(&mut self, block_id: String, flavour: String) -> Block {
         self.workspace
-            .try_with_trx(|trx| {
-                on_trx.on_trx(WorkspaceTransaction {
-                    trx,
-                    jwst_ws: &self.jwst_workspace,
-                })
-            })
-            .is_some()
+            .get_blocks()
+            .and_then(|mut s| s.create(&block_id, &flavour))
+            .map(Block::from)
+            .expect("failed to create block")
+    }
+
+    #[generate_interface]
+    pub fn get(&mut self, block_id: String) -> Option<Block> {
+        self.workspace
+            .get_blocks()
+            .ok()
+            .and_then(|s| s.get(block_id))
+            .map(Block::from)
     }
 
     #[generate_interface]
     pub fn get_blocks_by_flavour(&self, flavour: &str) -> Vec<Block> {
-        self.workspace.with_trx(|mut trx| {
-            trx.get_blocks()
-                .get_blocks_by_flavour(&trx.trx, flavour)
-                .iter()
-                .map(|block| Block {
-                    block: block.clone(),
-                    jwst_workspace: self.jwst_workspace.clone(),
-                    jwst_block: {
-                        let mut ws = self.jwst_workspace.clone();
-                        ws.as_mut()
-                            .and_then(|ws| ws.get_blocks().ok())
-                            .and_then(|b| b.get(block.block_id()))
-                    },
-                })
-                .collect()
-        })
+        self.workspace
+            .clone()
+            .get_blocks()
+            .map(|s| s.get_blocks_by_flavour(flavour).into_iter().map(Block::from).collect())
+            .unwrap_or_default()
     }
 
     #[generate_interface]
-    pub fn drop_trx(&self, trx: WorkspaceTransaction) {
-        drop(trx)
+    pub fn exists(&self, block_id: &str) -> bool {
+        self.workspace
+            .clone()
+            .get_blocks()
+            .map(|s| s.exists(block_id))
+            .unwrap_or(false)
+    }
+
+    #[generate_interface]
+    pub fn remove(&mut self, block_id: String) -> bool {
+        self.workspace
+            .get_blocks()
+            .map(|mut s| s.remove(&block_id))
+            .unwrap_or(false)
     }
 
     #[generate_interface]
     pub fn search(&self, query: String) -> String {
-        self.workspace.search_result(query)
+        // self.workspace.search_result(query)
+        "".to_owned()
     }
 
     #[generate_interface]
     pub fn get_search_index(&self) -> Vec<String> {
-        self.workspace.metadata().search_index
+        // self.workspace.metadata().search_index
+        vec![]
     }
 
     #[generate_interface]
     pub fn set_search_index(&self, fields: VecOfStrings) -> bool {
-        self.workspace
-            .set_search_index(fields)
-            .expect("failed to set search index")
+        // self.workspace
+        //     .set_search_index(fields)
+        //     .expect("failed to set search index")
+        false
     }
 
-    #[generate_interface]
-    pub fn set_callback(&self, observer: Box<dyn BlockObserver>) -> bool {
-        let observer = BlockObserverWrapper::new(observer);
-        self.workspace
-            .set_callback(Arc::new(Box::new(move |_workspace_id, block_ids| {
-                observer.on_change(block_ids);
-            })));
-        true
-    }
-
-    pub fn compare(self: &mut Workspace) -> Option<String> {
-        if let Some(jwst_workspace) = self.jwst_workspace.as_mut() {
-            match self
-                .workspace
-                .retry_with_trx(|trx| workspace_compare(trx.trx, jwst_workspace, None), 50)
-            {
-                Ok(ret) => {
-                    self.runtime.block_on(async {
-                        if let Err(e) = self.sender.send(Log::new(self.workspace.id(), ret.clone())).await {
-                            warn!("failed to send log: {}", e);
-                        }
-                    });
-                    return Some(ret);
-                }
-                Err(e) => {
-                    warn!("failed to compare: {}", e);
-                }
-            }
-        }
-        None
-    }
+    // #[generate_interface]
+    // pub fn set_callback(&self, observer: Box<dyn BlockObserver>) -> bool {
+    //     // let observer = BlockObserverWrapper::new(observer);
+    //     // self.workspace
+    //     //     .set_callback(Arc::new(Box::new(move |_workspace_id, block_ids| {
+    //     //         observer.on_change(block_ids);
+    //     //     })));
+    //     false
+    // }
 }

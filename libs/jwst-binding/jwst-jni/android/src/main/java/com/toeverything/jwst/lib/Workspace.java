@@ -23,9 +23,16 @@ public final class Workspace {
     }
     private static native long do_clientId(long self);
 
-    public final @NonNull java.util.Optional<Block> get(@NonNull WorkspaceTransaction trx, @NonNull String block_id) {
-        long a0 = trx.mNativeObj;
-        long ret = do_get(mNativeObj, a0, block_id);
+    public final @NonNull Block create(@NonNull String block_id, @NonNull String flavour) {
+        long ret = do_create(mNativeObj, block_id, flavour);
+        Block convRet = new Block(InternalPointerMarker.RAW_PTR, ret);
+
+        return convRet;
+    }
+    private static native long do_create(long self, @NonNull String block_id, @NonNull String flavour);
+
+    public final @NonNull java.util.Optional<Block> get(@NonNull String block_id) {
+        long ret = do_get(mNativeObj, block_id);
         java.util.Optional<Block> convRet;
         if (ret != 0) {
             convRet = java.util.Optional.of(new Block(InternalPointerMarker.RAW_PTR, ret));
@@ -33,28 +40,9 @@ public final class Workspace {
             convRet = java.util.Optional.empty();
         }
 
-        JNIReachabilityFence.reachabilityFence1(trx);
-
         return convRet;
     }
-    private static native long do_get(long self, long trx, @NonNull String block_id);
-
-    public final boolean exists(@NonNull WorkspaceTransaction trx, @NonNull String block_id) {
-        long a0 = trx.mNativeObj;
-        boolean ret = do_exists(mNativeObj, a0, block_id);
-
-        JNIReachabilityFence.reachabilityFence1(trx);
-
-        return ret;
-    }
-    private static native boolean do_exists(long self, long trx, @NonNull String block_id);
-
-    public final boolean withTrx(@NonNull OnWorkspaceTransaction on_trx) {
-        boolean ret = do_withTrx(mNativeObj, on_trx);
-
-        return ret;
-    }
-    private static native boolean do_withTrx(long self, OnWorkspaceTransaction on_trx);
+    private static native long do_get(long self, @NonNull String block_id);
 
     public final @NonNull Block [] getBlocksByFlavour(@NonNull String flavour) {
         Block [] ret = do_getBlocksByFlavour(mNativeObj, flavour);
@@ -63,15 +51,19 @@ public final class Workspace {
     }
     private static native @NonNull Block [] do_getBlocksByFlavour(long self, @NonNull String flavour);
 
-    public final void dropTrx(@NonNull WorkspaceTransaction trx) {
-        long a0 = trx.mNativeObj;
-        trx.mNativeObj = 0;
+    public final boolean exists(@NonNull String block_id) {
+        boolean ret = do_exists(mNativeObj, block_id);
 
-        do_dropTrx(mNativeObj, a0);
-
-        JNIReachabilityFence.reachabilityFence1(trx);
+        return ret;
     }
-    private static native void do_dropTrx(long self, long trx);
+    private static native boolean do_exists(long self, @NonNull String block_id);
+
+    public final boolean remove(@NonNull String block_id) {
+        boolean ret = do_remove(mNativeObj, block_id);
+
+        return ret;
+    }
+    private static native boolean do_remove(long self, @NonNull String block_id);
 
     public final @NonNull String search(@NonNull String query) {
         String ret = do_search(mNativeObj, query);
@@ -98,13 +90,6 @@ public final class Workspace {
         return ret;
     }
     private static native boolean do_setSearchIndex(long self, long fields);
-
-    public final boolean setCallback(@NonNull BlockObserver observer) {
-        boolean ret = do_setCallback(mNativeObj, observer);
-
-        return ret;
-    }
-    private static native boolean do_setCallback(long self, BlockObserver observer);
 
     public synchronized void delete() {
         if (mNativeObj != 0) {

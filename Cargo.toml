@@ -5,7 +5,7 @@ members = [
     "apps/keck",
     "libs/jwst",
     # "libs/jwst-binding/jwst-ffi",
-    # "libs/jwst-binding/jwst-jni",
+    "libs/jwst-binding/jwst-jni",
     # "libs/jwst-binding/jwst-py",
     "libs/jwst-binding/jwst-swift",
     "libs/jwst-binding/jwst-swift/jwst-swift-integrate",
@@ -41,9 +41,6 @@ lto = false
 [profile.profiling]
 inherits = "fast-release"
 debug = true
-
-# [profile.release.package.jwst-codec-fuzz]
-# debug = 1
 
 [profile.dev.package.image]
 opt-level = 3

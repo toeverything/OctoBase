@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-android_logger = "0.13.1"
+android_logger = "0.13.3"
 chrono = "0.4.26"
 futures = "0.3.28"
 jni-sys = "0.3.0"
@@ -16,13 +16,13 @@ log-panics = "2.1.0"
 nanoid = "0.4.0"
 rifgen = "0.1.61"
 sqlx = "0.7.1"
-serde = { version = "1.0.183", features = ["derive"] }
-serde_json = "1.0.104"
-tokio = "1.27.0"
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = "1.0.105"
+tokio = "1"
 yrs = "0.16.5"
 
 # ======= workspace dependencies =======
-jwst = { workspace = true }
+jwst-codec = { workspace = true }
 jwst-core = { workspace = true }
 jwst-rpc = { workspace = true }
 jwst-storage = { workspace = true, features = ["sqlite"] }

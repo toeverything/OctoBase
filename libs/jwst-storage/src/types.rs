@@ -1,8 +1,11 @@
 use jwst_codec::JwstCodecError;
+use jwst_storage_migration::error;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum JwstStorageError {
+    #[error("failed to init sync thread")]
+    SyncThread(std::io::Error),
     #[error("failed to create data directory")]
     CreateDataFolder(std::io::Error),
     #[error("db manipulate error: {0}")]

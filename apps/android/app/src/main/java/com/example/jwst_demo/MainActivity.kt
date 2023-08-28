@@ -9,6 +9,7 @@ import com.toeverything.jwst.Storage
 import java.io.File
 import java.util.*
 import com.toeverything.jwst.JwstVecOfStrings
+import kotlin.jvm.optionals.getOrNull
 
 fun <T> Optional<T>.unwrap(): T? = orElse(null)
 
@@ -23,54 +24,51 @@ class MainActivity : AppCompatActivity() {
         val storage = Storage(database.absolutePath, "ws://10.0.2.2:3000/collaboration", "debug")
         storage.getWorkspace("test").unwrap()?.let { workspace ->
             workspace.setCallback { block_ids -> Log.i("jwst", "change: $block_ids") }
-            workspace.withTrx { trx -> workspace.get(trx, "a").unwrap() }?.let { block ->
+            workspace.get("a").getOrNull()?.let { block ->
                 // load the existing block on the second startup program.
-                val content = workspace.withTrx { trx -> block.get(trx, "a key") }?.get()
+                val content = block.get("a key").get()
                 this.title = (content as String) + " exists"
-                workspace.withTrx { trx -> workspace.get(trx, "root").get().children(trx) }
-                    ?.joinToString { it }
-                    ?.let { Log.i("jwst", it) }
-                workspace.withTrx { trx ->
-                    Thread.sleep(1000)
-                    trx.create("child11", "child");
-                }
+                workspace.get("root").get().children().joinToString { it }.let { Log.i("jwst", it) }
+
+                Thread.sleep(1000)
+                workspace.create("child11", "child");
+
             } ?: run {
                 // create a new block on the first startup program.
-                workspace.withTrx { trx ->
-                    val block = trx.create("a", "b")
-                    block.set(trx, "a key", "a value")
-                }
 
-                val content = workspace.withTrx { trx ->
-                    val block = workspace.get(trx, "a").get()
-                    block.get(trx, "a key").get()
+                val block = workspace.create("a", "b")
+                block.set("a key", "a value")
+
+                val content = {
+                    val block = workspace.get("a").get()
+                    block.get("a key").get()
                 }
                 this.title = content as String
 
                 // new lot of block and insert into children
-                workspace.withTrx { trx ->
-                    val block1 = trx.create("root", "root")
-                    val block2 = trx.create("child1", "child")
-                    val block3 = trx.create("child2", "child")
-                    val block4 = trx.create("child3", "child")
-                    val block5 = trx.create("child4", "child")
-                    val block6 = trx.create("child5", "child")
-                    val block7 = trx.create("child6", "child")
-                    val block8 = trx.create("child7", "child")
-                    val block9 = trx.create("child8", "child")
-                    val block10 = trx.create("child9", "child")
-                    val block11 = trx.create("child10", "child")
+                {
+                    val block1 = workspace.create("root", "root")
+                    val block2 = workspace.create("child1", "child")
+                    val block3 = workspace.create("child2", "child")
+                    val block4 = workspace.create("child3", "child")
+                    val block5 = workspace.create("child4", "child")
+                    val block6 = workspace.create("child5", "child")
+                    val block7 = workspace.create("child6", "child")
+                    val block8 = workspace.create("child7", "child")
+                    val block9 = workspace.create("child8", "child")
+                    val block10 = workspace.create("child9", "child")
+                    val block11 = workspace.create("child10", "child")
 
-                    block1.insertChildrenAt(trx, block2, 0)
-                    block1.insertChildrenAt(trx, block3, 1)
-                    block1.insertChildrenAt(trx, block4, 2)
-                    block1.insertChildrenAt(trx, block5, 3)
-                    block1.insertChildrenAt(trx, block6, 4)
-                    block1.insertChildrenAt(trx, block7, 5)
-                    block1.insertChildrenAt(trx, block8, 6)
-                    block1.insertChildrenAt(trx, block9, 7)
-                    block1.insertChildrenAt(trx, block10, 8)
-                    block1.insertChildrenAt(trx, block11, 9)
+                    block1.insertChildrenAt(block2, 0)
+                    block1.insertChildrenAt(block3, 1)
+                    block1.insertChildrenAt(block4, 2)
+                    block1.insertChildrenAt(block5, 3)
+                    block1.insertChildrenAt(block6, 4)
+                    block1.insertChildrenAt(block7, 5)
+                    block1.insertChildrenAt(block8, 6)
+                    block1.insertChildrenAt(block9, 7)
+                    block1.insertChildrenAt(block10, 8)
+                    block1.insertChildrenAt(block11, 9)
                 }
             }
 
@@ -80,30 +78,26 @@ class MainActivity : AppCompatActivity() {
             Log.i("jwst", "isFinished " + storage.isFinished())
             Log.i("jwst", "isError " + storage.isError())
 
-
-            workspace.withTrx { trx ->
-                trx.create("test", "list")
-                trx.create("test2", "list")
-            }
+            workspace.create("test", "list")
+            workspace.create("test2", "list")
 
             val blocks = workspace.getBlocksByFlavour("list")
             Log.i("jwst", "getBlocksByFlavour: $blocks")
 
             // search demo
             Log.i("jwst", "search demo")
-            workspace.withTrx { trx ->
-                val block = trx.create("search_test", "search_test_flavour")
-                block.set(trx, "title", "introduction")
-                block.set(trx, "text", "hello every one")
-                block.set(trx, "index", "this is index")
-            }
+
+            val block = workspace.create("search_test", "search_test_flavour")
+            block.set("title", "introduction")
+            block.set("text", "hello every one")
+            block.set("index", "this is index")
 
             var indexFields = arrayOf("title", "text")
             workspace.setSearchIndex(indexFields)
-            Log.i("jwst",  "search index: " + workspace.getSearchIndex().joinToString(" "))
+            Log.i("jwst", "search index: " + workspace.getSearchIndex().joinToString(" "))
 
             val searchResult1 = "search result1: " + workspace.search("duc")
-            Log.i("jwst",  searchResult1)
+            Log.i("jwst", searchResult1)
 
             val searchResult2 = "search result2: " + workspace.search("this")
             Log.i("jwst", searchResult2)
@@ -111,20 +105,20 @@ class MainActivity : AppCompatActivity() {
             var indexFields2 = arrayOf("index")
             workspace.setSearchIndex(indexFields2)
 
-            Log.i("jwst",  "search index: " + workspace.getSearchIndex().joinToString(" "))
+            Log.i("jwst", "search index: " + workspace.getSearchIndex().joinToString(" "))
 
             val searchResult3 = "search result3: " + workspace.search("this")
             Log.i("jwst", searchResult3)
 
             while (true) {
-                workspace.withTrx { trx ->
-                    Log.i("jwst", " getting root")
-                    workspace.get(trx, "root").unwrap()?.let { block ->
-                        block.get(trx, "test").ifPresent { value ->
-                            Log.i("jwst", "test: $value")
-                        }
+
+                Log.i("jwst", " getting root")
+                workspace.get("root").unwrap()?.let { block ->
+                    block.get("test").ifPresent { value ->
+                        Log.i("jwst", "test: $value")
                     }
                 }
+
                 Thread.sleep(1000)
             }
         }
