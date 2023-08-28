@@ -101,8 +101,8 @@ impl Doc {
             for (mut s, offset) in update.iter(store.get_state_vector()) {
                 if let Node::Item(item) = &mut s {
                     debug_assert!(item.is_owned());
-                    let item = unsafe { item.get_mut_unchecked() };
-                    store.repair(item, self.store.clone())?;
+                    let mut item = unsafe { item.get_mut_unchecked() };
+                    store.repair(&mut item, self.store.clone())?;
                 }
                 store.integrate(s, offset, None)?;
             }

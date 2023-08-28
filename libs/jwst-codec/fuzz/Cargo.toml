@@ -14,7 +14,7 @@ libfuzzer-sys = "0.4.6"
 lib0 = "0.16.5"
 yrs = "0.16.5"
 
-jwst-codec-util = { path = "../../jwst-codec-util" }
+jwst-codec-util = { path = "../../jwst-codec-util", features = ["fuzz"] }
 
 [dependencies.jwst-codec]
 path = ".."
