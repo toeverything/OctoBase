@@ -5,10 +5,7 @@ pub mod workspace;
 pub use block::{delete_block, get_block, get_block_history, insert_block_children, remove_block_children, set_block};
 use schema::InsertChildren;
 pub use schema::SubscribeWorkspace;
-pub use workspace::{
-    delete_workspace, get_workspace, history_workspace, history_workspace_clients, set_workspace, subscribe_workspace,
-    workspace_client,
-};
+pub use workspace::{delete_workspace, get_workspace, set_workspace, subscribe_workspace, workspace_client};
 
 use super::*;
 
@@ -21,19 +18,17 @@ fn block_apis(router: Router) -> Router {
         )
         .route("/children/:children", delete(block::remove_block_children));
 
-    doc_apis(router)
-        .nest("/block/:workspace/:block/", block_operation)
-        .route(
-            "/block/:workspace/:block",
-            get(block::get_block).post(block::set_block).delete(block::delete_block),
-        )
+    doc_apis(router).nest("/block/:workspace/:block/", block_operation).route(
+        "/block/:workspace/:block",
+        get(block::get_block).post(block::set_block).delete(block::delete_block),
+    )
 }
 
 fn workspace_apis(router: Router) -> Router {
     router
         .route("/block/:workspace/client", get(workspace::workspace_client))
-        .route("/block/:workspace/history", get(workspace::history_workspace_clients))
-        .route("/block/:workspace/history/:client", get(workspace::history_workspace))
+        // .route("/block/:workspace/history", get(workspace::history_workspace_clients))
+        // .route("/block/:workspace/history/:client", get(workspace::history_workspace))
         .route(
             "/block/:workspace",
             get(workspace::get_workspace)
@@ -42,11 +37,11 @@ fn workspace_apis(router: Router) -> Router {
         )
         .route("/block/:workspace/flavour/:flavour", get(block::get_block_by_flavour))
         .route("/block/:workspace/blocks", get(workspace::get_workspace_block))
-        .route("/search/:workspace", get(workspace::workspace_search))
-        .route(
-            "/search/:workspace/index",
-            get(workspace::get_search_index).post(workspace::set_search_index),
-        )
+        // .route("/search/:workspace", get(workspace::workspace_search))
+        // .route(
+        //     "/search/:workspace/index",
+        //     get(workspace::get_search_index).post(workspace::set_search_index),
+        // )
         .route("/subscribe", post(subscribe_workspace))
 }
 
@@ -86,21 +81,13 @@ mod tests {
                 .build()
                 .expect("Failed to create runtime"),
         );
-        let workspace_changed_blocks = Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
         let hook_endpoint = Arc::new(RwLock::new(String::new()));
-        let cb: WorkspaceRetrievalCallback = {
-            let workspace_changed_blocks = workspace_changed_blocks.clone();
-            let runtime = runtime.clone();
-            Some(Arc::new(Box::new(move |workspace: &Workspace| {
-                workspace.set_callback(generate_ws_callback(&workspace_changed_blocks, &runtime));
-            })))
-        };
+
         let ctx = Arc::new(
             Context::new(
                 JwstStorage::new_with_migration("sqlite::memory:", BlobStorageType::DB)
                     .await
                     .ok(),
-                cb,
             )
             .await,
         );
@@ -109,7 +96,6 @@ mod tests {
                 .layer(Extension(ctx.clone()))
                 .layer(Extension(client.clone()))
                 .layer(Extension(runtime.clone()))
-                .layer(Extension(workspace_changed_blocks.clone()))
                 .layer(Extension(hook_endpoint.clone())),
         );
 

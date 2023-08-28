@@ -38,7 +38,7 @@ pub enum InsertChildren {
     Push(String),
     InsertBefore { id: String, before: String },
     InsertAfter { id: String, after: String },
-    InsertAt { id: String, pos: u32 },
+    InsertAt { id: String, pos: u64 },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

@@ -1,9 +1,8 @@
 use axum::{
     extract::{Path, Query},
-    http::header,
     response::Response,
 };
-use jwst::{parse_history, parse_history_client, DocStorage};
+use jwst_core::DocStorage;
 use utoipa::IntoParams;
 
 use super::*;
@@ -129,97 +128,84 @@ pub struct BlockSearchQuery {
 /// Search workspace blocks of server
 ///
 /// This will return back a list of relevant blocks.
-#[utoipa::path(
-    get,
-    tag = "Workspace",
-    context_path = "/api/search",
-    path = "/{workspace}",
-    params(
-        ("workspace", description = "workspace id"),
-        BlockSearchQuery,
-    ),
-    responses(
-        (status = 200, description = "Search results", body = SearchResults),
-    )
-)]
-pub async fn workspace_search(
-    Extension(context): Extension<Arc<Context>>,
-    Path(workspace): Path<String>,
-    query: Query<BlockSearchQuery>,
-) -> Response {
-    let query_text = &query.query;
-    let ws_id = workspace;
-    info!("workspace_search: {ws_id:?} query = {query_text:?}");
-    if let Ok(workspace) = context.get_workspace(&ws_id).await {
-        match workspace.search(query_text) {
-            Ok(list) => {
-                debug!("workspace_search: {ws_id:?} query = {query_text:?}; {list:#?}");
-                Json(list).into_response()
-            }
-            Err(err) => {
-                error!("Internal server error calling workspace_search: {err:?}");
-                StatusCode::INTERNAL_SERVER_ERROR.into_response()
-            }
-        }
-    } else {
-        (StatusCode::NOT_FOUND, format!("Workspace({ws_id:?}) not found")).into_response()
-    }
-}
+// #[utoipa::path(
+//     get,
+//     tag = "Workspace",
+//     context_path = "/api/search",
+//     path = "/{workspace}",
+//     params(
+//         ("workspace", description = "workspace id"),
+//         BlockSearchQuery,
+//     ),
+//     responses(
+//         (status = 200, description = "Search results", body = SearchResults),
+//     )
+// )]
+// pub async fn workspace_search(
+//     Extension(context): Extension<Arc<Context>>,
+//     Path(workspace): Path<String>,
+//     query: Query<BlockSearchQuery>,
+// ) -> Response { let query_text = &query.query; let ws_id = workspace; info!("workspace_search: {ws_id:?} query =
+//   {query_text:?}"); if let Ok(workspace) = context.get_workspace(&ws_id).await { match workspace.search(query_text) {
+//   Ok(list) => { debug!("workspace_search: {ws_id:?} query = {query_text:?}; {list:#?}"); Json(list).into_response() }
+//   Err(err) => { error!("Internal server error calling workspace_search: {err:?}");
+//   StatusCode::INTERNAL_SERVER_ERROR.into_response() } } } else { (StatusCode::NOT_FOUND,
+//   format!("Workspace({ws_id:?}) not found")).into_response() }
+// }
 
-#[utoipa::path(
-    get,
-    tag = "Workspace",
-    context_path = "/api/search",
-    path = "/{workspace}/index",
-    params(
-        ("workspace", description = "workspace id"),
-    ),
-    responses(
-        (status = 200, description = "result", body = Vec<String>),
-        (status = 404, description = "Workspace not found")
-    )
-)]
-pub async fn get_search_index(Extension(context): Extension<Arc<Context>>, Path(workspace): Path<String>) -> Response {
-    info!("get_search_index: {workspace:?}");
+// #[utoipa::path(
+//     get,
+//     tag = "Workspace",
+//     context_path = "/api/search",
+//     path = "/{workspace}/index",
+//     params(
+//         ("workspace", description = "workspace id"),
+//     ),
+//     responses(
+//         (status = 200, description = "result", body = Vec<String>),
+//         (status = 404, description = "Workspace not found")
+//     )
+// )]
+// pub async fn get_search_index(Extension(context): Extension<Arc<Context>>, Path(workspace): Path<String>) -> Response
+// {     info!("get_search_index: {workspace:?}");
 
-    if let Ok(workspace) = context.get_workspace(&workspace).await {
-        Json(workspace.metadata().search_index).into_response()
-    } else {
-        (StatusCode::NOT_FOUND, format!("Workspace({workspace:?}) not found")).into_response()
-    }
-}
+//     if let Ok(workspace) = context.get_workspace(&workspace).await {
+//         Json(workspace.metadata().search_index).into_response()
+//     } else {
+//         (StatusCode::NOT_FOUND, format!("Workspace({workspace:?}) not found")).into_response()
+//     }
+// }
 
-#[utoipa::path(
-    post,
-    tag = "Workspace",
-    context_path = "/api/search",
-    path = "/{workspace}/index",
-    params(
-        ("workspace", description = "workspace id"),
-    ),
-    responses(
-        (status = 200, description = "success"),
-        (status = 400, description = "Bad Request"),
-        (status = 404, description = "Workspace not found")
-    )
-)]
-pub async fn set_search_index(
-    Extension(context): Extension<Arc<Context>>,
-    Path(workspace): Path<String>,
-    Json(fields): Json<Vec<String>>,
-) -> Response {
-    info!("set_search_index: {workspace:?} fields = {fields:?}");
+// #[utoipa::path(
+//     post,
+//     tag = "Workspace",
+//     context_path = "/api/search",
+//     path = "/{workspace}/index",
+//     params(
+//         ("workspace", description = "workspace id"),
+//     ),
+//     responses(
+//         (status = 200, description = "success"),
+//         (status = 400, description = "Bad Request"),
+//         (status = 404, description = "Workspace not found")
+//     )
+// )]
+// pub async fn set_search_index(
+//     Extension(context): Extension<Arc<Context>>,
+//     Path(workspace): Path<String>,
+//     Json(fields): Json<Vec<String>>,
+// ) -> Response { info!("set_search_index: {workspace:?} fields = {fields:?}");
 
-    if let Ok(workspace) = context.get_workspace(&workspace).await {
-        if let Ok(true) = workspace.set_search_index(fields) {
-            StatusCode::OK.into_response()
-        } else {
-            StatusCode::BAD_REQUEST.into_response()
-        }
-    } else {
-        (StatusCode::NOT_FOUND, format!("Workspace({workspace:?}) not found")).into_response()
-    }
-}
+//     if let Ok(workspace) = context.get_workspace(&workspace).await {
+//         if let Ok(true) = workspace.set_search_index(fields) {
+//             StatusCode::OK.into_response()
+//         } else {
+//             StatusCode::BAD_REQUEST.into_response()
+//         }
+//     } else {
+//         (StatusCode::NOT_FOUND, format!("Workspace({workspace:?}) not found")).into_response()
+//     }
+// }
 
 /// Get `Block` in `Workspace`
 /// - Return 200 and `Block`'s ID.
@@ -245,15 +231,13 @@ pub async fn get_workspace_block(
 ) -> Response {
     let Pagination { offset, limit } = pagination;
     info!("get_workspace_block: {workspace:?}");
-    if let Ok(workspace) = context.get_workspace(&workspace).await {
-        let (total, data) = workspace.with_trx(|mut t| {
-            let space = t.get_blocks();
-
-            let total = space.block_count() as usize;
-            let data = space.blocks(&t.trx, |blocks| blocks.skip(offset).take(limit).collect::<Vec<_>>());
-
-            (total, data)
-        });
+    if let Ok(space) = context
+        .get_workspace(&workspace)
+        .await
+        .and_then(|mut ws| Ok(ws.get_blocks()?))
+    {
+        let total = space.block_count() as usize;
+        let data = space.blocks(|blocks| blocks.skip(offset).take(limit).collect::<Vec<_>>());
 
         let status = if data.is_empty() {
             StatusCode::NOT_FOUND
@@ -283,73 +267,55 @@ pub async fn get_workspace_block(
 ///     created. This `Client` will not be destroyed until the server restarts.
 ///     Therefore, the `Client ID` in the history generated by modifying `Block`
 ///     through HTTP API will remain unchanged until the server restarts.
-#[utoipa::path(
-    get,
-    tag = "Workspace",
-    context_path = "/api/block",
-    path = "/{workspace}/history",
-    params(
-        ("workspace", description = "workspace id"),
-    ),
-    responses(
-        (status = 200, description = "Get workspace history client ids", body = [u64]),
-        (status = 500, description = "Failed to get workspace history")
-    )
-)]
-pub async fn history_workspace_clients(
-    Extension(context): Extension<Arc<Context>>,
-    Path(workspace): Path<String>,
-) -> Response {
-    if let Ok(workspace) = context.get_workspace(&workspace).await {
-        if let Some(history) = parse_history_client(&workspace.doc()) {
-            Json(history).into_response()
-        } else {
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
-        }
-    } else {
-        (StatusCode::NOT_FOUND, format!("Workspace({workspace:?}) not found")).into_response()
-    }
-}
+// #[utoipa::path(
+//     get,
+//     tag = "Workspace",
+//     context_path = "/api/block",
+//     path = "/{workspace}/history",
+//     params(
+//         ("workspace", description = "workspace id"),
+//     ),
+//     responses(
+//         (status = 200, description = "Get workspace history client ids", body = [u64]),
+//         (status = 500, description = "Failed to get workspace history")
+//     )
+// )]
+// pub async fn history_workspace_clients(
+//     Extension(context): Extension<Arc<Context>>,
+//     Path(workspace): Path<String>,
+// ) -> Response { if let Ok(workspace) = context.get_workspace(&workspace).await { if let Some(history) =
+//   parse_history_client(&workspace.doc()) { Json(history).into_response() } else {
+//   StatusCode::INTERNAL_SERVER_ERROR.into_response() } } else { (StatusCode::NOT_FOUND,
+//   format!("Workspace({workspace:?}) not found")).into_response() }
+// }
 
 /// Get the history generated by a specific `Client ID` of the `Workspace`
 ///
 /// If client id set to 0, return all history of the `Workspace`.
-#[utoipa::path(
-    get,
-    tag = "Workspace",
-    context_path = "/api/block",
-    path = "/{workspace}/history/{client}",
-    params(
-        ("workspace", description = "workspace id"),
-        ("client", description = "client id, is give 0 then return all clients histories"),
-    ),
-    responses(
-        (status = 200, description = "Get workspace history", body = [RawHistory]),
-        (status = 400, description = "Client id invalid"),
-        (status = 500, description = "Failed to get workspace history")
-    )
-)]
-pub async fn history_workspace(
-    Extension(context): Extension<Arc<Context>>,
-    Path(params): Path<(String, String)>,
-) -> Response {
-    let (ws_id, client) = params;
-    if let Ok(workspace) = context.get_workspace(&ws_id).await {
-        if let Ok(client) = client.parse::<u64>() {
-            if let Some(json) =
-                parse_history(&workspace.doc(), client).and_then(|history| serde_json::to_string(&history).ok())
-            {
-                ([(header::CONTENT_TYPE, "application/json")], json).into_response()
-            } else {
-                StatusCode::INTERNAL_SERVER_ERROR.into_response()
-            }
-        } else {
-            StatusCode::BAD_REQUEST.into_response()
-        }
-    } else {
-        (StatusCode::NOT_FOUND, format!("Workspace({ws_id:?}) not found")).into_response()
-    }
-}
+// #[utoipa::path(
+//     get,
+//     tag = "Workspace",
+//     context_path = "/api/block",
+//     path = "/{workspace}/history/{client}",
+//     params(
+//         ("workspace", description = "workspace id"),
+//         ("client", description = "client id, is give 0 then return all clients histories"),
+//     ),
+//     responses(
+//         (status = 200, description = "Get workspace history", body = [RawHistory]),
+//         (status = 400, description = "Client id invalid"),
+//         (status = 500, description = "Failed to get workspace history")
+//     )
+// )]
+// pub async fn history_workspace(
+//     Extension(context): Extension<Arc<Context>>,
+//     Path(params): Path<(String, String)>,
+// ) -> Response { let (ws_id, client) = params; if let Ok(workspace) = context.get_workspace(&ws_id).await { if let
+//   Ok(client) = client.parse::<u64>() { if let Some(json) = parse_history(&workspace.doc(), client).and_then(|history|
+//   serde_json::to_string(&history).ok()) { ([(header::CONTENT_TYPE, "application/json")], json).into_response() } else
+//   { StatusCode::INTERNAL_SERVER_ERROR.into_response() } } else { StatusCode::BAD_REQUEST.into_response() } } else {
+//   (StatusCode::NOT_FOUND, format!("Workspace({ws_id:?}) not found")).into_response() }
+// }
 
 /// Register a webhook for all block changes from all workspace changes
 #[utoipa::path(

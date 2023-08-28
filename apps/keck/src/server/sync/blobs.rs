@@ -11,8 +11,8 @@ use axum::{
     Json, TypedHeader,
 };
 use futures::{future, StreamExt};
-use jwst::BlobStorage;
-use jwst_rpc::RpcContextImpl;
+use jwst_core::BlobStorage;
+use jwst_core_rpc::RpcContextImpl;
 use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 
 use super::*;

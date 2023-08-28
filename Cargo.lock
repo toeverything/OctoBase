@@ -122,41 +122,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "affine-cloud"
-version = "0.1.0"
-dependencies = [
- "axum",
- "axum-test-helper 0.2.0",
- "bytes",
- "chrono",
- "cloud-database",
- "cloud-infra",
- "dotenvy",
- "form_urlencoded",
- "futures",
- "futures-util",
- "http-body",
- "image",
- "jsonwebtoken",
- "jwst",
- "jwst-logger",
- "jwst-rpc",
- "jwst-storage",
- "lettre",
- "lib0",
- "mimalloc",
- "mime",
- "nanoid",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "tower-http",
- "utoipa",
- "yrs",
-]
-
-[[package]]
 name = "affine-cloud-migration"
 version = "0.1.0"
 dependencies = [
@@ -532,24 +497,6 @@ dependencies = [
  "mime",
  "rustversion",
  "tower-layer",
- "tower-service",
-]
-
-[[package]]
-name = "axum-test-helper"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91d349b3174ceac58442ea1f768233c817e59447c0343be2584fca9f0ed71d3a"
-dependencies = [
- "axum",
- "bytes",
- "http",
- "http-body",
- "hyper",
- "reqwest",
- "serde",
- "tokio",
- "tower",
  "tower-service",
 ]
 
@@ -3011,42 +2958,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
- "axum-test-helper 0.2.0",
- "cfg-if 1.0.0",
- "cloud-infra",
- "dotenvy",
- "futures",
- "jwst",
- "jwst-logger",
- "jwst-rpc",
- "jwst-storage",
- "lib0",
- "libc",
- "log",
- "mimalloc",
- "nanoid",
- "rand 0.8.5",
- "reqwest",
- "serde",
- "serde_json",
- "sqlx",
- "thiserror",
- "time 0.3.27",
- "tokio",
- "tower",
- "tower-http",
- "utoipa",
- "utoipa-swagger-ui",
- "yrs",
-]
-
-[[package]]
-name = "keck-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "axum-test-helper 0.3.0",
+ "axum-test-helper",
  "cfg-if 1.0.0",
  "dotenvy",
  "futures",
@@ -3070,6 +2982,7 @@ dependencies = [
  "tower",
  "tower-http",
  "utoipa",
+ "utoipa-swagger-ui",
  "yrs",
 ]
 
@@ -6182,7 +6095,6 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55ae70283aba8d2a8b411c695c437fe25b8b5e44e23e780662002fc72fb47a82"
 dependencies = [
- "base64 0.21.2",
  "bitflags 2.4.0",
  "bytes",
  "futures-core",
@@ -6190,12 +6102,9 @@ dependencies = [
  "http",
  "http-body",
  "http-range-header",
- "mime",
  "pin-project-lite",
  "tower-layer",
  "tower-service",
- "tracing",
- "uuid",
 ]
 
 [[package]]
