@@ -23,6 +23,9 @@ pub(crate) enum Content {
     },
 }
 
+unsafe impl Send for Content {}
+unsafe impl Sync for Content {}
+
 impl From<Any> for Content {
     fn from(value: Any) -> Self {
         match value {

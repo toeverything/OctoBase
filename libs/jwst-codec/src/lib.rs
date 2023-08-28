@@ -20,6 +20,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq)]
 pub enum JwstCodecError {
+    #[error("Unexpected Scenario")]
+    Unexpected,
     #[error("Damaged document: corrupt json data")]
     DamagedDocumentJson,
     #[error("Incomplete document: {0}")]

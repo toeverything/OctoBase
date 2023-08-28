@@ -311,8 +311,8 @@ impl Doc {
         self.publisher.unsubscribe_all();
     }
 
-    pub fn gc(&mut self) {
-        self.store.write().unwrap().gc();
+    pub fn gc(&self) -> JwstCodecResult<()> {
+        self.store.write().unwrap().optimize()
     }
 }
 

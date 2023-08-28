@@ -26,7 +26,7 @@ use crate::{
 pub(crate) struct YType {
     pub start: Somr<Item>,
     pub item: Somr<Item>,
-    pub map: Option<HashMap<String, Node>>,
+    pub map: Option<HashMap<String, Somr<Item>>>,
     pub len: u64,
     /// The tag name of XMLElement and XMLHook type
     pub name: Option<String>,
@@ -289,15 +289,6 @@ macro_rules! impl_variants {
                 }
             }
         }
-
-
-        $(
-            impl From<$name> for super::Value {
-                fn from(value: $name) -> Self {
-                    Self::$name(value)
-                }
-            }
-        )*
     };
 }
 
@@ -351,6 +342,12 @@ macro_rules! impl_type {
         impl $name {
             pub(crate) fn from_unchecked(value: super::YTypeRef) -> Self {
                 $name::new(value.clone())
+            }
+        }
+
+        impl From<$name> for super::Value {
+            fn from(value: $name) -> Self {
+                Self::$name(value)
             }
         }
     };

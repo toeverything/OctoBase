@@ -187,6 +187,46 @@ impl OrderRange {
     }
 }
 
+impl<'a> IntoIterator for &'a OrderRange {
+    type Item = Range<u64>;
+    type IntoIter = OrderRangeIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        OrderRangeIter { range: self, idx: 0 }
+    }
+}
+
+pub struct OrderRangeIter<'a> {
+    range: &'a OrderRange,
+    idx: usize,
+}
+
+impl<'a> Iterator for OrderRangeIter<'a> {
+    type Item = Range<u64>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.range {
+            OrderRange::Range(range) => {
+                if self.idx == 0 {
+                    self.idx += 1;
+                    Some(range.clone())
+                } else {
+                    None
+                }
+            }
+            OrderRange::Fragment(ranges) => {
+                if self.idx < ranges.len() {
+                    let range = ranges[self.idx].clone();
+                    self.idx += 1;
+                    Some(range)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::OrderRange;
@@ -264,5 +304,16 @@ mod tests {
         let mut range: OrderRange = vec![(0..10), (20..30)].into();
         range.merge(vec![(10..20), (30..40)].into());
         assert_eq!(range, OrderRange::Range(0..40));
+    }
+
+    #[test]
+    fn iter() {
+        let range: OrderRange = vec![(0..10), (20..30)].into();
+
+        assert_eq!(range.into_iter().collect::<Vec<_>>(), vec![(0..10), (20..30)]);
+
+        let range: OrderRange = OrderRange::Range(0..10);
+
+        assert_eq!(range.into_iter().collect::<Vec<_>>(), vec![(0..10)]);
     }
 }
