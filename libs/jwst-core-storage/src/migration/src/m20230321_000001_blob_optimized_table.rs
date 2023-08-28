@@ -1,6 +1,6 @@
 use sea_orm_migration::prelude::*;
 
-use super::schema::OptimizedBlobs;
+use super::schemas::OptimizedBlobs;
 
 pub struct Migration;
 
