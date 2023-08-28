@@ -5,10 +5,11 @@ import android.os.Bundle
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import com.toeverything.jwst.Block
 import com.toeverything.jwst.Storage
 import java.io.File
 import java.util.*
-import com.toeverything.jwst.JwstVecOfStrings
+import com.toeverything.jwst.Workspace
 import kotlin.jvm.optionals.getOrNull
 
 fun <T> Optional<T>.unwrap(): T? = orElse(null)
@@ -22,61 +23,9 @@ class MainActivity : AppCompatActivity() {
 
         val database = File(filesDir, "jwst.db")
         val storage = Storage(database.absolutePath, "ws://10.0.2.2:3000/collaboration", "debug")
+
         storage.getWorkspace("test").unwrap()?.let { workspace ->
-            workspace.setCallback { block_ids -> Log.i("jwst", "change: $block_ids") }
-            workspace.get("a").getOrNull()?.let { block ->
-                // load the existing block on the second startup program.
-                val content = block.get("a key").get()
-                this.title = (content as String) + " exists"
-                workspace.get("root").get().children().joinToString { it }.let { Log.i("jwst", it) }
-
-                Thread.sleep(1000)
-                workspace.create("child11", "child");
-
-            } ?: run {
-                // create a new block on the first startup program.
-
-                val block = workspace.create("a", "b")
-                block.set("a key", "a value")
-
-                val content = {
-                    val block = workspace.get("a").get()
-                    block.get("a key").get()
-                }
-                this.title = content as String
-
-                // new lot of block and insert into children
-                {
-                    val block1 = workspace.create("root", "root")
-                    val block2 = workspace.create("child1", "child")
-                    val block3 = workspace.create("child2", "child")
-                    val block4 = workspace.create("child3", "child")
-                    val block5 = workspace.create("child4", "child")
-                    val block6 = workspace.create("child5", "child")
-                    val block7 = workspace.create("child6", "child")
-                    val block8 = workspace.create("child7", "child")
-                    val block9 = workspace.create("child8", "child")
-                    val block10 = workspace.create("child9", "child")
-                    val block11 = workspace.create("child10", "child")
-
-                    block1.insertChildrenAt(block2, 0)
-                    block1.insertChildrenAt(block3, 1)
-                    block1.insertChildrenAt(block4, 2)
-                    block1.insertChildrenAt(block5, 3)
-                    block1.insertChildrenAt(block6, 4)
-                    block1.insertChildrenAt(block7, 5)
-                    block1.insertChildrenAt(block8, 6)
-                    block1.insertChildrenAt(block9, 7)
-                    block1.insertChildrenAt(block10, 8)
-                    block1.insertChildrenAt(block11, 9)
-                }
-            }
-
-            Log.i("jwst", "getSyncState " + storage.getSyncState())
-            Log.i("jwst", "isOffline " + storage.isOffline())
-            Log.i("jwst", "isConnected " + storage.isConnected())
-            Log.i("jwst", "isFinished " + storage.isFinished())
-            Log.i("jwst", "isError " + storage.isError())
+            setupWorkspace(workspace)
 
             workspace.create("test", "list")
             workspace.create("test2", "list")
@@ -122,5 +71,71 @@ class MainActivity : AppCompatActivity() {
                 Thread.sleep(1000)
             }
         }
+    }
+
+    private fun setupWorkspace(workspace: Workspace) {
+        workspace.setCallback { blockIds ->
+            Log.i("jwst", "change: $blockIds")
+        }
+
+        val existingBlock = workspace.get("a").getOrNull()
+
+        if (existingBlock != null) {
+            handleExistingBlock(existingBlock, workspace)
+        } else {
+            handleNewBlock(workspace)
+        }
+
+        while (true) {
+            Log.i("jwst", " getting root")
+            workspace.get("root").unwrap()?.let { block ->
+                block.get("test").ifPresent { value ->
+                    Log.i("jwst", "test: $value")
+                }
+            }
+            Thread.sleep(1000)
+        }
+    }
+
+
+    private fun handleExistingBlock(block: Block, workspace: Workspace) {
+        val content = block.get("a key").get()
+        this.title = "$content exists"
+
+        val children = workspace.get("root").get().children().joinToString { it.toString() }
+        Log.i("jwst", children)
+
+        Thread.sleep(1000)
+        workspace.create("child11", "child")
+    }
+
+    private fun handleNewBlock(workspace: Workspace) {
+        val block = workspace.create("a", "b")
+        block.set("a key", "a value")
+
+        val content = workspace.get("a").get().get("a key").get()
+        this.title = content as String
+
+        // Create and insert blocks into children
+        createAndInsertChildren(workspace)
+    }
+
+    private fun createAndInsertChildren(workspace: Workspace) {
+        val root = workspace.create("root", "root")
+        val children = (1..10).map { i ->
+            workspace.create("child$i", "child")
+        }
+
+        children.forEachIndexed { index, child ->
+            root.insertChildrenAt(child, index.toLong())
+        }
+    }
+
+    private fun logWorkspaceStatus(storage: Storage) {
+        Log.i("jwst", "getSyncState ${storage.getSyncState()}")
+        Log.i("jwst", "isOffline ${storage.isOffline()}")
+        Log.i("jwst", "isConnected ${storage.isConnected()}")
+        Log.i("jwst", "isFinished ${storage.isFinished()}")
+        Log.i("jwst", "isError ${storage.isError()}")
     }
 }

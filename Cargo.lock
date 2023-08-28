@@ -2562,7 +2562,6 @@ name = "jwst-jni"
 version = "0.1.0"
 dependencies = [
  "android_logger",
- "chrono",
  "flapigen",
  "futures",
  "jni-sys",
@@ -2570,16 +2569,10 @@ dependencies = [
  "jwst-core",
  "jwst-rpc",
  "jwst-storage",
- "lib0",
- "log-panics",
  "nanoid",
  "rifgen",
- "serde",
- "serde_json",
- "sqlx",
  "tokio",
  "tracing",
- "yrs",
 ]
 
 [[package]]
@@ -2838,15 +2831,6 @@ name = "log"
 version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
-
-[[package]]
-name = "log-panics"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68f9dd8546191c1850ecf67d22f5ff00a935b890d0e84713159a55495cc2ac5f"
-dependencies = [
- "log",
-]
 
 [[package]]
 name = "loom"
