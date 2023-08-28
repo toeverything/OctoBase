@@ -1,45 +1,21 @@
-use std::{
-    collections::HashMap,
-    panic::{catch_unwind, AssertUnwindSafe},
-};
+use std::collections::HashMap;
 
 use async_trait::async_trait;
 use chrono::Utc;
-use jwst::{DocStorage, Workspace};
 use jwst_codec::{CrdtReader, RawDecoder};
-use jwst_storage::{JwstStorage, JwstStorageResult};
+use jwst_core::{DocStorage, Workspace};
+use jwst_core_storage::{JwstStorage, JwstStorageResult};
 use tokio::sync::{
     broadcast::{channel as broadcast, error::RecvError, Receiver as BroadcastReceiver, Sender as BroadcastSender},
     mpsc::{Receiver as MpscReceiver, Sender as MpscSender},
     Mutex,
 };
-use yrs::merge_updates_v1;
 
 use super::{
     broadcast::{subscribe, BroadcastChannels, BroadcastType},
     *,
 };
 
-fn merge_updates(id: &str, updates: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
-    match catch_unwind(AssertUnwindSafe(move || {
-        match merge_updates_v1(&updates.iter().map(std::ops::Deref::deref).collect::<Vec<_>>()) {
-            Ok(update) => {
-                info!("merge {} updates", updates.len());
-                vec![update]
-            }
-            Err(e) => {
-                error!("failed to merge update of {}: {}", id, e);
-                updates
-            }
-        }
-    })) {
-        Ok(updates) => updates,
-        Err(e) => {
-            error!("failed to merge update of {}: {:?}", id, e);
-            vec![]
-        }
-    }
-}
 #[async_trait]
 pub trait RpcContextImpl<'a> {
     fn get_storage(&self) -> &JwstStorage;
@@ -141,6 +117,7 @@ pub trait RpcContextImpl<'a> {
                             }
                         }
                     }
+                    trace!("save update thread {id}-{identifier} finished");
                 })
             };
 
@@ -150,8 +127,6 @@ pub trait RpcContextImpl<'a> {
                     if !updates.is_empty() {
                         for (guid, updates) in updates.drain() {
                             debug!("save {} updates from {guid}", updates.len());
-
-                            let updates = merge_updates(&id, updates);
 
                             for update in updates {
                                 if let Err(e) = docs.update_doc(id.clone(), guid.clone(), &update).await {
@@ -197,7 +172,7 @@ pub trait RpcContextImpl<'a> {
                                 // skip empty update
                                 continue;
                             }
-                            trace!("apply_change: recv binary: {:?}", binary.len());
+                            debug!("apply_change: recv binary: {:?}", binary.len());
                             updates.push(binary);
                         } else {
                             break;

@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Instant};
 
 use chrono::Utc;
-use jwst::{debug, error, info, trace, warn};
+use jwst_core::{debug, error, info, trace, warn};
 use tokio::{
     sync::mpsc::{Receiver, Sender},
     time::{sleep, Duration},
@@ -50,6 +50,7 @@ pub async fn handle_connector(
     // Send initialization message.
     match ws.sync_init_message().await {
         Ok(init_data) => {
+            debug!("send init data:{:?}", init_data);
             if tx.send(Message::Binary(init_data)).await.is_err() {
                 warn!("failed to send init message: {}", identifier);
                 // client disconnected
@@ -173,8 +174,7 @@ mod test {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use indicatif::{MultiProgress, ProgressBar, ProgressIterator, ProgressStyle};
-    use jwst::{JwstError, JwstResult};
-    use yrs::Map;
+    use jwst_core::JwstResult;
 
     use super::{
         super::{connect_memory_workspace, MinimumServerContext},
@@ -237,7 +237,7 @@ mod test {
     async fn sync_test() -> JwstResult<()> {
         let workspace_id = format!("test{}", rand::random::<usize>());
 
-        let (server, ws, init_state) = MinimumServerContext::new_with_workspace(&workspace_id).await;
+        let (server, mut ws, init_state) = MinimumServerContext::new_with_workspace(&workspace_id).await;
 
         let (mut doc1, _, _, _, _) = connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
         let (doc2, tx2, tx_handler, rx_handler, rt) =
@@ -251,14 +251,15 @@ mod test {
         });
 
         // collect the update from yrs's editing
-        let update =
-            jwst::Workspace::from_binary(&doc1.encode_update_v1().unwrap(), &workspace_id).with_trx(|mut t| {
-                let space = t.get_space("space");
-                let block1 = space.create(&mut t.trx, "block1", "flavour1").unwrap();
-                block1.set(&mut t.trx, "key1", "val1").unwrap();
-                t.commit();
-                t.trx.encode_update_v1().unwrap()
-            });
+        let update = {
+            let mut ws = jwst_core::Workspace::from_binary(doc1.encode_update_v1().unwrap(), &workspace_id).unwrap();
+
+            let mut space = ws.get_space("space").unwrap();
+            let mut block1 = space.create("block1", "flavour1").unwrap();
+            block1.set("key1", "val1").unwrap();
+
+            ws.doc().encode_update_v1().unwrap()
+        };
         // apply update with jwst-codec
         doc1.apply_update_from_binary(update).unwrap();
 
@@ -267,27 +268,23 @@ mod test {
         rx_handler.join().unwrap();
 
         // collect the update from jwst-codec and check the result
-        jwst::Workspace::from_binary(&doc2.encode_update_v1().unwrap(), &workspace_id).retry_with_trx(
-            |mut t| {
-                let space = t.get_space("space");
-                let block1 = space.get(&mut t.trx, "block1").unwrap();
+        {
+            let mut ws = jwst_core::Workspace::from_binary(doc2.encode_update_v1().unwrap(), &workspace_id).unwrap();
 
-                assert_eq!(block1.flavour(&t.trx), "flavour1");
-                assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
-            },
-            10,
-        )?;
+            let space = ws.get_space("space").unwrap();
+            let block1 = space.get("block1").unwrap();
 
-        ws.retry_with_trx(
-            |mut t| {
-                let space = t.get_space("space");
-                let block1 = space.get(&mut t.trx, "block1").unwrap();
+            assert_eq!(block1.flavour(), "flavour1");
+            assert_eq!(block1.get("key1").unwrap().to_string(), "val1");
+        }
 
-                assert_eq!(block1.flavour(&t.trx), "flavour1");
-                assert_eq!(block1.get(&t.trx, "key1").unwrap().to_string(), "val1");
-            },
-            10,
-        )?;
+        {
+            let space = ws.get_space("space").unwrap();
+            let block1 = space.get("block1").unwrap();
+
+            assert_eq!(block1.flavour(), "flavour1");
+            assert_eq!(block1.get("key1").unwrap().to_string(), "val1");
+        }
 
         Ok(())
     }
@@ -312,7 +309,7 @@ mod test {
 
         let workspace_id = format!("test{}", rand::random::<usize>());
 
-        let (server, ws, init_state) = MinimumServerContext::new_with_workspace(&workspace_id).await;
+        let (server, mut ws, init_state) = MinimumServerContext::new_with_workspace(&workspace_id).await;
 
         let mut jobs = vec![];
 
@@ -329,30 +326,32 @@ mod test {
             let collaborator_pb = collaborator_pb.clone();
             let init_state = init_state.clone();
             let server = server.clone();
-            let ws = ws.clone();
+            let mut ws = ws.clone();
 
             collaborator.fetch_add(1, Ordering::Relaxed);
             collaborator_pb.set_position(collaborator.load(Ordering::Relaxed));
             let (doc, doc_tx, tx_handler, rx_handler, _rt) =
                 connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
-            let mut doc = jwst::Workspace::from_binary(&doc.encode_update_v1().unwrap(), &workspace_id);
+            let mut doc = jwst_core::Workspace::from_binary(doc.encode_update_v1().unwrap(), &workspace_id).unwrap();
 
             let handler = std::thread::spawn(move || {
                 // close connection after doc1 is broadcasted
                 let block_id = format!("block{}", i);
                 {
-                    let block_id = block_id.clone();
+                    // let block_id = block_id.clone();
                     let doc_tx = doc_tx.clone();
-                    doc.observe(move |t, _| {
-                        let block_changed = t
-                            .changed_parent_types()
-                            .iter()
-                            .filter_map(|ptr| {
-                                let value: yrs::types::Value = (*ptr).into();
-                                value.to_ymap()
-                            })
-                            .flat_map(|map| map.keys(t).map(|k| k.to_string()).collect::<Vec<_>>())
-                            .any(|key| key == block_id);
+                    doc.doc().subscribe(move |_u| {
+                        // TODO: support changed block record
+                        // let block_changed = t
+                        //     .changed_parent_types()
+                        //     .iter()
+                        //     .filter_map(|ptr| {
+                        //         let value: yrs::types::Value = (*ptr).into();
+                        //         value.to_ymap()
+                        //     })
+                        //     .flat_map(|map| map.keys(t).map(|k| k.to_string()).collect::<Vec<_>>())
+                        //     .any(|key| key == block_id);
+                        let block_changed = false;
 
                         if block_changed {
                             if let Err(e) = futures::executor::block_on(doc_tx.send(Message::Close)) {
@@ -362,38 +361,26 @@ mod test {
                     });
                 }
 
-                doc.retry_with_trx(
-                    |mut t| {
-                        let space = t.get_space("space");
-                        let block = space.create(&mut t.trx, block_id.clone(), format!("flavour{}", i))?;
-                        block.set(&mut t.trx, &format!("key{}", i), format!("val{}", i))?;
-                        Ok::<_, JwstError>(())
-                    },
-                    50,
-                )
-                .and_then(|v| v)
-                .unwrap();
+                {
+                    let mut space = doc.get_space("space").unwrap();
+                    let mut block = space.create(block_id.clone(), format!("flavour{}", i)).unwrap();
+                    block.set(&format!("key{}", i), format!("val{}", i)).unwrap();
+                }
 
                 // await the task to make sure the doc1 is broadcasted before check doc2
                 futures::executor::block_on(tx_handler).unwrap();
                 rx_handler.join().unwrap();
 
-                ws.retry_with_trx(
-                    |mut t| {
-                        let space = t.get_space("space");
-                        let block1 = space.get(&mut t.trx, format!("block{}", i))?;
+                {
+                    let space = ws.get_space("space").unwrap();
+                    let block1 = space.get(format!("block{}", i)).unwrap();
 
-                        assert_eq!(block1.flavour(&t.trx), format!("flavour{}", i));
-                        assert_eq!(
-                            block1.get(&t.trx, &format!("key{}", i))?.to_string(),
-                            format!("val{}", i)
-                        );
-                        None::<()>
-                    },
-                    50,
-                )
-                .unwrap()
-                .unwrap();
+                    assert_eq!(block1.flavour(), format!("flavour{}", i));
+                    assert_eq!(
+                        block1.get(&format!("key{}", i)).unwrap().to_string(),
+                        format!("val{}", i)
+                    );
+                }
 
                 collaborator.fetch_sub(1, Ordering::Relaxed);
                 collaborator_pb.set_position(collaborator.load(Ordering::Relaxed));
@@ -415,18 +402,19 @@ mod test {
         let pb = mp.add(ProgressBar::new(1000));
         pb.set_style(style.clone());
         pb.set_message("final checking");
-        ws.with_trx(|mut t| {
-            let space = t.get_space("space");
-            for i in (0..1000).progress_with(pb) {
-                let block1 = space.get(&mut t.trx, format!("block{}", i)).unwrap();
 
-                assert_eq!(block1.flavour(&t.trx), format!("flavour{}", i));
+        {
+            let space = ws.get_space("space").unwrap();
+            for i in (0..1000).progress_with(pb) {
+                let block1 = space.get(format!("block{}", i)).unwrap();
+
+                assert_eq!(block1.flavour(), format!("flavour{}", i));
                 assert_eq!(
-                    block1.get(&t.trx, &format!("key{}", i)).unwrap().to_string(),
+                    block1.get(&format!("key{}", i)).unwrap().to_string(),
                     format!("val{}", i)
                 );
             }
-        });
+        }
 
         Ok(())
     }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bytes::Bytes;
-use jwst::{debug, error, info, trace, warn};
+use jwst_core::{debug, error, info, trace, warn};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use webrtcrs::{
     api::APIBuilder,
