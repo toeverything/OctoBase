@@ -856,30 +856,36 @@ impl DocStore {
     }
 
     fn make_continuous(&mut self) -> JwstCodecResult {
-        for (client, before_state) in self.last_optimized_state.iter() {
-            let state = self.get_state(*client);
-            if *before_state == state {
+        let state = self.get_state_vector();
+
+        for (client, state) in state.iter() {
+            let before_state = self.last_optimized_state.get(client);
+            if before_state == *state {
                 continue;
             }
 
             let nodes = self.items.get_mut(client).unwrap();
-            let first_change = Self::get_node_index(nodes, *before_state).unwrap_or(1).max(1);
+            let first_change = Self::get_node_index(nodes, before_state).unwrap_or(1).max(1);
             let mut idx = nodes.len() - 1;
 
-            while idx >= first_change {
-                idx -= Self::merge_with_lefts(nodes, idx)? + 1;
+            while idx > 0 && idx >= first_change {
+                idx = idx.saturating_sub(Self::merge_with_lefts(nodes, idx)? + 1);
             }
         }
 
-        self.last_optimized_state = self.get_state_vector();
+        self.last_optimized_state = state;
         Ok(())
     }
 
     fn merge_with_lefts(nodes: &mut VecDeque<Node>, idx: usize) -> JwstCodecResult<usize> {
         let mut pos = idx;
         loop {
-            let right = nodes.get(idx).unwrap().clone();
-            let left = nodes.get_mut(idx - 1).unwrap();
+            if pos == 0 {
+                break;
+            }
+
+            let right = nodes.get(pos).unwrap().clone();
+            let left = nodes.get_mut(pos - 1).unwrap();
 
             match (left, right) {
                 (Node::GC(left), Node::GC(right)) => {
@@ -896,7 +902,7 @@ impl DocStore {
                         // not same delete status
                         || litem.deleted() != ritem.deleted()
                         // not clock continuous
-                        || litem.id.clock + litem.len() != ritem.id.client
+                        || litem.id.clock + litem.len() != ritem.id.clock
                         // not insertion continuous
                         || Some(litem.last_id()) != ritem.origin_left_id
                         // not insertion continuous
@@ -930,13 +936,9 @@ impl DocStore {
                 }
             }
 
-            if pos > 1 {
-                pos -= 1;
-            } else {
-                break;
-            }
+            pos -= 1;
         }
-        nodes.drain(pos + 1..=idx + 1);
+        nodes.drain(pos + 1..=idx);
         Ok(idx - pos)
     }
 }
@@ -1176,14 +1178,12 @@ mod tests {
             text.remove(5, 6).unwrap();
 
             arr.remove(0, 1).unwrap();
-            doc.gc().unwrap();
+            let mut store = doc.store.write().unwrap();
+            store.gc_delete_set().unwrap();
 
             assert_eq!(arr.len(), 0);
             assert_eq!(
-                doc.store
-                    .read()
-                    .unwrap()
-                    .get_node((1, 0))
+                store.get_node((1, 0))
                     .unwrap()
                     .as_item()
                     .get()
@@ -1194,12 +1194,12 @@ mod tests {
             );
 
             assert_eq!(
-                doc.store.read().unwrap().get_node((1, 1)).unwrap(), // "hello" GCd
+                store.get_node((1, 1)).unwrap(), // "hello" GCd
                 Node::new_gc((1, 1).into(), 5)
             );
 
             assert_eq!(
-                doc.store.read().unwrap().get_node((1, 7)).unwrap(), // " world" GCd
+                store.get_node((1, 7)).unwrap(), // " world" GCd
                 Node::new_gc((1, 6).into(), 6)
             );
         });
@@ -1207,16 +1207,56 @@ mod tests {
 
     #[test]
     fn should_merge_same_sibling_items() {
-        let mut store = DocStore::with_client(1);
-        store.items.insert(
-            1,
-            VecDeque::from([
-                Node::new_gc((1, 0).into(), 2),
-                Node::new_gc((1, 3).into(), 2),
-                Node::new_skip((1, 5).into(), 2),
-            ]),
-        );
+        loom_model!({
+            let mut store = DocStore::with_client(1);
+            store.items.insert(
+                1,
+                VecDeque::from([
+                    Node::new_gc((1, 0).into(), 2),
+                    Node::new_gc((1, 2).into(), 2),
+                    Node::new_skip((1, 4).into(), 2),
+                    Node::Item(Somr::new(
+                        ItemBuilder::new()
+                            .id((1, 6).into())
+                            .content(Content::String(String::from("hello")))
+                            .build(),
+                    )),
+                    // actually not mergable, due to runtime continuous check
+                    // will cover it in [test_merge_same_sibling_items2]
+                    Node::Item(Somr::new(
+                        ItemBuilder::new()
+                            .id((1, 11).into())
+                            .content(Content::String(String::from("world")))
+                            .left_id(Some((1, 11).into()))
+                            .build(),
+                    ))
+                ]),
+            );
 
-        store.make_continuous().unwrap();
+            store.make_continuous().unwrap();
+
+            assert_eq!(store.items.get(&1).unwrap().len(), 4);
+        });
+    }
+
+    #[test]
+    fn test_merge_same_sibling_items2() {
+        loom_model!({
+            let doc = Doc::new();
+
+            let mut text = doc.get_or_create_text("text").unwrap();
+            text.insert(0, "a").unwrap();
+            text.insert(1, "b").unwrap();
+            text.insert(2, "c").unwrap();
+            text.insert(3, ", hello").unwrap();
+
+            assert_eq!(text.to_string(), "abc, hello");
+
+            let mut store = doc.store.write().unwrap();
+            assert_eq!(store.items.get(&1).unwrap().len(), 4);
+            store.make_continuous().unwrap();
+            assert_eq!(store.items.get(&1).unwrap().len(), 1);
+            assert_eq!(text.to_string(), "abc, hello");
+        });
     }
 }
