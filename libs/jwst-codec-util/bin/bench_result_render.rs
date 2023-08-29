@@ -4,15 +4,18 @@ use std::{
 };
 
 fn process_duration(duration: &str) -> Option<(f64, f64)> {
-    let dur_split: Vec<String> = duration.split("±").map(String::from).collect();
+    let dur_split: Vec<String> = duration.split('±').map(String::from).collect();
     if dur_split.len() != 2 {
         return None;
     }
-    let units = dur_split[1].chars().skip_while(|c| c.is_digit(10)).collect::<String>();
+    let units = dur_split[1]
+        .chars()
+        .skip_while(|c| c.is_ascii_digit())
+        .collect::<String>();
     let dur_secs = dur_split[0].parse::<f64>().ok()?;
     let error_secs = dur_split[1]
         .chars()
-        .take_while(|c| c.is_digit(10))
+        .take_while(|c| c.is_ascii_digit())
         .collect::<String>()
         .parse::<f64>()
         .ok()?;
@@ -51,7 +54,7 @@ fn convert_to_markdown() -> impl Iterator<Item = String> {
         .lines()
         .skip(2)
         .flat_map(move |row| {
-            if let Some(_row) = row.ok() {
+            if let Ok(_row) = row {
                 let columns = {
                     #[cfg(feature = "bench")]
                     {
@@ -60,7 +63,7 @@ fn convert_to_markdown() -> impl Iterator<Item = String> {
                     #[cfg(not(feature = "bench"))]
                     Vec::<&str>::new()
                 };
-                let name = columns.get(0)?;
+                let name = columns.first()?;
                 let base_duration = columns.get(2)?;
                 let changes_duration = columns.get(5)?;
                 Some((
@@ -91,7 +94,7 @@ fn convert_to_markdown() -> impl Iterator<Item = String> {
 
             Some(format!(
                 "| {} | {} | {} | {} |",
-                name.replace("|", "\\|"),
+                name.replace('|', "\\|"),
                 if base_undefined { "N/A" } else { &base_duration },
                 if changes_undefined { "N/A" } else { &changes_duration },
                 difference
@@ -100,7 +103,7 @@ fn convert_to_markdown() -> impl Iterator<Item = String> {
 }
 
 fn main() {
-    let platform = std::env::args().skip(1).next().expect("Missing platform argument");
+    let platform = std::env::args().nth(1).expect("Missing platform argument");
 
     let headers = vec![
         format!("## Benchmark for {}", platform),
