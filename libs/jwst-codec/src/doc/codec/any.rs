@@ -253,6 +253,51 @@ impl From<bool> for Any {
     }
 }
 
+impl TryFrom<Any> for String {
+    type Error = JwstCodecError;
+
+    fn try_from(value: Any) -> Result<Self, Self::Error> {
+        match value {
+            Any::String(s) => Ok(s),
+            _ => Err(JwstCodecError::UnexpectedType("String")),
+        }
+    }
+}
+
+impl TryFrom<Any> for HashMap<String, Any> {
+    type Error = JwstCodecError;
+
+    fn try_from(value: Any) -> Result<Self, Self::Error> {
+        match value {
+            Any::Object(map) => Ok(map),
+            _ => Err(JwstCodecError::UnexpectedType("Object")),
+        }
+    }
+}
+
+impl TryFrom<Any> for Vec<Any> {
+    type Error = JwstCodecError;
+
+    fn try_from(value: Any) -> Result<Self, Self::Error> {
+        match value {
+            Any::Array(vec) => Ok(vec),
+            _ => Err(JwstCodecError::UnexpectedType("Array")),
+        }
+    }
+}
+
+impl TryFrom<Any> for bool {
+    type Error = JwstCodecError;
+
+    fn try_from(value: Any) -> Result<Self, Self::Error> {
+        match value {
+            Any::True => Ok(true),
+            Any::False => Ok(false),
+            _ => Err(JwstCodecError::UnexpectedType("Boolean")),
+        }
+    }
+}
+
 impl FromIterator<Any> for Any {
     fn from_iter<I: IntoIterator<Item = Any>>(iter: I) -> Self {
         Self::Array(iter.into_iter().collect())

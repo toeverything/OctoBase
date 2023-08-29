@@ -242,8 +242,6 @@ impl Item {
             return false;
         }
 
-        // self.content.delete();
-
         self.flags.set_deleted();
 
         true
@@ -251,6 +249,10 @@ impl Item {
 
     pub fn countable(&self) -> bool {
         self.flags.countable()
+    }
+
+    pub fn keep(&self) -> bool {
+        self.flags.keep()
     }
 
     pub fn indexable(&self) -> bool {
@@ -261,6 +263,10 @@ impl Item {
         let Id { client, clock } = self.id;
 
         Id::new(client, clock + self.len() - 1)
+    }
+
+    pub fn right_item(&self) -> ItemRef {
+        self.right.as_ref().map(|n| n.as_item()).unwrap_or_default()
     }
 
     #[allow(dead_code)]
