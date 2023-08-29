@@ -1,21 +1,112 @@
+use std::collections::HashMap;
+
 use super::{publisher::DocPublisher, store::StoreRef, *};
 use crate::sync::{Arc, RwLock};
 
-#[derive(Clone, Default)]
+/// [DocOptions] used to create a new [Doc]
+///
+/// ```
+/// let doc = DocOptions::new()
+///     .with_client_id(1)
+///     .with_guid("guid".into())
+///     .auto_gc(true)
+///     .build();
+///
+/// assert!(doc.guid(), "guid")
+/// ```
+///
+#[derive(Clone, Debug)]
 pub struct DocOptions {
-    pub guid: Option<String>,
-    pub client: Option<u64>,
+    pub guid: String,
+    pub client_id: u64,
+    pub gc: bool,
+}
+
+impl Default for DocOptions {
+    fn default() -> Self {
+        if cfg!(test) {
+            Self {
+                client_id: 1,
+                guid: "test".into(),
+                gc: true,
+            }
+        } else {
+            Self {
+                client_id: rand::random(),
+                guid: nanoid::nanoid!(),
+                gc: true,
+            }
+        }
+    }
+}
+
+impl DocOptions {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_client_id(mut self, client_id: u64) -> Self {
+        self.client_id = client_id;
+        self
+    }
+
+    pub fn with_guid(mut self, guid: String) -> Self {
+        self.guid = guid;
+        self
+    }
+
+    pub fn auto_gc(mut self, gc: bool) -> Self {
+        self.gc = gc;
+        self
+    }
+
+    pub fn build(self) -> Doc {
+        Doc::with_options(self)
+    }
+}
+
+impl From<DocOptions> for Any {
+    fn from(value: DocOptions) -> Self {
+        Any::Object(HashMap::from([
+            ("gc".into(), value.gc.into()),
+            ("guid".into(), value.guid.into()),
+        ]))
+    }
+}
+
+impl TryFrom<Any> for DocOptions {
+    type Error = JwstCodecError;
+
+    fn try_from(value: Any) -> Result<Self, Self::Error> {
+        match value {
+            Any::Object(map) => {
+                let mut options = DocOptions::default();
+                for (key, value) in map {
+                    match key.as_str() {
+                        "gc" => {
+                            options.gc = bool::try_from(value)?;
+                        }
+                        "guid" => {
+                            options.guid = String::try_from(value)?;
+                        }
+                        _ => {}
+                    }
+                }
+
+                Ok(options)
+            }
+            _ => Err(JwstCodecError::UnexpectedType("Object")),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct Doc {
     client_id: u64,
-    // random id for each doc, use in sub doc
-    // TODO: use function in code
-    #[allow(dead_code)]
-    guid: String,
-    pub(super) store: StoreRef,
-    pub publisher: Arc<DocPublisher>,
+    opts: DocOptions,
+
+    pub(crate) store: StoreRef,
+    pub(crate) publisher: Arc<DocPublisher>,
 }
 
 unsafe impl Send for Doc {}
@@ -23,16 +114,7 @@ unsafe impl Sync for Doc {}
 
 impl Default for Doc {
     fn default() -> Self {
-        let client_id = rand::random();
-        let store = Arc::new(RwLock::new(DocStore::with_client(client_id)));
-        let publisher = Arc::new(DocPublisher::new(store.clone()));
-
-        Self {
-            client_id,
-            guid: nanoid!(),
-            store,
-            publisher,
-        }
+        Doc::new()
     }
 }
 
@@ -43,36 +125,36 @@ impl PartialEq for Doc {
 }
 
 impl Doc {
+    pub fn new() -> Self {
+        Self::with_options(DocOptions::default())
+    }
+
     pub fn with_options(options: DocOptions) -> Self {
-        let client = options.client.unwrap_or_else(rand::random);
-        let store = Arc::new(RwLock::new(DocStore::with_client(client)));
+        let store = Arc::new(RwLock::new(DocStore::with_client(options.client_id)));
         let publisher = Arc::new(DocPublisher::new(store.clone()));
 
         Self {
-            client_id: client,
+            client_id: options.client_id,
+            opts: options,
             store,
-            guid: options.guid.unwrap_or_else(|| nanoid!()),
             publisher,
         }
     }
 
     pub fn with_client(client_id: u64) -> Self {
-        let store = Arc::new(RwLock::new(DocStore::with_client(client_id)));
-        let publisher = Arc::new(DocPublisher::new(store.clone()));
-        Self {
-            client_id,
-            store,
-            guid: nanoid!(),
-            publisher,
-        }
+        DocOptions::new().with_client_id(client_id).build()
     }
 
     pub fn client(&self) -> Client {
         self.client_id
     }
 
+    pub fn options(&self) -> &DocOptions {
+        &self.opts
+    }
+
     pub fn guid(&self) -> &str {
-        self.guid.as_str()
+        self.opts.guid.as_str()
     }
 
     pub fn new_from_binary(binary: Vec<u8>) -> JwstCodecResult<Self> {
@@ -228,6 +310,10 @@ impl Doc {
     pub fn unsubscribe_all(&self) {
         self.publisher.unsubscribe_all();
     }
+
+    pub fn gc(&self) -> JwstCodecResult<()> {
+        self.store.write().unwrap().optimize()
+    }
 }
 
 #[cfg(test)]
@@ -248,13 +334,8 @@ mod tests {
 
         let binary_from_yrs = trx.encode_update_v1().unwrap();
 
-        let options = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
-
         loom_model!({
-            let doc = Doc::new_from_binary_with_options(binary_from_yrs.clone(), options.clone()).unwrap();
+            let doc = Doc::new_from_binary(binary_from_yrs.clone()).unwrap();
             let binary = doc.encode_update_v1().unwrap();
 
             assert_eq!(binary_from_yrs, binary);
@@ -263,36 +344,18 @@ mod tests {
 
     #[test]
     fn test_encode_state_as_update() {
-        let options_left = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
-        let options_right = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
-
-        let yrs_options_left = Options {
-            client_id: rand::random(),
-            guid: nanoid::nanoid!().into(),
-            ..Default::default()
-        };
-
-        let yrs_options_right = Options {
-            client_id: rand::random(),
-            guid: nanoid::nanoid!().into(),
-            ..Default::default()
-        };
+        let yrs_options_left = Options::default();
+        let yrs_options_right = Options::default();
 
         loom_model!({
             let (binary, binary_new) = if cfg!(miri) {
-                let doc = Doc::with_options(options_left.clone());
+                let doc = Doc::new();
 
                 let mut map = doc.get_or_create_map("abc").unwrap();
                 map.insert("a", 1).unwrap();
                 let binary = doc.encode_update_v1().unwrap();
 
-                let doc_new = Doc::with_options(options_right.clone());
+                let doc_new = Doc::new();
                 let mut array = doc_new.get_or_create_array("array").unwrap();
                 array.insert(0, "array_value").unwrap();
                 let binary_new = doc.encode_update_v1().unwrap();
@@ -315,8 +378,8 @@ mod tests {
                 (binary, binary_new)
             };
 
-            let mut doc = Doc::new_from_binary_with_options(binary.clone(), options_left.clone()).unwrap();
-            let mut doc_new = Doc::new_from_binary_with_options(binary_new.clone(), options_right.clone()).unwrap();
+            let mut doc = Doc::new_from_binary(binary.clone()).unwrap();
+            let mut doc_new = Doc::new_from_binary(binary_new.clone()).unwrap();
 
             let diff_update = doc_new.encode_state_as_update_v1(&doc.get_state_vector()).unwrap();
 
@@ -332,13 +395,7 @@ mod tests {
     #[test]
     #[cfg_attr(any(miri, loom), ignore)]
     fn test_array_create() {
-        let options = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
-
-        let yrs_options =
-            yrs::Options::with_guid_and_client_id(options.guid.clone().unwrap().into(), options.client.unwrap());
+        let yrs_options = yrs::Options::default();
 
         let json = serde_json::json!([42.0, -42.0, true, false, "hello", "world", [1.0]]);
 
@@ -363,7 +420,7 @@ mod tests {
         };
 
         let binary = {
-            let doc = Doc::with_options(options.clone());
+            let doc = Doc::new();
             let mut array = doc.get_or_create_array("abc").unwrap();
             array.insert(0, 42).unwrap();
             array.insert(1, -42).unwrap();
@@ -387,7 +444,7 @@ mod tests {
 
         assert_json_diff::assert_json_eq!(array.to_json(&trx), json);
 
-        let mut doc = Doc::with_options(options);
+        let mut doc = Doc::new();
         let array = doc.get_or_create_array("abc").unwrap();
         doc.apply_update_from_binary(binary).unwrap();
 

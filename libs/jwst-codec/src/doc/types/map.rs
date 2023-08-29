@@ -13,11 +13,7 @@ impl_type!(Map);
 pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
     fn insert(&mut self, key: impl AsRef<str>, value: impl Into<Content>) -> JwstCodecResult {
         if let Some((mut store, mut ty)) = self.as_inner().write() {
-            let left = ty
-                .map
-                .as_ref()
-                .and_then(|map| map.get(key.as_ref()))
-                .map(|l| l.as_item());
+            let left = ty.map.as_ref().and_then(|map| map.get(key.as_ref())).cloned();
 
             let item = store.create_item(
                 value.into(),
@@ -45,8 +41,8 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
             ty.map
                 .as_ref()
                 .and_then(|map| map.get(key.as_ref()))
-                .filter(|struct_info| !struct_info.deleted())
-                .map(|struct_info| struct_info.as_item().get().unwrap().content.clone())
+                .filter(|item| item.get().map(|item| !item.deleted()).unwrap_or(false))
+                .map(|item| item.get().unwrap().content.clone())
         })
     }
 
@@ -71,8 +67,8 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
             ty.map
                 .as_ref()
                 .and_then(|map| map.get(key.as_ref()))
-                .map(|struct_info| !struct_info.deleted())
-                .unwrap_or(false)
+                .and_then(|item| item.get())
+                .map_or(false, |item| !item.deleted())
         } else {
             false
         }
@@ -82,9 +78,8 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         if let Some((mut store, mut ty)) = self.as_inner().write() {
             let node = ty.map.as_ref().and_then(|map| map.get(key.as_ref()));
             if let Some(node) = node {
-                if let Some(item) = node.as_item().get() {
-                    store.delete_set.add(item.id.client, item.id.clock, item.len());
-                    DocStore::delete_item(item, Some(&mut ty));
+                if let Some(item) = node.clone().get() {
+                    store.delete_item(item, Some(&mut ty));
                     return true;
                 }
             }
@@ -97,9 +92,11 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         self.as_inner()
             .ty()
             .map(|ty| {
-                ty.map
-                    .as_ref()
-                    .map_or(0, |map| map.values().filter(|v| !v.deleted()).count()) as u64
+                ty.map.as_ref().map_or(0, |map| {
+                    map.values()
+                        .filter(|v| v.get().map(|item| !item.deleted()).unwrap_or(false))
+                        .count()
+                }) as u64
             })
             .unwrap_or(0)
     }
@@ -109,7 +106,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         let map = inner.map.as_ref().map(|map| {
             map.iter()
                 .map(|(k, v)| (k.clone(), v.clone()))
-                .collect::<Vec<(String, Node)>>()
+                .collect::<Vec<(String, Somr<Item>)>>()
         });
 
         MapIterator {
@@ -120,7 +117,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
 }
 
 pub struct MapIterator {
-    pub(super) nodes: Vec<(String, Node)>,
+    pub(super) nodes: Vec<(String, Somr<Item>)>,
     pub(super) index: usize,
 }
 
@@ -135,15 +132,13 @@ impl Iterator for MapIterator {
 
         while self.index < len {
             let (name, node) = self.nodes[self.index].clone();
-            self.index += 1;
-            if node.deleted() {
-                continue;
-            }
+            if let Some(item) = node.get() {
+                self.index += 1;
+                if item.deleted() {
+                    continue;
+                }
 
-            if let Some(item) = node.as_item().get() {
                 return item.content.as_ref().try_into().ok().map(|item| (name, item));
-            } else {
-                continue;
             }
         }
 
@@ -217,13 +212,8 @@ mod tests {
 
     #[test]
     fn test_map_basic() {
-        let options = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
-
         loom_model!({
-            let doc = Doc::with_options(options.clone());
+            let doc = Doc::new();
             let mut map = doc.get_or_create_map("map").unwrap();
             map.insert("1", "value").unwrap();
             assert_eq!(map.get("1").unwrap(), Value::Any(Any::String("value".to_string())));
@@ -238,19 +228,14 @@ mod tests {
 
     #[test]
     fn test_map_equal() {
-        let options = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
-
         loom_model!({
-            let doc = Doc::with_options(options.clone());
+            let doc = Doc::new();
             let mut map = doc.get_or_create_map("map").unwrap();
             map.insert("1", "value").unwrap();
             map.insert("2", false).unwrap();
 
             let binary = doc.encode_update_v1().unwrap();
-            let new_doc = Doc::new_from_binary_with_options(binary, options.clone()).unwrap();
+            let new_doc = Doc::new_from_binary(binary).unwrap();
             let map = new_doc.get_or_create_map("map").unwrap();
             assert_eq!(map.get("1").unwrap(), Value::Any(Any::String("value".to_string())));
             assert_eq!(map.get("2").unwrap(), Value::Any(Any::False));
@@ -260,13 +245,8 @@ mod tests {
 
     #[test]
     fn test_map_renew_value() {
-        let options = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
-
         loom_model!({
-            let doc = Doc::with_options(options.clone());
+            let doc = Doc::new();
             let mut map = doc.get_or_create_map("map").unwrap();
             map.insert("1", "value").unwrap();
             map.insert("1", "value2").unwrap();
@@ -306,14 +286,9 @@ mod tests {
 
     #[test]
     fn test_map_re_encode() {
-        let options = DocOptions {
-            client: Some(rand::random()),
-            guid: Some(nanoid::nanoid!()),
-        };
-
         loom_model!({
             let binary = {
-                let doc = Doc::with_options(options.clone());
+                let doc = Doc::new();
                 let mut map = doc.get_or_create_map("map").unwrap();
                 map.insert("1", "value1").unwrap();
                 map.insert("2", "value2").unwrap();
@@ -321,7 +296,7 @@ mod tests {
             };
 
             {
-                let doc = Doc::new_from_binary_with_options(binary, options.clone()).unwrap();
+                let doc = Doc::new_from_binary(binary).unwrap();
                 let map = doc.get_or_create_map("map").unwrap();
                 assert_eq!(map.get("1").unwrap(), Value::Any(Any::String("value1".to_string())));
                 assert_eq!(map.get("2").unwrap(), Value::Any(Any::String("value2".to_string())));
