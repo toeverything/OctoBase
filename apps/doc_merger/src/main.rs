@@ -53,6 +53,7 @@ fn load_path(path: &str) -> Result<Vec<Vec<u8>>, Error> {
 fn main() {
     let args = Args::parse();
     jwst_merge(&args);
+    std::io::stdin().read_line(&mut String::new()).unwrap();
     yrs_merge(&args);
 }
 
@@ -64,6 +65,7 @@ fn jwst_merge(args: &Args) {
         println!("apply update{i} {} bytes", update.len());
         doc.apply_update_from_binary(update.clone()).unwrap();
     }
+    doc.gc().unwrap();
     let binary = doc.encode_update_v1().unwrap();
     println!("merged {} bytes", binary.len());
     write(
