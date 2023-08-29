@@ -1449,6 +1449,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "jwst-codec",
+ "serde_json",
  "yrs",
 ]
 
