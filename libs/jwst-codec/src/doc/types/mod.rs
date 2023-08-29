@@ -105,6 +105,7 @@ impl YTypeRef {
         self.inner.get().and_then(|ty| ty.write().ok())
     }
 
+    #[allow(dead_code)]
     pub fn store<'a>(&self) -> Option<RwLockReadGuard<'a, DocStore>> {
         if let Some(store) = self.store.upgrade() {
             let ptr = unsafe { &*Arc::as_ptr(&store) };
@@ -125,6 +126,7 @@ impl YTypeRef {
         }
     }
 
+    #[allow(dead_code)]
     pub fn read(&self) -> Option<(RwLockReadGuard<DocStore>, RwLockReadGuard<YType>)> {
         self.store().and_then(|store| self.ty().map(|ty| (store, ty)))
     }

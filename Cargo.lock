@@ -2740,6 +2740,7 @@ dependencies = [
  "arbitrary",
  "jwst-codec",
  "phf",
+ "regex",
  "yrs",
 ]
 

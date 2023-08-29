@@ -6,7 +6,7 @@ mod m20230321_000001_blob_optimized_table;
 mod m20230614_000001_initial_bucket_blob_table;
 mod m20230626_023319_doc_guid;
 mod m20230814_061223_initial_diff_log_table;
-mod schema;
+mod schemas;
 
 pub struct Migrator;
 
