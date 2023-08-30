@@ -8,7 +8,7 @@ use std::{
     ptr::NonNull,
 };
 
-use crate::sync::{AtomicU32, Ordering};
+use crate::sync::Ordering;
 const DANGLING_PTR: usize = usize::MAX;
 fn is_dangling<T>(ptr: NonNull<T>) -> bool {
     ptr.as_ptr() as usize == DANGLING_PTR
@@ -26,11 +26,21 @@ pub(crate) struct Owned<T>(NonNull<SomrInner<T>>);
 #[repr(transparent)]
 pub(crate) struct Ref<T>(NonNull<SomrInner<T>>);
 
+#[cfg(feature = "large_refs")]
+type RefAtomicType = crate::sync::AtomicU32;
+#[cfg(feature = "large_refs")]
+type RefPrimitiveType = u32;
+
+#[cfg(not(feature = "large_refs"))]
+type RefAtomicType = crate::sync::AtomicU16;
+#[cfg(not(feature = "large_refs"))]
+type RefPrimitiveType = u16;
+
 pub(crate) struct SomrInner<T> {
     data: Option<UnsafeCell<T>>,
-    /// increase the size when we really meet the the secenerio with refs more
+    /// increase the size when we really meet the the scenario with refs more
     /// then u16::MAX(65535) times
-    refs: AtomicU32,
+    refs: RefAtomicType,
     _marker: PhantomData<Option<T>>,
 }
 
@@ -66,7 +76,7 @@ impl<T> Somr<T> {
     pub fn new(data: T) -> Self {
         let inner = Box::new(SomrInner {
             data: Some(UnsafeCell::new(data)),
-            refs: AtomicU32::new(1),
+            refs: RefAtomicType::new(1),
             _marker: PhantomData,
         });
 
@@ -213,7 +223,7 @@ impl<T> Clone for Somr<T> {
 
         let old_size = inner.refs.fetch_add(1, Ordering::Relaxed);
 
-        if old_size == u32::MAX {
+        if old_size == RefPrimitiveType::MAX {
             panic!("Too many refs on Somr, maybe we need to increase the limitation now.")
         }
 

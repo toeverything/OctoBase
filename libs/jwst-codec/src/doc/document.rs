@@ -14,7 +14,6 @@ use crate::sync::{Arc, RwLock};
 ///
 /// assert!(doc.guid(), "guid")
 /// ```
-///
 #[derive(Clone, Debug)]
 pub struct DocOptions {
     pub guid: String,

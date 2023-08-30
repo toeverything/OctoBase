@@ -10,7 +10,7 @@ pub use doc::{
     merge_updates_v1, Any, Array, Awareness, AwarenessEvent, Client, Clock, CrdtRead, CrdtReader, CrdtWrite,
     CrdtWriter, Doc, DocOptions, Id, Map, RawDecoder, RawEncoder, StateVector, Text, Update, Value,
 };
-pub(crate) use doc::{Content, Item};
+pub(crate) use doc::{Content, Item, HASHMAP_SAFE_CAPACITY};
 use jwst_logger::{debug, warn};
 use nom::IResult;
 pub use protocol::{

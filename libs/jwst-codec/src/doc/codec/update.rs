@@ -25,20 +25,15 @@ impl<R: CrdtReader> CrdtRead<R> for Update {
     fn read(decoder: &mut R) -> JwstCodecResult<Self> {
         let num_of_clients = decoder.read_var_u64()? as usize;
 
-        // NOTE:
-        //   We do not use [HashMap::with_capacity(num_of_clients)] directly here because we don't trust the input data.
-        //   For instance, what if the first u64 was somehow set a very big value?
-        //   A pre-allocated HashMap with a big capacity may cause OOM.
-        //   A kinda safer approach is give it a max capacity of 1024 at first allocation,
-        //     and then let std makes the growth as need.
-        let mut map = HashMap::with_capacity(num_of_clients.min(1 << 10));
+        // See: [HASHMAP_SAFE_CAPACITY]
+        let mut map = HashMap::with_capacity(num_of_clients.min(HASHMAP_SAFE_CAPACITY));
         for _ in 0..num_of_clients {
             let num_of_structs = decoder.read_var_u64()? as usize;
             let client = decoder.read_var_u64()?;
             let mut clock = decoder.read_var_u64()?;
 
             // same reason as above
-            let mut structs = VecDeque::with_capacity(num_of_structs.min(1 << 10));
+            let mut structs = VecDeque::with_capacity(num_of_structs.min(HASHMAP_SAFE_CAPACITY));
 
             for _ in 0..num_of_structs {
                 let struct_info = Node::read(decoder, Id::new(client, clock))?;

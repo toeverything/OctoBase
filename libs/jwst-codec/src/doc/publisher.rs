@@ -5,6 +5,8 @@ use crate::sync::{Arc, AtomicBool, Mutex, Ordering, RwLock};
 
 pub type DocSubscriber = Box<dyn Fn(&[u8]) + Sync + Send + 'static>;
 
+const OBSERVE_INTERVAL: u64 = 100;
+
 pub struct DocPublisher {
     store: StoreRef,
     subscribers: Arc<RwLock<Vec<DocSubscriber>>>,
@@ -41,7 +43,7 @@ impl DocPublisher {
             let thread = std::thread::spawn(move || {
                 let mut last_update = store.read().unwrap().get_state_vector();
                 loop {
-                    std::thread::sleep(std::time::Duration::from_millis(100));
+                    std::thread::sleep(std::time::Duration::from_millis(OBSERVE_INTERVAL));
                     if !observing.load(Ordering::Acquire) {
                         debug!("stop observing");
                         break;

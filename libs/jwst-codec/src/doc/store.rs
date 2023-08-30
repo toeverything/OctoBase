@@ -757,8 +757,8 @@ impl DocStore {
     pub fn optimize(&mut self) -> JwstCodecResult {
         //  1. gc delete set
         self.gc_delete_set()?;
-        //  2. merge delete set (in our delete set impl, which is based on `OrderRange` has already have auto-merge functionality)
-        //     pass
+        //  2. merge delete set (in our delete set impl, which is based on `OrderRange`
+        //     has already have auto-merge functionality) pass
         //  3. merge same content siblings, e.g contentString + ContentString
         self.make_continuous()
     }
@@ -802,7 +802,7 @@ impl DocStore {
 
     fn gc_item(items: &mut VecDeque<Node>, idx: usize, replace: bool) -> JwstCodecResult {
         if let Node::Item(item_ref) = items[idx].clone() {
-            let item = unsafe {item_ref.get_unchecked()};
+            let item = unsafe { item_ref.get_unchecked() };
 
             if !item.deleted() {
                 return Err(JwstCodecError::Unexpected);
@@ -813,8 +813,7 @@ impl DocStore {
             if replace {
                 let _ = mem::replace(&mut items[idx], Node::new_gc(item.id, item.len()));
             } else {
-
-                let mut item = unsafe {item_ref.get_mut_unchecked()};
+                let mut item = unsafe { item_ref.get_mut_unchecked() };
                 item.content = Arc::new(Content::Deleted(item.len()));
             }
         }
@@ -906,7 +905,7 @@ impl DocStore {
                         // not insertion continuous
                         || Some(litem.last_id()) != ritem.origin_left_id
                         // not insertion continuous
-                        || litem.origin_right_id != ritem.origin_right_id        
+                        || litem.origin_right_id != ritem.origin_right_id
                         // not runtime continuous
                         || litem.right_item() != rref
                     {
@@ -1183,7 +1182,8 @@ mod tests {
 
             assert_eq!(arr.len(), 0);
             assert_eq!(
-                store.get_node((1, 0))
+                store
+                    .get_node((1, 0))
                     .unwrap()
                     .as_item()
                     .get()
@@ -1229,7 +1229,7 @@ mod tests {
                             .content(Content::String(String::from("world")))
                             .left_id(Some((1, 11).into()))
                             .build(),
-                    ))
+                    )),
                 ]),
             );
 
