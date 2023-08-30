@@ -78,13 +78,14 @@ impl<R: CrdtReader> CrdtRead<R> for StateVector {
     fn read(decoder: &mut R) -> JwstCodecResult<Self> {
         let len = decoder.read_var_u64()? as usize;
 
-        let mut map = HashMap::with_capacity(len);
+        let mut map = HashMap::with_capacity(len.min(1 << 10));
         for _ in 0..len {
             let client = decoder.read_var_u64()?;
             let clock = decoder.read_var_u64()?;
             map.insert(client, clock);
         }
 
+        map.shrink_to_fit();
         Ok(Self(map))
     }
 }
