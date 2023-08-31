@@ -78,12 +78,12 @@ impl BlobDBStorage {
     pub(super) async fn get_blobs_size(&self, workspace: &str) -> Result<Option<i64>, DbErr> {
         Blobs::find()
             .filter(BlobColumn::WorkspaceId.eq(workspace))
-            .column_as(BlobColumn::Length, "size")
-            .column_as(BlobColumn::CreatedAt, "created_at")
-            .into_model::<InternalBlobMetadata>()
-            .all(&self.pool)
+            .select_only()
+            .column_as(BlobColumn::Length.sum(), "size")
+            .into_tuple::<Option<i64>>()
+            .one(&self.pool)
             .await
-            .map(|r| r.into_iter().map(|f| f.size).reduce(|a, b| a + b))
+            .map(|r| r.flatten())
     }
 
     async fn insert(&self, workspace: &str, hash: &str, blob: &[u8]) -> Result<(), DbErr> {
