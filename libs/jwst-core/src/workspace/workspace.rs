@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use jwst_codec::{Awareness, Doc, Map, Update};
+use jwst_codec::{Awareness, Doc, Map};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 use tokio::sync::RwLock;
 
@@ -25,7 +25,7 @@ impl Workspace {
 
     pub fn from_binary(binary: Vec<u8>, workspace_id: &str) -> JwstResult<Self> {
         let mut doc = Doc::default();
-        doc.apply_update(Update::from_ybinary1(binary)?)?;
+        doc.apply_update_from_binary(binary)?;
         Self::from_doc(doc, workspace_id)
     }
 
@@ -130,7 +130,7 @@ mod test {
             let update = doc.encode_state_as_update_v1(&StateVector::default()).unwrap();
 
             let mut doc = Doc::default();
-            doc.apply_update(Update::from_ybinary1(update).unwrap()).unwrap();
+            doc.apply_update_from_binary(update).unwrap();
             doc
         };
 
@@ -236,7 +236,7 @@ mod test {
         let data = doc.encode_state_as_update_v1(&StateVector::default()).unwrap();
 
         let mut doc = Doc::default();
-        doc.apply_update(Update::from_ybinary1(data).unwrap()).unwrap();
+        doc.apply_update_from_binary(data).unwrap();
 
         assert_eq!(doc.keys(), vec!["test"]);
     }
@@ -256,7 +256,7 @@ mod test {
 
         for _ in 0..=2 {
             let mut doc = Doc::default();
-            doc.apply_update(Update::from_ybinary1(update).unwrap()).unwrap();
+            doc.apply_update_from_binary(update).unwrap();
 
             update = doc.encode_state_as_update_v1(&StateVector::default()).unwrap();
         }
@@ -276,8 +276,7 @@ mod test {
         };
         let update1 = {
             let mut doc = Doc::default();
-            doc.apply_update(Update::from_ybinary1(update.clone()).unwrap())
-                .unwrap();
+            doc.apply_update_from_binary(update.clone()).unwrap();
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             {
                 let mut space = ws.get_space("space").unwrap();
@@ -290,7 +289,7 @@ mod test {
         };
         let update2 = {
             let mut doc = Doc::default();
-            doc.apply_update(Update::from_ybinary1(update).unwrap()).unwrap();
+            doc.apply_update_from_binary(update).unwrap();
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             {
                 let mut space = ws.get_space("space").unwrap();
@@ -304,10 +303,8 @@ mod test {
 
         {
             let mut doc = Doc::default();
-            doc.apply_update(Update::from_ybinary1(update1.clone()).unwrap())
-                .unwrap();
-            doc.apply_update(Update::from_ybinary1(update2.clone()).unwrap())
-                .unwrap();
+            doc.apply_update_from_binary(update1.clone()).unwrap();
+            doc.apply_update_from_binary(update2.clone()).unwrap();
 
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             let block = {
@@ -325,14 +322,12 @@ mod test {
             }
         }
 
-        // TODO: fix merge update
+        // // WONT FIX: after merging updates, some CRDT information may be
+        // // lost, making it impossible to merge completely.
         // {
         //     let merged_update = merge_updates_v1(&[&update1,
         // &update2]).unwrap();     let mut doc = Doc::default();
-        //     doc.apply_update(
-        //         Update::from_ybinary1(merged_update.into_ybinary1().
-        // unwrap()).unwrap(),     )
-        //     .unwrap();
+        //     doc.apply_update(merged_update).unwrap();
 
         //     let mut ws = Workspace::from_doc(doc, "test").unwrap();
         //     let block = {
@@ -347,10 +342,7 @@ mod test {
         //         let mut children = block.children();
         //         children.sort();
         //         assert_eq!(children, vec!["test1".to_owned(),
-        // "test2".to_owned()]);         //
-        // assert_eq!(block.get("test1").unwrap().to_string(), "test1");
-        //         // assert_eq!(block.get("test2").unwrap().to_string(),
-        // "test2");     }
+        // "test2".to_owned()]);     }
         // }
     }
 
@@ -365,8 +357,7 @@ mod test {
 
         let update1 = {
             let mut doc = Doc::default();
-            doc.apply_update(Update::from_ybinary1(update.clone()).unwrap())
-                .unwrap();
+            doc.apply_update_from_binary(update.clone()).unwrap();
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             {
                 let mut space = ws.get_space("space").unwrap();
@@ -379,15 +370,13 @@ mod test {
         };
         let update2 = {
             let mut doc = Doc::default();
-            doc.apply_update(Update::from_ybinary1(update).unwrap()).unwrap();
+            doc.apply_update_from_binary(update).unwrap();
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             {
                 let mut space = ws.get_space("space").unwrap();
-                let mut _new_block = space.create("test2", "test2").unwrap();
-                // TODO: fix merge update crash if we create same block in two
-                // doc then merge them let mut block =
-                // space.create("test", "test1").unwrap();
-                // block.insert_children_at(&mut new_block, 0).unwrap();
+                let mut new_block = space.create("test2", "test2").unwrap();
+                let mut block = space.create("test", "test1").unwrap();
+                block.insert_children_at(&mut new_block, 0).unwrap();
             }
 
             ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
@@ -395,10 +384,8 @@ mod test {
 
         {
             let mut doc = Doc::default();
-            doc.apply_update(Update::from_ybinary1(update1.clone()).unwrap())
-                .unwrap();
-            doc.apply_update(Update::from_ybinary1(update2.clone()).unwrap())
-                .unwrap();
+            doc.apply_update_from_binary(update1.clone()).unwrap();
+            doc.apply_update_from_binary(update2.clone()).unwrap();
 
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             let block = {
@@ -416,7 +403,8 @@ mod test {
             }
         }
 
-        // TODO: fix merge update
+        // // WONT FIX: after merging updates, some CRDT information may be
+        // // lost, making it impossible to merge completely.
         // {
         //     let merged_update = merge_updates_v1(&[&update1,
         // &update2]).unwrap();     let mut doc = Doc::default();
