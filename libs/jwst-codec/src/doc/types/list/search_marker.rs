@@ -10,9 +10,9 @@ use super::*;
 const MAX_SEARCH_MARKER: usize = 80;
 
 #[derive(Clone, Debug)]
-pub struct SearchMarker {
-    pub(super) ptr: Somr<Item>,
-    pub(super) index: u64,
+pub(crate) struct SearchMarker {
+    pub ptr: Somr<Item>,
+    pub index: u64,
 }
 
 impl SearchMarker {
@@ -39,7 +39,7 @@ impl SearchMarker {
 /// instance behind [RwLock] guard already, so it's safe to make the list
 /// internal mutable.
 #[derive(Debug)]
-pub struct MarkerList(RefCell<VecDeque<SearchMarker>>);
+pub(crate) struct MarkerList(RefCell<VecDeque<SearchMarker>>);
 
 impl Deref for MarkerList {
     type Target = RefCell<VecDeque<SearchMarker>>;
@@ -56,7 +56,7 @@ impl DerefMut for MarkerList {
 }
 
 impl MarkerList {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         MarkerList(RefCell::new(VecDeque::new()))
     }
 
@@ -74,7 +74,7 @@ impl MarkerList {
     }
 
     // update mark position if the index is within the range of the marker
-    pub(super) fn update_marker_changes(&self, index: u64, len: i64) {
+    pub fn update_marker_changes(&self, index: u64, len: i64) {
         let mut list = self.borrow_mut();
 
         for marker in list.iter_mut() {
@@ -107,7 +107,7 @@ impl MarkerList {
     }
 
     // find and return the marker that is closest to the index
-    pub(super) fn find_marker(&self, parent: &YType, index: u64) -> Option<SearchMarker> {
+    pub fn find_marker(&self, parent: &YType, index: u64) -> Option<SearchMarker> {
         if parent.start.is_none() || index == 0 {
             return None;
         }
@@ -201,8 +201,19 @@ impl MarkerList {
     }
 
     #[allow(dead_code)]
-    pub(super) fn get_last_marker(&self) -> Option<SearchMarker> {
+    pub fn get_last_marker(&self) -> Option<SearchMarker> {
         self.borrow().back().cloned()
+    }
+
+    pub fn replace_marker(&self, raw: Somr<Item>, new: Somr<Item>, len_shift: i64) {
+        let mut list = self.borrow_mut();
+
+        for marker in list.iter_mut() {
+            if marker.ptr == raw {
+                marker.ptr = new.clone();
+                marker.index = ((marker.index as i64) + len_shift) as u64;
+            }
+        }
     }
 }
 

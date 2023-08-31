@@ -896,6 +896,7 @@ impl DocStore {
                 (Node::Item(lref), Node::Item(rref)) => {
                     let mut litem = unsafe { lref.get_mut_unchecked() };
                     let mut ritem = unsafe { rref.get_mut_unchecked() };
+                    let llen = litem.len();
 
                     if litem.id.client != ritem.id.client
                         // not same delete status
@@ -928,6 +929,25 @@ impl DocStore {
                         _ => {
                             break;
                         }
+                    }
+
+                    if let Some(Parent::Type(p)) = &litem.parent {
+                        if let Some(parent) = p.ty_mut() {
+                            if let Some(markers) = &parent.markers {
+                                markers.replace_marker(rref.clone(), lref.clone(), -(llen as i64));
+                            }
+                        }
+                    }
+
+                    if ritem.keep() {
+                        litem.flags.set_keep()
+                    }
+
+                    litem.right = ritem.right.clone();
+
+                    if let Some(Node::Item(right)) = &litem.right {
+                        let mut right = unsafe { right.get_mut_unchecked() };
+                        right.left = Some(Node::Item(lref.clone()))
                     }
                 }
                 _ => {
