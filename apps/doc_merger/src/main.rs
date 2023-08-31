@@ -73,22 +73,30 @@ fn jwst_merge(path: &str, output: &str) {
     }
     doc.gc().unwrap();
 
-    let json = serde_json::to_string_pretty(&doc.get_map("space:blocks").unwrap()).unwrap();
-    let binary = doc.encode_update_v1().unwrap();
-
-    let new_json = {
-        let mut doc = Doc::default();
-        doc.apply_update_from_binary(binary.clone()).unwrap();
-        serde_json::to_string_pretty(&doc.get_map("space:blocks").unwrap()).unwrap()
+    let binary = {
+        // let json =
+        // serde_json::to_string_pretty(&doc.get_map("space:blocks").unwrap()).unwrap();
+        // println!("json {} bytes", json.len());
+        let binary = doc.encode_update_v1().unwrap();
+        drop(doc);
+        println!("merged {} bytes", binary.len());
+        std::io::stdin().read_line(&mut String::new()).unwrap();
+        binary
     };
 
-    println!(
-        "merged {} bytes, json {} bytes, new json {} bytes",
-        binary.len(),
-        json.len(),
-        new_json.len()
-    );
-    std::io::stdin().read_line(&mut String::new()).unwrap();
+    {
+        let mut doc = Doc::default();
+        doc.apply_update_from_binary(binary.clone()).unwrap();
+        let new_binary = doc.encode_update_v1().unwrap();
+        let new_json = serde_json::to_string_pretty(&doc.get_map("space:blocks").unwrap()).unwrap();
+
+        println!(
+            "re-encoded {} bytes,  new json {} bytes",
+            new_binary.len(),
+            new_json.len()
+        );
+        std::io::stdin().read_line(&mut String::new()).unwrap();
+    }
     write(output, binary).unwrap();
 }
 
