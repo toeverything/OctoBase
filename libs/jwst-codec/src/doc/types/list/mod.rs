@@ -2,7 +2,7 @@ mod iterator;
 mod search_marker;
 
 pub(crate) use iterator::ListIterator;
-pub use search_marker::MarkerList;
+pub(crate) use search_marker::MarkerList;
 
 use super::*;
 

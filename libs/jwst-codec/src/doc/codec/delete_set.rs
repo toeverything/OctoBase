@@ -135,7 +135,8 @@ impl DeleteSet {
 impl<R: CrdtReader> CrdtRead<R> for DeleteSet {
     fn read(decoder: &mut R) -> JwstCodecResult<Self> {
         let num_of_clients = decoder.read_var_u64()? as usize;
-        let mut map = HashMap::with_capacity(num_of_clients);
+        // See: [HASHMAP_SAFE_CAPACITY]
+        let mut map = HashMap::with_capacity(num_of_clients.min(HASHMAP_SAFE_CAPACITY));
 
         for _ in 0..num_of_clients {
             let client = decoder.read_var_u64()?;
@@ -143,6 +144,7 @@ impl<R: CrdtReader> CrdtRead<R> for DeleteSet {
             map.insert(client, deletes);
         }
 
+        map.shrink_to_fit();
         Ok(DeleteSet(map))
     }
 }

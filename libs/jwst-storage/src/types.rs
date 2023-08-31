@@ -10,7 +10,7 @@ pub enum JwstStorageError {
     CreateDataFolder(std::io::Error),
     #[error("db manipulate error: {0}")]
     Crud(String),
-    #[error("db error")]
+    #[error("db error: {0:?}")]
     Db(#[from] sea_orm::DbErr),
     #[error("doc codec error")]
     DocJwstCodec(#[from] JwstCodecError),

@@ -3,7 +3,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::{Client, Clock, CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, Id, JwstCodecResult};
+use crate::{Client, Clock, CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, Id, JwstCodecResult, HASHMAP_SAFE_CAPACITY};
 
 #[derive(Default, Debug, PartialEq, Clone)]
 pub struct StateVector(HashMap<Client, Clock>);
@@ -78,13 +78,15 @@ impl<R: CrdtReader> CrdtRead<R> for StateVector {
     fn read(decoder: &mut R) -> JwstCodecResult<Self> {
         let len = decoder.read_var_u64()? as usize;
 
-        let mut map = HashMap::with_capacity(len);
+        // See: [HASHMAP_SAFE_CAPACITY]
+        let mut map = HashMap::with_capacity(len.min(HASHMAP_SAFE_CAPACITY));
         for _ in 0..len {
             let client = decoder.read_var_u64()?;
             let clock = decoder.read_var_u64()?;
             map.insert(client, clock);
         }
 
+        map.shrink_to_fit();
         Ok(Self(map))
     }
 }

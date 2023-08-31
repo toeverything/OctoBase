@@ -763,8 +763,8 @@ impl DocStore {
     pub fn optimize(&mut self) -> JwstCodecResult {
         //  1. gc delete set
         self.gc_delete_set()?;
-        //  2. merge delete set (in our delete set impl, which is based on `OrderRange` has already have auto-merge functionality)
-        //     pass
+        //  2. merge delete set (in our delete set impl, which is based on `OrderRange`
+        //     has already have auto-merge functionality) pass
         //  3. merge same content siblings, e.g contentString + ContentString
         self.make_continuous()
     }
@@ -808,7 +808,7 @@ impl DocStore {
 
     fn gc_item(items: &mut VecDeque<Node>, idx: usize, replace: bool) -> JwstCodecResult {
         if let Node::Item(item_ref) = items[idx].clone() {
-            let item = unsafe {item_ref.get_unchecked()};
+            let item = unsafe { item_ref.get_unchecked() };
 
             if !item.deleted() {
                 return Err(JwstCodecError::Unexpected);
@@ -819,8 +819,7 @@ impl DocStore {
             if replace {
                 let _ = mem::replace(&mut items[idx], Node::new_gc(item.id, item.len()));
             } else {
-
-                let mut item = unsafe {item_ref.get_mut_unchecked()};
+                let mut item = unsafe { item_ref.get_mut_unchecked() };
                 item.content = Arc::new(Content::Deleted(item.len()));
             }
         }
@@ -903,6 +902,7 @@ impl DocStore {
                 (Node::Item(lref), Node::Item(rref)) => {
                     let mut litem = unsafe { lref.get_mut_unchecked() };
                     let mut ritem = unsafe { rref.get_mut_unchecked() };
+                    let llen = litem.len();
 
                     if litem.id.client != ritem.id.client
                         // not same delete status
@@ -912,7 +912,7 @@ impl DocStore {
                         // not insertion continuous
                         || Some(litem.last_id()) != ritem.origin_left_id
                         // not insertion continuous
-                        || litem.origin_right_id != ritem.origin_right_id        
+                        || litem.origin_right_id != ritem.origin_right_id
                         // not runtime continuous
                         || litem.right_item() != rref
                     {
@@ -935,6 +935,25 @@ impl DocStore {
                         _ => {
                             break;
                         }
+                    }
+
+                    if let Some(Parent::Type(p)) = &litem.parent {
+                        if let Some(parent) = p.ty_mut() {
+                            if let Some(markers) = &parent.markers {
+                                markers.replace_marker(rref.clone(), lref.clone(), -(llen as i64));
+                            }
+                        }
+                    }
+
+                    if ritem.keep() {
+                        litem.flags.set_keep()
+                    }
+
+                    litem.right = ritem.right.clone();
+
+                    if let Some(Node::Item(right)) = &litem.right {
+                        let mut right = unsafe { right.get_mut_unchecked() };
+                        right.left = Some(Node::Item(lref.clone()))
                     }
                 }
                 _ => {
@@ -1189,7 +1208,8 @@ mod tests {
 
             assert_eq!(arr.len(), 0);
             assert_eq!(
-                store.get_node((1, 0))
+                store
+                    .get_node((1, 0))
                     .unwrap()
                     .as_item()
                     .get()
@@ -1235,7 +1255,7 @@ mod tests {
                             .content(Content::String(String::from("world")))
                             .left_id(Some((1, 11).into()))
                             .build(),
-                    ))
+                    )),
                 ]),
             );
 

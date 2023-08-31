@@ -23,15 +23,17 @@ pub struct Update {
 
 impl<R: CrdtReader> CrdtRead<R> for Update {
     fn read(decoder: &mut R) -> JwstCodecResult<Self> {
-        let num_of_clients = decoder.read_var_u64()?;
+        let num_of_clients = decoder.read_var_u64()? as usize;
 
-        let mut map = HashMap::with_capacity(num_of_clients as usize);
+        // See: [HASHMAP_SAFE_CAPACITY]
+        let mut map = HashMap::with_capacity(num_of_clients.min(HASHMAP_SAFE_CAPACITY));
         for _ in 0..num_of_clients {
-            let num_of_structs = decoder.read_var_u64()?;
+            let num_of_structs = decoder.read_var_u64()? as usize;
             let client = decoder.read_var_u64()?;
             let mut clock = decoder.read_var_u64()?;
 
-            let mut structs = VecDeque::with_capacity(num_of_structs as usize);
+            // same reason as above
+            let mut structs = VecDeque::with_capacity(num_of_structs.min(HASHMAP_SAFE_CAPACITY));
 
             for _ in 0..num_of_structs {
                 let struct_info = Node::read(decoder, Id::new(client, clock))?;
@@ -39,8 +41,11 @@ impl<R: CrdtReader> CrdtRead<R> for Update {
                 structs.push_back(struct_info);
             }
 
+            structs.shrink_to_fit();
             map.insert(client, structs);
         }
+
+        map.shrink_to_fit();
 
         let delete_set = DeleteSet::read(decoder)?;
 
