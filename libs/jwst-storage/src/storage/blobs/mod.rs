@@ -9,7 +9,6 @@ use jwst::{BlobMetadata, BlobStorage};
 #[cfg(test)]
 pub use local_db::blobs_storage_test;
 use local_db::BlobDBStorage;
-use sea_orm::FromQueryResult;
 use thiserror::Error;
 use tokio::task::JoinError;
 pub use utils::BucketStorageBuilder;
