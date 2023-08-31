@@ -98,14 +98,18 @@ impl BlobBucketDBStorage {
     }
 
     async fn get_blobs_size(&self, workspace: &str) -> Result<Option<i64>, DbErr> {
+        #[derive(FromQueryResult)]
+        struct Count {
+            size: i64,
+        }
+
         BucketBlobs::find()
             .filter(BucketBlobColumn::WorkspaceId.eq(workspace))
-            .column_as(BucketBlobColumn::Length, "size")
-            .column_as(BucketBlobColumn::CreatedAt, "created_at")
-            .into_model::<InternalBlobMetadata>()
-            .all(&self.pool)
+            .column_as(BucketBlobColumn::Length.sum(), "size")
+            .into_model::<Count>()
+            .one(&self.pool)
             .await
-            .map(|r| r.into_iter().map(|f| f.size).reduce(|a, b| a + b))
+            .map(|r| r.map(|c| c.size))
     }
 
     async fn insert(&self, workspace: &str, hash: &str, blob: &[u8]) -> Result<(), DbErr> {
