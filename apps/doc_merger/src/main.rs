@@ -101,7 +101,7 @@ fn jwst_merge(path: &str, output: &str) {
 }
 
 fn yrs_merge(path: &str, output: &str) {
-    let updates = load_path(&path).unwrap();
+    let updates = load_path(path).unwrap();
 
     let doc = yrs::Doc::new();
     for (i, update) in updates.iter().enumerate() {
@@ -121,6 +121,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore = "only for debug"]
     fn test_gc() {
         jwst_merge("/Users/ds/Downloads/out", "/Users/ds/Downloads/out.jwst");
     }
