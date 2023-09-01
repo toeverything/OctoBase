@@ -9,7 +9,7 @@ impl Iterator for ListIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(item) = self.cur.clone().get() {
-            let cur = std::mem::replace(&mut self.cur, item.right.clone().into());
+            let cur = std::mem::replace(&mut self.cur, item.right.clone());
             if item.deleted() {
                 continue;
             }

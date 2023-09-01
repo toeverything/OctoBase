@@ -16,17 +16,19 @@ impl ItemBuilder {
         self
     }
 
-    pub fn left(mut self, left: Option<Node>) -> ItemBuilder {
-        let origin_id = left.as_ref().map(|i| i.last_id());
-        self.item.left = left;
-        self.item.origin_left_id = origin_id;
+    pub fn left(mut self, left: Somr<Item>) -> ItemBuilder {
+        if let Some(l) = left.get() {
+            self.item.origin_left_id = Some(l.last_id());
+            self.item.left = left;
+        }
         self
     }
 
-    pub fn right(mut self, right: Option<Node>) -> ItemBuilder {
-        let origin_id = right.as_ref().map(|i| i.id());
-        self.item.right = right;
-        self.item.origin_right_id = origin_id;
+    pub fn right(mut self, right: Somr<Item>) -> ItemBuilder {
+        if let Some(r) = right.get() {
+            self.item.origin_right_id = Some(r.id);
+            self.item.right = right;
+        }
         self
     }
 

@@ -217,40 +217,43 @@ impl DocStore {
 
         let node = items.get(idx).unwrap().clone();
         debug_assert!(node.is_item());
-        let (left_node, right_node) = node.split_at(diff)?;
-        match (&node, &left_node, &right_node) {
-            (Node::Item(raw_left_item), Node::Item(new_left_item), Node::Item(right_item)) => {
-                // SAFETY:
-                // we make sure store is the only entry of mutating an item,
-                // and we already hold mutable reference of store, so it's safe to do so
-                unsafe {
-                    let mut left_item = raw_left_item.get_mut_unchecked();
-                    let mut right_item = right_item.get_mut_unchecked();
-                    left_item.content = new_left_item.get_unchecked().content.clone();
+        if let Node::Item(item_ref) = &node {
+            let item = item_ref.get().unwrap();
 
-                    // we had the correct left/right content
-                    // now build the references
-                    let right_right_ref = ItemRef::from(&left_item.right);
-                    right_item.left = if right_right_ref.is_some() {
-                        let mut right_right = right_right_ref.get_mut_unchecked();
-                        right_right.left.replace(right_node.clone())
-                    } else {
-                        Some(node.clone())
-                    };
-                    right_item.right = left_item.right.replace(right_node.clone());
-                    right_item.origin_left_id = Some(left_item.last_id());
-                    right_item.origin_right_id = left_item.origin_right_id;
+            let (left, right) = item.split_at(diff)?;
+
+            let left_ref = Somr::new(left);
+            let right_ref = Somr::new(right);
+
+            // SAFETY:
+            // we make sure store is the only entry of mutating an item,
+            // and we already hold mutable reference of store, so it's safe to do so
+            unsafe {
+                let mut left_item = item_ref.get_mut_unchecked();
+                let mut right_item = right_ref.get_mut_unchecked();
+                left_item.content = left_ref.get_unchecked().content.clone();
+
+                // we had the correct left/right content
+                // now build the references
+                let right_right_ref = left_item.right.clone();
+                right_item.left = if right_right_ref.is_some() {
+                    let mut right_right = right_right_ref.get_mut_unchecked();
+                    mem::replace(&mut right_right.left, right_ref.clone())
+                } else {
+                    item_ref.clone()
                 };
-            }
-            _ => {
-                items[idx] = left_node;
-            }
+                right_item.right = mem::replace(&mut left_item.right, right_ref.clone());
+                right_item.origin_left_id = Some(left_item.last_id());
+                right_item.origin_right_id = left_item.origin_right_id;
+            };
+
+            let right = Node::Item(right_ref);
+            let right_ref = right.clone();
+            items.insert(idx + 1, right);
+            Ok((node, right_ref))
+        } else {
+            Err(JwstCodecError::ItemSplitNotSupport)
         }
-
-        let right_ref = right_node.clone();
-        items.insert(idx + 1, right_node);
-
-        Ok((node, right_ref))
     }
 
     pub fn split_at_and_get_right<I: Into<Id>>(&mut self, id: I) -> JwstCodecResult<Node> {
@@ -337,11 +340,21 @@ impl DocStore {
     ///     - [None] means borrow left.parent or right.parent
     pub fn repair(&mut self, item: &mut Item, store_ref: StoreRef) -> JwstCodecResult {
         if let Some(left_id) = item.origin_left_id {
-            item.left = Some(self.split_at_and_get_left(left_id)?);
+            if let Node::Item(left_ref) = self.split_at_and_get_left(left_id)? {
+                item.origin_left_id = left_ref.get().map(|left| left.last_id());
+                item.left = left_ref;
+            } else {
+                item.origin_left_id = None;
+            }
         }
 
         if let Some(right_id) = item.origin_right_id {
-            item.right = Some(self.split_at_and_get_right(right_id)?);
+            if let Node::Item(right_ref) = self.split_at_and_get_right(right_id)? {
+                item.origin_right_id = right_ref.get().map(|right| right.id);
+                item.right = right_ref;
+            } else {
+                item.origin_right_id = None;
+            }
         }
 
         match &item.parent {
@@ -417,9 +430,9 @@ impl DocStore {
 
     pub fn integrate(&mut self, mut node: Node, offset: u64, parent: Option<&mut YType>) -> JwstCodecResult {
         match &mut node {
-            Node::Item(item) => {
+            Node::Item(item_owner_ref) => {
                 assert!(
-                    item.is_owned(),
+                    item_owner_ref.is_owned(),
                     "Required a owned Item type but got an shared reference"
                 );
 
@@ -427,13 +440,16 @@ impl DocStore {
                 // before we integrate struct into store,
                 // the struct => Arc<Item> is owned reference actually,
                 // no one else refer to such item yet, we can safely mutable refer to it now.
-                let this = &mut *unsafe { item.get_mut_unchecked() };
+                let this = &mut *unsafe { item_owner_ref.get_mut_unchecked() };
 
                 if offset > 0 {
                     this.id.clock += offset;
-                    let left = self.split_at_and_get_left(Id::new(this.id.client, this.id.clock - 1))?;
-                    this.origin_left_id = Some(left.last_id());
-                    this.left = Some(left);
+                    if let Node::Item(left_ref) =
+                        self.split_at_and_get_left(Id::new(this.id.client, this.id.clock - 1))?
+                    {
+                        this.origin_left_id = left_ref.get().map(|left| left.last_id());
+                        this.left = left_ref;
+                    }
                     this.content = Arc::new(this.content.split(offset)?.1);
                 }
 
@@ -448,16 +464,16 @@ impl DocStore {
                         return Ok(());
                     };
 
-                    let mut left: ItemRef = this.left.as_ref().into();
-                    let mut right: ItemRef = this.right.as_ref().into();
+                    let mut left = this.left.clone();
+                    let mut right = this.right.clone();
 
                     let right_is_null_or_has_left = match right.get() {
                         None => true,
-                        Some(r) => ItemRef::from(&r.left).is_some(),
+                        Some(r) => r.left.is_some(),
                     };
 
                     let left_has_other_right_than_self = match left.get() {
-                        Some(left) => ItemRef::from(&left.right) != right,
+                        Some(left) => left.right != right,
                         _ => false,
                     };
 
@@ -465,7 +481,7 @@ impl DocStore {
                     if (left.is_none() && right_is_null_or_has_left) || left_has_other_right_than_self {
                         // set the first conflicting item
                         let mut conflict = if let Some(left) = left.get() {
-                            left.right.as_ref().into()
+                            left.right.clone()
                         } else if let Some(parent_sub) = &this.parent_sub {
                             parent.map.get(parent_sub).cloned().unwrap_or(Somr::none())
                         } else {
@@ -507,7 +523,7 @@ impl DocStore {
                                     break;
                                 }
 
-                                conflict = ItemRef::from(&conflict_item.right);
+                                conflict = conflict_item.right.clone();
                             } else {
                                 break;
                             }
@@ -520,17 +536,18 @@ impl DocStore {
                         unsafe {
                             // SAFETY: we get store write lock, no way the left get dropped by owner
                             let mut left = left.get_mut_unchecked();
-                            right = left.right.replace(Node::Item(item.clone())).into();
+                            right = left.right.clone();
+                            left.right = item_owner_ref.clone();
                         }
-                        this.left = Some(Node::Item(left));
+                        this.left = left.clone();
                     } else {
                         // no left, parent.start = this
                         right = if let Some(parent_sub) = &this.parent_sub {
                             parent.map.get(parent_sub).map(|n| Node::Item(n.clone()).head()).into()
                         } else {
-                            mem::replace(&mut parent.start, item.clone())
+                            mem::replace(&mut parent.start, item_owner_ref.clone())
                         };
-                        this.left = None;
+                        this.left = Somr::none();
                     }
 
                     // has right, connect
@@ -538,16 +555,16 @@ impl DocStore {
                         unsafe {
                             // SAFETY: we get store write lock, no way the left get dropped by owner
                             let mut right = right.get_mut_unchecked();
-                            right.left = Some(Node::Item(item.clone()));
+                            right.left = item_owner_ref.clone();
                         }
-                        this.right = Some(Node::Item(right))
+                        this.right = right.clone();
                     } else {
                         // no right, parent.start = this, delete this.left
                         if let Some(parent_sub) = &this.parent_sub {
-                            parent.map.insert(parent_sub.to_string(), item.clone());
+                            parent.map.insert(parent_sub.to_string(), item_owner_ref.clone());
 
-                            if let Some(left) = &this.left {
-                                self.delete_node(left, Some(parent));
+                            if let Some(left) = this.left.get() {
+                                self.delete_item(left, Some(parent));
                             }
                         }
                     }
@@ -556,7 +573,7 @@ impl DocStore {
 
                     // should delete
                     if parent_deleted || this.parent_sub.is_some() && this.right.is_some() {
-                        self.delete_node(&Node::Item(item.clone()), Some(parent));
+                        self.delete_node(&Node::Item(item_owner_ref.clone()), Some(parent));
                     } else {
                         // adjust parent length
                         if this.parent_sub.is_none() {
@@ -607,14 +624,9 @@ impl DocStore {
                     // items in ty are all refs, not owned
                     let mut item_ref = ty.start.clone();
                     while let Some(item) = item_ref.get() {
-                        // delete_set
                         Self::delete_item_inner(delete_set, item, Some(&mut ty));
 
-                        if let Some(right) = &item.right {
-                            item_ref = right.as_item();
-                        } else {
-                            item_ref = Somr::none();
-                        }
+                        item_ref = item.right.clone();
                     }
 
                     let map_values = ty.map.values().cloned().collect::<Vec<_>>();
@@ -858,11 +870,7 @@ impl DocStore {
 
                     // we need to iter to right first, because we may delete the owned item
                     // by replacing it with [Node::GC]
-                    if let Some(right) = &item.right {
-                        item_ref = right.as_item();
-                    } else {
-                        item_ref = Somr::none();
-                    }
+                    item_ref = item.right.clone();
 
                     Self::gc_item_by_id(items, id, true)?;
                 }
@@ -912,73 +920,8 @@ impl DocStore {
             let right = nodes.get(pos).unwrap().clone();
             let left = nodes.get_mut(pos - 1).unwrap();
 
-            match (left, right) {
-                (Node::GC(left), Node::GC(right)) => {
-                    left.len += right.len;
-                }
-                (Node::Skip(left), Node::Skip(right)) => {
-                    left.len += right.len;
-                }
-                (Node::Item(lref), Node::Item(rref)) => {
-                    let mut litem = unsafe { lref.get_mut_unchecked() };
-                    let mut ritem = unsafe { rref.get_mut_unchecked() };
-                    let llen = litem.len();
-
-                    if litem.id.client != ritem.id.client
-                        // not same delete status
-                        || litem.deleted() != ritem.deleted()
-                        // not clock continuous
-                        || litem.id.clock + litem.len() != ritem.id.clock
-                        // not insertion continuous
-                        || Some(litem.last_id()) != ritem.origin_left_id
-                        // not insertion continuous
-                        || litem.origin_right_id != ritem.origin_right_id
-                        // not runtime continuous
-                        || litem.right_item() != rref
-                    {
-                        break;
-                    }
-
-                    match (Arc::make_mut(&mut litem.content), Arc::make_mut(&mut ritem.content)) {
-                        (Content::Deleted(l), Content::Deleted(r)) => {
-                            *l += *r;
-                        }
-                        (Content::Json(l), Content::Json(r)) => {
-                            l.extend(r.drain(0..));
-                        }
-                        (Content::String(l), Content::String(r)) => {
-                            *l += r;
-                        }
-                        (Content::Any(l), Content::Any(r)) => {
-                            l.extend(r.drain(0..));
-                        }
-                        _ => {
-                            break;
-                        }
-                    }
-
-                    if let Some(Parent::Type(p)) = &litem.parent {
-                        if let Some(parent) = p.ty_mut() {
-                            if let Some(markers) = &parent.markers {
-                                markers.replace_marker(rref.clone(), lref.clone(), -(llen as i64));
-                            }
-                        }
-                    }
-
-                    if ritem.keep() {
-                        litem.flags.set_keep()
-                    }
-
-                    litem.right = ritem.right.clone();
-
-                    if let Some(Node::Item(right)) = &litem.right {
-                        let mut right = unsafe { right.get_mut_unchecked() };
-                        right.left = Some(Node::Item(lref.clone()))
-                    }
-                }
-                _ => {
-                    break;
-                }
+            if !left.merge(right) {
+                break;
             }
 
             pos -= 1;

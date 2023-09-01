@@ -1,3 +1,5 @@
+use sync::Arc;
+
 use super::*;
 
 // make fields Copy + Clone without much effort
@@ -136,7 +138,7 @@ impl Node {
 
     pub fn left(&self) -> Option<Self> {
         if let Node::Item(item) = self {
-            item.get().and_then(|item| item.left.clone())
+            item.get().map(|item| Node::Item(item.left.clone()))
         } else {
             None
         }
@@ -144,7 +146,7 @@ impl Node {
 
     pub fn right(&self) -> Option<Self> {
         if let Node::Item(item) = self {
-            item.get().and_then(|item| item.right.clone())
+            item.get().map(|item| Node::Item(item.right.clone()))
         } else {
             None
         }
@@ -188,10 +190,12 @@ impl Node {
         }
     }
 
-    pub fn last_id(&self) -> Id {
-        let Id { client, clock } = self.id();
-
-        Id::new(client, clock + self.len() - 1)
+    pub fn last_id(&self) -> Option<Id> {
+        if let Node::Item(item) = self {
+            item.get().map(|item| item.last_id())
+        } else {
+            None
+        }
     }
 
     pub fn split_at(&self, offset: u64) -> JwstCodecResult<(Self, Self)> {
@@ -237,6 +241,79 @@ impl Node {
     #[inline]
     pub fn deleted(&self) -> bool {
         self.flags().deleted()
+    }
+
+    pub fn merge(&mut self, right: Self) -> bool {
+        match (self, right) {
+            (Node::GC(left), Node::GC(right)) => {
+                left.len += right.len;
+            }
+            (Node::Skip(left), Node::Skip(right)) => {
+                left.len += right.len;
+            }
+            (Node::Item(lref), Node::Item(rref)) => {
+                let mut litem = unsafe { lref.get_mut_unchecked() };
+                let mut ritem = unsafe { rref.get_mut_unchecked() };
+                let llen = litem.len();
+
+                if litem.id.client != ritem.id.client
+                    // not same delete status
+                    || litem.deleted() != ritem.deleted()
+                    // not clock continuous
+                    || litem.id.clock + litem.len() != ritem.id.clock
+                    // not insertion continuous
+                    || Some(litem.last_id()) != ritem.origin_left_id
+                    // not insertion continuous
+                    || litem.origin_right_id != ritem.origin_right_id
+                    // not runtime continuous
+                    || litem.right != rref
+                {
+                    return false;
+                }
+
+                match (Arc::make_mut(&mut litem.content), Arc::make_mut(&mut ritem.content)) {
+                    (Content::Deleted(l), Content::Deleted(r)) => {
+                        *l += *r;
+                    }
+                    (Content::Json(l), Content::Json(r)) => {
+                        l.extend(r.drain(0..));
+                    }
+                    (Content::String(l), Content::String(r)) => {
+                        *l += r;
+                    }
+                    (Content::Any(l), Content::Any(r)) => {
+                        l.extend(r.drain(0..));
+                    }
+                    _ => {
+                        return false;
+                    }
+                }
+
+                if let Some(Parent::Type(p)) = &litem.parent {
+                    if let Some(parent) = p.ty_mut() {
+                        if let Some(markers) = &parent.markers {
+                            markers.replace_marker(rref.clone(), lref.clone(), -(llen as i64));
+                        }
+                    }
+                }
+
+                if ritem.keep() {
+                    litem.flags.set_keep()
+                }
+
+                litem.right = ritem.right.clone();
+                unsafe {
+                    if litem.right.is_some() {
+                        litem.right.get_mut_unchecked().left = lref.clone();
+                    }
+                }
+            }
+            _ => {
+                return false;
+            }
+        }
+
+        true
     }
 }
 

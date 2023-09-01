@@ -89,7 +89,7 @@ impl MarkerList {
             if len > 0 {
                 while let Some(ptr) = marker.ptr.get() {
                     if !ptr.indexable() {
-                        let left_ref: ItemRef = ptr.left.as_ref().into();
+                        let left_ref = ptr.left.clone();
                         if let Some(left) = left_ref.get() {
                             if left.indexable() {
                                 marker.index -= left.len();
@@ -140,7 +140,7 @@ impl MarkerList {
                     break;
                 }
 
-                let right_ref: ItemRef = item.right.clone().into();
+                let right_ref: ItemRef = item.right.clone();
                 if right_ref.is_some() {
                     if item.indexable() {
                         if index < marker_index + item.len() {
@@ -161,7 +161,7 @@ impl MarkerList {
                     break;
                 }
 
-                let left_ref: ItemRef = item.left.clone().into();
+                let left_ref: ItemRef = item.left.clone();
                 if let Some(left) = left_ref.get() {
                     if left.indexable() {
                         marker_index -= left.len();
@@ -177,7 +177,7 @@ impl MarkerList {
             // (it is most likely the best marker anyway) iterate to left until
             // item_ptr can't be merged with left
             while let Some(item) = item_ptr.clone().get() {
-                let left_ref: ItemRef = item.left.clone().into();
+                let left_ref: ItemRef = item.left.clone();
                 if let Some(left) = left_ref.get() {
                     if left.id.client == item.id.client && left.id.clock + left.len() == item.id.clock {
                         if left.indexable() {

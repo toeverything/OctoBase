@@ -118,10 +118,10 @@ pub(crate) struct Item {
     pub id: Id,
     pub origin_left_id: Option<Id>,
     pub origin_right_id: Option<Id>,
-    #[cfg_attr(all(test, not(loom)), proptest(value = "None"))]
-    pub left: Option<Node>,
-    #[cfg_attr(all(test, not(loom)), proptest(value = "None"))]
-    pub right: Option<Node>,
+    #[cfg_attr(all(test, not(loom)), proptest(value = "Somr::default()"))]
+    pub left: Somr<Item>,
+    #[cfg_attr(all(test, not(loom)), proptest(value = "Somr::default()"))]
+    pub right: Somr<Item>,
     pub parent: Option<Parent>,
     pub parent_sub: Option<String>,
     // make content Arc, so we can share the content between items
@@ -143,24 +143,31 @@ impl PartialEq for Item {
 
 impl std::fmt::Debug for Item {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Item")
-            .field("id", &self.id)
+        let mut dbg = f.debug_struct("Item");
+        dbg.field("id", &self.id)
             .field("origin_left_id", &self.origin_left_id)
-            .field("origin_right_id", &self.origin_right_id)
-            .field("left_id", &self.left.as_ref().map(|i| i.id()))
-            .field("right_id", &self.right.as_ref().map(|i| i.id()))
-            .field(
-                "parent",
-                &self.parent.as_ref().map(|p| match p {
-                    Parent::Type(_) => "[Type]".to_string(),
-                    Parent::String(name) => format!("Parent({name})"),
-                    Parent::Id(id) => format!("({}, {})", id.client, id.clock),
-                }),
-            )
-            .field("parent_sub", &self.parent_sub)
-            .field("content", &self.content)
-            .field("flags", &self.flags)
-            .finish()
+            .field("origin_right_id", &self.origin_right_id);
+
+        if let Some(left) = self.left.get() {
+            dbg.field("left", &left.id);
+        }
+
+        if let Some(right) = self.right.get() {
+            dbg.field("right", &right.id);
+        }
+
+        dbg.field(
+            "parent",
+            &self.parent.as_ref().map(|p| match p {
+                Parent::Type(_) => "[Type]".to_string(),
+                Parent::String(name) => format!("Parent({name})"),
+                Parent::Id(id) => format!("({}, {})", id.client, id.clock),
+            }),
+        )
+        .field("parent_sub", &self.parent_sub)
+        .field("content", &self.content)
+        .field("flags", &self.flags)
+        .finish()
     }
 }
 
@@ -176,8 +183,8 @@ impl Default for Item {
             id: Id::default(),
             origin_left_id: None,
             origin_right_id: None,
-            left: None,
-            right: None,
+            left: Somr::none(),
+            right: Somr::none(),
             parent: None,
             parent_sub: None,
             content: Arc::new(Content::Deleted(0)),
@@ -204,9 +211,9 @@ impl Item {
         Self {
             id,
             origin_left_id: left.get().map(|left| left.last_id()),
-            left: if left.is_some() { Some(Node::Item(left)) } else { None },
+            left,
             origin_right_id: right.get().map(|right| right.id),
-            right: if right.is_some() { Some(Node::Item(right)) } else { None },
+            right,
             parent,
             parent_sub,
             content: Arc::new(content),
@@ -220,15 +227,15 @@ impl Item {
     pub fn find_node_with_parent_info(&self) -> Option<Item> {
         if self.parent.is_some() {
             return Some(self.clone());
-        } else if let Some(item) = self.left_item().get() {
+        } else if let Some(item) = self.left.get() {
             if item.parent.is_none() {
-                if let Some(item) = item.right_item().get() {
+                if let Some(item) = item.right.get() {
                     return Some(item.clone());
                 }
             } else {
                 return Some(item.clone());
             }
-        } else if let Some(item) = self.right_item().get() {
+        } else if let Some(item) = self.right.get() {
             return Some(item.clone());
         }
         None
@@ -270,76 +277,57 @@ impl Item {
         Id::new(client, clock + self.len() - 1)
     }
 
-    pub fn left_item(&self) -> ItemRef {
-        self.left.as_ref().map(|n| n.as_item()).unwrap_or_default()
+    pub fn split_at(&self, offset: u64) -> JwstCodecResult<(Self, Self)> {
+        debug_assert!(offset > 0 && self.len() > 1 && offset < self.len());
+        let id = self.id;
+        let right_id = Id::new(id.client, id.clock + offset);
+        let (left_content, right_content) = self.content.split(offset)?;
+
+        let left_item = Item::new(
+            id,
+            left_content,
+            // let caller connect left <-> node <-> right
+            Somr::none(),
+            Somr::none(),
+            self.parent.clone(),
+            self.parent_sub.clone(),
+        );
+
+        let right_item = Item::new(
+            right_id,
+            right_content,
+            // let caller connect left <-> node <-> right
+            Somr::none(),
+            Somr::none(),
+            self.parent.clone(),
+            self.parent_sub.clone(),
+        );
+
+        Ok((left_item, right_item))
     }
 
-    pub fn right_item(&self) -> ItemRef {
-        self.right.as_ref().map(|n| n.as_item()).unwrap_or_default()
-    }
+    fn get_info(&self) -> u8 {
+        let mut info = self.content.get_info();
 
-    #[allow(dead_code)]
-    #[cfg(any(debug, test))]
-    pub(crate) fn print_left(&self) {
-        let mut ret = vec![format!("Self{}: [{:?}]", self.id, self.content)];
-        let mut left = self.left.clone();
-
-        while let Some(n) = left {
-            left = n.left();
-            if n.deleted() {
-                continue;
-            }
-            match &n {
-                Node::Item(item) => {
-                    ret.push(format!("{item}"));
-                }
-                Node::GC(item) => {
-                    ret.push(format!("GC{}: {}", item.id, item.len));
-                    break;
-                }
-                Node::Skip(item) => {
-                    ret.push(format!("Skip{}: {}", item.id, item.len));
-                    break;
-                }
-            }
+        if self.origin_left_id.is_some() {
+            info |= item_flags::ITEM_HAS_LEFT_ID;
         }
-        ret.reverse();
-
-        println!("{}", ret.join(" <- "));
-    }
-
-    #[allow(dead_code)]
-    #[cfg(any(debug, test))]
-    pub(crate) fn print_right(&self) {
-        let mut ret = vec![format!("Self{}: [{:?}]", self.id, self.content)];
-        let mut right = self.right.clone();
-
-        while let Some(n) = right {
-            right = n.right();
-            if n.deleted() {
-                continue;
-            }
-            match &n {
-                Node::Item(item) => {
-                    ret.push(format!("{item}"));
-                }
-                Node::GC(item) => {
-                    ret.push(format!("GC{}: {}", item.id, item.len));
-                    break;
-                }
-                Node::Skip(item) => {
-                    ret.push(format!("Skip{}: {}", item.id, item.len));
-                    break;
-                }
-            }
+        if self.origin_right_id.is_some() {
+            info |= item_flags::ITEM_HAS_RIGHT_ID;
+        }
+        if self.parent_sub.is_some() {
+            info |= item_flags::ITEM_HAS_PARENT_SUB;
         }
 
-        println!("{}", ret.join(" -> "));
+        info
     }
-}
 
-impl Item {
-    pub(crate) fn read<R: CrdtReader>(decoder: &mut R, id: Id, info: u8, first_5_bit: u8) -> JwstCodecResult<Self> {
+    pub fn is_valid(&self) -> bool {
+        let has_id = self.origin_left_id.is_some() || self.origin_right_id.is_some();
+        !has_id && self.parent.is_some() || has_id && self.parent.is_none() && self.parent_sub.is_none()
+    }
+
+    pub fn read<R: CrdtReader>(decoder: &mut R, id: Id, info: u8, first_5_bit: u8) -> JwstCodecResult<Self> {
         let flags: ItemFlags = info.into();
         let has_left_id = flags.check(item_flags::ITEM_HAS_LEFT_ID);
         let has_right_id = flags.check(item_flags::ITEM_HAS_RIGHT_ID);
@@ -383,8 +371,8 @@ impl Item {
                 debug_assert_ne!(first_5_bit, 10);
                 Arc::new(Content::read(decoder, first_5_bit)?)
             },
-            left: None,
-            right: None,
+            left: Somr::none(),
+            right: Somr::none(),
             flags: ItemFlags::from(0),
         };
 
@@ -401,28 +389,7 @@ impl Item {
         Ok(item)
     }
 
-    fn get_info(&self) -> u8 {
-        let mut info = self.content.get_info();
-
-        if self.origin_left_id.is_some() {
-            info |= item_flags::ITEM_HAS_LEFT_ID;
-        }
-        if self.origin_right_id.is_some() {
-            info |= item_flags::ITEM_HAS_RIGHT_ID;
-        }
-        if self.parent_sub.is_some() {
-            info |= item_flags::ITEM_HAS_PARENT_SUB;
-        }
-
-        info
-    }
-
-    pub(crate) fn is_valid(&self) -> bool {
-        let has_id = self.origin_left_id.is_some() || self.origin_right_id.is_some();
-        !has_id && self.parent.is_some() || has_id && self.parent.is_none() && self.parent_sub.is_none()
-    }
-
-    pub(crate) fn write<W: CrdtWriter>(&self, encoder: &mut W) -> JwstCodecResult {
+    pub fn write<W: CrdtWriter>(&self, encoder: &mut W) -> JwstCodecResult {
         let info = self.get_info();
         let has_not_sibling = info & item_flags::ITEM_HAS_SIBLING == 0;
 
@@ -470,6 +437,35 @@ impl Item {
         self.content.write(encoder)?;
 
         Ok(())
+    }
+}
+
+#[allow(dead_code)]
+#[cfg(any(debug, test))]
+impl Item {
+    pub fn print_left(&self) {
+        let mut ret = vec![format!("Self{}: [{:?}]", self.id, self.content)];
+        let mut left: Somr<Item> = self.left.clone();
+
+        while let Some(item) = left.get() {
+            ret.push(format!("{item}"));
+            left = item.left.clone();
+        }
+        ret.reverse();
+
+        println!("{}", ret.join(" <- "));
+    }
+
+    pub fn print_right(&self) {
+        let mut ret = vec![format!("Self{}: [{:?}]", self.id, self.content)];
+        let mut right = self.right.clone();
+
+        while let Some(item) = right.get() {
+            ret.push(format!("{item}"));
+            right = item.right.clone();
+        }
+
+        println!("{}", ret.join(" -> "));
     }
 }
 
