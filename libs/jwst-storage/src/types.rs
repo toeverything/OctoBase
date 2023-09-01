@@ -1,5 +1,4 @@
 use jwst_codec::JwstCodecError;
-use jwst_storage_migration::error;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

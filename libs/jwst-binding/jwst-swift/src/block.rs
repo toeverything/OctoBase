@@ -40,7 +40,7 @@ impl Block {
         let mut target_block = target_block.block.clone();
 
         block
-            .insert_children_before(&mut target_block, &reference)
+            .insert_children_before(&mut target_block, reference)
             .expect("failed to insert children before");
     }
 
@@ -49,7 +49,7 @@ impl Block {
         let mut target_block = target_block.block.clone();
 
         block
-            .insert_children_after(&mut target_block, &reference)
+            .insert_children_after(&mut target_block, reference)
             .expect("failed to insert children after");
     }
 
@@ -90,35 +90,35 @@ impl Block {
         let mut block = self.block.clone();
         block
             .set(&key, value)
-            .expect(&format!("failed to set bool: {} {}", key, value))
+            .unwrap_or_else(|_| panic!("failed to set bool: {} {}", key, value));
     }
 
     pub fn set_string(&self, key: String, value: String) {
         let mut block = self.block.clone();
         block
             .set(&key, value.clone())
-            .expect(&format!("failed to set string: {} {}", key, value))
+            .unwrap_or_else(|_| panic!("failed to set string: {} {}", key, value))
     }
 
     pub fn set_float(&self, key: String, value: f64) {
         let mut block = self.block.clone();
         block
             .set(&key, value)
-            .expect(&format!("failed to set float: {} {}", key, value));
+            .unwrap_or_else(|_| panic!("failed to set float: {} {}", key, value));
     }
 
     pub fn set_integer(&self, key: String, value: i64) {
         let mut block = self.block.clone();
         block
             .set(&key, value)
-            .expect(&format!("failed to set integer: {} {}", key, value));
+            .unwrap_or_else(|_| panic!("failed to set integer: {} {}", key, value));
     }
 
     pub fn set_null(&self, key: String) {
         let mut block = self.block.clone();
         block
             .set(&key, Any::Null)
-            .expect(&format!("failed to set null: {}", key));
+            .unwrap_or_else(|_| panic!("failed to set null: {}", key));
     }
 
     pub fn is_bool(&self, key: String) -> bool {

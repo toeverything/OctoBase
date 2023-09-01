@@ -71,7 +71,7 @@ impl Workspace {
     }
 
     #[generate_interface]
-    pub fn search(&self, query: String) -> String {
+    pub fn search(&self, _query: String) -> String {
         // self.workspace.search_result(query)
         "".to_owned()
     }
@@ -83,7 +83,7 @@ impl Workspace {
     }
 
     #[generate_interface]
-    pub fn set_search_index(&self, fields: VecOfStrings) -> bool {
+    pub fn set_search_index(&self, _fields: VecOfStrings) -> bool {
         // self.workspace
         //     .set_search_index(fields)
         //     .expect("failed to set search index")

@@ -182,7 +182,7 @@ pub trait RpcContextImpl<'a> {
                         if !updates.is_empty() {
                             debug!("apply {} updates for {id}", updates.len());
 
-                            let updates = updates.drain(..).collect::<Vec<_>>();
+                            let updates = std::mem::take(&mut updates);
                             let updates_len = updates.len();
                             let ts = Instant::now();
                             let message = workspace.sync_messages(updates).await;

@@ -3,7 +3,7 @@ mod convert;
 use jwst_codec::{Any, Doc, Map};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 
-use super::{block::MarkdownState, workspace::Pages, *};
+use super::{block::MarkdownState, workspaces::Pages, *};
 
 //         Workspace
 //         /       \

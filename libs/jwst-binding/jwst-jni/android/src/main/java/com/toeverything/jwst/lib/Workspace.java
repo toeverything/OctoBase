@@ -65,12 +65,12 @@ public final class Workspace {
     }
     private static native boolean do_remove(long self, @NonNull String block_id);
 
-    public final @NonNull String search(@NonNull String query) {
-        String ret = do_search(mNativeObj, query);
+    public final @NonNull String search(@NonNull String _query) {
+        String ret = do_search(mNativeObj, _query);
 
         return ret;
     }
-    private static native @NonNull String do_search(long self, @NonNull String query);
+    private static native @NonNull String do_search(long self, @NonNull String _query);
 
     public final @NonNull java.lang.String [] getSearchIndex() {
         java.lang.String [] ret = do_getSearchIndex(mNativeObj);
@@ -79,17 +79,17 @@ public final class Workspace {
     }
     private static native @NonNull java.lang.String [] do_getSearchIndex(long self);
 
-    public final boolean setSearchIndex(@NonNull VecOfStrings fields) {
-        long a0 = fields.mNativeObj;
-        fields.mNativeObj = 0;
+    public final boolean setSearchIndex(@NonNull VecOfStrings _fields) {
+        long a0 = _fields.mNativeObj;
+        _fields.mNativeObj = 0;
 
         boolean ret = do_setSearchIndex(mNativeObj, a0);
 
-        JNIReachabilityFence.reachabilityFence1(fields);
+        JNIReachabilityFence.reachabilityFence1(_fields);
 
         return ret;
     }
-    private static native boolean do_setSearchIndex(long self, long fields);
+    private static native boolean do_setSearchIndex(long self, long _fields);
 
     public synchronized void delete() {
         if (mNativeObj != 0) {

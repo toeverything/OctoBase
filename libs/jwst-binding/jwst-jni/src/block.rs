@@ -96,7 +96,7 @@ impl Block {
     #[generate_interface]
     pub fn get_string(&self, key: String) -> Option<String> {
         self.block.get(&key).and_then(|a| match a {
-            Any::String(i) => Some(i.into()),
+            Any::String(i) => Some(i),
             _ => None,
         })
     }

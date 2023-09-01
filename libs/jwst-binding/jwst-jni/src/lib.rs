@@ -4,7 +4,7 @@ mod storage;
 mod workspace;
 
 use block::Block;
-use jwst_core::{error, info, warn, Block as JwstBlock, LevelFilter, Workspace as JwstWorkspace};
+use jwst_core::{error, warn, Block as JwstBlock, LevelFilter, Workspace as JwstWorkspace};
 use rifgen::rifgen_attr::*;
 use storage::JwstStorage;
 use workspace::Workspace;

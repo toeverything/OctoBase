@@ -13,7 +13,7 @@ pub struct Workspace {
 impl Workspace {
     pub fn new(id: String) -> Self {
         Self {
-            workspace: JwstWorkspace::new(&id).unwrap(),
+            workspace: JwstWorkspace::new(id).unwrap(),
             _rt: Arc::new(Runtime::new().unwrap()),
         }
     }
@@ -47,7 +47,7 @@ impl Workspace {
         )
     }
 
-    pub fn search(self: &Workspace, query: String) -> String {
+    pub fn search(self: &Workspace, _query: String) -> String {
         // self.workspace.search_result(query)
         "".to_owned()
     }
@@ -66,7 +66,7 @@ impl Workspace {
         vec![]
     }
 
-    pub fn set_search_index(self: &Workspace, fields: Vec<String>) -> bool {
+    pub fn set_search_index(self: &Workspace, _fields: Vec<String>) -> bool {
         // self.workspace
         //     .set_search_index(fields)
         //     .expect("failed to set search index")

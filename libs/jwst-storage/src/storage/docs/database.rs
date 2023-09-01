@@ -240,7 +240,7 @@ impl DocDBStorage {
             trace!("create workspace: {workspace}");
             // keep workspace root doc's guid the same as workspaceId
             let doc = Doc::with_options(DocOptions {
-                guid: Some(workspace.into()),
+                guid: workspace.into(),
                 ..Default::default()
             });
             let ws = Workspace::from_doc(doc.clone(), workspace)?;
@@ -252,7 +252,7 @@ impl DocDBStorage {
         } else {
             trace!("migrate workspace: {workspace}");
             let doc = Doc::with_options(DocOptions {
-                guid: all_data.first().unwrap().guid.clone().into(),
+                guid: all_data.first().unwrap().guid.clone(),
                 ..Default::default()
             });
 
@@ -304,7 +304,7 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
 
     async fn flush_workspace(&self, workspace_id: String, data: Vec<u8>) -> JwstStorageResult<Workspace> {
         trace!("create workspace: get lock");
-        let _lock = self.bucket.write().await;
+        // let _lock = self.bucket.write().await;
 
         let ws = Self::init_workspace(&self.pool, &workspace_id).await?;
 

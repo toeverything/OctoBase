@@ -44,6 +44,7 @@ impl Add<Clock> for Id {
     }
 }
 
+#[allow(clippy::incorrect_partial_ord_impl_on_ord_type)]
 impl PartialOrd for Id {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match self.client.cmp(&other.client) {

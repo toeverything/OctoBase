@@ -99,8 +99,8 @@ foreign_class!(
 		fn Workspace::get_blocks_by_flavour(& self , flavour : & str)->Vec<Block>; alias getBlocksByFlavour;
 		fn Workspace::exists(& self , block_id : & str)->bool; alias exists;
 		fn Workspace::remove(& mut self , block_id : String)->bool; alias remove;
-		fn Workspace::search(& self , query : String)->String; alias search;
+		fn Workspace::search(& self , _query : String)->String; alias search;
 		fn Workspace::get_search_index(& self)->Vec<String>; alias getSearchIndex;
-		fn Workspace::set_search_index(& self , fields : VecOfStrings)->bool; alias setSearchIndex;
+		fn Workspace::set_search_index(& self , _fields : VecOfStrings)->bool; alias setSearchIndex;
 	}
 );

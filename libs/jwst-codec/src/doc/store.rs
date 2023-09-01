@@ -834,7 +834,7 @@ impl DocStore {
                 }
                 ty.start = Somr::none();
 
-                for (_, item) in &ty.map {
+                for item in ty.map.values() {
                     if let Some(item) = item.get() {
                         Self::gc_item_by_id(items, item.id, true)?;
                     }

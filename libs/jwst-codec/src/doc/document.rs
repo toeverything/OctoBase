@@ -107,7 +107,7 @@ pub struct Doc {
     opts: DocOptions,
 
     pub(crate) store: StoreRef,
-    pub(crate) publisher: Arc<DocPublisher>,
+    pub publisher: Arc<DocPublisher>,
 }
 
 unsafe impl Send for Doc {}
