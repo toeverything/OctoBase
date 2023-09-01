@@ -1,4 +1,5 @@
 use jwst::{Base64Engine, URL_SAFE_ENGINE};
+use jwst_storage_migration::Alias;
 use sha2::{Digest, Sha256};
 
 use super::{utils::get_hash, *};
@@ -79,7 +80,7 @@ impl BlobDBStorage {
         Blobs::find()
             .filter(BlobColumn::WorkspaceId.is_in(workspaces))
             .select_only()
-            .column_as(BlobColumn::Length.sum(), "size")
+            .column_as(BlobColumn::Length.sum().cast_as(Alias::new("bigint")), "size")
             .into_tuple::<Option<i64>>()
             .one(&self.pool)
             .await
