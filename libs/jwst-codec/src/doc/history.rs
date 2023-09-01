@@ -4,10 +4,17 @@ use serde::Serialize;
 
 use super::*;
 
+/// The ancestor table is a table that records the names of all the ancestors of
+/// a node. It is generated every time the history is rebuilt and is used to
+/// quickly look up the parent path of a CRDT item. The process of generating
+/// this table involves traversing the item nodes and recording their ID as well
+/// as their complete name as a parent.
+/// TODO: The current implementation is a simple implementation with a lot of
+/// room for optimization and should be optimized thereafter
 #[derive(Debug)]
-struct GreenTree(HashMap<Id, String>);
+struct AncestorTable(HashMap<Id, String>);
 
-impl GreenTree {
+impl AncestorTable {
     fn new(items: &[&Item]) -> Self {
         let mut name_map: HashMap<Id, String> = HashMap::new();
         let mut padding_ptr: VecDeque<(&Item, usize)> =
@@ -117,7 +124,7 @@ impl DocStore {
         items.sort_by(|a, b| a.id.cmp(&b.id));
 
         let mut histories = vec![];
-        let parent_map = GreenTree::new(&items);
+        let parent_map = AncestorTable::new(&items);
 
         for item in items {
             if item.deleted() {
@@ -175,7 +182,7 @@ mod test {
         let items = items.iter().collect::<Vec<_>>();
 
         let mut mock_histories: Vec<RawHistory> = vec![];
-        let parent_map = GreenTree::new(&items);
+        let parent_map = AncestorTable::new(&items);
         for item in items {
             if let Some(parent) = parent_map.get(&item.id) {
                 mock_histories.push(RawHistory {
