@@ -148,13 +148,13 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
         }
     }
 
-    async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64, JwstStorageError> {
+    async fn get_blobs_size(&self, workspaces: Vec<String>) -> JwstResult<i64, JwstStorageError> {
         match self {
-            JwstBlobStorage::RawStorage(db) => Ok(db.get_blobs_size(&workspace_id).await?.unwrap_or(0)),
+            JwstBlobStorage::RawStorage(db) => Ok(db.get_blobs_size(&workspaces).await?.unwrap_or(0)),
             #[cfg(feature = "image")]
-            JwstBlobStorage::AutoStorage(db) => db.get_blobs_size(workspace_id).await,
+            JwstBlobStorage::AutoStorage(db) => db.get_blobs_size(workspaces).await,
             #[cfg(feature = "bucket")]
-            JwstBlobStorage::BucketStorage(db) => db.get_blobs_size(workspace_id).await,
+            JwstBlobStorage::BucketStorage(db) => db.get_blobs_size(workspaces).await,
         }
     }
 }

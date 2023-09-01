@@ -94,14 +94,15 @@ impl BlobBucketStorage {
             .and_then(|r| r.ok_or(JwstBlobError::BlobNotFound(hash.into())))
     }
 
-    async fn get_blobs_size(&self, workspace: &str) -> Result<Option<i64>, DbErr> {
+    async fn get_blobs_size(&self, workspaces: &[String]) -> Result<Option<i64>, DbErr> {
         BucketBlobs::find()
-            .filter(BucketBlobColumn::WorkspaceId.eq(workspace))
+            .filter(BucketBlobColumn::WorkspaceId.is_in(workspaces))
             .select_only()
-            .column_as(BucketBlobColumn::Length.sum(), "size")
-            .into_tuple()
+            .column_as(BucketBlobColumn::Length.sum().cast_as(Alias::new("bigint")), "size")
+            .into_tuple::<Option<i64>>()
             .one(&self.pool)
             .await
+            .map(|r| r.flatten())
     }
 
     async fn insert(&self, workspace: &str, hash: &str, blob: &[u8]) -> Result<(), DbErr> {
@@ -339,9 +340,9 @@ impl BlobStorage<JwstStorageError> for BlobBucketStorage {
         }
     }
 
-    async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64, JwstStorageError> {
+    async fn get_blobs_size(&self, workspaces: Vec<String>) -> JwstResult<i64, JwstStorageError> {
         let _lock = self.bucket.read().await;
-        let size = self.get_blobs_size(&workspace_id).await?;
+        let size = self.get_blobs_size(&workspaces).await?;
         return Ok(size.unwrap_or(0));
     }
 }

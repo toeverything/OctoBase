@@ -1,4 +1,5 @@
 use jwst_core::{Base64Engine, URL_SAFE_ENGINE};
+use jwst_storage_migration::Alias;
 use sha2::{Digest, Sha256};
 
 use super::*;
@@ -75,11 +76,11 @@ impl BlobDBStorage {
             .and_then(|r| r.ok_or(JwstBlobError::BlobNotFound(hash.into())))
     }
 
-    pub(super) async fn get_blobs_size(&self, workspace: &str) -> Result<Option<i64>, DbErr> {
+    pub(super) async fn get_blobs_size(&self, workspaces: &[String]) -> Result<Option<i64>, DbErr> {
         Blobs::find()
-            .filter(BlobColumn::WorkspaceId.eq(workspace))
+            .filter(BlobColumn::WorkspaceId.is_in(workspaces))
             .select_only()
-            .column_as(BlobColumn::Length.sum(), "size")
+            .column_as(BlobColumn::Length.sum().cast_as(Alias::new("bigint")), "size")
             .into_tuple::<Option<i64>>()
             .one(&self.pool)
             .await
@@ -230,9 +231,9 @@ impl BlobStorage<JwstStorageError> for BlobDBStorage {
         }
     }
 
-    async fn get_blobs_size(&self, workspace_id: String) -> JwstStorageResult<i64> {
+    async fn get_blobs_size(&self, workspaces: Vec<String>) -> JwstStorageResult<i64> {
         let _lock = self.bucket.read().await;
-        let size = self.get_blobs_size(&workspace_id).await?;
+        let size = self.get_blobs_size(&workspaces).await?;
         return Ok(size.unwrap_or(0));
     }
 }

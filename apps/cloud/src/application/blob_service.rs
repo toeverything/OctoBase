@@ -126,25 +126,22 @@ impl BlobService {
         user_id: String,
     ) -> Result<Json<Usage>, ErrorStatus> {
         info!("get_user_resource enter");
-        let workspace_id_list = match ctx.db.get_user_owner_workspaces(user_id).await {
-            Ok(workspace_id_list) => workspace_id_list,
+        let workspaces = match ctx.db.get_user_owner_workspaces(user_id).await {
+            Ok(workspaces) => workspaces,
             Err(e) => {
                 error!("Failed to get user owner workspaces: {}", e);
                 return Err(ErrorStatus::InternalServerError);
             }
         };
-        let mut total_size = 0;
-        for workspace_id in workspace_id_list {
-            let size = ctx
-                .storage
-                .blobs()
-                .get_blobs_size(workspace_id.to_string())
-                .await
-                .map_err(|_| ErrorStatus::InternalServerError)?;
-            total_size += size as u64;
-        }
+        let total_size = ctx
+            .storage
+            .blobs()
+            .get_blobs_size(workspaces)
+            .await
+            .map_err(|_| ErrorStatus::InternalServerError)?;
+
         let blob_usage = BlobUsage {
-            usage: total_size,
+            usage: total_size as u64,
             max_usage: MAX_USAGE,
         };
         let usage = Usage { blob_usage };
