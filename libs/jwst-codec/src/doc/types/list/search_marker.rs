@@ -55,6 +55,12 @@ impl DerefMut for MarkerList {
     }
 }
 
+impl Default for MarkerList {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MarkerList {
     pub fn new() -> Self {
         MarkerList(RefCell::new(VecDeque::new()))

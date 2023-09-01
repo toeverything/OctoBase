@@ -6,13 +6,15 @@ use crate::sync::{Arc, RwLock};
 /// [DocOptions] used to create a new [Doc]
 ///
 /// ```
+/// use y_octo::DocOptions;
+///
 /// let doc = DocOptions::new()
 ///     .with_client_id(1)
 ///     .with_guid("guid".into())
 ///     .auto_gc(true)
 ///     .build();
 ///
-/// assert!(doc.guid(), "guid")
+/// assert_eq!(doc.guid(), "guid")
 /// ```
 #[derive(Clone, Debug)]
 pub struct DocOptions {
