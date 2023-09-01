@@ -13,7 +13,7 @@ impl_type!(Map);
 pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
     fn insert(&mut self, key: impl AsRef<str>, value: impl Into<Content>) -> JwstCodecResult {
         if let Some((mut store, mut ty)) = self.as_inner().write() {
-            let left = ty.map.as_ref().and_then(|map| map.get(key.as_ref())).cloned();
+            let left = ty.map.get(key.as_ref()).cloned();
 
             let item = store.create_item(
                 value.into(),
@@ -30,7 +30,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
 
     fn keys(&self) -> Vec<String> {
         if let Some(ty) = self.as_inner().ty() {
-            ty.map.as_ref().map_or(Vec::new(), |map| map.keys().cloned().collect())
+            ty.map.keys().cloned().collect()
         } else {
             vec![]
         }
@@ -39,8 +39,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
     fn get(&self, key: impl AsRef<str>) -> Option<Arc<Content>> {
         self.as_inner().ty().and_then(|ty| {
             ty.map
-                .as_ref()
-                .and_then(|map| map.get(key.as_ref()))
+                .get(key.as_ref())
                 .filter(|item| item.get().map(|item| !item.deleted()).unwrap_or(false))
                 .map(|item| item.get().unwrap().content.clone())
         })
@@ -50,11 +49,9 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         let mut ret = HashMap::default();
 
         if let Some(ty) = self.as_inner().ty() {
-            if let Some(map) = ty.map.as_ref() {
-                for key in map.keys() {
-                    if let Some(content) = self.get(key) {
-                        ret.insert(key.clone(), content);
-                    }
+            for key in ty.map.keys() {
+                if let Some(content) = self.get(key) {
+                    ret.insert(key.clone(), content);
                 }
             }
         }
@@ -65,8 +62,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
     fn contains_key(&self, key: impl AsRef<str>) -> bool {
         if let Some(ty) = self.as_inner().ty() {
             ty.map
-                .as_ref()
-                .and_then(|map| map.get(key.as_ref()))
+                .get(key.as_ref())
                 .and_then(|item| item.get())
                 .map_or(false, |item| !item.deleted())
         } else {
@@ -76,9 +72,9 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
 
     fn remove(&mut self, key: impl AsRef<str>) -> bool {
         if let Some((mut store, mut ty)) = self.as_inner().write() {
-            let node = ty.map.as_ref().and_then(|map| map.get(key.as_ref()));
-            if let Some(node) = node {
-                if let Some(item) = node.clone().get() {
+            let item = ty.map.get(key.as_ref()).cloned();
+            if let Some(item) = item {
+                if let Some(item) = item.get() {
                     store.delete_item(item, Some(&mut ty));
                     return true;
                 }
@@ -92,27 +88,23 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         self.as_inner()
             .ty()
             .map(|ty| {
-                ty.map.as_ref().map_or(0, |map| {
-                    map.values()
-                        .filter(|v| v.get().map(|item| !item.deleted()).unwrap_or(false))
-                        .count()
-                }) as u64
+                ty.map
+                    .values()
+                    .filter(|v| v.get().map(|item| !item.deleted()).unwrap_or(false))
+                    .count() as u64
             })
             .unwrap_or(0)
     }
 
     fn iter(&self) -> MapIterator {
         let inner = self.as_inner().ty().unwrap();
-        let map = inner.map.as_ref().map(|map| {
-            map.iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect::<Vec<(String, Somr<Item>)>>()
-        });
+        let map = inner
+            .map
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect::<Vec<(String, Somr<Item>)>>();
 
-        MapIterator {
-            nodes: map.unwrap_or_default(),
-            index: 0,
-        }
+        MapIterator { nodes: map, index: 0 }
     }
 }
 

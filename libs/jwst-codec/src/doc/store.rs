@@ -432,11 +432,7 @@ impl DocStore {
                         let mut conflict = if let Some(left) = left.get() {
                             left.right.as_ref().into()
                         } else if let Some(parent_sub) = &this.parent_sub {
-                            parent
-                                .map
-                                .as_ref()
-                                .and_then(|m| m.get(parent_sub).cloned())
-                                .unwrap_or(Somr::none())
+                            parent.map.get(parent_sub).cloned().unwrap_or(Somr::none())
                         } else {
                             parent.start.clone()
                         };
@@ -495,12 +491,7 @@ impl DocStore {
                     } else {
                         // no left, parent.start = this
                         right = if let Some(parent_sub) = &this.parent_sub {
-                            parent
-                                .map
-                                .as_ref()
-                                .and_then(|map| map.get(parent_sub))
-                                .map(|n| Node::Item(n.clone()).head())
-                                .into()
+                            parent.map.get(parent_sub).map(|n| Node::Item(n.clone()).head()).into()
                         } else {
                             mem::replace(&mut parent.start, item.clone())
                         };
@@ -518,10 +509,7 @@ impl DocStore {
                     } else {
                         // no right, parent.start = this, delete this.left
                         if let Some(parent_sub) = &this.parent_sub {
-                            parent
-                                .map
-                                .get_or_insert(HashMap::default())
-                                .insert(parent_sub.to_string(), item.clone());
+                            parent.map.insert(parent_sub.to_string(), item.clone());
 
                             if let Some(left) = &this.left {
                                 self.delete_node(left, Some(parent));
@@ -592,11 +580,10 @@ impl DocStore {
                         }
                     }
 
-                    if let Some(map) = ty.map.take() {
-                        for (_, item) in map {
-                            if let Some(item) = item.get() {
-                                Self::delete_item_inner(delete_set, item, Some(&mut ty));
-                            }
+                    let map_values = ty.map.values().cloned().collect::<Vec<_>>();
+                    for item in map_values {
+                        if let Some(item) = item.get() {
+                            Self::delete_item_inner(delete_set, item, Some(&mut ty));
                         }
                     }
                 }
@@ -841,13 +828,13 @@ impl DocStore {
                 }
                 ty.start = Somr::none();
 
-                if let Some(map) = ty.map.take() {
-                    for (_, item) in map {
-                        if let Some(item) = item.get() {
-                            Self::gc_item_by_id(items, item.id, true)?;
-                        }
+                for (_, item) in &ty.map {
+                    if let Some(item) = item.get() {
+                        Self::gc_item_by_id(items, item.id, true)?;
                     }
                 }
+
+                ty.map.clear();
             }
         }
 
