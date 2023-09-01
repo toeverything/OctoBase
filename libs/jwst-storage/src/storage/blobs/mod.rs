@@ -299,8 +299,8 @@ impl BlobStorage<JwstStorageError> for BlobAutoStorage {
         Ok(())
     }
 
-    async fn get_blobs_size(&self, workspace_id: String) -> JwstStorageResult<i64> {
-        let size = self.db.get_blobs_size(&workspace_id).await?;
+    async fn get_blobs_size(&self, workspaces: Vec<String>) -> JwstStorageResult<i64> {
+        let size = self.db.get_blobs_size(&workspaces).await?;
 
         return Ok(size.unwrap_or(0));
     }
@@ -378,10 +378,10 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
         }
     }
 
-    async fn get_blobs_size(&self, workspace_id: String) -> JwstResult<i64, JwstStorageError> {
+    async fn get_blobs_size(&self, workspaces: Vec<String>) -> JwstResult<i64, JwstStorageError> {
         match self {
-            JwstBlobStorage::DB(db) => db.get_blobs_size(workspace_id).await,
-            JwstBlobStorage::MixedBucketDB(db) => db.get_blobs_size(workspace_id).await,
+            JwstBlobStorage::DB(db) => db.get_blobs_size(workspaces).await,
+            JwstBlobStorage::MixedBucketDB(db) => db.get_blobs_size(workspaces).await,
         }
     }
 }
@@ -554,7 +554,7 @@ mod tests {
             .is_err());
 
         assert_eq!(
-            storage.get_blobs_size("blob".into()).await.unwrap() as usize,
+            storage.get_blobs_size(vec!["blob".into()]).await.unwrap() as usize,
             100 + image.len()
         );
 
@@ -576,7 +576,7 @@ mod tests {
             .await
             .is_err());
 
-        assert_eq!(storage.get_blobs_size("blob".into()).await.unwrap() as usize, 100);
+        assert_eq!(storage.get_blobs_size(vec!["blob".into()]).await.unwrap() as usize, 100);
 
         assert_eq!(storage.list_blobs(Some("blob".into())).await.unwrap(), vec![hash1]);
         assert_eq!(
