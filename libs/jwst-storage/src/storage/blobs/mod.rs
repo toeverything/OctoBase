@@ -16,6 +16,7 @@ pub use blob_storage::blobs_storage_test;
 pub use blob_storage::BlobDBStorage;
 use bytes::Bytes;
 use jwst_core::{BlobMetadata, BlobStorage};
+use jwst_storage_migration::Alias;
 use thiserror::Error;
 use tokio::task::JoinError;
 use utils::{get_hash, InternalBlobMetadata};

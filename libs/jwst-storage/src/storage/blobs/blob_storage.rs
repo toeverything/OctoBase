@@ -1,5 +1,4 @@
 use jwst_core::{Base64Engine, URL_SAFE_ENGINE};
-use jwst_storage_migration::Alias;
 use sha2::{Digest, Sha256};
 
 use super::*;

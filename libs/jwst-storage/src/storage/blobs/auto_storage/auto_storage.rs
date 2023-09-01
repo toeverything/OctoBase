@@ -226,8 +226,8 @@ impl BlobStorage<JwstStorageError> for BlobAutoStorage {
         Ok(())
     }
 
-    async fn get_blobs_size(&self, workspace_id: String) -> JwstStorageResult<i64> {
-        let size = self.db.get_blobs_size(&workspace_id).await?;
+    async fn get_blobs_size(&self, workspaces: Vec<String>) -> JwstStorageResult<i64> {
+        let size = self.db.get_blobs_size(&workspaces).await?;
 
         return Ok(size.unwrap_or(0));
     }
@@ -246,6 +246,8 @@ mod tests {
     async fn test_blob_auto_storage() {
         let storage = BlobAutoStorage::init_pool("sqlite::memory:").await.unwrap();
         Migrator::up(&storage.pool, None).await.unwrap();
+
+        assert_eq!(storage.get_blobs_size(vec!["blob".into()]).await.unwrap(), 0);
 
         let blob = Vec::from_iter((0..100).map(|_| rand::random()));
 
@@ -267,6 +269,10 @@ mod tests {
                 .unwrap()
                 .size as usize,
             blob.len()
+        );
+        assert_eq!(
+            storage.get_blobs_size(vec!["blob".into()]).await.unwrap(),
+            blob.len() as i64
         );
 
         // optimize must failed if blob not supported
@@ -385,8 +391,8 @@ mod tests {
             .is_err());
 
         assert_eq!(
-            storage.get_blobs_size("blob".into()).await.unwrap() as usize,
-            100 + image.len()
+            storage.get_blobs_size(vec!["blob".into()]).await.unwrap(),
+            (blob.len() + image.len()) as i64
         );
 
         assert!(storage.delete_blob(Some("blob".into()), hash2.clone()).await.unwrap());
@@ -407,12 +413,39 @@ mod tests {
             .await
             .is_err());
 
-        assert_eq!(storage.get_blobs_size("blob".into()).await.unwrap() as usize, 100);
+        assert_eq!(storage.get_blobs_size(vec!["blob".into()]).await.unwrap() as usize, 100);
 
         assert_eq!(storage.list_blobs(Some("blob".into())).await.unwrap(), vec![hash1]);
         assert_eq!(
             storage.list_blobs(Some("not_exists_workspace".into())).await.unwrap(),
             Vec::<String>::new()
         );
+
+        {
+            let blob = Vec::from_iter((0..100).map(|_| rand::random()));
+            let stream = async { Bytes::from(blob.clone()) }.into_stream();
+            storage.put_blob_stream(Some("blob1".into()), stream).await.unwrap();
+
+            assert_eq!(
+                storage
+                    .get_blobs_size(vec!["blob".into(), "blob1".into()])
+                    .await
+                    .unwrap() as usize,
+                200
+            );
+        }
+
+        // test calc with not exists workspaces
+        {
+            assert_eq!(
+                storage
+                    .get_blobs_size(vec!["blob".into(), "blob1".into(), "blob2".into()])
+                    .await
+                    .unwrap(),
+                200
+            );
+
+            assert_eq!(storage.get_blobs_size(vec!["blob2".into()]).await.unwrap(), 0);
+        }
     }
 }
