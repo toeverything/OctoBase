@@ -155,46 +155,50 @@ mod test {
 
     #[test]
     fn parse_history_client_test() {
-        let doc = Doc::default();
-        let mut map = doc.get_or_create_map("map").unwrap();
-        let mut sub_map = doc.create_map().unwrap();
-        map.insert("sub_map", sub_map.clone()).unwrap();
-        sub_map.insert("key", "value").unwrap();
+        loom_model!({
+            let doc = Doc::default();
+            let mut map = doc.get_or_create_map("map").unwrap();
+            let mut sub_map = doc.create_map().unwrap();
+            map.insert("sub_map", sub_map.clone()).unwrap();
+            sub_map.insert("key", "value").unwrap();
 
-        assert_eq!(doc.clients()[0], doc.client());
+            assert_eq!(doc.clients()[0], doc.client());
+        });
     }
 
     #[test]
     fn parse_history_test() {
-        let doc = Doc::default();
-        let mut map = doc.get_or_create_map("map").unwrap();
-        let mut sub_map = doc.create_map().unwrap();
-        map.insert("sub_map", sub_map.clone()).unwrap();
-        sub_map.insert("key", "value").unwrap();
+        loom_model!({
+            let doc = Doc::default();
+            let mut map = doc.get_or_create_map("map").unwrap();
+            let mut sub_map = doc.create_map().unwrap();
+            map.insert("sub_map", sub_map.clone()).unwrap();
+            sub_map.insert("key", "value").unwrap();
 
-        let history = doc.store.read().unwrap().history(0).unwrap();
+            let history = doc.store.read().unwrap().history(0).unwrap();
 
-        let mut update = doc.encode_update().unwrap();
-        let items = update
-            .iter(StateVector::default())
-            .filter_map(|n| n.0.as_item().get().cloned())
-            .collect::<Vec<_>>();
-        let items = items.iter().collect::<Vec<_>>();
+            let mut update = doc.encode_update().unwrap();
+            let items = update
+                .iter(StateVector::default())
+                .filter_map(|n| n.0.as_item().get().cloned())
+                .collect::<Vec<_>>();
+            let items = items.iter().collect::<Vec<_>>();
 
-        let mut mock_histories: Vec<RawHistory> = vec![];
-        let parent_map = AncestorTable::new(&items);
-        for item in items {
-            if let Some(parent) = parent_map.get(&item.id) {
-                mock_histories.push(RawHistory {
-                    id: item.id.to_string(),
-                    parent,
-                    content: Value::try_from(item.content.as_ref())
-                        .map(|v| v.to_string())
-                        .unwrap_or("unknown".to_owned()),
-                })
+            let mut mock_histories: Vec<RawHistory> = vec![];
+            let parent_map = AncestorTable::new(&items);
+            for item in items {
+                if let Some(parent) = parent_map.get(&item.id) {
+                    mock_histories.push(RawHistory {
+                        id: item.id.to_string(),
+                        parent,
+                        content: Value::try_from(item.content.as_ref())
+                            .map(|v| v.to_string())
+                            .unwrap_or("unknown".to_owned()),
+                    })
+                }
             }
-        }
 
-        assert_eq!(history, mock_histories);
+            assert_eq!(history, mock_histories);
+        });
     }
 }

@@ -122,7 +122,7 @@ pub async fn workspace_client(Extension(context): Extension<Arc<Context>>, Path(
 #[derive(Deserialize, IntoParams)]
 pub struct BlockSearchQuery {
     /// Search by title and text.
-    query: String,
+    _query: String,
 }
 
 /// Search workspace blocks of server

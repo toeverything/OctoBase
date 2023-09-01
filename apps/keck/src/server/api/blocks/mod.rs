@@ -54,7 +54,7 @@ pub fn blocks_apis(router: Router) -> Router {
 #[cfg(test)]
 mod tests {
     use axum_test_helper::TestClient;
-    use serde_json::{from_str, json, to_string, Value};
+    use serde_json::{from_str, json, Value};
 
     use super::*;
 
