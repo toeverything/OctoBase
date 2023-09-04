@@ -16,7 +16,7 @@ OctoBase also offers a Block-based full-text indexing and query interface, makin
 
 ## CRDT-driven P2P synchronization
 
-All Blocks within OctoBase are CRDTs, which are built on the [yrs] and can interact with [blocksuite] / [yjs].
+All Blocks within OctoBase are CRDTs, which are built on the [y-octo] and can interact with [blocksuite] / [yjs].
 
 CRDT is a distributed data structure that ensures eventual consistency without requiring a central server or coordination algorithm like Raft. This allows OctoBase to provide high-performance, local-first data read/write services.
 
@@ -34,4 +34,4 @@ OctoBase also offers ffi binding support for common programming languages. This 
 
 [blocksuite]: https://github.com/toeverything/blocksuite
 [yjs]: https://github.com/yjs/yjs
-[yrs]: https://github.com/y-crdt/y-crdt
+[y-octo]: https://github.com/toeverything/y-octo
