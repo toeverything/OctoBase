@@ -16,7 +16,7 @@ tokio = "1"
 
 # ======= workspace dependencies =======
 jwst-codec = { workspace = true }
-jwst-core = { workspace = true }
+jwst-core = { workspace = true, features = ["large_refs"] }
 jwst-rpc = { workspace = true }
 jwst-storage = { workspace = true, features = ["sqlite"] }
 
