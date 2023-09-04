@@ -185,7 +185,7 @@ pub trait RpcContextImpl<'a> {
                             let updates = std::mem::take(&mut updates);
                             let updates_len = updates.len();
                             let ts = Instant::now();
-                            let message = workspace.sync_messages(updates).await;
+                            let message = workspace.sync_messages(updates);
                             if ts.elapsed().as_micros() > 50 {
                                 debug!(
                                     "apply {updates_len} remote update cost: {}ms",

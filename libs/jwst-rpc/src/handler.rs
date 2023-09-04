@@ -48,7 +48,7 @@ pub async fn handle_connector(
     let mut server_rx = context.join_server_broadcast(&workspace_id).await;
 
     // Send initialization message.
-    match ws.sync_init_message().await {
+    match ws.sync_init_message() {
         Ok(init_data) => {
             debug!("send init data:{:?}", init_data);
             if tx.send(Message::Binary(init_data)).await.is_err() {

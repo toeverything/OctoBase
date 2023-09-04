@@ -31,8 +31,8 @@ url = "2.4.0"
 
 # ======== bucket dependencies =======
 opendal = { version = "0.39.0", default-features = false, features = [
-    "rustls",
-    "services-s3",
+  "rustls",
+  "services-s3",
 ], optional = true }
 dotenvy = { version = "0.15.7", optional = true }
 

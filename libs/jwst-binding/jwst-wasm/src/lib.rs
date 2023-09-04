@@ -1,14 +1,6 @@
-use js_sys::Uint8Array;
-use jwst::{Block as JwstBlock, Workspace as JwstWorkspace};
+use jwst_core::{Block as JwstBlock, Workspace as JwstWorkspace};
 use wasm_bindgen::{prelude::*, JsCast};
-use yrs::{Subscription as YrsSubscription, UpdateEvent};
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "custom_alloc")] {
-        #[global_allocator]
-        static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-    }
-}
 cfg_if::cfg_if! {
     if #[cfg(feature = "log_panic")] {
         #[wasm_bindgen(js_name = setPanicHook)]
@@ -19,16 +11,13 @@ cfg_if::cfg_if! {
 }
 
 #[wasm_bindgen]
-pub struct Subscription(YrsSubscription<UpdateEvent>);
-
-#[wasm_bindgen]
 pub struct Workspace(JwstWorkspace);
 
 #[wasm_bindgen]
 impl Workspace {
     #[wasm_bindgen(constructor)]
     pub fn new(id: String) -> Self {
-        Self(JwstWorkspace::new(id))
+        Self(JwstWorkspace::new(id).unwrap())
     }
 
     #[wasm_bindgen(js_name = clientId, getter)]
@@ -38,28 +27,25 @@ impl Workspace {
 
     /// Create and return a `Block` instance
     #[wasm_bindgen]
-    pub fn create(&self, block_id: String, flavour: String) -> Block {
-        Block(self.0.with_trx(|mut t| t.create(block_id, &flavour)))
+    pub fn create(&mut self, block_id: String, flavour: String) -> Block {
+        Block(
+            self.0
+                .get_blocks()
+                .and_then(|mut s| s.create(block_id, &flavour))
+                .unwrap(),
+        )
     }
 
     /// Return a `Block` instance if block exists
     #[wasm_bindgen]
-    pub fn get(&self, block_id: String) -> Option<Block> {
-        self.0.get(block_id).map(|b| Block(b))
+    pub fn get(mut self, block_id: String) -> Option<Block> {
+        self.0.get_blocks().ok().and_then(|s| s.get(block_id).map(Block))
     }
 
     /// Check is a block exists
     #[wasm_bindgen]
-    pub fn exists(&self, block_id: String) -> bool {
-        self.0.exists(&block_id)
-    }
-
-    #[wasm_bindgen]
-    pub fn observe(&mut self, f: js_sys::Function) -> Subscription {
-        Subscription(self.0.observe(move |_, u| {
-            let update = Uint8Array::from(u.update.as_slice());
-            f.call1(&JsValue::UNDEFINED, &update).unwrap();
-        }))
+    pub fn exists(&mut self, block_id: String) -> bool {
+        self.0.get_blocks().map(|s| s.exists(&block_id)).unwrap_or_default()
     }
 }
 

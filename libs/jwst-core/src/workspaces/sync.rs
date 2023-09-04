@@ -11,7 +11,7 @@ impl Workspace {
         Ok(self.doc.encode_state_as_update_v1(&StateVector::default())?)
     }
 
-    pub async fn sync_init_message(&self) -> JwstResult<Vec<u8>> {
+    pub fn sync_init_message(&self) -> JwstResult<Vec<u8>> {
         let mut buffer = Vec::new();
 
         write_sync_message(
@@ -24,13 +24,13 @@ impl Workspace {
         )?;
         write_sync_message(
             &mut buffer,
-            &SyncMessage::Awareness(self.awareness.read().await.get_states().clone()),
+            &SyncMessage::Awareness(self.awareness.read().unwrap().get_states().clone()),
         )?;
 
         Ok(buffer)
     }
 
-    pub async fn sync_messages(&mut self, buffers: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+    pub fn sync_messages(&mut self, buffers: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
         let mut awareness = vec![];
         let mut content = vec![];
 
@@ -52,16 +52,16 @@ impl Workspace {
 
         let mut result = vec![];
 
-        result.extend(self.sync_awareness(awareness).await);
+        result.extend(self.sync_awareness(awareness));
         result.extend(self.sync_content(content));
 
         result
     }
 
-    async fn sync_awareness(&mut self, msgs: Vec<SyncMessage>) -> Vec<Vec<u8>> {
+    fn sync_awareness(&mut self, msgs: Vec<SyncMessage>) -> Vec<Vec<u8>> {
         let mut result = vec![];
         if !msgs.is_empty() {
-            let mut awareness = self.awareness.write().await;
+            let mut awareness = self.awareness.write().unwrap();
             for msg in msgs {
                 match msg {
                     SyncMessage::AwarenessQuery => {

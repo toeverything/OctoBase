@@ -83,8 +83,6 @@ impl serde::Serialize for Array {
 
 #[cfg(test)]
 mod tests {
-    use yrs::{Array, Options, Text, Transact};
-
     use super::*;
 
     #[test]
@@ -108,6 +106,7 @@ mod tests {
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_ytext_equal() {
+        use yrs::{Options, Text, Transact};
         let options = DocOptions::default();
         let yrs_options = Options::default();
 
@@ -166,6 +165,7 @@ mod tests {
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_yrs_array_decode() {
+        use yrs::{Array, Transact};
         let update = {
             let doc = yrs::Doc::new();
             let array = doc.get_or_insert_array("abc");

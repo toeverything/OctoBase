@@ -70,7 +70,7 @@ pub fn doc_apis(router: Router) -> Router {
     #[cfg(feature = "schema")]
     {
         let mut openapi = ApiDoc::openapi();
-        openapi.info.description = Some(vec![README, DISTINCTIVE_FEATURES].join("\n"));
+        openapi.info.description = Some([README, DISTINCTIVE_FEATURES].join("\n"));
 
         let name = "jwst";
         if cfg!(debug_assertions) || std::env::var("JWST_DEV").is_ok() {
