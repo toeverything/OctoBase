@@ -1,11 +1,12 @@
 #![no_main]
 
-use jwst_codec_util::{
-    gen_nest_type_from_nest_type, gen_nest_type_from_root, CRDTParam, ManipulateSource, OpType,
-    OpsRegistry, YrsNestType,
+use std::collections::HashSet;
+
+use jwst_codec_utils::{
+    gen_nest_type_from_nest_type, gen_nest_type_from_root, CRDTParam, ManipulateSource, OpType, OpsRegistry,
+    YrsNestType,
 };
 use libfuzzer_sys::fuzz_target;
-use std::collections::HashSet;
 use yrs::Transact;
 
 fuzz_target!(|crdt_params: Vec<CRDTParam>| {
@@ -22,11 +23,7 @@ fuzz_target!(|crdt_params: Vec<CRDTParam>| {
         match crdt_param.op_type {
             OpType::HandleCurrent => {
                 if cur_crdt_nest_type.is_some() {
-                    ops_registry.operate_yrs_nest_type(
-                        &doc,
-                        cur_crdt_nest_type.clone().unwrap(),
-                        crdt_param,
-                    );
+                    ops_registry.operate_yrs_nest_type(&doc, cur_crdt_nest_type.clone().unwrap(), crdt_param);
                 }
             }
             OpType::CreateCRDTNestType => {
@@ -34,14 +31,10 @@ fuzz_target!(|crdt_params: Vec<CRDTParam>| {
                     None => gen_nest_type_from_root(&mut doc, &crdt_param),
                     Some(mut nest_type) => match crdt_param.manipulate_source {
                         ManipulateSource::CurrentNestType => Some(nest_type),
-                        ManipulateSource::NewNestTypeFromYDocRoot => {
-                            gen_nest_type_from_root(&mut doc, &crdt_param)
+                        ManipulateSource::NewNestTypeFromYDocRoot => gen_nest_type_from_root(&mut doc, &crdt_param),
+                        ManipulateSource::NewNestTypeFromCurrent => {
+                            gen_nest_type_from_nest_type(&mut doc, crdt_param.clone(), &mut nest_type)
                         }
-                        ManipulateSource::NewNestTypeFromCurrent => gen_nest_type_from_nest_type(
-                            &mut doc,
-                            crdt_param.clone(),
-                            &mut nest_type,
-                        ),
                     },
                 };
             }
