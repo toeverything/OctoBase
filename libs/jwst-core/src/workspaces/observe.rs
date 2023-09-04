@@ -4,6 +4,6 @@ use super::*;
 
 impl Workspace {
     pub async fn on_awareness_update(&mut self, f: impl Fn(&Awareness, AwarenessEvent) + Send + Sync + 'static) {
-        self.awareness.write().await.on_update(f);
+        self.awareness.write().unwrap().on_update(f);
     }
 }

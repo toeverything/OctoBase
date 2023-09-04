@@ -1,8 +1,7 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use jwst_codec::{Awareness, Doc, Map};
 use serde::{ser::SerializeMap, Serialize, Serializer};
-use tokio::sync::RwLock;
 
 use super::*;
 

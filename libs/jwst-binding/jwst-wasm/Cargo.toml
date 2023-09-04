@@ -6,21 +6,18 @@ edition = "2021"
 license = "AGPL-3.0-only"
 
 [features]
-default = ["custom_alloc", "log_panic"]
-custom_alloc = ["wee_alloc"]
+default = ["log_panic"]
 log_panic = ["console_error_panic_hook"]
-
 
 [dependencies]
 cfg-if = "1.0.0"
 console_error_panic_hook = { version = "0.1.7", optional = true }
-js-sys = "0.3.61"
-wasm-bindgen = "^0.2.83"
-wee_alloc = { version = "^0.4.5", optional = true }
+getrandom = { version = "0.2", features = ["js"] }
+js-sys = "0.3.64"
+wasm-bindgen = "0.2.87"
 
 # ======= workspace dependencies =======
-jwst = { workspace = true }
-yrs = "=0.12.0"
+jwst-core = { workspace = true }
 
 [lib]
 crate-type = ["cdylib"]

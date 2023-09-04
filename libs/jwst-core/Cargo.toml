@@ -21,7 +21,6 @@ serde = { version = "1.0.160", features = ["derive"] }
 serde_json = "1.0.96"
 thiserror = "1.0.40"
 tracing = { version = "0.1.37", features = ["log"] }
-tokio = { version = "1.27.0", features = ["sync", "time"] }
 
 # ======= workspace dependencies =======
 jwst-codec = { workspace = true }
