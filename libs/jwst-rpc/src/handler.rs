@@ -258,7 +258,7 @@ mod test {
             let mut block1 = space.create("block1", "flavour1").unwrap();
             block1.set("key1", "val1").unwrap();
 
-            ws.doc().encode_update_v1().unwrap()
+            ws.to_binary().unwrap()
         };
         // apply update with jwst-codec
         doc1.apply_update_from_binary(update).unwrap();
@@ -340,7 +340,7 @@ mod test {
                 {
                     // let block_id = block_id.clone();
                     let doc_tx = doc_tx.clone();
-                    doc.doc().subscribe(move |_u| {
+                    doc.subscribe_doc(move |_u| {
                         // TODO: support changed block record
                         // let block_changed = t
                         //     .changed_parent_types()

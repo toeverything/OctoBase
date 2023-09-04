@@ -85,7 +85,7 @@ impl Workspace {
     fn sync_content(&mut self, msg: Vec<SyncMessage>) -> Vec<Vec<u8>> {
         let mut result = vec![];
         if !msg.is_empty() {
-            let mut doc = self.doc();
+            let mut doc = self.doc.clone();
 
             for msg in msg {
                 if let Some(msg) = {

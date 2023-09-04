@@ -55,10 +55,7 @@ impl MinimumServerContext {
             .unwrap();
         let ws = server.get_workspace(workspace_id).await.unwrap();
 
-        let init_state = ws
-            .doc()
-            .encode_state_as_update_v1(&StateVector::default())
-            .expect("encode_state_as_update_v1 failed");
+        let init_state = ws.to_binary().expect("encode_state_as_update_v1 failed");
 
         (server, ws, init_state)
     }

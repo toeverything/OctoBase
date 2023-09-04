@@ -24,7 +24,7 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
         let workspace_id = workspace.id();
 
         workspace
-            .on_awareness_update(move |awareness, e| {
+            .subscribe_awareness(move |awareness, e| {
                 let mut buffer = Vec::new();
                 if let Err(e) = write_sync_message(
                     &mut buffer,
@@ -43,7 +43,7 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
     {
         let sender = sender.clone();
         let workspace_id = workspace.id();
-        workspace.doc().subscribe(move |update| {
+        workspace.subscribe_doc(move |update| {
             debug!("workspace {} changed: {}bytes", workspace_id, update.len());
 
             match encode_update_with_guid(update.to_vec(), workspace_id.clone())

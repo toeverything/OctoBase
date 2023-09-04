@@ -251,7 +251,7 @@ mod tests {
         let mut doc2 = Doc::default();
         doc2.apply_update(Update::from_ybinary1(new_update).unwrap()).unwrap();
 
-        let doc1 = ws1.doc();
+        let doc1 = ws1.doc;
 
         assert_json_diff::assert_json_eq!(doc1.get_map("space:meta").unwrap(), doc2.get_map("space:meta").unwrap());
 
