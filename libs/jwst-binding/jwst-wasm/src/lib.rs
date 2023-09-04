@@ -39,7 +39,7 @@ impl Workspace {
     /// Return a `Block` instance if block exists
     #[wasm_bindgen]
     pub fn get(mut self, block_id: String) -> Option<Block> {
-        self.0.get_blocks().ok().and_then(|s| s.get(block_id).map(|b| Block(b)))
+        self.0.get_blocks().ok().and_then(|s| s.get(block_id).map(Block))
     }
 
     /// Check is a block exists
