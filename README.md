@@ -46,8 +46,7 @@ Additionally, OctoBase can function as a standalone server database, or it can b
 OctoBase has been used in [AFFiNE Cloud]. We are currently working on the following components:
 
 -   Core
-    -   ✅ CRDT operation (based on yrs)
-    -   🚧 CRDT operation (based on [jwst-codec])
+    -   ✅ CRDT operation (based on [y-octo])
     -   ✅ CRDT-based data structure compatible with [blocksuite]
     -   🚧 Full-text indexing
 -   Sync
@@ -142,7 +141,7 @@ Currently, this repository is under **active development** and most components a
 [Issues Closed]: https://img.shields.io/github/issues-closed/toeverything/OctoBase?color=6880ff&logo=github
 [rust-version-icon]: https://img.shields.io/badge/Rust-1.70.0-dea584?logo=rust
 [affine cloud]: https://app.affine.pro
-[jwst-codec]: ./libs/jwst-codec/
+[y-octo]: https://github.com/toeverything/y-octo
 [blocksuite]: https://github.com/toeverything/blocksuite
 [Collaboration abstraction]: https://github.com/toeverything/OctoBase/issues/287
 [WebSocket connector]: ./libs/jwst-rpc/src/connector/tungstenite_socket.rs
