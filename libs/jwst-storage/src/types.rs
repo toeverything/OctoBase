@@ -3,14 +3,14 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum JwstStorageError {
+    #[error("failed to init sync thread")]
+    SyncThread(std::io::Error),
     #[error("failed to create data directory")]
     CreateDataFolder(std::io::Error),
     #[error("db manipulate error: {0}")]
     Crud(String),
     #[error("db error: {0:?}")]
     Db(#[from] sea_orm::DbErr),
-    #[error("failed to process doc")]
-    DocCodec(#[from] lib0::error::Error),
     #[error("doc codec error")]
     DocJwstCodec(#[from] JwstCodecError),
     #[error("merge thread panic")]
@@ -18,11 +18,13 @@ pub enum JwstStorageError {
     #[error("workspace {0} not found")]
     WorkspaceNotFound(String),
     #[error("jwst error")]
-    Jwst(#[from] jwst::JwstError),
+    Jwst(#[from] jwst_core::JwstError),
     #[error("failed to process blob")]
     JwstBlob(#[from] crate::storage::blobs::JwstBlobError),
+    #[cfg(feature = "bucket")]
     #[error("bucket error")]
     JwstBucket(#[from] opendal::Error),
+    #[cfg(feature = "bucket")]
     #[error("env variables read error")]
     DotEnvy(#[from] dotenvy::Error),
 }

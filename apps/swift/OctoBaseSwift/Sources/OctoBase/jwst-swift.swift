@@ -120,8 +120,8 @@ extension BlockRef {
         __swift_bridge__$Block$is_integer(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }())
     }
 
-    public func get_bool<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Optional<Int64> {
-        { let val = __swift_bridge__$Block$get_bool(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_some { return val.val } else { return nil } }()
+    public func get_bool<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Optional<Bool> {
+        __swift_bridge__$Block$get_bool(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }()).intoSwiftRepr()
     }
 
     public func get_string<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Optional<RustString> {
@@ -129,11 +129,11 @@ extension BlockRef {
     }
 
     public func get_float<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Optional<Double> {
-        { let val = __swift_bridge__$Block$get_float(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_some { return val.val } else { return nil } }()
+        __swift_bridge__$Block$get_float(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }()).intoSwiftRepr()
     }
 
     public func get_integer<GenericIntoRustString: IntoRustString>(_ key: GenericIntoRustString) -> Optional<Int64> {
-        { let val = __swift_bridge__$Block$get_integer(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val.is_some { return val.val } else { return nil } }()
+        __swift_bridge__$Block$get_integer(ptr, { let rustString = key.intoRustString(); rustString.isOwned = false; return rustString.ptr }()).intoSwiftRepr()
     }
 }
 extension Block: Vectorizable {
@@ -174,6 +174,10 @@ extension Block: Vectorizable {
         } else {
             return BlockRefMut(ptr: pointer!)
         }
+    }
+
+    public static func vecOfSelfAsPtr(vecPtr: UnsafeMutableRawPointer) -> UnsafePointer<BlockRef> {
+        UnsafePointer<BlockRef>(OpaquePointer(__swift_bridge__$Vec_Block$as_ptr(vecPtr)))
     }
 
     public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
@@ -247,6 +251,10 @@ extension DynamicValueMap: Vectorizable {
         }
     }
 
+    public static func vecOfSelfAsPtr(vecPtr: UnsafeMutableRawPointer) -> UnsafePointer<DynamicValueMapRef> {
+        UnsafePointer<DynamicValueMapRef>(OpaquePointer(__swift_bridge__$Vec_DynamicValueMap$as_ptr(vecPtr)))
+    }
+
     public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
         __swift_bridge__$Vec_DynamicValueMap$len(vecPtr)
     }
@@ -280,15 +288,15 @@ public class DynamicValueRef {
 }
 extension DynamicValueRef {
     public func as_bool() -> Optional<Bool> {
-        { let val = __swift_bridge__$DynamicValue$as_bool(ptr); if val.is_some { return val.val } else { return nil } }()
+        __swift_bridge__$DynamicValue$as_bool(ptr).intoSwiftRepr()
     }
 
     public func as_number() -> Optional<Double> {
-        { let val = __swift_bridge__$DynamicValue$as_number(ptr); if val.is_some { return val.val } else { return nil } }()
+        __swift_bridge__$DynamicValue$as_number(ptr).intoSwiftRepr()
     }
 
     public func as_int() -> Optional<Int64> {
-        { let val = __swift_bridge__$DynamicValue$as_int(ptr); if val.is_some { return val.val } else { return nil } }()
+        __swift_bridge__$DynamicValue$as_int(ptr).intoSwiftRepr()
     }
 
     public func as_string() -> Optional<RustString> {
@@ -347,6 +355,10 @@ extension DynamicValue: Vectorizable {
         }
     }
 
+    public static func vecOfSelfAsPtr(vecPtr: UnsafeMutableRawPointer) -> UnsafePointer<DynamicValueRef> {
+        UnsafePointer<DynamicValueRef>(OpaquePointer(__swift_bridge__$Vec_DynamicValue$as_ptr(vecPtr)))
+    }
+
     public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
         __swift_bridge__$Vec_DynamicValue$len(vecPtr)
     }
@@ -369,11 +381,6 @@ public class Workspace: WorkspaceRefMut {
 public class WorkspaceRefMut: WorkspaceRef {
     public override init(ptr: UnsafeMutableRawPointer) {
         super.init(ptr: ptr)
-    }
-}
-extension WorkspaceRefMut {
-    public func compare() -> Optional<RustString> {
-        { let val = __swift_bridge__$Workspace$compare(ptr); if val != nil { return RustString(ptr: val!) } else { return nil } }()
     }
 }
 public class WorkspaceRef {
@@ -458,6 +465,10 @@ extension Workspace: Vectorizable {
         }
     }
 
+    public static func vecOfSelfAsPtr(vecPtr: UnsafeMutableRawPointer) -> UnsafePointer<WorkspaceRef> {
+        UnsafePointer<WorkspaceRef>(OpaquePointer(__swift_bridge__$Vec_Workspace$as_ptr(vecPtr)))
+    }
+
     public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
         __swift_bridge__$Vec_Workspace$len(vecPtr)
     }
@@ -527,6 +538,10 @@ extension JwstWorkSpaceResult: Vectorizable {
         } else {
             return JwstWorkSpaceResultRefMut(ptr: pointer!)
         }
+    }
+
+    public static func vecOfSelfAsPtr(vecPtr: UnsafeMutableRawPointer) -> UnsafePointer<JwstWorkSpaceResultRef> {
+        UnsafePointer<JwstWorkSpaceResultRef>(OpaquePointer(__swift_bridge__$Vec_JwstWorkSpaceResult$as_ptr(vecPtr)))
     }
 
     public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
@@ -641,6 +656,10 @@ extension Storage: Vectorizable {
         } else {
             return StorageRefMut(ptr: pointer!)
         }
+    }
+
+    public static func vecOfSelfAsPtr(vecPtr: UnsafeMutableRawPointer) -> UnsafePointer<StorageRef> {
+        UnsafePointer<StorageRef>(OpaquePointer(__swift_bridge__$Vec_Storage$as_ptr(vecPtr)))
     }
 
     public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {

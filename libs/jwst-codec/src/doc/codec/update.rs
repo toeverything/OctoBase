@@ -164,6 +164,10 @@ impl Update {
         }
     }
 
+    pub fn is_content_empty(&self) -> bool {
+        self.structs.is_empty()
+    }
+
     pub fn is_empty(&self) -> bool {
         self.structs.is_empty() && self.delete_set.is_empty()
     }

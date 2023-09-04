@@ -2,6 +2,7 @@ use jwst_codec::{
     write_sync_message, CrdtRead, CrdtWrite, DocMessage, RawDecoder, RawEncoder, StateVector, SyncMessage,
     SyncMessageScanner, Update,
 };
+use tracing::debug;
 
 use super::*;
 
@@ -37,6 +38,14 @@ impl Workspace {
             let (awareness_msg, content_msg): (Vec<_>, Vec<_>) = SyncMessageScanner::new(&buffer)
                 .flatten()
                 .partition(|msg| matches!(msg, SyncMessage::Awareness(_) | SyncMessage::AwarenessQuery));
+
+            debug!(
+                "sync message: {}, awareness: {}, content: {}",
+                buffer.len(),
+                awareness_msg.len(),
+                content_msg.len()
+            );
+
             awareness.extend(awareness_msg);
             content.extend(content_msg);
         }
@@ -84,8 +93,12 @@ impl Workspace {
                     match msg {
                         SyncMessage::Doc(msg) => match msg {
                             DocMessage::Step1(sv) => StateVector::read(&mut RawDecoder::new(sv)).ok().and_then(|sv| {
+                                debug!("step1 get sv: {sv:?}");
                                 doc.encode_state_as_update_v1(&sv)
-                                    .map(|update| SyncMessage::Doc(DocMessage::Step2(update)))
+                                    .map(|update| {
+                                        debug!("step1 encode update: {}", update.len());
+                                        SyncMessage::Doc(DocMessage::Step2(update))
+                                    })
                                     .ok()
                             }),
                             DocMessage::Step2(update) => {
@@ -96,21 +109,21 @@ impl Workspace {
                                 }
                                 None
                             }
-                            DocMessage::Update(update) => {
-                                if let Ok(update) = Update::read(&mut RawDecoder::new(update)) {
-                                    if let Err(e) = doc.apply_update(update) {
-                                        warn!("failed to apply update: {:?}", e);
+                            DocMessage::Update(update) => doc
+                                .apply_update_from_binary(update)
+                                .and_then(|update| {
+                                    if update.is_content_empty() {
+                                        return Ok(None);
                                     }
 
-                                    // TODO: let apply_update return changed state vector after apply
-                                    // then we can make generate a diff update and send to client
-                                    // trx.encode_update_v1()
-                                    //     .map(|update| SyncMessage::Doc(DocMessage::Update(update)));
-                                    None
-                                } else {
-                                    None
-                                }
-                            }
+                                    let mut encoder = RawEncoder::default();
+                                    update.write(&mut encoder)?;
+                                    Ok(Some(encoder.into_inner()))
+                                })
+                                .map_err(|e| warn!("failed to apply update: {:?}", e))
+                                .ok()
+                                .flatten()
+                                .map(|u| SyncMessage::Doc(DocMessage::Update(u))),
                         },
                         _ => None,
                     }
@@ -119,6 +132,7 @@ impl Workspace {
                     if let Err(e) = write_sync_message(&mut buffer, &msg) {
                         warn!("failed to encode message: {:?}", e);
                     } else {
+                        debug!("return update: {}", buffer.len());
                         result.push(buffer);
                     }
                 }

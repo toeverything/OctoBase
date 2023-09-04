@@ -52,29 +52,56 @@ fn load_path(path: &str) -> Result<Vec<Vec<u8>>, Error> {
 
 fn main() {
     let args = Args::parse();
-    jwst_merge(&args);
-    yrs_merge(&args);
+    jwst_merge(
+        &args.path,
+        &args.output.clone().unwrap_or_else(|| format!("{}.jwst", args.path)),
+    );
+    std::io::stdin().read_line(&mut String::new()).unwrap();
+    yrs_merge(
+        &args.path,
+        &args.output.clone().unwrap_or_else(|| format!("{}.yrs", args.path)),
+    );
 }
 
-fn jwst_merge(args: &Args) {
-    let updates = load_path(&args.path).unwrap();
+fn jwst_merge(path: &str, output: &str) {
+    let updates = load_path(path).unwrap();
 
     let mut doc = Doc::default();
     for (i, update) in updates.iter().enumerate() {
         println!("apply update{i} {} bytes", update.len());
         doc.apply_update_from_binary(update.clone()).unwrap();
     }
-    let binary = doc.encode_update_v1().unwrap();
-    println!("merged {} bytes", binary.len());
-    write(
-        args.output.clone().unwrap_or_else(|| format!("{}.jwst", args.path)),
-        binary,
-    )
-    .unwrap();
+    doc.gc().unwrap();
+
+    let binary = {
+        // let json =
+        // serde_json::to_string_pretty(&doc.get_map("space:blocks").unwrap()).unwrap();
+        // println!("json {} bytes", json.len());
+        let binary = doc.encode_update_v1().unwrap();
+        drop(doc);
+        println!("merged {} bytes", binary.len());
+        std::io::stdin().read_line(&mut String::new()).unwrap();
+        binary
+    };
+
+    {
+        let mut doc = Doc::default();
+        doc.apply_update_from_binary(binary.clone()).unwrap();
+        let new_binary = doc.encode_update_v1().unwrap();
+        let new_json = serde_json::to_string_pretty(&doc.get_map("space:blocks").unwrap()).unwrap();
+
+        println!(
+            "re-encoded {} bytes,  new json {} bytes",
+            new_binary.len(),
+            new_json.len()
+        );
+        std::io::stdin().read_line(&mut String::new()).unwrap();
+    }
+    write(output, binary).unwrap();
 }
 
-fn yrs_merge(args: &Args) {
-    let updates = load_path(&args.path).unwrap();
+fn yrs_merge(path: &str, output: &str) {
+    let updates = load_path(path).unwrap();
 
     let doc = yrs::Doc::new();
     for (i, update) in updates.iter().enumerate() {
@@ -86,9 +113,16 @@ fn yrs_merge(args: &Args) {
         .encode_state_as_update_v1(&StateVector::default())
         .unwrap();
     println!("merged {} bytes", binary.len());
-    write(
-        args.output.clone().unwrap_or_else(|| format!("{}.yrs", args.path)),
-        binary,
-    )
-    .unwrap();
+    write(output, binary).unwrap();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "only for debug"]
+    fn test_gc() {
+        jwst_merge("/Users/ds/Downloads/out", "/Users/ds/Downloads/out.jwst");
+    }
 }

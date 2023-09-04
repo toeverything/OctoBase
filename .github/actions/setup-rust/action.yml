@@ -1,24 +1,24 @@
-name: "Y-Octo Rust setup"
+name: "Rust setup"
 description: "Rust setup, including cache configuration"
 inputs:
-  components:
-    description: "Cargo components"
-    required: false
-  targets:
-    description: "Cargo target"
-    required: false
-  toolchain:
-    description: "Rustup toolchain"
-    required: false
-    default: "stable"
+    components:
+        description: "Cargo components"
+        required: false
+    targets:
+        description: "Cargo target"
+        required: false
+    toolchain:
+        description: "Rustup toolchain"
+        required: false
+        default: "stable"
 
 runs:
-  using: "composite"
-  steps:
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: ${{ inputs.toolchain }}
-        targets: ${{ inputs.targets }}
-        components: ${{ inputs.components }}
-    - uses: Swatinem/rust-cache@v2
+    using: "composite"
+    steps:
+        - name: Setup Rust
+          uses: dtolnay/rust-toolchain@stable
+          with:
+              toolchain: ${{ inputs.toolchain }}
+              targets: ${{ inputs.targets }}
+              components: ${{ inputs.components }}
+        - uses: Swatinem/rust-cache@v2

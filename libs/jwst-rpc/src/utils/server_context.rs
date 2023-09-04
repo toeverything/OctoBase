@@ -1,9 +1,9 @@
 use std::{collections::HashMap, time::Duration};
 
-use jwst::{DocStorage, Workspace};
+use jwst_codec::StateVector;
+use jwst_core::{DocStorage, Workspace};
 use jwst_storage::{BlobStorageType, JwstStorage};
 use tokio::{sync::RwLock, time::sleep};
-use yrs::{ReadTxn, StateVector, Transact};
 
 use super::*;
 
@@ -57,7 +57,6 @@ impl MinimumServerContext {
 
         let init_state = ws
             .doc()
-            .transact()
             .encode_state_as_update_v1(&StateVector::default())
             .expect("encode_state_as_update_v1 failed");
 

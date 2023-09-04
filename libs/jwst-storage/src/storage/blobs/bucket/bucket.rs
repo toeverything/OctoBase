@@ -2,16 +2,13 @@ use std::{collections::HashMap, sync::Arc};
 
 use bytes::Bytes;
 use futures::Stream;
-use jwst::{BlobMetadata, BlobStorage, BucketBlobStorage, JwstResult};
+use jwst_core::{BlobMetadata, BlobStorage, BucketBlobStorage, JwstResult};
 use jwst_storage_migration::Migrator;
 use opendal::{services::S3, Operator};
 use sea_orm::{DatabaseConnection, EntityTrait};
 use sea_orm_migration::MigratorTrait;
 
-use super::{
-    utils::{calculate_hash, get_hash},
-    *,
-};
+use super::*;
 use crate::{rate_limiter::Bucket, JwstStorageError};
 
 pub(super) type BucketBlobModel = <BucketBlobs as EntityTrait>::Model;
@@ -19,19 +16,19 @@ type BucketBlobActiveModel = entities::bucket_blobs::ActiveModel;
 type BucketBlobColumn = <BucketBlobs as EntityTrait>::Column;
 
 #[derive(Clone)]
-pub struct BlobBucketDBStorage {
+pub struct BlobBucketStorage {
     bucket: Arc<Bucket>,
     pub(super) pool: DatabaseConnection,
     pub(super) bucket_storage: BucketStorage,
 }
 
-impl AsRef<DatabaseConnection> for BlobBucketDBStorage {
+impl AsRef<DatabaseConnection> for BlobBucketStorage {
     fn as_ref(&self) -> &DatabaseConnection {
         &self.pool
     }
 }
 
-impl BlobBucketDBStorage {
+impl BlobBucketStorage {
     pub async fn init_with_pool(
         pool: DatabaseConnection,
         bucket: Arc<Bucket>,
@@ -101,10 +98,11 @@ impl BlobBucketDBStorage {
         BucketBlobs::find()
             .filter(BucketBlobColumn::WorkspaceId.is_in(workspaces))
             .select_only()
-            .column_as(BucketBlobColumn::Length.sum(), "size")
-            .into_tuple()
+            .column_as(BucketBlobColumn::Length.sum().cast_as(Alias::new("bigint")), "size")
+            .into_tuple::<Option<i64>>()
             .one(&self.pool)
             .await
+            .map(|r| r.flatten())
     }
 
     async fn insert(&self, workspace: &str, hash: &str, blob: &[u8]) -> Result<(), DbErr> {
@@ -207,8 +205,39 @@ impl BucketBlobStorage<JwstStorageError> for BucketStorage {
     }
 }
 
+impl TryFrom<HashMap<String, String>> for BucketStorage {
+    type Error = JwstStorageError;
+
+    fn try_from(map: HashMap<String, String>) -> Result<Self, Self::Error> {
+        let mut builder = BucketStorageBuilder::new();
+        let access_token = map.get("BUCKET_ACCESS_TOKEN");
+        let secret_access_key = map.get("BUCKET_SECRET_TOKEN");
+        let endpoint = map.get("BUCKET_ENDPOINT");
+        let bucket = map.get("BUCKET_NAME");
+        let root = map.get("BUCKET_ROOT");
+
+        if let Some(access_token) = access_token {
+            builder = builder.access_key(access_token);
+        }
+        if let Some(secret_access_key) = secret_access_key {
+            builder = builder.secret_access_key(secret_access_key);
+        }
+        if let Some(endpoint) = endpoint {
+            builder = builder.endpoint(endpoint);
+        }
+        if let Some(bucket) = bucket {
+            builder = builder.bucket(bucket);
+        }
+        if let Some(root) = root {
+            builder = builder.root(root);
+        }
+
+        builder.build()
+    }
+}
+
 #[async_trait]
-impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
+impl BlobStorage<JwstStorageError> for BlobBucketStorage {
     async fn list_blobs(&self, workspace: Option<String>) -> JwstResult<Vec<String>, JwstStorageError> {
         let _lock = self.bucket.read().await;
         let workspace = workspace.unwrap_or("__default__".into());
@@ -321,7 +350,6 @@ impl BlobStorage<JwstStorageError> for BlobBucketDBStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::blobs::utils::BucketStorageBuilder;
 
     #[tokio::test]
     #[ignore = "need to config bucket auth"]
@@ -335,7 +363,7 @@ mod tests {
             .build()
             .unwrap();
 
-        BlobBucketDBStorage::init_pool("sqlite::memory:", Some(bucket_storage))
+        BlobBucketStorage::init_pool("sqlite::memory:", Some(bucket_storage))
             .await
             .unwrap();
     }

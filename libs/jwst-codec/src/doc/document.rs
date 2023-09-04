@@ -107,7 +107,7 @@ pub struct Doc {
     opts: DocOptions,
 
     pub(crate) store: StoreRef,
-    pub(crate) publisher: Arc<DocPublisher>,
+    pub publisher: Arc<DocPublisher>,
 }
 
 unsafe impl Send for Doc {}
@@ -150,6 +150,14 @@ impl Doc {
         self.client_id
     }
 
+    pub fn clients(&self) -> Vec<u64> {
+        self.store.read().unwrap().clients()
+    }
+
+    pub fn history(&self, client: u64) -> Option<Vec<RawHistory>> {
+        self.store.read().unwrap().history(client)
+    }
+
     pub fn options(&self) -> &DocOptions {
         &self.opts
     }
@@ -170,16 +178,16 @@ impl Doc {
         Ok(doc)
     }
 
-    pub fn apply_update_from_binary(&mut self, update: Vec<u8>) -> JwstCodecResult {
+    pub fn apply_update_from_binary(&mut self, update: Vec<u8>) -> JwstCodecResult<Update> {
         let mut decoder = RawDecoder::new(update);
         let update = Update::read(&mut decoder)?;
-        self.apply_update(update)?;
-        Ok(())
+        self.apply_update(update)
     }
 
-    pub fn apply_update(&mut self, mut update: Update) -> JwstCodecResult {
+    pub fn apply_update(&mut self, mut update: Update) -> JwstCodecResult<Update> {
         let mut store = self.store.write().unwrap();
         let mut retry = false;
+        let before_state = store.get_state_vector();
         loop {
             for (mut s, offset) in update.iter(store.get_state_vector()) {
                 if let Node::Item(item) = &mut s {
@@ -238,7 +246,7 @@ impl Doc {
             }
         }
 
-        Ok(())
+        store.diff_state_vector(&before_state)
     }
 
     pub fn keys(&self) -> Vec<String> {
@@ -293,11 +301,19 @@ impl Doc {
     }
 
     pub fn encode_state_as_update_v1(&self, sv: &StateVector) -> JwstCodecResult<Vec<u8>> {
-        let update = self.store.read().unwrap().diff_state_vector(sv)?;
+        let update = self.encode_state_as_update(sv)?;
 
         let mut encoder = RawEncoder::default();
         update.write(&mut encoder)?;
         Ok(encoder.into_inner())
+    }
+
+    pub fn encode_update(&self) -> JwstCodecResult<Update> {
+        self.encode_state_as_update(&StateVector::default())
+    }
+
+    pub fn encode_state_as_update(&self, sv: &StateVector) -> JwstCodecResult<Update> {
+        self.store.read().unwrap().diff_state_vector(sv)
     }
 
     pub fn get_state_vector(&self) -> StateVector {

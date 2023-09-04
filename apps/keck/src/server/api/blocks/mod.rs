@@ -5,10 +5,7 @@ pub mod workspace;
 pub use block::{delete_block, get_block, get_block_history, insert_block_children, remove_block_children, set_block};
 use schema::InsertChildren;
 pub use schema::SubscribeWorkspace;
-pub use workspace::{
-    delete_workspace, get_workspace, history_workspace, history_workspace_clients, set_workspace, subscribe_workspace,
-    workspace_client,
-};
+pub use workspace::{delete_workspace, get_workspace, set_workspace, subscribe_workspace, workspace_client};
 
 use super::*;
 
@@ -32,8 +29,8 @@ fn block_apis(router: Router) -> Router {
 fn workspace_apis(router: Router) -> Router {
     router
         .route("/block/:workspace/client", get(workspace::workspace_client))
-        .route("/block/:workspace/history", get(workspace::history_workspace_clients))
-        .route("/block/:workspace/history/:client", get(workspace::history_workspace))
+        // .route("/block/:workspace/history", get(workspace::history_workspace_clients))
+        // .route("/block/:workspace/history/:client", get(workspace::history_workspace))
         .route(
             "/block/:workspace",
             get(workspace::get_workspace)
@@ -42,11 +39,11 @@ fn workspace_apis(router: Router) -> Router {
         )
         .route("/block/:workspace/flavour/:flavour", get(block::get_block_by_flavour))
         .route("/block/:workspace/blocks", get(workspace::get_workspace_block))
-        .route("/search/:workspace", get(workspace::workspace_search))
-        .route(
-            "/search/:workspace/index",
-            get(workspace::get_search_index).post(workspace::set_search_index),
-        )
+        // .route("/search/:workspace", get(workspace::workspace_search))
+        // .route(
+        //     "/search/:workspace/index",
+        //     get(workspace::get_search_index).post(workspace::set_search_index),
+        // )
         .route("/subscribe", post(subscribe_workspace))
 }
 
@@ -57,7 +54,7 @@ pub fn blocks_apis(router: Router) -> Router {
 #[cfg(test)]
 mod tests {
     use axum_test_helper::TestClient;
-    use serde_json::{from_str, json, to_string, Value};
+    use serde_json::{from_str, json, Value};
 
     use super::*;
 
@@ -78,29 +75,14 @@ mod tests {
     #[tokio::test]
     async fn test_workspace_apis() {
         let client = Arc::new(reqwest::Client::builder().no_proxy().build().unwrap());
-        let runtime = Arc::new(
-            runtime::Builder::new_multi_thread()
-                .worker_threads(2)
-                .enable_time()
-                .enable_io()
-                .build()
-                .expect("Failed to create runtime"),
-        );
-        let workspace_changed_blocks = Arc::new(RwLock::new(HashMap::<String, WorkspaceChangedBlocks>::new()));
+
         let hook_endpoint = Arc::new(RwLock::new(String::new()));
-        let cb: WorkspaceRetrievalCallback = {
-            let workspace_changed_blocks = workspace_changed_blocks.clone();
-            let runtime = runtime.clone();
-            Some(Arc::new(Box::new(move |workspace: &Workspace| {
-                workspace.set_callback(generate_ws_callback(&workspace_changed_blocks, &runtime));
-            })))
-        };
+
         let ctx = Arc::new(
             Context::new(
                 JwstStorage::new_with_migration("sqlite::memory:", BlobStorageType::DB)
                     .await
                     .ok(),
-                cb,
             )
             .await,
         );
@@ -108,8 +90,6 @@ mod tests {
             workspace_apis(Router::new())
                 .layer(Extension(ctx.clone()))
                 .layer(Extension(client.clone()))
-                .layer(Extension(runtime.clone()))
-                .layer(Extension(workspace_changed_blocks.clone()))
                 .layer(Extension(hook_endpoint.clone())),
         );
 
@@ -123,8 +103,8 @@ mod tests {
             resp.text().await.parse::<u64>().unwrap(),
             ctx.storage.get_workspace("test").await.unwrap().client_id()
         );
-        let resp = client.get("/block/test/history").send().await;
-        assert_eq!(resp.json::<Vec<u64>>().await, Vec::<u64>::new());
+        // let resp = client.get("/block/test/history").send().await;
+        // assert_eq!(resp.json::<Vec<u64>>().await, Vec::<u64>::new());
         let resp = client.get("/block/test").send().await;
         assert_eq!(resp.status(), StatusCode::OK);
         let resp = client.delete("/block/test").send().await;
@@ -136,24 +116,24 @@ mod tests {
         let resp = client.post("/block/test").send().await;
         assert_eq!(resp.status(), StatusCode::OK);
 
-        let resp = client.get("/search/test/index").send().await;
-        assert_eq!(resp.status(), StatusCode::OK);
-        let index = resp.json::<Vec<String>>().await;
-        assert_eq!(index, vec!["title".to_owned(), "text".to_owned()]);
+        // let resp = client.get("/search/test/index").send().await;
+        // assert_eq!(resp.status(), StatusCode::OK);
+        // let index = resp.json::<Vec<String>>().await;
+        // assert_eq!(index, vec!["title".to_owned(), "text".to_owned()]);
 
-        let body = to_string(&json!(["test"])).unwrap();
-        let resp = client
-            .post("/search/test/index")
-            .header("content-type", "application/json")
-            .body(body)
-            .send()
-            .await;
-        assert_eq!(resp.status(), StatusCode::OK);
+        // let body = to_string(&json!(["test"])).unwrap();
+        // let resp = client
+        //     .post("/search/test/index")
+        //     .header("content-type", "application/json")
+        //     .body(body)
+        //     .send()
+        //     .await;
+        // assert_eq!(resp.status(), StatusCode::OK);
 
-        let resp = client.get("/search/test/index").send().await;
-        assert_eq!(resp.status(), StatusCode::OK);
-        let index = resp.json::<Vec<String>>().await;
-        assert_eq!(index, vec!["test".to_owned()]);
+        // let resp = client.get("/search/test/index").send().await;
+        // assert_eq!(resp.status(), StatusCode::OK);
+        // let index = resp.json::<Vec<String>>().await;
+        // assert_eq!(index, vec!["test".to_owned()]);
 
         let body = json!({
             "hookEndpoint": "localhost:3000/api/hook"

@@ -1,8 +1,7 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::collections::HashMap;
 
-use jwst::Workspace;
 use jwst_codec::{encode_update_as_message, encode_update_with_guid, write_sync_message, SyncMessage};
-use lru_time_cache::LruCache;
+use jwst_core::Workspace;
 use tokio::sync::{broadcast::Sender, RwLock};
 
 use super::*;
@@ -24,11 +23,6 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
         let sender = sender.clone();
         let workspace_id = workspace.id();
 
-        let dedup_cache = Arc::new(Mutex::new(LruCache::with_expiry_duration_and_capacity(
-            Duration::from_micros(100),
-            128,
-        )));
-
         workspace
             .on_awareness_update(move |awareness, e| {
                 let mut buffer = Vec::new();
@@ -40,12 +34,8 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
                     return;
                 }
 
-                let mut dedup_cache = dedup_cache.lock().unwrap_or_else(|e| e.into_inner());
-                if !dedup_cache.contains_key(&buffer) {
-                    if sender.send(BroadcastType::BroadcastAwareness(buffer.clone())).is_err() {
-                        debug!("broadcast channel {workspace_id} has been closed",)
-                    }
-                    dedup_cache.insert(buffer, ());
+                if sender.send(BroadcastType::BroadcastAwareness(buffer.clone())).is_err() {
+                    debug!("broadcast channel {workspace_id} has been closed",)
                 }
             })
             .await;
@@ -53,11 +43,11 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
     {
         let sender = sender.clone();
         let workspace_id = workspace.id();
-        workspace.observe(move |_, e| {
-            trace!("workspace {} changed: {}bytes", workspace_id, &e.update.len());
+        workspace.doc().subscribe(move |update| {
+            debug!("workspace {} changed: {}bytes", workspace_id, update.len());
 
-            match encode_update_with_guid(e.update.clone(), workspace_id.clone())
-                .and_then(|update| encode_update_as_message(update.clone()).map(|u| (update, u)))
+            match encode_update_with_guid(update.to_vec(), workspace_id.clone())
+                .and_then(|update_with_guid| encode_update_as_message(update.to_vec()).map(|u| (update_with_guid, u)))
             {
                 Ok((broadcast_update, sendable_update)) => {
                     if sender

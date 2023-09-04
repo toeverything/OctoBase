@@ -21,11 +21,5 @@ pub fn sync_handler(router: Router) -> Router {
         post(collaboration::auth_handler).get(collaboration::upgrade_handler),
     );
 
-    #[cfg(feature = "webrtc")]
-    {
-        router.nest_service("/webrtc-sdp/:workspace", post(collaboration::webrtc_handler))
-    }
-
-    #[cfg(not(feature = "webrtc"))]
     router
 }

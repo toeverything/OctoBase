@@ -8,7 +8,6 @@ use tokio::{
     runtime::{Builder, Runtime},
     sync::mpsc::channel,
 };
-use yrs::{ReadTxn, StateVector, Transact};
 
 use super::*;
 
@@ -19,7 +18,6 @@ pub struct Storage {
     error: Option<String>,
     sync_state: Arc<RwLock<SyncState>>,
     last_sync: CachedLastSynced,
-    difflog: CachedDiffLog,
 }
 
 impl Storage {
@@ -29,7 +27,10 @@ impl Storage {
 
     pub fn new_with_log_level(path: String, level: String) -> Self {
         init_logger_with(
-            &format!("{level},mio=off,hyper=off,rustls=off,tantivy=off,sqlx::query=off"),
+            &format!(
+                "{level},mio=off,hyper=off,rustls=off,tantivy=off,sqlx::query=off,tokio_tungstenite=off,\
+                 tungstenite=off"
+            ),
             false,
         );
 
@@ -50,7 +51,6 @@ impl Storage {
             error: None,
             sync_state: Arc::new(RwLock::new(SyncState::Offline)),
             last_sync: CachedLastSynced::default(),
-            difflog: CachedDiffLog::default(),
         }
     }
 
@@ -133,51 +133,7 @@ impl Storage {
                     );
                 }
 
-                let update = workspace
-                    .doc()
-                    .transact()
-                    .encode_state_as_update_v1(&StateVector::default())
-                    .unwrap();
-
-                let jwst_workspace = match jwst_core::Workspace::from_binary(update, &workspace_id) {
-                    Ok(mut ws) => {
-                        info!(
-                            "Successfully applied to jwst workspace, jwst blocks: {}, yrs blocks: {}",
-                            ws.get_blocks().map(|s| s.block_count()).unwrap_or_default(),
-                            workspace
-                                .retry_with_trx(|mut t| t.get_blocks(), 50)
-                                .map(|s| s.block_count())
-                                .unwrap_or_default()
-                        );
-
-                        Some(ws)
-                    }
-                    Err(e) => {
-                        error!("Failed to apply to jwst workspace: {:?}", e);
-                        None
-                    }
-                };
-
-                let (sender, receiver) = channel::<Log>(10240);
-                self.difflog.add_receiver(receiver, rt.clone(), self.storage.clone());
-
-                let mut ws = Workspace {
-                    workspace,
-                    jwst_workspace,
-                    runtime: rt,
-                    sender,
-                };
-
-                if let Some(ret) = Workspace::compare(&mut ws) {
-                    info!("Run first compare at workspace init: {}, {}", workspace_id, ret);
-                } else {
-                    warn!(
-                        "Failed to run first compare, jwst workspace not initialed: {}",
-                        workspace_id
-                    );
-                }
-
-                Ok(ws)
+                Ok(Workspace { workspace, _rt: rt })
             }
             Err(e) => Err(e),
         }

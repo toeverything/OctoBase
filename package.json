@@ -16,6 +16,9 @@
 				"rollup",
 				"vite"
 			]
+		},
+		"overrides": {
+			"has": "npm:@nolyfill/has@latest"
 		}
 	},
 	"dependencies": {

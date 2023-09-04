@@ -1,6 +1,6 @@
 use axum::{extract::BodyStream, response::Response, routing::post};
 use futures::{future, StreamExt};
-use jwst::BlobStorage;
+use jwst_core::BlobStorage;
 use utoipa::ToSchema;
 
 use super::*;
@@ -188,7 +188,6 @@ mod tests {
             JwstStorage::new_with_migration("sqlite::memory:", BlobStorageType::DB)
                 .await
                 .ok(),
-            None,
         )
         .await;
         let client = TestClient::new(blobs_apis(Router::new()).layer(Extension(Arc::new(ctx))));

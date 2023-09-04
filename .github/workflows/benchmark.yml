@@ -90,7 +90,7 @@ jobs:
             - name: Linux | Compare benchmark results
               shell: bash
               run: |
-                  critcmp main pr | cargo run -p y-octo-utils --bin bench_result_render --features bench -- Linux >> summary.md
+                  critcmp main pr | cargo run -p jwst-codec-utils --bin bench_result_render --features bench -- Linux >> summary.md
                   echo "" >> summary.md
 
             - name: Linux | Cleanup benchmark results
@@ -105,7 +105,7 @@ jobs:
             - name: Windows | Compare benchmark results
               shell: bash
               run: |
-                  critcmp main pr | cargo run -p y-octo-utils --bin bench_result_render --features bench -- Windows >> summary.md
+                  critcmp main pr | cargo run -p jwst-codec-utils --bin bench_result_render --features bench -- Windows >> summary.md
                   cat summary.md > $GITHUB_STEP_SUMMARY
 
             - name: Find Comment

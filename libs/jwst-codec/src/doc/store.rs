@@ -49,6 +49,10 @@ impl DocStore {
         self.client
     }
 
+    pub fn clients(&self) -> Vec<Client> {
+        self.items.keys().cloned().collect()
+    }
+
     pub fn get_state(&self, client: Client) -> Clock {
         if let Some(structs) = self.items.get(&client) {
             if let Some(last_struct) = structs.back() {
@@ -558,7 +562,9 @@ impl DocStore {
 
         if item.parent_sub.is_none() && item.countable() {
             if let Some(parent) = parent {
-                parent.len -= item.len();
+                if parent.len != 0 {
+                    parent.len -= item.len();
+                }
             } else if let Some(Parent::Type(ty)) = &item.parent {
                 ty.ty_mut().unwrap().len -= item.len();
             }
@@ -828,7 +834,7 @@ impl DocStore {
                 }
                 ty.start = Somr::none();
 
-                for (_, item) in &ty.map {
+                for item in ty.map.values() {
                     if let Some(item) = item.get() {
                         Self::gc_item_by_id(items, item.id, true)?;
                     }
