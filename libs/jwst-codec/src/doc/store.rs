@@ -807,7 +807,9 @@ impl DocStore {
                 let _ = mem::replace(&mut items[idx], Node::new_gc(item.id, item.len()));
             } else {
                 let mut item = unsafe { item_ref.get_mut_unchecked() };
-                item.content = Arc::new(Content::Deleted(item.len()));
+                if !matches!(item.content.as_ref(), Content::Type(_)) {
+                    item.content = Arc::new(Content::Deleted(item.len()));
+                }
             }
         }
 

@@ -74,13 +74,12 @@ fn jwst_merge(path: &str, output: &str) {
     doc.gc().unwrap();
 
     let binary = {
-        // let json =
-        // serde_json::to_string_pretty(&doc.get_map("space:blocks").unwrap()).unwrap();
-        // println!("json {} bytes", json.len());
+        let json = serde_json::to_string_pretty(&doc.get_map("space:blocks").unwrap()).unwrap();
         let binary = doc.encode_update_v1().unwrap();
+
         drop(doc);
-        println!("merged {} bytes", binary.len());
-        std::io::stdin().read_line(&mut String::new()).unwrap();
+        println!("merged {} bytes, json {} bytes", binary.len(), json.len());
+
         binary
     };
 
@@ -95,7 +94,7 @@ fn jwst_merge(path: &str, output: &str) {
             new_binary.len(),
             new_json.len()
         );
-        std::io::stdin().read_line(&mut String::new()).unwrap();
+        // std::io::stdin().read_line(&mut String::new()).unwrap();
     }
     write(output, binary).unwrap();
 }
@@ -124,5 +123,6 @@ mod tests {
     #[ignore = "only for debug"]
     fn test_gc() {
         jwst_merge("/Users/ds/Downloads/out", "/Users/ds/Downloads/out.jwst");
+        yrs_merge("/Users/ds/Downloads/out", "/Users/ds/Downloads/out.yrs");
     }
 }
