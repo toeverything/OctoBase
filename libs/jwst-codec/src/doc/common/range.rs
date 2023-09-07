@@ -119,7 +119,7 @@ impl OrderRange {
         }
         *self = match (raw, other) {
             (OrderRange::Range(a), OrderRange::Range(b)) => {
-                if a.start < b.end && b.start < a.end {
+                if is_continuous_range(&a, &b) {
                     // merge intersected range
                     OrderRange::Range(a.start.min(b.start)..a.end.max(b.end))
                 } else {
