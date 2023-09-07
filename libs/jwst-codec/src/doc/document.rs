@@ -520,4 +520,72 @@ mod tests {
             assert_eq!(count.load(Ordering::SeqCst), 2);
         });
     }
+
+    #[test]
+    fn test_repeated_applied_pending_update() {
+        // generate a pending update
+        // update: [1, 1, 1, 0, 39, 1, 4, 116, 101, 115, 116, 3, 109, 97, 112, 1, 0]
+        // update: [1, 1, 1, 1, 40, 0, 1, 0, 11, 115, 117, 98, 95, 109, 97, 112, 95,
+        // 107, 101, 121, 1, 119, 13, 115, 117, 98, 95, 109, 97, 112, 95, 118, 97, 108,
+        // 117, 101, 0]
+        // {
+        //     let doc1 = Doc::default();
+
+        //     doc1.subscribe(|update| {
+        //         println!("update: {:?}", update);
+        //     });
+
+        //     let mut map = doc1.get_or_create_map("test").unwrap();
+        //     std::thread::sleep(std::time::Duration::from_millis(500));
+
+        //     let mut sub_map = doc1.create_map().unwrap();
+        //     map.insert("map", sub_map.clone()).unwrap();
+        //     std::thread::sleep(std::time::Duration::from_millis(500));
+
+        //     sub_map.insert("sub_map_key", "sub_map_value").unwrap();
+        //     std::thread::sleep(std::time::Duration::from_millis(500));
+        // }
+
+        loom_model!({
+            let mut doc = Doc::default();
+
+            doc.apply_update_from_binary(vec![
+                1, 1, 1, 1, 40, 0, 1, 0, 11, 115, 117, 98, 95, 109, 97, 112, 95, 107, 101, 121, 1, 119, 13, 115, 117,
+                98, 95, 109, 97, 112, 95, 118, 97, 108, 117, 101, 0,
+            ])
+            .unwrap();
+
+            let pending_size = doc
+                .store
+                .read()
+                .unwrap()
+                .pending
+                .as_ref()
+                .unwrap()
+                .structs
+                .iter()
+                .map(|s| s.1.len())
+                .sum::<usize>();
+            doc.apply_update_from_binary(vec![
+                1, 1, 1, 1, 40, 0, 1, 0, 11, 115, 117, 98, 95, 109, 97, 112, 95, 107, 101, 121, 1, 119, 13, 115, 117,
+                98, 95, 109, 97, 112, 95, 118, 97, 108, 117, 101, 0,
+            ])
+            .unwrap();
+
+            // pending nodes should not grow up after apply same pending update
+            assert_eq!(
+                pending_size,
+                doc.store
+                    .read()
+                    .unwrap()
+                    .pending
+                    .as_ref()
+                    .unwrap()
+                    .structs
+                    .iter()
+                    .map(|s| s.1.len())
+                    .sum::<usize>()
+            );
+        });
+    }
 }
