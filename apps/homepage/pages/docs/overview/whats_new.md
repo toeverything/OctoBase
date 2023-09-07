@@ -1,5 +1,14 @@
 # What's New
 
+## 0.8.0-canary.0-230904
+
+-   [+] feat: a complete, production-proven, YJS-compatible crdt implementation: [jwst-codec](https://github.com/toeverything/OctoBase/tree/p20230904/libs/jwst-codec)
+-   [+] feat: extract the CRDT implementation so that it can be used independently as a library: [y-octo](https://github.com/toeverything/y-octo)
+-   [+] feat: add s3 support for blob storage
+-   [+] feat: refactor core and rpc
+-   [*] feat: make workspace root doc's guid the same as workspaceId
+-   [*] feat: make storage api friendly
+
 ## 0.5.1-canary.4-230614
 
 -   [+] Expanded CRDT capabilities with new operations and types
