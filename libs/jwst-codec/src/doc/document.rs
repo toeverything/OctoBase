@@ -3,6 +3,16 @@ use std::collections::HashMap;
 use super::{publisher::DocPublisher, store::StoreRef, *};
 use crate::sync::{Arc, RwLock};
 
+#[cfg(feature = "debug")]
+#[derive(Debug, Clone)]
+pub struct DocStoreStatus {
+    pub nodes: usize,
+    pub delete_sets: usize,
+    pub types: usize,
+    pub dangling_types: usize,
+    pub pending_nodes: usize,
+}
+
 /// [DocOptions] used to create a new [Doc]
 ///
 /// ```
@@ -156,6 +166,19 @@ impl Doc {
 
     pub fn history(&self, client: u64) -> Option<Vec<RawHistory>> {
         self.store.read().unwrap().history(client)
+    }
+
+    #[cfg(feature = "debug")]
+    pub fn store_status(&self) -> DocStoreStatus {
+        let store = self.store.read().unwrap();
+
+        DocStoreStatus {
+            nodes: store.total_nodes(),
+            delete_sets: store.total_delete_sets(),
+            types: store.total_types(),
+            dangling_types: store.total_dangling_types(),
+            pending_nodes: store.total_pending_nodes(),
+        }
     }
 
     pub fn options(&self) -> &DocOptions {

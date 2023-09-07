@@ -144,6 +144,7 @@ impl Update {
             // insert [Node::Skip] if structs[index].id().clock + structs[index].len() <
             // structs[index + 1].id().clock
             let mut index = 0;
+            let mut prune_index = vec![];
             while index < structs.len() - 1 {
                 let cur = &structs[index];
                 let next = &structs[index + 1];
@@ -163,10 +164,8 @@ impl Update {
                         && cur.left() == next.left()
                         && cur.right() == next.right()
                     {
-                        // merge two nodes
-                        // TODO: too slow for VecDeque, optimize it later
-                        structs.remove(index + 1);
-                        continue;
+                        // merge two nodes, mark the index
+                        prune_index.push(index + 1);
                     } else {
                         debug!("merge failed: {:?} {:?}", cur, next)
                     }
@@ -174,14 +173,20 @@ impl Update {
 
                 index += 1;
             }
-            // merge nodes
 
-            let mut idx = structs.len() - 1;
-            while idx > 0 {
-                idx = idx.saturating_sub(DocStore::merge_with_lefts(structs, idx) + 1);
+            {
+                // prune the merged nodes
+                let mut new_structs = VecDeque::with_capacity(structs.len() - prune_index.len());
+                let mut next_remove_idx = 0;
+                for (idx, val) in structs.drain(..).enumerate() {
+                    if next_remove_idx < prune_index.len() && idx == prune_index[next_remove_idx] {
+                        next_remove_idx += 1;
+                    } else {
+                        new_structs.push_back(val);
+                    }
+                }
+                structs.extend(new_structs);
             }
-
-            structs.shrink_to_fit();
         }
     }
 

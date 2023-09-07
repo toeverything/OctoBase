@@ -53,6 +53,37 @@ impl DocStore {
         self.items.keys().cloned().collect()
     }
 
+    #[cfg(feature = "debug")]
+    pub fn total_nodes(&self) -> usize {
+        self.items.values().map(|v| v.len()).sum()
+    }
+
+    #[cfg(feature = "debug")]
+    pub fn total_delete_sets(&self) -> usize {
+        self.delete_set
+            .values()
+            .map(|v| match v {
+                OrderRange::Range(_) => 1,
+                OrderRange::Fragment(f) => f.len(),
+            })
+            .sum()
+    }
+
+    #[cfg(feature = "debug")]
+    pub fn total_types(&self) -> usize {
+        self.types.len()
+    }
+
+    #[cfg(feature = "debug")]
+    pub fn total_dangling_types(&self) -> usize {
+        self.dangling_types.len()
+    }
+
+    #[cfg(feature = "debug")]
+    pub fn total_pending_nodes(&self) -> usize {
+        self.pending.as_ref().map(|p| p.structs.len()).unwrap_or(0)
+    }
+
     pub fn get_state(&self, client: Client) -> Clock {
         if let Some(structs) = self.items.get(&client) {
             if let Some(last_struct) = structs.back() {
@@ -807,9 +838,7 @@ impl DocStore {
                 let _ = mem::replace(&mut items[idx], Node::new_gc(item.id, item.len()));
             } else {
                 let mut item = unsafe { item_ref.get_mut_unchecked() };
-                if !matches!(item.content.as_ref(), Content::Type(_)) {
-                    item.content = Arc::new(Content::Deleted(item.len()));
-                }
+                item.content = Arc::new(Content::Deleted(item.len()));
             }
         }
 
@@ -863,7 +892,7 @@ impl DocStore {
             let mut idx = nodes.len() - 1;
 
             while idx > 0 && idx >= first_change {
-                idx = idx.saturating_sub(Self::merge_with_lefts(nodes, idx)? + 1);
+                idx = idx.saturating_sub(Self::merge_with_lefts(nodes, idx) + 1);
             }
         }
 
@@ -871,7 +900,7 @@ impl DocStore {
         Ok(())
     }
 
-    fn merge_with_lefts(nodes: &mut VecDeque<Node>, idx: usize) -> JwstCodecResult<usize> {
+    fn merge_with_lefts(nodes: &mut VecDeque<Node>, idx: usize) -> usize {
         let mut pos = idx;
         loop {
             if pos == 0 {
@@ -953,7 +982,9 @@ impl DocStore {
             pos -= 1;
         }
         nodes.drain(pos + 1..=idx);
-        Ok(idx - pos)
+
+        // return the index of processed items
+        idx - pos
     }
 }
 
