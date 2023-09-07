@@ -157,10 +157,31 @@ impl Update {
                         Node::new_skip((cur.id().client, clock_end).into(), next_clock - clock_end),
                     );
                     index += 1;
+                } else if cur.id().clock == next_clock {
+                    if cur.deleted() == next.deleted()
+                        && cur.last_id() == next.last_id()
+                        && cur.left() == next.left()
+                        && cur.right() == next.right()
+                    {
+                        // merge two nodes
+                        // TODO: too slow for VecDeque, optimize it later
+                        structs.remove(index + 1);
+                        continue;
+                    } else {
+                        debug!("merge failed: {:?} {:?}", cur, next)
+                    }
                 }
 
                 index += 1;
             }
+            // merge nodes
+
+            let mut idx = structs.len() - 1;
+            while idx > 0 {
+                idx = idx.saturating_sub(DocStore::merge_with_lefts(structs, idx) + 1);
+            }
+
+            structs.shrink_to_fit();
         }
     }
 

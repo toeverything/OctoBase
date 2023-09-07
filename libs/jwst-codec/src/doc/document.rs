@@ -206,7 +206,7 @@ impl Doc {
                 if pending_update
                     .missing_state
                     .iter()
-                    .any(|(client, clock)| store.get_state(*client) > *clock)
+                    .any(|(client, clock)| *clock < store.get_state(*client))
                 {
                     // new update has been applied to the doc, need to re-integrate
                     retry = true;
