@@ -8,7 +8,7 @@ use super::*;
 pub struct Workspace {
     workspace_id: String,
     pub(super) awareness: Arc<RwLock<Awareness>>,
-    pub(super) doc: Doc,
+    pub(crate) doc: Doc,
     pub(crate) updated: Map,
     pub(crate) metadata: Map,
 }
@@ -57,6 +57,10 @@ impl Workspace {
         }
     }
 
+    pub fn to_binary(&self) -> JwstResult<Vec<u8>> {
+        Ok(self.doc.encode_update_v1()?)
+    }
+
     pub fn is_empty(&self) -> bool {
         self.updated.is_empty()
     }
@@ -71,10 +75,6 @@ impl Workspace {
 
     pub fn client_id(&self) -> u64 {
         self.doc.client()
-    }
-
-    pub fn doc(&self) -> Doc {
-        self.doc.clone()
     }
 }
 
@@ -122,7 +122,7 @@ mod test {
 
             let mut block = space.create("test", "text").unwrap();
             block.set("test", "test").unwrap();
-            workspace.doc()
+            workspace.doc
         };
 
         let new_doc = {
@@ -250,7 +250,7 @@ mod test {
                 let _block = space.create("test", "test1").unwrap();
             }
 
-            ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
+            ws.doc.encode_state_as_update_v1(&StateVector::default()).unwrap()
         };
 
         for _ in 0..=2 {
@@ -271,7 +271,7 @@ mod test {
                 let _block = space.create("test", "test1").unwrap();
             }
 
-            ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
+            ws.doc.encode_state_as_update_v1(&StateVector::default()).unwrap()
         };
         let update1 = {
             let mut doc = Doc::default();
@@ -284,7 +284,7 @@ mod test {
                 block.insert_children_at(&mut new_block, 0).unwrap();
             }
 
-            ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
+            ws.doc.encode_state_as_update_v1(&StateVector::default()).unwrap()
         };
         let update2 = {
             let mut doc = Doc::default();
@@ -297,7 +297,7 @@ mod test {
                 block.insert_children_at(&mut new_block, 0).unwrap();
             }
 
-            ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
+            ws.doc.encode_state_as_update_v1(&StateVector::default()).unwrap()
         };
 
         {
@@ -351,7 +351,7 @@ mod test {
             let doc = Doc::default();
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             ws.get_space("space").unwrap();
-            ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
+            ws.doc.encode_state_as_update_v1(&StateVector::default()).unwrap()
         };
 
         let update1 = {
@@ -365,7 +365,7 @@ mod test {
                 block.insert_children_at(&mut new_block, 0).unwrap();
             }
 
-            ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
+            ws.doc.encode_state_as_update_v1(&StateVector::default()).unwrap()
         };
         let update2 = {
             let mut doc = Doc::default();
@@ -378,7 +378,7 @@ mod test {
                 block.insert_children_at(&mut new_block, 0).unwrap();
             }
 
-            ws.doc().encode_state_as_update_v1(&StateVector::default()).unwrap()
+            ws.doc.encode_state_as_update_v1(&StateVector::default()).unwrap()
         };
 
         {

@@ -121,7 +121,7 @@ impl Space {
             .and_then(|b| b.get("title").map(|t| t.to_string()))
             .unwrap_or("Untitled".into());
 
-        let mut new_page_item = ws.doc().create_map()?;
+        let mut new_page_item = ws.doc.create_map()?;
         space.init_pages()?.push(new_page_item.clone())?;
         new_page_item.insert("id", self.space_id())?;
         new_page_item.insert(
@@ -135,7 +135,7 @@ impl Space {
             page_item.get("subpageIds").unwrap_or_else(|| vec![].into()),
         )?;
 
-        let mut title_text = ws.doc().create_text()?;
+        let mut title_text = ws.doc.create_text()?;
         new_page_item.insert("title", title_text.clone())?;
         title_text.insert(0, title)?;
 
