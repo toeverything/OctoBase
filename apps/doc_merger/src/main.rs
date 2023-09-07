@@ -6,7 +6,7 @@ use std::{
 
 use clap::Parser;
 use jwst_codec::Doc;
-use yrs::{updates::decoder::Decode, ReadTxn, StateVector, Transact, Update};
+use yrs::{types::ToJson, updates::decoder::Decode, ReadTxn, StateVector, Transact, Update};
 
 /// ybinary merger
 #[derive(Parser, Debug)]
@@ -56,7 +56,7 @@ fn main() {
         &args.path,
         &args.output.clone().unwrap_or_else(|| format!("{}.jwst", args.path)),
     );
-    std::io::stdin().read_line(&mut String::new()).unwrap();
+    // std::io::stdin().read_line(&mut String::new()).unwrap();
     yrs_merge(
         &args.path,
         &args.output.clone().unwrap_or_else(|| format!("{}.yrs", args.path)),
@@ -70,18 +70,17 @@ fn jwst_merge(path: &str, output: &str) {
     for (i, update) in updates.iter().enumerate() {
         println!("apply update{i} {} bytes", update.len());
         doc.apply_update_from_binary(update.clone()).unwrap();
+        println!("status: {:?}", doc.store_status());
     }
     doc.gc().unwrap();
 
-    let binary = {
-        // let json =
-        // serde_json::to_string_pretty(&doc.get_map("space:blocks").unwrap()).unwrap();
-        // println!("json {} bytes", json.len());
+    let (binary, json) = {
+        let json = serde_json::to_string_pretty(&doc.get_map("space:blocks").unwrap()).unwrap();
         let binary = doc.encode_update_v1().unwrap();
-        drop(doc);
-        println!("merged {} bytes", binary.len());
-        std::io::stdin().read_line(&mut String::new()).unwrap();
-        binary
+
+        println!("merged {} bytes, json {} bytes", binary.len(), json.len());
+
+        (binary, doc.get_map("space:blocks").unwrap())
     };
 
     {
@@ -89,14 +88,14 @@ fn jwst_merge(path: &str, output: &str) {
         doc.apply_update_from_binary(binary.clone()).unwrap();
         let new_binary = doc.encode_update_v1().unwrap();
         let new_json = serde_json::to_string_pretty(&doc.get_map("space:blocks").unwrap()).unwrap();
+        assert_json_diff::assert_json_eq!(doc.get_map("space:blocks").unwrap(), json);
 
         println!(
-            "re-encoded {} bytes,  new json {} bytes",
+            "re-encoded {} bytes, new json {} bytes",
             new_binary.len(),
             new_json.len()
         );
-        std::io::stdin().read_line(&mut String::new()).unwrap();
-    }
+    };
     write(output, binary).unwrap();
 }
 
@@ -112,7 +111,10 @@ fn yrs_merge(path: &str, output: &str) {
         .transact()
         .encode_state_as_update_v1(&StateVector::default())
         .unwrap();
-    println!("merged {} bytes", binary.len());
+    let map = doc.get_or_insert_map("space:blocks");
+    let json = serde_json::to_string_pretty(&map.to_json(&doc.transact())).unwrap();
+
+    println!("merged {} bytes, json {} bytes", binary.len(), json.len());
     write(output, binary).unwrap();
 }
 
@@ -124,5 +126,6 @@ mod tests {
     #[ignore = "only for debug"]
     fn test_gc() {
         jwst_merge("/Users/ds/Downloads/out", "/Users/ds/Downloads/out.jwst");
+        yrs_merge("/Users/ds/Downloads/out", "/Users/ds/Downloads/out.yrs");
     }
 }

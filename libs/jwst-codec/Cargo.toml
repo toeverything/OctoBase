@@ -24,6 +24,7 @@ jwst-logger = { workspace = true }
 
 [features]
 bench = []
+debug = []
 large_refs = []
 
 [target.'cfg(fuzzing)'.dependencies]

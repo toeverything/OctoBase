@@ -118,7 +118,14 @@ impl OrderRange {
             return;
         }
         *self = match (raw, other) {
-            (OrderRange::Range(a), OrderRange::Range(b)) => OrderRange::Fragment(vec![a, b]),
+            (OrderRange::Range(a), OrderRange::Range(b)) => {
+                if is_continuous_range(&a, &b) {
+                    // merge intersected range
+                    OrderRange::Range(a.start.min(b.start)..a.end.max(b.end))
+                } else {
+                    OrderRange::Fragment(vec![a, b])
+                }
+            }
             (OrderRange::Fragment(mut a), OrderRange::Range(b)) => {
                 a.push(b);
                 OrderRange::Fragment(a)

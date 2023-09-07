@@ -101,6 +101,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         let map = inner
             .map
             .iter()
+            .filter(|(_, v)| v.get().map(|item| !item.deleted()).unwrap_or(false))
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect::<Vec<(String, Somr<Item>)>>();
 
@@ -125,10 +126,11 @@ impl Iterator for MapIterator {
         while self.index < len {
             let (name, node) = self.nodes[self.index].clone();
             if let Some(item) = node.get() {
-                self.index += 1;
                 if item.deleted() {
                     continue;
                 }
+
+                self.index += 1;
 
                 return item.content.as_ref().try_into().ok().map(|item| (name, item));
             }

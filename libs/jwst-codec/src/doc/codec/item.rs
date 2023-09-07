@@ -93,7 +93,7 @@ impl ItemFlags {
 
     #[inline(always)]
     pub fn clear_countable(&self) {
-        self.clear(item_flags::ITEM_COUNTABLE);
+        self.clear(!item_flags::ITEM_COUNTABLE);
     }
 
     #[inline(always)]
@@ -108,7 +108,7 @@ impl ItemFlags {
 
     #[inline(always)]
     pub fn clear_deleted(&self) {
-        self.clear(item_flags::ITEM_DELETED);
+        self.clear(!item_flags::ITEM_DELETED);
     }
 }
 
