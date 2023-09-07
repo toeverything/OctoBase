@@ -9,6 +9,8 @@ license = "AGPL-3.0-only"
 
 [dependencies]
 clap = { version = "4.3.19", features = ["derive"] }
-jwst-codec = { workspace = true }
+jwst-codec = { workspace = true, features = ["debug"] }
 serde_json = "1.0.105"
+lib0 = { version = "0.16.5", features = ["lib0-serde"] }
 yrs = "0.16.5"
+assert-json-diff = "2.0.2"

@@ -144,6 +144,7 @@ impl Update {
             // insert [Node::Skip] if structs[index].id().clock + structs[index].len() <
             // structs[index + 1].id().clock
             let mut index = 0;
+            let mut merged_index = vec![];
             while index < structs.len() - 1 {
                 let cur = &structs[index];
                 let next = &structs[index + 1];
@@ -157,9 +158,34 @@ impl Update {
                         Node::new_skip((cur.id().client, clock_end).into(), next_clock - clock_end),
                     );
                     index += 1;
+                } else if cur.id().clock == next_clock {
+                    if cur.deleted() == next.deleted()
+                        && cur.last_id() == next.last_id()
+                        && cur.left() == next.left()
+                        && cur.right() == next.right()
+                    {
+                        // merge two nodes, mark the index
+                        merged_index.push(index + 1);
+                    } else {
+                        debug!("merge failed: {:?} {:?}", cur, next)
+                    }
                 }
 
                 index += 1;
+            }
+
+            {
+                // prune the merged nodes
+                let mut new_structs = VecDeque::with_capacity(structs.len() - merged_index.len());
+                let mut next_remove_idx = 0;
+                for (idx, val) in structs.drain(..).enumerate() {
+                    if next_remove_idx < merged_index.len() && idx == merged_index[next_remove_idx] {
+                        next_remove_idx += 1;
+                    } else {
+                        new_structs.push_back(val);
+                    }
+                }
+                structs.extend(new_structs);
             }
         }
     }
