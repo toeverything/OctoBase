@@ -840,7 +840,7 @@ impl DocStore {
                 let mut item = unsafe { item_ref.get_mut_unchecked() };
                 item.content = Arc::new(Content::Deleted(item.len()));
                 item.flags.clear_countable();
-                debug_assert_eq!(item.flags.countable(), false);
+                debug_assert!(!item.flags.countable());
             }
         }
 

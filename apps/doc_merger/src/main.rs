@@ -83,7 +83,7 @@ fn jwst_merge(path: &str, output: &str) {
         (binary, doc.get_map("space:blocks").unwrap())
     };
 
-    let doc = {
+    {
         let mut doc = Doc::default();
         doc.apply_update_from_binary(binary.clone()).unwrap();
         let new_binary = doc.encode_update_v1().unwrap();
