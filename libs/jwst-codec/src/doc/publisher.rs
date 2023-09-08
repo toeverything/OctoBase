@@ -1,3 +1,8 @@
+use std::{
+    thread::{current, sleep, spawn},
+    time::Duration,
+};
+
 use jwst_logger::{debug, trace};
 
 use super::{store::StoreRef, *};
@@ -40,10 +45,10 @@ impl DocPublisher {
             let thread_subscribers = self.subscribers.clone();
             observing.store(true, Ordering::Release);
             debug!("start observing");
-            let thread = std::thread::spawn(move || {
+            let thread = spawn(move || {
                 let mut last_update = store.read().unwrap().get_state_vector();
                 loop {
-                    std::thread::sleep(std::time::Duration::from_millis(OBSERVE_INTERVAL));
+                    sleep(Duration::from_millis(OBSERVE_INTERVAL));
                     if !observing.load(Ordering::Acquire) {
                         debug!("stop observing");
                         break;
@@ -62,12 +67,13 @@ impl DocPublisher {
                             "update: {:?}, last_update: {:?}, {:?}",
                             update,
                             last_update,
-                            std::thread::current().id(),
+                            current().id(),
                         );
 
                         let binary = match store.diff_state_vector(&last_update) {
                             Ok(update) => {
                                 drop(store);
+
                                 let mut encoder = RawEncoder::default();
                                 if let Err(e) = update.write(&mut encoder) {
                                     warn!("Failed to encode document: {}", e);

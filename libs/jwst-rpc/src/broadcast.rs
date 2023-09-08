@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use jwst_codec::{encode_update_as_message, encode_update_with_guid, write_sync_message, SyncMessage};
+use jwst_codec::{encode_awareness_as_message, encode_update_as_message, encode_update_with_guid};
 use jwst_core::Workspace;
 use tokio::sync::{broadcast::Sender, RwLock};
 
@@ -8,8 +8,11 @@ use super::*;
 
 #[derive(Clone)]
 pub enum BroadcastType {
+    // Awareness wrapped in a sync message
     BroadcastAwareness(Vec<u8>),
+    // Update wrapped in a sync message
     BroadcastContent(Vec<u8>),
+    // Update with guid prefix
     BroadcastRawContent(Vec<u8>),
     CloseUser(String),
     CloseAll,
@@ -25,14 +28,13 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
 
         workspace
             .subscribe_awareness(move |awareness, e| {
-                let mut buffer = Vec::new();
-                if let Err(e) = write_sync_message(
-                    &mut buffer,
-                    &SyncMessage::Awareness(e.get_updated(awareness.get_states())),
-                ) {
-                    error!("failed to write awareness update: {}", e);
-                    return;
-                }
+                let buffer = match encode_awareness_as_message(e.get_updated(awareness.get_states())) {
+                    Ok(data) => data,
+                    Err(e) => {
+                        error!("failed to write awareness update: {}", e);
+                        return;
+                    }
+                };
 
                 if sender.send(BroadcastType::BroadcastAwareness(buffer.clone())).is_err() {
                     debug!("broadcast channel {workspace_id} has been closed",)

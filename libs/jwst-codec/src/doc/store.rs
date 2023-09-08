@@ -782,9 +782,10 @@ impl DocStore {
         //  1. gc delete set
         self.gc_delete_set()?;
         //  2. merge delete set (in our delete set impl, which is based on `OrderRange`
-        //     has already have auto-merge functionality) pass
+        //     has already have auto-merge functionality), pass
         //  3. merge same content siblings, e.g contentString + ContentString
-        self.make_continuous()
+        self.make_continuous();
+        Ok(())
     }
 
     fn gc_delete_set(&mut self) -> JwstCodecResult<()> {
@@ -880,7 +881,7 @@ impl DocStore {
         Ok(())
     }
 
-    fn make_continuous(&mut self) -> JwstCodecResult {
+    fn make_continuous(&mut self) {
         let state = self.get_state_vector();
 
         for (client, state) in state.iter() {
@@ -899,7 +900,6 @@ impl DocStore {
         }
 
         self.last_optimized_state = state;
-        Ok(())
     }
 
     fn merge_with_lefts(nodes: &mut VecDeque<Node>, idx: usize) -> usize {
@@ -1281,7 +1281,7 @@ mod tests {
                 ]),
             );
 
-            store.make_continuous().unwrap();
+            store.make_continuous();
 
             assert_eq!(store.items.get(&1).unwrap().len(), 4);
         });
@@ -1302,7 +1302,7 @@ mod tests {
 
             let mut store = doc.store.write().unwrap();
             assert_eq!(store.items.get(&1).unwrap().len(), 4);
-            store.make_continuous().unwrap();
+            store.make_continuous();
             assert_eq!(store.items.get(&1).unwrap().len(), 1);
             assert_eq!(text.to_string(), "abc, hello");
         });
