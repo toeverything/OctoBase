@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 
 use serde::Serialize;
 
-use super::*;
+use super::{store::StoreRef, *};
 
 /// The ancestor table is a table that records the names of all the ancestors of
 /// a node. It is generated every time the history is rebuilt and is used to
@@ -26,14 +26,10 @@ impl AncestorTable {
                 break;
             }
             let (parent, parent_sub) = {
-                let parent = if item.parent.is_none() {
-                    if let Some((parent, parent_sub)) = item.resolve_parent() {
-                        Self::parse_parent(&name_map, parent).map(|parent| (parent, parent_sub))
-                    } else {
-                        Some(("unknown".to_owned(), None))
-                    }
+                let parent = if let Some(item) = item.find_node_with_parent_info() {
+                    Self::parse_parent(&name_map, item.parent).map(|parent| (parent, item.parent_sub.clone()))
                 } else {
-                    Self::parse_parent(&name_map, item.parent.clone()).map(|parent| (parent, item.parent_sub.clone()))
+                    None
                 };
 
                 if let Some(parent) = parent {
@@ -73,6 +69,33 @@ impl AncestorTable {
 
     fn get(&self, id: &Id) -> Option<String> {
         self.0.get(id).cloned()
+    }
+}
+
+#[derive(Debug)]
+struct NodeNameTable {
+    store: StoreRef,
+    ids: HashMap<Id, Option<String>>,
+    items: HashMap<Somr<Item>, Option<String>>,
+}
+
+impl NodeNameTable {
+    fn resolve(&mut self) {
+        let store = self.store.read().unwrap();
+        for node in store.items.iter().map(|(_, items)| items.iter()).flatten() {
+            let node = node.as_item();
+            if let Some(item) = node.get() {
+                if let Some(name) = self.items.get(&node) {
+                    if name != &item.parent_sub {
+                        self.ids.insert(item.id, item.parent_sub.clone());
+                        self.items.insert(node.clone(), item.parent_sub.clone());
+                    }
+                } else {
+                    self.ids.insert(item.id, item.parent_sub.clone());
+                    self.items.insert(node.clone(), item.parent_sub.clone());
+                }
+            }
+        }
     }
 }
 
@@ -154,6 +177,26 @@ mod test {
     use super::*;
 
     #[test]
+    fn parse_history_client_test1() {
+        loom_model!({
+            let doc = Doc::default();
+            let mut map = doc.get_or_create_map("map").unwrap();
+            let mut sub_map = doc.create_map().unwrap();
+            map.insert("sub_map", sub_map.clone()).unwrap();
+            sub_map.insert("key", "value").unwrap();
+
+            let mut map = NodeNameTable {
+                ids: HashMap::new(),
+                items: HashMap::new(),
+                store: doc.store.clone(),
+            };
+
+            map.resolve();
+            println!("{:#?}\n{:#?}", map.items, map.ids);
+        });
+    }
+
+    #[test]
     fn parse_history_client_test() {
         loom_model!({
             let doc = Doc::default();
@@ -197,6 +240,8 @@ mod test {
                     })
                 }
             }
+
+            println!("{:#?}", history);
 
             assert_eq!(history, mock_histories);
         });
