@@ -31,7 +31,7 @@ pub fn memory_connector(
 
         {
             let finish = finish.clone();
-            doc.subscribe(move |update| {
+            doc.subscribe(move |update, _| {
                 debug!("send change: {}", update.len());
 
                 match encode_update_as_message(update.to_vec()) {

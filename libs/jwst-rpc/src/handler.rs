@@ -244,7 +244,7 @@ mod test {
             connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
 
         // close connection after doc1 is broadcasted
-        doc2.subscribe(move |_| {
+        doc2.subscribe(move |_, _| {
             rt.block_on(async {
                 tx2.send(Message::Close).await.unwrap();
             });
@@ -334,24 +334,19 @@ mod test {
                 connect_memory_workspace(server.clone(), &init_state, &workspace_id).await;
             let mut doc = jwst_core::Workspace::from_binary(doc.encode_update_v1().unwrap(), &workspace_id).unwrap();
 
+            // let pb = collaborator_pb.clone();
             let handler = std::thread::spawn(move || {
                 // close connection after doc1 is broadcasted
                 let block_id = format!("block{}", i);
                 {
-                    // let block_id = block_id.clone();
+                    let block_id = block_id.clone();
                     let doc_tx = doc_tx.clone();
-                    doc.subscribe_doc(move |_u| {
-                        // TODO: support changed block record
-                        // let block_changed = t
-                        //     .changed_parent_types()
-                        //     .iter()
-                        //     .filter_map(|ptr| {
-                        //         let value: yrs::types::Value = (*ptr).into();
-                        //         value.to_ymap()
-                        //     })
-                        //     .flat_map(|map| map.keys(t).map(|k| k.to_string()).collect::<Vec<_>>())
-                        //     .any(|key| key == block_id);
-                        let block_changed = false;
+                    doc.subscribe_doc(move |_u, history| {
+                        // pb.println(format!("update: {:?}", history));
+                        let block_changed = history
+                            .iter()
+                            .filter_map(|h| h.parent.get(1))
+                            .any(|key| key == &block_id);
 
                         if block_changed {
                             if let Err(e) = futures::executor::block_on(doc_tx.send(Message::Close)) {
@@ -373,7 +368,7 @@ mod test {
 
                 {
                     let space = ws.get_space("space").unwrap();
-                    let block1 = space.get(format!("block{}", i)).unwrap();
+                    let block1 = space.get(block_id).unwrap();
 
                     assert_eq!(block1.flavour(), format!("flavour{}", i));
                     assert_eq!(
