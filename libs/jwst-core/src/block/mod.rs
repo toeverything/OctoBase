@@ -24,7 +24,7 @@ unsafe impl Sync for Block {}
 
 impl fmt::Debug for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("MyStruct")
+        f.debug_struct("BlockStruct")
             .field("id", &self.id)
             .field("space_id", &self.space_id)
             .field("block_id", &self.block_id)

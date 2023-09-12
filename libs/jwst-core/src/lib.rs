@@ -1,5 +1,4 @@
 mod block;
-mod history;
 mod space;
 mod types;
 mod utils;
@@ -8,7 +7,6 @@ mod workspaces;
 pub mod constants;
 
 pub use block::Block;
-pub use history::{BlockHistory, HistoryOperation};
 pub use jwst_codec::Any;
 pub use space::Space;
 pub use tracing::{debug, error, info, log::LevelFilter, trace, warn};
