@@ -164,10 +164,10 @@ impl Doc {
         self.store.read().unwrap().clients()
     }
 
-    pub fn history(&self, client: u64) -> Vec<RawHistory> {
+    pub fn history(&self, client: u64, options: HistoryOptions) -> Vec<History> {
         let mut history = StoreHistory::new(&self.store);
         history.resolve();
-        history.parse_store(client)
+        history.parse_store(client, options)
     }
 
     #[cfg(feature = "debug")]

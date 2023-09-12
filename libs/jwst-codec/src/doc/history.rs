@@ -14,6 +14,12 @@ enum ParentNode {
     Unknown,
 }
 
+#[derive(Clone, Default)]
+pub struct HistoryOptions {
+    skip: Option<usize>,
+    limit: Option<usize>,
+}
+
 #[derive(Debug, Default)]
 pub struct StoreHistory {
     store: StoreRef,
@@ -48,7 +54,7 @@ impl StoreHistory {
         }
     }
 
-    pub fn parse_update(&self, mut update: Update, client: u64) -> Vec<RawHistory> {
+    pub fn parse_update(&self, mut update: Update, client: u64) -> Vec<History> {
         let store_items = update
             .iter(StateVector::default())
             .filter_map(|n| n.0.as_item().get().cloned())
@@ -61,10 +67,21 @@ impl StoreHistory {
         self.parse_items(store_items, client)
     }
 
-    pub fn parse_store(&self, client: u64) -> Vec<RawHistory> {
-        let store_items = SortedNodes::new(self.store.read().unwrap().items.iter().collect::<Vec<_>>())
-            .filter_map(|n| n.as_item().get().cloned())
-            .collect::<Vec<_>>();
+    pub fn parse_store(&self, client: u64, options: HistoryOptions) -> Vec<History> {
+        let store_items = {
+            let store = self.store.read().unwrap();
+            let mut sort_iter: Box<dyn Iterator<Item = Item>> = Box::new(
+                SortedNodes::new(store.items.iter().collect::<Vec<_>>()).filter_map(|n| n.as_item().get().cloned()),
+            );
+            if let Some(skip) = options.skip {
+                sort_iter = Box::new(sort_iter.skip(skip));
+            }
+            if let Some(limit) = options.limit {
+                sort_iter = Box::new(sort_iter.take(limit));
+            }
+
+            sort_iter.collect::<Vec<_>>()
+        };
 
         // make items as reference
         let mut store_items = store_items.iter().collect::<Vec<_>>();
@@ -73,7 +90,7 @@ impl StoreHistory {
         self.parse_items(store_items, client)
     }
 
-    fn parse_items(&self, store_items: Vec<&Item>, client: u64) -> Vec<RawHistory> {
+    fn parse_items(&self, store_items: Vec<&Item>, client: u64) -> Vec<History> {
         let parents = self.parents.read().unwrap();
         let mut histories = vec![];
 
@@ -83,7 +100,7 @@ impl StoreHistory {
             }
 
             if item.id.client == client || client == 0 {
-                histories.push(RawHistory {
+                histories.push(History {
                     id: item.id.to_string(),
                     parent: Self::parse_path(item, &parents).join("."),
                     content: Value::try_from(item.content.as_ref())
@@ -163,7 +180,7 @@ impl StoreHistory {
 }
 
 #[derive(Debug, Serialize, PartialEq)]
-pub struct RawHistory {
+pub struct History {
     id: String,
     parent: String,
     content: String,
@@ -231,7 +248,10 @@ mod test {
 
             let update = doc.encode_update().unwrap();
 
-            assert_eq!(history.parse_store(0), history.parse_update(update.clone(), 0));
+            assert_eq!(
+                history.parse_store(0, Default::default()),
+                history.parse_update(update.clone(), 0)
+            );
         });
     }
 }
