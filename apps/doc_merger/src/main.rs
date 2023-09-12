@@ -2,6 +2,7 @@ use std::{
     fs::{read, write},
     io::{Error, ErrorKind},
     path::PathBuf,
+    time::Instant,
 };
 
 use clap::Parser;
@@ -72,6 +73,13 @@ fn jwst_merge(path: &str, output: &str) {
         doc.apply_update_from_binary(update.clone()).unwrap();
         println!("status: {:?}", doc.store_status());
     }
+    let ts = Instant::now();
+    let history = doc.history(0);
+    println!("history1: {:?}", ts.elapsed());
+    for history in history.iter().take(100) {
+        println!("history: {:?}", history);
+    }
+
     doc.gc().unwrap();
 
     let (binary, json) = {

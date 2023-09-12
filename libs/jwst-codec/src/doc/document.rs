@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{publisher::DocPublisher, store::StoreRef, *};
+use super::{history::StoreHistory, publisher::DocPublisher, store::StoreRef, *};
 use crate::sync::{Arc, RwLock};
 
 #[cfg(feature = "debug")]
@@ -164,8 +164,10 @@ impl Doc {
         self.store.read().unwrap().clients()
     }
 
-    pub fn history(&self, client: u64) -> Option<Vec<RawHistory>> {
-        self.store.read().unwrap().history(client)
+    pub fn history(&self, client: u64) -> Vec<RawHistory> {
+        let mut history = StoreHistory::new(&self.store);
+        history.resolve();
+        history.parse_store(client)
     }
 
     #[cfg(feature = "debug")]

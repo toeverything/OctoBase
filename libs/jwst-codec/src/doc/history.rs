@@ -1,100 +1,163 @@
-use std::collections::{HashMap, VecDeque};
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+};
 
 use serde::Serialize;
 
 use super::{store::StoreRef, *};
+use crate::sync::RwLock;
 
-/// The ancestor table is a table that records the names of all the ancestors of
-/// a node. It is generated every time the history is rebuilt and is used to
-/// quickly look up the parent path of a CRDT item. The process of generating
-/// this table involves traversing the item nodes and recording their ID as well
-/// as their complete name as a parent.
-/// TODO: The current implementation is a simple implementation with a lot of
-/// room for optimization and should be optimized thereafter
-#[derive(Debug)]
-struct AncestorTable(HashMap<Id, String>);
-
-impl AncestorTable {
-    fn new(items: &[&Item]) -> Self {
-        let mut name_map: HashMap<Id, String> = HashMap::new();
-        let mut padding_ptr: VecDeque<(&Item, usize)> =
-            VecDeque::from(items.iter().map(|i| (<&Item>::clone(i), 0)).collect::<Vec<_>>());
-
-        while let Some((item, retry)) = padding_ptr.pop_back() {
-            if retry > 5 {
-                debug!("retry failed: {:?}, {:?}, {:?}", item, retry, padding_ptr);
-                break;
-            }
-            let (parent, parent_sub) = {
-                let parent = if let Some(item) = item.find_node_with_parent_info() {
-                    Self::parse_parent(&name_map, item.parent).map(|parent| (parent, item.parent_sub.clone()))
-                } else {
-                    None
-                };
-
-                if let Some(parent) = parent {
-                    parent
-                } else {
-                    padding_ptr.push_front((item, retry + 1));
-                    continue;
-                }
-            };
-
-            let parent = if let Some(parent_sub) = parent_sub {
-                format!("{parent}.{parent_sub}")
-            } else {
-                parent
-            };
-
-            name_map.insert(item.id, parent.clone());
-        }
-
-        Self(name_map)
-    }
-
-    fn parse_parent(name_map: &HashMap<Id, String>, parent: Option<Parent>) -> Option<String> {
-        match parent {
-            None => Some("unknown".to_owned()),
-            Some(Parent::Type(ptr)) => ptr.ty().and_then(|ty| {
-                ty.item
-                    .get()
-                    .and_then(|i| name_map.get(&i.id))
-                    .cloned()
-                    .or(ty.root_name.clone())
-            }),
-            Some(Parent::String(name)) => Some(name.to_string()),
-            Some(Parent::Id(id)) => name_map.get(&id).cloned(),
-        }
-    }
-
-    fn get(&self, id: &Id) -> Option<String> {
-        self.0.get(id).cloned()
-    }
+enum ParentNode {
+    Root(String),
+    Node(Somr<Item>),
+    Unknown,
 }
 
-#[derive(Debug)]
-struct NodeNameTable {
+#[derive(Debug, Default)]
+pub struct StoreHistory {
     store: StoreRef,
-    ids: HashMap<Id, Option<String>>,
-    items: HashMap<Somr<Item>, Option<String>>,
+    parents: Arc<RwLock<HashMap<Id, Somr<Item>>>>,
 }
 
-impl NodeNameTable {
-    fn resolve(&mut self) {
+impl StoreHistory {
+    pub(crate) fn new(store: &StoreRef) -> Self {
+        Self {
+            store: store.clone(),
+            ..Default::default()
+        }
+    }
+
+    pub fn resolve(&mut self) {
+        let mut parents = self.parents.write().unwrap();
+
         let store = self.store.read().unwrap();
+
         for node in store.items.iter().map(|(_, items)| items.iter()).flatten() {
             let node = node.as_item();
             if let Some(item) = node.get() {
-                if let Some(name) = self.items.get(&node) {
-                    if name != &item.parent_sub {
-                        self.ids.insert(item.id, item.parent_sub.clone());
-                        self.items.insert(node.clone(), item.parent_sub.clone());
+                parents
+                    .entry(item.id)
+                    .and_modify(|e| {
+                        if *e != node {
+                            *e = node.clone();
+                        }
+                    })
+                    .or_insert(node.clone());
+            }
+        }
+    }
+
+    pub fn parse_update(&self, mut update: Update, client: u64) -> Vec<RawHistory> {
+        let store_items = update
+            .iter(StateVector::default())
+            .filter_map(|n| n.0.as_item().get().cloned())
+            .collect::<Vec<_>>();
+
+        // make items as reference
+        let mut store_items = store_items.iter().collect::<Vec<_>>();
+        store_items.sort_by(|a, b| a.id.cmp(&b.id));
+
+        self.parse_items(store_items, client)
+    }
+
+    pub fn parse_store(&self, client: u64) -> Vec<RawHistory> {
+        let store_items = SortedNodes::new(self.store.read().unwrap().items.iter().collect::<Vec<_>>())
+            .filter_map(|n| n.as_item().get().cloned())
+            .collect::<Vec<_>>();
+
+        // make items as reference
+        let mut store_items = store_items.iter().collect::<Vec<_>>();
+        store_items.sort_by(|a, b| a.id.cmp(&b.id));
+
+        self.parse_items(store_items, client)
+    }
+
+    fn parse_items(&self, store_items: Vec<&Item>, client: u64) -> Vec<RawHistory> {
+        let parents = self.parents.read().unwrap();
+        let mut histories = vec![];
+
+        for item in store_items {
+            if item.deleted() {
+                continue;
+            }
+
+            if item.id.client == client || client == 0 {
+                histories.push(RawHistory {
+                    id: item.id.to_string(),
+                    parent: Self::parse_path(item, &parents).join("."),
+                    content: Value::try_from(item.content.as_ref())
+                        .map(|v| v.to_string())
+                        .unwrap_or("unknown".to_owned()),
+                })
+            }
+        }
+
+        histories
+    }
+
+    fn parse_path(item: &Item, parents: &HashMap<Id, Somr<Item>>) -> Vec<String> {
+        let mut path = Vec::new();
+        let mut cur = item.clone();
+
+        while let Some(node) = cur.find_node_with_parent_info() {
+            path.push(Self::get_node_name(&node));
+
+            match Self::get_parent(parents, &node.parent) {
+                ParentNode::Root(name) => {
+                    path.push(name);
+                    break;
+                }
+                ParentNode::Node(parent) => {
+                    if let Some(parent) = parent.get() {
+                        cur = parent.clone();
+                    } else {
+                        break;
                     }
-                } else {
-                    self.ids.insert(item.id, item.parent_sub.clone());
-                    self.items.insert(node.clone(), item.parent_sub.clone());
+                }
+                ParentNode::Unknown => {
+                    break;
                 }
             }
+        }
+
+        path.reverse();
+        path
+    }
+
+    fn get_node_name(item: &Item) -> String {
+        if let Some(name) = item.parent_sub.clone() {
+            name
+        } else {
+            let mut curr = item.clone();
+            let mut idx = 0;
+
+            while let Some(item) = curr.left_item().get() {
+                curr = item.clone();
+                idx += 1;
+            }
+
+            idx.to_string()
+        }
+    }
+
+    fn get_parent(parents: &HashMap<Id, Somr<Item>>, parent: &Option<Parent>) -> ParentNode {
+        match parent {
+            None => ParentNode::Unknown,
+            Some(Parent::Type(ptr)) => ptr
+                .ty()
+                .and_then(|ty| {
+                    ty.item
+                        .get()
+                        .and_then(|i| parents.get(&i.id).map(|p| ParentNode::Node(p.clone())))
+                        .or(ty.root_name.clone().map(ParentNode::Root))
+                })
+                .unwrap_or(ParentNode::Unknown),
+            Some(Parent::String(name)) => ParentNode::Root(name.to_string()),
+            Some(Parent::Id(id)) => parents
+                .get(&id)
+                .map(|p| ParentNode::Node(p.clone()))
+                .unwrap_or(ParentNode::Unknown),
         }
     }
 }
@@ -106,7 +169,7 @@ pub struct RawHistory {
     content: String,
 }
 
-struct SortedNodes<'a> {
+pub(crate) struct SortedNodes<'a> {
     nodes: Vec<(&'a Client, &'a VecDeque<Node>)>,
     current: Option<VecDeque<Node>>,
 }
@@ -138,63 +201,9 @@ impl Iterator for SortedNodes<'_> {
     }
 }
 
-impl DocStore {
-    pub fn history(&self, client: u64) -> Option<Vec<RawHistory>> {
-        let items = SortedNodes::new(self.items.iter().collect::<Vec<_>>())
-            .filter_map(|n| n.as_item().get().cloned())
-            .collect::<Vec<_>>();
-        let mut items = items.iter().collect::<Vec<_>>();
-        items.sort_by(|a, b| a.id.cmp(&b.id));
-
-        let mut histories = vec![];
-        let parent_map = AncestorTable::new(&items);
-
-        for item in items {
-            if item.deleted() {
-                continue;
-            }
-            if let Some(parent) = parent_map.get(&item.id) {
-                if item.id.client == client || client == 0 {
-                    histories.push(RawHistory {
-                        id: item.id.to_string(),
-                        parent,
-                        content: Value::try_from(item.content.as_ref())
-                            .map(|v| v.to_string())
-                            .unwrap_or("unknown".to_owned()),
-                    })
-                }
-            } else {
-                info!("headless id: {:?}", item.id);
-            }
-        }
-
-        Some(histories)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    fn parse_history_client_test1() {
-        loom_model!({
-            let doc = Doc::default();
-            let mut map = doc.get_or_create_map("map").unwrap();
-            let mut sub_map = doc.create_map().unwrap();
-            map.insert("sub_map", sub_map.clone()).unwrap();
-            sub_map.insert("key", "value").unwrap();
-
-            let mut map = NodeNameTable {
-                ids: HashMap::new(),
-                items: HashMap::new(),
-                store: doc.store.clone(),
-            };
-
-            map.resolve();
-            println!("{:#?}\n{:#?}", map.items, map.ids);
-        });
-    }
 
     #[test]
     fn parse_history_client_test() {
@@ -218,32 +227,11 @@ mod test {
             map.insert("sub_map", sub_map.clone()).unwrap();
             sub_map.insert("key", "value").unwrap();
 
-            let history = doc.store.read().unwrap().history(0).unwrap();
+            let history = StoreHistory::new(&doc.store);
 
-            let mut update = doc.encode_update().unwrap();
-            let items = update
-                .iter(StateVector::default())
-                .filter_map(|n| n.0.as_item().get().cloned())
-                .collect::<Vec<_>>();
-            let items = items.iter().collect::<Vec<_>>();
+            let update = doc.encode_update().unwrap();
 
-            let mut mock_histories: Vec<RawHistory> = vec![];
-            let parent_map = AncestorTable::new(&items);
-            for item in items {
-                if let Some(parent) = parent_map.get(&item.id) {
-                    mock_histories.push(RawHistory {
-                        id: item.id.to_string(),
-                        parent,
-                        content: Value::try_from(item.content.as_ref())
-                            .map(|v| v.to_string())
-                            .unwrap_or("unknown".to_owned()),
-                    })
-                }
-            }
-
-            println!("{:#?}", history);
-
-            assert_eq!(history, mock_histories);
+            assert_eq!(history.parse_store(0), history.parse_update(update.clone(), 0));
         });
     }
 }
