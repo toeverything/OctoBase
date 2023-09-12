@@ -2,7 +2,7 @@ pub mod block;
 pub mod schema;
 pub mod workspace;
 
-pub use block::{delete_block, get_block, get_block_history, insert_block_children, remove_block_children, set_block};
+pub use block::{delete_block, get_block, insert_block_children, remove_block_children, set_block};
 use schema::InsertChildren;
 pub use schema::SubscribeWorkspace;
 pub use workspace::{delete_workspace, get_workspace, set_workspace, subscribe_workspace, workspace_client};
@@ -11,7 +11,6 @@ use super::*;
 
 fn block_apis(router: Router) -> Router {
     let block_operation = Router::new()
-        .route("/history", get(block::get_block_history))
         .route(
             "/children",
             get(block::get_block_children).post(block::insert_block_children),
@@ -29,8 +28,8 @@ fn block_apis(router: Router) -> Router {
 fn workspace_apis(router: Router) -> Router {
     router
         .route("/block/:workspace/client", get(workspace::workspace_client))
-        // .route("/block/:workspace/history", get(workspace::history_workspace_clients))
-        // .route("/block/:workspace/history/:client", get(workspace::history_workspace))
+        .route("/block/:workspace/history", get(workspace::history_workspace_clients))
+        .route("/block/:workspace/history/:client", get(workspace::history_workspace))
         .route(
             "/block/:workspace",
             get(workspace::get_workspace)
