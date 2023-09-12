@@ -101,7 +101,7 @@ impl Space {
                 id.to_owned(),
                 &self.doc,
                 block.to_map().unwrap(),
-                self.updated.get(id).and_then(|u| u.to_array()),
+                self.updated.clone(),
                 self.client_id(),
             )
         });
@@ -247,6 +247,10 @@ mod test {
         let block = space.create("block", "text").unwrap();
 
         assert_eq!(space.blocks.len(), 1);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&doc.get_or_create_map(constants::space::UPDATED).unwrap()).unwrap()
+        );
         assert_eq!(space.updated.len(), 1);
         assert_eq!(block.block_id(), "block");
         assert_eq!(block.flavour(), "text");

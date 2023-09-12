@@ -225,10 +225,7 @@ mod test {
                         "sys:flavour": "text",
                     }
                 },
-                "space:updated": {
-                    "block1": [[]],
-                    "block2": [[]],
-                },
+                "space:updated": {},
                 "space:meta": {}
             })
         );
