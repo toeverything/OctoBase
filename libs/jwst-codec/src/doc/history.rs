@@ -20,7 +20,7 @@ pub struct HistoryOptions {
     limit: Option<usize>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct StoreHistory {
     store: StoreRef,
     parents: Arc<RwLock<HashMap<Id, Somr<Item>>>>,
@@ -34,12 +34,15 @@ impl StoreHistory {
         }
     }
 
-    pub fn resolve(&mut self) {
+    pub fn resolve(&self) {
+        let store = self.store.read().unwrap();
+        self.resolve_with_store(&store);
+    }
+
+    pub(crate) fn resolve_with_store(&self, store: &DocStore) {
         let mut parents = self.parents.write().unwrap();
 
-        let store = self.store.read().unwrap();
-
-        for node in store.items.iter().map(|(_, items)| items.iter()).flatten() {
+        for node in store.items.values().flat_map(|items| items.iter()) {
             let node = node.as_item();
             if let Some(item) = node.get() {
                 parents
@@ -54,10 +57,9 @@ impl StoreHistory {
         }
     }
 
-    pub fn parse_update(&self, mut update: Update, client: u64) -> Vec<History> {
-        let store_items = update
-            .iter(StateVector::default())
-            .filter_map(|n| n.0.as_item().get().cloned())
+    pub fn parse_update(&self, update: &Update, client: u64) -> Vec<History> {
+        let store_items = SortedNodes::new(update.structs.iter().collect::<Vec<_>>())
+            .filter_map(|n| n.as_item().get().cloned())
             .collect::<Vec<_>>();
 
         // make items as reference
@@ -102,7 +104,7 @@ impl StoreHistory {
             if item.id.client == client || client == 0 {
                 histories.push(History {
                     id: item.id.to_string(),
-                    parent: Self::parse_path(item, &parents).join("."),
+                    parent: Self::parse_path(item, &parents),
                     content: Value::try_from(item.content.as_ref())
                         .map(|v| v.to_string())
                         .unwrap_or("unknown".to_owned()),
@@ -172,7 +174,7 @@ impl StoreHistory {
                 .unwrap_or(ParentNode::Unknown),
             Some(Parent::String(name)) => ParentNode::Root(name.to_string()),
             Some(Parent::Id(id)) => parents
-                .get(&id)
+                .get(id)
                 .map(|p| ParentNode::Node(p.clone()))
                 .unwrap_or(ParentNode::Unknown),
         }
@@ -181,9 +183,9 @@ impl StoreHistory {
 
 #[derive(Debug, Serialize, PartialEq)]
 pub struct History {
-    id: String,
-    parent: String,
-    content: String,
+    pub id: String,
+    pub parent: Vec<String>,
+    pub content: String,
 }
 
 pub(crate) struct SortedNodes<'a> {
@@ -250,7 +252,7 @@ mod test {
 
             assert_eq!(
                 history.parse_store(0, Default::default()),
-                history.parse_update(update.clone(), 0)
+                history.parse_update(&update, 0)
             );
         });
     }

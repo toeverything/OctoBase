@@ -26,6 +26,8 @@ impl SearchMarker {
     }
 }
 
+unsafe impl Sync for MarkerList {}
+
 /// in yjs, a timestamp field is used to sort markers and the oldest marker is
 /// deleted once the limit is reached. this was designed for optimization
 /// purposes for v8. In Rust, we can simply use a [VecDeque] and trust the
