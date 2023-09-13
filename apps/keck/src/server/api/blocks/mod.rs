@@ -7,7 +7,7 @@ pub mod workspace;
 pub use block::{delete_block, get_block, insert_block_children, remove_block_children, set_block};
 use schema::InsertChildren;
 pub use schema::SubscribeWorkspace;
-pub use workspace::{delete_workspace, get_workspace, set_workspace, subscribe_workspace, workspace_client};
+pub use workspace::{delete_workspace, get_workspace, set_workspace, subscribe_workspace};
 
 use super::*;
 

@@ -4,19 +4,19 @@ use utoipa_swagger_ui::{serve, Config, Url};
 
 use super::{
     blobs,
-    blocks::{block, schema, workspace},
+    blocks::{block, clients, history, schema, workspace},
     *,
 };
 
 #[derive(OpenApi)]
 #[openapi(
     paths(
+        clients::workspace_client,
+        clients::workspace_clients,
+        history::history_workspace,
         workspace::get_workspace,
         workspace::set_workspace,
         workspace::delete_workspace,
-        workspace::workspace_client,
-        workspace::workspace_clients,
-        workspace::history_workspace,
         workspace::get_workspace_block,
         // workspace::workspace_search,
         // workspace::set_search_index,
