@@ -45,7 +45,7 @@ pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Br
     {
         let sender = sender.clone();
         let workspace_id = workspace.id();
-        workspace.subscribe_doc(move |update| {
+        workspace.subscribe_doc(move |update, _history| {
             debug!("workspace {} changed: {}bytes", workspace_id, update.len());
 
             match encode_update_with_guid(update.to_vec(), workspace_id.clone())

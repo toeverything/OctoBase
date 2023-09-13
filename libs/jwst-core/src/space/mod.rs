@@ -101,7 +101,7 @@ impl Space {
                 id.to_owned(),
                 &self.doc,
                 block.to_map().unwrap(),
-                self.updated.get(id).and_then(|u| u.to_array()),
+                self.updated.clone(),
                 self.client_id(),
             )
         });

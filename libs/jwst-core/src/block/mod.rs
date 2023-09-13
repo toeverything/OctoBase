@@ -16,7 +16,7 @@ pub struct Block {
     operator: u64,
     block: Map,
     children: Array,
-    updated: Option<Array>,
+    updated: Map,
 }
 
 unsafe impl Send for Block {}
@@ -24,7 +24,7 @@ unsafe impl Sync for Block {}
 
 impl fmt::Debug for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("MyStruct")
+        f.debug_struct("BlockStruct")
             .field("id", &self.id)
             .field("space_id", &self.space_id)
             .field("block_id", &self.block_id)
@@ -32,7 +32,7 @@ impl fmt::Debug for Block {
             .field("operator", &self.operator)
             .field("block", &self.block)
             .field("children", &self.children)
-            .field("updated", &self.updated)
+            .field("updated", &self.updated.get(&self.block_id))
             .finish()
     }
 }
@@ -75,10 +75,7 @@ impl Block {
             block.insert(sys::CHILDREN, space.doc().create_array()?)?;
             block.insert(sys::CREATED, chrono::Utc::now().timestamp_millis())?;
 
-            space.updated.insert(block_id, space.doc().create_array()?)?;
-
             let children = block.get(sys::CHILDREN).and_then(|c| c.to_array()).unwrap();
-            let updated = space.updated.get(block_id).and_then(|c| c.to_array());
 
             let mut block = Self {
                 id: space.id(),
@@ -88,10 +85,10 @@ impl Block {
                 operator,
                 block,
                 children,
-                updated,
+                updated: space.updated.clone(),
             };
 
-            block.log_update(HistoryOperation::Add)?;
+            block.log_update()?;
 
             Ok(block)
         }
@@ -117,10 +114,7 @@ impl Block {
             block.insert(sys::CHILDREN, space.doc().create_array()?)?;
             block.insert(sys::CREATED, created)?;
 
-            space.updated.insert(block_id, space.doc().create_array()?)?;
-
             let children = block.get(sys::CHILDREN).and_then(|c| c.to_array()).unwrap();
-            let updated = space.updated.get(block_id).and_then(|c| c.to_array());
 
             let mut block = Self {
                 id: space.id(),
@@ -130,10 +124,10 @@ impl Block {
                 operator,
                 block,
                 children,
-                updated,
+                updated: space.updated.clone(),
             };
 
-            block.log_update(HistoryOperation::Add)?;
+            block.log_update()?;
 
             Ok(block)
         }
@@ -144,7 +138,6 @@ impl Block {
         B: AsRef<str>,
     {
         let block = space.blocks.get(block_id.as_ref())?.to_map()?;
-        let updated = space.updated.get(block_id.as_ref()).and_then(|a| a.to_array());
         let children = block.get(sys::CHILDREN)?.to_array()?;
 
         Some(Self {
@@ -155,7 +148,7 @@ impl Block {
             operator,
             block,
             children,
-            updated,
+            updated: space.updated.clone(),
         })
     }
 
@@ -166,7 +159,7 @@ impl Block {
         block_id: String,
         doc: &Doc,
         block: Map,
-        updated: Option<Array>,
+        updated: Map,
         operator: u64,
     ) -> Block {
         let children = block.get(sys::CHILDREN).unwrap().to_array().unwrap();
@@ -182,15 +175,11 @@ impl Block {
         }
     }
 
-    pub(crate) fn log_update(&mut self, action: HistoryOperation) -> JwstResult {
-        if let Some(updated) = self.updated.as_mut() {
-            let mut array = self.doc.create_array()?;
-            updated.push(array.clone())?;
-
-            array.push(Any::Float64((self.operator as f64).into()))?;
-            array.push(Any::Float64((chrono::Utc::now().timestamp_millis() as f64).into()))?;
-            array.push(Any::String(action.to_string()))?;
-        }
+    pub(crate) fn log_update(&mut self) -> JwstResult {
+        self.updated.insert(
+            &self.block_id,
+            Any::Float64((chrono::Utc::now().timestamp_millis() as f64).into()),
+        )?;
 
         Ok(())
     }
@@ -225,11 +214,11 @@ impl Block {
         match value.into() {
             Any::Null | Any::Undefined => {
                 self.block.remove(&key);
-                self.log_update(HistoryOperation::Delete)?;
+                self.log_update()?;
             }
             value => {
                 self.block.insert(key, value)?;
-                self.log_update(HistoryOperation::Update)?;
+                self.log_update()?;
             }
         }
         Ok(())
@@ -258,28 +247,12 @@ impl Block {
 
     pub fn updated(&self) -> u64 {
         self.updated
-            .as_ref()
-            .and_then(|a| {
-                a.iter().filter_map(|v| v.to_array()).last().and_then(|a| {
-                    a.get(1).and_then(|i| match i {
-                        Value::Any(Any::BigInt64(n)) => Some(n as u64),
-                        _ => None,
-                    })
-                })
+            .get(&self.block_id)
+            .and_then(|i| match i {
+                Value::Any(Any::BigInt64(n)) => Some(n as u64),
+                _ => None,
             })
             .unwrap_or_else(|| self.created())
-    }
-
-    pub fn history(&self) -> Vec<BlockHistory> {
-        self.updated
-            .as_ref()
-            .map(|a| {
-                a.iter()
-                    .filter_map(|v| v.to_array())
-                    .map(|v| (v, self.block_id.clone()).into())
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default()
     }
 
     pub fn parent(&self) -> Option<String> {
@@ -340,7 +313,7 @@ impl Block {
 
         self.children.push(block.block_id.clone())?;
 
-        self.log_update(HistoryOperation::Add)?;
+        self.log_update()?;
 
         Ok(())
     }
@@ -357,7 +330,7 @@ impl Block {
             children.push(block.block_id.clone())?;
         }
 
-        self.log_update(HistoryOperation::Add)?;
+        self.log_update()?;
 
         Ok(())
     }
@@ -374,7 +347,7 @@ impl Block {
             children.push(block.block_id.clone())?;
         }
 
-        self.log_update(HistoryOperation::Add)?;
+        self.log_update()?;
 
         Ok(())
     }
@@ -394,7 +367,7 @@ impl Block {
             }
         }
 
-        self.log_update(HistoryOperation::Add)?;
+        self.log_update()?;
 
         Ok(())
     }
@@ -405,7 +378,7 @@ impl Block {
 
         if let Some(current_pos) = children.iter().position(|c| c.to_string() == block.block_id) {
             children.remove(current_pos as u64, 1)?;
-            self.log_update(HistoryOperation::Delete)?;
+            self.log_update()?;
         }
 
         Ok(())
@@ -562,82 +535,5 @@ mod test {
         block.set("test", 1).unwrap();
 
         assert!(block.created() <= block.updated())
-    }
-
-    #[test]
-    fn history() {
-        let doc = Doc::with_client(123);
-        let mut workspace = Workspace::from_doc(doc, "test").unwrap();
-
-        let (mut block, mut b, history) = {
-            let mut space = workspace.get_space("space").unwrap();
-            let mut block = space.create("a", "affine:text").unwrap();
-            let b = space.create("b", "affine:text").unwrap();
-
-            block.set("test", 1).unwrap();
-
-            let history = block.history();
-
-            (block, b, history)
-        };
-
-        assert_eq!(history.len(), 2);
-
-        // let history = history.last().unwrap();
-
-        assert_eq!(
-            history,
-            vec![
-                BlockHistory {
-                    block_id: "a".to_owned(),
-                    client: 123,
-                    timestamp: history.get(0).unwrap().timestamp,
-                    operation: HistoryOperation::Add,
-                },
-                BlockHistory {
-                    block_id: "a".to_owned(),
-                    client: 123,
-                    timestamp: history.get(1).unwrap().timestamp,
-                    operation: HistoryOperation::Update,
-                }
-            ]
-        );
-
-        let history = {
-            block.push_children(&mut b).unwrap();
-
-            assert_eq!(block.exists_children("b"), Some(0));
-
-            block.remove_children(&mut b).unwrap();
-
-            assert_eq!(block.exists_children("b"), None);
-
-            block.history()
-        };
-
-        assert_eq!(history.len(), 4);
-
-        if let [.., insert, remove] = history.as_slice() {
-            assert_eq!(
-                insert,
-                &BlockHistory {
-                    block_id: "a".to_owned(),
-                    client: 123,
-                    timestamp: insert.timestamp,
-                    operation: HistoryOperation::Add,
-                }
-            );
-            assert_eq!(
-                remove,
-                &BlockHistory {
-                    block_id: "a".to_owned(),
-                    client: 123,
-                    timestamp: remove.timestamp,
-                    operation: HistoryOperation::Delete,
-                }
-            );
-        } else {
-            unreachable!();
-        }
     }
 }

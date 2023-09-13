@@ -521,7 +521,7 @@ pub async fn docs_storage_partial_test(pool: &DocDBStorage) -> anyhow::Result<()
         let guid = ws.doc_guid().to_string();
         let (tx, mut rx) = channel(100);
 
-        ws.subscribe_doc(move |update| {
+        ws.subscribe_doc(move |update, _| {
             futures::executor::block_on(async {
                 tx.send(update.to_vec()).await.unwrap();
             });

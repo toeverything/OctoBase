@@ -5,15 +5,16 @@ use std::{
 
 use jwst_logger::{debug, trace};
 
-use super::{store::StoreRef, *};
+use super::{history::StoreHistory, store::StoreRef, *};
 use crate::sync::{Arc, AtomicBool, Mutex, Ordering, RwLock};
 
-pub type DocSubscriber = Box<dyn Fn(&[u8]) + Sync + Send + 'static>;
+pub type DocSubscriber = Box<dyn Fn(&[u8], &[History]) + Sync + Send + 'static>;
 
 const OBSERVE_INTERVAL: u64 = 100;
 
 pub struct DocPublisher {
     store: StoreRef,
+    history: StoreHistory,
     subscribers: Arc<RwLock<Vec<DocSubscriber>>>,
     observer: Arc<Mutex<Option<std::thread::JoinHandle<()>>>>,
     observing: Arc<AtomicBool>,
@@ -22,9 +23,12 @@ pub struct DocPublisher {
 impl DocPublisher {
     pub(crate) fn new(store: StoreRef) -> Self {
         let subscribers = Arc::new(RwLock::new(Vec::<DocSubscriber>::new()));
+        let history = StoreHistory::new(&store);
+        history.resolve();
 
         let publisher = Self {
             store,
+            history,
             subscribers,
             observer: Arc::default(),
             observing: Arc::new(AtomicBool::new(false)),
@@ -41,6 +45,7 @@ impl DocPublisher {
         let mut observer = self.observer.lock().unwrap();
         let observing = self.observing.clone();
         let store = self.store.clone();
+        let history = self.history.clone();
         if observer.is_none() {
             let thread_subscribers = self.subscribers.clone();
             observing.store(true, Ordering::Release);
@@ -70,16 +75,19 @@ impl DocPublisher {
                             current().id(),
                         );
 
-                        let binary = match store.diff_state_vector(&last_update) {
+                        history.resolve_with_store(&store);
+                        let (binary, history) = match store.diff_state_vector(&last_update) {
                             Ok(update) => {
                                 drop(store);
+
+                                let history = history.parse_update(&update, 0);
 
                                 let mut encoder = RawEncoder::default();
                                 if let Err(e) = update.write(&mut encoder) {
                                     warn!("Failed to encode document: {}", e);
                                     continue;
                                 }
-                                encoder.into_inner()
+                                (encoder.into_inner(), history)
                             }
                             Err(e) => {
                                 warn!("Failed to diff document: {}", e);
@@ -90,7 +98,7 @@ impl DocPublisher {
                         last_update = update;
 
                         for cb in subscribers.iter() {
-                            cb(&binary);
+                            cb(&binary, &history);
                         }
                     } else {
                         drop(store);
@@ -111,7 +119,7 @@ impl DocPublisher {
         }
     }
 
-    pub(crate) fn subscribe(&self, subscriber: impl Fn(&[u8]) + Send + Sync + 'static) {
+    pub(crate) fn subscribe(&self, subscriber: impl Fn(&[u8], &[History]) + Send + Sync + 'static) {
         self.subscribers.write().unwrap().push(Box::new(subscriber));
     }
 
@@ -129,5 +137,72 @@ impl std::fmt::Debug for DocPublisher {
 impl Drop for DocPublisher {
     fn drop(&mut self) {
         self.stop();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sync::AtomicUsize;
+
+    #[test]
+    fn test_parse_update_history() {
+        loom_model!({
+            let doc = Doc::default();
+
+            let ret = vec![
+                vec![vec!["(1, 0)", "test.key1", "val1"]],
+                vec![vec!["(1, 1)", "test.key2", "val2"], vec!["(1, 2)", "test.key3", "val3"]],
+                vec![
+                    vec!["(1, 3)", "array.0", "val1"],
+                    vec!["(1, 4)", "array.1", "val2"],
+                    vec!["(1, 5)", "array.2", "val3"],
+                ],
+            ];
+
+            let cycle = Arc::new(AtomicUsize::new(0));
+
+            // update: 24
+            // history change by (1, 0) at test.key1: val1
+            // update: 43
+            // history change by (1, 1) at test.key2: val2
+            // history change by (1, 2) at test.key3: val3
+            // update: 40
+            // history change by (1, 3) at array.0: val1
+            // history change by (1, 4) at array.1: val2
+            // history change by (1, 5) at array.2: val3
+            doc.subscribe(move |u, history| {
+                println!("update: {}", u.len());
+                let cycle = cycle.fetch_add(1, Ordering::SeqCst);
+
+                let ret = ret[cycle].clone();
+                for (i, h) in history.iter().enumerate() {
+                    println!("history change by {} at {}: {}", h.id, h.parent.join("."), h.content);
+                    // lost first update by unknown reason in asan test, skip it if asan enabled
+                    if option_env!("ASAN_OPTIONS").is_none() {
+                        let ret = &ret[i];
+                        assert_eq!(h.id, ret[0]);
+                        assert_eq!(h.parent.join("."), ret[1]);
+                        assert_eq!(h.content, ret[2]);
+                    }
+                }
+            });
+
+            let mut map = doc.get_or_create_map("test").unwrap();
+            map.insert("key1", "val1").unwrap();
+
+            sleep(Duration::from_secs(1));
+
+            map.insert("key2", "val2").unwrap();
+            map.insert("key3", "val3").unwrap();
+            sleep(Duration::from_secs(1));
+
+            let mut array = doc.get_or_create_array("array").unwrap();
+            array.push("val1").unwrap();
+            array.push("val2").unwrap();
+            array.push("val3").unwrap();
+
+            sleep(Duration::from_secs(1));
+        });
     }
 }

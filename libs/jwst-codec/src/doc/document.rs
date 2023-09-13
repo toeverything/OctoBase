@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{publisher::DocPublisher, store::StoreRef, *};
+use super::{history::StoreHistory, publisher::DocPublisher, store::StoreRef, *};
 use crate::sync::{Arc, RwLock};
 
 #[cfg(feature = "debug")]
@@ -164,8 +164,10 @@ impl Doc {
         self.store.read().unwrap().clients()
     }
 
-    pub fn history(&self, client: u64) -> Option<Vec<RawHistory>> {
-        self.store.read().unwrap().history(client)
+    pub fn history(&self) -> StoreHistory {
+        let history = StoreHistory::new(&self.store);
+        history.resolve();
+        history
     }
 
     #[cfg(feature = "debug")]
@@ -343,7 +345,7 @@ impl Doc {
         self.store.read().unwrap().get_state_vector()
     }
 
-    pub fn subscribe(&self, cb: impl Fn(&[u8]) + Sync + Send + 'static) {
+    pub fn subscribe(&self, cb: impl Fn(&[u8], &[History]) + Sync + Send + 'static) {
         self.publisher.subscribe(cb);
     }
 
@@ -504,11 +506,11 @@ mod tests {
             let count = Arc::new(AtomicU8::new(0));
             let count_clone1 = count.clone();
             let count_clone2 = count.clone();
-            doc.subscribe(move |_| {
+            doc.subscribe(move |_, _| {
                 count_clone1.fetch_add(1, Ordering::SeqCst);
             });
 
-            doc_clone.subscribe(move |_| {
+            doc_clone.subscribe(move |_, _| {
                 count_clone2.fetch_add(1, Ordering::SeqCst);
             });
 

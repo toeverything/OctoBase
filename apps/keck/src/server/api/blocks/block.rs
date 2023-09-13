@@ -148,44 +148,6 @@ pub async fn get_block_by_flavour(
     }
 }
 
-/// Get `Block` history
-/// - Return 200 and `Block`'s history if `Block` exists.
-/// - Return 404 Not Found if `Workspace` or `Block` not exists.
-#[utoipa::path(
-    get,
-    tag = "Blocks",
-    context_path = "/api/block",
-    path = "/{workspace_id}/{block_id}/history",
-    params(
-        ("workspace_id", description = "workspace id"),
-        ("block_id", description = "block id"),
-    ),
-    responses(
-        (status = 200, description = "Get block history", body = [BlockHistory]),
-        (status = 404, description = "Workspace or block not found"),
-    )
-)]
-pub async fn get_block_history(
-    Extension(context): Extension<Arc<Context>>,
-    Path(params): Path<(String, String)>,
-) -> Response {
-    let (ws_id, block) = params;
-    info!("get_block_history: {}, {}", ws_id, block);
-    if let Ok(space) = context
-        .get_workspace(&ws_id)
-        .await
-        .and_then(|mut ws| Ok(ws.get_blocks()?))
-    {
-        if let Some(block) = space.get(block) {
-            Json(&block.history()).into_response()
-        } else {
-            StatusCode::NOT_FOUND.into_response()
-        }
-    } else {
-        StatusCode::NOT_FOUND.into_response()
-    }
-}
-
 /// Delete block
 /// - Return 204 No Content if delete successful.
 /// - Return 404 Not Found if `Workspace` or `Block` not exists.

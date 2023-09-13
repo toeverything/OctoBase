@@ -12,7 +12,7 @@ pub use awareness::{Awareness, AwarenessEvent};
 pub use codec::*;
 pub use common::*;
 pub use document::{Doc, DocOptions};
-pub use history::RawHistory;
+pub use history::{History, HistoryOptions, StoreHistory};
 pub(crate) use store::DocStore;
 pub use types::*;
 pub use utils::*;

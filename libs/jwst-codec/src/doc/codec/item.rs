@@ -214,17 +214,22 @@ impl Item {
         }
     }
 
-    pub fn resolve_parent(&self) -> Option<(Option<Parent>, Option<String>)> {
-        if let Some(item) = self.left.as_ref().map(|n| n.as_item()).and_then(|i| i.get().cloned()) {
+    // find a note that has parent info
+    // in crdt tree, not all node has parent info
+    // so we need to check left and right node if they have parent info
+    pub fn find_node_with_parent_info(&self) -> Option<Item> {
+        if self.parent.is_some() {
+            return Some(self.clone());
+        } else if let Some(item) = self.left_item().get() {
             if item.parent.is_none() {
-                if let Some(item) = item.right.map(|n| n.as_item()).and_then(|i| i.get().cloned()) {
-                    return Some((item.parent.clone(), item.parent_sub.clone()));
+                if let Some(item) = item.right_item().get() {
+                    return Some(item.clone());
                 }
             } else {
-                return Some((item.parent.clone(), item.parent_sub.clone()));
+                return Some(item.clone());
             }
-        } else if let Some(item) = self.right.as_ref().map(|n| n.as_item()).and_then(|i| i.get().cloned()) {
-            return Some((item.parent.clone(), item.parent_sub.clone()));
+        } else if let Some(item) = self.right_item().get() {
+            return Some(item.clone());
         }
         None
     }
@@ -263,6 +268,10 @@ impl Item {
         let Id { client, clock } = self.id;
 
         Id::new(client, clock + self.len() - 1)
+    }
+
+    pub fn left_item(&self) -> ItemRef {
+        self.left.as_ref().map(|n| n.as_item()).unwrap_or_default()
     }
 
     pub fn right_item(&self) -> ItemRef {

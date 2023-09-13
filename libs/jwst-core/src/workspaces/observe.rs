@@ -1,4 +1,4 @@
-use jwst_codec::{Awareness, AwarenessEvent};
+use jwst_codec::{Awareness, AwarenessEvent, History};
 
 use super::*;
 
@@ -7,7 +7,7 @@ impl Workspace {
         self.awareness.write().unwrap().on_update(f);
     }
 
-    pub fn subscribe_doc(&mut self, f: impl Fn(&[u8]) + Sync + Send + 'static) {
+    pub fn subscribe_doc(&mut self, f: impl Fn(&[u8], &[History]) + Sync + Send + 'static) {
         self.doc.subscribe(f)
     }
 

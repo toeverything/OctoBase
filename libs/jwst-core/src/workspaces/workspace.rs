@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use jwst_codec::{Awareness, Doc, Map};
+use jwst_codec::{Awareness, Doc, History, HistoryOptions, Map};
 use serde::{ser::SerializeMap, Serialize, Serializer};
 
 use super::*;
@@ -75,6 +75,14 @@ impl Workspace {
 
     pub fn client_id(&self) -> u64 {
         self.doc.client()
+    }
+
+    pub fn clients(&self) -> Vec<u64> {
+        self.doc.clients()
+    }
+
+    pub fn history(&self, client: u64, options: HistoryOptions) -> Vec<History> {
+        self.doc.history().parse_store(client, options)
     }
 }
 
@@ -217,10 +225,7 @@ mod test {
                         "sys:flavour": "text",
                     }
                 },
-                "space:updated": {
-                    "block1": [[]],
-                    "block2": [[]],
-                },
+                "space:updated": {},
                 "space:meta": {}
             })
         );
