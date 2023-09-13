@@ -126,6 +126,10 @@ impl DocPublisher {
         }
     }
 
+    pub(crate) fn count(&self) -> usize {
+        self.subscribers.read().unwrap().len()
+    }
+
     pub(crate) fn subscribe(&self, subscriber: impl Fn(&[u8], &[History]) + Send + Sync + 'static) {
         self.subscribers.write().unwrap().push(Box::new(subscriber));
     }

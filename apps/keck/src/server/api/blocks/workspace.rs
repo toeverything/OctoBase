@@ -6,7 +6,6 @@ use jwst_core::DocStorage;
 use utoipa::IntoParams;
 
 use super::*;
-use crate::server::api::blocks::SubscribeWorkspace;
 
 /// Get a exists `Workspace` by id
 /// - Return 200 Ok and `Workspace`'s data if `Workspace` is exists.
@@ -220,34 +219,6 @@ pub async fn get_workspace_block(
     } else {
         (StatusCode::NOT_FOUND, format!("Workspace({workspace:?}) not found")).into_response()
     }
-}
-
-/// Register a webhook for all block changes from all workspace changes
-#[utoipa::path(
-    post,
-    tag = "Workspace",
-    context_path = "/api/subscribe",
-    path = "",
-    request_body(
-        content_type = "application/json",
-        content = SubscribeWorkspace,
-        description = "Provide endpoint of webhook server",
-    ),
-    responses(
-        (status = 200, description = "Subscribe workspace succeed"),
-        (status = 500, description = "Internal Server Error")
-    )
-)]
-pub async fn subscribe_workspace(
-    Extension(hook_endpoint): Extension<Arc<RwLock<String>>>,
-    Json(payload): Json<SubscribeWorkspace>,
-) -> Response {
-    info!("subscribe all workspaces, hook endpoint: {}", payload.hook_endpoint);
-
-    let mut write_guard = hook_endpoint.write().await;
-    *write_guard = payload.hook_endpoint.clone();
-    info!("successfully subscribed all workspaces");
-    StatusCode::OK.into_response()
 }
 
 #[cfg(all(test, feature = "sqlite"))]

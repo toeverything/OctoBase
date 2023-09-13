@@ -371,6 +371,10 @@ impl Doc {
         self.publisher.unsubscribe_all();
     }
 
+    pub fn subscribe_count(&self) -> usize {
+        self.publisher.count()
+    }
+
     pub fn gc(&self) -> JwstCodecResult<()> {
         self.store.write().unwrap().optimize()
     }

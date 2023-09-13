@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use utoipa::ToSchema;
 
 #[derive(Default, Deserialize, PartialEq, Debug, ToSchema)]
@@ -39,13 +39,4 @@ pub enum InsertChildren {
     InsertBefore { id: String, before: String },
     InsertAfter { id: String, after: String },
     InsertAt { id: String, pos: u64 },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-#[schema(example=json!({
-    "hookEndpoint": "http://localhost:3000/api/hooks"
-}))]
-pub struct SubscribeWorkspace {
-    #[serde(rename = "hookEndpoint")]
-    pub hook_endpoint: String,
 }

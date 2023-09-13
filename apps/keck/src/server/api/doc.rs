@@ -4,7 +4,7 @@ use utoipa_swagger_ui::{serve, Config, Url};
 
 use super::{
     blobs,
-    blocks::{block, clients, history, schema, workspace},
+    blocks::{block, clients, history, schema, subscribe, workspace},
     *,
 };
 
@@ -14,6 +14,8 @@ use super::{
         clients::workspace_client,
         clients::workspace_clients,
         history::history_workspace,
+        subscribe::subscribe_workspace,
+        subscribe::subscribe_test_hook,
         workspace::get_workspace,
         workspace::set_workspace,
         workspace::delete_workspace,
@@ -21,7 +23,6 @@ use super::{
         // workspace::workspace_search,
         // workspace::set_search_index,
         // workspace::get_search_index,
-        workspace::subscribe_workspace,
         block::get_block,
         block::get_block_by_flavour,
         block::set_block,
@@ -37,9 +38,8 @@ use super::{
     components(
         schemas(
             blobs::BlobStatus, schema::InsertChildren,
-            schema::Workspace, schema::Block, schema::BlockRawHistory, schema::SubscribeWorkspace
-            // jwst::BlockHistory, jwst::HistoryOperation, jwst::RawHistory,
-            // jwst::SearchResults, jwst::SearchResult,
+            schema::Workspace, schema::Block, schema::BlockRawHistory,
+            subscribe::SubscribeWorkspace
         )
     ),
     tags(

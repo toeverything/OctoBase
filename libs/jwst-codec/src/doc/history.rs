@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::{store::StoreRef, *};
 use crate::sync::RwLock;
@@ -194,7 +194,7 @@ impl StoreHistory {
     }
 }
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct History {
     pub id: String,
     pub parent: Vec<String>,

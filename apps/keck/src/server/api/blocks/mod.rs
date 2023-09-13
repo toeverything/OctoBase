@@ -2,12 +2,8 @@ pub mod block;
 pub mod clients;
 pub mod history;
 pub mod schema;
+pub mod subscribe;
 pub mod workspace;
-
-pub use block::{delete_block, get_block, insert_block_children, remove_block_children, set_block};
-use schema::InsertChildren;
-pub use schema::SubscribeWorkspace;
-pub use workspace::{delete_workspace, get_workspace, set_workspace, subscribe_workspace};
 
 use super::*;
 
@@ -48,7 +44,8 @@ fn workspace_apis(router: Router) -> Router {
         //     "/search/:workspace/index",
         //     get(workspace::get_search_index).post(workspace::set_search_index),
         // )
-        .route("/subscribe", post(subscribe_workspace))
+        .route("/subscribe", post(subscribe::subscribe_workspace))
+        .route("/hook", post(subscribe::subscribe_test_hook))
 }
 
 pub fn blocks_apis(router: Router) -> Router {
@@ -78,10 +75,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_workspace_apis() {
-        let client = Arc::new(reqwest::Client::builder().no_proxy().build().unwrap());
-
-        let hook_endpoint = Arc::new(RwLock::new(String::new()));
-
         let ctx = Arc::new(
             Context::new(
                 JwstStorage::new_with_migration("sqlite::memory:", BlobStorageType::DB)
@@ -90,12 +83,7 @@ mod tests {
             )
             .await,
         );
-        let client = TestClient::new(
-            workspace_apis(Router::new())
-                .layer(Extension(ctx.clone()))
-                .layer(Extension(client.clone()))
-                .layer(Extension(hook_endpoint.clone())),
-        );
+        let client = TestClient::new(workspace_apis(Router::new()).layer(Extension(ctx.clone())));
 
         // basic workspace apis
         let resp = client.get("/block/test").send().await;
@@ -140,7 +128,7 @@ mod tests {
         // assert_eq!(index, vec!["test".to_owned()]);
 
         let body = json!({
-            "hookEndpoint": "localhost:3000/api/hook"
+            "endpoint": "localhost:3000/api/hook"
         })
         .to_string();
         let resp = client
