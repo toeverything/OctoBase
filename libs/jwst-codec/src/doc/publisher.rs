@@ -178,9 +178,9 @@ mod tests {
                 let ret = ret[cycle].clone();
                 for (i, h) in history.iter().enumerate() {
                     println!("history change by {} at {}: {}", h.id, h.parent.join("."), h.content);
-                    let ret = &ret[i];
                     // lost first update by unknown reason in asan test, skip it if asan enabled
                     if option_env!("ASAN_OPTIONS").is_none() {
+                        let ret = &ret[i];
                         assert_eq!(h.id, ret[0]);
                         assert_eq!(h.parent.join("."), ret[1]);
                         assert_eq!(h.content, ret[2]);
