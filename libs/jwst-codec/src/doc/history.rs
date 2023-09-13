@@ -74,16 +74,20 @@ impl StoreHistory {
 
     pub fn parse_store(&self, options: HistoryOptions) -> Vec<History> {
         let store_items = {
+            let client = options
+                .client
+                .as_ref()
+                .and_then(|client| client.ne(&0).then_some(client));
             let store = self.store.read().unwrap();
             let mut sort_iter: Box<dyn Iterator<Item = Item>> = Box::new(
-                SortedNodes::new(if let Some(client) = options.client.as_ref() {
+                SortedNodes::new(if let Some(client) = client {
                     store.items.get(client).map(|i| vec![(client, i)]).unwrap_or_default()
                 } else {
                     store.items.iter().collect::<Vec<_>>()
                 })
                 .filter_map(|n| n.as_item().get().cloned()),
             );
-            if options.client.is_some() {
+            if client.is_some() {
                 // skip and limit only available when client is set
                 if let Some(skip) = options.skip {
                     sort_iter = Box::new(sort_iter.skip(skip));

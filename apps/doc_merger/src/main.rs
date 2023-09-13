@@ -74,8 +74,8 @@ fn jwst_merge(path: &str, output: &str) {
         println!("status: {:?}", doc.store_status());
     }
     let ts = Instant::now();
-    let history = doc.history().parse_store(0, Default::default());
-    println!("history1: {:?}", ts.elapsed());
+    let history = doc.history().parse_store(Default::default());
+    println!("history: {:?}", ts.elapsed());
     for history in history.iter().take(100) {
         println!("history: {:?}", history);
     }

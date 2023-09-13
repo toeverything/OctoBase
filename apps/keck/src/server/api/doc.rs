@@ -15,7 +15,7 @@ use super::{
         workspace::set_workspace,
         workspace::delete_workspace,
         workspace::workspace_client,
-        workspace::history_workspace_clients,
+        workspace::workspace_clients,
         workspace::history_workspace,
         workspace::get_workspace_block,
         // workspace::workspace_search,

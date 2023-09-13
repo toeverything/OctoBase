@@ -10,26 +10,29 @@ pub use workspace::{delete_workspace, get_workspace, set_workspace, subscribe_wo
 use super::*;
 
 fn block_apis(router: Router) -> Router {
-    let block_operation = Router::new()
+    let children_apis = Router::new()
         .route(
             "/children",
             get(block::get_block_children).post(block::insert_block_children),
         )
         .route("/children/:children", delete(block::remove_block_children));
 
+    let block_apis = Router::new().route(
+        "/",
+        get(block::get_block).post(block::set_block).delete(block::delete_block),
+    );
+
     doc_apis(router)
-        .nest("/block/:workspace/:block/", block_operation)
-        .route(
-            "/block/:workspace/:block",
-            get(block::get_block).post(block::set_block).delete(block::delete_block),
-        )
+        .nest("/block/:workspace/:block/", children_apis)
+        .nest("/block/:workspace/:block/", block_apis.clone())
+        .nest("/block/:workspace/:block", block_apis)
 }
 
 fn workspace_apis(router: Router) -> Router {
     router
         .route("/block/:workspace/client", get(workspace::workspace_client))
-        .route("/block/:workspace/history", get(workspace::history_workspace_clients))
-        .route("/block/:workspace/history/:client", get(workspace::history_workspace))
+        .route("/block/:workspace/clients", get(workspace::workspace_clients))
+        .route("/block/:workspace/history", get(workspace::history_workspace))
         .route(
             "/block/:workspace",
             get(workspace::get_workspace)
