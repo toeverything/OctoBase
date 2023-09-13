@@ -7,7 +7,7 @@ mod workspaces;
 pub mod constants;
 
 pub use block::Block;
-pub use jwst_codec::Any;
+pub use jwst_codec::{Any, HistoryOptions};
 pub use space::Space;
 pub use tracing::{debug, error, info, log::LevelFilter, trace, warn};
 pub use types::{BlobMetadata, BlobStorage, BucketBlobStorage, DocStorage, JwstError, JwstResult};

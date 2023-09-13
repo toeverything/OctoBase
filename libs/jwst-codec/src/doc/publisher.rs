@@ -80,7 +80,7 @@ impl DocPublisher {
                             Ok(update) => {
                                 drop(store);
 
-                                let history = history.parse_update(&update, 0);
+                                let history = history.parse_update(&update);
 
                                 let mut encoder = RawEncoder::default();
                                 if let Err(e) = update.write(&mut encoder) {
