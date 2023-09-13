@@ -1,4 +1,6 @@
 pub mod block;
+pub mod clients;
+pub mod history;
 pub mod schema;
 pub mod workspace;
 
@@ -30,9 +32,9 @@ fn block_apis(router: Router) -> Router {
 
 fn workspace_apis(router: Router) -> Router {
     router
-        .route("/block/:workspace/client", get(workspace::workspace_client))
-        .route("/block/:workspace/clients", get(workspace::workspace_clients))
-        .route("/block/:workspace/history", get(workspace::history_workspace))
+        .route("/block/:workspace/client", get(clients::workspace_client))
+        .route("/block/:workspace/clients", get(clients::workspace_clients))
+        .route("/block/:workspace/history", get(history::history_workspace))
         .route(
             "/block/:workspace",
             get(workspace::get_workspace)
@@ -105,8 +107,8 @@ mod tests {
             resp.text().await.parse::<u64>().unwrap(),
             ctx.storage.get_workspace("test").await.unwrap().client_id()
         );
-        // let resp = client.get("/block/test/history").send().await;
-        // assert_eq!(resp.json::<Vec<u64>>().await, Vec::<u64>::new());
+        let resp = client.get("/block/test/clients").send().await;
+        assert_eq!(resp.json::<Vec<u64>>().await, Vec::<u64>::new());
         let resp = client.get("/block/test").send().await;
         assert_eq!(resp.status(), StatusCode::OK);
         let resp = client.delete("/block/test").send().await;

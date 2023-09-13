@@ -98,7 +98,14 @@ impl DocPublisher {
                         last_update = update;
 
                         for cb in subscribers.iter() {
-                            cb(&binary, &history);
+                            use std::panic::{catch_unwind, AssertUnwindSafe};
+                            // catch panic if callback throw
+                            catch_unwind(AssertUnwindSafe(|| {
+                                cb(&binary, &history);
+                            }))
+                            .unwrap_or_else(|e| {
+                                warn!("Failed to call subscriber: {:?}", e);
+                            });
                         }
                     } else {
                         drop(store);
