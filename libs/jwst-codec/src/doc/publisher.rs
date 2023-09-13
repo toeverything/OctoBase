@@ -146,7 +146,6 @@ mod tests {
     use crate::sync::AtomicUsize;
 
     #[test]
-    #[ignore = "lost first update by unknown reason in memory leak ci, skip"]
     fn test_parse_update_history() {
         loom_model!({
             let doc = Doc::default();
@@ -180,9 +179,12 @@ mod tests {
                 for (i, h) in history.iter().enumerate() {
                     println!("history change by {} at {}: {}", h.id, h.parent.join("."), h.content);
                     let ret = &ret[i];
-                    assert_eq!(h.id, ret[0]);
-                    assert_eq!(h.parent.join("."), ret[1]);
-                    assert_eq!(h.content, ret[2]);
+                    // lost first update by unknown reason in asan test, skip it if asan enabled
+                    if option_env!("ASAN_OPTIONS").is_none() {
+                        assert_eq!(h.id, ret[0]);
+                        assert_eq!(h.parent.join("."), ret[1]);
+                        assert_eq!(h.content, ret[2]);
+                    }
                 }
             });
 
