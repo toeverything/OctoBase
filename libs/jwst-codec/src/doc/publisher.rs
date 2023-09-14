@@ -148,6 +148,7 @@ impl std::fmt::Debug for DocPublisher {
 impl Drop for DocPublisher {
     fn drop(&mut self) {
         self.stop();
+        self.unsubscribe_all();
     }
 }
 

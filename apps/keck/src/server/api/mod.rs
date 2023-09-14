@@ -82,9 +82,11 @@ impl Context {
                 if webhook.is_empty() {
                     return;
                 }
+                // release the lock before move webhook
+                let webhook = webhook.clone();
                 rt.block_on(async {
                     debug!("send {} histories to webhook {}", history.len(), webhook);
-                    let resp = client.post(webhook.as_str()).json(history).send().await.unwrap();
+                    let resp = client.post(webhook).json(history).send().await.unwrap();
                     if !resp.status().is_success() {
                         error!("failed to send webhook: {}", resp.status());
                     }
