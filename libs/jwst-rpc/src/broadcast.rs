@@ -21,7 +21,7 @@ pub enum BroadcastType {
 type Broadcast = Sender<BroadcastType>;
 pub type BroadcastChannels = RwLock<HashMap<String, Broadcast>>;
 
-pub async fn subscribe(workspace: &mut Workspace, identifier: String, sender: Broadcast) {
+pub async fn subscribe(workspace: &Workspace, identifier: String, sender: Broadcast) {
     {
         let sender = sender.clone();
         let workspace_id = workspace.id();

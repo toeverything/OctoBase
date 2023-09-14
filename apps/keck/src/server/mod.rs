@@ -7,7 +7,7 @@ use std::{net::SocketAddr, sync::Arc};
 use api::Context;
 use axum::{http::Method, Extension, Router, Server};
 use jwst_core::Workspace;
-use tokio::{signal, sync::RwLock};
+use tokio::signal;
 use tower_http::cors::{Any, CorsLayer};
 pub use utils::*;
 
@@ -56,7 +56,7 @@ pub async fn start_server() {
 
     let app = sync::sync_handler(api::api_handler(Router::new()))
         .layer(cors)
-        .layer(Extension(context.clone()))
+        .layer(Extension(context.clone()));
 
     let addr = SocketAddr::from((
         [0, 0, 0, 0],
