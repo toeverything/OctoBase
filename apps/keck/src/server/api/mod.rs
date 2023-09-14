@@ -68,7 +68,7 @@ impl Context {
         Context {
             channel: RwLock::new(HashMap::new()),
             storage,
-            webhook: Arc::default(),
+            webhook: Arc::new(RwLock::new(dotenvy::var("HOOK_ENDPOINT").unwrap_or_default())),
         }
     }
 
