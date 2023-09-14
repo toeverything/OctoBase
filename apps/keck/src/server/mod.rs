@@ -52,14 +52,11 @@ pub async fn start_server() {
         .allow_origin(origins)
         .allow_headers(Any);
 
-    let hook_endpoint = Arc::new(RwLock::new(dotenvy::var("HOOK_ENDPOINT").unwrap_or_default()));
-
     let context = Arc::new(Context::new(None).await);
 
     let app = sync::sync_handler(api::api_handler(Router::new()))
         .layer(cors)
         .layer(Extension(context.clone()))
-        .layer(Extension(hook_endpoint));
 
     let addr = SocketAddr::from((
         [0, 0, 0, 0],
