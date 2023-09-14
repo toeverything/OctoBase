@@ -7,7 +7,7 @@ use std::{net::SocketAddr, sync::Arc};
 use api::Context;
 use axum::{http::Method, Extension, Router, Server};
 use jwst_core::Workspace;
-use tokio::{signal, sync::RwLock};
+use tokio::signal;
 use tower_http::cors::{Any, CorsLayer};
 pub use utils::*;
 
@@ -52,16 +52,11 @@ pub async fn start_server() {
         .allow_origin(origins)
         .allow_headers(Any);
 
-    let client = Arc::new(reqwest::Client::builder().no_proxy().build().unwrap());
-    let hook_endpoint = Arc::new(RwLock::new(dotenvy::var("HOOK_ENDPOINT").unwrap_or_default()));
-
     let context = Arc::new(Context::new(None).await);
 
     let app = sync::sync_handler(api::api_handler(Router::new()))
         .layer(cors)
-        .layer(Extension(context.clone()))
-        .layer(Extension(client))
-        .layer(Extension(hook_endpoint));
+        .layer(Extension(context.clone()));
 
     let addr = SocketAddr::from((
         [0, 0, 0, 0],

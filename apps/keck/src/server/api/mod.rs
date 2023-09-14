@@ -43,6 +43,7 @@ pub struct PageData<T> {
 pub struct Context {
     channel: BroadcastChannels,
     storage: JwstStorage,
+    webhook: Arc<std::sync::RwLock<String>>,
 }
 
 impl Context {
@@ -67,21 +68,59 @@ impl Context {
         Context {
             channel: RwLock::new(HashMap::new()),
             storage,
+            webhook: Arc::new(std::sync::RwLock::new(
+                dotenvy::var("HOOK_ENDPOINT").unwrap_or_default(),
+            )),
         }
+    }
+
+    fn register_webhook(&self, workspace: Workspace) -> Workspace {
+        if workspace.subscribe_count() == 0 {
+            let client = reqwest::Client::new();
+            let rt = tokio::runtime::Handle::current();
+            let webhook = self.webhook.clone();
+            workspace.subscribe_doc(move |_, history| {
+                let webhook = webhook.read().unwrap();
+                if webhook.is_empty() {
+                    return;
+                }
+                // release the lock before move webhook
+                let webhook = webhook.clone();
+                rt.block_on(async {
+                    debug!("send {} histories to webhook {}", history.len(), webhook);
+                    let resp = client.post(webhook).json(history).send().await.unwrap();
+                    if !resp.status().is_success() {
+                        error!("failed to send webhook: {}", resp.status());
+                    }
+                });
+            });
+        }
+        workspace
+    }
+
+    pub fn set_webhook(&self, endpoint: String) {
+        let mut write_guard = self.webhook.write().unwrap();
+        *write_guard = endpoint;
     }
 
     pub async fn get_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
     where
         S: AsRef<str>,
     {
-        self.storage.get_workspace(workspace_id).await
+        self.storage
+            .get_workspace(workspace_id)
+            .await
+            .map(|w| self.register_webhook(w))
     }
 
     pub async fn create_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
     where
         S: AsRef<str>,
     {
-        self.storage.create_workspace(workspace_id).await
+        self.storage
+            .create_workspace(workspace_id)
+            .await
+            .map(|w| self.register_webhook(w))
     }
 }
 

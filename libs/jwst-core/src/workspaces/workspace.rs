@@ -81,8 +81,8 @@ impl Workspace {
         self.doc.clients()
     }
 
-    pub fn history(&self, client: u64, options: HistoryOptions) -> Vec<History> {
-        self.doc.history().parse_store(client, options)
+    pub fn history(&self, options: HistoryOptions) -> Vec<History> {
+        self.doc.history().parse_store(options)
     }
 }
 

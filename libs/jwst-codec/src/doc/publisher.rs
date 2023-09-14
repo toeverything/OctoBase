@@ -80,7 +80,7 @@ impl DocPublisher {
                             Ok(update) => {
                                 drop(store);
 
-                                let history = history.parse_update(&update, 0);
+                                let history = history.parse_update(&update);
 
                                 let mut encoder = RawEncoder::default();
                                 if let Err(e) = update.write(&mut encoder) {
@@ -98,7 +98,14 @@ impl DocPublisher {
                         last_update = update;
 
                         for cb in subscribers.iter() {
-                            cb(&binary, &history);
+                            use std::panic::{catch_unwind, AssertUnwindSafe};
+                            // catch panic if callback throw
+                            catch_unwind(AssertUnwindSafe(|| {
+                                cb(&binary, &history);
+                            }))
+                            .unwrap_or_else(|e| {
+                                warn!("Failed to call subscriber: {:?}", e);
+                            });
                         }
                     } else {
                         drop(store);
@@ -119,6 +126,10 @@ impl DocPublisher {
         }
     }
 
+    pub(crate) fn count(&self) -> usize {
+        self.subscribers.read().unwrap().len()
+    }
+
     pub(crate) fn subscribe(&self, subscriber: impl Fn(&[u8], &[History]) + Send + Sync + 'static) {
         self.subscribers.write().unwrap().push(Box::new(subscriber));
     }
@@ -137,6 +148,7 @@ impl std::fmt::Debug for DocPublisher {
 impl Drop for DocPublisher {
     fn drop(&mut self) {
         self.stop();
+        self.unsubscribe_all();
     }
 }
 
