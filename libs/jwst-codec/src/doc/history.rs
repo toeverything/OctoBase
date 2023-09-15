@@ -164,7 +164,7 @@ impl StoreHistory {
             let mut curr = item.clone();
             let mut idx = 0;
 
-            while let Some(item) = curr.left_item().get() {
+            while let Some(item) = curr.left.get() {
                 curr = item.clone();
                 idx += 1;
             }
