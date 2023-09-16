@@ -16,7 +16,7 @@ fn operations(c: &mut Criterion) {
             let doc = Doc::default();
             let mut map = doc.get_or_create_map("test").unwrap();
             for (idx, key) in base_text.iter().enumerate() {
-                map.insert(key, idx).unwrap();
+                map.insert(key.to_string(), idx).unwrap();
             }
         });
     });
@@ -49,7 +49,7 @@ fn operations(c: &mut Criterion) {
         let doc = Doc::default();
         let mut map = doc.get_or_create_map("test").unwrap();
         for (idx, key) in base_text.iter().enumerate() {
-            map.insert(key, idx).unwrap();
+            map.insert(key.to_string(), idx).unwrap();
         }
 
         b.iter(|| {
@@ -93,7 +93,7 @@ fn operations(c: &mut Criterion) {
             let doc = Doc::default();
             let mut map = doc.get_or_create_map("test").unwrap();
             for (idx, key) in base_text.iter().enumerate() {
-                map.insert(key, idx).unwrap();
+                map.insert(key.to_string(), idx).unwrap();
             }
             for key in &base_text {
                 map.remove(key);

@@ -32,7 +32,7 @@ impl ToString for Text {
         let mut ret = String::with_capacity(self.len() as usize);
 
         self.iter_item().fold(&mut ret, |ret, item| {
-            if let Content::String(str) = item.get().unwrap().content.as_ref() {
+            if let Content::String(str) = &item.get().unwrap().content {
                 ret.push_str(str);
             }
 

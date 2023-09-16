@@ -416,7 +416,7 @@ mod tests {
                 let doc = Doc::new();
 
                 let mut map = doc.get_or_create_map("abc").unwrap();
-                map.insert("a", 1).unwrap();
+                map.insert("a".to_string(), 1).unwrap();
                 let binary = doc.encode_update_v1().unwrap();
 
                 let doc_new = Doc::new();

@@ -1,26 +1,24 @@
-use std::collections::HashMap;
+use std::collections::hash_map::Iter;
 
 use super::*;
 use crate::{
     doc::{AsInner, Node, Parent, YTypeRef},
-    impl_type,
-    sync::Arc,
-    Content, JwstCodecResult,
+    impl_type, JwstCodecResult,
 };
 
 impl_type!(Map);
 
 pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
-    fn insert(&mut self, key: impl AsRef<str>, value: impl Into<Content>) -> JwstCodecResult {
+    fn _insert<V: Into<Value>>(&mut self, key: String, value: V) -> JwstCodecResult {
         if let Some((mut store, mut ty)) = self.as_inner().write() {
-            let left = ty.map.get(key.as_ref()).cloned();
+            let left = ty.map.get(&key).cloned();
 
             let item = store.create_item(
-                value.into(),
+                value.into().into(),
                 left.unwrap_or(Somr::none()),
                 Somr::none(),
                 Some(Parent::Type(self.as_inner().clone())),
-                Some(key.as_ref().into()),
+                Some(key),
             );
             store.integrate(Node::Item(item), 0, Some(&mut ty))?;
         }
@@ -28,41 +26,26 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         Ok(())
     }
 
-    fn keys(&self) -> Vec<String> {
-        if let Some(ty) = self.as_inner().ty() {
-            ty.map.keys().cloned().collect()
-        } else {
-            vec![]
-        }
-    }
-
-    fn get(&self, key: impl AsRef<str>) -> Option<Arc<Content>> {
+    fn _get(&self, key: &str) -> Option<Value> {
         self.as_inner().ty().and_then(|ty| {
-            ty.map
-                .get(key.as_ref())
-                .filter(|item| item.get().map(|item| !item.deleted()).unwrap_or(false))
-                .map(|item| item.get().unwrap().content.clone())
+            ty.map.get(key).and_then(|item| {
+                if let Some(item) = item.get() {
+                    if item.deleted() {
+                        return None;
+                    }
+
+                    Some(Value::from(&item.content))
+                } else {
+                    None
+                }
+            })
         })
     }
 
-    fn get_all(&self) -> HashMap<String, Arc<Content>> {
-        let mut ret = HashMap::default();
-
-        if let Some(ty) = self.as_inner().ty() {
-            for key in ty.map.keys() {
-                if let Some(content) = self.get(key) {
-                    ret.insert(key.clone(), content);
-                }
-            }
-        }
-
-        ret
-    }
-
-    fn contains_key(&self, key: impl AsRef<str>) -> bool {
+    fn _contains_key(&self, key: &str) -> bool {
         if let Some(ty) = self.as_inner().ty() {
             ty.map
-                .get(key.as_ref())
+                .get(key)
                 .and_then(|item| item.get())
                 .map_or(false, |item| !item.deleted())
         } else {
@@ -70,120 +53,155 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         }
     }
 
-    fn remove(&mut self, key: impl AsRef<str>) -> bool {
+    fn _remove(&mut self, key: &str) {
         if let Some((mut store, mut ty)) = self.as_inner().write() {
-            let item = ty.map.get(key.as_ref()).cloned();
-            if let Some(item) = item {
+            if let Some(item) = ty.map.get(key).cloned() {
                 if let Some(item) = item.get() {
                     store.delete_item(item, Some(&mut ty));
-                    return true;
                 }
             }
         }
-
-        false
     }
 
-    fn len(&self) -> u64 {
-        self.as_inner()
-            .ty()
-            .map(|ty| {
-                ty.map
-                    .values()
-                    .filter(|v| v.get().map(|item| !item.deleted()).unwrap_or(false))
-                    .count() as u64
-            })
-            .unwrap_or(0)
+    fn _len(&self) -> u64 {
+        self._keys().count() as u64
     }
 
-    fn iter(&self) -> MapIterator {
-        let inner = self.as_inner().ty().unwrap();
-        let map = inner
-            .map
-            .iter()
-            .filter(|(_, v)| v.get().map(|item| !item.deleted()).unwrap_or(false))
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect::<Vec<(String, Somr<Item>)>>();
+    fn _iter(&self) -> EntriesInnerIterator {
+        let ty = self.as_inner().ty();
 
-        MapIterator { nodes: map, index: 0 }
+        if let Some(ty) = ty {
+            let ty = Arc::new(ty);
+
+            EntriesInnerIterator {
+                iter: Some(unsafe { &*Arc::as_ptr(&ty) }.map.iter()),
+                _lock: Some(ty),
+            }
+        } else {
+            EntriesInnerIterator {
+                _lock: None,
+                iter: None,
+            }
+        }
+    }
+
+    fn _keys(&self) -> KeysIterator {
+        KeysIterator(self._iter())
+    }
+
+    fn _values(&self) -> ValuesIterator {
+        ValuesIterator(self._iter())
+    }
+
+    fn _entries(&self) -> EntriesIterator {
+        EntriesIterator(self._iter())
     }
 }
 
-pub struct MapIterator {
-    pub(super) nodes: Vec<(String, Somr<Item>)>,
-    pub(super) index: usize,
+pub(crate) struct EntriesInnerIterator<'a> {
+    _lock: Option<Arc<RwLockReadGuard<'a, YType>>>,
+    iter: Option<Iter<'a, String, ItemRef>>,
 }
 
-impl Iterator for MapIterator {
-    type Item = (String, Value);
+pub struct KeysIterator<'a>(EntriesInnerIterator<'a>);
+pub struct ValuesIterator<'a>(EntriesInnerIterator<'a>);
+pub struct EntriesIterator<'a>(EntriesInnerIterator<'a>);
+
+impl<'a> Iterator for EntriesInnerIterator<'a> {
+    type Item = (&'a String, &'a Item);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let len = self.nodes.len();
-        if self.index >= len {
-            return None;
-        }
-
-        while self.index < len {
-            let (name, node) = self.nodes[self.index].clone();
-            if let Some(item) = node.get() {
-                if item.deleted() {
-                    continue;
+        if let Some(iter) = &mut self.iter {
+            for (k, v) in iter {
+                if let Some(item) = v.get() {
+                    if !item.deleted() {
+                        return Some((k, item));
+                    }
                 }
-
-                self.index += 1;
-
-                return item.content.as_ref().try_into().ok().map(|item| (name, item));
             }
-        }
 
-        None
+            None
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> Iterator for KeysIterator<'a> {
+    type Item = &'a String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|(k, _)| k)
+    }
+}
+
+impl<'a> Iterator for ValuesIterator<'a> {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|(_, v)| Value::from(&v.content))
+    }
+}
+
+impl<'a> Iterator for EntriesIterator<'a> {
+    type Item = (&'a String, Value);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|(k, v)| (k, Value::from(&v.content)))
     }
 }
 
 impl MapType for Map {}
 
 impl Map {
-    pub fn iter(&self) -> MapIterator {
-        MapType::iter(self)
+    #[inline(always)]
+    pub fn insert<V: Into<Value>>(&mut self, key: String, value: V) -> JwstCodecResult {
+        self._insert(key, value)
     }
 
-    pub fn insert<K: AsRef<str>, V: Into<Value>>(&mut self, key: K, value: V) -> JwstCodecResult {
-        MapType::insert(self, key, value.into())
+    #[inline(always)]
+    pub fn get(&self, key: &str) -> Option<Value> {
+        self._get(key)
     }
 
-    pub fn keys(&self) -> Vec<String> {
-        MapType::keys(self)
+    #[inline(always)]
+    pub fn contains_key(&self, key: &str) -> bool {
+        self._contains_key(key)
     }
 
-    #[inline]
-    pub fn get<K: AsRef<str>>(&self, key: K) -> Option<Value> {
-        if let Some(content) = MapType::get(self, key) {
-            // TODO: rewrite to content.read(&mut [Any])
-            return match content.as_ref() {
-                Content::Any(any) => return any.first().map(|any| Value::Any(any.clone())),
-                _ => content.as_ref().try_into().map_or_else(|_| None, Some),
-            };
-        }
-
-        None
+    #[inline(always)]
+    pub fn remove(&mut self, key: &str) {
+        self._remove(key)
     }
 
-    #[inline]
-    pub fn remove<K: AsRef<str>>(&mut self, key: K) -> bool {
-        MapType::remove(self, key)
-    }
-
-    #[inline]
-    pub fn contains_key<K: AsRef<str>>(&self, key: K) -> bool {
-        MapType::contains_key(self, key)
-    }
-
+    #[inline(always)]
     pub fn len(&self) -> u64 {
-        MapType::len(self)
+        self._len()
     }
 
+    #[inline(always)]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    #[inline(always)]
+    pub fn iter(&self) -> EntriesIterator {
+        self._entries()
+    }
+
+    #[inline(always)]
+    pub fn entries(&self) -> EntriesIterator {
+        self._entries()
+    }
+
+    #[inline(always)]
+    pub fn keys(&self) -> KeysIterator {
+        self._keys()
+    }
+
+    #[inline(always)]
+    pub fn values(&self) -> ValuesIterator {
+        self._values()
     }
 }
 
@@ -209,7 +227,7 @@ mod tests {
         loom_model!({
             let doc = Doc::new();
             let mut map = doc.get_or_create_map("map").unwrap();
-            map.insert("1", "value").unwrap();
+            map.insert("1".to_string(), "value").unwrap();
             assert_eq!(map.get("1").unwrap(), Value::Any(Any::String("value".to_string())));
             assert!(!map.contains_key("nonexistent_key"));
             assert_eq!(map.len(), 1);
@@ -225,8 +243,8 @@ mod tests {
         loom_model!({
             let doc = Doc::new();
             let mut map = doc.get_or_create_map("map").unwrap();
-            map.insert("1", "value").unwrap();
-            map.insert("2", false).unwrap();
+            map.insert("1".to_string(), "value").unwrap();
+            map.insert("2".to_string(), false).unwrap();
 
             let binary = doc.encode_update_v1().unwrap();
             let new_doc = Doc::new_from_binary(binary).unwrap();
@@ -242,41 +260,12 @@ mod tests {
         loom_model!({
             let doc = Doc::new();
             let mut map = doc.get_or_create_map("map").unwrap();
-            map.insert("1", "value").unwrap();
-            map.insert("1", "value2").unwrap();
+            map.insert("1".to_string(), "value").unwrap();
+            map.insert("1".to_string(), "value2").unwrap();
             assert_eq!(map.get("1").unwrap(), Value::Any(Any::String("value2".to_string())));
             assert_eq!(map.len(), 1);
         });
     }
-
-    // #[test]
-    // fn test_map_iter() {
-    //     let options = DocOptions {
-    //         client: Some(rand::random()),
-    //         guid: Some(nanoid::nanoid!()),
-    //     };
-
-    //     loom_model!({
-    //         let doc = Doc::with_options(options.clone());
-    //         let mut map = doc.get_or_create_map("map").unwrap();
-    //         map.insert("1", "value1").unwrap();
-    //         map.insert("2", "value2").unwrap();
-    //         let iter = map.iter();
-    //         assert_eq!(iter.count(), 2);
-
-    //         let iter = map.iter();
-    //         let mut vec: Vec<_> = iter.collect();
-    //         vec.sort_by(|a, b| a.id.cmp(&b.id));
-    //         assert_eq!(
-    //             vec[0].content,
-    //             Arc::new(Content::Any(vec![Any::String("value1".to_string())]))
-    //         );
-    //         assert_eq!(
-    //             vec[1].content,
-    //             Arc::new(Content::Any(vec![Any::String("value2".to_string())]))
-    //         );
-    //     });
-    // }
 
     #[test]
     fn test_map_re_encode() {
@@ -284,8 +273,8 @@ mod tests {
             let binary = {
                 let doc = Doc::new();
                 let mut map = doc.get_or_create_map("map").unwrap();
-                map.insert("1", "value1").unwrap();
-                map.insert("2", "value2").unwrap();
+                map.insert("1".to_string(), "value1").unwrap();
+                map.insert("2".to_string(), "value2").unwrap();
                 doc.encode_update_v1().unwrap()
             };
 
@@ -295,6 +284,28 @@ mod tests {
                 assert_eq!(map.get("1").unwrap(), Value::Any(Any::String("value1".to_string())));
                 assert_eq!(map.get("2").unwrap(), Value::Any(Any::String("value2".to_string())));
             }
+        });
+    }
+
+    #[test]
+    fn test_map_iter() {
+        loom_model!({
+            let doc = Doc::new();
+            let mut map = doc.get_or_create_map("map").unwrap();
+            map.insert("1".to_string(), "value1").unwrap();
+            map.insert("2".to_string(), "value2").unwrap();
+            let mut vec = map.entries().collect::<Vec<_>>();
+
+            // hashmap iteration is in random order instead of insert order
+            vec.sort_by(|a, b| a.0.cmp(b.0));
+
+            assert_eq!(
+                vec,
+                vec![
+                    (&"1".to_string(), Value::Any(Any::String("value1".to_string()))),
+                    (&"2".to_string(), Value::Any(Any::String("value2".to_string())))
+                ]
+            )
         });
     }
 }

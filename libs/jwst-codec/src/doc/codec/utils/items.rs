@@ -1,5 +1,4 @@
 use super::{item::item_flags, *};
-use crate::sync::Arc;
 
 pub(crate) struct ItemBuilder {
     item: Item,
@@ -54,7 +53,7 @@ impl ItemBuilder {
     }
 
     pub fn content(mut self, content: Content) -> ItemBuilder {
-        self.item.content = Arc::new(content);
+        self.item.content = content;
         self
     }
 
@@ -92,7 +91,7 @@ mod tests {
             assert_eq!(item.origin_right_id, Some(Id::new(4, 5)));
             assert!(matches!(item.parent, Some(Parent::String(text)) if text == "test"));
             assert_eq!(item.parent_sub, None);
-            assert_eq!(item.content, Arc::new(Content::Any(vec![Any::String("Hello".into())])));
+            assert_eq!(item.content, Content::Any(vec![Any::String("Hello".into())]));
         });
     }
 }

@@ -201,12 +201,12 @@ mod tests {
             });
 
             let mut map = doc.get_or_create_map("test").unwrap();
-            map.insert("key1", "val1").unwrap();
+            map.insert("key1".to_string(), "val1").unwrap();
 
             sleep(Duration::from_secs(1));
 
-            map.insert("key2", "val2").unwrap();
-            map.insert("key3", "val3").unwrap();
+            map.insert("key2".to_string(), "val2").unwrap();
+            map.insert("key3".to_string(), "val3").unwrap();
             sleep(Duration::from_secs(1));
 
             let mut array = doc.get_or_create_array("array").unwrap();

@@ -1,10 +1,11 @@
 use super::*;
 
-pub(crate) struct ListIterator {
+pub(crate) struct ListIterator<'a> {
+    pub(super) _lock: RwLockReadGuard<'a, YType>,
     pub(super) cur: Somr<Item>,
 }
 
-impl Iterator for ListIterator {
+impl Iterator for ListIterator<'_> {
     type Item = Somr<Item>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -18,11 +19,5 @@ impl Iterator for ListIterator {
         }
 
         None
-    }
-}
-
-impl ListIterator {
-    pub fn new(start: Somr<Item>) -> Self {
-        Self { cur: start }
     }
 }

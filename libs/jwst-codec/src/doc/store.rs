@@ -174,7 +174,7 @@ impl DocStore {
         let id = (self.client(), self.get_state(self.client())).into();
         let item = Somr::new(Item::new(id, content, left, right, parent, parent_sub));
 
-        if let Content::Type(ty) = item.get().unwrap().content.as_ref() {
+        if let Content::Type(ty) = &item.get().unwrap().content {
             if let Some(mut ty) = ty.ty_mut() {
                 ty.item = item.clone();
             }
@@ -375,15 +375,12 @@ impl DocStore {
             Some(Parent::Id(parent_id)) => {
                 match self.get_node(*parent_id) {
                     Some(Node::Item(parent_item)) => {
-                        match &parent_item.get().unwrap().content.as_ref() {
-                            Content::Type(ty) => {
-                                item.parent.replace(Parent::Type(ty.clone()));
-                            }
-                            _ => {
-                                // invalid parent, take it.
-                                item.parent.take();
-                                // return Err(JwstCodecError::InvalidParent);
-                            }
+                        if let Content::Type(ty) = &parent_item.get().unwrap().content {
+                            item.parent.replace(Parent::Type(ty.clone()));
+                        } else {
+                            // invalid parent, take it.
+                            item.parent.take();
+                            // return Err(JwstCodecError::InvalidParent);
                         }
                     }
                     _ => {
@@ -406,7 +403,7 @@ impl DocStore {
         };
 
         // assign store in ytype to ensure store exists if a ytype not has any children
-        if let Content::Type(ty) = Arc::make_mut(&mut item.content) {
+        if let Content::Type(ty) = &mut item.content {
             ty.store = Arc::downgrade(&store_ref);
 
             // we keep ty owner in dangling_types so the delete of any type will not make it
@@ -450,7 +447,7 @@ impl DocStore {
                         this.origin_left_id = left_ref.get().map(|left| left.last_id());
                         this.left = left_ref;
                     }
-                    this.content = Arc::new(this.content.split(offset)?.1);
+                    this.content = this.content.split(offset)?.1;
                 }
 
                 if let Some(Parent::Type(ty)) = &this.parent {
@@ -618,7 +615,7 @@ impl DocStore {
             }
         }
 
-        match item.content.as_ref() {
+        match &item.content {
             Content::Type(ty) => {
                 if let Some(mut ty) = ty.ty_mut() {
                     // items in ty are all refs, not owned
@@ -851,7 +848,7 @@ impl DocStore {
                 let _ = mem::replace(&mut items[idx], Node::new_gc(item.id, item.len()));
             } else {
                 let mut item = unsafe { item_ref.get_mut_unchecked() };
-                item.content = Arc::new(Content::Deleted(item.len()));
+                item.content = Content::Deleted(item.len());
                 item.flags.clear_countable();
                 debug_assert!(!item.flags.countable());
             }
@@ -1141,14 +1138,7 @@ mod tests {
             store.gc_delete_set().unwrap();
 
             assert_eq!(
-                store
-                    .get_node((1, 0))
-                    .unwrap()
-                    .as_item()
-                    .get()
-                    .unwrap()
-                    .content
-                    .as_ref(),
+                &store.get_node((1, 0)).unwrap().as_item().get().unwrap().content,
                 &Content::Deleted(4)
             );
         });
@@ -1173,14 +1163,7 @@ mod tests {
 
             assert_eq!(arr.len(), 0);
             assert_eq!(
-                store
-                    .get_node((1, 0))
-                    .unwrap()
-                    .as_item()
-                    .get()
-                    .unwrap()
-                    .content
-                    .as_ref(),
+                &store.get_node((1, 0)).unwrap().as_item().get().unwrap().content,
                 &Content::Deleted(1)
             );
 
