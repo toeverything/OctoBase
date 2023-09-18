@@ -11,7 +11,7 @@ pub struct Workspace {
 
 #[derive(Deserialize, PartialEq, Debug, ToSchema)]
 #[schema(example = json!({
-    "sys_id": "0",
+    "sys:id": "0",
     "sys:flavour": "affine:text",
     "sys:created": 946684800000_u64,
     "sys:children": ["block1", "block2"],

@@ -405,7 +405,7 @@ impl Serialize for Block {
         for (key, value) in self.block.iter() {
             map.serialize_entry(&key, &value)?;
         }
-        // map.serialize_entry(constants::sys::ID, &self.block_id)?;
+        map.serialize_entry(constants::sys::ID, &self.block_id)?;
 
         map.end()
     }
