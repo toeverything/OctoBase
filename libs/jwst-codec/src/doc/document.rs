@@ -297,10 +297,10 @@ impl Doc {
         store.types.keys().cloned().collect()
     }
 
-    pub fn get_or_create_text(&self, name: &str) -> JwstCodecResult<Text> {
+    pub fn get_or_create_text<S: AsRef<str>>(&self, name: S) -> JwstCodecResult<Text> {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Text)
-            .set_name(name.to_string())
+            .set_name(name.as_ref().to_string())
             .build()
     }
 
@@ -308,10 +308,10 @@ impl Doc {
         YTypeBuilder::new(self.store.clone()).with_kind(YTypeKind::Text).build()
     }
 
-    pub fn get_or_create_array(&self, str: &str) -> JwstCodecResult<Array> {
+    pub fn get_or_create_array<S: AsRef<str>>(&self, str: S) -> JwstCodecResult<Array> {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Array)
-            .set_name(str.to_string())
+            .set_name(str.as_ref().to_string())
             .build()
     }
 
@@ -321,10 +321,10 @@ impl Doc {
             .build()
     }
 
-    pub fn get_or_create_map(&self, str: &str) -> JwstCodecResult<Map> {
+    pub fn get_or_create_map<S: AsRef<str>>(&self, str: S) -> JwstCodecResult<Map> {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Map)
-            .set_name(str.to_string())
+            .set_name(str.as_ref().to_string())
             .build()
     }
 

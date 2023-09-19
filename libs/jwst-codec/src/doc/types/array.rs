@@ -35,12 +35,11 @@ impl Array {
 
     pub fn get(&self, index: u64) -> Option<Value> {
         let (item, offset) = self.get_item_at(index)?;
-        // array only store 1-unit elements
-        debug_assert!(offset == 0);
+
         if let Some(item) = item.get() {
             // TODO: rewrite to content.read(&mut [Any])
             return match &item.content {
-                Content::Any(any) => return any.first().map(|any| Value::Any(any.clone())),
+                Content::Any(any) => return any.get(offset as usize).map(|any| Value::Any(any.clone())),
                 _ => Value::try_from(&item.content).map_or_else(|_| None, Some),
             };
         }
