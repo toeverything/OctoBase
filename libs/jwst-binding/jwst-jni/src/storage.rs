@@ -23,10 +23,10 @@ pub struct JwstStorage {
 
 impl JwstStorage {
     pub fn new(path: String) -> Self {
-        Self::new_with_logger_level(path, "debug".to_string())
+        Self::new_with_log_level(path, "info".to_string())
     }
 
-    pub fn new_with_logger_level(path: String, level: String) -> Self {
+    pub fn new_with_log_level(path: String, level: String) -> Self {
         let level = match level.to_lowercase().as_str() {
             "trace" => LevelFilter::Trace,
             "debug" => LevelFilter::Debug,
@@ -117,6 +117,7 @@ impl JwstStorage {
 
         match workspace {
             Ok(mut workspace) => {
+                warn!("is_offline: {}, remote: {}", is_offline, remote);
                 if is_offline {
                     let identifier = nanoid!();
                     let (last_synced_tx, last_synced_rx) = channel::<i64>(128);
