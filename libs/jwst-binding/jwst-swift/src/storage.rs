@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use futures::TryFutureExt;
 use jwst_rpc::{start_websocket_client_sync, BroadcastChannels, CachedLastSynced, RpcContextImpl, SyncState};
-use jwst_storage::{BlobStorageType, JwstStorage as AutoStorage, JwstStorageResult};
+use jwst_storage::{BlobStorageType, JwstStorage as AutoStorage, JwstStorageError, JwstStorageResult};
 use nanoid::nanoid;
 use tokio::{
     runtime::{Builder, Runtime},
@@ -106,7 +106,7 @@ impl Storage {
                 .enable_all()
                 .thread_name("jwst-swift")
                 .build()
-                .map_err(JwstError::Io)?,
+                .map_err(JwstStorageError::SyncThread)?,
         );
         let is_offline = remote.is_empty();
 

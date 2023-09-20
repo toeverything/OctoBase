@@ -4,12 +4,14 @@ use flapigen::{JavaConfig, LanguageConfig};
 use rifgen::{Generator, Language, TypeCases};
 
 fn main() {
+    let jni_dir = Path::new("android").join("src/main/java/com/toeverything/jwst/lib");
     let out_dir = env::var("OUT_DIR").unwrap();
-    let in_src = "src/java_glue.rs.in";
+    let in_temp = Path::new(&out_dir).join("java_glue.rs.in");
+    let in_src = Path::new("src").join("java_glue.rs.in");
 
-    Generator::new(TypeCases::CamelCase, Language::Java, "src").generate_interface(in_src);
+    Generator::new(TypeCases::CamelCase, Language::Java, "src").generate_interface(&in_temp);
 
-    let template = fs::read_to_string(in_src).unwrap();
+    let template = fs::read_to_string(&in_temp).unwrap();
     let template = template.split("use jni_sys::*;").collect::<Vec<_>>();
     let template = template
         .first()
@@ -21,7 +23,7 @@ fn main() {
     class JwstStorage {
         self_type JwstStorage;
         constructor JwstStorage::new(path: String) -> JwstStorage;
-        constructor JwstStorage::new_with_logger_level(path: String, level: String) -> JwstStorage;
+        constructor JwstStorage::new_with_log_level(path: String, level: String) -> JwstStorage;
         fn JwstStorage::error(&self) -> Option<String>; alias error;
         fn JwstStorage::is_offline(&self) -> bool;
         fn JwstStorage::is_connected(&self) -> bool;
@@ -78,23 +80,30 @@ foreign_class!(
         .cloned()
         .collect::<Vec<_>>()
         .join("\n");
+    fs::write(&in_temp, &template).unwrap();
 
-    fs::write(in_src, template).unwrap();
+    let template_changed = fs::read_to_string(&in_src).unwrap() != template;
 
-    //delete the lib folder then create it again to prevent obsolete files from
-    // staying
-    let java_folder = Path::new("android").join("src/main/java/com/toeverything/jwst/lib");
-    if java_folder.exists() {
-        fs::remove_dir_all(&java_folder).unwrap();
+    if template_changed || !in_temp.with_extension("").exists() || !jni_dir.exists() {
+        // delete the lib folder then create it again to prevent obsolete files
+        // from staying
+        if jni_dir.exists() {
+            fs::remove_dir_all(&jni_dir).unwrap();
+        }
+        fs::create_dir(&jni_dir).unwrap();
+        let swig_gen = flapigen::Generator::new(LanguageConfig::JavaConfig(
+            JavaConfig::new(jni_dir, "com.toeverything.jwst.lib".into())
+                .use_null_annotation_from_package("androidx.annotation".into()),
+        ))
+        .rustfmt_bindings(true);
+
+        swig_gen.expand("android bindings", &in_temp, in_temp.with_extension("out"));
+
+        if !in_temp.with_extension("").exists()
+            || fs::read_to_string(&in_temp.with_extension("out")).unwrap()
+                != fs::read_to_string(&in_temp.with_extension("")).unwrap()
+        {
+            fs::copy(&in_temp.with_extension("out"), &in_temp.with_extension("")).unwrap();
+        }
     }
-    fs::create_dir(&java_folder).unwrap();
-    let swig_gen = flapigen::Generator::new(LanguageConfig::JavaConfig(
-        JavaConfig::new(java_folder, "com.toeverything.jwst.lib".into())
-            .use_null_annotation_from_package("androidx.annotation".into()),
-    ))
-    .rustfmt_bindings(true);
-
-    swig_gen.expand("android bindings", in_src, Path::new(&out_dir).join("java_glue.rs"));
-
-    println!("cargo:rerun-if-changed=src");
 }

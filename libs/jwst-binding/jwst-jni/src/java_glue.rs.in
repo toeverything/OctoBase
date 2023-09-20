@@ -6,7 +6,7 @@ foreign_class!(
     class JwstStorage {
         self_type JwstStorage;
         constructor JwstStorage::new(path: String) -> JwstStorage;
-        constructor JwstStorage::new_with_logger_level(path: String, level: String) -> JwstStorage;
+        constructor JwstStorage::new_with_log_level(path: String, level: String) -> JwstStorage;
         fn JwstStorage::error(&self) -> Option<String>; alias error;
         fn JwstStorage::is_offline(&self) -> bool;
         fn JwstStorage::is_connected(&self) -> bool;

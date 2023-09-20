@@ -183,7 +183,7 @@ class Storage constructor(path: String, private val remote: String = "", private
     val error get() = this.storage.error()
 
     fun getWorkspace(id: String): Optional<Workspace> {
-        return this.storage.connect(id, this.remote + "/" + id).map { Workspace(it) }
+        return this.storage.connect(id, this.remote.takeIf { it.isNotEmpty() }?.let { "$it/$id" } ?: "").map { Workspace(it) }
     }
 
     fun isOffline(): Boolean {
