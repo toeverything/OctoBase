@@ -3,8 +3,6 @@ use std::{
     sync::Arc,
 };
 
-use serde::{Deserialize, Serialize};
-
 use super::{store::StoreRef, *};
 use crate::sync::RwLock;
 
