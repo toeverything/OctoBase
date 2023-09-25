@@ -75,10 +75,14 @@ impl Context {
     }
 
     fn register_webhook(&self, workspace: Workspace) -> Workspace {
+        #[cfg(feature = "api")]
         if workspace.subscribe_count() == 0 {
+            use blocks::BlockHistory;
+
             let client = reqwest::Client::new();
             let rt = tokio::runtime::Handle::current();
             let webhook = self.webhook.clone();
+            let ws_id = workspace.id();
             workspace.subscribe_doc(move |_, history| {
                 let webhook = webhook.read().unwrap();
                 if webhook.is_empty() {
@@ -88,7 +92,17 @@ impl Context {
                 let webhook = webhook.clone();
                 rt.block_on(async {
                     debug!("send {} histories to webhook {}", history.len(), webhook);
-                    let resp = client.post(webhook).json(history).send().await.unwrap();
+                    let resp = client
+                        .post(webhook)
+                        .json(
+                            &history
+                                .into_iter()
+                                .map(|h| (ws_id.as_str(), h).into())
+                                .collect::<Vec<BlockHistory>>(),
+                        )
+                        .send()
+                        .await
+                        .unwrap();
                     if !resp.status().is_success() {
                         error!("failed to send webhook: {}", resp.status());
                     }
