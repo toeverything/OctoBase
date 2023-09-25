@@ -194,7 +194,7 @@ impl StoreHistory {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct History {
     pub id: String,
     pub parent: Vec<String>,

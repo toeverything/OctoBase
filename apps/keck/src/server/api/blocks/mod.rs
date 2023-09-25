@@ -5,6 +5,8 @@ pub mod schema;
 pub mod subscribe;
 pub mod workspace;
 
+pub use history::BlockHistory;
+
 use super::*;
 
 fn block_apis(router: Router) -> Router {

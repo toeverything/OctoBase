@@ -1,5 +1,4 @@
 use axum::response::Response;
-use jwst_core::History;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -55,7 +54,7 @@ pub async fn subscribe_workspace(
         (status = 200, description = "Histories received"),
     )
 )]
-pub async fn subscribe_test_hook(Json(payload): Json<Vec<History>>) -> Response {
+pub async fn subscribe_test_hook(Json(payload): Json<Vec<BlockHistory>>) -> Response {
     info!("webhook receive {} histories", payload.len());
     StatusCode::OK.into_response()
 }
