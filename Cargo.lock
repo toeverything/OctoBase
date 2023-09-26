@@ -2315,7 +2315,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
- "y-sync",
  "yrs",
 ]
 
@@ -2324,9 +2323,17 @@ name = "jwst-codec-utils"
 version = "0.1.0"
 dependencies = [
  "arbitrary",
+ "criterion",
  "jwst-codec",
+ "lib0",
+ "path-ext",
  "phf",
+ "proptest",
+ "proptest-derive",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
  "regex",
+ "y-sync",
  "yrs",
 ]
 
@@ -6173,9 +6180,8 @@ dependencies = [
 
 [[package]]
 name = "y-sync"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e77a143afe4dde83bc987ad3119228d0f107053a3da131a00738cb2d7f496641"
+version = "0.3.1"
+source = "git+https://github.com/toeverything/y-sync?rev=5626851#5626851603d2961df9bc4cfdd7a16810efc5c3a5"
 dependencies = [
  "lib0",
  "thiserror",

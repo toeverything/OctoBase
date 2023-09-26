@@ -82,7 +82,7 @@ foreign_class!(
         .join("\n");
     fs::write(&in_temp, &template).unwrap();
 
-    let template_changed = fs::read_to_string(&in_src).unwrap() != template;
+    let template_changed = fs::read_to_string(in_src).unwrap() != template;
 
     if template_changed || !in_temp.with_extension("").exists() || !jni_dir.exists() {
         // delete the lib folder then create it again to prevent obsolete files
@@ -100,10 +100,10 @@ foreign_class!(
         swig_gen.expand("android bindings", &in_temp, in_temp.with_extension("out"));
 
         if !in_temp.with_extension("").exists()
-            || fs::read_to_string(&in_temp.with_extension("out")).unwrap()
-                != fs::read_to_string(&in_temp.with_extension("")).unwrap()
+            || fs::read_to_string(in_temp.with_extension("out")).unwrap()
+                != fs::read_to_string(in_temp.with_extension("")).unwrap()
         {
-            fs::copy(&in_temp.with_extension("out"), &in_temp.with_extension("")).unwrap();
+            fs::copy(in_temp.with_extension("out"), in_temp.with_extension("")).unwrap();
         }
     }
 }

@@ -199,22 +199,25 @@ mod tests {
                     }
                 }
             });
+            sleep(Duration::from_millis(500));
 
             let mut map = doc.get_or_create_map("test").unwrap();
             map.insert("key1".to_string(), "val1").unwrap();
 
-            sleep(Duration::from_secs(1));
+            sleep(Duration::from_millis(500));
 
             map.insert("key2".to_string(), "val2").unwrap();
             map.insert("key3".to_string(), "val3").unwrap();
-            sleep(Duration::from_secs(1));
+            sleep(Duration::from_millis(500));
 
             let mut array = doc.get_or_create_array("array").unwrap();
             array.push("val1").unwrap();
             array.push("val2").unwrap();
             array.push("val3").unwrap();
 
-            sleep(Duration::from_secs(1));
+            sleep(Duration::from_millis(500));
+
+            doc.publisher.stop();
         });
     }
 }

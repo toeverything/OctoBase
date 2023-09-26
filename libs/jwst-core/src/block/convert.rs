@@ -133,7 +133,7 @@ impl Block {
                     let created_map = self.doc.create_map()?;
                     new_array.push(created_map.clone())?;
                     for (key, value) in map.iter() {
-                        self.clone_value(stack + 1, &key, value, created_map.clone())?;
+                        self.clone_value(stack + 1, key, value, created_map.clone())?;
                     }
                 }
                 Value::Array(array) => {
@@ -158,23 +158,23 @@ impl Block {
 
         match value {
             Value::Any(any) => {
-                new_map.insert(key, any)?;
+                new_map.insert(key.into(), any)?;
             }
             Value::Text(text) => {
                 let created_text = self.doc.create_text()?;
-                new_map.insert(key, created_text.clone())?;
+                new_map.insert(key.into(), created_text.clone())?;
                 self.clone_text(stack + 1, text, created_text)?;
             }
             Value::Map(map) => {
                 let created_map = self.doc.create_map()?;
-                new_map.insert(key, created_map.clone())?;
+                new_map.insert(key.into(), created_map.clone())?;
                 for (key, value) in map.iter() {
-                    self.clone_value(stack + 1, &key, value, created_map.clone())?;
+                    self.clone_value(stack + 1, key, value, created_map.clone())?;
                 }
             }
             Value::Array(array) => {
                 let created_array = self.doc.create_array()?;
-                new_map.insert(key, created_array.clone())?;
+                new_map.insert(key.into(), created_array.clone())?;
                 self.clone_array(stack + 1, array, created_array)?;
             }
             val => {
@@ -188,13 +188,13 @@ impl Block {
     pub fn clone_block(&self, mut new_blocks: Map) -> JwstResult<()> {
         // init base struct
         let mut created_block = self.doc.create_map()?;
-        new_blocks.insert(&*self.block_id, created_block.clone())?;
+        new_blocks.insert(self.block_id.to_string(), created_block.clone())?;
 
         // init default schema
-        created_block.insert(sys::ID, self.block_id.clone())?;
-        created_block.insert(sys::FLAVOUR, self.flavour())?;
+        created_block.insert(sys::ID.into(), self.block_id.clone())?;
+        created_block.insert(sys::FLAVOUR.into(), self.flavour())?;
         let mut created_children = self.doc.create_array()?;
-        created_block.insert(sys::CHILDREN, created_children.clone())?;
+        created_block.insert(sys::CHILDREN.into(), created_children.clone())?;
         // created_block.insert( sys::CREATED, self.created() as f64)?;
 
         // clone children
@@ -208,7 +208,6 @@ impl Block {
         for key in self
             .block
             .keys()
-            .iter()
             .filter(|k| k.starts_with("prop:") || k.starts_with("ext:"))
         {
             match self.block.get(key) {
@@ -242,8 +241,8 @@ mod tests {
         let mut ws1 = Workspace::from_doc(doc1, "test").unwrap();
 
         let new_update = {
-            ws1.metadata.insert("name", Some("test1")).unwrap();
-            ws1.metadata.insert("avatar", Some("test2")).unwrap();
+            ws1.metadata.insert("name".into(), Some("test1")).unwrap();
+            ws1.metadata.insert("avatar".into(), Some("test2")).unwrap();
             let space = ws1.get_exists_space("page0").unwrap();
             space.to_single_page().unwrap()
         };

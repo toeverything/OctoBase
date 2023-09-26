@@ -388,25 +388,6 @@ mod tests {
     use crate::sync::{AtomicU8, Ordering};
 
     #[test]
-    #[cfg_attr(miri, ignore)]
-    fn test_double_run_with_yrs_basic() {
-        let yrs_doc = yrs::Doc::new();
-
-        let map = yrs_doc.get_or_insert_map("abc");
-        let mut trx = yrs_doc.transact_mut();
-        map.insert(&mut trx, "a", 1).unwrap();
-
-        let binary_from_yrs = trx.encode_update_v1().unwrap();
-
-        loom_model!({
-            let doc = Doc::new_from_binary(binary_from_yrs.clone()).unwrap();
-            let binary = doc.encode_update_v1().unwrap();
-
-            assert_eq!(binary_from_yrs, binary);
-        });
-    }
-
-    #[test]
     fn test_encode_state_as_update() {
         let yrs_options_left = Options::default();
         let yrs_options_right = Options::default();

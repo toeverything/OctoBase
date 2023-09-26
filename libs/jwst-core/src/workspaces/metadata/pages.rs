@@ -157,14 +157,14 @@ mod tests {
     fn test_page_meta() {
         let doc = Doc::default();
         let mut map = doc.get_or_create_map("test").unwrap();
-        map.insert(&mut "id", "test_page").unwrap();
-        map.insert(&mut "favorite", true).unwrap();
-        map.insert(&mut "isRootPinboard", true).unwrap();
-        map.insert(&mut "init", true).unwrap();
-        map.insert(&mut "subpageIds", doc.create_array().unwrap()).unwrap();
-        map.insert(&mut "title", "test_title").unwrap();
-        map.insert(&mut "trash", true).unwrap();
-        map.insert(&mut "trashDate", 1234567890).unwrap();
+        map.insert("id".into(), "test_page").unwrap();
+        map.insert("favorite".into(), true).unwrap();
+        map.insert("isRootPinboard".into(), true).unwrap();
+        map.insert("init".into(), true).unwrap();
+        map.insert("subpageIds".into(), doc.create_array().unwrap()).unwrap();
+        map.insert("title".into(), "test_title").unwrap();
+        map.insert("trash".into(), true).unwrap();
+        map.insert("trashDate".into(), 1234567890).unwrap();
 
         let meta = PageMeta::from(map);
         assert_eq!(meta.id, "test_page");

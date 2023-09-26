@@ -96,7 +96,7 @@ impl Context {
                         .post(webhook)
                         .json(
                             &history
-                                .into_iter()
+                                .iter()
                                 .map(|h| (ws_id.as_str(), h).into())
                                 .collect::<Vec<BlockHistory>>(),
                         )

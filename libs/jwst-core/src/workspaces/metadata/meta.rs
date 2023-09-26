@@ -59,7 +59,7 @@ impl Workspace {
                 pages
             } else {
                 let array = self.doc.create_array()?;
-                self.metadata.insert("pages", array.clone())?;
+                self.metadata.insert("pages".into(), array.clone())?;
                 array
             },
         )

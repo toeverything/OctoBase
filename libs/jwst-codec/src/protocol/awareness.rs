@@ -18,6 +18,14 @@ impl AwarenessState {
         AwarenessState { clock, content }
     }
 
+    pub fn clock(&self) -> u64 {
+        self.clock
+    }
+
+    pub fn content(&self) -> &str {
+        &self.content
+    }
+
     pub fn is_deleted(&self) -> bool {
         self.content == NULL_STR
     }

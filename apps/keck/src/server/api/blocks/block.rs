@@ -176,11 +176,11 @@ pub async fn delete_block(
         .await
         .and_then(|mut ws| Ok(ws.get_blocks()?))
     {
-        if space.remove(&block) {
-            return StatusCode::NO_CONTENT;
-        }
+        space.remove(&block);
+        StatusCode::NO_CONTENT
+    } else {
+        StatusCode::NOT_FOUND
     }
-    StatusCode::NOT_FOUND
 }
 
 /// Get children in `Block`

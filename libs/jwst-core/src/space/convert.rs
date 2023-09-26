@@ -32,8 +32,8 @@ impl Space {
     }
 
     fn init_workspace(&mut self, meta: WorkspaceMetadata) -> JwstResult<()> {
-        self.metadata.insert("name", meta.name)?;
-        self.metadata.insert("avatar", meta.avatar)?;
+        self.metadata.insert("name".into(), meta.name)?;
+        self.metadata.insert("avatar".into(), meta.avatar)?;
 
         Ok(())
     }
@@ -41,7 +41,7 @@ impl Space {
     fn init_pages(&mut self) -> JwstResult<Array> {
         self.pages().or_else(|_| {
             let array = self.doc.create_array()?;
-            self.metadata.insert("pages", array.clone())?;
+            self.metadata.insert("pages".into(), array.clone())?;
             Ok(array)
         })
     }
@@ -54,17 +54,17 @@ impl Space {
             .ok_or(JwstError::VersionNotFound(self.id()))
             .or_else(|_| {
                 let mut map = self.doc.create_map()?;
-                self.metadata.insert("versions", map.clone())?;
+                self.metadata.insert("versions".into(), map.clone())?;
 
-                map.insert("affine:code", 1)?;
-                map.insert("affine:database", 1)?;
-                map.insert("affine:divider", 1)?;
-                map.insert("affine:embed", 1)?;
-                map.insert("affine:frame", 1)?;
-                map.insert("affine:list", 1)?;
-                map.insert("affine:page", 2)?;
-                map.insert("affine:paragraph", 1)?;
-                map.insert("affine:surface", 1)?;
+                map.insert("affine:code".into(), 1)?;
+                map.insert("affine:database".into(), 1)?;
+                map.insert("affine:divider".into(), 1)?;
+                map.insert("affine:embed".into(), 1)?;
+                map.insert("affine:frame".into(), 1)?;
+                map.insert("affine:list".into(), 1)?;
+                map.insert("affine:page".into(), 2)?;
+                map.insert("affine:paragraph".into(), 1)?;
+                map.insert("affine:surface".into(), 1)?;
 
                 Ok(map)
             })
@@ -123,20 +123,20 @@ impl Space {
 
         let mut new_page_item = ws.doc.create_map()?;
         space.init_pages()?.push(new_page_item.clone())?;
-        new_page_item.insert("id", self.space_id())?;
+        new_page_item.insert("id".into(), self.space_id())?;
         new_page_item.insert(
-            "createDate",
+            "createDate".into(),
             page_item
                 .get("createDate")
                 .unwrap_or_else(|| Utc::now().timestamp_millis().into()),
         )?;
         new_page_item.insert(
-            "subpageIds",
+            "subpageIds".into(),
             page_item.get("subpageIds").unwrap_or_else(|| vec![].into()),
         )?;
 
         let mut title_text = ws.doc.create_text()?;
-        new_page_item.insert("title", title_text.clone())?;
+        new_page_item.insert("title".into(), title_text.clone())?;
         title_text.insert(0, title)?;
 
         ws.sync_migration()

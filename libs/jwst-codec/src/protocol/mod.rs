@@ -2,8 +2,6 @@ mod awareness;
 mod doc;
 mod scanner;
 mod sync;
-#[cfg(test)]
-mod utils;
 
 use std::{
     collections::HashMap,

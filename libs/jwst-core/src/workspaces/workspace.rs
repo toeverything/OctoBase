@@ -175,7 +175,7 @@ mod test {
 
             assert!(space.exists("block"));
 
-            assert!(space.remove("block"));
+            space.remove("block");
 
             assert_eq!(space.blocks.len(), 0);
             assert_eq!(workspace.updated.len(), 0);
@@ -235,7 +235,7 @@ mod test {
     fn scan_doc() {
         let doc = Doc::default();
         let mut map = doc.get_or_create_map("test").unwrap();
-        map.insert("test", "aaa").unwrap();
+        map.insert("test".into(), "aaa").unwrap();
 
         let data = doc.encode_state_as_update_v1(&StateVector::default()).unwrap();
 

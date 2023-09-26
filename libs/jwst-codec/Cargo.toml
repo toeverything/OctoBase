@@ -1,24 +1,35 @@
 [package]
-authors = ["DarkSky <darksky2048@gmail.com>"]
+authors = [
+    "DarkSky <darksky2048@gmail.com>",
+    "forehalo <forehalo@gmail.com>",
+    "x1a0t <405028157@qq.com>",
+    "Brooklyn <lynweklm@gmail.com>",
+]
+description = "High-performance and thread-safe CRDT implementation compatible with Yjs"
 edition = "2021"
+homepage = "https://github.com/toeverything/OctoBase"
+include = ["src/**/*", "benches/**/*", "bin/**/*", "LICENSE", "README.md"]
+keywords = ["collaboration", "crdt", "crdts", "yjs", "yata"]
 license = "AGPL-3.0-only"
 name = "jwst-codec"
+readme = "README.md"
+repository = "https://github.com/toeverything/OctoBase"
 version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitvec = "1.0.1"
-byteorder = "1.4.3"
-nanoid = "0.4.0"
-nom = "7.1.3"
-ordered-float = "3.6.0"
-rand = "0.8.5"
-rand_chacha = "0.3.1"
+bitvec = "1.0"
+byteorder = "1.4"
+nanoid = "0.4"
+nom = "7.1"
+ordered-float = "3.9"
+rand = "0.8"
+rand_chacha = "0.3"
 rand_distr = "0.4.3"
-serde = { version = "1.0.183" }
-serde_json = "1.0.105"
-thiserror = "1.0.40"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
 
 # ======= workspace dependencies =======
 jwst-logger = { workspace = true }
@@ -43,7 +54,6 @@ ordered-float = { version = "3.9", features = ["proptest"] }
 path-ext = "0.1"
 proptest = "1.2"
 proptest-derive = "0.4"
-y-sync = "=0.3.0"
 yrs = "=0.16.5"
 
 [[bin]]

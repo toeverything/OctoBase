@@ -64,10 +64,7 @@ impl Workspace {
 
     #[generate_interface]
     pub fn remove(&mut self, block_id: String) -> bool {
-        self.workspace
-            .get_blocks()
-            .map(|mut s| s.remove(&block_id))
-            .unwrap_or(false)
+        self.workspace.get_blocks().map(|mut s| s.remove(&block_id)).is_ok()
     }
 
     #[generate_interface]
