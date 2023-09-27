@@ -30,6 +30,7 @@ fn block_apis(router: Router) -> Router {
 
 fn workspace_apis(router: Router) -> Router {
     router
+        .route("/block/:workspace/init", post(workspace::init_workspace))
         .route("/block/:workspace/client", get(clients::workspace_client))
         .route("/block/:workspace/clients", get(clients::workspace_clients))
         .route("/block/:workspace/history", get(history::history_workspace))

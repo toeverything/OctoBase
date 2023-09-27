@@ -84,6 +84,9 @@ impl Context {
             let webhook = self.webhook.clone();
             let ws_id = workspace.id();
             workspace.subscribe_doc(move |_, history| {
+                if history.is_empty() {
+                    return;
+                }
                 let webhook = webhook.read().unwrap();
                 if webhook.is_empty() {
                     return;
@@ -125,6 +128,13 @@ impl Context {
             .get_workspace(workspace_id)
             .await
             .map(|w| self.register_webhook(w))
+    }
+
+    pub async fn init_workspace<S>(&self, workspace_id: S, data: Vec<u8>) -> JwstStorageResult
+    where
+        S: AsRef<str>,
+    {
+        self.storage.init_workspace(workspace_id, data).await
     }
 
     pub async fn create_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>

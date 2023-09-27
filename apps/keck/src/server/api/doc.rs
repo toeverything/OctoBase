@@ -16,6 +16,7 @@ use super::{
         history::history_workspace,
         subscribe::subscribe_workspace,
         subscribe::subscribe_test_hook,
+        workspace::init_workspace,
         workspace::get_workspace,
         workspace::set_workspace,
         workspace::delete_workspace,

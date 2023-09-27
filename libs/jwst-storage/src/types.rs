@@ -17,6 +17,8 @@ pub enum JwstStorageError {
     DocMerge(tokio::task::JoinError),
     #[error("workspace {0} not found")]
     WorkspaceNotFound(String),
+    #[error("workspace {0} exists")]
+    WorkspaceExists(String),
     #[error("jwst error")]
     Jwst(#[from] jwst_core::JwstError),
     #[error("failed to process blob")]
@@ -29,4 +31,4 @@ pub enum JwstStorageError {
     DotEnvy(#[from] dotenvy::Error),
 }
 
-pub type JwstStorageResult<T> = Result<T, JwstStorageError>;
+pub type JwstStorageResult<T = ()> = Result<T, JwstStorageError>;
