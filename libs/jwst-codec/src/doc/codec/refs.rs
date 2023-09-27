@@ -1,5 +1,3 @@
-use sync::Arc;
-
 use super::*;
 
 // make fields Copy + Clone without much effort
@@ -81,7 +79,7 @@ impl Node {
             _ => {
                 let item = Somr::new(Item::read(decoder, id, info, first_5_bit)?);
 
-                if let Content::Type(ty) = item.get().unwrap().content.as_ref() {
+                if let Content::Type(ty) = &item.get().unwrap().content {
                     if let Some(mut ty) = ty.ty_mut() {
                         ty.item = item.clone();
                     }
@@ -271,7 +269,7 @@ impl Node {
                     return false;
                 }
 
-                match (Arc::make_mut(&mut litem.content), Arc::make_mut(&mut ritem.content)) {
+                match (&mut litem.content, &mut ritem.content) {
                     (Content::Deleted(l), Content::Deleted(r)) => {
                         *l += *r;
                     }

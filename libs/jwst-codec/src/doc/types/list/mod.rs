@@ -62,7 +62,10 @@ pub(crate) trait ListType: AsInner<Inner = YTypeRef> {
 
     fn iter_item(&self) -> ListIterator {
         let inner = self.as_inner().ty().unwrap();
-        ListIterator::new(inner.start.clone())
+        ListIterator {
+            cur: inner.start.clone(),
+            _lock: inner,
+        }
     }
 
     fn find_pos(&self, inner: &YType, index: u64) -> Option<ItemPosition> {

@@ -33,9 +33,7 @@ jobs:
               run: |
                   cargo bench --bench codec_benchmarks --features bench -- --save-baseline master
                   cargo bench --bench array_ops_benchmarks --features bench -- --save-baseline master
-                  # temp disable due to wired memory allocation issue in linux
-                  # i cannot reproduce this issue in mac, but can reproduce in gce and ci
-                  # cargo bench --bench map_ops_benchmarks --features bench -- --save-baseline master
+                  cargo bench --bench map_ops_benchmarks --features bench -- --save-baseline master
                   cargo bench --bench text_ops_benchmarks --features bench -- --save-baseline master
                   cargo bench --bench update_benchmarks --features bench -- --save-baseline master
 
@@ -49,7 +47,7 @@ jobs:
               run: |
                   cargo bench --bench codec_benchmarks --features bench -- --save-baseline pr
                   cargo bench --bench array_ops_benchmarks --features bench -- --save-baseline pr
-                  # cargo bench --bench map_ops_benchmarks --features bench -- --save-baseline pr
+                  cargo bench --bench map_ops_benchmarks --features bench -- --save-baseline pr
                   cargo bench --bench text_ops_benchmarks --features bench -- --save-baseline pr
                   cargo bench --bench update_benchmarks --features bench -- --save-baseline pr
 

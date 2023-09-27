@@ -1,5 +1,5 @@
 use super::*;
-use crate::sync::{Arc, AtomicU8, Ordering};
+use crate::sync::{AtomicU8, Ordering};
 
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
@@ -118,16 +118,13 @@ pub(crate) struct Item {
     pub id: Id,
     pub origin_left_id: Option<Id>,
     pub origin_right_id: Option<Id>,
-    #[cfg_attr(all(test, not(loom)), proptest(value = "Somr::default()"))]
-    pub left: Somr<Item>,
-    #[cfg_attr(all(test, not(loom)), proptest(value = "Somr::default()"))]
-    pub right: Somr<Item>,
+    #[cfg_attr(all(test, not(loom)), proptest(value = "Somr::none()"))]
+    pub left: ItemRef,
+    #[cfg_attr(all(test, not(loom)), proptest(value = "Somr::none()"))]
+    pub right: ItemRef,
     pub parent: Option<Parent>,
     pub parent_sub: Option<String>,
-    // make content Arc, so we can share the content between items
-    // and item can be readonly and cloned fast.
-    // TODO: considering using Cow
-    pub content: Arc<Content>,
+    pub content: Content,
     #[cfg_attr(all(test, not(loom)), proptest(value = "ItemFlags::default()"))]
     pub flags: ItemFlags,
 }
@@ -187,7 +184,7 @@ impl Default for Item {
             right: Somr::none(),
             parent: None,
             parent_sub: None,
-            content: Arc::new(Content::Deleted(0)),
+            content: Content::Deleted(0),
             flags: ItemFlags::from(0),
         }
     }
@@ -216,7 +213,7 @@ impl Item {
             right,
             parent,
             parent_sub,
-            content: Arc::new(content),
+            content,
             flags,
         }
     }
@@ -369,7 +366,7 @@ impl Item {
                 // tag must not GC or Skip, this must process in parse_struct
                 debug_assert_ne!(first_5_bit, 0);
                 debug_assert_ne!(first_5_bit, 10);
-                Arc::new(Content::read(decoder, first_5_bit)?)
+                Content::read(decoder, first_5_bit)?
             },
             left: Somr::none(),
             right: Somr::none(),
@@ -380,7 +377,7 @@ impl Item {
             item.flags.set_countable();
         }
 
-        if matches!(item.content.as_ref(), Content::Deleted(_)) {
+        if matches!(item.content, Content::Deleted(_)) {
             item.flags.set_deleted();
         }
 

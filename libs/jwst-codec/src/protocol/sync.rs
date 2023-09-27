@@ -162,49 +162,4 @@ mod tests {
             assert_eq!(decoded, msg);
         }
     }
-
-    #[test]
-    fn test_sync_message_compatibility() {
-        use y_sync::sync::Message as YMessage;
-        use yrs::updates::{
-            decoder::{Decode, DecoderV1},
-            encoder::{Encode, Encoder, EncoderV1},
-        };
-
-        use super::utils::{to_sync_message, to_y_message};
-
-        let messages = [
-            SyncMessage::Auth(Some("reason".to_string())),
-            SyncMessage::Awareness(HashMap::from([(1, AwarenessState::new(1, "test".into()))])),
-            SyncMessage::AwarenessQuery,
-            SyncMessage::Doc(DocMessage::Step1(vec![1, 2, 3])),
-            SyncMessage::Doc(DocMessage::Step2(vec![7, 8, 9])),
-            SyncMessage::Doc(DocMessage::Update(vec![10, 11, 12])),
-        ];
-
-        for msg in messages {
-            let mut buffer = Vec::new();
-            write_sync_message(&mut buffer, &msg).unwrap();
-
-            {
-                // check messages encode are compatible
-                let mut decoder = DecoderV1::from(buffer.as_slice());
-                let new_msg = YMessage::decode(&mut decoder).unwrap();
-                if let Some(new_msg) = to_sync_message(new_msg) {
-                    assert_eq!(new_msg, msg);
-                }
-            }
-
-            {
-                // check messages decode are compatible
-                let mut encoder = EncoderV1::new();
-                to_y_message(msg.clone()).encode(&mut encoder).unwrap();
-
-                let buffer = encoder.to_vec();
-                let (tail, decoded) = read_sync_message(&buffer).unwrap();
-                assert_eq!(tail.len(), 0);
-                assert_eq!(decoded, msg);
-            }
-        }
-    }
 }

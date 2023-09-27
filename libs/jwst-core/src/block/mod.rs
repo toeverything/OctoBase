@@ -67,13 +67,13 @@ impl Block {
             Ok(block)
         } else {
             // init base struct
-            space.blocks.insert(block_id, space.doc().create_map()?)?;
+            space.blocks.insert(block_id.into(), space.doc().create_map()?)?;
             let mut block = space.blocks.get(block_id).and_then(|b| b.to_map()).unwrap();
 
             // init default schema
-            block.insert(sys::FLAVOUR, flavour.as_ref())?;
-            block.insert(sys::CHILDREN, space.doc().create_array()?)?;
-            block.insert(sys::CREATED, chrono::Utc::now().timestamp_millis())?;
+            block.insert(sys::FLAVOUR.into(), flavour.as_ref())?;
+            block.insert(sys::CHILDREN.into(), space.doc().create_array()?)?;
+            block.insert(sys::CREATED.into(), chrono::Utc::now().timestamp_millis())?;
 
             let children = block.get(sys::CHILDREN).and_then(|c| c.to_array()).unwrap();
 
@@ -106,13 +106,13 @@ impl Block {
             Ok(block)
         } else {
             // init base struct
-            space.blocks.insert(block_id, space.doc().create_map()?)?;
+            space.blocks.insert(block_id.into(), space.doc().create_map()?)?;
             let mut block = space.blocks.get(block_id).and_then(|b| b.to_map()).unwrap();
 
             // init default schema
-            block.insert(sys::FLAVOUR, flavour.as_ref())?;
-            block.insert(sys::CHILDREN, space.doc().create_array()?)?;
-            block.insert(sys::CREATED, created)?;
+            block.insert(sys::FLAVOUR.into(), flavour.as_ref())?;
+            block.insert(sys::CHILDREN.into(), space.doc().create_array()?)?;
+            block.insert(sys::CREATED.into(), created)?;
 
             let children = block.get(sys::CHILDREN).and_then(|c| c.to_array()).unwrap();
 
@@ -177,7 +177,7 @@ impl Block {
 
     pub(crate) fn log_update(&mut self) -> JwstResult {
         self.updated.insert(
-            &self.block_id,
+            self.block_id.to_string(),
             Any::Float64((chrono::Utc::now().timestamp_millis() as f64).into()),
         )?;
 
@@ -303,7 +303,7 @@ impl Block {
     }
 
     fn set_parent(&mut self, block_id: String) -> JwstResult {
-        self.block.insert(sys::PARENT, block_id)?;
+        self.block.insert(sys::PARENT.into(), block_id)?;
         Ok(())
     }
 
@@ -322,12 +322,10 @@ impl Block {
         self.remove_children(block)?;
         block.set_parent(self.block_id.clone())?;
 
-        let children = &mut self.children;
-
-        if children.len() > pos {
-            children.insert(pos, block.block_id.clone())?;
+        if self.children.len() > pos {
+            self.children.insert(pos, block.block_id.clone())?;
         } else {
-            children.push(block.block_id.clone())?;
+            self.children.push(block.block_id.clone())?;
         }
 
         self.log_update()?;
@@ -339,12 +337,12 @@ impl Block {
         self.remove_children(block)?;
         block.set_parent(self.block_id.clone())?;
 
-        let children = &mut self.children;
+        let pos = self.children.iter().position(|c| c.to_string() == reference);
 
-        if let Some(pos) = children.iter().position(|c| c.to_string() == reference) {
-            children.insert(pos as u64, block.block_id.clone())?;
+        if let Some(pos) = pos {
+            self.children.insert(pos as u64, block.block_id.clone())?;
         } else {
-            children.push(block.block_id.clone())?;
+            self.children.push(block.block_id.clone())?;
         }
 
         self.log_update()?;
@@ -356,14 +354,13 @@ impl Block {
         self.remove_children(block)?;
         block.set_parent(self.block_id.clone())?;
 
-        let children = &mut self.children;
-
-        match children.iter().position(|c| c.to_string() == reference) {
-            Some(pos) if (pos as u64) < children.len() => {
-                children.insert(pos as u64 + 1, block.block_id.clone())?;
+        let pos = self.children.iter().position(|c| c.to_string() == reference);
+        match pos {
+            Some(pos) if (pos as u64) < self.children.len() => {
+                self.children.insert(pos as u64 + 1, block.block_id.clone())?;
             }
             _ => {
-                children.push(block.block_id.clone())?;
+                self.children.push(block.block_id.clone())?;
             }
         }
 
@@ -373,11 +370,11 @@ impl Block {
     }
 
     pub fn remove_children(&mut self, block: &mut Block) -> JwstResult {
-        let children = &mut self.children;
         block.set_parent(self.block_id.clone())?;
 
-        if let Some(current_pos) = children.iter().position(|c| c.to_string() == block.block_id) {
-            children.remove(current_pos as u64, 1)?;
+        let pos = self.children.iter().position(|c| c.to_string() == block.block_id);
+        if let Some(current_pos) = pos {
+            self.children.remove(current_pos as u64, 1)?;
             self.log_update()?;
         }
 
@@ -489,7 +486,7 @@ mod test {
     }
 
     #[test]
-    fn insert_remove_children() {
+    fn test_insert_remove_children() {
         let mut workspace = Workspace::new("text").unwrap();
         let mut space = workspace.get_space("space").unwrap();
 

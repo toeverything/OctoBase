@@ -2,6 +2,8 @@ mod array;
 mod list;
 mod map;
 mod text;
+mod value;
+mod xml;
 
 use std::{
     collections::{hash_map::Entry, HashMap},
@@ -12,10 +14,12 @@ pub use array::*;
 use list::*;
 pub use map::*;
 pub use text::*;
+pub use value::*;
+pub use xml::*;
 
 use super::{
     store::{StoreRef, WeakStoreRef},
-    Node, *,
+    *,
 };
 use crate::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
@@ -363,158 +367,3 @@ impl_variants!({
     XMLText: 6
     // Doc: 9?
 });
-
-// TODO: move to separated impl files.
-impl_type!(XMLElement);
-impl_type!(XMLFragment);
-impl_type!(XMLText);
-impl_type!(XMLHook);
-
-#[derive(Debug, PartialEq)]
-pub enum Value {
-    Any(Any),
-    Doc(Doc),
-    Array(Array),
-    Map(Map),
-    Text(Text),
-    XMLElement(XMLElement),
-    XMLFragment(XMLFragment),
-    XMLHook(XMLHook),
-    XMLText(XMLText),
-}
-
-impl Value {
-    pub fn to_any(&self) -> Option<Any> {
-        match self {
-            Value::Any(any) => Some(any.clone()),
-            _ => None,
-        }
-    }
-
-    pub fn to_array(&self) -> Option<Array> {
-        match self {
-            Value::Array(array) => Some(array.clone()),
-            _ => None,
-        }
-    }
-
-    pub fn to_map(&self) -> Option<Map> {
-        match self {
-            Value::Map(map) => Some(map.clone()),
-            _ => None,
-        }
-    }
-
-    pub fn to_text(&self) -> Option<Text> {
-        match self {
-            Value::Text(text) => Some(text.clone()),
-            _ => None,
-        }
-    }
-
-    pub fn from_vec<T: Into<Any>>(el: Vec<T>) -> Self {
-        Value::Any(Any::Array(el.into_iter().map(|item| item.into()).collect::<Vec<_>>()))
-    }
-}
-
-impl TryFrom<&Content> for Value {
-    type Error = JwstCodecError;
-    fn try_from(value: &Content) -> Result<Self, Self::Error> {
-        Ok(match value {
-            Content::Any(any) => Value::Any(if any.len() == 1 {
-                any[0].clone()
-            } else {
-                Any::Array(any.clone())
-            }),
-            Content::String(s) => Value::Any(Any::String(s.clone())),
-            Content::Json(json) => Value::Any(Any::Array(
-                json.iter()
-                    .map(|item| {
-                        if let Some(s) = item {
-                            Any::String(s.clone())
-                        } else {
-                            Any::Undefined
-                        }
-                    })
-                    .collect::<Vec<_>>(),
-            )),
-            Content::Binary(buf) => Value::Any(Any::Binary(buf.clone())),
-            Content::Embed(v) => Value::Any(v.clone()),
-            Content::Type(ty) => match ty.ty().unwrap().kind {
-                YTypeKind::Array => Value::Array(Array::from_unchecked(ty.clone())),
-                YTypeKind::Map => Value::Map(Map::from_unchecked(ty.clone())),
-                YTypeKind::Text => Value::Text(Text::from_unchecked(ty.clone())),
-                YTypeKind::XMLElement => Value::XMLElement(XMLElement::from_unchecked(ty.clone())),
-                YTypeKind::XMLFragment => Value::XMLFragment(XMLFragment::from_unchecked(ty.clone())),
-                YTypeKind::XMLHook => Value::XMLHook(XMLHook::from_unchecked(ty.clone())),
-                YTypeKind::XMLText => Value::XMLText(XMLText::from_unchecked(ty.clone())),
-                // actually unreachable
-                YTypeKind::Unknown => return Err(JwstCodecError::TypeCastError("unknown")),
-            },
-            Content::Doc { guid: _, opts } => Value::Doc(DocOptions::try_from(opts.clone())?.build()),
-            Content::Format { .. } => return Err(JwstCodecError::TypeCastError("unimplemented: Format")),
-            Content::Deleted(_) => return Err(JwstCodecError::TypeCastError("unimplemented: Deleted")),
-        })
-    }
-}
-
-impl From<Value> for Content {
-    fn from(value: Value) -> Self {
-        match value {
-            Value::Any(any) => Content::from(any),
-            Value::Doc(doc) => Content::Doc {
-                guid: doc.guid().to_owned(),
-                opts: Any::from(doc.options().clone()),
-            },
-            Value::Array(v) => Content::Type(v.0),
-            Value::Map(v) => Content::Type(v.0),
-            Value::Text(v) => Content::Type(v.0),
-            Value::XMLElement(v) => Content::Type(v.0),
-            Value::XMLFragment(v) => Content::Type(v.0),
-            Value::XMLHook(v) => Content::Type(v.0),
-            Value::XMLText(v) => Content::Type(v.0),
-        }
-    }
-}
-
-impl<T: Into<Any>> From<T> for Value {
-    fn from(value: T) -> Self {
-        Value::Any(value.into())
-    }
-}
-
-impl From<Doc> for Value {
-    fn from(value: Doc) -> Self {
-        Value::Doc(value)
-    }
-}
-
-impl ToString for Value {
-    fn to_string(&self) -> String {
-        match self {
-            Value::Any(any) => any.to_string(),
-            Value::Text(text) => text.to_string(),
-            _ => String::default(),
-        }
-    }
-}
-
-impl serde::Serialize for Value {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            Self::Any(any) => any.serialize(serializer),
-            Self::Array(array) => array.serialize(serializer),
-            Self::Map(map) => map.serialize(serializer),
-            Self::Text(text) => text.serialize(serializer),
-            // Self::XMLElement(xml_element) => xml_element.serialize(serializer),
-            // Self::XMLFragment(xml_fragment) => xml_fragment.serialize(serializer),
-            // Self::XMLHook(xml_hook) => xml_hook.serialize(serializer),
-            // Self::XMLText(xml_text) => xml_text.serialize(serializer),
-            // Self::Doc(doc) => doc.serialize(serializer),
-            _ => serializer.serialize_none(),
-        }
-    }
-}

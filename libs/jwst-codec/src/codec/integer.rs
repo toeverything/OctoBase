@@ -112,25 +112,24 @@ pub fn write_var_i32<W: Write>(buffer: &mut W, num: i32) -> Result<(), Error> {
 
 #[cfg(test)]
 mod tests {
-    use lib0::encoding::Write;
 
     use super::*;
 
     fn test_var_uint_enc_dec(num: u64) {
-        let mut buf1 = Vec::new();
-        write_var_u64(&mut buf1, num).unwrap();
+        let mut buf = Vec::new();
+        write_var_u64(&mut buf, num).unwrap();
 
-        let mut buf2 = Vec::new();
-        buf2.write_var(num);
+        let (rest, decoded_num) = read_var_u64(&buf).unwrap();
+        assert_eq!(num, decoded_num);
+        assert_eq!(rest.len(), 0);
+    }
 
+    fn test_var_int_enc_dec(num: i32) {
         {
-            let (rest, decoded_num) = read_var_u64(&buf1).unwrap();
-            assert_eq!(num, decoded_num);
-            assert_eq!(rest.len(), 0);
-        }
+            let mut buf = Vec::new();
+            write_var_i32(&mut buf, num).unwrap();
 
-        {
-            let (rest, decoded_num) = read_var_u64(&buf2).unwrap();
+            let (rest, decoded_num) = read_var_i32(&buf).unwrap();
             assert_eq!(num, decoded_num);
             assert_eq!(rest.len(), 0);
         }
@@ -148,26 +147,6 @@ mod tests {
         test_var_uint_enc_dec(0b11_1111_1111);
         test_var_uint_enc_dec(0x7fff_ffff_ffff_ffff);
         test_var_uint_enc_dec(u64::max_value());
-    }
-
-    fn test_var_int_enc_dec(num: i32) {
-        {
-            let mut buf1: Vec<u8> = Vec::new();
-            write_var_i32(&mut buf1, num).unwrap();
-
-            let (rest, decoded_num) = read_var_i32(&buf1).unwrap();
-            assert_eq!(num, decoded_num);
-            assert_eq!(rest.len(), 0);
-        }
-
-        {
-            let mut buf2 = Vec::new();
-            buf2.write_var(num);
-
-            let (rest, decoded_num) = read_var_i32(&buf2).unwrap();
-            assert_eq!(num, decoded_num);
-            assert_eq!(rest.len(), 0);
-        }
     }
 
     #[test]

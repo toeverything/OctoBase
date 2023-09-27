@@ -297,10 +297,10 @@ impl Doc {
         store.types.keys().cloned().collect()
     }
 
-    pub fn get_or_create_text(&self, name: &str) -> JwstCodecResult<Text> {
+    pub fn get_or_create_text<S: AsRef<str>>(&self, name: S) -> JwstCodecResult<Text> {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Text)
-            .set_name(name.to_string())
+            .set_name(name.as_ref().to_string())
             .build()
     }
 
@@ -308,10 +308,10 @@ impl Doc {
         YTypeBuilder::new(self.store.clone()).with_kind(YTypeKind::Text).build()
     }
 
-    pub fn get_or_create_array(&self, str: &str) -> JwstCodecResult<Array> {
+    pub fn get_or_create_array<S: AsRef<str>>(&self, str: S) -> JwstCodecResult<Array> {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Array)
-            .set_name(str.to_string())
+            .set_name(str.as_ref().to_string())
             .build()
     }
 
@@ -321,10 +321,10 @@ impl Doc {
             .build()
     }
 
-    pub fn get_or_create_map(&self, str: &str) -> JwstCodecResult<Map> {
+    pub fn get_or_create_map<S: AsRef<str>>(&self, str: S) -> JwstCodecResult<Map> {
         YTypeBuilder::new(self.store.clone())
             .with_kind(YTypeKind::Map)
-            .set_name(str.to_string())
+            .set_name(str.as_ref().to_string())
             .build()
     }
 
@@ -388,25 +388,6 @@ mod tests {
     use crate::sync::{AtomicU8, Ordering};
 
     #[test]
-    #[cfg_attr(miri, ignore)]
-    fn test_double_run_with_yrs_basic() {
-        let yrs_doc = yrs::Doc::new();
-
-        let map = yrs_doc.get_or_insert_map("abc");
-        let mut trx = yrs_doc.transact_mut();
-        map.insert(&mut trx, "a", 1).unwrap();
-
-        let binary_from_yrs = trx.encode_update_v1().unwrap();
-
-        loom_model!({
-            let doc = Doc::new_from_binary(binary_from_yrs.clone()).unwrap();
-            let binary = doc.encode_update_v1().unwrap();
-
-            assert_eq!(binary_from_yrs, binary);
-        });
-    }
-
-    #[test]
     fn test_encode_state_as_update() {
         let yrs_options_left = Options::default();
         let yrs_options_right = Options::default();
@@ -416,7 +397,7 @@ mod tests {
                 let doc = Doc::new();
 
                 let mut map = doc.get_or_create_map("abc").unwrap();
-                map.insert("a", 1).unwrap();
+                map.insert("a".to_string(), 1).unwrap();
                 let binary = doc.encode_update_v1().unwrap();
 
                 let doc_new = Doc::new();

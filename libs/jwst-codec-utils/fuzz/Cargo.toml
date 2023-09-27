@@ -11,13 +11,13 @@ cargo-fuzz = true
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 libfuzzer-sys = "0.4.6"
+
+jwst-codec-utils = { path = "..", features = ["fuzz"] }
 lib0 = "0.16.5"
 yrs = "0.16.5"
 
-jwst-codec-utils = { path = "../../jwst-codec-utils", features = ["fuzz"] }
-
 [dependencies.jwst-codec]
-path = ".."
+path = "../../jwst-codec"
 
 # Prevent this from interfering with workspaces
 [workspace]
@@ -89,4 +89,5 @@ doc = false
 
 [patch.crates-io]
 lib0 = { git = "https://github.com/toeverything/y-crdt", rev = "a700f09" }
+y-sync = { git = "https://github.com/toeverything/y-sync", rev = "5626851" }
 yrs = { git = "https://github.com/toeverything/y-crdt", rev = "a700f09" }

@@ -128,9 +128,10 @@ impl Space {
         Block::new_ffi(self, block_id, flavour, self.client_id(), created)
     }
 
-    pub fn remove<S: AsRef<str>>(&mut self, block_id: S) -> bool {
+    pub fn remove<S: AsRef<str>>(&mut self, block_id: S) {
         info!("remove block: {}", block_id.as_ref());
-        self.blocks.remove(block_id.as_ref()) && self.updated.remove(block_id.as_ref())
+        self.blocks.remove(block_id.as_ref());
+        self.updated.remove(block_id.as_ref());
     }
 
     pub fn set_metadata(&mut self, key: &str, value: impl Into<Any>) -> JwstResult {
@@ -196,7 +197,7 @@ mod test {
         let mut space = {
             let mut metadata = doc.get_or_create_map(constants::space::META).unwrap();
             let pages = doc.create_array().unwrap();
-            metadata.insert("pages", pages.clone()).unwrap();
+            metadata.insert("pages".into(), pages.clone()).unwrap();
             Space::new(doc.clone(), Pages::new(pages), "workspace", space_id).unwrap()
         };
 
@@ -235,7 +236,7 @@ mod test {
         let mut space = {
             let mut metadata = doc.get_or_create_map(constants::space::META).unwrap();
             let pages = doc.create_array().unwrap();
-            metadata.insert("pages", pages.clone()).unwrap();
+            metadata.insert("pages".into(), pages.clone()).unwrap();
             Space::new(doc.clone(), Pages::new(pages), "workspace", "space").unwrap()
         };
 
@@ -255,7 +256,7 @@ mod test {
 
         assert!(space.exists("block"));
 
-        assert!(space.remove("block"));
+        space.remove("block");
 
         assert_eq!(space.blocks.len(), 0);
         assert_eq!(space.updated.len(), 0);
@@ -270,7 +271,7 @@ mod test {
 
         let mut metadata = doc.get_or_create_map(constants::space::META).unwrap();
         let pages = doc.create_array().unwrap();
-        metadata.insert("pages", pages.clone()).unwrap();
+        metadata.insert("pages".into(), pages.clone()).unwrap();
         let space = Space::new(doc.clone(), Pages::new(pages), "space", "test").unwrap();
         assert_eq!(space.client_id(), 123);
     }
