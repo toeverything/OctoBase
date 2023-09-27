@@ -1,8 +1,13 @@
 use axum::{
-    extract::{Path, Query},
+    extract::{BodyStream, Path, Query},
     response::Response,
 };
+use futures::{
+    future,
+    stream::{iter, StreamExt},
+};
 use jwst_core::DocStorage;
+use jwst_storage::JwstStorageError;
 use utoipa::IntoParams;
 
 use super::*;
@@ -29,6 +34,59 @@ pub async fn get_workspace(Extension(context): Extension<Arc<Context>>, Path(wor
         Json(workspace).into_response()
     } else {
         (StatusCode::NOT_FOUND, format!("Workspace({workspace:?}) not found")).into_response()
+    }
+}
+
+/// Init a `Workspace` by id
+/// - Return 200 Ok and `Workspace`'s data if init success.
+/// - Return 304 Not Modified if `Workspace` is exists.
+/// - Return 500 Internal Server Error if init failed.
+#[utoipa::path(
+    post,
+    tag = "Workspace",
+    context_path = "/api/block",
+    path = "/{workspace}/init",
+    params(
+        ("workspace", description = "workspace id"),
+    ),
+    request_body(
+        content = BodyStream,
+        content_type="application/octet-stream"
+    ),
+    responses(
+        (status = 200, description = "Workspace init success"),
+        (status = 304, description = "Workspace is exists"),
+        (status = 500, description = "Failed to init a workspace")
+    )
+)]
+pub async fn init_workspace(
+    Extension(context): Extension<Arc<Context>>,
+    Path(workspace): Path<String>,
+    body: BodyStream,
+) -> Response {
+    info!("init_workspace: {}", workspace);
+
+    let mut has_error = false;
+    let data = body
+        .take_while(|x| {
+            has_error = x.is_err();
+            future::ready(x.is_ok())
+        })
+        .filter_map(|data| future::ready(data.ok()))
+        .flat_map(|buffer| iter(buffer))
+        .collect::<Vec<u8>>()
+        .await;
+
+    if has_error {
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    } else if let Err(e) = context.init_workspace(workspace, data).await {
+        if matches!(e, JwstStorageError::WorkspaceExists(_)) {
+            return StatusCode::NOT_MODIFIED.into_response();
+        }
+        warn!("failed to init workspace: {}", e.to_string());
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    } else {
+        StatusCode::OK.into_response()
     }
 }
 

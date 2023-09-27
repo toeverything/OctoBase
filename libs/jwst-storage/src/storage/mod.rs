@@ -67,7 +67,7 @@ impl JwstStorage {
         Ok(storage)
     }
 
-    async fn db_migrate(&self) -> JwstStorageResult<()> {
+    async fn db_migrate(&self) -> JwstStorageResult {
         Migrator::up(&self.pool, None).await?;
         Ok(())
     }
@@ -140,6 +140,28 @@ impl JwstStorage {
                 .map_err(|_err| JwstStorageError::Crud(format!("failed to get workspace {}", workspace_id.as_ref())))?)
         } else {
             Err(JwstStorageError::WorkspaceNotFound(workspace_id.as_ref().into()))
+        }
+    }
+
+    pub async fn init_workspace<S>(&self, workspace_id: S, data: Vec<u8>) -> JwstStorageResult
+    where
+        S: AsRef<str>,
+    {
+        let workspace_id = workspace_id.as_ref();
+        info!("init_workspace: {}", workspace_id);
+        if !self
+            .docs
+            .detect_workspace(workspace_id)
+            .await
+            .map_err(|_err| JwstStorageError::Crud(format!("failed to check workspace {}", workspace_id)))?
+        {
+            self.docs
+                .flush_workspace(workspace_id.into(), data)
+                .await
+                .map_err(|_err| JwstStorageError::Crud(format!("failed to init workspace {}", workspace_id)))?;
+            Ok(())
+        } else {
+            Err(JwstStorageError::WorkspaceExists(workspace_id.into()))
         }
     }
 
