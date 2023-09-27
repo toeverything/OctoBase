@@ -56,10 +56,6 @@ proptest = "1.2"
 proptest-derive = "0.4"
 yrs = "=0.16.5"
 
-[[bin]]
-name = "memory_leak_test"
-path = "bin/memory_leak_test.rs"
-
 [[bench]]
 harness = false
 name = "array_ops_benchmarks"

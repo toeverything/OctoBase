@@ -8,7 +8,7 @@ use std::{collections::HashMap, time::Instant};
 use blobs::BlobAutoStorage;
 #[cfg(feature = "bucket")]
 use blobs::BlobBucketStorage;
-use blobs::{BlobDBStorage, BlobStorageType, JwstBlobStorage};
+use blobs::{BlobStorageType, JwstBlobStorage};
 use docs::SharedDocDBStorage;
 use jwst_storage_migration::{Migrator, MigratorTrait};
 use tokio::sync::Mutex;
@@ -36,16 +36,17 @@ impl JwstStorage {
             BlobStorageType::DB => {
                 #[cfg(feature = "image")]
                 {
-                    JwstBlobStorage::AutoStorage(BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone()).await?)
+                    JwstBlobStorage::Auto(BlobAutoStorage::init_with_pool(pool.clone(), bucket.clone()).await?)
                 }
                 #[cfg(not(feature = "image"))]
                 {
+                    use blobs::BlobDBStorage;
                     let db = BlobDBStorage::init_with_pool(pool.clone(), bucket.clone()).await?;
-                    JwstBlobStorage::RawStorage(Arc::new(db))
+                    JwstBlobStorage::Raw(Arc::new(db))
                 }
             }
             #[cfg(feature = "bucket")]
-            BlobStorageType::MixedBucketDB(param) => JwstBlobStorage::BucketStorage(
+            BlobStorageType::MixedBucketDB(param) => JwstBlobStorage::Bucket(
                 BlobBucketStorage::init_with_pool(pool.clone(), bucket.clone(), Some(param.try_into()?)).await?,
             ),
         };

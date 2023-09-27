@@ -88,12 +88,6 @@ test = false
 doc = false
 
 [patch.crates-io]
-<<<<<<<< HEAD:libs/jwst-codec/fuzz/Cargo.toml
-
-========
-
->>>>>>>> 07723fc (feat: move compatibility test to utils (#27)):y-octo-utils/fuzz/Cargo.tomllib0 = { git = "https://github.com/toeverything/y-crdt", rev = "a700f09" }
-yrs = { git = "https://github.com/toeverything/y-crdt", rev = "a700f09" }
 lib0 = { git = "https://github.com/toeverything/y-crdt", rev = "a700f09" }
 y-sync = { git = "https://github.com/toeverything/y-sync", rev = "5626851" }
 yrs = { git = "https://github.com/toeverything/y-crdt", rev = "a700f09" }
