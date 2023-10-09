@@ -73,7 +73,7 @@ pub async fn init_workspace(
             future::ready(x.is_ok())
         })
         .filter_map(|data| future::ready(data.ok()))
-        .flat_map(|buffer| iter(buffer))
+        .flat_map(iter)
         .collect::<Vec<u8>>()
         .await;
 

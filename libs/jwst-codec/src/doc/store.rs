@@ -824,10 +824,7 @@ impl DocStore {
                             }
 
                             if !item.keep() {
-                                // delete has side effect, we call it explicitly
-                                if item.delete() {
-                                    Self::gc_item(items, idx, false)?;
-                                }
+                                Self::gc_item(items, idx, false)?;
                             }
                         }
 
@@ -852,7 +849,9 @@ impl DocStore {
         if let Node::Item(item_ref) = items[idx].clone() {
             let item = unsafe { item_ref.get_unchecked() };
 
-            if !item.deleted() {
+            // if replace=true we don't check if the item deleted,
+            // because the parent already delete but children may not delete
+            if !replace && !item.deleted() {
                 return Err(JwstCodecError::Unexpected);
             }
 
