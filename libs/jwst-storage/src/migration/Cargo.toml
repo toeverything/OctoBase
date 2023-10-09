@@ -9,7 +9,7 @@ name = "jwst_storage_migration"
 path = "src/lib.rs"
 
 [dependencies]
-tokio = { version = "^1", features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [dependencies.sea-orm-migration]
 version = "0.12.2"

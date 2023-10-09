@@ -11,18 +11,14 @@ websocket = ["axum", "tokio-tungstenite", "url"]
 webrtc = ["bytes", "reqwest", "webrtcrs"]
 
 [dependencies]
-anyhow = "1.0.70"
-assert-json-diff = "2.0.2"
-async-trait = "0.1.68"
-byteorder = "1.4.3"
-chrono = "0.4.26"
-futures = "0.3.28"
-nanoid = "0.4.0"
-rand = "0.8.5"
-serde = "1.0.183"
-serde_json = "1.0.104"
-thiserror = "1.0.40"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+# ========= workspace dependencies =========
+async-trait = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+nanoid = { workspace = true }
+rand = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
 
 # ======== websocket dependencies ========
 axum = { version = "0.6.16", features = ["ws"], optional = true }
@@ -32,7 +28,7 @@ tokio-tungstenite = { version = "0.20.0", features = [
 url = { version = "2.3.1", optional = true }
 
 # ======== webrtc dependencies ========
-bytes = { version = "1.4", optional = true }
+bytes = { workspace = true, optional = true }
 reqwest = { version = "0.11.18", default-features = false, features = [
   "json",
   "rustls-tls",

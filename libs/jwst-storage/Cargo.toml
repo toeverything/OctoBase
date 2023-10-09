@@ -14,18 +14,11 @@ postgres = ["sea-orm/sqlx-postgres"]
 sqlite = ["sea-orm/sqlx-sqlite"]
 
 [dependencies]
-anyhow = "1.0.75"
-async-trait = "0.1.73"
-bytes = "1.4.0"
-chrono = { version = "0.4.24", features = ["serde"] }
-futures = "0.3.28"
 governor = "0.6.0"
 path-ext = "0.1.0"
 sha2 = "0.10.7"
 sea-orm = { version = "0.12.2", features = ["runtime-tokio-rustls", "macros"] }
 sea-orm-migration = { version = "0.12.2", default-features = false }
-thiserror = "1.0.47"
-tokio = { version = "1", features = ["fs", "macros", "sync"] }
 tokio-util = { version = "0.7.8", features = ["io"] }
 url = "2.4.0"
 
@@ -40,10 +33,18 @@ dotenvy = { version = "0.15.7", optional = true }
 image = { version = "0.24.6", features = ["webp-encoder"], optional = true }
 
 # ======= workspace dependencies =======
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+futures = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs", "macros", "sync"] }
+
 jwst-core = { workspace = true }
 jwst-codec = { workspace = true }
 jwst-logger = { workspace = true }
 jwst-storage-migration = { path = "./src/migration" }
 
 [dev-dependencies]
-rand = "0.8.5"
+rand = { workspace = true }

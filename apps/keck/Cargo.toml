@@ -19,19 +19,14 @@ api = ["utoipa"]
 schema = ["utoipa-swagger-ui"]
 
 [dependencies]
-anyhow = "1.0.70"
 axum = { version = "0.6.20", features = ["headers", "ws"] }
 cfg-if = "1.0.0"
-futures = "0.3.28"
 log = { version = "0.4.17", features = [
   "max_level_trace",
   "release_max_level_info",
 ] }
 dotenvy = "0.15.7"
 mimalloc = "0.1.36"
-nanoid = "0.4.0"
-serde = { version = "1.0.160", features = ["derive"] }
-serde_json = "1.0.96"
 sqlx = { version = "0.7.1", features = [
   "chrono",
   "macros",
@@ -40,7 +35,6 @@ sqlx = { version = "0.7.1", features = [
 ] }
 tower = "0.4.13"
 tower-http = { version = "0.4.0", features = ["cors"] }
-thiserror = "1.0.40"
 time = "0.3.20"
 tokio = { version = "=1.28.0", features = [
   "macros",
@@ -50,13 +44,20 @@ tokio = { version = "=1.28.0", features = [
 utoipa = { version = "3.5.0", features = ["axum_extras"], optional = true }
 utoipa-swagger-ui = { version = "3.1.5", optional = true }
 libc = "0.2.147"
-rand = "0.8.5"
 reqwest = { version = "0.11.19", default-features = false, features = [
   "json",
   "rustls-tls",
 ] }
 
 # ======= workspace dependencies =======
+anyhow = { workspace = true }
+futures = { workspace = true }
+nanoid = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
 jwst-core = { workspace = true }
 jwst-logger = { workspace = true }
 jwst-rpc = { workspace = true }
