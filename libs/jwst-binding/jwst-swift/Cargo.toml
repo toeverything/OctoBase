@@ -1,20 +1,21 @@
 [package]
 name = "jwst-swift"
-version = "0.1.0"
+version = "0.1.37"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-chrono = "0.4.26"
-futures = "0.3.28"
-swift-bridge = "0.1.51"
-tokio = "1.27.0"
-nanoid = "0.4.0"
-serde = { version = "1.0.183", features = ["derive"] }
-serde_json = "1.0.104"
+swift-bridge = "0.1.52"
 
 # ======= workspace dependencies =======
+chrono = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true }
+nanoid = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
 jwst-core = { workspace = true, features = ["large_refs"] }
 jwst-logger = { workspace = true }
 jwst-rpc = { workspace = true }
@@ -25,10 +26,10 @@ name = "octobase"
 crate-type = ["staticlib"]
 
 [build-dependencies]
-swift-bridge-build = "0.1.51"
+swift-bridge-build = "0.1.52"
 
 [dev-dependencies]
-reqwest = { version = "0.11.14", default-features = false, features = [
+reqwest = { version = "0.11.22", default-features = false, features = [
   "json",
   "rustls-tls",
 ] }

@@ -1,27 +1,28 @@
 [package]
 name = "jwst-jni"
-version = "0.1.0"
+version = "0.2.5"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 android_logger = "0.13.3"
-futures = "0.3.28"
 jni-sys = "0.3.0"
 log = { package = "tracing", version = "0.1.37" }
-nanoid = "0.4.0"
 rifgen = "0.1.61"
-tokio = "1"
 
 # ======= workspace dependencies =======
+futures = { workspace = true }
+nanoid = { workspace = true }
+tokio = { workspace = true }
+
 jwst-codec = { workspace = true }
 jwst-core = { workspace = true, features = ["large_refs"] }
 jwst-rpc = { workspace = true }
 jwst-storage = { workspace = true, features = ["sqlite"] }
 
 [build-dependencies]
-flapigen = { git = "https://github.com/Dushistov/flapigen-rs", rev = "7d343c6" } # 0.6.0-pre13
+flapigen = "0.6.0"
 rifgen = "0.1.61"
 
 [lib]

@@ -6,4 +6,4 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-swift-bridge-build = "0.1.48"
+swift-bridge-build = "0.1.52"

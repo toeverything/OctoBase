@@ -10,23 +10,25 @@ bench = ["regex"]
 fuzz = ["arbitrary", "phf"]
 
 [dependencies]
-arbitrary = { version = "1.3.0", features = ["derive"], optional = true }
+arbitrary = { version = "1.3", features = ["derive"], optional = true }
 phf = { version = "0.11", features = ["macros"], optional = true }
-rand = "0.8"
 rand_chacha = "0.3"
-regex = { version = "1.5", optional = true }
+regex = { version = "1.9", optional = true }
 
 # ======= bench dependencies =======
-jwst-codec = { workspace = true }
-
 lib0 = { version = "=0.16.5", features = ["lib0-serde"] }
 y-sync = "=0.3.1"
 yrs = "=0.16.5"
 
+# ======= workspace dependencies =======
+rand = { workspace = true }
+
+jwst-codec = { workspace = true }
+
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 path-ext = "0.1"
-proptest = "1.2"
+proptest = "1.3"
 proptest-derive = "0.4"
 
 [[bin]]
