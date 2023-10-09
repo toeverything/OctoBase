@@ -579,6 +579,11 @@ impl DocStore {
                     }
 
                     parent_lock.take();
+                } else {
+                    // if parent not exists, integrate GC node instead
+                    // don't delete it because it may referenced by other nodes
+                    // if all nodes that reference it are deleted, it will merged into one gc node
+                    node = Node::new_gc(node.id(), node.len());
                 }
             }
             Node::GC(item) => {
@@ -599,17 +604,18 @@ impl DocStore {
     }
 
     fn delete_item_inner(delete_set: &mut DeleteSet, item: &Item, parent: Option<&mut YType>) {
+        // 1. mark item as deleted, if item is gced, return
         if !item.delete() {
             return;
         }
 
+        // 2. add it to delete set
         delete_set.add(item.id.client, item.id.clock, item.len());
 
+        // 3. adjust parent length
         if item.parent_sub.is_none() && item.countable() {
             if let Some(parent) = parent {
-                if parent.len != 0 {
-                    parent.len -= item.len();
-                }
+                parent.len -= item.len();
             } else if let Some(Parent::Type(ty)) = &item.parent {
                 ty.ty_mut().unwrap().len -= item.len();
             }
@@ -617,11 +623,14 @@ impl DocStore {
 
         match &item.content {
             Content::Type(ty) => {
+                // 4. delete all children
                 if let Some(mut ty) = ty.ty_mut() {
                     // items in ty are all refs, not owned
                     let mut item_ref = ty.start.clone();
                     while let Some(item) = item_ref.get() {
-                        Self::delete_item_inner(delete_set, item, Some(&mut ty));
+                        if !item.deleted() {
+                            Self::delete_item_inner(delete_set, item, Some(&mut ty));
+                        }
 
                         item_ref = item.right.clone();
                     }
@@ -629,7 +638,9 @@ impl DocStore {
                     let map_values = ty.map.values().cloned().collect::<Vec<_>>();
                     for item in map_values {
                         if let Some(item) = item.get() {
-                            Self::delete_item_inner(delete_set, item, Some(&mut ty));
+                            if !item.deleted() {
+                                Self::delete_item_inner(delete_set, item, Some(&mut ty));
+                            }
                         }
                     }
                 }
@@ -808,7 +819,7 @@ impl DocStore {
                         if let Node::Item(item) = items[idx].clone() {
                             let item = unsafe { item.get_unchecked() };
 
-                            if item.id.clock >= end {
+                            if end <= item.id.clock {
                                 break;
                             }
 
@@ -838,7 +849,9 @@ impl DocStore {
         if let Node::Item(item_ref) = items[idx].clone() {
             let item = unsafe { item_ref.get_unchecked() };
 
-            if !item.deleted() {
+            // if replace=true we don't check if the item deleted,
+            // because the parent already delete but children may not delete
+            if !replace && !item.deleted() {
                 return Err(JwstCodecError::Unexpected);
             }
 

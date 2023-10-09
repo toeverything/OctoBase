@@ -103,7 +103,7 @@ fn jwst_merge(path: &str, output: &str) {
             new_binary.len(),
             new_json.len()
         );
-    };
+    }
     write(output, binary).unwrap();
 }
 
@@ -133,7 +133,7 @@ mod tests {
     #[test]
     #[ignore = "only for debug"]
     fn test_gc() {
-        jwst_merge("/Users/ds/Downloads/out", "/Users/ds/Downloads/out.jwst");
-        yrs_merge("/Users/ds/Downloads/out", "/Users/ds/Downloads/out.yrs");
+        jwst_merge("/Users/ds/Downloads/out2", "/Users/ds/Downloads/out.jwst");
+        yrs_merge("/Users/ds/Downloads/out2", "/Users/ds/Downloads/out.yrs");
     }
 }

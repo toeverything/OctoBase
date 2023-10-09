@@ -27,7 +27,7 @@ impl Space {
         S: AsRef<str>,
     {
         let space_id = space_id.as_ref().into();
-        let blocks = doc.get_or_create_map(&format!("space:{}", space_id))?;
+        let blocks = doc.get_or_create_map(format!("space:{}", space_id))?;
         let updated = doc.get_or_create_map(constants::space::UPDATED)?;
         let metadata = doc.get_or_create_map(constants::space::META)?;
 
