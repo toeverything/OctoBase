@@ -58,7 +58,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 
-jwst-core = { workspace = true }
+jwst-core = { workspace = true, features = ["large_refs"] }
 jwst-logger = { workspace = true }
 jwst-rpc = { workspace = true }
 jwst-storage = { workspace = true }
