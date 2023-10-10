@@ -615,7 +615,9 @@ impl DocStore {
         // 3. adjust parent length
         if item.parent_sub.is_none() && item.countable() {
             if let Some(parent) = parent {
-                parent.len -= item.len();
+                if parent.len != 0 {
+                    parent.len -= item.len();
+                }
             } else if let Some(Parent::Type(ty)) = &item.parent {
                 ty.ty_mut().unwrap().len -= item.len();
             }
