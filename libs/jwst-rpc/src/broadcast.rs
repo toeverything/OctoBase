@@ -45,8 +45,13 @@ pub async fn subscribe(workspace: &Workspace, identifier: String, sender: Broadc
     {
         let sender = sender.clone();
         let workspace_id = workspace.id();
-        workspace.subscribe_doc(move |update, _history| {
-            debug!("workspace {} changed: {}bytes", workspace_id, update.len());
+        workspace.subscribe_doc(move |update, history| {
+            debug!(
+                "workspace {} changed: {}bytes, {} histories",
+                workspace_id,
+                update.len(),
+                history.len()
+            );
 
             match encode_update_with_guid(update.to_vec(), workspace_id.clone())
                 .and_then(|update_with_guid| encode_update_as_message(update.to_vec()).map(|u| (update_with_guid, u)))

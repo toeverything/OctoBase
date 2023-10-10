@@ -5,10 +5,13 @@ use chrono::Utc;
 use jwst_codec::{CrdtReader, RawDecoder};
 use jwst_core::{DocStorage, Workspace};
 use jwst_storage::{JwstStorage, JwstStorageResult};
-use tokio::sync::{
-    broadcast::{channel as broadcast, error::RecvError, Receiver as BroadcastReceiver, Sender as BroadcastSender},
-    mpsc::{Receiver as MpscReceiver, Sender as MpscSender},
-    Mutex,
+use tokio::{
+    sync::{
+        broadcast::{channel as broadcast, error::RecvError, Receiver as BroadcastReceiver, Sender as BroadcastSender},
+        mpsc::{Receiver as MpscReceiver, Sender as MpscSender},
+        Mutex,
+    },
+    task::spawn_blocking,
 };
 
 use super::{
@@ -155,7 +158,7 @@ pub trait RpcContextImpl<'a> {
         // collect messages from remote
         let identifier = identifier.to_owned();
         let id = id.to_string();
-        let mut workspace = self
+        let workspace = self
             .get_storage()
             .get_workspace(&id)
             .await
@@ -185,7 +188,12 @@ pub trait RpcContextImpl<'a> {
                             let updates = std::mem::take(&mut updates);
                             let updates_len = updates.len();
                             let ts = Instant::now();
-                            let message = workspace.sync_messages(updates);
+                            let message = {
+                                let mut workspace = workspace.clone();
+                                spawn_blocking(move || workspace.sync_messages(updates))
+                                    .await
+                                    .unwrap()
+                            };
                             if ts.elapsed().as_micros() > 50 {
                                 debug!(
                                     "apply {updates_len} remote update cost: {}ms",
