@@ -289,7 +289,7 @@ impl Doc {
             }
         }
 
-        store.diff_state_vector(&before_state)
+        store.diff_state_vector(&before_state, false)
     }
 
     pub fn keys(&self) -> Vec<String> {
@@ -356,7 +356,7 @@ impl Doc {
     }
 
     pub fn encode_state_as_update(&self, sv: &StateVector) -> JwstCodecResult<Update> {
-        self.store.read().unwrap().diff_state_vector(sv)
+        self.store.read().unwrap().diff_state_vector(sv, true)
     }
 
     pub fn get_state_vector(&self) -> StateVector {

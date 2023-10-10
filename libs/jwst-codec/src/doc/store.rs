@@ -728,7 +728,7 @@ impl DocStore {
         diff
     }
 
-    pub fn diff_state_vector(&self, sv: &StateVector) -> JwstCodecResult<Update> {
+    pub fn diff_state_vector(&self, sv: &StateVector, with_pending: bool) -> JwstCodecResult<Update> {
         let update_structs = Self::diff_structs(&self.items, sv)?;
 
         let mut update = Update {
@@ -737,8 +737,10 @@ impl DocStore {
             ..Update::default()
         };
 
-        if let Some(pending) = &self.pending {
-            Update::merge_into(&mut update, [pending.clone()])
+        if with_pending {
+            if let Some(pending) = &self.pending {
+                Update::merge_into(&mut update, [pending.clone()])
+            }
         }
 
         Ok(update)

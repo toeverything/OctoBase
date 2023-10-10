@@ -76,7 +76,7 @@ impl DocPublisher {
                         );
 
                         history.resolve_with_store(&store);
-                        let (binary, history) = match store.diff_state_vector(&last_update) {
+                        let (binary, history) = match store.diff_state_vector(&last_update, false) {
                             Ok(update) => {
                                 drop(store);
 
