@@ -117,7 +117,7 @@ publishing {
         release(MavenPublication) {
             groupId = 'com.toeverything'
             artifactId = 'octobase'
-            version = '0.2.5'
+            version = '0.2.6'
 
             afterEvaluate {
                 from components.release
