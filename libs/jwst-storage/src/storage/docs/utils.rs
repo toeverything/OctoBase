@@ -12,7 +12,8 @@ pub fn migrate_update(update_records: Vec<<Docs as EntityTrait>::Model>, mut doc
             warn!("update {} merge failed, skip it: {:?}", id, e);
         }
     }
-    doc.gc()?;
+    // temporarily disable due to the multiple client issue
+    // doc.gc()?;
 
     doc.publisher.start();
 
