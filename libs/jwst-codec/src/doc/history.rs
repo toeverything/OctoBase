@@ -70,6 +70,37 @@ impl StoreHistory {
         self.parse_items(store_items)
     }
 
+    pub fn parse_delete_sets(
+        &self,
+        old_sets: &HashMap<Client, OrderRange>,
+        new_sets: &HashMap<Client, OrderRange>,
+    ) -> Vec<History> {
+        let store = self.store.read().unwrap();
+        let deleted_items = new_sets
+            .iter()
+            .filter_map(|(id, new_range)| {
+                // diff range if old range exists, or use new range
+                let range = old_sets
+                    .get(id)
+                    .map(|r| r.diff_range(new_range).into())
+                    .unwrap_or(new_range.clone());
+                (!range.is_empty()).then_some((id, range))
+            })
+            .filter_map(|(client, range)| {
+                // check items contains in deleted range
+                store.items.get(client).map(move |items| {
+                    items
+                        .iter()
+                        .filter(move |i| range.contains(i.clock()))
+                        .filter_map(|i| i.as_item().get().map(|i| i.clone()))
+                })
+            })
+            .flatten()
+            .collect();
+
+        self.parse_deleted_items(deleted_items)
+    }
+
     pub fn parse_store(&self, options: HistoryOptions) -> Vec<History> {
         let store_items = {
             let client = options
@@ -118,6 +149,23 @@ impl StoreHistory {
                 id: item.id.to_string(),
                 parent: Self::parse_path(item, &parents),
                 content: Value::from(&item.content).to_string(),
+                action: HistoryAction::Update,
+            })
+        }
+
+        histories
+    }
+
+    fn parse_deleted_items(&self, deleted_items: Vec<Item>) -> Vec<History> {
+        let parents = self.parents.read().unwrap();
+        let mut histories = vec![];
+
+        for item in deleted_items {
+            histories.push(History {
+                id: item.id.to_string(),
+                parent: Self::parse_path(&item, &parents),
+                content: Value::from(&item.content).to_string(),
+                action: HistoryAction::Delete,
             })
         }
 
@@ -191,10 +239,18 @@ impl StoreHistory {
 }
 
 #[derive(Debug, PartialEq)]
+pub enum HistoryAction {
+    Insert,
+    Update,
+    Delete,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct History {
     pub id: String,
     pub parent: Vec<String>,
     pub content: String,
+    pub action: HistoryAction,
 }
 
 pub(crate) struct SortedNodes<'a> {
