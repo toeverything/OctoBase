@@ -91,7 +91,7 @@ impl DocPublisher {
                                 let history = history
                                     .parse_update(&update)
                                     .into_iter()
-                                    .chain(history.parse_delete_sets(&last_deletes, &deletes).into_iter())
+                                    .chain(history.parse_delete_sets(&last_deletes, &deletes))
                                     .collect::<Vec<_>>();
 
                                 let mut encoder = RawEncoder::default();

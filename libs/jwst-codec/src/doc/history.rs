@@ -92,7 +92,7 @@ impl StoreHistory {
                     items
                         .iter()
                         .filter(move |i| range.contains(i.clock()))
-                        .filter_map(|i| i.as_item().get().map(|i| i.clone()))
+                        .filter_map(|i| i.as_item().get().cloned())
                 })
             })
             .flatten()
