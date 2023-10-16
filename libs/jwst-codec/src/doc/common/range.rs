@@ -36,6 +36,84 @@ impl OrderRange {
         }
     }
 
+    pub fn contains(&self, clock: u64) -> bool {
+        match self {
+            OrderRange::Range(range) => range.contains(&clock),
+            OrderRange::Fragment(ranges) => ranges.iter().any(|r| r.contains(&clock)),
+        }
+    }
+
+    fn check_range_covered(old_vec: &[Range<u64>], new_vec: &[Range<u64>]) -> bool {
+        let mut old_iter = old_vec.iter();
+        let mut next_old = old_iter.next();
+        let mut new_iter = new_vec.iter().peekable();
+        let mut next_new = new_iter.next();
+        'new_loop: while let Some(new_range) = next_new {
+            while let Some(old_range) = next_old {
+                if old_range.start < new_range.start || old_range.end > new_range.end {
+                    if new_iter.peek().is_some() {
+                        next_new = new_iter.next();
+                        continue 'new_loop;
+                    } else {
+                        return false;
+                    }
+                }
+                next_old = old_iter.next();
+                if let Some(next_old) = &next_old {
+                    if next_old.start > new_range.end {
+                        continue;
+                    }
+                }
+            }
+            next_new = new_iter.next();
+        }
+        true
+    }
+
+    /// diff_range returns the difference between the old range and the new
+    /// range. current range must be covered by the new range
+    pub fn diff_range(&self, new_range: &OrderRange) -> Vec<Range<u64>> {
+        let old_vec = self.clone().into_iter().collect::<Vec<_>>();
+        let new_vec = new_range.clone().into_iter().collect::<Vec<_>>();
+
+        if !Self::check_range_covered(&old_vec, &new_vec) {
+            return Vec::new();
+        }
+
+        let mut diffs = Vec::new();
+        let mut old_idx = 0;
+
+        for new_range in &new_vec {
+            let mut overlap_ranges = Vec::new();
+            while old_idx < old_vec.len() && old_vec[old_idx].start <= new_range.end {
+                overlap_ranges.push(old_vec[old_idx].clone());
+                old_idx += 1;
+            }
+
+            if overlap_ranges.is_empty() {
+                diffs.push(new_range.clone());
+            } else {
+                let mut last_end = overlap_ranges[0].start;
+                if last_end > new_range.start {
+                    diffs.push(new_range.start..last_end);
+                }
+
+                for overlap in &overlap_ranges {
+                    if overlap.start > last_end {
+                        diffs.push(last_end..overlap.start);
+                    }
+                    last_end = overlap.end;
+                }
+
+                if new_range.end > last_end {
+                    diffs.push(last_end..new_range.end);
+                }
+            }
+        }
+
+        diffs
+    }
+
     pub fn extends<T>(&mut self, list: T)
     where
         T: Into<Vec<Range<u64>>>,
@@ -292,6 +370,60 @@ mod tests {
         let mut range: OrderRange = vec![(20..30), (0..10), (10..50)].into();
         range.sort();
         assert_eq!(range, OrderRange::Fragment(vec![(0..10), (10..50), (20..30)]));
+    }
+
+    #[test]
+    fn test_range_covered() {
+        assert_eq!(OrderRange::check_range_covered(&[0..1], &[2..3]), false);
+        assert_eq!(OrderRange::check_range_covered(&[0..1], &[0..3]), true);
+        assert_eq!(OrderRange::check_range_covered(&[0..1], &[1..3]), false);
+        assert_eq!(OrderRange::check_range_covered(&[0..1], &[0..3]), true);
+        assert_eq!(OrderRange::check_range_covered(&[1..2], &[0..3]), true);
+        assert_eq!(OrderRange::check_range_covered(&[1..2, 2..3], &[0..3]), true);
+        assert_eq!(OrderRange::check_range_covered(&[1..2, 2..3, 3..4], &[0..3]), false);
+        assert_eq!(OrderRange::check_range_covered(&[0..1, 2..3], &[0..2, 2..4]), true);
+        assert_eq!(
+            OrderRange::check_range_covered(&[0..1, 2..3, 3..4], &[0..2, 2..4]),
+            true
+        );
+    }
+
+    #[test]
+    fn test_range_diff() {
+        {
+            let old = OrderRange::Range(0..1);
+            let new = OrderRange::Range(2..3);
+            let ranges = old.diff_range(&new);
+            assert_eq!(ranges, vec![]);
+        }
+
+        {
+            let old = OrderRange::Range(0..10);
+            let new = OrderRange::Range(0..11);
+            let ranges = old.diff_range(&new);
+            assert_eq!(ranges, vec![(10..11)]);
+        }
+
+        {
+            let old: OrderRange = vec![(0..10), (20..30)].into();
+            let new: OrderRange = vec![(0..15), (20..30)].into();
+            let ranges = old.diff_range(&new);
+            assert_eq!(ranges, vec![(10..15)]);
+        }
+
+        {
+            let old: OrderRange = vec![(0..3), (5..7), (8..10), (16..18), (21..23)].into();
+            let new: OrderRange = vec![(0..12), (15..23)].into();
+            let ranges = old.diff_range(&new);
+            assert_eq!(ranges, vec![(3..5), (7..8), (10..12), (15..16), (18..21)]);
+        }
+
+        {
+            let old: OrderRange = vec![(1..6), (8..12)].into();
+            let new: OrderRange = vec![(0..12), (15..23), (24..28)].into();
+            let ranges = old.diff_range(&new);
+            assert_eq!(ranges, vec![(0..1), (6..8), (15..23), (24..28)]);
+        }
     }
 
     #[test]
