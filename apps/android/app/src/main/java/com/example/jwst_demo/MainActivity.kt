@@ -11,8 +11,24 @@ import java.io.File
 import java.util.*
 import com.toeverything.jwst.Workspace
 import kotlin.jvm.optionals.getOrNull
+import kotlin.random.Random
 
 fun <T> Optional<T>.unwrap(): T? = orElse(null)
+
+fun String.hexStringToByteArray(): ByteArray {
+    return this.chunked(2)
+        .map { it.toInt(16).toByte() }
+        .toByteArray()
+}
+
+fun getStaticWorkspace(): String {
+    return "010895E2C0E01D0027010A73706163653A6D6574610570616765730027010C73706163653A626C6F636B73047465737401280095E2C0E01D010B7379733A666C61766F757201770474657374270095E2C0E01D010C7379733A6368696C6472656E00280095E2C0E01D010B7379733A63726561746564017B4278B38B757B900028010D73706163653A757064617465640474657374017B4278B38B757B9000280095E2C0E01D010970726F703A74657374017703616263A895E2C0E01D05017B4278B38B757B90000195E2C0E01D010501"
+}
+
+fun getRandomId(): String {
+    val chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+    return (1..8).map { chars[Random.nextInt(chars.length)] }.joinToString("")
+}
 
 class MainActivity : AppCompatActivity() {
 
@@ -23,6 +39,10 @@ class MainActivity : AppCompatActivity() {
 
         val database = File(filesDir, "jwst.db")
         val storage = Storage(database.absolutePath, "ws://10.0.2.2:3000/collaboration", "debug")
+
+        storage.initWorkspace(getRandomId(), getStaticWorkspace().hexStringToByteArray())
+        val text = storage.getWorkspace("test1").get().get("test").get().get("test").get()
+        Log.i("jwst", "text: $text")
 
         storage.getWorkspace("test").unwrap()?.let { workspace ->
             setupWorkspace(workspace)
@@ -60,7 +80,6 @@ class MainActivity : AppCompatActivity() {
             Log.i("jwst", searchResult3)
 
             while (true) {
-
                 Log.i("jwst", " getting root")
                 workspace.get("root").unwrap()?.let { block ->
                     block.get("test").ifPresent { value ->

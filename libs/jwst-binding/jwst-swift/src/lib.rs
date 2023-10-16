@@ -134,6 +134,8 @@ mod ffi {
 
         fn get_sync_state(self: &Storage) -> String;
 
+        fn init(self: &mut Storage, workspace_id: String, data: Vec<u8>) -> bool;
+
         fn connect(self: &mut Storage, workspace_id: String, remote: String) -> Option<Workspace>;
 
         fn get_last_synced(self: &Storage) -> Vec<i64>;

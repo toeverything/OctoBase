@@ -19,6 +19,31 @@ fn main() {
         .chain(["use jni_sys::*;"].iter())
         .chain(
             [
+                r#"foreign_typemap!(
+    ($p:r_type) Vec<u8> => jbyteArray {
+        let slice = &($p)[..];
+        let slice = unsafe { std::mem::transmute::<&[u8], &[i8]>(slice) };
+        let raw = JavaByteArray::from_slice_to_raw(slice, env);
+        $out = raw;
+    };
+    ($p:f_type) => "jbyteArray";
+);
+
+foreign_typemap!(
+    ($p:r_type) &'a [u8] => jbyteArray {
+        let slice = unsafe { std::mem::transmute::<&[u8], &[i8]>($p) };
+        let raw = JavaByteArray::from_slice_to_raw(slice, env);
+        $out = raw;
+    };
+    ($p:f_type) => "jbyteArray";
+    ($p:r_type) &'a [u8] <= jbyteArray {
+        let arr = JavaByteArray::new(env, $p);
+        let slice = arr.to_slice();
+        let slice = unsafe { std::mem::transmute::<&[i8], &[u8]>(slice) };
+        $out = slice;
+    };
+    ($p:f_type) <= "jbyteArray";
+);"#,
                 r#"foreign_class!(
     class JwstStorage {
         self_type JwstStorage;
@@ -30,6 +55,7 @@ fn main() {
         fn JwstStorage::is_finished(&self) -> bool;
         fn JwstStorage::is_error(&self) -> bool;
         fn JwstStorage::get_sync_state(&self) -> String;
+        fn JwstStorage::init(&mut self, workspace_id: String, data: &[u8]) -> bool; alias init;
         fn JwstStorage::connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace>; alias connect;
         fn JwstStorage::get_last_synced(&self) ->Vec<i64>;
     }

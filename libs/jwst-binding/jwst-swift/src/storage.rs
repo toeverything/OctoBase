@@ -88,6 +88,29 @@ impl Storage {
         }
     }
 
+    pub fn init(&mut self, workspace_id: String, data: Vec<u8>) -> bool {
+        match self.init_workspace(workspace_id, data) {
+            Ok(_) => true,
+            Err(e) => {
+                error!("Failed to init workspace: {:?}", e);
+                self.error = Some(e.to_string());
+                false
+            }
+        }
+    }
+
+    fn init_workspace(&self, workspace_id: String, data: Vec<u8>) -> JwstStorageResult {
+        let rt = Arc::new(
+            Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .thread_name("jwst-swift-init")
+                .build()
+                .map_err(JwstStorageError::SyncThread)?,
+        );
+        rt.block_on(self.storage.init_workspace(workspace_id, data))
+    }
+
     pub fn connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace> {
         match self.sync(workspace_id, remote) {
             Ok(workspace) => Some(workspace),
