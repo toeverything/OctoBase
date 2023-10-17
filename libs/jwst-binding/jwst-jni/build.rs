@@ -30,8 +30,9 @@ fn main() {
 );
 
 foreign_typemap!(
-    ($p:r_type) &'a [u8] => jbyteArray {
-        let slice = unsafe { std::mem::transmute::<&[u8], &[i8]>($p) };
+    ($p:r_type) Vec<u8> => jbyteArray {
+        let slice = &($p)[..];
+        let slice = unsafe { std::mem::transmute::<&[u8], &[i8]>(slice) };
         let raw = JavaByteArray::from_slice_to_raw(slice, env);
         $out = raw;
     };
@@ -56,6 +57,7 @@ foreign_typemap!(
         fn JwstStorage::is_error(&self) -> bool;
         fn JwstStorage::get_sync_state(&self) -> String;
         fn JwstStorage::init(&mut self, workspace_id: String, data: &[u8]) -> bool; alias init;
+        fn JwstStorage::export(&mut self, workspace_id: String) -> Vec<u8>; alias export;
         fn JwstStorage::connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace>; alias connect;
         fn JwstStorage::get_last_synced(&self) ->Vec<i64>;
     }
@@ -108,7 +110,7 @@ foreign_class!(
         .join("\n");
     fs::write(&in_temp, &template).unwrap();
 
-    let template_changed = fs::read_to_string(in_src).unwrap() != template;
+    let template_changed = fs::read_to_string(&in_src).unwrap() != template;
 
     if template_changed || !in_temp.with_extension("").exists() || !jni_dir.exists() {
         // delete the lib folder then create it again to prevent obsolete files
@@ -130,6 +132,7 @@ foreign_class!(
                 != fs::read_to_string(in_temp.with_extension("")).unwrap()
         {
             fs::copy(in_temp.with_extension("out"), in_temp.with_extension("")).unwrap();
+            // fs::copy(in_temp.with_extension("out"), in_src).unwrap();
         }
     }
 }
