@@ -132,7 +132,7 @@ foreign_class!(
                 != fs::read_to_string(in_temp.with_extension("")).unwrap()
         {
             fs::copy(in_temp.with_extension("out"), in_temp.with_extension("")).unwrap();
-            // fs::copy(in_temp.with_extension("out"), in_src).unwrap();
+            fs::copy(in_temp.with_extension("out"), in_src).unwrap();
         }
     }
 }
