@@ -828,7 +828,18 @@ impl DocStore {
                             }
 
                             if !item.keep() {
-                                Self::gc_item(items, idx, false)?;
+                                let parent_gced = matches!(&item.parent, Some(p) if {
+                                    if let Parent::Type(ty) = p {
+                                        if let Some(ty) = ty.ty() {
+                                            (ty.start.is_none() && ty.map.is_empty()) || ty.item.get().map(|item|item.deleted()).unwrap_or(false)
+                                        } else {
+                                            false
+                                        }
+                                    } else {
+                                        false
+                                    }
+                                });
+                                Self::gc_item(items, idx, parent_gced)?;
                             }
                         }
 
@@ -836,14 +847,6 @@ impl DocStore {
                     }
                 }
             }
-        }
-
-        Ok(())
-    }
-
-    fn gc_item_by_id(items: &mut VecDeque<Node>, id: Id, replace: bool) -> JwstCodecResult {
-        if let Some(idx) = Self::get_node_index(items, id.clock) {
-            Self::gc_item(items, idx, replace)?;
         }
 
         Ok(())
@@ -859,7 +862,7 @@ impl DocStore {
                 return Err(JwstCodecError::Unexpected);
             }
 
-            Self::gc_content(items, &item.content)?;
+            Self::gc_content(&item.content)?;
 
             if replace {
                 let _ = mem::replace(&mut items[idx], Node::new_gc(item.id, item.len()));
@@ -874,28 +877,10 @@ impl DocStore {
         Ok(())
     }
 
-    fn gc_content(items: &mut VecDeque<Node>, content: &Content) -> JwstCodecResult {
+    fn gc_content(content: &Content) -> JwstCodecResult {
         if let Content::Type(ty) = content {
             if let Some(mut ty) = ty.ty_mut() {
-                // items in ty are all refs, not owned
-                let mut item_ref = ty.start.clone();
-                while let Some(item) = item_ref.get() {
-                    let id = item.id;
-
-                    // we need to iter to right first, because we may delete the owned item
-                    // by replacing it with [Node::GC]
-                    item_ref = item.right.clone();
-
-                    Self::gc_item_by_id(items, id, true)?;
-                }
                 ty.start = Somr::none();
-
-                for item in ty.map.values() {
-                    if let Some(item) = item.get() {
-                        Self::gc_item_by_id(items, item.id, true)?;
-                    }
-                }
-
                 ty.map.clear();
             }
         }
@@ -1192,6 +1177,48 @@ mod tests {
             assert_eq!(
                 store.get_node((1, 7)).unwrap(), // " world" GCd
                 Node::new_gc((1, 6).into(), 6)
+            );
+        });
+    }
+
+    #[test]
+    fn should_gc_multi_client_ds() {
+        loom_model!({
+            let bin = {
+                let doc = DocOptions::new().with_client_id(1).build();
+                let mut pages = doc.get_or_create_map("pages").unwrap();
+                let page1 = doc.create_text().unwrap();
+                let mut page1_ref = page1.clone();
+                pages.insert("page1".to_string(), Value::from(page1)).unwrap();
+                page1_ref.insert(0, "hello").unwrap();
+                doc.encode_update_v1().unwrap()
+            };
+
+            let mut doc = DocOptions::new().with_client_id(2).build();
+            doc.apply_update_from_binary(bin).unwrap();
+            let mut pages = doc.get_or_create_map("pages").unwrap();
+            if let Value::Text(mut page1) = pages.get("page1").unwrap() {
+                page1.insert(5, " world").unwrap();
+            }
+
+            pages.remove("page1");
+
+            let mut store = doc.store.write().unwrap();
+            store.gc_delete_set().unwrap();
+
+            assert_eq!(
+                &store.get_node((1, 0)).unwrap().as_item().get().unwrap().content,
+                &Content::Deleted(1)
+            );
+
+            assert_eq!(
+                store.get_node((1, 1)).unwrap(), // "hello" GCd
+                Node::new_gc((1, 1).into(), 5)
+            );
+
+            assert_eq!(
+                store.get_node((2, 0)).unwrap(), // " world" GCd
+                Node::new_gc((2, 0).into(), 6)
             );
         });
     }
