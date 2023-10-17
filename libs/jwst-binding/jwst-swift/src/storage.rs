@@ -88,6 +88,54 @@ impl Storage {
         }
     }
 
+    pub fn init(&mut self, workspace_id: String, data: Vec<u8>) -> bool {
+        match self.init_workspace(workspace_id, data) {
+            Ok(_) => true,
+            Err(e) => {
+                let error = format!("Failed to init workspace: {:?}", e);
+                error!("{}", error);
+                self.error = Some(error);
+                false
+            }
+        }
+    }
+
+    fn init_workspace(&self, workspace_id: String, data: Vec<u8>) -> JwstStorageResult {
+        let rt = Arc::new(
+            Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .thread_name("jwst-swift-init")
+                .build()
+                .map_err(JwstStorageError::SyncThread)?,
+        );
+        rt.block_on(self.storage.init_workspace(workspace_id, data))
+    }
+
+    pub fn export(&mut self, workspace_id: String) -> Option<Vec<u8>> {
+        match self.export_workspace(workspace_id) {
+            Ok(data) => Some(data),
+            Err(e) => {
+                let error = format!("Failed to export workspace: {:?}", e);
+                error!("{}", error);
+                self.error = Some(error);
+                None
+            }
+        }
+    }
+
+    fn export_workspace(&self, workspace_id: String) -> JwstStorageResult<Vec<u8>> {
+        let rt = Arc::new(
+            Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .thread_name("jwst-swift-export")
+                .build()
+                .map_err(JwstStorageError::SyncThread)?,
+        );
+        rt.block_on(self.storage.export_workspace(workspace_id))
+    }
+
     pub fn connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace> {
         match self.sync(workspace_id, remote) {
             Ok(workspace) => Some(workspace),

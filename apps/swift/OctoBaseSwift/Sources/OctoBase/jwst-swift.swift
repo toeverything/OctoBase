@@ -578,6 +578,14 @@ public class StorageRefMut: StorageRef {
     }
 }
 extension StorageRefMut {
+    public func init<GenericIntoRustString: IntoRustString>(_ workspace_id: GenericIntoRustString, _ data: RustVec<UInt8>) -> Bool {
+        __swift_bridge__$Storage$init(ptr, { let rustString = workspace_id.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let val = data; val.isOwned = false; return val.ptr }())
+    }
+
+    public func export<GenericIntoRustString: IntoRustString>(_ workspace_id: GenericIntoRustString) -> Optional<RustVec<UInt8>> {
+        { let val = __swift_bridge__$Storage$export(ptr, { let rustString = workspace_id.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val != nil { return RustVec(ptr: val!) } else { return nil } }()
+    }
+
     public func connect<GenericIntoRustString: IntoRustString>(_ workspace_id: GenericIntoRustString, _ remote: GenericIntoRustString) -> Optional<Workspace> {
         { let val = __swift_bridge__$Storage$connect(ptr, { let rustString = workspace_id.intoRustString(); rustString.isOwned = false; return rustString.ptr }(), { let rustString = remote.intoRustString(); rustString.isOwned = false; return rustString.ptr }()); if val != nil { return Workspace(ptr: val!) } else { return nil } }()
     }

@@ -166,6 +166,20 @@ impl JwstStorage {
         }
     }
 
+    pub async fn export_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Vec<u8>>
+    where
+        S: AsRef<str>,
+    {
+        let workspace_id = workspace_id.as_ref();
+        info!("export_workspace: {}", workspace_id);
+        if let Some(doc) = self.docs.get_doc(workspace_id.into()).await? {
+            doc.encode_update_v1()
+                .map_err(|e| JwstStorageError::Crud(format!("failed to export workspace {workspace_id}: {e}")))
+        } else {
+            Err(JwstStorageError::WorkspaceNotFound(workspace_id.into()))
+        }
+    }
+
     pub async fn full_migrate(&self, workspace_id: String, update: Option<Vec<u8>>, force: bool) -> bool {
         let mut map = self.last_migrate.lock().await;
         let ts = map.entry(workspace_id.clone()).or_insert(Instant::now());

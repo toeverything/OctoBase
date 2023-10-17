@@ -182,6 +182,26 @@ class Storage constructor(path: String, private val remote: String = "", private
 
     val error get() = this.storage.error()
 
+    fun initWorkspace(id: String, data: ByteArray): Result<Unit> {
+        val success = this.storage.init(id,data)
+        return if (success) {
+            Result.success(Unit)
+        } else {
+            val error = this.storage.error().orElse("Unknown error")
+            Result.failure(Exception(error))
+        }
+    }
+
+    fun exportWorkspace(id: String): Result<ByteArray> {
+        val data = this.storage.export(id)
+        return if (data.isNotEmpty()) {
+            Result.success(data)
+        } else {
+            val error = this.storage.error().orElse("Unknown error")
+            Result.failure(Exception(error))
+        }
+    }
+
     fun getWorkspace(id: String): Optional<Workspace> {
         return this.storage.connect(id, this.remote.takeIf { it.isNotEmpty() }?.let { "$it/$id" } ?: "").map { Workspace(it) }
     }

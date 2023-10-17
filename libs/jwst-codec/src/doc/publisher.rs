@@ -52,6 +52,7 @@ impl DocPublisher {
             debug!("start observing");
             let thread = spawn(move || {
                 let mut last_update = store.read().unwrap().get_state_vector();
+                let mut last_deletes = store.read().unwrap().delete_set.clone();
                 loop {
                     sleep(Duration::from_millis(OBSERVE_INTERVAL));
                     if !observing.load(Ordering::Acquire) {
@@ -67,11 +68,18 @@ impl DocPublisher {
                     let store = store.read().unwrap();
 
                     let update = store.get_state_vector();
-                    if update != last_update {
+                    let deletes = store.delete_set.clone();
+                    if update != last_update || deletes != last_deletes {
                         trace!(
                             "update: {:?}, last_update: {:?}, {:?}",
                             update,
                             last_update,
+                            current().id(),
+                        );
+                        trace!(
+                            "deletes: {:?}, last_deletes: {:?}, {:?}",
+                            deletes,
+                            last_deletes,
                             current().id(),
                         );
 
@@ -80,7 +88,11 @@ impl DocPublisher {
                             Ok(update) => {
                                 drop(store);
 
-                                let history = history.parse_update(&update);
+                                let history = history
+                                    .parse_update(&update)
+                                    .into_iter()
+                                    .chain(history.parse_delete_sets(&last_deletes, &deletes))
+                                    .collect::<Vec<_>>();
 
                                 let mut encoder = RawEncoder::default();
                                 if let Err(e) = update.write(&mut encoder) {
@@ -96,6 +108,7 @@ impl DocPublisher {
                         };
 
                         last_update = update;
+                        last_deletes = deletes;
 
                         for cb in subscribers.iter() {
                             use std::panic::{catch_unwind, AssertUnwindSafe};
