@@ -222,7 +222,7 @@ jobs:
     #               target: cloud
 
     jwst:
-        runs-on: ubuntu-latest
+        runs-on: [self-hosted, linux, x64]
         environment: development
         permissions:
             contents: read
@@ -430,7 +430,7 @@ jobs:
 
     fuzzing:
         name: fuzzing
-        runs-on: ubuntu-latest
+        runs-on: [self-hosted, linux, x64]
         continue-on-error: true
         env:
             RUSTFLAGS: -D warnings
