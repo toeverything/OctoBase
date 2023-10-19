@@ -91,8 +91,8 @@ impl JwstStorage {
         }
     }
 
-    pub fn init(&mut self, workspace_id: String, data: &[u8]) -> bool {
-        match self.init_workspace(workspace_id, data) {
+    pub fn import(&mut self, workspace_id: String, data: &[u8]) -> bool {
+        match self.import_workspace(workspace_id, data) {
             Ok(_) => true,
             Err(e) => {
                 let error = format!("Failed to init workspace: {:?}", e);
@@ -103,7 +103,7 @@ impl JwstStorage {
         }
     }
 
-    fn init_workspace(&self, workspace_id: String, data: &[u8]) -> JwstStorageResult {
+    fn import_workspace(&self, workspace_id: String, data: &[u8]) -> JwstStorageResult {
         let rt = Arc::new(
             Builder::new_multi_thread()
                 .worker_threads(1)

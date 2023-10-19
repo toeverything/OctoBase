@@ -56,7 +56,7 @@ foreign_typemap!(
         fn JwstStorage::is_finished(&self) -> bool;
         fn JwstStorage::is_error(&self) -> bool;
         fn JwstStorage::get_sync_state(&self) -> String;
-        fn JwstStorage::init(&mut self, workspace_id: String, data: &[u8]) -> bool; alias init;
+        fn JwstStorage::import(&mut self, workspace_id: String, data: &[u8]) -> bool; alias import;
         fn JwstStorage::export(&mut self, workspace_id: String) -> Vec<u8>; alias export;
         fn JwstStorage::connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace>; alias connect;
         fn JwstStorage::get_last_synced(&self) ->Vec<i64>;
@@ -132,7 +132,7 @@ foreign_class!(
                 != fs::read_to_string(in_temp.with_extension("")).unwrap()
         {
             fs::copy(in_temp.with_extension("out"), in_temp.with_extension("")).unwrap();
-            fs::copy(in_temp.with_extension("out"), in_src).unwrap();
+            fs::copy(in_temp.with_extension("in"), in_src).unwrap();
         }
     }
 }

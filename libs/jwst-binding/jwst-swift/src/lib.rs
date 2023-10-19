@@ -134,7 +134,7 @@ mod ffi {
 
         fn get_sync_state(self: &Storage) -> String;
 
-        fn init(self: &mut Storage, workspace_id: String, data: Vec<u8>) -> bool;
+        fn import(self: &mut Storage, workspace_id: String, data: Vec<u8>) -> bool;
 
         fn export(self: &mut Storage, workspace_id: String) -> Option<Vec<u8>>;
 
