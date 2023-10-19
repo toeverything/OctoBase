@@ -58,12 +58,12 @@ public final class JwstStorage {
     }
     private static native @NonNull String do_get_sync_state(long self);
 
-    public final boolean init(@NonNull String workspace_id, @NonNull byte [] data) {
-        boolean ret = do_init(mNativeObj, workspace_id, data);
+    public final boolean import(@NonNull String workspace_id, @NonNull byte [] data) {
+        boolean ret = do_import(mNativeObj, workspace_id, data);
 
         return ret;
     }
-    private static native boolean do_init(long self, @NonNull String workspace_id, byte [] data);
+    private static native boolean do_import(long self, @NonNull String workspace_id, byte [] data);
 
     public final byte [] export(@NonNull String workspace_id) {
         byte [] ret = do_export(mNativeObj, workspace_id);
