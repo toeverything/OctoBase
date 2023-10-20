@@ -91,8 +91,8 @@ impl JwstStorage {
         }
     }
 
-    pub fn import(&mut self, workspace_id: String, data: &[u8]) -> bool {
-        match self.import_workspace(workspace_id, data) {
+    pub fn import_workspace(&mut self, workspace_id: String, data: &[u8]) -> bool {
+        match self.import_workspace_inner(workspace_id, data) {
             Ok(_) => true,
             Err(e) => {
                 let error = format!("Failed to init workspace: {:?}", e);
@@ -103,7 +103,7 @@ impl JwstStorage {
         }
     }
 
-    fn import_workspace(&self, workspace_id: String, data: &[u8]) -> JwstStorageResult {
+    fn import_workspace_inner(&self, workspace_id: String, data: &[u8]) -> JwstStorageResult {
         let rt = Arc::new(
             Builder::new_multi_thread()
                 .worker_threads(1)
@@ -115,8 +115,8 @@ impl JwstStorage {
         rt.block_on(self.storage.init_workspace(workspace_id, data.to_vec()))
     }
 
-    pub fn export(&mut self, workspace_id: String) -> Vec<u8> {
-        match self.export_workspace(workspace_id) {
+    pub fn export_workspace(&mut self, workspace_id: String) -> Vec<u8> {
+        match self.export_workspace_inner(workspace_id) {
             Ok(data) => data,
             Err(e) => {
                 let error = format!("Failed to export workspace: {:?}", e);
@@ -127,7 +127,7 @@ impl JwstStorage {
         }
     }
 
-    fn export_workspace(&self, workspace_id: String) -> JwstStorageResult<Vec<u8>> {
+    fn export_workspace_inner(&self, workspace_id: String) -> JwstStorageResult<Vec<u8>> {
         let rt = Arc::new(
             Builder::new_multi_thread()
                 .worker_threads(1)
@@ -165,7 +165,6 @@ impl JwstStorage {
 
         match workspace {
             Ok(mut workspace) => {
-                warn!("is_offline: {}, remote: {}", is_offline, remote);
                 if is_offline {
                     let identifier = nanoid!();
                     let (last_synced_tx, last_synced_rx) = channel::<i64>(128);

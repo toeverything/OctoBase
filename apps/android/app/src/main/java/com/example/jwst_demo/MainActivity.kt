@@ -40,9 +40,14 @@ class MainActivity : AppCompatActivity() {
         val database = File(filesDir, "jwst.db")
         val storage = Storage(database.absolutePath, "ws://10.0.2.2:3000/collaboration", "debug")
 
-        storage.initWorkspace(getRandomId(), getStaticWorkspace().hexStringToByteArray())
-        val text = storage.getWorkspace("test1").get().get("test").get().get("test").get()
+        val randomId = getRandomId()
+        storage.initWorkspace(randomId, getStaticWorkspace().hexStringToByteArray())
+        val text = storage.getWorkspace(randomId).get().get("test").get().get("test").get()
         Log.i("jwst", "text: $text")
+        storage.exportWorkspace(randomId).getOrNull()?.let { data ->
+            val isSame = data.contentEquals(getStaticWorkspace().hexStringToByteArray())
+            Log.i("jwst", "exported data: $isSame")
+        }
 
         storage.getWorkspace("test").unwrap()?.let { workspace ->
             setupWorkspace(workspace)

@@ -56,8 +56,8 @@ foreign_typemap!(
         fn JwstStorage::is_finished(&self) -> bool;
         fn JwstStorage::is_error(&self) -> bool;
         fn JwstStorage::get_sync_state(&self) -> String;
-        fn JwstStorage::import(&mut self, workspace_id: String, data: &[u8]) -> bool; alias import;
-        fn JwstStorage::export(&mut self, workspace_id: String) -> Vec<u8>; alias export;
+        fn JwstStorage::import_workspace(&mut self, workspace_id: String, data: &[u8]) -> bool; alias import_workspace;
+        fn JwstStorage::export_workspace(&mut self, workspace_id: String) -> Vec<u8>; alias export_workspace;
         fn JwstStorage::connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace>; alias connect;
         fn JwstStorage::get_last_synced(&self) ->Vec<i64>;
     }

@@ -88,8 +88,8 @@ impl Storage {
         }
     }
 
-    pub fn import(&mut self, workspace_id: String, data: Vec<u8>) -> bool {
-        match self.import_workspace(workspace_id, data) {
+    pub fn import_workspace(&mut self, workspace_id: String, data: Vec<u8>) -> bool {
+        match self.import_workspace_inner(workspace_id, data) {
             Ok(_) => true,
             Err(e) => {
                 let error = format!("Failed to init workspace: {:?}", e);
@@ -100,7 +100,7 @@ impl Storage {
         }
     }
 
-    fn import_workspace(&self, workspace_id: String, data: Vec<u8>) -> JwstStorageResult {
+    fn import_workspace_inner(&self, workspace_id: String, data: Vec<u8>) -> JwstStorageResult {
         let rt = Arc::new(
             Builder::new_multi_thread()
                 .worker_threads(1)
@@ -112,8 +112,8 @@ impl Storage {
         rt.block_on(self.storage.init_workspace(workspace_id, data))
     }
 
-    pub fn export(&mut self, workspace_id: String) -> Option<Vec<u8>> {
-        match self.export_workspace(workspace_id) {
+    pub fn export_workspace(&mut self, workspace_id: String) -> Option<Vec<u8>> {
+        match self.export_workspace_inner(workspace_id) {
             Ok(data) => Some(data),
             Err(e) => {
                 let error = format!("Failed to export workspace: {:?}", e);
@@ -124,7 +124,7 @@ impl Storage {
         }
     }
 
-    fn export_workspace(&self, workspace_id: String) -> JwstStorageResult<Vec<u8>> {
+    fn export_workspace_inner(&self, workspace_id: String) -> JwstStorageResult<Vec<u8>> {
         let rt = Arc::new(
             Builder::new_multi_thread()
                 .worker_threads(1)
@@ -133,7 +133,10 @@ impl Storage {
                 .build()
                 .map_err(JwstStorageError::SyncThread)?,
         );
-        rt.block_on(self.storage.export_workspace(workspace_id))
+        let workspace = rt.block_on(async { self.get_workspace(&workspace_id).await })?;
+        let binary = workspace.to_binary()?;
+
+        Ok(binary)
     }
 
     pub fn connect(&mut self, workspace_id: String, remote: String) -> Option<Workspace> {
