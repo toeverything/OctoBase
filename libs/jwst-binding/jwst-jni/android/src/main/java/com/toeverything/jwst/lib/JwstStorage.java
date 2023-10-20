@@ -58,19 +58,19 @@ public final class JwstStorage {
     }
     private static native @NonNull String do_get_sync_state(long self);
 
-    public final boolean import(@NonNull String workspace_id, @NonNull byte [] data) {
-        boolean ret = do_import(mNativeObj, workspace_id, data);
+    public final boolean import_workspace(@NonNull String workspace_id, @NonNull byte [] data) {
+        boolean ret = do_import_workspace(mNativeObj, workspace_id, data);
 
         return ret;
     }
-    private static native boolean do_import(long self, @NonNull String workspace_id, byte [] data);
+    private static native boolean do_import_workspace(long self, @NonNull String workspace_id, byte [] data);
 
-    public final byte [] export(@NonNull String workspace_id) {
-        byte [] ret = do_export(mNativeObj, workspace_id);
+    public final byte [] export_workspace(@NonNull String workspace_id) {
+        byte [] ret = do_export_workspace(mNativeObj, workspace_id);
 
         return ret;
     }
-    private static native byte [] do_export(long self, @NonNull String workspace_id);
+    private static native byte [] do_export_workspace(long self, @NonNull String workspace_id);
 
     public final @NonNull java.util.Optional<Workspace> connect(@NonNull String workspace_id, @NonNull String remote) {
         long ret = do_connect(mNativeObj, workspace_id, remote);

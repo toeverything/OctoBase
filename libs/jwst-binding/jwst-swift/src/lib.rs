@@ -134,9 +134,9 @@ mod ffi {
 
         fn get_sync_state(self: &Storage) -> String;
 
-        fn import(self: &mut Storage, workspace_id: String, data: Vec<u8>) -> bool;
+        fn import_workspace(self: &mut Storage, workspace_id: String, data: Vec<u8>) -> bool;
 
-        fn export(self: &mut Storage, workspace_id: String) -> Option<Vec<u8>>;
+        fn export_workspace(self: &mut Storage, workspace_id: String) -> Option<Vec<u8>>;
 
         fn connect(self: &mut Storage, workspace_id: String, remote: String) -> Option<Workspace>;
 

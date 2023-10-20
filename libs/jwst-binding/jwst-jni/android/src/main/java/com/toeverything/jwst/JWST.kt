@@ -183,7 +183,7 @@ class Storage constructor(path: String, private val remote: String = "", private
     val error get() = this.storage.error()
 
     fun initWorkspace(id: String, data: ByteArray): Result<Unit> {
-        val success = this.storage.init(id,data)
+        val success = this.storage.import_workspace(id,data)
         return if (success) {
             Result.success(Unit)
         } else {
@@ -193,7 +193,7 @@ class Storage constructor(path: String, private val remote: String = "", private
     }
 
     fun exportWorkspace(id: String): Result<ByteArray> {
-        val data = this.storage.export(id)
+        val data = this.storage.export_workspace(id)
         return if (data.isNotEmpty()) {
             Result.success(data)
         } else {
