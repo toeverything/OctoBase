@@ -24,6 +24,7 @@ pub struct BlockHistory {
     pub block_id: String,
     pub parent: Vec<String>,
     pub content: String,
+    pub action: String,
 }
 
 impl From<(&str, &History)> for BlockHistory {
@@ -33,6 +34,7 @@ impl From<(&str, &History)> for BlockHistory {
             block_id: history.id.clone(),
             parent: history.parent.iter().map(|id| id.to_string()).collect::<Vec<_>>(),
             content: history.content.clone(),
+            action: history.action.to_string(),
         }
     }
 }
