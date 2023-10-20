@@ -137,6 +137,13 @@ impl Context {
         self.storage.init_workspace(workspace_id, data).await
     }
 
+    pub async fn export_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Vec<u8>>
+    where
+        S: AsRef<str>,
+    {
+        self.storage.export_workspace(workspace_id).await
+    }
+
     pub async fn create_workspace<S>(&self, workspace_id: S) -> JwstStorageResult<Workspace>
     where
         S: AsRef<str>,

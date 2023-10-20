@@ -40,6 +40,8 @@ pub async fn get_workspace(Extension(context): Extension<Arc<Context>>, Path(wor
 /// Init a `Workspace` by id
 /// - Return 200 Ok and `Workspace`'s data if init success.
 /// - Return 304 Not Modified if `Workspace` is exists.
+/// - Return 404 Not Found if `Workspace` is not exists (failed to import, data
+///   may be corrupted).
 /// - Return 500 Internal Server Error if init failed.
 #[utoipa::path(
     post,
@@ -54,8 +56,9 @@ pub async fn get_workspace(Extension(context): Extension<Arc<Context>>, Path(wor
         content_type="application/octet-stream"
     ),
     responses(
-        (status = 200, description = "Workspace init success"),
+        (status = 200, description = "Workspace init success", body = Vec<u8>),
         (status = 304, description = "Workspace is exists"),
+        (status = 404, description = "Workspace not found (failed to import, data may be corrupted)"),
         (status = 500, description = "Failed to init a workspace")
     )
 )]
@@ -79,14 +82,23 @@ pub async fn init_workspace(
 
     if has_error {
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
-    } else if let Err(e) = context.init_workspace(workspace, data).await {
+    } else if let Err(e) = context.init_workspace(&workspace, data).await {
         if matches!(e, JwstStorageError::WorkspaceExists(_)) {
             return StatusCode::NOT_MODIFIED.into_response();
         }
         warn!("failed to init workspace: {}", e.to_string());
         StatusCode::INTERNAL_SERVER_ERROR.into_response()
     } else {
-        StatusCode::OK.into_response()
+        match context.export_workspace(workspace).await {
+            Ok(data) => data.into_response(),
+            Err(e) => {
+                if matches!(e, JwstStorageError::WorkspaceNotFound(_)) {
+                    return StatusCode::NOT_FOUND.into_response();
+                }
+                warn!("failed to init workspace: {}", e.to_string());
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            }
+        }
     }
 }
 
