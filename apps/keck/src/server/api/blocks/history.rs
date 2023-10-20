@@ -21,7 +21,7 @@ pub struct BlockHistoryQuery {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct BlockHistory {
     pub workspace_id: String,
-    pub block_id: String,
+    pub field_name: Option<String>,
     pub parent: Vec<String>,
     pub content: String,
     pub action: String,
@@ -31,7 +31,7 @@ impl From<(&str, &History)> for BlockHistory {
     fn from((workspace_id, history): (&str, &History)) -> Self {
         Self {
             workspace_id: workspace_id.into(),
-            block_id: history.id.clone(),
+            field_name: history.field_name.clone(),
             parent: history.parent.iter().map(|id| id.to_string()).collect::<Vec<_>>(),
             content: history.content.clone(),
             action: history.action.to_string(),

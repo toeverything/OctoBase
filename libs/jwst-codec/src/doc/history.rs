@@ -147,6 +147,7 @@ impl StoreHistory {
 
             histories.push(History {
                 id: item.id.to_string(),
+                field_name: item.parent_sub.clone(),
                 parent: Self::parse_path(item, &parents),
                 content: Value::from(&item.content).to_string(),
                 action: HistoryAction::Update,
@@ -163,6 +164,7 @@ impl StoreHistory {
         for item in deleted_items {
             histories.push(History {
                 id: item.id.to_string(),
+                field_name: item.parent_sub.clone(),
                 parent: Self::parse_path(&item, &parents),
                 content: Value::from(&item.content).to_string(),
                 action: HistoryAction::Delete,
@@ -258,6 +260,7 @@ impl ToString for HistoryAction {
 #[derive(Debug, PartialEq)]
 pub struct History {
     pub id: String,
+    pub field_name: Option<String>,
     pub parent: Vec<String>,
     pub content: String,
     pub action: HistoryAction,
