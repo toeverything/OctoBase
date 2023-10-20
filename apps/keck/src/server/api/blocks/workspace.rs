@@ -102,6 +102,39 @@ pub async fn init_workspace(
     }
 }
 
+/// Export a `Workspace` by id
+/// - Return 200 Ok and `Workspace`'s data if export success.
+/// - Return 404 Not Found if `Workspace` is not exists.
+/// - Return 500 Internal Server Error if export failed.
+#[utoipa::path(
+    get,
+    tag = "Workspace",
+    context_path = "/api/block",
+    path = "/{workspace}/export",
+    params(
+        ("workspace", description = "workspace id"),
+    ),
+    responses(
+        (status = 200, description = "Workspace export success", body = Vec<u8>),
+        (status = 404, description = "Workspace is not exists"),
+        (status = 500, description = "Failed to export a workspace")
+    )
+)]
+pub async fn export_workspace(Extension(context): Extension<Arc<Context>>, Path(workspace): Path<String>) -> Response {
+    info!("export_workspace: {}", workspace);
+
+    match context.export_workspace(workspace).await {
+        Ok(data) => data.into_response(),
+        Err(e) => {
+            if matches!(e, JwstStorageError::WorkspaceNotFound(_)) {
+                return StatusCode::NOT_FOUND.into_response();
+            }
+            warn!("failed to init workspace: {}", e.to_string());
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
 /// Create a `Workspace` by id
 /// - Return 200 Ok and `Workspace`'s data if init success or `Workspace` is
 ///   exists.
