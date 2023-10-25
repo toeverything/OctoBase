@@ -114,7 +114,7 @@ function EditorLoader({workspace, editor, provider}: {
         <StyledEditor>
             <div style={{width: '55%'}}>
                 {ready ? <div ref={ref} id="editor-container"/> : <div className="tip">
-                    <div>1. To collaborate with octobase, please use <code>pnpn dev:collaboration</code>.</div>
+                    <div>1. To collaborate with octobase, please use <code>pnpm dev:collaboration</code>.</div>
                     <div>2. BlockSuite Editor will mount automatically after keck server is connected.</div>
                 </div>}
             </div>
