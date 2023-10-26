@@ -5,6 +5,8 @@ use thiserror::Error;
 pub enum JwstStorageError {
     #[error("failed to init sync thread")]
     SyncThread(std::io::Error),
+    #[error("failed to execute blocking thread")]
+    BlockingThread(tokio::task::JoinError),
     #[error("failed to create data directory")]
     CreateDataFolder(std::io::Error),
     #[error("db manipulate error: {0}")]
