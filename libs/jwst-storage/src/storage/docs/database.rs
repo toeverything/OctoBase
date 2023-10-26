@@ -280,11 +280,14 @@ impl DocDBStorage {
 #[async_trait]
 impl DocStorage<JwstStorageError> for DocDBStorage {
     async fn detect_workspace(&self, workspace_id: &str) -> JwstStorageResult<bool> {
+        if self.workspaces.read().await.contains_key(workspace_id) {
+            return Ok(true);
+        }
+
         trace!("check workspace exists: get lock");
         let _lock = self.bucket.read().await;
 
-        Ok(self.workspaces.read().await.contains_key(workspace_id)
-            || Self::workspace_count(&self.pool, workspace_id).await.map(|c| c > 0)?)
+        Ok(Self::workspace_count(&self.pool, workspace_id).await.map(|c| c > 0)?)
     }
 
     async fn get_or_create_workspace(&self, workspace_id: String) -> JwstStorageResult<Workspace> {
@@ -319,11 +322,11 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
     }
 
     async fn delete_workspace(&self, workspace_id: &str) -> JwstStorageResult<()> {
-        debug!("delete workspace: get lock");
-        let _lock = self.bucket.write().await;
-
         debug!("delete workspace cache: {workspace_id}");
         self.workspaces.write().await.remove(workspace_id);
+
+        debug!("delete workspace: get lock");
+        let _lock = self.bucket.write().await;
         DocDBStorage::delete_workspace(&self.pool, workspace_id).await?;
 
         Ok(())
@@ -361,13 +364,12 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
     }
 
     async fn update_doc_with_guid(&self, workspace_id: String, data: &[u8]) -> JwstStorageResult<()> {
-        debug!("write_update: get lock");
-        let _lock = self.bucket.write().await;
-
         trace!("write_update: {:?}", data);
         let mut decoder = RawDecoder::new(data.to_vec());
         let guid = decoder.read_var_string()?;
 
+        debug!("write_update: get lock");
+        let _lock = self.bucket.write().await;
         self.update(&self.pool, &workspace_id, &guid, decoder.drain()).await?;
 
         Ok(())
