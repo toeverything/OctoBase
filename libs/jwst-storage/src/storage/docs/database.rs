@@ -3,6 +3,7 @@ use std::collections::hash_map::Entry;
 use jwst_codec::{encode_update_as_message, CrdtReader, Doc, DocOptions, RawDecoder, StateVector};
 use jwst_core::{DocStorage, Workspace};
 use sea_orm::Condition;
+use tokio::task::spawn_blocking;
 
 use super::{entities::prelude::*, *};
 use crate::types::JwstStorageResult;
@@ -258,7 +259,9 @@ impl DocDBStorage {
 
             let can_merge = all_data.len() > 1;
 
-            let doc = utils::migrate_update(all_data, doc)?;
+            let doc = spawn_blocking(|| utils::migrate_update(all_data, doc))
+                .await
+                .map_err(JwstStorageError::BlockingThread)??;
 
             if can_merge {
                 let update = doc.encode_state_as_update_v1(&StateVector::default())?;
@@ -340,7 +343,9 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
             return Ok(None);
         }
 
-        let doc = utils::migrate_update(records, Doc::default())?;
+        let doc = spawn_blocking(|| utils::migrate_update(records, Doc::default()))
+            .await
+            .map_err(JwstStorageError::BlockingThread)??;
 
         Ok(Some(doc))
     }
