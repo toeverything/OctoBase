@@ -223,7 +223,6 @@ jobs:
 
     jwst:
         runs-on: ubuntu-latest
-        environment: development
         permissions:
             contents: read
             packages: write
@@ -334,7 +333,6 @@ jobs:
 
     lint:
         runs-on: ubuntu-latest
-        environment: development
         permissions:
             contents: read
             security-events: write
