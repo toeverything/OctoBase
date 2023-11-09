@@ -1,4 +1,5 @@
 use jwst_core::{Base64Engine, URL_SAFE_ENGINE};
+use sea_orm::FromQueryResult;
 use sha2::{Digest, Sha256};
 
 use super::*;
@@ -40,10 +41,16 @@ impl BlobDBStorage {
     }
 
     async fn keys(&self, workspace: &str) -> Result<Vec<String>, DbErr> {
+        #[derive(FromQueryResult)]
+        struct BlobHash {
+            hash: String,
+        }
+
         Blobs::find()
             .filter(BlobColumn::WorkspaceId.eq(workspace))
             .select_only()
             .column(BlobColumn::Hash)
+            .into_model::<BlobHash>()
             .all(&self.pool)
             .await
             .map(|r| r.into_iter().map(|f| f.hash).collect())
