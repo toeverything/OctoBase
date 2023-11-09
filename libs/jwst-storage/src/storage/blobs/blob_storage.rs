@@ -42,6 +42,7 @@ impl BlobDBStorage {
     async fn keys(&self, workspace: &str) -> Result<Vec<String>, DbErr> {
         Blobs::find()
             .filter(BlobColumn::WorkspaceId.eq(workspace))
+            .select_only()
             .column(BlobColumn::Hash)
             .all(&self.pool)
             .await
