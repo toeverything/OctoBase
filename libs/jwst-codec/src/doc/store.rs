@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
+    collections::{hash_map::Entry, VecDeque},
     mem,
     ops::{Deref, Range},
 };
@@ -16,7 +16,7 @@ unsafe impl Sync for DocStore {}
 #[derive(Default, Debug)]
 pub(crate) struct DocStore {
     client: Client,
-    pub items: HashMap<Client, VecDeque<Node>>,
+    pub items: ClientMap<VecDeque<Node>>,
     pub delete_set: DeleteSet,
 
     // following fields are only used in memory
@@ -101,7 +101,7 @@ impl DocStore {
         Self::items_as_state_vector(&self.items)
     }
 
-    fn items_as_state_vector(items: &HashMap<Client, VecDeque<Node>>) -> StateVector {
+    fn items_as_state_vector(items: &ClientMap<VecDeque<Node>>) -> StateVector {
         let mut state = StateVector::default();
         for (client, structs) in items.iter() {
             if let Some(last_struct) = structs.back() {
@@ -600,17 +600,25 @@ impl DocStore {
     }
 
     pub fn delete_item(&mut self, item: &Item, parent: Option<&mut YType>) {
-        Self::delete_item_inner(&mut self.delete_set, item, parent);
+        let mut pending_delete_sets = HashMap::new();
+        Self::delete_item_inner(&mut pending_delete_sets, item, parent);
+        for (client, ranges) in pending_delete_sets {
+            self.delete_set.batch_push(client, ranges);
+        }
     }
 
-    fn delete_item_inner(delete_set: &mut DeleteSet, item: &Item, parent: Option<&mut YType>) {
+    fn delete_item_inner(delete_set: &mut HashMap<u64, Vec<Range<u64>>>, item: &Item, parent: Option<&mut YType>) {
         // 1. mark item as deleted, if item is gced, return
         if !item.delete() {
             return;
         }
 
         // 2. add it to delete set
-        delete_set.add(item.id.client, item.id.clock, item.len());
+        let range = item.id.clock..item.id.clock + item.len();
+        delete_set
+            .entry(item.id.client)
+            .and_modify(|v| v.push(range.clone()))
+            .or_insert(vec![range]);
 
         // 3. adjust parent length
         if item.parent_sub.is_none() && item.countable() {
@@ -680,6 +688,7 @@ impl DocStore {
                     }
                 };
 
+                let mut pending_delete_sets = HashMap::new();
                 while idx < items.len() {
                     let node = items[idx].clone();
                     let id = node.id();
@@ -694,7 +703,7 @@ impl DocStore {
                                     DocStore::split_node_at(items, idx, end - id.clock)?;
                                 }
 
-                                Self::delete_item_inner(&mut self.delete_set, item, None);
+                                Self::delete_item_inner(&mut pending_delete_sets, item, None);
                             }
                         }
                     } else {
@@ -702,6 +711,9 @@ impl DocStore {
                     }
 
                     idx += 1;
+                }
+                for (client, ranges) in pending_delete_sets {
+                    self.delete_set.batch_push(client, ranges);
                 }
             }
         }
@@ -746,13 +758,10 @@ impl DocStore {
         Ok(update)
     }
 
-    fn diff_structs(
-        map: &HashMap<Client, VecDeque<Node>>,
-        sv: &StateVector,
-    ) -> JwstCodecResult<HashMap<Client, VecDeque<Node>>> {
+    fn diff_structs(map: &ClientMap<VecDeque<Node>>, sv: &StateVector) -> JwstCodecResult<ClientMap<VecDeque<Node>>> {
         let local_state_vector = Self::items_as_state_vector(map);
         let diff = Self::diff_state_vectors(&local_state_vector, sv);
-        let mut update_structs: HashMap<u64, VecDeque<Node>> = HashMap::new();
+        let mut update_structs = ClientMap::new();
 
         for (client, clock) in diff {
             // We have made sure that the client is in the local state vector in
@@ -787,14 +796,20 @@ impl DocStore {
         Ok(update_structs)
     }
 
-    fn generate_delete_set(refs: &HashMap<Client, VecDeque<Node>>) -> DeleteSet {
+    fn generate_delete_set(refs: &ClientMap<VecDeque<Node>>) -> DeleteSet {
         let mut delete_set = DeleteSet::default();
 
         for (client, nodes) in refs {
-            for node in nodes {
-                if node.deleted() {
-                    delete_set.add(*client, node.id().clock, node.len());
-                }
+            let ranges = nodes
+                .iter()
+                .filter(|n| n.deleted())
+                .map(|n| {
+                    let clock = n.id().clock;
+                    clock..clock + n.len()
+                })
+                .collect::<Vec<_>>();
+            if ranges.len() > 0 {
+                delete_set.batch_push(*client, ranges);
             }
         }
 

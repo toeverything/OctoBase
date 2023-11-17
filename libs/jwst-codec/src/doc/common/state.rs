@@ -1,12 +1,12 @@
-use std::{
-    collections::HashMap,
-    ops::{Deref, DerefMut},
+use std::ops::{Deref, DerefMut};
+
+use super::{
+    Client, ClientMap, Clock, CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, HashMapExt, Id, JwstCodecResult,
+    HASHMAP_SAFE_CAPACITY,
 };
 
-use crate::{Client, Clock, CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, Id, JwstCodecResult, HASHMAP_SAFE_CAPACITY};
-
 #[derive(Default, Debug, PartialEq, Clone)]
-pub struct StateVector(HashMap<Client, Clock>);
+pub struct StateVector(ClientMap<Clock>);
 
 impl StateVector {
     pub fn set_max(&mut self, client: Client, clock: Clock) {
@@ -49,7 +49,7 @@ impl StateVector {
 }
 
 impl Deref for StateVector {
-    type Target = HashMap<Client, Clock>;
+    type Target = ClientMap<Clock>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -64,7 +64,7 @@ impl DerefMut for StateVector {
 
 impl<const N: usize> From<[(Client, Clock); N]> for StateVector {
     fn from(value: [(Client, Clock); N]) -> Self {
-        let mut map = HashMap::with_capacity(N);
+        let mut map = ClientMap::with_capacity(N);
 
         for (client, clock) in value {
             map.insert(client, clock);
@@ -79,7 +79,7 @@ impl<R: CrdtReader> CrdtRead<R> for StateVector {
         let len = decoder.read_var_u64()? as usize;
 
         // See: [HASHMAP_SAFE_CAPACITY]
-        let mut map = HashMap::with_capacity(len.min(HASHMAP_SAFE_CAPACITY));
+        let mut map = ClientMap::with_capacity(len.min(HASHMAP_SAFE_CAPACITY));
         for _ in 0..len {
             let client = decoder.read_var_u64()?;
             let clock = decoder.read_var_u64()?;

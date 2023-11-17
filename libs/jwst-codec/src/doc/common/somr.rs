@@ -10,6 +10,7 @@ use std::{
 
 use crate::sync::Ordering;
 const DANGLING_PTR: usize = usize::MAX;
+#[inline]
 fn is_dangling<T>(ptr: NonNull<T>) -> bool {
     ptr.as_ptr() as usize == DANGLING_PTR
 }

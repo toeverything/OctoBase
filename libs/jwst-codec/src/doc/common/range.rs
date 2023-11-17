@@ -1,9 +1,9 @@
-use std::{mem, ops::Range};
+use std::{collections::VecDeque, mem, ops::Range};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum OrderRange {
     Range(Range<u64>),
-    Fragment(Vec<Range<u64>>),
+    Fragment(VecDeque<Range<u64>>),
 }
 
 impl Default for OrderRange {
@@ -20,10 +20,17 @@ impl From<Range<u64>> for OrderRange {
 
 impl From<Vec<Range<u64>>> for OrderRange {
     fn from(value: Vec<Range<u64>>) -> Self {
+        Self::Fragment(value.into_iter().collect())
+    }
+}
+
+impl From<VecDeque<Range<u64>>> for OrderRange {
+    fn from(value: VecDeque<Range<u64>>) -> Self {
         Self::Fragment(value)
     }
 }
 
+#[inline]
 fn is_continuous_range(lhs: &Range<u64>, rhs: &Range<u64>) -> bool {
     lhs.end >= rhs.start && lhs.start <= rhs.end
 }
@@ -116,9 +123,9 @@ impl OrderRange {
 
     pub fn extends<T>(&mut self, list: T)
     where
-        T: Into<Vec<Range<u64>>>,
+        T: Into<VecDeque<Range<u64>>>,
     {
-        let list: Vec<_> = list.into();
+        let list: VecDeque<_> = list.into();
         if list.is_empty() {
             return;
         }
@@ -156,9 +163,9 @@ impl OrderRange {
                     r.start = r.start.min(range.start);
                 } else {
                     *self = OrderRange::Fragment(if r.start < range.start {
-                        vec![r.clone(), range]
+                        VecDeque::from([r.clone(), range])
                     } else {
-                        vec![range, r.clone()]
+                        VecDeque::from([range, r.clone()])
                     });
                 }
             }
@@ -201,16 +208,16 @@ impl OrderRange {
                     // merge intersected range
                     OrderRange::Range(a.start.min(b.start)..a.end.max(b.end))
                 } else {
-                    OrderRange::Fragment(vec![a, b])
+                    OrderRange::Fragment(VecDeque::from([a, b]))
                 }
             }
             (OrderRange::Fragment(mut a), OrderRange::Range(b)) => {
-                a.push(b);
+                a.push_back(b);
                 OrderRange::Fragment(a)
             }
             (OrderRange::Range(a), OrderRange::Fragment(b)) => {
                 let mut v = b;
-                v.push(a);
+                v.push_back(a);
                 OrderRange::Fragment(v)
             }
             (OrderRange::Fragment(mut a), OrderRange::Fragment(mut b)) => {
@@ -232,31 +239,33 @@ impl OrderRange {
                 return;
             }
 
-            let mut cur_idx = 0;
-            let mut next_idx = 1;
-            while next_idx < ranges.len() {
-                let cur = &ranges[cur_idx];
-                let next = &ranges[next_idx];
-                if is_continuous_range(cur, next) {
-                    ranges[cur_idx] = cur.start.min(next.start)..cur.end.max(next.end);
-                    ranges[next_idx] = 0..0;
+            let mut changed = false;
+            let mut merged = Vec::with_capacity(ranges.len());
+            let mut cur = ranges[0].clone();
+
+            for next in ranges.iter().skip(1) {
+                if is_continuous_range(&cur, next) {
+                    cur.start = cur.start.min(next.start);
+                    cur.end = cur.end.max(next.end);
+                    changed = true;
                 } else {
-                    cur_idx = next_idx;
+                    merged.push(cur);
+                    cur = next.clone();
                 }
-
-                next_idx += 1;
             }
+            merged.push(cur);
 
-            ranges.retain(|r| !r.is_empty());
-            if ranges.len() == 1 {
-                *self = OrderRange::Range(ranges[0].clone());
+            if merged.len() == 1 {
+                *self = OrderRange::Range(merged[0].clone());
+            } else if changed {
+                mem::swap(ranges, &mut merged.into_iter().collect());
             }
         }
     }
 
     fn sort(&mut self) {
         if let OrderRange::Fragment(ranges) = self {
-            ranges.sort_by(|lhs, rhs| lhs.start.cmp(&rhs.start));
+            ranges.make_contiguous().sort_by(|lhs, rhs| lhs.start.cmp(&rhs.start));
         }
     }
 
@@ -266,7 +275,7 @@ impl OrderRange {
         } else {
             match self {
                 OrderRange::Range(range) => Some(mem::replace(range, 0..0)),
-                OrderRange::Fragment(list) => Some(list.remove(0)),
+                OrderRange::Fragment(list) => list.pop_front(),
             }
         }
     }
@@ -324,11 +333,11 @@ mod tests {
 
         // turn to fragment
         range.push(20..30);
-        assert_eq!(range, OrderRange::Fragment(vec![(0..15), (20..30)]));
+        assert_eq!(range, OrderRange::from(vec![(0..15), (20..30)]));
 
         // auto merge
         range.push(15..16);
-        assert_eq!(range, OrderRange::Fragment(vec![(0..16), (20..30)]));
+        assert_eq!(range, OrderRange::from(vec![(0..16), (20..30)]));
 
         // squash
         range.push(16..20);
@@ -348,19 +357,19 @@ mod tests {
 
     #[test]
     fn test_ranges_squash() {
-        let mut range = OrderRange::Fragment(vec![(0..10), (20..30)]);
+        let mut range = OrderRange::from(vec![(0..10), (20..30)]);
 
         // do nothing
         range.squash();
-        assert_eq!(range, OrderRange::Fragment(vec![(0..10), (20..30)]));
+        assert_eq!(range, OrderRange::from(vec![(0..10), (20..30)]));
 
         // merged into list
-        range = OrderRange::Fragment(vec![(0..10), (10..20), (30..40)]);
+        range = OrderRange::from(vec![(0..10), (10..20), (30..40)]);
         range.squash();
-        assert_eq!(range, OrderRange::Fragment(vec![(0..20), (30..40)]));
+        assert_eq!(range, OrderRange::from(vec![(0..20), (30..40)]));
 
         // turn to range
-        range = OrderRange::Fragment(vec![(0..10), (10..20), (20..30)]);
+        range = OrderRange::from(vec![(0..10), (10..20), (20..30)]);
         range.squash();
         assert_eq!(range, OrderRange::Range(0..30));
     }
@@ -369,7 +378,7 @@ mod tests {
     fn test_range_sort() {
         let mut range: OrderRange = vec![(20..30), (0..10), (10..50)].into();
         range.sort();
-        assert_eq!(range, OrderRange::Fragment(vec![(0..10), (10..50), (20..30)]));
+        assert_eq!(range, OrderRange::from(vec![(0..10), (10..50), (20..30)]));
     }
 
     #[test]
@@ -430,11 +439,11 @@ mod tests {
     fn test_range_merge() {
         let mut range: OrderRange = (0..10).into();
         range.merge((20..30).into());
-        assert_eq!(range, OrderRange::Fragment(vec![(0..10), (20..30)]));
+        assert_eq!(range, OrderRange::from(vec![(0..10), (20..30)]));
 
         let mut range: OrderRange = (0..10).into();
         range.merge(vec![(10..15), (20..30)].into());
-        assert_eq!(range, OrderRange::Fragment(vec![(0..15), (20..30)]));
+        assert_eq!(range, OrderRange::from(vec![(0..15), (20..30)]));
 
         let mut range: OrderRange = vec![(0..10), (20..30)].into();
         range.merge((10..20).into());

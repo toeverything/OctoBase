@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use jwst_codec::{Any, Array, Map};
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +20,7 @@ impl From<Map> for WorkspaceMetadata {
 
 impl From<WorkspaceMetadata> for Any {
     fn from(val: WorkspaceMetadata) -> Self {
-        let mut map = HashMap::new();
+        let mut map = AHashMap::new();
         if let Some(name) = val.name {
             map.insert(constants::metadata::NAME.to_owned(), name.into());
         }
