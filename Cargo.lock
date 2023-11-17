@@ -2285,6 +2285,7 @@ dependencies = [
 name = "jwst-codec"
 version = "0.1.0"
 dependencies = [
+ "ahash 0.8.6",
  "arbitrary",
  "assert-json-diff",
  "bitvec",

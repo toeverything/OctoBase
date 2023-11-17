@@ -7,11 +7,11 @@ mod sync;
 pub use codec::*;
 pub use doc::{
     decode_maybe_update_with_guid, decode_update_with_guid, encode_awareness_as_message, encode_update_as_message,
-    encode_update_with_guid, merge_updates_v1, Any, Array, Awareness, AwarenessEvent, Client, Clock, CrdtRead,
-    CrdtReader, CrdtWrite, CrdtWriter, Doc, DocOptions, History, HistoryOptions, Id, Map, RawDecoder, RawEncoder,
-    StateVector, StoreHistory, Text, Update, Value,
+    encode_update_with_guid, merge_updates_v1, Any, Array, Awareness, AwarenessEvent, Client, ClientMap, Clock,
+    CrdtRead, CrdtReader, CrdtWrite, CrdtWriter, Doc, DocOptions, HashMap as AHashMap, HashMapExt, History,
+    HistoryOptions, Id, Map, RawDecoder, RawEncoder, StateVector, StoreHistory, Text, Update, Value,
 };
-pub(crate) use doc::{Content, Item, HASHMAP_SAFE_CAPACITY};
+pub(crate) use doc::{Content, Item};
 pub use jwst_logger::{debug, error, info, trace, warn};
 use nom::IResult;
 pub use protocol::{

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use super::{history::StoreHistory, publisher::DocPublisher, store::StoreRef, *};
 use crate::sync::{Arc, RwLock};
 
@@ -35,7 +33,7 @@ pub struct DocOptions {
 
 impl Default for DocOptions {
     fn default() -> Self {
-        if cfg!(test) {
+        if cfg!(any(test, feature = "bench")) {
             Self {
                 client_id: 1,
                 guid: "test".into(),
@@ -96,7 +94,7 @@ impl DocOptions {
 
 impl From<DocOptions> for Any {
     fn from(value: DocOptions) -> Self {
-        Any::Object(HashMap::from([
+        Any::Object(HashMap::from_iter([
             ("gc".into(), value.gc.into()),
             ("guid".into(), value.guid.into()),
         ]))

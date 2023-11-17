@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    sync::Arc,
-};
+use std::{collections::VecDeque, sync::Arc};
 
 use super::{store::StoreRef, *};
 use crate::sync::RwLock;
@@ -72,8 +69,8 @@ impl StoreHistory {
 
     pub fn parse_delete_sets(
         &self,
-        old_sets: &HashMap<Client, OrderRange>,
-        new_sets: &HashMap<Client, OrderRange>,
+        old_sets: &ClientMap<OrderRange>,
+        new_sets: &ClientMap<OrderRange>,
     ) -> Vec<History> {
         let store = self.store.read().unwrap();
         let deleted_items = new_sets

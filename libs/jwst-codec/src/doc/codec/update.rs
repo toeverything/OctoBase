@@ -1,20 +1,17 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    ops::Range,
-};
+use std::{collections::VecDeque, ops::Range};
 
 use super::*;
 use crate::doc::StateVector;
 
 #[derive(Debug, Default, Clone)]
 pub struct Update {
-    pub(crate) structs: HashMap<u64, VecDeque<Node>>,
+    pub(crate) structs: ClientMap<VecDeque<Node>>,
     pub(crate) delete_set: DeleteSet,
 
     /// all unapplicable items that we can't integrate into doc
     /// any item with inconsistent id clock or missing dependency will be put
     /// here
-    pub(crate) pending_structs: HashMap<Client, VecDeque<Node>>,
+    pub(crate) pending_structs: ClientMap<VecDeque<Node>>,
     /// missing state vector after applying updates
     pub(crate) missing_state: StateVector,
     /// all unapplicable delete set
@@ -26,7 +23,7 @@ impl<R: CrdtReader> CrdtRead<R> for Update {
         let num_of_clients = decoder.read_var_u64()? as usize;
 
         // See: [HASHMAP_SAFE_CAPACITY]
-        let mut map = HashMap::with_capacity(num_of_clients.min(HASHMAP_SAFE_CAPACITY));
+        let mut map = ClientMap::with_capacity(num_of_clients.min(HASHMAP_SAFE_CAPACITY));
         for _ in 0..num_of_clients {
             let num_of_structs = decoder.read_var_u64()? as usize;
             let client = decoder.read_var_u64()?;
@@ -531,7 +528,7 @@ mod tests {
     fn test_update_iterator() {
         loom_model!({
             let mut update = Update {
-                structs: HashMap::from([
+                structs: ClientMap::from_iter([
                     (
                         0,
                         VecDeque::from([
@@ -571,7 +568,7 @@ mod tests {
         loom_model!({
             let mut update = Update {
                 // an item with higher sequence id than local state
-                structs: HashMap::from([(0, VecDeque::from([struct_item((0, 4), 1)]))]),
+                structs: ClientMap::from_iter([(0, VecDeque::from([struct_item((0, 4), 1)]))]),
                 ..Update::default()
             };
 
@@ -623,7 +620,7 @@ mod tests {
     fn should_add_skip_when_clock_not_continuous() {
         loom_model!({
             let update = Update {
-                structs: HashMap::from([(
+                structs: ClientMap::from_iter([(
                     0,
                     VecDeque::from([
                         struct_item((0, 0), 1),
@@ -655,7 +652,7 @@ mod tests {
     fn merged_update_should_not_be_released_in_next_turn() {
         loom_model!({
             let update = Update {
-                structs: HashMap::from([(
+                structs: ClientMap::from_iter([(
                     0,
                     VecDeque::from([
                         struct_item((0, 0), 1),
@@ -670,7 +667,7 @@ mod tests {
             let merged = Update::merge([update]);
 
             let update2 = Update {
-                structs: HashMap::from([(
+                structs: ClientMap::from_iter([(
                     0,
                     VecDeque::from([struct_item((0, 30), 1), Node::new_gc((0, 32).into(), 1)]),
                 )]),

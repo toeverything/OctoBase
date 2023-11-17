@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt, ops::RangeInclusive};
+use std::{fmt, ops::RangeInclusive};
 
 use ordered_float::OrderedFloat;
 

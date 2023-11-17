@@ -5,10 +5,7 @@ mod text;
 mod value;
 mod xml;
 
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    sync::Weak,
-};
+use std::{collections::hash_map::Entry, sync::Weak};
 
 pub use array::*;
 use list::*;

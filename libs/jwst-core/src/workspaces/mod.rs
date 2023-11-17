@@ -7,4 +7,4 @@ mod workspace;
 pub use metadata::{Pages, WorkspaceMetadata};
 pub use workspace::Workspace;
 
-use super::{constants, info, trace, warn, JwstResult, Space};
+use super::{constants, info, trace, warn, AHashMap, HashMapExt, JwstResult, Space};

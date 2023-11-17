@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{hash_map::Entry, VecDeque},
     ops::{Deref, DerefMut, Range},
 };
 
@@ -28,10 +28,10 @@ impl<R: CrdtReader> CrdtRead<R> for OrderRange {
         if num_of_deletes == 1 {
             Ok(OrderRange::Range(Range::<u64>::read(decoder)?))
         } else {
-            let mut deletes = Vec::with_capacity(num_of_deletes);
+            let mut deletes = VecDeque::with_capacity(num_of_deletes);
 
             for _ in 0..num_of_deletes {
-                deletes.push(Range::<u64>::read(decoder)?);
+                deletes.push_back(Range::<u64>::read(decoder)?);
             }
 
             Ok(OrderRange::Fragment(deletes))
@@ -59,10 +59,10 @@ impl<W: CrdtWriter> CrdtWrite<W> for OrderRange {
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct DeleteSet(pub HashMap<Client, OrderRange>);
+pub struct DeleteSet(pub ClientMap<OrderRange>);
 
 impl Deref for DeleteSet {
-    type Target = HashMap<Client, OrderRange>;
+    type Target = ClientMap<OrderRange>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -71,7 +71,7 @@ impl Deref for DeleteSet {
 
 impl<const N: usize> From<[(Client, Vec<Range<u64>>); N]> for DeleteSet {
     fn from(value: [(Client, Vec<Range<u64>>); N]) -> Self {
-        let mut map = HashMap::with_capacity(N);
+        let mut map = ClientMap::with_capacity(N);
         for (client, ranges) in value {
             map.insert(client, ranges.into());
         }
@@ -106,7 +106,6 @@ impl DeleteSet {
         }
     }
 
-    #[allow(dead_code)]
     pub fn batch_push(&mut self, client: Client, ranges: Vec<Range<u64>>) {
         match self.0.entry(client) {
             Entry::Occupied(e) => {
@@ -136,7 +135,7 @@ impl<R: CrdtReader> CrdtRead<R> for DeleteSet {
     fn read(decoder: &mut R) -> JwstCodecResult<Self> {
         let num_of_clients = decoder.read_var_u64()? as usize;
         // See: [HASHMAP_SAFE_CAPACITY]
-        let mut map = HashMap::with_capacity(num_of_clients.min(HASHMAP_SAFE_CAPACITY));
+        let mut map = ClientMap::with_capacity(num_of_clients.min(HASHMAP_SAFE_CAPACITY));
 
         for _ in 0..num_of_clients {
             let client = decoder.read_var_u64()?;
@@ -188,7 +187,7 @@ mod tests {
         {
             let mut delete_set = delete_set;
             delete_set.add(1, 5, 10);
-            assert_eq!(delete_set.get(&1), Some(&OrderRange::Fragment(vec![0..15, 20..30])));
+            assert_eq!(delete_set.get(&1), Some(&OrderRange::from(vec![0..15, 20..30])));
         }
     }
 
@@ -210,7 +209,7 @@ mod tests {
         {
             let mut delete_set = delete_set;
             delete_set.batch_push(1, vec![40..50, 10..20]);
-            assert_eq!(delete_set.get(&1), Some(&OrderRange::Fragment(vec![0..30, 40..50])));
+            assert_eq!(delete_set.get(&1), Some(&OrderRange::from(vec![0..30, 40..50])));
         }
     }
 
