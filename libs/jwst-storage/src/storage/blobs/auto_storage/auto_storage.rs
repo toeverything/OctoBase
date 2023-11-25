@@ -29,20 +29,31 @@ impl BlobAutoStorage {
 
     async fn exists(&self, table: &str, hash: &str, params: &str) -> JwstBlobResult<bool> {
         Ok(OptimizedBlobs::find_by_id((table.into(), hash.into(), params.into()))
+            .filter(OptimizedBlobColumn::DeletedAt.is_null())
             .count(&self.pool)
             .await
             .map(|c| c > 0)?)
     }
 
-    async fn insert(&self, table: &str, hash: &str, params: &str, blob: &[u8]) -> JwstBlobResult<()> {
-        if !self.exists(table, hash, params).await? {
+    async fn insert(&self, workspace: &str, hash: &str, params: &str, blob: &[u8]) -> JwstBlobResult<()> {
+        if let Some(model) = OptimizedBlobs::find_by_id((workspace.into(), hash.into(), params.into()))
+            .one(&self.pool)
+            .await?
+        {
+            if model.deleted_at.is_some() {
+                let mut model: OptimizedBlobActiveModel = model.into();
+                model.deleted_at = Set(None);
+                model.update(&self.pool).await?;
+            }
+        } else {
             OptimizedBlobs::insert(OptimizedBlobActiveModel {
-                workspace_id: Set(table.into()),
+                workspace_id: Set(workspace.into()),
                 hash: Set(hash.into()),
                 blob: Set(blob.into()),
                 length: Set(blob.len().try_into().unwrap()),
                 params: Set(params.into()),
                 created_at: Set(Utc::now().into()),
+                deleted_at: Set(None),
             })
             .exec(&self.pool)
             .await?;
@@ -53,6 +64,7 @@ impl BlobAutoStorage {
 
     async fn get(&self, table: &str, hash: &str, params: &str) -> JwstBlobResult<OptimizedBlobModel> {
         OptimizedBlobs::find_by_id((table.into(), hash.into(), params.into()))
+            .filter(OptimizedBlobColumn::DeletedAt.is_null())
             .one(&self.pool)
             .await
             .map_err(|e| e.into())
@@ -141,16 +153,16 @@ impl BlobAutoStorage {
         }
     }
 
-    async fn delete(&self, table: &str, hash: &str) -> JwstBlobResult<u64> {
-        Ok(OptimizedBlobs::delete_many()
-            .filter(
-                OptimizedBlobColumn::WorkspaceId
-                    .eq(table)
-                    .and(OptimizedBlobColumn::Hash.eq(hash)),
-            )
+    async fn delete(&self, workspace: &str, hash: &str) -> JwstBlobResult<u64> {
+        OptimizedBlobs::update_many()
+            .col_expr(OptimizedBlobColumn::DeletedAt, Expr::value(Utc::now()))
+            .filter(OptimizedBlobColumn::WorkspaceId.eq(workspace))
+            .filter(OptimizedBlobColumn::Hash.eq(hash))
+            .filter(OptimizedBlobColumn::DeletedAt.is_null())
             .exec(&self.pool)
             .await
-            .map(|r| r.rows_affected)?)
+            .map(|r| r.rows_affected)
+            .map_err(|e| e.into())
     }
 
     async fn drop(&self, table: &str) -> Result<(), DbErr> {

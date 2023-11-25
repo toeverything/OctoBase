@@ -10,6 +10,8 @@ pub enum Blobs {
     Length,
     #[iden = "created_at"]
     Timestamp,
+    #[iden = "deleted_at"]
+    DeletedAt,
 }
 
 #[derive(Iden)]
@@ -36,6 +38,8 @@ pub enum OptimizedBlobs {
     #[iden = "created_at"]
     Timestamp,
     Params,
+    #[iden = "deleted_at"]
+    DeletedAt,
 }
 
 #[derive(Iden)]
