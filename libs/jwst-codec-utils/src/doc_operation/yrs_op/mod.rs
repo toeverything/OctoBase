@@ -88,7 +88,7 @@ pub fn yrs_create_nest_type_from_root(doc: &yrs::Doc, target_type: CRDTNestType,
     }
 }
 
-pub fn gen_nest_type_from_root(doc: &mut Doc, crdt_param: &CRDTParam) -> Option<YrsNestType> {
+pub fn gen_nest_type_from_root(doc: &Doc, crdt_param: &CRDTParam) -> Option<YrsNestType> {
     match crdt_param.new_nest_type {
         CRDTNestType::Array => Some(yrs_create_nest_type_from_root(
             doc,
@@ -124,7 +124,7 @@ pub fn gen_nest_type_from_root(doc: &mut Doc, crdt_param: &CRDTParam) -> Option<
 }
 
 pub fn gen_nest_type_from_nest_type(
-    doc: &mut Doc,
+    doc: &Doc,
     crdt_param: CRDTParam,
     nest_type: &mut YrsNestType,
 ) -> Option<YrsNestType> {

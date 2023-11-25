@@ -80,6 +80,7 @@ impl BlobDBStorage {
             .select_only()
             .column_as(BlobColumn::Length, "size")
             .column_as(BlobColumn::CreatedAt, "created_at")
+            .filter(BlobColumn::DeletedAt.is_null())
             .into_model::<InternalBlobMetadata>()
             .one(&self.pool)
             .await
@@ -139,6 +140,7 @@ impl BlobDBStorage {
             .col_expr(BlobColumn::DeletedAt, Expr::value(Utc::now()))
             .filter(BlobColumn::WorkspaceId.eq(workspace))
             .filter(BlobColumn::Hash.eq(hash))
+            .filter(BlobColumn::DeletedAt.is_null())
             .exec(&self.pool)
             .await
             .map(|r| r.rows_affected == 1)
