@@ -260,7 +260,7 @@ mod tests {
                 (doc.client_id(), trx.encode_update_v1().unwrap())
             };
 
-            let mut decoder = RawDecoder::new(buffer);
+            let mut decoder = RawDecoder::new(&buffer);
             let update = Update::read(&mut decoder).unwrap();
 
             let mut doc = Doc::with_options(options.clone());

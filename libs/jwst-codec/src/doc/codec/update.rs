@@ -87,11 +87,11 @@ impl<W: CrdtWriter> CrdtWrite<W> for Update {
 
 impl Update {
     // decode from ydoc v1
-    pub fn from_ybinary1(buffer: Vec<u8>) -> JwstCodecResult<Update> {
-        Update::read(&mut RawDecoder::new(buffer))
+    pub fn decode_v1<T: AsRef<[u8]>>(buffer: T) -> JwstCodecResult<Update> {
+        Update::read(&mut RawDecoder::new(buffer.as_ref()))
     }
 
-    pub fn into_ybinary1(self) -> JwstCodecResult<Vec<u8>> {
+    pub fn encode_v1(&self) -> JwstCodecResult<Vec<u8>> {
         let mut encoder = RawEncoder::default();
         self.write(&mut encoder)?;
         Ok(encoder.into_inner())
@@ -455,7 +455,7 @@ mod tests {
     }
 
     fn parse_doc_update(input: Vec<u8>) -> JwstCodecResult<Update> {
-        Update::from_ybinary1(input)
+        Update::decode_v1(input)
     }
 
     #[test]

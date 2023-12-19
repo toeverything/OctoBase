@@ -284,8 +284,9 @@ mod tests {
         let mut writer = RawEncoder::default();
         writer.write_u8(content.get_info())?;
         content.write(&mut writer)?;
+        let update = writer.into_inner();
 
-        let mut reader = RawDecoder::new(writer.into_inner());
+        let mut reader = RawDecoder::new(&update);
         let tag_type = reader.read_u8()?;
         assert_eq!(Content::read(&mut reader, tag_type)?, *content);
 

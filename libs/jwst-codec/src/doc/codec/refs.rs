@@ -431,7 +431,8 @@ mod tests {
                 let mut encoder = RawEncoder::default();
                 info.write(&mut encoder).unwrap();
 
-                let mut decoder = RawDecoder::new(encoder.into_inner());
+                let update = encoder.into_inner();
+                let mut decoder = RawDecoder::new(&update);
                 let decoded = Node::read(&mut decoder, info.id()).unwrap();
 
                 assert_eq!(info, decoded);
@@ -455,7 +456,7 @@ mod tests {
         info.write(&mut encoder)?;
 
         let ret = encoder.into_inner();
-        let mut decoder = RawDecoder::new(ret);
+        let mut decoder = RawDecoder::new(&ret);
 
         let decoded = Node::read(&mut decoder, info.id())?;
 

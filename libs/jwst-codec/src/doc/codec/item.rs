@@ -493,7 +493,8 @@ mod tests {
         let mut encoder = RawEncoder::default();
         item.write(&mut encoder)?;
 
-        let mut decoder = RawDecoder::new(encoder.into_inner());
+        let update = encoder.into_inner();
+        let mut decoder = RawDecoder::new(&update);
 
         let info = decoder.read_info()?;
         let first_5_bit = info & 0b11111;

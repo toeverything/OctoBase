@@ -475,7 +475,7 @@ impl DocStore {
                     };
 
                     // conflicts
-                    if (left.is_none() && right_is_null_or_has_left) || left_has_other_right_than_self {
+                    if left.is_none() && right_is_null_or_has_left || left_has_other_right_than_self {
                         // set the first conflicting item
                         let mut conflict = if let Some(left) = left.get() {
                             left.right.clone()
@@ -1210,7 +1210,7 @@ mod tests {
             };
 
             let mut doc = DocOptions::new().with_client_id(2).build();
-            doc.apply_update_from_binary(bin).unwrap();
+            doc.apply_update_from_binary_v1(bin).unwrap();
             let mut pages = doc.get_or_create_map("pages").unwrap();
             if let Value::Text(mut page1) = pages.get("page1").unwrap() {
                 page1.insert(5, " world").unwrap();

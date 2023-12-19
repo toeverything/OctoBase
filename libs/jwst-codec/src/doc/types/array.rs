@@ -120,7 +120,7 @@ mod tests {
             array.insert(&mut trx, 11, "!").unwrap();
             let buffer = trx.encode_update_v1().unwrap();
 
-            let mut decoder = RawDecoder::new(buffer);
+            let mut decoder = RawDecoder::new(&buffer);
             let update = Update::read(&mut decoder).unwrap();
 
             let mut doc = Doc::with_options(options.clone());
@@ -147,7 +147,7 @@ mod tests {
             array.insert(&mut trx, 11, "!").unwrap();
             let buffer = trx.encode_update_v1().unwrap();
 
-            let mut decoder = RawDecoder::new(buffer);
+            let mut decoder = RawDecoder::new(&buffer);
             let update = Update::read(&mut decoder).unwrap();
 
             let mut doc = Doc::with_options(options.clone());
@@ -178,7 +178,7 @@ mod tests {
         };
 
         loom_model!({
-            let doc = Doc::new_from_binary_with_options(
+            let doc = Doc::try_from_binary_v1_with_options(
                 update.clone(),
                 DocOptions {
                     guid: String::from("1"),
