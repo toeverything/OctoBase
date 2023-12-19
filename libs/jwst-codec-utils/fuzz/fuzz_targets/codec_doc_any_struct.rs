@@ -24,7 +24,7 @@ fuzz_target!(|data: Vec<Any>| {
         if let Err(e) = any.write(&mut buffer) {
             panic!("Failed to write message: {:?}, {:?}", any, e);
         }
-        if let Ok(any2) = Any::read(&mut RawDecoder::new(buffer.into_inner())) {
+        if let Ok(any2) = Any::read(&mut RawDecoder::new(&buffer.into_inner())) {
             assert_eq!(any, any2);
         }
     }
@@ -35,7 +35,7 @@ fuzz_target!(|data: Vec<Any>| {
         if let Err(e) = any.write(&mut buffer) {
             panic!("Failed to write message: {:?}, {:?}", any, e);
         }
-        if let Ok(any2) = Any::read(&mut RawDecoder::new(buffer.into_inner())) {
+        if let Ok(any2) = Any::read(&mut RawDecoder::new(&buffer.into_inner())) {
             assert_eq!(any, any2);
         }
     }

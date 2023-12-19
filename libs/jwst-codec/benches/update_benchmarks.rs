@@ -20,7 +20,7 @@ fn update(c: &mut Criterion) {
             |b, content| {
                 b.iter(|| {
                     use jwst_codec::*;
-                    let mut decoder = RawDecoder::new(content.clone());
+                    let mut decoder = RawDecoder::new(content);
                     Update::read(&mut decoder).unwrap()
                 });
             },

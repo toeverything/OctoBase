@@ -13,7 +13,7 @@ mod tests {
 
         let binary_from_yrs = trx.encode_update_v1().unwrap();
 
-        let doc = Doc::new_from_binary(binary_from_yrs.clone()).unwrap();
+        let doc = Doc::try_from_binary_v1(&binary_from_yrs).unwrap();
         let binary = doc.encode_update_v1().unwrap();
 
         assert_eq!(binary_from_yrs, binary);

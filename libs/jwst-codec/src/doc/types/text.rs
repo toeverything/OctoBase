@@ -255,8 +255,9 @@ mod tests {
         };
 
         loom_model!({
-            let binary = binary.clone();
-            let doc = Doc::new_from_binary(binary).unwrap();
+            // in loom loop
+            #[allow(clippy::needless_borrow)]
+            let doc = Doc::try_from_binary_v1(&binary).unwrap();
             let mut text = doc.get_or_create_text("greating").unwrap();
 
             assert_eq!(text.to_string(), "hello world");
@@ -280,8 +281,7 @@ mod tests {
                 doc.encode_update_v1().unwrap()
             };
 
-            let binary = binary.clone();
-            let doc = Doc::new_from_binary(binary).unwrap();
+            let doc = Doc::try_from_binary_v1(binary).unwrap();
             let mut text = doc.get_or_create_text("greating").unwrap();
 
             assert_eq!(text.to_string(), "hello world");

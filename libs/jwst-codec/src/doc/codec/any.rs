@@ -600,7 +600,7 @@ mod tests {
         any.write(&mut encoder).unwrap();
         let encoded = encoder.into_inner();
 
-        let mut decoder = RawDecoder::new(encoded);
+        let mut decoder = RawDecoder::new(&encoded);
         let decoded = Any::read(&mut decoder).unwrap();
 
         assert_eq!(any, decoded);
@@ -615,7 +615,7 @@ mod tests {
                 any.write(&mut encoder).unwrap();
                 let encoded = encoder.into_inner();
 
-                let mut decoder = RawDecoder::new(encoded);
+                let mut decoder = RawDecoder::new(&encoded);
                 let decoded = Any::read(&mut decoder).unwrap();
 
                 assert_eq!(any, &decoded);

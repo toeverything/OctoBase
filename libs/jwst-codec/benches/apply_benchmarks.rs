@@ -21,7 +21,7 @@ fn apply(c: &mut Criterion) {
                 b.iter(|| {
                     use y_octo::*;
                     let mut doc = Doc::new();
-                    doc.apply_update_from_binary(content.clone()).unwrap()
+                    doc.apply_update_from_binary_v1(content.clone()).unwrap()
                 });
             },
         );
