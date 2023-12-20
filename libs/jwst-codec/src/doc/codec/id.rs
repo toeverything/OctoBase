@@ -1,5 +1,4 @@
 use std::{
-    cmp::Ordering,
     fmt::Display,
     hash::Hash,
     ops::{Add, Sub},
@@ -44,22 +43,6 @@ impl Add<Clock> for Id {
     }
 }
 
-#[allow(clippy::incorrect_partial_ord_impl_on_ord_type)]
-impl PartialOrd for Id {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match self.client.cmp(&other.client) {
-            Ordering::Equal => Some(self.clock.cmp(&other.clock)),
-            _ => None,
-        }
-    }
-}
-
-impl Ord for Id {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.clock.cmp(&other.clock)
-    }
-}
-
 impl Display for Id {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {})", self.client, self.clock)
@@ -72,16 +55,8 @@ mod tests {
 
     #[test]
     fn basic_id_operation() {
-        let id_with_same_client_1 = Id::new(1, 1);
-        let id_with_same_client_2 = Id::new(1, 2);
-        assert!(id_with_same_client_1 < id_with_same_client_2);
-
         let id_with_different_client_1 = Id::new(1, 1);
         let id_with_different_client_2 = Id::new(2, 1);
-        assert_eq!(
-            id_with_different_client_1.partial_cmp(&id_with_different_client_2),
-            None
-        );
 
         assert_ne!(id_with_different_client_1, id_with_different_client_2);
         assert_eq!(Id::new(1, 1), Id::new(1, 1));

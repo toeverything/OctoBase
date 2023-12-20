@@ -383,18 +383,15 @@ mod tests {
 
     #[test]
     fn test_range_covered() {
-        assert_eq!(OrderRange::check_range_covered(&[0..1], &[2..3]), false);
-        assert_eq!(OrderRange::check_range_covered(&[0..1], &[0..3]), true);
-        assert_eq!(OrderRange::check_range_covered(&[0..1], &[1..3]), false);
-        assert_eq!(OrderRange::check_range_covered(&[0..1], &[0..3]), true);
-        assert_eq!(OrderRange::check_range_covered(&[1..2], &[0..3]), true);
-        assert_eq!(OrderRange::check_range_covered(&[1..2, 2..3], &[0..3]), true);
-        assert_eq!(OrderRange::check_range_covered(&[1..2, 2..3, 3..4], &[0..3]), false);
-        assert_eq!(OrderRange::check_range_covered(&[0..1, 2..3], &[0..2, 2..4]), true);
-        assert_eq!(
-            OrderRange::check_range_covered(&[0..1, 2..3, 3..4], &[0..2, 2..4]),
-            true
-        );
+        assert!(!OrderRange::check_range_covered(&[0..1], &[2..3]));
+        assert!(OrderRange::check_range_covered(&[0..1], &[0..3]));
+        assert!(!OrderRange::check_range_covered(&[0..1], &[1..3]));
+        assert!(OrderRange::check_range_covered(&[0..1], &[0..3]));
+        assert!(OrderRange::check_range_covered(&[1..2], &[0..3]));
+        assert!(OrderRange::check_range_covered(&[1..2, 2..3], &[0..3]));
+        assert!(!OrderRange::check_range_covered(&[1..2, 2..3, 3..4], &[0..3]));
+        assert!(OrderRange::check_range_covered(&[0..1, 2..3], &[0..2, 2..4]));
+        assert!(OrderRange::check_range_covered(&[0..1, 2..3, 3..4], &[0..2, 2..4]),);
     }
 
     #[test]
