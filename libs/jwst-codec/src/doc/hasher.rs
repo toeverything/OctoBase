@@ -5,6 +5,7 @@ use std::{
 
 use super::Client;
 
+#[derive(Default)]
 pub struct ClientHasher(Client);
 
 impl Hasher for ClientHasher {
@@ -16,12 +17,6 @@ impl Hasher for ClientHasher {
 
     fn write_u64(&mut self, i: u64) {
         self.0 = i
-    }
-}
-
-impl Default for ClientHasher {
-    fn default() -> Self {
-        Self(0)
     }
 }
 

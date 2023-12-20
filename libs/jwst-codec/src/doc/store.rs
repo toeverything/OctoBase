@@ -808,7 +808,7 @@ impl DocStore {
                     clock..clock + n.len()
                 })
                 .collect::<Vec<_>>();
-            if ranges.len() > 0 {
+            if !ranges.is_empty() {
                 delete_set.batch_push(*client, ranges);
             }
         }

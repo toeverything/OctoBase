@@ -1,4 +1,4 @@
-use std::collections::hash_map::Iter;
+use std::{collections::hash_map::Iter, rc::Rc};
 
 use super::*;
 use crate::{
@@ -71,10 +71,10 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
         let ty = self.as_inner().ty();
 
         if let Some(ty) = ty {
-            let ty = Arc::new(ty);
+            let ty = Rc::new(ty);
 
             EntriesInnerIterator {
-                iter: Some(unsafe { &*Arc::as_ptr(&ty) }.map.iter()),
+                iter: Some(unsafe { &*Rc::as_ptr(&ty) }.map.iter()),
                 _lock: Some(ty),
             }
         } else {
@@ -99,7 +99,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
 }
 
 pub(crate) struct EntriesInnerIterator<'a> {
-    _lock: Option<Arc<RwLockReadGuard<'a, YType>>>,
+    _lock: Option<Rc<RwLockReadGuard<'a, YType>>>,
     iter: Option<Iter<'a, String, ItemRef>>,
 }
 
