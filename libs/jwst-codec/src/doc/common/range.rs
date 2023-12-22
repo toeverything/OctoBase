@@ -36,6 +36,13 @@ fn is_continuous_range(lhs: &Range<u64>, rhs: &Range<u64>) -> bool {
 }
 
 impl OrderRange {
+    pub fn ranges_len(&self) -> usize {
+        match self {
+            OrderRange::Range(_) => 1,
+            OrderRange::Fragment(ranges) => ranges.len(),
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         match self {
             OrderRange::Range(range) => range.is_empty(),
@@ -121,35 +128,6 @@ impl OrderRange {
         diffs
     }
 
-    pub fn extends<T>(&mut self, list: T)
-    where
-        T: Into<VecDeque<Range<u64>>>,
-    {
-        let list: VecDeque<_> = list.into();
-        if list.is_empty() {
-            return;
-        }
-
-        if self.is_empty() {
-            *self = OrderRange::Fragment(list);
-        } else {
-            match self {
-                OrderRange::Range(old) => {
-                    let old = old.clone();
-                    // swap and push is faster then push one by one
-                    *self = OrderRange::Fragment(list);
-                    self.push(old);
-                }
-                OrderRange::Fragment(ranges) => {
-                    ranges.extend(list);
-                }
-            }
-        }
-
-        self.sort();
-        self.squash();
-    }
-
     /// Push new range to current one.
     /// Range will be merged if overlap exists or turned into fragment if it's
     /// not continuous.
@@ -173,99 +151,10 @@ impl OrderRange {
                 if ranges.is_empty() {
                     *self = OrderRange::Range(range);
                 } else {
-                    let search_result = ranges.binary_search_by(|r| {
-                        if is_continuous_range(r, &range) {
-                            std::cmp::Ordering::Equal
-                        } else if r.end < range.start {
-                            std::cmp::Ordering::Less
-                        } else {
-                            std::cmp::Ordering::Greater
-                        }
-                    });
-
-                    match search_result {
-                        Ok(idx) => {
-                            let old = &mut ranges[idx];
-                            ranges[idx] = old.start.min(range.start)..old.end.max(range.end);
-                            self.squash();
-                        }
-                        Err(idx) => ranges.insert(idx, range),
-                    }
+                    OrderRange::push_inner(ranges, range);
+                    self.make_single();
                 }
             }
-        }
-    }
-
-    pub fn merge(&mut self, other: Self) {
-        let raw = std::mem::take(self);
-        if raw.is_empty() {
-            *self = other;
-            return;
-        }
-        *self = match (raw, other) {
-            (OrderRange::Range(a), OrderRange::Range(b)) => {
-                if is_continuous_range(&a, &b) {
-                    // merge intersected range
-                    OrderRange::Range(a.start.min(b.start)..a.end.max(b.end))
-                } else {
-                    OrderRange::Fragment(VecDeque::from([a, b]))
-                }
-            }
-            (OrderRange::Fragment(mut a), OrderRange::Range(b)) => {
-                a.push_back(b);
-                OrderRange::Fragment(a)
-            }
-            (OrderRange::Range(a), OrderRange::Fragment(b)) => {
-                let mut v = b;
-                v.push_back(a);
-                OrderRange::Fragment(v)
-            }
-            (OrderRange::Fragment(mut a), OrderRange::Fragment(mut b)) => {
-                a.append(&mut b);
-                OrderRange::Fragment(a)
-            }
-        };
-
-        self.sort();
-        self.squash()
-    }
-
-    /// Merge all available ranges list into one.
-    fn squash(&mut self) {
-        // merge all available ranges
-        if let OrderRange::Fragment(ranges) = self {
-            if ranges.is_empty() {
-                *self = OrderRange::Range(0..0);
-                return;
-            }
-
-            let mut changed = false;
-            let mut merged = Vec::with_capacity(ranges.len());
-            let mut cur = ranges[0].clone();
-
-            for next in ranges.iter().skip(1) {
-                if is_continuous_range(&cur, next) {
-                    cur.start = cur.start.min(next.start);
-                    cur.end = cur.end.max(next.end);
-                    changed = true;
-                } else {
-                    merged.push(cur);
-                    cur = next.clone();
-                }
-            }
-            merged.push(cur);
-
-            if merged.len() == 1 {
-                *self = OrderRange::Range(merged[0].clone());
-            } else if changed {
-                mem::swap(ranges, &mut merged.into_iter().collect());
-            }
-        }
-    }
-
-    fn sort(&mut self) {
-        if let OrderRange::Fragment(ranges) = self {
-            ranges.make_contiguous().sort_by(|lhs, rhs| lhs.start.cmp(&rhs.start));
         }
     }
 
@@ -279,6 +168,109 @@ impl OrderRange {
             }
         }
     }
+
+    pub fn merge(&mut self, other: Self) {
+        self.extend(&other);
+    }
+
+    fn make_fragment(&mut self) {
+        if let OrderRange::Range(range) = self {
+            *self = OrderRange::Fragment(if range.is_empty() {
+                VecDeque::new()
+            } else {
+                VecDeque::from([range.clone()])
+            });
+        }
+    }
+
+    fn make_single(&mut self) {
+        if let OrderRange::Fragment(ranges) = self {
+            if ranges.len() == 1 {
+                *self = OrderRange::Range(ranges[0].clone());
+            }
+        }
+    }
+
+    /// Merge all available ranges list into one.
+    pub fn squash(&mut self) {
+        // merge all available ranges
+        if let OrderRange::Fragment(ranges) = self {
+            if ranges.is_empty() {
+                *self = OrderRange::Range(0..0);
+                return;
+            }
+
+            let mut changed = false;
+            let mut merged = VecDeque::with_capacity(ranges.len());
+            let mut cur = ranges[0].clone();
+
+            for next in ranges.iter().skip(1) {
+                if is_continuous_range(&cur, next) {
+                    cur.start = cur.start.min(next.start);
+                    cur.end = cur.end.max(next.end);
+                    changed = true;
+                } else {
+                    merged.push_back(cur);
+                    cur = next.clone();
+                }
+            }
+            merged.push_back(cur);
+
+            if merged.len() == 1 {
+                *self = OrderRange::Range(merged[0].clone());
+            } else if changed {
+                mem::swap(ranges, &mut merged);
+            }
+        }
+    }
+
+    fn push_inner(list: &mut VecDeque<Range<u64>>, range: Range<u64>) {
+        if list.is_empty() {
+            list.push_back(range);
+        } else {
+            let search_result = list.binary_search_by(|r| {
+                if is_continuous_range(r, &range) {
+                    std::cmp::Ordering::Equal
+                } else if r.end < range.start {
+                    std::cmp::Ordering::Less
+                } else {
+                    std::cmp::Ordering::Greater
+                }
+            });
+
+            match search_result {
+                Ok(idx) => {
+                    let old = &mut list[idx];
+                    list[idx] = old.start.min(range.start)..old.end.max(range.end);
+                    Self::squash_around(list, idx);
+                }
+                Err(idx) => {
+                    list.insert(idx, range);
+                    Self::squash_around(list, idx);
+                }
+            }
+        }
+    }
+
+    fn squash_around(list: &mut VecDeque<Range<u64>>, idx: usize) {
+        if idx > 0 {
+            let prev = &list[idx - 1];
+            let cur = &list[idx];
+            if is_continuous_range(prev, cur) {
+                list[idx - 1] = prev.start.min(cur.start)..prev.end.max(cur.end);
+                list.remove(idx);
+            }
+        }
+
+        if idx < list.len() - 1 {
+            let next = &list[idx + 1];
+            let cur = &list[idx];
+            if is_continuous_range(cur, next) {
+                list[idx] = cur.start.min(next.start)..cur.end.max(next.end);
+                list.remove(idx + 1);
+            }
+        }
+    }
 }
 
 impl<'a> IntoIterator for &'a OrderRange {
@@ -287,6 +279,22 @@ impl<'a> IntoIterator for &'a OrderRange {
 
     fn into_iter(self) -> Self::IntoIter {
         OrderRangeIter { range: self, idx: 0 }
+    }
+}
+
+impl Extend<Range<u64>> for OrderRange {
+    fn extend<T: IntoIterator<Item = Range<u64>>>(&mut self, other: T) {
+        self.make_fragment();
+        match self {
+            OrderRange::Fragment(ranges) => {
+                for range in other {
+                    OrderRange::push_inner(ranges, range);
+                }
+
+                self.make_single();
+            }
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -375,13 +383,6 @@ mod tests {
     }
 
     #[test]
-    fn test_range_sort() {
-        let mut range: OrderRange = vec![(20..30), (0..10), (10..50)].into();
-        range.sort();
-        assert_eq!(range, OrderRange::from(vec![(0..10), (10..50), (20..30)]));
-    }
-
-    #[test]
     fn test_range_covered() {
         assert!(!OrderRange::check_range_covered(&[0..1], &[2..3]));
         assert!(OrderRange::check_range_covered(&[0..1], &[0..3]));
@@ -433,7 +434,7 @@ mod tests {
     }
 
     #[test]
-    fn test_range_merge() {
+    fn test_range_extend() {
         let mut range: OrderRange = (0..10).into();
         range.merge((20..30).into());
         assert_eq!(range, OrderRange::from(vec![(0..10), (20..30)]));

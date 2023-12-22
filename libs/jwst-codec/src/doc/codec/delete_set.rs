@@ -106,10 +106,10 @@ impl DeleteSet {
         }
     }
 
-    pub fn batch_push(&mut self, client: Client, ranges: Vec<Range<u64>>) {
+    pub fn batch_add_ranges(&mut self, client: Client, ranges: Vec<Range<u64>>) {
         match self.0.entry(client) {
             Entry::Occupied(e) => {
-                e.into_mut().extends(ranges);
+                e.into_mut().extend(ranges);
             }
             Entry::Vacant(e) => {
                 e.insert(ranges.into());
@@ -202,13 +202,13 @@ mod tests {
 
         {
             let mut delete_set = delete_set.clone();
-            delete_set.batch_push(1, vec![0..5, 10..20]);
+            delete_set.batch_add_ranges(1, vec![0..5, 10..20]);
             assert_eq!(delete_set.get(&1), Some(&OrderRange::Range(0..30)));
         }
 
         {
             let mut delete_set = delete_set;
-            delete_set.batch_push(1, vec![40..50, 10..20]);
+            delete_set.batch_add_ranges(1, vec![40..50, 10..20]);
             assert_eq!(delete_set.get(&1), Some(&OrderRange::from(vec![0..30, 40..50])));
         }
     }
