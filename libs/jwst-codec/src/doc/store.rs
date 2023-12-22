@@ -603,7 +603,7 @@ impl DocStore {
         let mut pending_delete_sets = HashMap::new();
         Self::delete_item_inner(&mut pending_delete_sets, item, parent);
         for (client, ranges) in pending_delete_sets {
-            self.delete_set.batch_push(client, ranges);
+            self.delete_set.batch_add_ranges(client, ranges);
         }
     }
 
@@ -713,7 +713,7 @@ impl DocStore {
                     idx += 1;
                 }
                 for (client, ranges) in pending_delete_sets {
-                    self.delete_set.batch_push(client, ranges);
+                    self.delete_set.batch_add_ranges(client, ranges);
                 }
             }
         }
@@ -809,7 +809,7 @@ impl DocStore {
                 })
                 .collect::<Vec<_>>();
             if !ranges.is_empty() {
-                delete_set.batch_push(*client, ranges);
+                delete_set.batch_add_ranges(*client, ranges);
             }
         }
 
