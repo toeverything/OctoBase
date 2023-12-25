@@ -14,12 +14,12 @@ mod utils;
 #[cfg(test)]
 pub use blob_storage::blobs_storage_test;
 pub use blob_storage::BlobDBStorage;
-use bytes::Bytes;
 use jwst_core::{BlobMetadata, BlobStorage};
 use jwst_storage_migration::Alias;
 use thiserror::Error;
 use tokio::task::JoinError;
-use utils::{get_hash, InternalBlobMetadata};
+pub use utils::stream_to_blob;
+use utils::InternalBlobMetadata;
 
 use super::{entities::prelude::*, *};
 
@@ -105,23 +105,14 @@ impl BlobStorage<JwstStorageError> for JwstBlobStorage {
         }
     }
 
-    async fn put_blob_stream(
+    async fn put_blob(
         &self,
         workspace: Option<String>,
-        stream: impl Stream<Item = Bytes> + Send,
+        id: String,
+        blob: Vec<u8>,
     ) -> JwstResult<String, JwstStorageError> {
         match self {
-            JwstBlobStorage::Raw(db) => db.put_blob_stream(workspace, stream).await,
-            #[cfg(feature = "image")]
-            JwstBlobStorage::Auto(db) => db.put_blob_stream(workspace, stream).await,
-            #[cfg(feature = "bucket")]
-            JwstBlobStorage::Bucket(db) => db.put_blob_stream(workspace, stream).await,
-        }
-    }
-
-    async fn put_blob(&self, workspace: Option<String>, blob: Vec<u8>) -> JwstResult<String, JwstStorageError> {
-        match self {
-            JwstBlobStorage::Raw(db) => db.put_blob(workspace, blob).await,
+            JwstBlobStorage::Raw(db) => db.put_blob(workspace, id, blob).await,
             #[cfg(feature = "image")]
             JwstBlobStorage::Auto(db) => db.put_blob(workspace, blob).await,
             #[cfg(feature = "bucket")]

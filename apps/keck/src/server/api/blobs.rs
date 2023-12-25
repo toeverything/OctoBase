@@ -102,10 +102,11 @@ pub async fn set_blob(
         })
         .filter_map(|data| future::ready(data.ok()));
 
+    let (id, blob) = stream_to_blob(body).await;
     if let Ok(id) = context
         .storage
         .blobs()
-        .put_blob_stream(Some(workspace.clone()), body)
+        .put_blob(Some(workspace.clone()), id, blob)
         .await
     {
         if has_error {

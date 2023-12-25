@@ -94,12 +94,9 @@ impl Context {
             })
             .filter_map(|data| future::ready(data.ok()));
 
-        if let Ok(id) = self
-            .get_storage()
-            .blobs()
-            .put_blob_stream(workspace.clone(), stream)
-            .await
-        {
+        let (id, blob) = stream_to_blob(stream).await;
+
+        if let Ok(id) = self.get_storage().blobs().put_blob(workspace.clone(), id, blob).await {
             if has_error {
                 let _ = self.get_storage().blobs().delete_blob(workspace, id).await;
                 StatusCode::INTERNAL_SERVER_ERROR.into_response()

@@ -1,6 +1,4 @@
-use jwst_core::{Base64Engine, URL_SAFE_ENGINE};
 use sea_orm::FromQueryResult;
-use sha2::{Digest, Sha256};
 
 use super::*;
 
@@ -208,33 +206,12 @@ impl BlobStorage<JwstStorageError> for BlobDBStorage {
         }
     }
 
-    async fn put_blob_stream(
-        &self,
-        workspace: Option<String>,
-        stream: impl Stream<Item = Bytes> + Send,
-    ) -> JwstStorageResult<String> {
+    async fn put_blob(&self, workspace: Option<String>, id: String, blob: Vec<u8>) -> JwstStorageResult<String> {
         let _lock = self.bucket.write().await;
         let workspace = workspace.unwrap_or("__default__".into());
 
-        let (hash, blob) = get_hash(stream).await;
-
-        if self.insert(&workspace, &hash, &blob).await.is_ok() {
-            Ok(hash)
-        } else {
-            Err(JwstStorageError::WorkspaceNotFound(workspace))
-        }
-    }
-
-    async fn put_blob(&self, workspace: Option<String>, blob: Vec<u8>) -> JwstStorageResult<String> {
-        let _lock = self.bucket.write().await;
-        let workspace = workspace.unwrap_or("__default__".into());
-        let mut hasher = Sha256::new();
-
-        hasher.update(&blob);
-        let hash = URL_SAFE_ENGINE.encode(hasher.finalize());
-
-        if self.insert(&workspace, &hash, &blob).await.is_ok() {
-            Ok(hash)
+        if self.insert(&workspace, &id, &blob).await.is_ok() {
+            Ok(id)
         } else {
             Err(JwstStorageError::WorkspaceNotFound(workspace))
         }

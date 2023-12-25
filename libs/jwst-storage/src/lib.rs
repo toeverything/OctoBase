@@ -8,7 +8,7 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use chrono::Utc;
-use futures::{Future, Stream};
+use futures::Future;
 use jwst_core::{DocStorage, JwstResult, Workspace};
 use jwst_logger::{debug, error, info, trace, warn};
 use path_ext::PathExt;
@@ -16,7 +16,10 @@ use rate_limiter::{get_bucket, is_sqlite, Bucket};
 use sea_orm::{prelude::*, ConnectOptions, Database, DbErr, QuerySelect, Set};
 #[cfg(feature = "bucket")]
 pub use storage::blobs::MixedBucketDBParam;
-pub use storage::{blobs::BlobStorageType, JwstStorage};
+pub use storage::{
+    blobs::{stream_to_blob, BlobStorageType},
+    JwstStorage,
+};
 pub use types::{JwstStorageError, JwstStorageResult};
 
 #[inline]

@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use bytes::Bytes;
 use chrono::NaiveDateTime;
-use futures::Stream;
 
 use super::*;
 
@@ -29,12 +27,7 @@ pub trait BlobStorage<E = JwstError> {
         id: String,
         params: Option<HashMap<String, String>>,
     ) -> JwstResult<BlobMetadata, E>;
-    async fn put_blob_stream(
-        &self,
-        workspace: Option<String>,
-        stream: impl Stream<Item = Bytes> + Send,
-    ) -> JwstResult<String, E>;
-    async fn put_blob(&self, workspace: Option<String>, blob: Vec<u8>) -> JwstResult<String, E>;
+    async fn put_blob(&self, workspace: Option<String>, id: String, blob: Vec<u8>) -> JwstResult<String, E>;
     async fn delete_blob(&self, workspace: Option<String>, id: String) -> JwstResult<bool, E>;
     async fn delete_workspace(&self, workspace_id: String) -> JwstResult<(), E>;
     async fn get_blobs_size(&self, workspaces: Vec<String>) -> JwstResult<i64, E>;

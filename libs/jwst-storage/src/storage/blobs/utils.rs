@@ -8,7 +8,7 @@ use jwst_core::{Base64Engine, BlobMetadata, URL_SAFE_ENGINE};
 use sea_orm::FromQueryResult;
 use sha2::{Digest, Sha256};
 
-pub async fn get_hash(stream: impl Stream<Item = Bytes> + Send) -> (String, Vec<u8>) {
+pub async fn stream_to_blob(stream: impl Stream<Item = Bytes> + Send) -> (String, Vec<u8>) {
     let mut hasher = Sha256::new();
 
     let buffer = stream

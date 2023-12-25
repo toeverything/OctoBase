@@ -16,7 +16,7 @@ use axum::{
 };
 use doc::doc_apis;
 use jwst_rpc::{BroadcastChannels, RpcContextImpl};
-use jwst_storage::{BlobStorageType, JwstStorage, JwstStorageResult};
+use jwst_storage::{stream_to_blob, BlobStorageType, JwstStorage, JwstStorageResult};
 use tokio::sync::RwLock;
 
 use super::*;
