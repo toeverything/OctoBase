@@ -26,6 +26,7 @@ nom = "7.1"
 ordered-float = "4.1"
 rand_chacha = "0.3"
 rand_distr = "0.4"
+smol_str = "0.2"
 
 # ======= workspace dependencies =======
 nanoid = { workspace = true }

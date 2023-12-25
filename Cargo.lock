@@ -2305,6 +2305,7 @@ dependencies = [
  "rand_distr",
  "serde",
  "serde_json",
+ "smol_str",
  "thiserror",
  "yrs",
 ]
@@ -2314,6 +2315,7 @@ name = "jwst-codec-utils"
 version = "0.1.0"
 dependencies = [
  "arbitrary",
+ "clap",
  "criterion",
  "jwst-codec",
  "lib0",

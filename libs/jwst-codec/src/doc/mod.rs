@@ -16,6 +16,7 @@ pub use common::*;
 pub use document::{Doc, DocOptions};
 pub use hasher::ClientMap;
 pub use history::{History, HistoryOptions, StoreHistory};
+use smol_str::SmolStr;
 pub(crate) use store::DocStore;
 pub use types::*;
 pub use utils::*;

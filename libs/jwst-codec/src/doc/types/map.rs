@@ -11,14 +11,14 @@ impl_type!(Map);
 pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
     fn _insert<V: Into<Value>>(&mut self, key: String, value: V) -> JwstCodecResult {
         if let Some((mut store, mut ty)) = self.as_inner().write() {
-            let left = ty.map.get(&key).cloned();
+            let left = ty.map.get(&SmolStr::new(&key)).cloned();
 
             let item = store.create_item(
                 value.into().into(),
                 left.unwrap_or(Somr::none()),
                 Somr::none(),
                 Some(Parent::Type(self.as_inner().clone())),
-                Some(key),
+                Some(SmolStr::new(key)),
             );
             store.integrate(Node::Item(item), 0, Some(&mut ty))?;
         }
@@ -100,7 +100,7 @@ pub(crate) trait MapType: AsInner<Inner = YTypeRef> {
 
 pub(crate) struct EntriesInnerIterator<'a> {
     _lock: Option<Rc<RwLockReadGuard<'a, YType>>>,
-    iter: Option<Iter<'a, String, ItemRef>>,
+    iter: Option<Iter<'a, SmolStr, ItemRef>>,
 }
 
 pub struct KeysIterator<'a>(EntriesInnerIterator<'a>);
@@ -108,14 +108,14 @@ pub struct ValuesIterator<'a>(EntriesInnerIterator<'a>);
 pub struct EntriesIterator<'a>(EntriesInnerIterator<'a>);
 
 impl<'a> Iterator for EntriesInnerIterator<'a> {
-    type Item = (&'a String, &'a Item);
+    type Item = (&'a str, &'a Item);
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(iter) = &mut self.iter {
             for (k, v) in iter {
                 if let Some(item) = v.get() {
                     if !item.deleted() {
-                        return Some((k, item));
+                        return Some((k.as_str(), item));
                     }
                 }
             }
@@ -128,7 +128,7 @@ impl<'a> Iterator for EntriesInnerIterator<'a> {
 }
 
 impl<'a> Iterator for KeysIterator<'a> {
-    type Item = &'a String;
+    type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|(k, _)| k)
@@ -144,7 +144,7 @@ impl<'a> Iterator for ValuesIterator<'a> {
 }
 
 impl<'a> Iterator for EntriesIterator<'a> {
-    type Item = (&'a String, Value);
+    type Item = (&'a str, Value);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|(k, v)| (k, Value::from(&v.content)))
@@ -302,8 +302,8 @@ mod tests {
             assert_eq!(
                 vec,
                 vec![
-                    (&"1".to_string(), Value::Any(Any::String("value1".to_string()))),
-                    (&"2".to_string(), Value::Any(Any::String("value2".to_string())))
+                    ("1", Value::Any(Any::String("value1".to_string()))),
+                    ("2", Value::Any(Any::String("value2".to_string())))
                 ]
             )
         });

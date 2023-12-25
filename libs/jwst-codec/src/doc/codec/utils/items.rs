@@ -1,4 +1,4 @@
-use super::{item::item_flags, *};
+use super::*;
 
 pub(crate) struct ItemBuilder {
     item: Item,
@@ -47,7 +47,7 @@ impl ItemBuilder {
     }
 
     #[allow(dead_code)]
-    pub fn parent_sub(mut self, parent_sub: Option<String>) -> ItemBuilder {
+    pub fn parent_sub(mut self, parent_sub: Option<SmolStr>) -> ItemBuilder {
         self.item.parent_sub = parent_sub;
         self
     }
@@ -57,7 +57,7 @@ impl ItemBuilder {
         self
     }
 
-    pub fn flags(mut self, flags: ItemFlags) -> ItemBuilder {
+    pub fn flags(mut self, flags: ItemFlag) -> ItemBuilder {
         self.item.flags = flags;
         self
     }
