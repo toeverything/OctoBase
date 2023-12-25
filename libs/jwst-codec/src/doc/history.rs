@@ -202,7 +202,7 @@ impl StoreHistory {
 
     fn get_node_name(item: &Item) -> String {
         if let Some(name) = item.parent_sub.clone() {
-            name
+            name.to_string()
         } else {
             let mut curr = item.clone();
             let mut idx = 0;

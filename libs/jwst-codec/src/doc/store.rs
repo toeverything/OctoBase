@@ -169,7 +169,7 @@ impl DocStore {
         left: Somr<Item>,
         right: Somr<Item>,
         parent: Option<Parent>,
-        parent_sub: Option<String>,
+        parent_sub: Option<SmolStr>,
     ) -> ItemRef {
         let id = (self.client(), self.get_state(self.client())).into();
         let item = Somr::new(Item::new(id, content, left, right, parent, parent_sub));
@@ -558,7 +558,7 @@ impl DocStore {
                     } else {
                         // no right, parent.start = this, delete this.left
                         if let Some(parent_sub) = &this.parent_sub {
-                            parent.map.insert(parent_sub.to_string(), item_owner_ref.clone());
+                            parent.map.insert(parent_sub.clone(), item_owner_ref.clone());
 
                             if let Some(left) = this.left.get() {
                                 self.delete_item(left, Some(parent));

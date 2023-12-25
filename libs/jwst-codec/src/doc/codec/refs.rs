@@ -179,12 +179,12 @@ impl Node {
         cur
     }
 
-    pub fn flags(&self) -> ItemFlags {
+    pub fn flags(&self) -> ItemFlag {
         if let Node::Item(item) = self {
             item.get().unwrap().flags.clone()
         } else {
             // deleted
-            ItemFlags::from(4)
+            ItemFlag::from(4)
         }
     }
 
@@ -370,7 +370,7 @@ mod tests {
                     .id((3, 0).into())
                     .left_id(None)
                     .right_id(None)
-                    .parent(Some(Parent::String(String::from("parent"))))
+                    .parent(Some(Parent::String(SmolStr::new_inline("parent"))))
                     .parent_sub(None)
                     .content(Content::String(String::from("content")))
                     .build();
@@ -391,7 +391,7 @@ mod tests {
                     .id((0, 0).into())
                     .left_id(None)
                     .right_id(None)
-                    .parent(Some(Parent::String(String::from("parent"))))
+                    .parent(Some(Parent::String(SmolStr::new_inline("parent"))))
                     .parent_sub(None)
                     .content(Content::String(String::from("content")))
                     .build(),
@@ -402,8 +402,8 @@ mod tests {
                     .id((0, 0).into())
                     .left_id(None)
                     .right_id(None)
-                    .parent(Some(Parent::String(String::from("parent"))))
-                    .parent_sub(Some(String::from("parent_sub")))
+                    .parent(Some(Parent::String(SmolStr::new_inline("parent"))))
+                    .parent_sub(Some(SmolStr::new_inline("parent_sub")))
                     .content(Content::String(String::from("content")))
                     .build(),
             ));
