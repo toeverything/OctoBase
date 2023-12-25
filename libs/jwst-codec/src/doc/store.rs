@@ -780,7 +780,6 @@ impl DocStore {
                     let first_block = items.get(index).unwrap();
                     let offset = first_block.clock() - clock;
                     if offset != 0 {
-                        // needs to implement Content split first
                         vec_struct_info.push_back(first_block.clone().split_at(offset)?.1);
                     } else {
                         vec_struct_info.push_back(first_block.clone());
@@ -800,17 +799,10 @@ impl DocStore {
         let mut delete_set = DeleteSet::default();
 
         for (client, nodes) in refs {
-            let ranges = nodes
+            nodes
                 .iter()
                 .filter(|n| n.deleted())
-                .map(|n| {
-                    let clock = n.id().clock;
-                    clock..clock + n.len()
-                })
-                .collect::<Vec<_>>();
-            if !ranges.is_empty() {
-                delete_set.batch_add_ranges(*client, ranges);
-            }
+                .for_each(|n| delete_set.add(*client, n.clock(), n.len()));
         }
 
         delete_set

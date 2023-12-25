@@ -220,16 +220,15 @@ impl Doc {
         Ok(doc)
     }
 
-    pub fn apply_update_from_binary_v1<T: AsRef<[u8]>>(&mut self, binary: T) -> JwstCodecResult<Update> {
+    pub fn apply_update_from_binary_v1<T: AsRef<[u8]>>(&mut self, binary: T) -> JwstCodecResult {
         let mut decoder = RawDecoder::new(binary.as_ref());
         let update = Update::read(&mut decoder)?;
         self.apply_update(update)
     }
 
-    pub fn apply_update(&mut self, mut update: Update) -> JwstCodecResult<Update> {
+    pub fn apply_update(&mut self, mut update: Update) -> JwstCodecResult {
         let mut store = self.store.write().unwrap();
         let mut retry = false;
-        let before_state = store.get_state_vector();
         loop {
             for (mut s, offset) in update.iter(store.get_state_vector()) {
                 if let Node::Item(item) = &mut s {
@@ -288,7 +287,7 @@ impl Doc {
             }
         }
 
-        store.diff_state_vector(&before_state, false)
+        Ok(())
     }
 
     pub fn keys(&self) -> Vec<String> {
