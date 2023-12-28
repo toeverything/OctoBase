@@ -19,7 +19,7 @@ fn apply(c: &mut Criterion) {
             &file.content,
             |b, content| {
                 b.iter(|| {
-                    use y_octo::*;
+                    use jwst_codec::*;
                     let mut doc = Doc::new();
                     doc.apply_update_from_binary_v1(content.clone()).unwrap()
                 });

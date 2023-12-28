@@ -5,7 +5,6 @@ mod m20220101_000002_initial_doc_table;
 mod m20230321_000001_blob_optimized_table;
 mod m20230614_000001_initial_bucket_blob_table;
 mod m20230626_023319_doc_guid;
-mod m20230814_061223_initial_diff_log_table;
 mod m20231124_082401_blob_deleted_at;
 mod schemas;
 
@@ -20,7 +19,6 @@ impl MigratorTrait for Migrator {
             Box::new(m20230321_000001_blob_optimized_table::Migration),
             Box::new(m20230614_000001_initial_bucket_blob_table::Migration),
             Box::new(m20230626_023319_doc_guid::Migration),
-            Box::new(m20230814_061223_initial_diff_log_table::Migration),
             Box::new(m20231124_082401_blob_deleted_at::Migration),
         ]
     }

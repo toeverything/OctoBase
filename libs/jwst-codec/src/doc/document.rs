@@ -14,7 +14,7 @@ pub struct DocStoreStatus {
 /// [DocOptions] used to create a new [Doc]
 ///
 /// ```
-/// use y_octo::DocOptions;
+/// use jwst_codec::DocOptions;
 ///
 /// let doc = DocOptions::new()
 ///     .with_client_id(1)

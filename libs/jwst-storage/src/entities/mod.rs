@@ -4,6 +4,5 @@ pub mod prelude;
 
 pub mod blobs;
 pub mod bucket_blobs;
-pub mod diff_log;
 pub mod docs;
 pub mod optimized_blobs;
