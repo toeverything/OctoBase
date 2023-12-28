@@ -1380,18 +1380,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "doc_merger"
-version = "0.1.0"
-dependencies = [
- "assert-json-diff",
- "clap",
- "jwst-codec",
- "lib0",
- "serde_json",
- "yrs",
-]
-
-[[package]]
 name = "dotenvy"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2326,6 +2314,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "regex",
+ "serde_json",
  "y-sync",
  "yrs",
 ]

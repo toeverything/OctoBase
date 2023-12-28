@@ -1,7 +1,6 @@
 [workspace]
 
 members = [
-  "apps/doc_merger",
   "apps/keck",
   "libs/jwst-binding/jwst-jni",
   "libs/jwst-binding/jwst-swift",
