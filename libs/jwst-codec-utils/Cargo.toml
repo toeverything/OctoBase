@@ -1,7 +1,8 @@
 [package]
-name = "jwst-codec-utils"
-version = "0.1.0"
+authors = ["x1a0t <405028157@qq.com>", "DarkSky <darksky2048@gmail.com>"]
 edition = "2021"
+name = "jwst-codec-utils"
+version = "0.0.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -16,7 +17,7 @@ arbitrary = { version = "1.3", features = ["derive"], optional = true }
 clap = { version = "4.4", features = ["derive"], optional = true }
 phf = { version = "0.11", features = ["macros"], optional = true }
 rand_chacha = "0.3"
-regex = { version = "1.9", optional = true }
+regex = { version = "1.10", optional = true }
 
 # ======= bench dependencies =======
 lib0 = { version = "=0.16.5", features = ["lib0-serde"] }
@@ -37,6 +38,10 @@ proptest-derive = "0.4"
 [[bin]]
 name = "bench_result_render"
 path = "bin/bench_result_render.rs"
+
+[[bin]]
+name = "doc_merger"
+path = "bin/doc_merger.rs"
 
 [[bin]]
 name = "memory_leak_test"
@@ -60,11 +65,11 @@ name = "text_ops_benchmarks"
 
 [[bench]]
 harness = false
-name = "update_benchmarks"
+name = "apply_benchmarks"
 
 [[bench]]
 harness = false
-name = "apply_benchmarks"
+name = "update_benchmarks"
 
 [lib]
 bench = true

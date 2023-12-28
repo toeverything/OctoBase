@@ -1,16 +1,16 @@
 [package]
-name = "jwst-codec-fuzz"
-version = "0.0.0"
-publish = false
 edition = "2021"
+name = "jwst-codec-fuzz"
+publish = false
+version = "0.0.0"
 
 [package.metadata]
 cargo-fuzz = true
 
 [dependencies]
-rand = "0.8.5"
-rand_chacha = "0.3.1"
-libfuzzer-sys = "0.4.6"
+rand = "0.8"
+rand_chacha = "0.3"
+libfuzzer-sys = "0.4"
 
 jwst-codec-utils = { path = "..", features = ["fuzz"] }
 lib0 = "0.16.5"
@@ -27,65 +27,65 @@ members = ["."]
 debug = 1
 
 [[bin]]
+doc = false
 name = "codec_doc_any_struct"
 path = "fuzz_targets/codec_doc_any_struct.rs"
 test = false
-doc = false
 
 [[bin]]
+doc = false
 name = "codec_doc_any"
 path = "fuzz_targets/codec_doc_any.rs"
 test = false
-doc = false
 
 [[bin]]
+doc = false
 name = "decode_bytes"
 path = "fuzz_targets/decode_bytes.rs"
 test = false
-doc = false
 
 [[bin]]
+doc = false
 name = "ins_del_text"
 path = "fuzz_targets/ins_del_text.rs"
 test = false
-doc = false
 
 [[bin]]
+doc = false
 name = "sync_message"
 path = "fuzz_targets/sync_message.rs"
 test = false
-doc = false
 
 [[bin]]
+doc = false
 name = "i32_decode"
 path = "fuzz_targets/i32_decode.rs"
 test = false
-doc = false
 
 [[bin]]
+doc = false
 name = "i32_encode"
 path = "fuzz_targets/i32_encode.rs"
 test = false
-doc = false
 
 [[bin]]
+doc = false
 name = "u64_decode"
 path = "fuzz_targets/u64_decode.rs"
 test = false
-doc = false
 
 
 [[bin]]
+doc = false
 name = "u64_encode"
 path = "fuzz_targets/u64_encode.rs"
 test = false
-doc = false
 
 [[bin]]
+doc = false
 name = "apply_update"
 path = "fuzz_targets/apply_update.rs"
 test = false
-doc = false
 
 [patch.crates-io]
 lib0 = { git = "https://github.com/toeverything/y-crdt", rev = "a700f09" }

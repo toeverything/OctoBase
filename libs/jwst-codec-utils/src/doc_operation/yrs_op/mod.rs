@@ -161,7 +161,7 @@ mod tests {
     fn test_ops_registry_get_ops() {
         let ops_registry = OpsRegistry::new();
         let ops = ops_registry.get_ops(&CRDTNestType::Array);
-        assert!(ops.len() > 0);
+        assert!(!ops.is_empty());
     }
 
     #[test]
@@ -170,6 +170,6 @@ mod tests {
         let array = doc.get_or_insert_array("array");
         let ops_registry = OpsRegistry::new();
         let ops = ops_registry.get_ops_from_yrs_nest_type(&YrsNestType::ArrayType(array));
-        assert!(ops.len() > 0);
+        assert!(!ops.is_empty());
     }
 }
