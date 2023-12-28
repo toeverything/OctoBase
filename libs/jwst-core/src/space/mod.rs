@@ -211,7 +211,7 @@ mod test {
         let new_doc = {
             let update = doc
                 .encode_state_as_update_v1(&StateVector::default())
-                .and_then(|update| Update::from_ybinary1(update))
+                .and_then(|update| Update::decode_v1(update))
                 .unwrap();
 
             let mut doc = Doc::default();

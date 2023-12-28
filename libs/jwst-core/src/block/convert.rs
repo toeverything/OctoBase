@@ -233,10 +233,8 @@ mod tests {
     #[test]
     fn test_multiple_layer_space_clone() {
         let mut doc1 = Doc::default();
-        doc1.apply_update(
-            Update::from_ybinary1(include_bytes!("../../fixtures/test_multi_layer.bin").to_vec()).unwrap(),
-        )
-        .unwrap();
+        doc1.apply_update(Update::decode_v1(include_bytes!("../../fixtures/test_multi_layer.bin").to_vec()).unwrap())
+            .unwrap();
 
         let mut ws1 = Workspace::from_doc(doc1, "test").unwrap();
 
@@ -248,7 +246,7 @@ mod tests {
         };
 
         let mut doc2 = Doc::default();
-        doc2.apply_update(Update::from_ybinary1(new_update).unwrap()).unwrap();
+        doc2.apply_update(Update::decode_v1(new_update).unwrap()).unwrap();
 
         let doc1 = ws1.doc;
 

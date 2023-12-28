@@ -31,7 +31,7 @@ impl From<(&str, &History)> for BlockHistory {
     fn from((workspace_id, history): (&str, &History)) -> Self {
         Self {
             workspace_id: workspace_id.into(),
-            field_name: history.field_name.clone(),
+            field_name: history.field_name.as_ref().map(|s| s.to_string()),
             parent: history.parent.iter().map(|id| id.to_string()).collect::<Vec<_>>(),
             content: history.content.clone(),
             action: history.action.to_string(),

@@ -95,14 +95,14 @@ pub trait RpcContextImpl<'a> {
                             Ok(data) => match data {
                                 BroadcastType::BroadcastRawContent(update) => {
                                     trace!("receive raw update: {}", update.len());
-                                    let mut decoder = RawDecoder::new(update);
+                                    let mut decoder = RawDecoder::new(&update);
                                     if let Ok(guid) = decoder.read_var_string() {
                                         match updates.lock().await.entry(guid) {
                                             Entry::Occupied(mut updates) => {
-                                                updates.get_mut().push(decoder.drain());
+                                                updates.get_mut().push(decoder.drain().into());
                                             }
                                             Entry::Vacant(v) => {
-                                                v.insert(vec![decoder.drain()]);
+                                                v.insert(vec![decoder.drain().into()]);
                                             }
                                         };
                                     };

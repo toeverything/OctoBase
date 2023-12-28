@@ -24,7 +24,7 @@ impl Workspace {
 
     pub fn from_binary(binary: Vec<u8>, workspace_id: &str) -> JwstResult<Self> {
         let mut doc = Doc::default();
-        doc.apply_update_from_binary(binary)?;
+        doc.apply_update_from_binary_v1(binary)?;
         Self::from_doc(doc, workspace_id)
     }
 
@@ -137,7 +137,7 @@ mod test {
             let update = doc.encode_state_as_update_v1(&StateVector::default()).unwrap();
 
             let mut doc = Doc::default();
-            doc.apply_update_from_binary(update).unwrap();
+            doc.apply_update_from_binary_v1(update).unwrap();
             doc
         };
 
@@ -240,7 +240,7 @@ mod test {
         let data = doc.encode_state_as_update_v1(&StateVector::default()).unwrap();
 
         let mut doc = Doc::default();
-        doc.apply_update_from_binary(data).unwrap();
+        doc.apply_update_from_binary_v1(data).unwrap();
 
         assert_eq!(doc.keys(), vec!["test"]);
     }
@@ -260,7 +260,7 @@ mod test {
 
         for _ in 0..=2 {
             let mut doc = Doc::default();
-            doc.apply_update_from_binary(update).unwrap();
+            doc.apply_update_from_binary_v1(update).unwrap();
 
             update = doc.encode_state_as_update_v1(&StateVector::default()).unwrap();
         }
@@ -280,7 +280,7 @@ mod test {
         };
         let update1 = {
             let mut doc = Doc::default();
-            doc.apply_update_from_binary(update.clone()).unwrap();
+            doc.apply_update_from_binary_v1(update.clone()).unwrap();
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             {
                 let mut space = ws.get_space("space").unwrap();
@@ -293,7 +293,7 @@ mod test {
         };
         let update2 = {
             let mut doc = Doc::default();
-            doc.apply_update_from_binary(update).unwrap();
+            doc.apply_update_from_binary_v1(update).unwrap();
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             {
                 let mut space = ws.get_space("space").unwrap();
@@ -307,8 +307,8 @@ mod test {
 
         {
             let mut doc = Doc::default();
-            doc.apply_update_from_binary(update1.clone()).unwrap();
-            doc.apply_update_from_binary(update2.clone()).unwrap();
+            doc.apply_update_from_binary_v1(update1.clone()).unwrap();
+            doc.apply_update_from_binary_v1(update2.clone()).unwrap();
 
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             let block = {
@@ -361,7 +361,7 @@ mod test {
 
         let update1 = {
             let mut doc = Doc::default();
-            doc.apply_update_from_binary(update.clone()).unwrap();
+            doc.apply_update_from_binary_v1(update.clone()).unwrap();
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             {
                 let mut space = ws.get_space("space").unwrap();
@@ -374,7 +374,7 @@ mod test {
         };
         let update2 = {
             let mut doc = Doc::default();
-            doc.apply_update_from_binary(update).unwrap();
+            doc.apply_update_from_binary_v1(update).unwrap();
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             {
                 let mut space = ws.get_space("space").unwrap();
@@ -388,8 +388,8 @@ mod test {
 
         {
             let mut doc = Doc::default();
-            doc.apply_update_from_binary(update1.clone()).unwrap();
-            doc.apply_update_from_binary(update2.clone()).unwrap();
+            doc.apply_update_from_binary_v1(update1.clone()).unwrap();
+            doc.apply_update_from_binary_v1(update2.clone()).unwrap();
 
             let mut ws = Workspace::from_doc(doc, "test").unwrap();
             let block = {
