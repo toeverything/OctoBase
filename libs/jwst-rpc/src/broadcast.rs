@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use jwst_codec::{encode_awareness_as_message, encode_update_as_message, encode_update_with_guid};
+use jwst_codec::{encode_awareness_as_message, encode_update_as_message};
 use jwst_core::Workspace;
 use tokio::sync::{broadcast::Sender, RwLock};
 
@@ -53,7 +53,7 @@ pub async fn subscribe(workspace: &Workspace, identifier: String, sender: Broadc
                 history.len()
             );
 
-            match encode_update_with_guid(update.to_vec(), workspace_id.clone())
+            match encode_update_with_guid(update, workspace_id.clone())
                 .and_then(|update_with_guid| encode_update_as_message(update.to_vec()).map(|u| (update_with_guid, u)))
             {
                 Ok((broadcast_update, sendable_update)) => {

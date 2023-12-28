@@ -92,7 +92,7 @@ impl Workspace {
                     trace!("processing message: {:?}", msg);
                     match msg {
                         SyncMessage::Doc(msg) => match msg {
-                            DocMessage::Step1(sv) => StateVector::read(&mut RawDecoder::new(sv)).ok().and_then(|sv| {
+                            DocMessage::Step1(sv) => StateVector::read(&mut RawDecoder::new(&sv)).ok().and_then(|sv| {
                                 debug!("step1 get sv: {sv:?}");
                                 doc.encode_state_as_update_v1(&sv)
                                     .map(|update| {
@@ -103,7 +103,7 @@ impl Workspace {
                             }),
                             DocMessage::Step2(update) => {
                                 let len = update.len();
-                                if let Ok(update) = Update::read(&mut RawDecoder::new(update)) {
+                                if let Ok(update) = Update::read(&mut RawDecoder::new(&update)) {
                                     debug!("step2 apply update: {len}");
                                     if let Err(e) = doc.apply_update(update) {
                                         warn!("failed to apply update: {:?}", e);
@@ -111,23 +111,27 @@ impl Workspace {
                                 }
                                 None
                             }
-                            DocMessage::Update(update) => doc
-                                .apply_update_from_binary(update)
-                                .and_then(|update| {
-                                    if update.is_content_empty() {
-                                        return Ok(None);
-                                    }
+                            DocMessage::Update(update) => {
+                                let before_state = doc.get_state_vector();
+                                doc.apply_update_from_binary_v1(update)
+                                    .and_then(|_| {
+                                        // TODO: encode without pending update
+                                        let update = doc.encode_state_as_update(&before_state)?;
+                                        if update.is_content_empty() {
+                                            return Ok(None);
+                                        }
 
-                                    let mut encoder = RawEncoder::default();
-                                    update.write(&mut encoder)?;
-                                    let update = encoder.into_inner();
-                                    debug!("step3 return changed update: {}", update.len());
-                                    Ok(Some(update))
-                                })
-                                .map_err(|e| warn!("failed to apply update: {:?}", e))
-                                .ok()
-                                .flatten()
-                                .map(|u| SyncMessage::Doc(DocMessage::Update(u))),
+                                        let mut encoder = RawEncoder::default();
+                                        update.write(&mut encoder)?;
+                                        let update = encoder.into_inner();
+                                        debug!("step3 return changed update: {}", update.len());
+                                        Ok(Some(update))
+                                    })
+                                    .map_err(|e| warn!("failed to apply update: {:?}", e))
+                                    .ok()
+                                    .flatten()
+                                    .map(|u| SyncMessage::Doc(DocMessage::Update(u)))
+                            }
                         },
                         _ => None,
                     }

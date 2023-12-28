@@ -261,7 +261,7 @@ mod test {
             ws.to_binary().unwrap()
         };
         // apply update with jwst-codec
-        doc1.apply_update_from_binary(update).unwrap();
+        doc1.apply_update_from_binary_v1(&update).unwrap();
 
         // await the task to make sure the doc1 is broadcasted before check doc2
         tx_handler.await.unwrap();

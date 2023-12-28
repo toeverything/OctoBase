@@ -20,7 +20,7 @@ pub async fn connect_memory_workspace(
     let rt = Arc::new(tokio::runtime::Runtime::new().unwrap());
 
     let mut doc = Doc::default();
-    doc.apply_update_from_binary(init_state.to_vec()).unwrap();
+    doc.apply_update_from_binary_v1(init_state).unwrap();
 
     let (tx, rx, tx_handler, rx_handler) = memory_connector(rt.clone(), doc.clone());
     {

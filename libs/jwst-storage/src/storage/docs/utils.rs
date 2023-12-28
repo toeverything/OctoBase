@@ -8,7 +8,7 @@ pub fn migrate_update(update_records: Vec<<Docs as EntityTrait>::Model>, mut doc
     doc.publisher.stop();
     for record in update_records {
         let id = record.created_at;
-        if let Err(e) = doc.apply_update_from_binary(record.blob) {
+        if let Err(e) = doc.apply_update_from_binary_v1(&record.blob) {
             warn!("update {} merge failed, skip it: {:?}", id, e);
         }
     }

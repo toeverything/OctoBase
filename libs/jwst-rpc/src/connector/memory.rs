@@ -3,7 +3,7 @@ use std::{
     thread::JoinHandle as StdJoinHandler,
 };
 
-use jwst_codec::{decode_update_with_guid, encode_update_as_message, Doc, DocMessage, SyncMessage, SyncMessageScanner};
+use jwst_codec::{encode_update_as_message, Doc, DocMessage, SyncMessage, SyncMessageScanner};
 use tokio::{runtime::Runtime, sync::mpsc::channel, task::JoinHandle as TokioJoinHandler};
 
 use super::*;
@@ -85,9 +85,9 @@ pub fn memory_connector(
                                     }
                                 })
                             }) {
-                                match decode_update_with_guid(update.clone()) {
+                                match decode_update_with_guid(&update) {
                                     Ok((_, update1)) => {
-                                        if let Err(e) = doc.apply_update_from_binary(update1) {
+                                        if let Err(e) = doc.apply_update_from_binary_v1(update1) {
                                             error!("failed to decode update1: {}, update: {:?}", e, update);
                                         }
                                     }

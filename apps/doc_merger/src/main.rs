@@ -70,7 +70,7 @@ fn jwst_merge(path: &str, output: &str) {
     let mut doc = Doc::default();
     for (i, update) in updates.iter().enumerate() {
         println!("apply update{i} {} bytes", update.len());
-        doc.apply_update_from_binary(update.clone()).unwrap();
+        doc.apply_update_from_binary_v1(update.clone()).unwrap();
         println!("status: {:?}", doc.store_status());
     }
     let ts = Instant::now();
@@ -93,7 +93,7 @@ fn jwst_merge(path: &str, output: &str) {
 
     {
         let mut doc = Doc::default();
-        doc.apply_update_from_binary(binary.clone()).unwrap();
+        doc.apply_update_from_binary_v1(binary.clone()).unwrap();
         let new_binary = doc.encode_update_v1().unwrap();
         let new_json = serde_json::to_string_pretty(&doc.get_map("space:blocks").unwrap()).unwrap();
         assert_json_diff::assert_json_eq!(doc.get_map("space:blocks").unwrap(), json);

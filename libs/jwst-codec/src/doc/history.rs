@@ -257,7 +257,7 @@ impl ToString for HistoryAction {
 #[derive(Debug, PartialEq)]
 pub struct History {
     pub id: String,
-    pub field_name: Option<String>,
+    pub field_name: Option<SmolStr>,
     pub parent: Vec<String>,
     pub content: String,
     pub action: HistoryAction,
