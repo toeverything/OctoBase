@@ -200,7 +200,7 @@ impl DocDBStorage {
         }
 
         trace!("insert update: {guid}, {update_size}");
-        Self::insert(conn, workspace, guid, &blob).await?;
+        Self::insert(conn, workspace, guid, blob).await?;
         trace!("end update: {guid}");
 
         trace!("update {}bytes to {}", blob.len(), guid);
@@ -358,7 +358,7 @@ impl DocStorage<JwstStorageError> for DocDBStorage {
         let _lock = self.bucket.write().await;
 
         trace!("write_update: {:?}", data);
-        self.update(&self.pool, &workspace_id, &guid, data.into()).await?;
+        self.update(&self.pool, &workspace_id, &guid, data).await?;
 
         Ok(())
     }

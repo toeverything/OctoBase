@@ -3,9 +3,11 @@ use std::{cmp::max, collections::hash_map::Entry};
 use super::*;
 use crate::sync::Arc;
 
+type AwarenessCallback = dyn Fn(&Awareness, AwarenessEvent) + Send + Sync + 'static;
+
 pub struct Awareness {
     awareness: AwarenessStates,
-    callback: Option<Arc<dyn Fn(&Awareness, AwarenessEvent) + Send + Sync + 'static>>,
+    callback: Option<Arc<AwarenessCallback>>,
     local_id: u64,
 }
 

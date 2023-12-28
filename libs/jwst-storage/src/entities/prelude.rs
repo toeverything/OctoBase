@@ -2,6 +2,5 @@
 
 pub use super::blobs::Entity as Blobs;
 pub use super::bucket_blobs::Entity as BucketBlobs;
-pub use super::diff_log::Entity as DiffLog;
 pub use super::docs::Entity as Docs;
 pub use super::optimized_blobs::Entity as OptimizedBlobs;

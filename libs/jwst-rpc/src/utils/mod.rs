@@ -15,7 +15,7 @@ pub fn encode_update_with_guid<S: AsRef<str>>(update: &[u8], guid: S) -> JwstCod
     let mut buffer = encoder.into_inner();
 
     buffer
-        .write_all(&update)
+        .write_all(update)
         .map_err(|e| JwstCodecError::InvalidWriteBuffer(e.to_string()))?;
 
     Ok(buffer)

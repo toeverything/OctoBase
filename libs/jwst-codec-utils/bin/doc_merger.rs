@@ -6,7 +6,7 @@ use std::{
 };
 
 use clap::Parser;
-use y_octo::Doc;
+use jwst_codec::Doc;
 
 /// ybinary merger
 #[derive(Parser, Debug)]
