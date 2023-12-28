@@ -9,3 +9,6 @@ runner = "./apps/android/run-on-android.sh"
 
 [target.armv7-linux-androideabi]
 runner = "./apps/android/run-on-android.sh"
+
+[unstable]
+gc = true
