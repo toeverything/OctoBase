@@ -73,6 +73,6 @@ mod tests {
         let mut buf = Vec::<u8>::new();
         write_var_buffer(&mut buf, data).unwrap();
         let result = read_var_buffer(buf.as_bytes());
-        assert_eq!(result, Ok((&[][..], &data[..])));
+        assert_eq!(result, Ok((&[][..], data)));
     }
 }
