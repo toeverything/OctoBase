@@ -608,4 +608,21 @@ mod tests {
             assert_eq!(&text.to_string(), "hello world");
         });
     }
+
+    #[test]
+    #[cfg_attr(any(miri, loom), ignore)]
+    fn test_apply_update() {
+        let updates = [
+            include_bytes!("../fixtures/basic.bin").to_vec(),
+            include_bytes!("../fixtures/database.bin").to_vec(),
+            include_bytes!("../fixtures/large.bin").to_vec(),
+            include_bytes!("../fixtures/with-subdoc.bin").to_vec(),
+            include_bytes!("../fixtures/edge-case-left-right-same-node.bin").to_vec(),
+        ];
+
+        for update in updates {
+            let mut doc = Doc::new();
+            doc.apply_update_from_binary_v1(&update).unwrap();
+        }
+    }
 }

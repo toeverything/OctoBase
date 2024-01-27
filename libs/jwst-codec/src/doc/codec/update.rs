@@ -466,6 +466,11 @@ mod tests {
             (include_bytes!("../../fixtures/database.bin").to_vec(), 1, 149),
             (include_bytes!("../../fixtures/large.bin").to_vec(), 1, 9036),
             (include_bytes!("../../fixtures/with-subdoc.bin").to_vec(), 2, 30),
+            (
+                include_bytes!("../../fixtures/edge-case-left-right-same-node.bin").to_vec(),
+                2,
+                243,
+            ),
         ];
 
         for (doc, clients, structs) in docs {
