@@ -554,7 +554,6 @@ impl DocStore {
                             let mut right = right.get_mut_unchecked();
                             right.left = item_owner_ref.clone();
                         }
-                        this.right = right.clone();
                     } else {
                         // no right, parent.start = this, delete this.left
                         if let Some(parent_sub) = &this.parent_sub {
@@ -565,6 +564,7 @@ impl DocStore {
                             }
                         }
                     }
+                    this.right = right.clone();
 
                     let parent_deleted = parent.item.get().map(|item| item.deleted()).unwrap_or(false);
 
