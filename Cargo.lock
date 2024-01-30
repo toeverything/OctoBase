@@ -2303,6 +2303,7 @@ name = "jwst-codec-utils"
 version = "0.0.1"
 dependencies = [
  "arbitrary",
+ "assert-json-diff",
  "clap",
  "criterion",
  "jwst-codec",
