@@ -21,4 +21,8 @@ runs:
               toolchain: ${{ inputs.toolchain }}
               targets: ${{ inputs.targets }}
               components: ${{ inputs.components }}
+        - name: Add Targets
+          if: ${{ inputs.targets }}
+          run: rustup target add ${{ inputs.targets }}
+          shell: bash
         - uses: Swatinem/rust-cache@v2
