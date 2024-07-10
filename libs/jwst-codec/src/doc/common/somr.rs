@@ -280,6 +280,7 @@ impl<T> From<Option<Somr<T>>> for Somr<T> {
 }
 
 pub trait FlattenGet<T> {
+    #[allow(dead_code)]
     fn flatten_get(&self) -> Option<&T>;
 }
 

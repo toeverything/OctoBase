@@ -41,6 +41,7 @@ jwst-logger = { workspace = true }
 bench = []
 debug = []
 large_refs = []
+serde_json = []
 
 [target.'cfg(fuzzing)'.dependencies]
 arbitrary = { version = "1.3", features = ["derive"] }
@@ -58,6 +59,13 @@ path-ext = "0.1"
 proptest = "1.3"
 proptest-derive = "0.4"
 yrs = "=0.16.5"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(debug)',
+    'cfg(fuzzing)',
+    'cfg(loom)',
+] }
 
 [[bench]]
 harness = false

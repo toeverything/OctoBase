@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::*;
 
 #[derive(Debug, PartialEq)]
@@ -123,12 +125,12 @@ impl From<Doc> for Value {
     }
 }
 
-impl ToString for Value {
-    fn to_string(&self) -> String {
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::Any(any) => any.to_string(),
-            Value::Text(text) => text.to_string(),
-            _ => String::default(),
+            Value::Any(any) => write!(f, "{}", any),
+            Value::Text(text) => write!(f, "{}", text),
+            _ => write!(f, ""),
         }
     }
 }
