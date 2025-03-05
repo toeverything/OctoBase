@@ -57,3 +57,4 @@ Example:
 -   Metal A-wing, @a-wing, 2023/05/30
 -   Xuanwo, @Xuanwo, 2023/06/21
 -   Bryan, @ImSingee, 2023/10/25
+-   Vidy Videni, @videni, 2025/03/05
