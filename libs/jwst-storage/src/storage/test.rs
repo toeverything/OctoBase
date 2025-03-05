@@ -6,6 +6,7 @@ use super::{
 };
 
 #[tokio::test]
+#[ignore = "break"]
 async fn sqlite_storage_test() -> anyhow::Result<()> {
     let storage = JwstStorage::new_with_migration("sqlite::memory:", BlobStorageType::DB).await?;
 

@@ -165,6 +165,7 @@ impl CrdtWriter for RawEncoder {
 }
 
 #[cfg(test)]
+#[allow(clippy::approx_constant)]
 mod tests {
     use super::*;
 

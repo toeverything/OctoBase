@@ -264,9 +264,9 @@ dependencies = [
 
 [[package]]
 name = "arc-swap"
-version = "1.6.0"
+version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bddcadddf5e9015d310179a59bb28c4d4b9920ad0f11e8e14dbadf654890c9a6"
+checksum = "69f7f8c3906b62b754cd5326047894316021dcfe5a194c8ea52bdd94934a3457"
 
 [[package]]
 name = "arrayvec"
@@ -362,6 +362,18 @@ dependencies = [
  "once_cell",
  "pin-project-lite",
  "tokio",
+]
+
+[[package]]
+name = "async-lock"
+version = "3.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff6e472cdea888a4bd64f342f09b3f50e1886d32afe8df3d663c01140b811b18"
+dependencies = [
+ "event-listener 5.4.0",
+ "event-listener-strategy",
+ "loom",
+ "pin-project-lite",
 ]
 
 [[package]]
@@ -877,6 +889,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
+name = "concurrent-queue"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
+dependencies = [
+ "crossbeam-utils",
+ "loom",
+]
+
+[[package]]
 name = "console"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1189,6 +1211,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashmap"
+version = "6.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5041cc499144891f3790297212f32a74fb938e5136a14943f338ef9e0ae276cf"
+dependencies = [
+ "cfg-if 1.0.0",
+ "crossbeam-utils",
+ "hashbrown 0.14.2",
+ "lock_api",
+ "once_cell",
+ "parking_lot_core",
+]
+
+[[package]]
 name = "data-encoding"
 version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1487,6 +1523,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
+name = "event-listener"
+version = "5.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3492acde4c3fc54c845eaab3eed8bd00c7a7d881f78bfc801e43a93dec1331ae"
+dependencies = [
+ "concurrent-queue",
+ "loom",
+ "parking",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "event-listener-strategy"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c3e4e0dd3673c1139bf041f3008816d9cf2946bbfac2945c09e523b8d7b05b2"
+dependencies = [
+ "event-listener 5.4.0",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "exr"
 version = "1.71.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1516,6 +1574,9 @@ name = "fastrand"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25cbce373ec4653f1a01a31e8a5e5ec0c622dc27ff9c4e6606eefef5cbbed4a5"
+dependencies = [
+ "getrandom 0.2.10",
+]
 
 [[package]]
 name = "fdeflate"
@@ -1811,7 +1872,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "821239e5672ff23e2a7060901fa622950bbd80b649cdaadd78d1c1767ed14eb4"
 dependencies = [
  "cfg-if 1.0.0",
- "dashmap",
+ "dashmap 5.5.3",
  "futures",
  "futures-timer",
  "no-std-compat",
@@ -2276,6 +2337,7 @@ dependencies = [
  "ahash 0.8.11",
  "arbitrary",
  "assert-json-diff",
+ "async-lock",
  "bitvec",
  "byteorder",
  "criterion",
@@ -2287,7 +2349,7 @@ dependencies = [
  "ordered-float 4.1.1",
  "path-ext",
  "proptest",
- "proptest-derive 0.4.0",
+ "proptest-derive",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rand_distr",
@@ -2295,7 +2357,7 @@ dependencies = [
  "serde_json",
  "smol_str",
  "thiserror",
- "yrs",
+ "yrs 0.22.0",
 ]
 
 [[package]]
@@ -2311,13 +2373,13 @@ dependencies = [
  "path-ext",
  "phf",
  "proptest",
- "proptest-derive 0.5.1",
+ "proptest-derive",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "regex",
  "serde_json",
  "y-sync",
- "yrs",
+ "yrs 0.16.5",
 ]
 
 [[package]]
@@ -3027,6 +3089,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "parking"
+version = "2.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f38d5652c16fde515bb1ecef450ab0f6a219d619a7274976324d5e377f7dceba"
+dependencies = [
+ "loom",
+]
+
+[[package]]
 name = "parking_lot"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3355,17 +3426,6 @@ dependencies = [
  "rusty-fork",
  "tempfile",
  "unarray",
-]
-
-[[package]]
-name = "proptest-derive"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cf16337405ca084e9c78985114633b6827711d22b9e6ef6c6c0d665eb3f0b6e"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -4499,10 +4559,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "smallvec"
-version = "1.11.1"
+name = "smallstr"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "942b4a808e05215192e39f4ab80813e599068285906cc91aa64f923db842bd5a"
+checksum = "63b1aefdf380735ff8ded0b15f31aab05daf1f70216c01c02a12926badd1df9d"
+dependencies = [
+ "smallvec",
+]
+
+[[package]]
+name = "smallvec"
+version = "1.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fcf8323ef1faaee30a44a340193b1ac6814fd9b7b4e88e9d4519a3e4abe1cfd"
 
 [[package]]
 name = "smol_str"
@@ -4598,7 +4667,7 @@ dependencies = [
  "crossbeam-queue",
  "dotenvy",
  "either",
- "event-listener",
+ "event-listener 2.5.3",
  "futures-channel",
  "futures-core",
  "futures-intrusive",
@@ -6212,7 +6281,7 @@ source = "git+https://github.com/toeverything/y-sync?rev=5626851#5626851603d2961
 dependencies = [
  "lib0",
  "thiserror",
- "yrs",
+ "yrs 0.16.5",
 ]
 
 [[package]]
@@ -6232,7 +6301,25 @@ dependencies = [
  "atomic_refcell",
  "lib0",
  "rand 0.7.3",
- "smallstr",
+ "smallstr 0.2.0",
+ "smallvec",
+ "thiserror",
+]
+
+[[package]]
+name = "yrs"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34419a20030ca6e452431d317d4d22b797507dfc380953a4f4fc01ee8491516b"
+dependencies = [
+ "arc-swap",
+ "async-lock",
+ "async-trait",
+ "dashmap 6.1.0",
+ "fastrand 2.0.1",
+ "serde",
+ "serde_json",
+ "smallstr 0.3.0",
  "smallvec",
  "thiserror",
 ]

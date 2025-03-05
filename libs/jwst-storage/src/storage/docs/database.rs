@@ -567,6 +567,7 @@ pub async fn docs_storage_partial_test(pool: &DocDBStorage) -> anyhow::Result<()
         }
 
         assert_eq!(DocDBStorage::workspace_count(conn, "basic").await?, 2);
+        ws.unsubscribe_all();
     }
 
     // clear memory cache

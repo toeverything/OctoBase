@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use jwst_codec::{Any, Array, Map, Value};
 
+#[allow(dead_code)]
 pub struct PageMeta {
     pub id: String,
     pub favorite: Option<bool>,

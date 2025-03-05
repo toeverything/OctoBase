@@ -12,11 +12,13 @@ impl Workspace {
     }
 
     pub fn subscribe_doc(&self, f: impl Fn(&[u8], &[History]) + Sync + Send + 'static) {
+        self.doc.publisher.start();
         self.doc.subscribe(f)
     }
 
     pub fn unsubscribe_all(&self) {
         self.doc.unsubscribe_all();
+        self.doc.publisher.stop();
         self.awareness.write().unwrap().on_update(|_, _| {})
     }
 }
