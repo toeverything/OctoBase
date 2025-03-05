@@ -50,7 +50,7 @@ pub(crate) struct InnerRefMut<'a, T> {
     _marker: PhantomData<&'a mut T>,
 }
 
-impl<'a, T> Deref for InnerRefMut<'a, T> {
+impl<T> Deref for InnerRefMut<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -58,7 +58,7 @@ impl<'a, T> Deref for InnerRefMut<'a, T> {
     }
 }
 
-impl<'a, T> DerefMut for InnerRefMut<'a, T> {
+impl<T> DerefMut for InnerRefMut<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { &mut *self.inner.as_ptr() }
     }

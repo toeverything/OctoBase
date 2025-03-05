@@ -146,7 +146,7 @@ mod tests {
         test_var_uint_enc_dec(0b10_0000_0000);
         test_var_uint_enc_dec(0b11_1111_1111);
         test_var_uint_enc_dec(0x7fff_ffff_ffff_ffff);
-        test_var_uint_enc_dec(u64::max_value());
+        test_var_uint_enc_dec(u64::MAX);
     }
 
     #[test]

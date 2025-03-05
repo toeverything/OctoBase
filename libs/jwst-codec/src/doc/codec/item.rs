@@ -376,10 +376,13 @@ impl Item {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(loom))]
     use proptest::{collection::vec, prelude::*};
 
+    #[cfg(not(loom))]
     use super::*;
 
+    #[cfg(not(loom))]
     fn item_round_trip(item: &mut Item) -> JwstCodecResult {
         if !item.is_valid() {
             return Ok(());

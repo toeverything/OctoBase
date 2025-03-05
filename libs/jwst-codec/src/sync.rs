@@ -14,7 +14,7 @@ pub(crate) use std::{
 #[cfg(loom)]
 pub(crate) use loom::{
     sync::{
-        atomic::{AtomicBool, AtomicU16, AtomicU32, AtomicU8, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU16, AtomicU8, AtomicUsize, Ordering},
         Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard,
     },
     thread,

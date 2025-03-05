@@ -56,11 +56,9 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use yrs::{Options, Text, Transact};
 
-    use crate::{
-        loom_model,
-        sync::{thread, Arc, AtomicUsize, Ordering},
-        Doc,
-    };
+    #[cfg(not(loom))]
+    use crate::sync::{Arc, AtomicUsize, Ordering};
+    use crate::{loom_model, sync::thread, Doc};
 
     #[test]
     fn test_manipulate_text() {
@@ -145,6 +143,7 @@ mod tests {
         assert_eq!(text.len(), added_len.load(Ordering::SeqCst) as u64);
     }
 
+    #[cfg(not(loom))]
     fn parallel_ins_del_text(seed: u64, thread: i32, iteration: i32) {
         let doc = Doc::with_client(1);
         let rand = ChaCha20Rng::seed_from_u64(seed);
@@ -241,18 +240,18 @@ mod tests {
             guid: nanoid::nanoid!().into(),
             ..Default::default()
         };
-        let binary = {
-            let doc = yrs::Doc::with_options(yrs_options.clone());
-            let text = doc.get_or_insert_text("greating");
-            let mut trx = doc.transact_mut();
-            text.insert(&mut trx, 0, "hello").unwrap();
-            text.insert(&mut trx, 5, " world!").unwrap();
-            text.remove_range(&mut trx, 11, 1).unwrap();
-
-            trx.encode_update_v1().unwrap()
-        };
 
         loom_model!({
+            let binary = {
+                let doc = yrs::Doc::with_options(yrs_options.clone());
+                let text = doc.get_or_insert_text("greating");
+                let mut trx = doc.transact_mut();
+                text.insert(&mut trx, 0, "hello");
+                text.insert(&mut trx, 5, " world!");
+                text.remove_range(&mut trx, 11, 1);
+
+                trx.encode_update_v1()
+            };
             // in loom loop
             #[allow(clippy::needless_borrow)]
             let doc = Doc::try_from_binary_v1(&binary).unwrap();

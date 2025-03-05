@@ -110,11 +110,11 @@ mod tests {
     fn test_flag_set_and_clear() {
         {
             let flag = super::ItemFlag::default();
-            assert_eq!(flag.keep(), false);
+            assert!(!flag.keep());
             flag.set_keep();
-            assert_eq!(flag.keep(), true);
+            assert!(flag.keep());
             flag.clear_keep();
-            assert_eq!(flag.keep(), false);
+            assert!(!flag.keep());
             assert_eq!(
                 flag.0.load(Ordering::SeqCst),
                 ItemFlag::default().0.load(Ordering::SeqCst)
@@ -123,11 +123,11 @@ mod tests {
 
         {
             let flag = super::ItemFlag::default();
-            assert_eq!(flag.countable(), false);
+            assert!(!flag.countable());
             flag.set_countable();
-            assert_eq!(flag.countable(), true);
+            assert!(flag.countable());
             flag.clear_countable();
-            assert_eq!(flag.countable(), false);
+            assert!(!flag.countable());
             assert_eq!(
                 flag.0.load(Ordering::SeqCst),
                 ItemFlag::default().0.load(Ordering::SeqCst)
@@ -136,11 +136,11 @@ mod tests {
 
         {
             let flag = super::ItemFlag::default();
-            assert_eq!(flag.deleted(), false);
+            assert!(!flag.deleted());
             flag.set_deleted();
-            assert_eq!(flag.deleted(), true);
+            assert!(flag.deleted());
             flag.clear_deleted();
-            assert_eq!(flag.deleted(), false);
+            assert!(!flag.deleted());
             assert_eq!(
                 flag.0.load(Ordering::SeqCst),
                 ItemFlag::default().0.load(Ordering::SeqCst)
@@ -152,15 +152,15 @@ mod tests {
             flag.set_keep();
             flag.set_countable();
             flag.set_deleted();
-            assert_eq!(flag.keep(), true);
-            assert_eq!(flag.countable(), true);
-            assert_eq!(flag.deleted(), true);
+            assert!(flag.keep());
+            assert!(flag.countable());
+            assert!(flag.deleted());
             flag.clear_keep();
             flag.clear_countable();
             flag.clear_deleted();
-            assert_eq!(flag.keep(), false);
-            assert_eq!(flag.countable(), false);
-            assert_eq!(flag.deleted(), false);
+            assert!(!flag.keep());
+            assert!(!flag.countable());
+            assert!(!flag.deleted());
             assert_eq!(
                 flag.0.load(Ordering::SeqCst),
                 ItemFlag::default().0.load(Ordering::SeqCst)

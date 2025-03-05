@@ -344,6 +344,7 @@ impl From<Option<&Node>> for Somr<Item> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(loom))]
     use proptest::{collection::vec, prelude::*};
 
     use super::{utils::ItemBuilder, *};
@@ -440,6 +441,7 @@ mod tests {
         });
     }
 
+    #[cfg(not(loom))]
     fn struct_info_round_trip(info: &mut Node) -> JwstCodecResult {
         if let Node::Item(item) = info {
             if let Some(item) = item.get_mut() {

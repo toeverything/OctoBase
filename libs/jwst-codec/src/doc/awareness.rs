@@ -210,7 +210,7 @@ mod tests {
 
                 let values: MutexGuard<Vec<AwarenessEvent>> = values.lock().unwrap();
                 assert_eq!(values.len(), 4);
-                let event = values.get(0).unwrap();
+                let event = values.first().unwrap();
 
                 let mut added = event.added.clone();
                 added.sort();

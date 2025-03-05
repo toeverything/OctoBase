@@ -303,7 +303,7 @@ pub struct OrderRangeIter<'a> {
     idx: usize,
 }
 
-impl<'a> Iterator for OrderRangeIter<'a> {
+impl Iterator for OrderRangeIter<'_> {
     type Item = Range<u64>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -330,6 +330,7 @@ impl<'a> Iterator for OrderRangeIter<'a> {
 }
 
 #[cfg(test)]
+#[allow(clippy::single_range_in_vec_init)]
 mod tests {
     use super::OrderRange;
     #[test]

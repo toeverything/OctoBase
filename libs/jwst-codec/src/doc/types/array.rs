@@ -114,11 +114,11 @@ mod tests {
             let array = doc.get_or_insert_text("abc");
 
             let mut trx = doc.transact_mut();
-            array.insert(&mut trx, 0, " ").unwrap();
-            array.insert(&mut trx, 0, "Hello").unwrap();
-            array.insert(&mut trx, 6, "World").unwrap();
-            array.insert(&mut trx, 11, "!").unwrap();
-            let buffer = trx.encode_update_v1().unwrap();
+            array.insert(&mut trx, 0, " ");
+            array.insert(&mut trx, 0, "Hello");
+            array.insert(&mut trx, 6, "World");
+            array.insert(&mut trx, 11, "!");
+            let buffer = trx.encode_update_v1();
 
             let mut decoder = RawDecoder::new(&buffer);
             let update = Update::read(&mut decoder).unwrap();
@@ -141,11 +141,11 @@ mod tests {
             let array = doc.get_or_insert_text("abc");
 
             let mut trx = doc.transact_mut();
-            array.insert(&mut trx, 0, "Hello").unwrap();
-            array.insert(&mut trx, 5, " ").unwrap();
-            array.insert(&mut trx, 6, "World").unwrap();
-            array.insert(&mut trx, 11, "!").unwrap();
-            let buffer = trx.encode_update_v1().unwrap();
+            array.insert(&mut trx, 0, "Hello");
+            array.insert(&mut trx, 5, " ");
+            array.insert(&mut trx, 6, "World");
+            array.insert(&mut trx, 11, "!");
+            let buffer = trx.encode_update_v1();
 
             let mut decoder = RawDecoder::new(&buffer);
             let update = Update::read(&mut decoder).unwrap();
@@ -165,19 +165,19 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     fn test_yrs_array_decode() {
         use yrs::{Array, Transact};
-        let update = {
-            let doc = yrs::Doc::new();
-            let array = doc.get_or_insert_array("abc");
-            let mut trx = doc.transact_mut();
-
-            array.insert(&mut trx, 0, "hello").unwrap();
-            array.insert(&mut trx, 1, "world").unwrap();
-            array.insert(&mut trx, 1, " ").unwrap();
-
-            trx.encode_update_v1().unwrap()
-        };
 
         loom_model!({
+            let update = {
+                let doc = yrs::Doc::new();
+                let array = doc.get_or_insert_array("abc");
+                let mut trx = doc.transact_mut();
+
+                array.insert(&mut trx, 0, "hello");
+                array.insert(&mut trx, 1, "world");
+                array.insert(&mut trx, 1, " ");
+
+                trx.encode_update_v1()
+            };
             let doc = Doc::try_from_binary_v1_with_options(
                 update.clone(),
                 DocOptions {

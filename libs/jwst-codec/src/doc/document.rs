@@ -409,14 +409,14 @@ mod tests {
 
                 let map = yrs_doc.get_or_insert_map("abc");
                 let mut trx = yrs_doc.transact_mut();
-                map.insert(&mut trx, "a", 1).unwrap();
-                let binary = trx.encode_update_v1().unwrap();
+                map.insert(&mut trx, "a", 1);
+                let binary = trx.encode_update_v1();
 
                 let yrs_doc_new = yrs::Doc::with_options(yrs_options_right.clone());
                 let array = yrs_doc_new.get_or_insert_array("array");
                 let mut trx = yrs_doc_new.transact_mut();
-                array.insert(&mut trx, 0, "array_value").unwrap();
-                let binary_new = trx.encode_update_v1().unwrap();
+                array.insert(&mut trx, 0, "array_value");
+                let binary_new = trx.encode_update_v1();
 
                 (binary, binary_new)
             };
@@ -446,20 +446,21 @@ mod tests {
             let doc = yrs::Doc::with_options(yrs_options.clone());
             let array = doc.get_or_insert_array("abc");
             let mut trx = doc.transact_mut();
-            array.insert(&mut trx, 0, 42).unwrap();
-            array.insert(&mut trx, 1, -42).unwrap();
-            array.insert(&mut trx, 2, true).unwrap();
-            array.insert(&mut trx, 3, false).unwrap();
-            array.insert(&mut trx, 4, "hello").unwrap();
-            array.insert(&mut trx, 5, "world").unwrap();
+            array.insert(&mut trx, 0, 42);
+            array.insert(&mut trx, 1, -42);
+            array.insert(&mut trx, 2, true);
+            array.insert(&mut trx, 3, false);
+            array.insert(&mut trx, 4, "hello");
+            array.insert(&mut trx, 5, "world");
 
             let sub_array = yrs::ArrayPrelim::default();
-            let sub_array = array.insert(&mut trx, 6, sub_array).unwrap();
-            sub_array.insert(&mut trx, 0, 1).unwrap();
+            let sub_array = array.insert(&mut trx, 6, sub_array);
+            sub_array.insert(&mut trx, 0, 1);
 
             drop(trx);
-
-            assert_json_diff::assert_json_eq!(array.to_json(&doc.transact()), json);
+            let config = assert_json_diff::Config::new(assert_json_diff::CompareMode::Strict)
+                .numeric_mode(assert_json_diff::NumericMode::AssumeFloat);
+            assert_json_diff::assert_json_matches!(array.to_json(&doc.transact()), json, config);
         };
 
         let binary = {
@@ -483,9 +484,11 @@ mod tests {
         let ydoc = yrs::Doc::with_options(yrs_options);
         let array = ydoc.get_or_insert_array("abc");
         let mut trx = ydoc.transact_mut();
-        trx.apply_update(yrs::Update::decode_v1(&binary).unwrap());
+        trx.apply_update(yrs::Update::decode_v1(&binary).unwrap()).unwrap();
 
-        assert_json_diff::assert_json_eq!(array.to_json(&trx), json);
+        let config = assert_json_diff::Config::new(assert_json_diff::CompareMode::Strict)
+            .numeric_mode(assert_json_diff::NumericMode::AssumeFloat);
+        assert_json_diff::assert_json_matches!(array.to_json(&trx), json, config);
 
         let mut doc = Doc::new();
         let array = doc.get_or_create_array("abc").unwrap();

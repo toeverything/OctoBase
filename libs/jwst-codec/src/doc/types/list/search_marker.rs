@@ -227,7 +227,9 @@ impl MarkerList {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(loom))]
     use rand::{Rng, SeedableRng};
+    #[cfg(not(loom))]
     use rand_chacha::ChaCha20Rng;
     use yrs::{Array, Options, Transact};
 
@@ -253,11 +255,11 @@ mod tests {
                 let array = doc.get_or_insert_array("abc");
 
                 let mut trx = doc.transact_mut();
-                array.insert(&mut trx, 0, " ").unwrap();
-                array.insert(&mut trx, 0, "Hello").unwrap();
-                array.insert(&mut trx, 2, "World").unwrap();
+                array.insert(&mut trx, 0, " ");
+                array.insert(&mut trx, 0, "Hello");
+                array.insert(&mut trx, 2, "World");
 
-                (doc.client_id(), trx.encode_update_v1().unwrap())
+                (doc.client_id(), trx.encode_update_v1())
             };
 
             let mut decoder = RawDecoder::new(&buffer);
@@ -297,6 +299,7 @@ mod tests {
         });
     }
 
+    #[cfg(not(loom))]
     fn search_with_seed(seed: u64) {
         let rand = ChaCha20Rng::seed_from_u64(seed);
         let iteration = 20;

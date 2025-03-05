@@ -135,7 +135,7 @@ impl<'a> Iterator for KeysIterator<'a> {
     }
 }
 
-impl<'a> Iterator for ValuesIterator<'a> {
+impl Iterator for ValuesIterator<'_> {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
