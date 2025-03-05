@@ -372,6 +372,7 @@ checksum = "ff6e472cdea888a4bd64f342f09b3f50e1886d32afe8df3d663c01140b811b18"
 dependencies = [
  "event-listener 5.4.0",
  "event-listener-strategy",
+ "loom",
  "pin-project-lite",
 ]
 
@@ -894,6 +895,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
+ "loom",
 ]
 
 [[package]]
@@ -1527,6 +1529,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3492acde4c3fc54c845eaab3eed8bd00c7a7d881f78bfc801e43a93dec1331ae"
 dependencies = [
  "concurrent-queue",
+ "loom",
  "parking",
  "pin-project-lite",
 ]
@@ -2334,6 +2337,7 @@ dependencies = [
  "ahash 0.8.11",
  "arbitrary",
  "assert-json-diff",
+ "async-lock",
  "bitvec",
  "byteorder",
  "criterion",
@@ -2345,7 +2349,7 @@ dependencies = [
  "ordered-float 4.1.1",
  "path-ext",
  "proptest",
- "proptest-derive 0.4.0",
+ "proptest-derive",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "rand_distr",
@@ -2369,7 +2373,7 @@ dependencies = [
  "path-ext",
  "phf",
  "proptest",
- "proptest-derive 0.5.1",
+ "proptest-derive",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "regex",
@@ -3089,6 +3093,9 @@ name = "parking"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f38d5652c16fde515bb1ecef450ab0f6a219d619a7274976324d5e377f7dceba"
+dependencies = [
+ "loom",
+]
 
 [[package]]
 name = "parking_lot"
@@ -3419,17 +3426,6 @@ dependencies = [
  "rusty-fork",
  "tempfile",
  "unarray",
-]
-
-[[package]]
-name = "proptest-derive"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cf16337405ca084e9c78985114633b6827711d22b9e6ef6c6c0d665eb3f0b6e"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]

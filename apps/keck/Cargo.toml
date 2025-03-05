@@ -17,6 +17,7 @@ jwst = [
 ]
 api = ["utoipa"]
 schema = ["utoipa-swagger-ui"]
+sqlite = []
 
 [dependencies]
 axum = { version = "0.6.20", features = ["headers", "ws"] }
