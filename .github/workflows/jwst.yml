@@ -438,7 +438,7 @@ jobs:
             - name: Setup Rust
               uses: ./.github/actions/setup-rust
               with:
-                  toolchain: nightly-2023-08-19
+                  toolchain: nightly-2024-10-18
 
             - name: fuzzing
               working-directory: ./libs/jwst-codec-utils
@@ -458,7 +458,7 @@ jobs:
 
             - name: upload fuzz artifacts
               if: ${{ failure() }}
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
                   name: fuzz-artifact
                   path: ./lib/jwst-codec-utils/fuzz/artifacts/**/*

@@ -30,9 +30,9 @@ jobs:
             - name: Setup Rust
               uses: ./.github/actions/setup-rust
               with:
-                  toolchain: nightly-2023-08-19
+                  toolchain: nightly-2024-10-18
 
             - name: Memory Check
               run: |
-                  rustup component add rust-src --toolchain nightly-2023-08-19
-                  cargo +nightly-2023-08-19 test -Zbuild-std --target x86_64-unknown-linux-gnu -p jwst-codec --lib
+                  rustup component add rust-src --toolchain nightly-2024-10-18
+                  cargo +nightly-2024-10-18 test -Zbuild-std --target x86_64-unknown-linux-gnu -p jwst-codec --lib
