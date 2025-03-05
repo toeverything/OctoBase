@@ -523,7 +523,7 @@ impl Display for Any {
         match self {
             Self::True => write!(f, "true"),
             Self::False => write!(f, "false"),
-            Self::String(s) => write!(f, "\"{}\"", s),
+            Self::String(s) => write!(f, "{}", s),
             Self::Integer(i) => write!(f, "{}", i),
             Self::Float32(v) => write!(f, "{}", v),
             Self::Float64(v) => write!(f, "{}", v),
